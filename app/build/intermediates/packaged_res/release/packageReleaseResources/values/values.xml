@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:ns1="http://schemas.android.com/tools">
+    <string name="app_name">Corus</string>
+    <string name="club_name">Corus Club</string>
+    <string name="com.google.firebase.crashlytics.mapping_file_id" ns1:ignore="UnusedResources,TypographyDashes" translatable="false">6dab9df199d546bfbb5e823cf194486d</string>
+    <string name="default_web_client_id" translatable="false">70104097279-823cr715351di6erq9gshjig3bg09elf.apps.googleusercontent.com</string>
+    <string name="gcm_defaultSenderId" translatable="false">70104097279</string>
+    <string name="google_api_key" translatable="false">AIzaSyCdlUi8-Jxw_qIK6emY1-UN_EwOCXSfRFc</string>
+    <string name="google_app_id" translatable="false">1:70104097279:android:a12ee9a64fc2d6b7c2c7ca</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyCdlUi8-Jxw_qIK6emY1-UN_EwOCXSfRFc</string>
+    <string name="google_storage_bucket" translatable="false">cymbal-fresh.firebasestorage.app</string>
+    <string name="post_noun">corus</string>
+    <string name="post_noun_plural">coruses</string>
+    <string name="project_id" translatable="false">cymbal-fresh</string>
+    <style name="Theme.Corus" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/white</item>
+        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

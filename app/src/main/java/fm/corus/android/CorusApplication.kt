@@ -1,0 +1,76 @@
+package fm.corus.android
+
+import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import com.google.firebase.FirebaseApp
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.revenuecat.purchases.LogLevel
+import com.revenuecat.purchases.Purchases
+import com.revenuecat.purchases.PurchasesConfiguration
+import dagger.hilt.android.HiltAndroidApp
+
+@HiltAndroidApp
+class CorusApplication : Application() {
+
+    override fun onCreate() {
+        super.onCreate()
+        FirebaseApp.initializeApp(this)
+        initAppCheck()
+        initRevenueCat()
+        createNotificationChannels()
+    }
+
+    private fun initAppCheck() {
+        val factory = if (BuildConfig.DEBUG) {
+            android.util.Log.w("CORUS_DEBUG", "=== Using Debug App Check Provider ===")
+            try {
+                val clazz = Class.forName("com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory")
+                clazz.getMethod("getInstance").invoke(null) as com.google.firebase.appcheck.AppCheckProviderFactory
+            } catch (e: Exception) {
+                PlayIntegrityAppCheckProviderFactory.getInstance()
+            }
+        } else {
+            PlayIntegrityAppCheckProviderFactory.getInstance()
+        }
+        FirebaseAppCheck.getInstance().installAppCheckProviderFactory(factory)
+    }
+
+    private fun initRevenueCat() {
+        Purchases.logLevel = LogLevel.WARN
+        Purchases.configure(
+            PurchasesConfiguration.Builder(this, "goog_nkYdtPqaMcdBzvPVaQNRqjdIHAz").build()
+        )
+    }
+
+    private fun createNotificationChannels() {
+        val manager = getSystemService(NotificationManager::class.java)
+
+        val general = NotificationChannel(
+            "corus_general",
+            "General",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "General notifications"
+        }
+
+        val social = NotificationChannel(
+            "corus_social",
+            "Social",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Likes, comments, follows, and mentions"
+        }
+
+        val messages = NotificationChannel(
+            "corus_messages",
+            "Messages",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Direct messages"
+        }
+
+        manager.createNotificationChannels(listOf(general, social, messages))
+    }
+}

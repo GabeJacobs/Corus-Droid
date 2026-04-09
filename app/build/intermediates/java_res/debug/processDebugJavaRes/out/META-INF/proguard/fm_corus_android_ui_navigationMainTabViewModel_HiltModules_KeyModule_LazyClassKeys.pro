@@ -1,0 +1,2 @@
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.navigation.MainTabViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.navigation.MainTabViewModel

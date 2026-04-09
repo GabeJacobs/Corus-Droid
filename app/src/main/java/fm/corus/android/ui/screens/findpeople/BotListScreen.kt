@@ -1,0 +1,99 @@
+package fm.corus.android.ui.screens.findpeople
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.ui.components.SkeletonUserRow
+import fm.corus.android.ui.components.TasteMatchCard
+import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusSpacing
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BotListScreen(
+    botType: String? = null,
+    viewModel: BotListViewModel = hiltViewModel(),
+    onBack: () -> Unit = {},
+    onNavigateToUser: (String) -> Unit = {},
+) {
+    val bots by viewModel.bots.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+
+    LaunchedEffect(botType) {
+        viewModel.loadBots(botType)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        if (botType == "film") "Curated Film Bots" else "Curated Music Bots",
+                        style = CorusFont.screenTitle,
+                        color = CorusColors.Text,
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+            )
+        },
+    ) { padding ->
+        if (isLoading) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(CorusSpacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            ) {
+                items(6) {
+                    SkeletonUserRow()
+                }
+            }
+        } else if (bots.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("No bots available", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(CorusSpacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            ) {
+                itemsIndexed(bots, key = { _, match -> match.id }) { _, match ->
+                    TasteMatchCard(
+                        match = match,
+                        isFollowing = viewModel.isFollowed(match.user.id),
+                        onUserTap = { onNavigateToUser(match.user.id) },
+                        onFollowTap = { viewModel.toggleFollow(match.user) },
+                    )
+                }
+            }
+        }
+    }
+}

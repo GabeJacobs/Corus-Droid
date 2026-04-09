@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_web_client_id" translatable="false">70104097279-823cr715351di6erq9gshjig3bg09elf.apps.googleusercontent.com</string>
+    <string name="gcm_defaultSenderId" translatable="false">70104097279</string>
+    <string name="google_api_key" translatable="false">AIzaSyCdlUi8-Jxw_qIK6emY1-UN_EwOCXSfRFc</string>
+    <string name="google_app_id" translatable="false">1:70104097279:android:a12ee9a64fc2d6b7c2c7ca</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyCdlUi8-Jxw_qIK6emY1-UN_EwOCXSfRFc</string>
+    <string name="google_storage_bucket" translatable="false">cymbal-fresh.firebasestorage.app</string>
+    <string name="project_id" translatable="false">cymbal-fresh</string>
+</resources>

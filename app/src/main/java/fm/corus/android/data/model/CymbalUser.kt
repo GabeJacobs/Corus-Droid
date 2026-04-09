@@ -1,0 +1,68 @@
+package fm.corus.android.data.model
+
+data class CymbalUser(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarURL: String? = null,
+    val bio: String = "",
+    val website: String? = null,
+    val isVerified: Boolean = false,
+    val isClubMember: Boolean = false,
+    val isBot: Boolean = false,
+    val botType: String? = null,
+    val followerCount: Int = 0,
+    val followingCount: Int = 0,
+    val hashtagCount: Int = 0,
+    val cymbalCount: Int = 0,
+    val savesCount: Int = 0,
+    val vinylColor: String = "black",
+    val frameColor: String = "black",
+    val profileFlair: String = "checkmark",
+    val vinylSpinning: Boolean = false,
+    val rainEffect: String = "off",
+    val snowEffect: String = "off",
+    val discoEffect: String = "off",
+    val artistsInCommonCount: Int? = null,
+    val deletionStatus: String? = null,
+) {
+    val vinylStyle: VinylStyle get() = VinylStyle.from(vinylColor)
+    val frameStyle: FrameStyle get() = FrameStyle.from(frameColor)
+    val flairStyle: FlairStyle get() = FlairStyle.from(profileFlair)
+    val rainIntensity: RainIntensity get() = RainIntensity.from(rainEffect)
+    val snowIntensity: SnowIntensity get() = SnowIntensity.from(snowEffect)
+    val discoIntensityLevel: DiscoIntensity get() = DiscoIntensity.from(discoEffect)
+    val isMusicBot: Boolean get() = isBot && botType == "music"
+
+    fun withArtistsInCommonCount(count: Int?): CymbalUser =
+        copy(artistsInCommonCount = count)
+
+    companion object {
+        fun fromMap(id: String, data: Map<String, Any?>): CymbalUser = CymbalUser(
+            id = id,
+            username = data["username"] as? String ?: "",
+            displayName = data["displayName"] as? String ?: "",
+            avatarURL = data["avatarURL"] as? String,
+            bio = data["bio"] as? String ?: "",
+            website = data["website"] as? String,
+            isVerified = data["isVerified"] as? Boolean ?: false,
+            isClubMember = data["isClubMember"] as? Boolean ?: false,
+            isBot = data["isBot"] as? Boolean ?: false,
+            botType = data["botType"] as? String,
+            followerCount = (data["followerCount"] as? Number)?.toInt() ?: 0,
+            followingCount = (data["followingCount"] as? Number)?.toInt() ?: 0,
+            hashtagCount = (data["hashtagCount"] as? Number)?.toInt() ?: 0,
+            cymbalCount = (data["cymbalCount"] as? Number)?.toInt() ?: 0,
+            savesCount = (data["savesCount"] as? Number)?.toInt() ?: 0,
+            vinylColor = data["vinylColor"] as? String ?: "black",
+            frameColor = data["frameColor"] as? String ?: "black",
+            profileFlair = data["profileFlair"] as? String ?: "checkmark",
+            vinylSpinning = data["vinylSpinning"] as? Boolean ?: false,
+            rainEffect = data["rainEffect"] as? String ?: "off",
+            snowEffect = data["snowEffect"] as? String ?: "off",
+            discoEffect = data["discoEffect"] as? String ?: "off",
+            artistsInCommonCount = (data["artistsInCommonCount"] as? Number)?.toInt(),
+            deletionStatus = data["deletionStatus"] as? String,
+        )
+    }
+}

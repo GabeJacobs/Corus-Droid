@@ -1,0 +1,167 @@
+package fm.corus.android.service
+
+import android.os.Bundle
+import com.google.firebase.analytics.FirebaseAnalytics
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class AnalyticsService @Inject constructor(
+    private val analytics: FirebaseAnalytics,
+) {
+    // MARK: - User Identity
+
+    fun setUserId(userId: String?) {
+        analytics.setUserId(userId)
+    }
+
+    fun setUserProperties(
+        userId: String,
+        username: String,
+        isClubMember: Boolean,
+        isVerified: Boolean,
+        postCount: Int,
+        followerCount: Int,
+        followingCount: Int,
+    ) {
+        analytics.setUserProperty("username", username)
+        analytics.setUserProperty("is_club_member", if (isClubMember) "true" else "false")
+        analytics.setUserProperty("is_verified", if (isVerified) "true" else "false")
+        analytics.setUserProperty("post_count", postCount.toString())
+        analytics.setUserProperty("follower_count", followerCount.toString())
+        analytics.setUserProperty("following_count", followingCount.toString())
+    }
+
+    fun clearUserProperties() {
+        listOf("username", "is_club_member", "is_verified", "post_count", "follower_count", "following_count")
+            .forEach { analytics.setUserProperty(it, null) }
+    }
+
+    // MARK: - Core Logging
+
+    fun logEvent(name: String, params: Map<String, Any> = emptyMap()) {
+        val bundle = Bundle().apply {
+            params.forEach { (key, value) ->
+                when (value) {
+                    is String -> putString(key, value)
+                    is Int -> putInt(key, value)
+                    is Long -> putLong(key, value)
+                    is Double -> putDouble(key, value)
+                    is Boolean -> putBoolean(key, value)
+                    else -> putString(key, value.toString())
+                }
+            }
+        }
+        analytics.logEvent(name, bundle)
+    }
+
+    // MARK: - Screen Tracking
+
+    fun logScreenView(screen: String) = logEvent("screen_view", mapOf("screen_name" to screen))
+
+    // MARK: - Auth Events
+
+    fun logSignUp(method: String) = logEvent("sign_up", mapOf("method" to method))
+    fun logSignIn(method: String) = logEvent("login", mapOf("method" to method))
+    fun logSignOut() = logEvent("sign_out")
+    fun logEmailVerificationSent() = logEvent("email_verification_sent")
+    fun logEmailVerificationCompleted() = logEvent("email_verification_completed")
+    fun logDeleteAccount() = logEvent("delete_account")
+    fun logAuthError(method: String, error: String) = logEvent("auth_error", mapOf("method" to method, "error" to error.take(100)))
+
+    // MARK: - Onboarding Events
+
+    fun logOnboardingCompleted() = logEvent("onboarding_completed")
+    fun logContactsSynced(matchCount: Int) = logEvent("contacts_synced", mapOf("match_count" to matchCount))
+    fun logContactsSyncSkipped() = logEvent("contacts_sync_skipped")
+    fun logFollowFriendsOnboardingCompleted(followedCount: Int) = logEvent("follow_friends_onboarding_completed", mapOf("followed_count" to followedCount))
+    fun logBotPreviewPlayed(botUserId: String) = logEvent("bot_preview_played", mapOf("bot_user_id" to botUserId))
+
+    // MARK: - Post Events
+
+    fun logPostCreated(
+        mediaType: String,
+        trackId: String = "",
+        hasVoiceNote: Boolean = false,
+        hasHashtags: Boolean = false,
+        hasMentions: Boolean = false,
+        isFirstPoster: Boolean = false,
+        isRepost: Boolean = false,
+    ) = logEvent("post_created", mapOf(
+        "track_id" to trackId,
+        "has_voice_note" to hasVoiceNote,
+        "has_hashtags" to hasHashtags,
+        "has_mentions" to hasMentions,
+        "is_first_poster" to isFirstPoster,
+        "media_type" to mediaType,
+        "is_repost" to isRepost,
+    ))
+
+    fun logPostLiked(postId: String, mediaType: String) = logEvent("post_liked", mapOf("post_id" to postId, "media_type" to mediaType))
+    fun logPostUnliked(postId: String, mediaType: String) = logEvent("post_unliked", mapOf("post_id" to postId, "media_type" to mediaType))
+    fun logPostSaved(postId: String, mediaType: String) = logEvent("post_saved", mapOf("post_id" to postId, "media_type" to mediaType))
+    fun logPostUnsaved(postId: String, mediaType: String) = logEvent("post_unsaved", mapOf("post_id" to postId, "media_type" to mediaType))
+    fun logPostDeleted(postId: String, mediaType: String) = logEvent("post_deleted", mapOf("post_id" to postId, "media_type" to mediaType))
+    fun logPostShared(postId: String, mediaType: String, method: String) = logEvent("post_shared", mapOf("post_id" to postId, "media_type" to mediaType, "share_method" to method))
+    fun logCaptionEdited(postId: String) = logEvent("caption_edited", mapOf("post_id" to postId))
+    fun logReposted(postId: String, mediaType: String) = logEvent("post_created", mapOf("post_id" to postId, "media_type" to mediaType, "is_repost" to true))
+    fun logPostCreateError(error: String) = logEvent("post_create_error", mapOf("error" to error.take(100)))
+
+    // MARK: - Comment Events
+
+    fun logCommentAdded(postId: String, mediaType: String) = logEvent("comment_added", mapOf("post_id" to postId, "media_type" to mediaType))
+    fun logCommentLiked(postId: String, commentId: String, mediaType: String) = logEvent("comment_liked", mapOf("post_id" to postId, "comment_id" to commentId, "media_type" to mediaType))
+    fun logCommentDeleted(postId: String, commentId: String, mediaType: String) = logEvent("comment_deleted", mapOf("post_id" to postId, "comment_id" to commentId, "media_type" to mediaType))
+    fun logCommentError(action: String, error: String) = logEvent("comment_error", mapOf("action" to action, "error" to error.take(100)))
+
+    // MARK: - Search / Discovery Events
+
+    fun logUserSearched(query: String) = logEvent("user_searched", mapOf("query" to query))
+    fun logMusicMatchTapped(userId: String, similarityScore: Double) = logEvent("music_match_tapped", mapOf("user_id" to userId, "similarity_score" to similarityScore))
+    fun logTrendingSongTapped(trackId: String, rank: Int) = logEvent("trending_song_tapped", mapOf("track_id" to trackId, "rank" to rank))
+    fun logSearchFilterChanged(filter: String) = logEvent("search_filter_changed", mapOf("filter" to filter))
+
+    // MARK: - Profile Events
+
+    fun logProfileViewed(userId: String, isOwnProfile: Boolean) = logEvent("profile_viewed", mapOf("user_id" to userId, "is_own_profile" to isOwnProfile))
+    fun logFollowUser(targetUserId: String) = logEvent("follow_user", mapOf("target_user_id" to targetUserId))
+    fun logUnfollowUser(targetUserId: String) = logEvent("unfollow_user", mapOf("target_user_id" to targetUserId))
+    fun logBlockUser(targetUserId: String) = logEvent("block_user", mapOf("target_user_id" to targetUserId))
+    fun logUnblockUser(targetUserId: String) = logEvent("unblock_user", mapOf("target_user_id" to targetUserId))
+    fun logMuteUser(targetUserId: String) = logEvent("mute_user", mapOf("target_user_id" to targetUserId))
+    fun logUnmuteUser(targetUserId: String) = logEvent("unmute_user", mapOf("target_user_id" to targetUserId))
+    fun logReportUser(targetUserId: String) = logEvent("report_user", mapOf("target_user_id" to targetUserId))
+    fun logFollowError(targetUserId: String, error: String) = logEvent("follow_error", mapOf("target_user_id" to targetUserId, "error" to error.take(100)))
+
+    // MARK: - Song / Film Events
+
+    fun logSongDetailViewed(trackId: String) = logEvent("song_detail_viewed", mapOf("track_id" to trackId))
+    fun logFilmDetailViewed(filmId: String) = logEvent("film_detail_viewed", mapOf("film_id" to filmId))
+    fun logSpotifyLinkTapped(trackId: String) = logEvent("spotify_link_tapped", mapOf("track_id" to trackId))
+    fun logTrailerLinkTapped(filmId: String) = logEvent("trailer_link_tapped", mapOf("film_id" to filmId))
+
+    // MARK: - Notification / Message Events
+
+    fun logNotificationTapped(type: String) = logEvent("notification_tapped", mapOf("notification_type" to type))
+    fun logMessageThreadOpened(threadId: String) = logEvent("message_thread_opened", mapOf("thread_id" to threadId))
+    fun logMessageSent(threadId: String, type: String) = logEvent("message_sent", mapOf("thread_id" to threadId, "message_type" to type))
+    fun logMessageError(threadId: String, error: String) = logEvent("message_error", mapOf("thread_id" to threadId, "error" to error.take(100)))
+
+    // MARK: - Settings Events
+
+    fun logSettingToggled(setting: String, enabled: Boolean) = logEvent("setting_toggled", mapOf("setting" to setting, "enabled" to enabled))
+    fun logFeedbackSubmitted(type: String) = logEvent("feedback_submitted", mapOf("feedback_type" to type))
+
+    // MARK: - Subscription / Paywall Events
+
+    fun logPaywallShown(source: String, defaultPlan: String = "monthly") = logEvent("paywall_shown", mapOf("source" to source, "default_plan" to defaultPlan))
+    fun logPaywallDismissed() = logEvent("paywall_dismissed")
+    fun logPurchaseStarted(plan: String) = logEvent("purchase_started", mapOf("plan" to plan))
+    fun logPurchaseCompleted(plan: String) = logEvent("purchase_completed", mapOf("plan" to plan))
+    fun logPurchaseFailed(plan: String, error: String) = logEvent("purchase_failed", mapOf("plan" to plan, "error" to error.take(100)))
+
+    // MARK: - Error Events
+
+    fun logLikeError(postId: String, error: String) = logEvent("like_error", mapOf("post_id" to postId, "error" to error.take(100)))
+    fun logSaveError(postId: String, error: String) = logEvent("save_error", mapOf("post_id" to postId, "error" to error.take(100)))
+}

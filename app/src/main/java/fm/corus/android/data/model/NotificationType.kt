@@ -1,0 +1,22 @@
+package fm.corus.android.data.model
+
+enum class NotificationType(val value: String) {
+    LIKE("like"),
+    COMMENT("comment"),
+    COMMENT_LIKE("comment_like"),
+    MENTION("mention"),
+    TAG("tag"),
+    SAVE("save"),
+    FOLLOW("follow"),
+    NEW_POST("new_post"),
+    REPLY("reply"),
+    CONTACT_JOINED("contact_joined");
+
+    val supportsCommentActions: Boolean
+        get() = this in listOf(COMMENT, REPLY, MENTION, COMMENT_LIKE)
+
+    companion object {
+        fun from(value: String?): NotificationType =
+            entries.firstOrNull { it.value == value } ?: LIKE
+    }
+}

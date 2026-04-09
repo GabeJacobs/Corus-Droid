@@ -1,0 +1,6 @@
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.navigation.MainTabViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.navigation.MainTabViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.ChangeUsernameViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.ChangeUsernameViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.BlockedUsersViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.BlockedUsersViewModel

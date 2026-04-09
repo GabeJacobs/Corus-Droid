@@ -1,0 +1,142 @@
+package fm.corus.android.ui.screens.profile
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.NowPlayingManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class OtherProfileViewModel @Inject constructor(
+    private val userRepository: UserRepository,
+    private val postRepository: PostRepository,
+    private val authRepository: AuthRepository,
+    val nowPlayingManager: NowPlayingManager,
+) : ViewModel() {
+
+    fun generatePlaylist(userId: String) {
+        viewModelScope.launch {
+            nowPlayingManager.generateProfilePlaylist(userId)
+        }
+    }
+
+    private val _profile = MutableStateFlow<CymbalUser?>(null)
+    val profile: StateFlow<CymbalUser?> = _profile.asStateFlow()
+
+    private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
+    val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _isFollowing = MutableStateFlow(false)
+    val isFollowing: StateFlow<Boolean> = _isFollowing.asStateFlow()
+
+    private val _isFollowLoading = MutableStateFlow(false)
+    val isFollowLoading: StateFlow<Boolean> = _isFollowLoading.asStateFlow()
+
+    private val _isBlocked = MutableStateFlow(false)
+    val isBlocked: StateFlow<Boolean> = _isBlocked.asStateFlow()
+
+    private val _isMuted = MutableStateFlow(false)
+    val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
+
+    val currentUserId: String? get() = authRepository.currentUserId
+
+    fun loadProfile(userId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val user = userRepository.fetchUserProfile(userId)
+                _profile.value = user
+                _isFollowing.value = userRepository.isFollowing(userId)
+                _isBlocked.value = userRepository.blockedIds.value.contains(userId)
+                _isMuted.value = userRepository.isUserMuted(userId)
+
+                // Load user's posts
+                val viewerId = authRepository.currentUserId ?: return@launch
+                val userPosts = postRepository.getProfilePosts(
+                    userId = userId,
+                    viewerId = viewerId,
+                )
+                _posts.value = userPosts
+            } catch (_: Exception) { }
+            _isLoading.value = false
+        }
+    }
+
+    fun toggleFollow(userId: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            _isFollowLoading.value = true
+            try {
+                if (_isFollowing.value) {
+                    userRepository.unfollowUser(currentUserId, userId)
+                    _isFollowing.value = false
+                    _profile.value = _profile.value?.copy(
+                        followerCount = maxOf(0, (_profile.value?.followerCount ?: 1) - 1)
+                    )
+                } else {
+                    userRepository.followUser(currentUserId, userId)
+                    _isFollowing.value = true
+                    _profile.value = _profile.value?.copy(
+                        followerCount = (_profile.value?.followerCount ?: 0) + 1
+                    )
+                }
+            } catch (_: Exception) { }
+            _isFollowLoading.value = false
+        }
+    }
+
+    fun blockUser(userId: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                userRepository.blockUser(currentUserId, userId)
+                _isBlocked.value = true
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun unblockUser(userId: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                userRepository.unblockUser(currentUserId, userId)
+                _isBlocked.value = false
+            } catch (_: Exception) { }
+        }
+    }
+
+    suspend fun fetchUserIdByUsername(username: String): String? {
+        return try {
+            userRepository.fetchUserByUsername(username)?.id
+        } catch (_: Exception) { null }
+    }
+
+    fun toggleMute(userId: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        val wasMuted = _isMuted.value
+        _isMuted.value = !wasMuted
+        viewModelScope.launch {
+            try {
+                if (!wasMuted) {
+                    userRepository.muteUser(currentUserId, userId)
+                } else {
+                    userRepository.unmuteUser(currentUserId, userId)
+                }
+            } catch (_: Exception) {
+                _isMuted.value = wasMuted
+            }
+        }
+    }
+}

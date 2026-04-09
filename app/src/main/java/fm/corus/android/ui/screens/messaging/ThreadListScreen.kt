@@ -1,0 +1,349 @@
+package fm.corus.android.ui.screens.messaging
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.data.model.CymbalThread
+import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.UsernameWithFlair
+import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.util.DateUtils
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ThreadListScreen(
+    onThreadTap: (String, String) -> Unit = { _, _ -> },
+    viewModel: ThreadListViewModel = hiltViewModel(),
+) {
+    val threads by viewModel.threads.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    var showNewMessagePicker by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadThreads()
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Header with compose button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Messages",
+                style = CorusFont.screenTitle,
+                color = CorusColors.Text,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = { showNewMessagePicker = true }) {
+                Icon(
+                    Icons.Filled.Edit,
+                    contentDescription = "New message",
+                    tint = CorusColors.Text,
+                )
+            }
+        }
+
+        HorizontalDivider(color = CorusColors.Divider)
+
+        if (isLoading && threads.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CorusColors.Accent)
+            }
+        } else if (threads.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No messages yet", style = CorusFont.body, color = CorusColors.Secondary)
+            }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(threads, key = { it.id }) { thread ->
+                    ThreadRow(
+                        thread = thread,
+                        onClick = { onThreadTap(thread.id, thread.otherUserId) },
+                    )
+                }
+            }
+        }
+    }
+
+    // New Message picker sheet
+    if (showNewMessagePicker) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+        ModalBottomSheet(
+            onDismissRequest = {
+                viewModel.clearSearch()
+                showNewMessagePicker = false
+            },
+            sheetState = sheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = null,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        ) {
+            NewMessagePickerContent(
+                viewModel = viewModel,
+                onCancel = {
+                    viewModel.clearSearch()
+                    showNewMessagePicker = false
+                },
+                onUserSelected = { user ->
+                    viewModel.clearSearch()
+                    showNewMessagePicker = false
+                    scope.launch {
+                        try {
+                            val threadId = viewModel.getOrCreateThread(user.id)
+                            onThreadTap(threadId, user.id)
+                        } catch (_: Exception) { }
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun NewMessagePickerContent(
+    viewModel: ThreadListViewModel,
+    onCancel: () -> Unit,
+    onUserSelected: (CymbalUser) -> Unit,
+) {
+    val suggestedContacts by viewModel.suggestedContacts.collectAsState()
+    val isLoadingSuggestions by viewModel.isLoadingSuggestions.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
+    val isSearching by viewModel.isSearching.collectAsState()
+    var searchText by remember { mutableStateOf("") }
+
+    val displayedUsers = if (searchText.isBlank()) suggestedContacts else searchResults
+
+    LaunchedEffect(Unit) {
+        viewModel.loadSuggestedContacts()
+    }
+
+    LaunchedEffect(searchText) {
+        viewModel.searchUsers(searchText.trim())
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight(0.85f),
+    ) {
+        // Title bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onCancel) {
+                Text("Cancel", style = CorusFont.body, color = CorusColors.Accent)
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Text("New Message", style = CorusFont.screenTitle, color = CorusColors.Text)
+            Spacer(modifier = Modifier.weight(1f))
+            // Invisible spacer to balance the Cancel button
+            Spacer(modifier = Modifier.width(64.dp))
+        }
+
+        // Search bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CorusColors.CardBackground)
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.Search,
+                contentDescription = "Search",
+                tint = CorusColors.Tertiary,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            Box(modifier = Modifier.weight(1f)) {
+                if (searchText.isEmpty()) {
+                    Text(
+                        "Search username",
+                        style = CorusFont.body,
+                        color = CorusColors.Tertiary,
+                    )
+                }
+                androidx.compose.foundation.text.BasicTextField(
+                    value = searchText,
+                    onValueChange = { searchText = it },
+                    textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (searchText.isNotEmpty()) {
+                IconButton(
+                    onClick = {
+                        searchText = ""
+                        viewModel.clearSearch()
+                    },
+                    modifier = Modifier.size(24.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "Clear",
+                        tint = CorusColors.Tertiary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(color = CorusColors.Divider)
+
+        // Content
+        if (isSearching || isLoadingSuggestions) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = CorusColors.Secondary)
+            }
+        } else if (displayedUsers.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (searchText.isNotBlank()) "No users found" else "No suggestions",
+                    style = CorusFont.body,
+                    color = CorusColors.Secondary,
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) {
+                items(displayedUsers, key = { it.id }) { user ->
+                    UserPickerRow(
+                        user = user,
+                        onClick = { onUserSelected(user) },
+                    )
+                    HorizontalDivider(
+                        color = CorusColors.Divider,
+                        modifier = Modifier.padding(
+                            start = CorusSpacing.lg + CorusSpacing.avatarMedium + CorusSpacing.md,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserPickerRow(user: CymbalUser, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        UserAvatarView(
+            avatarURL = user.avatarURL,
+            size = CorusSpacing.avatarMedium,
+        )
+
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+
+        Column {
+            UsernameWithFlair(
+                username = user.username,
+                isBot = user.isBot,
+                isVerified = user.isVerified,
+                isClubMember = user.isClubMember,
+                flairStyle = user.flairStyle,
+                style = CorusFont.username,
+                color = CorusColors.Text,
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+            Text(
+                text = user.displayName,
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThreadRow(thread: CymbalThread, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        UserAvatarView(
+            avatarURL = thread.otherUser?.avatarURL,
+            size = CorusSpacing.avatarMedium,
+        )
+
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = thread.otherUser?.username ?: "",
+                    style = CorusFont.username,
+                    color = CorusColors.Text,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = DateUtils.relativeTime(thread.lastMessageAt),
+                    style = CorusFont.timestamp,
+                )
+            }
+            Text(
+                text = thread.lastMessageText,
+                style = CorusFont.body,
+                color = CorusColors.Secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        if (thread.unreadCount > 0) {
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            Badge(containerColor = CorusColors.Accent) {
+                Text(thread.unreadCount.toString())
+            }
+        }
+    }
+}

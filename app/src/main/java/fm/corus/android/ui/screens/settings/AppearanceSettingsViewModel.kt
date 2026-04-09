@@ -1,0 +1,26 @@
+package fm.corus.android.ui.screens.settings
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import fm.corus.android.data.local.PreferencesDataStore
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class AppearanceSettingsViewModel @Inject constructor(
+    private val preferencesDataStore: PreferencesDataStore,
+) : ViewModel() {
+
+    val isDarkMode: StateFlow<Boolean> = preferencesDataStore.darkMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun toggleDarkMode() {
+        viewModelScope.launch {
+            preferencesDataStore.setDarkMode(!isDarkMode.value)
+        }
+    }
+}

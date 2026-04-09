@@ -1,0 +1,15 @@
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.navigation.MainTabViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.navigation.MainTabViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.ChangeUsernameViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.ChangeUsernameViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.BlockedUsersViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.BlockedUsersViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.FeedbackFormViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.FeedbackFormViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.AppearanceSettingsViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.AppearanceSettingsViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.MutedUsersViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.MutedUsersViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.ChangePhoneNumberViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.settings.ChangePhoneNumberViewModel
+-keep,allowobfuscation,allowshrinking class fm.corus.android.ui.screens.findpeople.BotListViewModel

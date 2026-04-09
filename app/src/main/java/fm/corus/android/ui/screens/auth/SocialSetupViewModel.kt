@@ -1,0 +1,210 @@
+package fm.corus.android.ui.screens.auth
+
+import android.content.ContentResolver
+import android.provider.ContactsContract
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.data.remote.FirestoreDataSource
+import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.NowPlayingManager
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class SocialSetupViewModel @Inject constructor(
+    private val authRepository: AuthRepository,
+    private val userRepository: UserRepository,
+    private val postRepository: PostRepository,
+    private val cloudFunctions: CloudFunctionsDataSource,
+    private val firestoreDataSource: FirestoreDataSource,
+    private val nowPlayingManager: NowPlayingManager,
+) : ViewModel() {
+
+    // ── Contact Sync ──
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    private val _contactMatches = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val contactMatches: StateFlow<List<CymbalUser>> = _contactMatches.asStateFlow()
+
+    // ── Follow Friends ──
+
+    private val _popularUsers = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val popularUsers: StateFlow<List<CymbalUser>> = _popularUsers.asStateFlow()
+
+    private val _musicBotMatches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
+    val musicBotMatches: StateFlow<List<SuggestedUserMatch>> = _musicBotMatches.asStateFlow()
+
+    private val _filmBotMatches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
+    val filmBotMatches: StateFlow<List<SuggestedUserMatch>> = _filmBotMatches.asStateFlow()
+
+    private val _isLoadingSuggestions = MutableStateFlow(false)
+    val isLoadingSuggestions: StateFlow<Boolean> = _isLoadingSuggestions.asStateFlow()
+
+    private val _followedIds = MutableStateFlow<Set<String>>(emptySet())
+    val followedIds: StateFlow<Set<String>> = _followedIds.asStateFlow()
+
+    private val _searchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val searchResults: StateFlow<List<CymbalUser>> = _searchResults.asStateFlow()
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _isFinishing = MutableStateFlow(false)
+    val isFinishing: StateFlow<Boolean> = _isFinishing.asStateFlow()
+
+    // ── Film Bot Preview ──
+
+    private val _filmBotPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
+    val filmBotPosts: StateFlow<List<CymbalPost>> = _filmBotPosts.asStateFlow()
+
+    private val _isLoadingFilmBotPosts = MutableStateFlow(false)
+    val isLoadingFilmBotPosts: StateFlow<Boolean> = _isLoadingFilmBotPosts.asStateFlow()
+
+    val currentUserId: String? get() = authRepository.currentUserId
+
+    fun syncContacts(contentResolver: ContentResolver) {
+        val userId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            _isSyncing.value = true
+            try {
+                val phoneNumbers = readContactPhoneNumbers(contentResolver)
+                if (phoneNumbers.isNotEmpty()) {
+                    // Store synced contacts and find matches in parallel
+                    val storeJob = async { firestoreDataSource.storeSyncedContacts(userId, phoneNumbers) }
+                    val matchesJob = async {
+                        firestoreDataSource.fetchUsersByPhoneNumbers(phoneNumbers, setOf(userId))
+                    }
+                    val notifyJob = async { cloudFunctions.notifyContactsOnSync() }
+
+                    storeJob.await()
+                    _contactMatches.value = matchesJob.await()
+                    notifyJob.await()
+                }
+            } catch (_: Exception) { }
+            _isSyncing.value = false
+        }
+    }
+
+    private fun readContactPhoneNumbers(contentResolver: ContentResolver): List<String> {
+        val numbers = mutableSetOf<String>()
+        try {
+            val cursor = contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                null, null, null,
+            )
+            cursor?.use {
+                val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                while (it.moveToNext()) {
+                    val number = it.getString(numberIndex)?.replace(Regex("[^+\\d]"), "")
+                    if (!number.isNullOrBlank()) numbers.add(number)
+                }
+            }
+        } catch (_: Exception) { }
+        return numbers.toList()
+    }
+
+    fun loadSuggestions() {
+        val userId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            _isLoadingSuggestions.value = true
+            try {
+                val suggestionsDeferred = async { cloudFunctions.getSuggestedUsers(userId) }
+                val musicBotsDeferred = async { cloudFunctions.getBotSuggestions(userId, botType = "music") }
+                val filmBotsDeferred = async { cloudFunctions.getBotSuggestions(userId, botType = "film") }
+
+                val suggestions = suggestionsDeferred.await()
+                // Popular users are the ones without high similarity data (fallback)
+                _popularUsers.value = suggestions.map { it.user }.take(10)
+                _musicBotMatches.value = musicBotsDeferred.await()
+                _filmBotMatches.value = filmBotsDeferred.await()
+            } catch (_: Exception) { }
+            _isLoadingSuggestions.value = false
+        }
+    }
+
+    fun searchUsers(query: String) {
+        _searchQuery.value = query
+        if (query.length < 2) {
+            _searchResults.value = emptyList()
+            _isSearching.value = false
+            return
+        }
+        viewModelScope.launch {
+            _isSearching.value = true
+            try {
+                _searchResults.value = userRepository.searchUsers(query, limit = 10)
+            } catch (_: Exception) {
+                _searchResults.value = emptyList()
+            }
+            _isSearching.value = false
+        }
+    }
+
+    fun toggleFollow(userId: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        val isFollowed = _followedIds.value.contains(userId)
+
+        // Optimistic update
+        _followedIds.value = if (isFollowed) _followedIds.value - userId else _followedIds.value + userId
+
+        viewModelScope.launch {
+            try {
+                if (isFollowed) {
+                    userRepository.unfollowUser(currentUserId, userId)
+                } else {
+                    userRepository.followUser(currentUserId, userId)
+                }
+            } catch (_: Exception) {
+                // Revert
+                _followedIds.value = if (isFollowed) _followedIds.value + userId else _followedIds.value - userId
+            }
+        }
+    }
+
+    fun loadFilmBotPosts(userId: String) {
+        val viewerId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            _isLoadingFilmBotPosts.value = true
+            try {
+                val posts = postRepository.getProfilePosts(userId, viewerId, limit = 15)
+                _filmBotPosts.value = posts.filter { it.isMovie }
+            } catch (_: Exception) { }
+            _isLoadingFilmBotPosts.value = false
+        }
+    }
+
+    fun playUserPreview(userId: String) {
+        val viewerId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                val posts = postRepository.getProfilePosts(userId, viewerId, limit = 5)
+                val post = posts.firstOrNull { it.isTrack } ?: return@launch
+                val track = post.track
+                nowPlayingManager.play(
+                    trackId = track.id,
+                    trackName = track.name,
+                    artistName = track.artistName,
+                    albumArtURL = track.albumArtURL,
+                    previewUrl = track.previewUrl,
+                )
+            } catch (_: Exception) { }
+        }
+    }
+}
