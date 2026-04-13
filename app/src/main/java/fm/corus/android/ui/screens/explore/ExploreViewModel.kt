@@ -52,6 +52,9 @@ class ExploreViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     // ── Search state ──
 
     private val _isSearching = MutableStateFlow(false)
@@ -118,6 +121,19 @@ class ExploreViewModel @Inject constructor(
                 }
             } catch (_: Exception) { }
             _isLoading.value = false
+        }
+    }
+
+    fun refreshTrending() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                _trendingSongs.value = exploreRepository.fetchTrendingSongs()
+                if (remoteConfigService.movieModeEnabled) {
+                    _trendingMovies.value = try { exploreRepository.fetchTrendingMovies() } catch (_: Exception) { _trendingMovies.value }
+                }
+            } catch (_: Exception) { }
+            _isRefreshing.value = false
         }
     }
 

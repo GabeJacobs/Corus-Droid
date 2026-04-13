@@ -17,10 +17,13 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import fm.corus.android.ui.components.UsernameWithFlair
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +45,11 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
+import fm.corus.android.ui.components.SkeletonHashtagCard
+import fm.corus.android.ui.components.SkeletonSectionHeader
+import fm.corus.android.ui.components.SkeletonTasteMatchCard
+import fm.corus.android.ui.components.SkeletonTrendingSongRow
+import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
@@ -54,11 +62,12 @@ private enum class ExploreTab(val label: String) {
     Films("Films"),
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExploreScreen(
     viewModel: ExploreViewModel = hiltViewModel(),
     onNavigateToUser: (String) -> Unit = {},
-    onNavigateToSong: (String) -> Unit = {},
+    onNavigateToSong: (String, String?) -> Unit = { _, _ -> },
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
 ) {
@@ -75,6 +84,7 @@ fun ExploreScreen(
     val songSearchResults by viewModel.songSearchResults.collectAsState()
     val filmSearchResults by viewModel.filmSearchResults.collectAsState()
     val followedIds by viewModel.followedIds.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     var selectedTab by remember { mutableStateOf(ExploreTab.Users) }
     var searchQuery by remember { mutableStateOf("") }
@@ -163,10 +173,16 @@ fun ExploreScreen(
                             onSongTap = onNavigateToSong,
                         )
                     } else {
-                        SongsTabContent(
-                            songs = songs,
-                            onSongTap = onNavigateToSong,
-                        )
+                        PullToRefreshBox(
+                            isRefreshing = isRefreshing,
+                            onRefresh = { viewModel.refreshTrending() },
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            SongsTabContent(
+                                songs = songs,
+                                onSongTap = onNavigateToSong,
+                            )
+                        }
                     }
                 }
                 ExploreTab.Films -> {
@@ -177,10 +193,16 @@ fun ExploreScreen(
                             onFilmTap = onNavigateToFilm,
                         )
                     } else {
-                        FilmsTabContent(
-                            trendingMovies = trendingMovies,
-                            onFilmTap = onNavigateToFilm,
-                        )
+                        PullToRefreshBox(
+                            isRefreshing = isRefreshing,
+                            onRefresh = { viewModel.refreshTrending() },
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            FilmsTabContent(
+                                trendingMovies = trendingMovies,
+                                onFilmTap = onNavigateToFilm,
+                            )
+                        }
                     }
                 }
             }
@@ -367,24 +389,13 @@ private fun UserSearchRow(
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = user.username,
-                    style = CorusFont.username,
-                    color = CorusColors.Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (user.isVerified) {
-                    Spacer(modifier = Modifier.width(CorusSpacing.xxs))
-                    Icon(
-                        imageVector = Icons.Filled.CheckCircle,
-                        contentDescription = "Verified",
-                        tint = CorusColors.Verified,
-                        modifier = Modifier.size(14.dp),
-                    )
-                }
-            }
+            UsernameWithFlair(
+                username = user.username,
+                isVerified = user.isVerified,
+                isClubMember = user.isClubMember,
+                flairStyle = user.flairStyle,
+                isBot = user.isBot,
+            )
             if (user.displayName.isNotBlank()) {
                 Text(
                     text = user.displayName,
@@ -416,7 +427,7 @@ private fun UserSearchRow(
 private fun SongSearchResultsList(
     tracks: List<CymbalTrack>,
     isSearching: Boolean,
-    onSongTap: (String) -> Unit,
+    onSongTap: (String, String?) -> Unit,
 ) {
     if (isSearching) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -432,7 +443,7 @@ private fun SongSearchResultsList(
             contentPadding = PaddingValues(vertical = CorusSpacing.sm),
         ) {
             items(tracks, key = { it.id }) { track ->
-                SongSearchRow(track = track, onClick = { onSongTap(track.id) })
+                SongSearchRow(track = track, onClick = { onSongTap(track.id, track.albumArtURL) })
                 HorizontalDivider(
                     modifier = Modifier.padding(start = 72.dp),
                     color = CorusColors.Divider,
@@ -927,7 +938,7 @@ private fun SuggestedUserCard(
 // ── Songs Tab ──
 
 @Composable
-private fun SongsTabContent(songs: List<TrendingSong>, onSongTap: (String) -> Unit = {}) {
+private fun SongsTabContent(songs: List<TrendingSong>, onSongTap: (String, String?) -> Unit = { _, _ -> }) {
     if (songs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -947,11 +958,11 @@ private fun SongsTabContent(songs: List<TrendingSong>, onSongTap: (String) -> Un
             contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl),
         ) {
             item {
-                SectionHeader(emoji = "\uD83C\uDFB5", title = "TRENDING THIS WEEK")
+                SectionHeader(emoji = "\uD83C\uDFB5", title = "TRENDING SONGS")
             }
 
             itemsIndexed(songs) { index, song ->
-                TrendingSongRow(song = song, onClick = { onSongTap(song.track.id) })
+                TrendingSongRow(song = song, onClick = { onSongTap(song.track.id, song.track.albumArtURL) })
                 if (index < songs.lastIndex) {
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 72.dp),
@@ -1038,7 +1049,7 @@ private fun FilmsTabContent(trendingMovies: List<TrendingMovie>, onFilmTap: (Str
             contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl),
         ) {
             item {
-                SectionHeader(emoji = "\uD83D\uDCC8", title = "TRENDING FILMS")
+                SectionHeader(emoji = "\uD83C\uDFAC", title = "TRENDING FILMS")
             }
 
             itemsIndexed(trendingMovies) { index, movie ->

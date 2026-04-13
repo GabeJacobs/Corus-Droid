@@ -136,13 +136,18 @@ class SongDetailViewModel @Inject constructor(
     }
 
     private fun moveFirstPosterToTop(posts: List<CymbalPost>, firstPosterId: String?): List<CymbalPost> {
-        if (firstPosterId == null) return posts
-        val mutable = posts.toMutableList()
-        val idx = mutable.indexOfFirst { it.user.id == firstPosterId }
-        if (idx > 0) {
-            val first = mutable.removeAt(idx)
-            mutable.add(0, first)
+        // Partition: non-bots first, bots last, preserving relative order
+        val nonBots = posts.filter { !it.user.isBot }
+        val bots = posts.filter { it.user.isBot }
+        val sorted = (nonBots + bots).toMutableList()
+
+        if (firstPosterId != null) {
+            val idx = sorted.indexOfFirst { it.user.id == firstPosterId }
+            if (idx > 0) {
+                val first = sorted.removeAt(idx)
+                sorted.add(0, first)
+            }
         }
-        return mutable
+        return sorted
     }
 }

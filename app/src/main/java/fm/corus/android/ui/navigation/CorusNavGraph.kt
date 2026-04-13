@@ -31,6 +31,7 @@ import fm.corus.android.ui.screens.findpeople.FindPeopleScreen
 import fm.corus.android.ui.screens.messaging.MessageThreadScreen
 import fm.corus.android.ui.screens.messaging.ThreadListScreen
 import fm.corus.android.ui.screens.settings.AppearanceSettingsScreen
+import fm.corus.android.ui.screens.settings.NotificationSettingsScreen
 import fm.corus.android.ui.screens.settings.SettingsScreen
 import fm.corus.android.ui.screens.findpeople.SuggestedUsersListScreen
 import fm.corus.android.ui.screens.findpeople.SuggestedUsersListViewModel
@@ -56,7 +57,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                 onNavigateToComments = { postId -> navController.navigate(CommentsRoute(postId)) },
                 onNavigateToLikes = { postId -> navController.navigate(LikesRoute(postId)) },
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
-                onNavigateToSong = { trackId -> navController.navigate(SongDetailRoute(trackId)) },
+                onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             )
         }
@@ -65,14 +66,17 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
 }
 
 @Composable
-fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel) {
+fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
     NavHost(navController = navController, startDestination = ExploreTabRoute) {
         composable<ExploreTabRoute> {
-            ExploreScreen(
+            FindPeopleScreen(
+                scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-                onNavigateToSong = { trackId -> navController.navigate(SongDetailRoute(trackId)) },
+                onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
-                onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
+                onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
+                onNavigateToSuggestedUsers = { navController.navigate(SuggestedUsersListRoute) },
+                onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
             )
         }
         sharedDestinations(navController, mainTabViewModel)
@@ -126,7 +130,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToComments = { postId -> navController.navigate(CommentsRoute(postId)) },
             onNavigateToLikes = { postId -> navController.navigate(LikesRoute(postId)) },
-            onNavigateToSong = { trackId -> navController.navigate(SongDetailRoute(trackId)) },
+            onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
         )
@@ -181,6 +185,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<SongDetailRoute>()
         SongDetailScreen(
             trackId = route.trackId,
+            albumArtURL = route.albumArtURL,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToCompose = { trackId ->
@@ -193,6 +198,12 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<FilmDetailRoute>()
         FilmDetailScreen(
             movieId = route.movieId,
+            initialMovieTitle = route.movieTitle,
+            initialDirectorName = route.directorName,
+            initialReleaseYear = route.releaseYear,
+            initialPosterURL = route.posterURL,
+            initialPosterLargeURL = route.posterLargeURL,
+            initialTrailerURL = route.trailerURL,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToCompose = { movieId ->
@@ -251,6 +262,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         EditCaptionSheet(
             postId = route.postId,
             initialCaption = route.initialCaption,
+            albumArtURL = route.albumArtURL,
             onDismiss = { navController.popBackStack() },
             onSaved = { ToastManager.show("Caption updated") },
         )
@@ -265,12 +277,18 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     composable<SettingsRoute> {
         SettingsScreen(
             onBack = { navController.popBackStack() },
-            onAppearance = { navController.navigate(AppearanceSettingsRoute) },
             onChangeUsername = { navController.navigate(ChangeUsernameRoute) },
             onChangePhoneNumber = { navController.navigate(ChangePhoneNumberRoute) },
             onBlockedUsers = { navController.navigate(BlockedUsersRoute) },
             onMutedUsers = { navController.navigate(MutedUsersRoute) },
             onSendFeedback = { navController.navigate(FeedbackFormRoute) },
+            onNotificationSettings = { navController.navigate(NotificationSettingsRoute) },
+        )
+    }
+
+    composable<NotificationSettingsRoute> {
+        NotificationSettingsScreen(
+            onBack = { navController.popBackStack() },
         )
     }
 
@@ -313,7 +331,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     composable<FindPeopleRoute> {
         FindPeopleScreen(
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            onNavigateToSong = { trackId -> navController.navigate(SongDetailRoute(trackId)) },
+            onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
             onNavigateToSuggestedUsers = { navController.navigate(SuggestedUsersListRoute) },

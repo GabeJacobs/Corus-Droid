@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,6 +40,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.MessageType
+import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -63,6 +65,7 @@ fun MessageThreadScreen(
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     var reactionTarget by remember { mutableStateOf<CymbalMessage?>(null) }
+    var showGifPicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -176,6 +179,15 @@ fun MessageThreadScreen(
                 )
             }
 
+            IconButton(onClick = { showGifPicker = true }) {
+                Icon(
+                    Icons.Filled.Gif,
+                    contentDescription = "Send GIF",
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+
             OutlinedTextField(
                 value = messageText,
                 onValueChange = { messageText = it },
@@ -202,6 +214,16 @@ fun MessageThreadScreen(
                 )
             }
         }
+    }
+
+    if (showGifPicker) {
+        GifPickerSheet(
+            onGifSelected = { gif ->
+                viewModel.sendGifMessage(threadId, gif.gifURL)
+                showGifPicker = false
+            },
+            onDismiss = { showGifPicker = false },
+        )
     }
 
     // Reaction overlay
@@ -392,6 +414,19 @@ private fun MessageBubble(
                     if (!message.text.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
                     }
+                }
+
+                // GIF content
+                if (message.type == MessageType.GIF && message.mediaURL != null) {
+                    AsyncImage(
+                        model = message.mediaURL,
+                        contentDescription = "GIF",
+                        modifier = Modifier
+                            .widthIn(max = 240.dp)
+                            .heightIn(max = 300.dp)
+                            .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    )
                 }
 
                 // Text content

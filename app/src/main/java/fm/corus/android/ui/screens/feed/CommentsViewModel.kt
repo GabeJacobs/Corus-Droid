@@ -127,6 +127,33 @@ class CommentsViewModel @Inject constructor(
         }
     }
 
+    fun sendGifComment(gifURL: String) {
+        val userId = authRepository.currentUserId ?: return
+
+        viewModelScope.launch {
+            _isSending.value = true
+            try {
+                val replyTo = _replyingTo.value
+                val parentId = replyTo?.parentCommentId ?: replyTo?.id
+                val replyToUserId = replyTo?.user?.id
+
+                postRepository.addComment(
+                    postId = postId,
+                    userId = userId,
+                    text = "",
+                    parentCommentId = parentId,
+                    replyToUserId = replyToUserId,
+                    gifURL = gifURL,
+                )
+
+                engagementManager.incrementCommentCount(postId)
+                _replyingTo.value = null
+                loadComments(postId)
+            } catch (_: Exception) { }
+            _isSending.value = false
+        }
+    }
+
     fun deleteComment(commentId: String) {
         viewModelScope.launch {
             try {

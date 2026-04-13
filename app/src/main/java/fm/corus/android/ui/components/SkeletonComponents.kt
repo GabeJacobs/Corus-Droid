@@ -543,7 +543,34 @@ fun SkeletonFilmRow() {
     }
 }
 
-// 9. SkeletonTasteMatchCard — 2x2 album grid + avatar + username + follow button in card
+// 9. SkeletonSectionHeader — Shimmer placeholder for section headers (matches iOS)
+@Composable
+fun SkeletonSectionHeader() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shimmer()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(14.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(CorusColors.CardBackground)
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.xs))
+        Box(
+            modifier = Modifier
+                .width(120.dp)
+                .height(11.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(CorusColors.CardBackground)
+        )
+    }
+}
+
+// 10. SkeletonTasteMatchCard — 2x2 album grid + avatar + username + follow button in card
 @Composable
 fun SkeletonTasteMatchCard() {
     Column(

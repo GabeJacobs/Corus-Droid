@@ -42,6 +42,9 @@ class RemoteConfigService @Inject constructor(
     val paywallDefaultYearly: Boolean
         get() = remoteConfig.getBoolean("paywall_default_yearly")
 
+    val giphySupport: Boolean
+        get() = remoteConfig.getBoolean("giphy_support")
+
     suspend fun fetchAndActivate() {
         try {
             val settings = FirebaseRemoteConfigSettings.Builder()
@@ -60,6 +63,7 @@ class RemoteConfigService @Inject constructor(
                     "daily_post_limit_enabled" to true,
                     "filter_for_club_members_only" to false,
                     "paywall_default_yearly" to false,
+                    "giphy_support" to false,
                 )
             ).await()
             remoteConfig.fetchAndActivate().await()

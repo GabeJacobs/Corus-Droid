@@ -1,6 +1,8 @@
 R_DEF: Internal format may change without notice
 local
+drawable apple_music_logo
 drawable corus_club
+drawable corus_club_vector
 drawable discord_logo
 drawable featured_shadow
 drawable frame_black
@@ -11,6 +13,9 @@ drawable frame_green
 drawable frame_red
 drawable frame_white
 drawable google_logo
+drawable ic_music_note_list
+drawable ic_play_rectangle_fill
+drawable instagram_logo
 drawable logo_no_background
 drawable record_paint_brush
 drawable spotify_logo

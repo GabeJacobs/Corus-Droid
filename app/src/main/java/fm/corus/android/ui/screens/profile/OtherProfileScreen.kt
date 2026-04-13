@@ -12,12 +12,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -63,6 +65,7 @@ fun OtherProfileScreen(
     val isFollowLoading by viewModel.isFollowLoading.collectAsState()
     val isBlocked by viewModel.isBlocked.collectAsState()
     val isMuted by viewModel.isMuted.collectAsState()
+    val isSubscribedToNotifications by viewModel.isSubscribedToNotifications.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
 
@@ -86,9 +89,30 @@ fun OtherProfileScreen(
                     }
                 },
                 actions = {
-                    // Dedicated message button (matching iOS envelope icon)
+                    // Post notifications bell button (matching iOS)
+                    IconButton(onClick = {
+                        val username = profile?.username ?: ""
+                        if (!isSubscribedToNotifications) {
+                            ToastManager.show("You'll be notified when @$username posts")
+                        } else {
+                            ToastManager.show("Notifications off for @$username")
+                        }
+                        viewModel.togglePostNotifications(userId)
+                    }) {
+                        Icon(
+                            imageVector = if (isSubscribedToNotifications)
+                                Icons.Filled.Notifications
+                            else
+                                Icons.Outlined.NotificationsNone,
+                            contentDescription = if (isSubscribedToNotifications) "Stop Notifying" else "Post Notifications",
+                            tint = if (isSubscribedToNotifications) CorusColors.Accent else CorusColors.Text,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+
+                    // Dedicated message button (matching iOS outlined envelope icon)
                     IconButton(onClick = { onNavigateToMessages("", userId) }) {
-                        Icon(Icons.Filled.Email, contentDescription = "Message", tint = CorusColors.Text, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Outlined.Email, contentDescription = "Message", tint = CorusColors.Text, modifier = Modifier.size(20.dp))
                     }
 
                     Box {
@@ -185,7 +209,8 @@ fun OtherProfileScreen(
             columns = GridCells.Fixed(3),
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(top = padding.calculateTopPadding()),
+            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
         ) {
             item(span = { GridItemSpan(3) }) {
                 Column {
@@ -203,17 +228,21 @@ fun OtherProfileScreen(
 
                         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
                             // Stats
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
+                            ) {
                                 StatItem(count = currentProfile.cymbalCount, label = "coruses")
-                                StatDivider()
                                 StatItem(
                                     count = currentProfile.followerCount,
                                     label = "followers",
                                     modifier = Modifier.clickable { onNavigateToFollowList(userId, true) },
                                 )
-                                StatDivider()
                                 StatItem(
                                     count = currentProfile.followingCount,
                                     label = "following",
@@ -233,6 +262,8 @@ fun OtherProfileScreen(
                                     onClick = { viewModel.toggleFollow(userId) },
                                     modifier = Modifier
                                         .weight(1f)
+                                        .defaultMinSize(minHeight = 1.dp)
+                                        .height(34.dp)
                                         .then(
                                             if (isFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
                                             else Modifier
@@ -243,7 +274,7 @@ fun OtherProfileScreen(
                                         contentColor = if (isFollowing) CorusColors.Secondary else Color.White,
                                     ),
                                     enabled = !isFollowLoading,
-                                    contentPadding = PaddingValues(vertical = CorusSpacing.sm - 2.dp),
+                                    contentPadding = PaddingValues(vertical = 0.dp, horizontal = CorusSpacing.md),
                                 ) {
                                     if (isFollowLoading) {
                                         CircularProgressIndicator(
@@ -303,13 +334,13 @@ fun OtherProfileScreen(
                                             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
                                         ) {
                                             Icon(
-                                                imageVector = Icons.AutoMirrored.Filled.List,
+                                                painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
                                                 contentDescription = "Playlist",
                                                 modifier = Modifier.size(14.dp),
                                             )
                                             Text(
                                                 text = "PLAYLIST",
-                                                style = CorusFont.buttonSmall,
+                                                style = CorusFont.button,
                                             )
                                         }
                                     }
@@ -375,26 +406,24 @@ fun OtherProfileScreen(
 
                     // Segment control
                     val tabs = listOf("MUSIC", "FILM", "LIKES")
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.lg)) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
                         tabs.forEachIndexed { index, title ->
                             val isSelected = selectedSegment == index
-                            val accentColor = CorusColors.Accent
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable { selectedSegment = index }
                                     .drawBehind {
-                                        if (isSelected) {
-                                            val strokeWidth = 2.dp.toPx()
-                                            drawLine(
-                                                color = accentColor,
-                                                start = Offset(0f, size.height),
-                                                end = Offset(size.width, size.height),
-                                                strokeWidth = strokeWidth,
-                                            )
-                                        }
+                                        val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
+                                        val lineColor = if (isSelected) CorusColors.Text else CorusColors.Divider
+                                        drawLine(
+                                            color = lineColor,
+                                            start = Offset(0f, size.height),
+                                            end = Offset(size.width, size.height),
+                                            strokeWidth = strokeWidth,
+                                        )
                                     }
-                                    .padding(vertical = CorusSpacing.md),
+                                    .padding(vertical = CorusSpacing.sm),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 Text(
@@ -414,8 +443,8 @@ fun OtherProfileScreen(
                         else -> posts
                     }
 
-                    // Featured post with vinyl/frame + effects
-                    if (filteredPosts.isNotEmpty()) {
+                    // Featured post — only for Music/Film tabs (matching iOS)
+                    if (filteredPosts.isNotEmpty() && selectedSegment <= 1) {
                         val featured = filteredPosts.first()
                         val userProfile = profile
                         if (userProfile != null && featured.mediaType == MediaType.MOVIE) {
@@ -437,7 +466,7 @@ fun OtherProfileScreen(
                                 onPostTap = { onNavigateToPost(featured.id) },
                             )
                         }
-                    } else if (!isLoading) {
+                    } else if (filteredPosts.isEmpty() && !isLoading) {
                         // Empty state per segment
                         Box(
                             modifier = Modifier
@@ -461,14 +490,18 @@ fun OtherProfileScreen(
             }
 
             // Album art grid (filtered)
+            @Suppress("NAME_SHADOWING")
             val filteredPosts = when (selectedSegment) {
                 0 -> posts.filter { it.mediaType == MediaType.TRACK }
                 1 -> posts.filter { it.mediaType == MediaType.MOVIE }
                 2 -> posts
                 else -> posts
             }
-            if (filteredPosts.size > 1) {
-                items(filteredPosts.drop(1), key = { it.id }) { post ->
+            // For Likes, show all posts in grid (no featured);
+            // for Music/Film, skip the first post (already shown as featured)
+            val gridPosts = if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts
+            if (gridPosts.isNotEmpty()) {
+                items(gridPosts, key = { it.id }) { post ->
                     AsyncImage(
                         model = post.displayImageURL,
                         contentDescription = post.displayTitle,

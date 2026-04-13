@@ -23,8 +23,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -586,6 +591,7 @@ private fun FramePreview(
     val posterWRatio = 184.98f / 585f
     val posterHRatio = 269.33f / 482f
 
+    val glassOverlay = ImageBitmap.imageResource(R.drawable.frame_glass_overlay)
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val w = maxWidth
         val h = w / sectionAspect
@@ -618,12 +624,17 @@ private fun FramePreview(
                 }
             }
 
-            // Glass overlay
-            Image(
-                painter = painterResource(R.drawable.frame_glass_overlay),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds,
+            // Glass overlay (screen blend — matches iOS .blendMode(.screen))
+            Spacer(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawBehind {
+                        drawImage(
+                            image = glassOverlay,
+                            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                            blendMode = BlendMode.Screen,
+                        )
+                    },
             )
         }
     }
@@ -712,6 +723,7 @@ private fun FlairPreview(
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                     contentScale = ContentScale.Fit,
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(CorusColors.Accent),
                 )
             } else if (selected.icon != null) {
                 Spacer(modifier = Modifier.width(4.dp))
@@ -760,6 +772,7 @@ private fun FlairOptionCard(
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                     contentScale = ContentScale.Fit,
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(CorusColors.Accent),
                 )
             } else if (style.icon != null) {
                 Icon(

@@ -46,7 +46,7 @@ fun EditProfileScreen(
     val hasTrackPosts by viewModel.hasTrackPosts.collectAsState()
     val hasMoviePosts by viewModel.hasMoviePosts.collectAsState()
     val isStyleSaving by viewModel.isStyleSaving.collectAsState()
-    val isClubMember by viewModel.subscriptionRepository.isClubMember.collectAsState()
+    val hasFullAccess by viewModel.subscriptionRepository.hasFullAccessFlow.collectAsState()
 
     var showStylePicker by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
@@ -111,7 +111,7 @@ fun EditProfileScreen(
                 latestMoviePost = latestMoviePost,
                 hasTrackPosts = hasTrackPosts,
                 hasMoviePosts = hasMoviePosts,
-                isClubMember = isClubMember,
+                isClubMember = hasFullAccess,
                 isSaving = isStyleSaving,
                 onSave = { selections ->
                     viewModel.saveStyleSelections(selections) {

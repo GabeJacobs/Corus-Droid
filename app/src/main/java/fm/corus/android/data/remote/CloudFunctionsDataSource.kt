@@ -293,6 +293,37 @@ class CloudFunctionsDataSource @Inject constructor(
         ).await()
     }
 
+    // ── GIF Search (Giphy via Cloud Function) ──
+
+    data class GifSearchResult(
+        val results: List<TenorGif>,
+        val next: String,
+    )
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun searchGifs(query: String = "", limit: Int = 20, pos: String = ""): GifSearchResult {
+        val params = mutableMapOf<String, Any>("limit" to limit)
+        if (query.isNotBlank()) params["query"] = query
+        if (pos.isNotBlank()) params["pos"] = pos
+
+        val result = functions.getHttpsCallable("searchTenorGifs").call(params).await()
+        val data = result.getData() as? Map<String, Any?> ?: emptyMap()
+        val rawResults = data["results"] as? List<Map<String, Any?>> ?: emptyList()
+
+        return GifSearchResult(
+            results = rawResults.map { r ->
+                TenorGif(
+                    id = r["id"] as? String ?: "",
+                    tinyGifURL = r["tinyGifURL"] as? String ?: "",
+                    gifURL = r["gifURL"] as? String ?: "",
+                    tinyGifWidth = (r["tinyGifWidth"] as? Number)?.toInt() ?: 0,
+                    tinyGifHeight = (r["tinyGifHeight"] as? Number)?.toInt() ?: 0,
+                )
+            },
+            next = data["next"] as? String ?: "",
+        )
+    }
+
     // ── Spotify ──
 
     @Suppress("UNCHECKED_CAST")

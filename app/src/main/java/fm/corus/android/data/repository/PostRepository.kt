@@ -97,6 +97,16 @@ class PostRepository @Inject constructor(
         firestoreDataSource.updateCaption(postId, caption)
     }
 
+    suspend fun createNotification(
+        type: String,
+        fromUserId: String,
+        toUserId: String,
+        postId: String? = null,
+        postAlbumArtURL: String? = null,
+    ) {
+        firestoreDataSource.createNotification(type, fromUserId, toUserId, postId, postAlbumArtURL)
+    }
+
     suspend fun deletePost(postId: String, userId: String) {
         firestoreDataSource.deletePost(postId, userId)
     }
@@ -155,8 +165,8 @@ class PostRepository @Inject constructor(
         return cloudFunctions.getReplies(commentId, postId, limit, lastTimestamp)
     }
 
-    suspend fun addComment(postId: String, userId: String, text: String, parentCommentId: String? = null, replyToUserId: String? = null): String {
-        return firestoreDataSource.addComment(postId, userId, text, parentCommentId, replyToUserId)
+    suspend fun addComment(postId: String, userId: String, text: String, parentCommentId: String? = null, replyToUserId: String? = null, gifURL: String? = null): String {
+        return firestoreDataSource.addComment(postId, userId, text, parentCommentId, replyToUserId, gifURL)
     }
 
     suspend fun deleteComment(postId: String, commentId: String) {

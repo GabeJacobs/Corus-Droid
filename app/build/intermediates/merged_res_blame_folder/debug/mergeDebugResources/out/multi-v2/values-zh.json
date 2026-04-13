@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "fm.corus.android.app-mergeDebugResources-99:/values-zh/values-zh.xml",
+            "outputFile": "fm.corus.android.app-mergeDebugResources-101:/values-zh/values-zh.xml",
             "map": [
                 {
-                    "source": "/Users/gabejacobs/.gradle/caches/9.0.0/transforms/6735df30a6635b953caacd0695d54c62/transformed/purchases-ui-8.10.5/res/values-zh/values-zh.xml",
+                    "source": "/Users/gabejacobs/.gradle/caches/9.0.0/transforms/10695d70dfe48ed1194f2d072adc55ec/transformed/purchases-ui-8.10.5/res/values-zh/values-zh.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",

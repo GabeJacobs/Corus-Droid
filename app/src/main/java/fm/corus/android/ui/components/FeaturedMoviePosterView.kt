@@ -13,10 +13,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,80 +69,88 @@ fun FeaturedMoviePosterView(
     val posterWRatio = 184.98f / 585f
     val posterHRatio = 269.33f / 482f
 
-    Column(
+    // Gradient wraps entire featured area (frame + title row), matching iOS .background(LinearGradient)
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.36f to Color(0xFFF3F3F3),
+                        1.0f to Color(0xFFBFBFBF),
+                    ),
+                ),
+            )
             .clickable(onClick = onPostTap),
     ) {
+        val w = maxWidth
+        val h = w / sectionAspect
+
         // Frame + poster composite
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxWidth(),
+        val glassOverlay = ImageBitmap.imageResource(R.drawable.frame_glass_overlay)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(h),
         ) {
-            val w = maxWidth
-            val h = w / sectionAspect
+            // Frame
+            Image(
+                painter = painterResource(frameDrawable),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds,
+            )
 
-            Box(
+            // Poster
+            val posterUrl = post.displayImageLargeURL ?: post.displayImageURL
+            if (posterUrl != null) {
+                AsyncImage(
+                    model = posterUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .offset(x = w * posterXRatio, y = h * posterYRatio)
+                        .size(width = w * posterWRatio, height = h * posterHRatio),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+
+            // Glass overlay (screen blend — matches iOS .blendMode(.screen))
+            Spacer(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(h),
-            ) {
-                // Frame
-                Image(
-                    painter = painterResource(frameDrawable),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.FillBounds,
+                    .fillMaxSize()
+                    .drawBehind {
+                        drawImage(
+                            image = glassOverlay,
+                            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                            blendMode = BlendMode.Screen,
+                        )
+                    },
+            )
+
+            // Weather / disco effects overlay
+            if (rainIntensity != RainIntensity.OFF) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(Color.Black.copy(alpha = if (rainIntensity == RainIntensity.HEAVY) 0.15f else 0.10f)),
                 )
-
-                // Poster
-                val posterUrl = post.displayImageLargeURL ?: post.displayImageURL
-                if (posterUrl != null) {
-                    AsyncImage(
-                        model = posterUrl,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .offset(x = w * posterXRatio, y = h * posterYRatio)
-                            .size(width = w * posterWRatio, height = h * posterHRatio),
-                        contentScale = ContentScale.Crop,
-                    )
-                }
-
-                // Glass overlay (screen blend)
-                Image(
-                    painter = painterResource(R.drawable.frame_glass_overlay),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.FillBounds,
-                    colorFilter = ColorFilter.tint(
-                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.1f),
-                        blendMode = BlendMode.Screen,
-                    ),
-                )
-
-                // Weather / disco effects overlay
-                if (rainIntensity != RainIntensity.OFF) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(Color.Black.copy(alpha = if (rainIntensity == RainIntensity.HEAVY) 0.15f else 0.10f)),
-                    )
-                    RainEffectView(intensity = rainIntensity, modifier = Modifier.matchParentSize())
-                }
-                if (snowIntensity != SnowIntensity.OFF) {
-                    Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.06f)))
-                    SnowEffectView(intensity = snowIntensity, modifier = Modifier.matchParentSize())
-                }
-                if (discoIntensity != DiscoIntensity.OFF) {
-                    DiscoEffectView(intensity = discoIntensity, modifier = Modifier.matchParentSize())
-                }
+                RainEffectView(intensity = rainIntensity, modifier = Modifier.matchParentSize())
+            }
+            if (snowIntensity != SnowIntensity.OFF) {
+                Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.06f)))
+                SnowEffectView(intensity = snowIntensity, modifier = Modifier.matchParentSize())
+            }
+            if (discoIntensity != DiscoIntensity.OFF) {
+                DiscoEffectView(intensity = discoIntensity, modifier = Modifier.matchParentSize())
             }
         }
 
-        // Movie info + engagement row
+        // Movie info + engagement row — overlaid at the bottom of the gradient
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                .align(Alignment.BottomStart)
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -168,7 +180,7 @@ fun FeaturedMoviePosterView(
                 Icon(
                     imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     contentDescription = "Like",
-                    tint = if (isLiked) CorusColors.Like else CorusColors.Tertiary,
+                    tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
                     modifier = Modifier.size(20.dp),
                 )
                 if (likeCount > 0) {
@@ -181,13 +193,12 @@ fun FeaturedMoviePosterView(
                 }
             }
 
-            // Trailer button (if available)
+            // Trailer button (if available) — YouTube red play icon, matching iOS
             if (post.trailerURL != null) {
                 Spacer(modifier = Modifier.width(CorusSpacing.md))
-                Icon(
-                    imageVector = Icons.Filled.PlayArrow,
+                Image(
+                    painter = painterResource(R.drawable.ic_play_rectangle_fill),
                     contentDescription = "Watch Trailer",
-                    tint = CorusColors.Accent,
                     modifier = Modifier
                         .size(24.dp)
                         .clickable(onClick = onTrailerTap),

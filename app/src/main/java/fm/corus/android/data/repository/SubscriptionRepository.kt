@@ -14,8 +14,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
@@ -49,6 +52,10 @@ class SubscriptionRepository @Inject constructor(
 
     private val _totalPostCount = MutableStateFlow(0)
     val totalPostCount: StateFlow<Int> = _totalPostCount.asStateFlow()
+
+    val hasFullAccessFlow: StateFlow<Boolean> = combine(_isClubMember, _isVerified) { club, verified ->
+        club || verified
+    }.stateIn(scope, SharingStarted.Eagerly, _isClubMember.value || _isVerified.value)
 
     val hasFullAccess: Boolean
         get() = _isClubMember.value || _isVerified.value

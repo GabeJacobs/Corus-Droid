@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusSpacing
@@ -20,10 +21,14 @@ import fm.corus.android.ui.theme.CorusSpacing
 @Composable
 fun UserAvatarView(
     avatarURL: String?,
+    avatarThumbURL: String? = null,
     size: Dp = CorusSpacing.avatarMedium,
     modifier: Modifier = Modifier,
 ) {
-    if (avatarURL.isNullOrBlank()) {
+    // Use thumbnail for small avatars (feed circles, likes, comments), full res for larger displays
+    val resolvedURL = if (size <= 36.dp && !avatarThumbURL.isNullOrBlank()) avatarThumbURL else avatarURL
+
+    if (resolvedURL.isNullOrBlank()) {
         Box(
             modifier = modifier
                 .size(size)
@@ -40,7 +45,7 @@ fun UserAvatarView(
         }
     } else {
         AsyncImage(
-            model = avatarURL,
+            model = resolvedURL,
             contentDescription = "User avatar",
             modifier = modifier
                 .size(size)

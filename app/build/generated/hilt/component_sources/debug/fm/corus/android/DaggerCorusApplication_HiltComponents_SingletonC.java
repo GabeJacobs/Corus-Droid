@@ -44,6 +44,7 @@ import fm.corus.android.data.remote.FirestoreDataSource;
 import fm.corus.android.data.remote.TMDBApiService;
 import fm.corus.android.data.repository.AuthRepository;
 import fm.corus.android.data.repository.ExploreRepository;
+import fm.corus.android.data.repository.GifRepository;
 import fm.corus.android.data.repository.MessageRepository;
 import fm.corus.android.data.repository.NotificationRepository;
 import fm.corus.android.data.repository.PostRepository;
@@ -61,10 +62,15 @@ import fm.corus.android.di.AppModule_ProvideRemoteConfigFactory;
 import fm.corus.android.di.NetworkModule_ProvideHttpClientFactory;
 import fm.corus.android.di.NetworkModule_ProvideJsonFactory;
 import fm.corus.android.di.RepositoryModule_ProvideFirebaseAnalyticsFactory;
+import fm.corus.android.domain.MusicServicePreference;
 import fm.corus.android.domain.NowPlayingManager;
 import fm.corus.android.domain.PostEngagementManager;
 import fm.corus.android.service.AnalyticsService;
 import fm.corus.android.service.RemoteConfigService;
+import fm.corus.android.ui.components.GifPickerViewModel;
+import fm.corus.android.ui.components.GifPickerViewModel_HiltModules;
+import fm.corus.android.ui.components.GifPickerViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
+import fm.corus.android.ui.components.GifPickerViewModel_HiltModules_KeyModule_Provide_LazyMapKey;
 import fm.corus.android.ui.navigation.MainTabViewModel;
 import fm.corus.android.ui.navigation.MainTabViewModel_HiltModules;
 import fm.corus.android.ui.navigation.MainTabViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
@@ -185,6 +191,10 @@ import fm.corus.android.ui.screens.settings.MutedUsersViewModel;
 import fm.corus.android.ui.screens.settings.MutedUsersViewModel_HiltModules;
 import fm.corus.android.ui.screens.settings.MutedUsersViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
 import fm.corus.android.ui.screens.settings.MutedUsersViewModel_HiltModules_KeyModule_Provide_LazyMapKey;
+import fm.corus.android.ui.screens.settings.SettingsViewModel;
+import fm.corus.android.ui.screens.settings.SettingsViewModel_HiltModules;
+import fm.corus.android.ui.screens.settings.SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
+import fm.corus.android.ui.screens.settings.SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey;
 import fm.corus.android.ui.screens.subscription.CymbalClubViewModel;
 import fm.corus.android.ui.screens.subscription.CymbalClubViewModel_HiltModules;
 import fm.corus.android.ui.screens.subscription.CymbalClubViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
@@ -525,7 +535,7 @@ public final class DaggerCorusApplication_HiltComponents_SingletonC {
 
     @Override
     public Map<Class<?>, Boolean> getViewModelKeys() {
-      return LazyClassKeyMap.<Boolean>of(ImmutableMap.<String, Boolean>builderWithExpectedSize(31).put(AppearanceSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, AppearanceSettingsViewModel_HiltModules.KeyModule.provide()).put(AuthViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, AuthViewModel_HiltModules.KeyModule.provide()).put(BlockedUsersViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, BlockedUsersViewModel_HiltModules.KeyModule.provide()).put(BotListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, BotListViewModel_HiltModules.KeyModule.provide()).put(ChangePhoneNumberViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ChangePhoneNumberViewModel_HiltModules.KeyModule.provide()).put(ChangeUsernameViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ChangeUsernameViewModel_HiltModules.KeyModule.provide()).put(CommentsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, CommentsViewModel_HiltModules.KeyModule.provide()).put(ComposeViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ComposeViewModel_HiltModules.KeyModule.provide()).put(ContactFriendsListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ContactFriendsListViewModel_HiltModules.KeyModule.provide()).put(CymbalClubViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, CymbalClubViewModel_HiltModules.KeyModule.provide()).put(EditCaptionViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, EditCaptionViewModel_HiltModules.KeyModule.provide()).put(EditProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, EditProfileViewModel_HiltModules.KeyModule.provide()).put(ExploreViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ExploreViewModel_HiltModules.KeyModule.provide()).put(FeedViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, FeedViewModel_HiltModules.KeyModule.provide()).put(FeedbackFormViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, FeedbackFormViewModel_HiltModules.KeyModule.provide()).put(FilmDetailViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, FilmDetailViewModel_HiltModules.KeyModule.provide()).put(FindPeopleViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, FindPeopleViewModel_HiltModules.KeyModule.provide()).put(FollowListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, FollowListViewModel_HiltModules.KeyModule.provide()).put(HashtagFeedViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, HashtagFeedViewModel_HiltModules.KeyModule.provide()).put(LikesViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, LikesViewModel_HiltModules.KeyModule.provide()).put(MainTabViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, MainTabViewModel_HiltModules.KeyModule.provide()).put(MessageThreadViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, MessageThreadViewModel_HiltModules.KeyModule.provide()).put(MutedUsersViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, MutedUsersViewModel_HiltModules.KeyModule.provide()).put(NotificationsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, NotificationsViewModel_HiltModules.KeyModule.provide()).put(OtherProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, OtherProfileViewModel_HiltModules.KeyModule.provide()).put(PostDetailViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, PostDetailViewModel_HiltModules.KeyModule.provide()).put(ProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ProfileViewModel_HiltModules.KeyModule.provide()).put(SocialSetupViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SocialSetupViewModel_HiltModules.KeyModule.provide()).put(SongDetailViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SongDetailViewModel_HiltModules.KeyModule.provide()).put(SuggestedUsersListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SuggestedUsersListViewModel_HiltModules.KeyModule.provide()).put(ThreadListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ThreadListViewModel_HiltModules.KeyModule.provide()).build());
+      return LazyClassKeyMap.<Boolean>of(ImmutableMap.<String, Boolean>builderWithExpectedSize(33).put(AppearanceSettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, AppearanceSettingsViewModel_HiltModules.KeyModule.provide()).put(AuthViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, AuthViewModel_HiltModules.KeyModule.provide()).put(BlockedUsersViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, BlockedUsersViewModel_HiltModules.KeyModule.provide()).put(BotListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, BotListViewModel_HiltModules.KeyModule.provide()).put(ChangePhoneNumberViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ChangePhoneNumberViewModel_HiltModules.KeyModule.provide()).put(ChangeUsernameViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ChangeUsernameViewModel_HiltModules.KeyModule.provide()).put(CommentsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, CommentsViewModel_HiltModules.KeyModule.provide()).put(ComposeViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ComposeViewModel_HiltModules.KeyModule.provide()).put(ContactFriendsListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ContactFriendsListViewModel_HiltModules.KeyModule.provide()).put(CymbalClubViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, CymbalClubViewModel_HiltModules.KeyModule.provide()).put(EditCaptionViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, EditCaptionViewModel_HiltModules.KeyModule.provide()).put(EditProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, EditProfileViewModel_HiltModules.KeyModule.provide()).put(ExploreViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ExploreViewModel_HiltModules.KeyModule.provide()).put(FeedViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, FeedViewModel_HiltModules.KeyModule.provide()).put(FeedbackFormViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, FeedbackFormViewModel_HiltModules.KeyModule.provide()).put(FilmDetailViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, FilmDetailViewModel_HiltModules.KeyModule.provide()).put(FindPeopleViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, FindPeopleViewModel_HiltModules.KeyModule.provide()).put(FollowListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, FollowListViewModel_HiltModules.KeyModule.provide()).put(GifPickerViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, GifPickerViewModel_HiltModules.KeyModule.provide()).put(HashtagFeedViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, HashtagFeedViewModel_HiltModules.KeyModule.provide()).put(LikesViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, LikesViewModel_HiltModules.KeyModule.provide()).put(MainTabViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, MainTabViewModel_HiltModules.KeyModule.provide()).put(MessageThreadViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, MessageThreadViewModel_HiltModules.KeyModule.provide()).put(MutedUsersViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, MutedUsersViewModel_HiltModules.KeyModule.provide()).put(NotificationsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, NotificationsViewModel_HiltModules.KeyModule.provide()).put(OtherProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, OtherProfileViewModel_HiltModules.KeyModule.provide()).put(PostDetailViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, PostDetailViewModel_HiltModules.KeyModule.provide()).put(ProfileViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ProfileViewModel_HiltModules.KeyModule.provide()).put(SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SettingsViewModel_HiltModules.KeyModule.provide()).put(SocialSetupViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SocialSetupViewModel_HiltModules.KeyModule.provide()).put(SongDetailViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SongDetailViewModel_HiltModules.KeyModule.provide()).put(SuggestedUsersListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SuggestedUsersListViewModel_HiltModules.KeyModule.provide()).put(ThreadListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, ThreadListViewModel_HiltModules.KeyModule.provide()).build());
     }
 
     @Override
@@ -591,6 +601,8 @@ public final class DaggerCorusApplication_HiltComponents_SingletonC {
 
     private Provider<FollowListViewModel> followListViewModelProvider;
 
+    private Provider<GifPickerViewModel> gifPickerViewModelProvider;
+
     private Provider<HashtagFeedViewModel> hashtagFeedViewModelProvider;
 
     private Provider<LikesViewModel> likesViewModelProvider;
@@ -608,6 +620,8 @@ public final class DaggerCorusApplication_HiltComponents_SingletonC {
     private Provider<PostDetailViewModel> postDetailViewModelProvider;
 
     private Provider<ProfileViewModel> profileViewModelProvider;
+
+    private Provider<SettingsViewModel> settingsViewModelProvider;
 
     private Provider<SocialSetupViewModel> socialSetupViewModelProvider;
 
@@ -649,29 +663,31 @@ public final class DaggerCorusApplication_HiltComponents_SingletonC {
       this.filmDetailViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 15);
       this.findPeopleViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 16);
       this.followListViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 17);
-      this.hashtagFeedViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 18);
-      this.likesViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 19);
-      this.mainTabViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 20);
-      this.messageThreadViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 21);
-      this.mutedUsersViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 22);
-      this.notificationsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 23);
-      this.otherProfileViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 24);
+      this.gifPickerViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 18);
+      this.hashtagFeedViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 19);
+      this.likesViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 20);
+      this.mainTabViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 21);
+      this.messageThreadViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 22);
+      this.mutedUsersViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 23);
+      this.notificationsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 24);
     }
 
     @SuppressWarnings("unchecked")
     private void initialize2(final SavedStateHandle savedStateHandleParam,
         final ViewModelLifecycle viewModelLifecycleParam) {
-      this.postDetailViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 25);
-      this.profileViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 26);
-      this.socialSetupViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 27);
-      this.songDetailViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 28);
-      this.suggestedUsersListViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 29);
-      this.threadListViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 30);
+      this.otherProfileViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 25);
+      this.postDetailViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 26);
+      this.profileViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 27);
+      this.settingsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 28);
+      this.socialSetupViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 29);
+      this.songDetailViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 30);
+      this.suggestedUsersListViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 31);
+      this.threadListViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 32);
     }
 
     @Override
     public Map<Class<?>, javax.inject.Provider<ViewModel>> getHiltViewModelMap() {
-      return LazyClassKeyMap.<javax.inject.Provider<ViewModel>>of(ImmutableMap.<String, javax.inject.Provider<ViewModel>>builderWithExpectedSize(31).put(AppearanceSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) appearanceSettingsViewModelProvider)).put(AuthViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) authViewModelProvider)).put(BlockedUsersViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) blockedUsersViewModelProvider)).put(BotListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) botListViewModelProvider)).put(ChangePhoneNumberViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) changePhoneNumberViewModelProvider)).put(ChangeUsernameViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) changeUsernameViewModelProvider)).put(CommentsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) commentsViewModelProvider)).put(ComposeViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) composeViewModelProvider)).put(ContactFriendsListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) contactFriendsListViewModelProvider)).put(CymbalClubViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) cymbalClubViewModelProvider)).put(EditCaptionViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) editCaptionViewModelProvider)).put(EditProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) editProfileViewModelProvider)).put(ExploreViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) exploreViewModelProvider)).put(FeedViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) feedViewModelProvider)).put(FeedbackFormViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) feedbackFormViewModelProvider)).put(FilmDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) filmDetailViewModelProvider)).put(FindPeopleViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) findPeopleViewModelProvider)).put(FollowListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) followListViewModelProvider)).put(HashtagFeedViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) hashtagFeedViewModelProvider)).put(LikesViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) likesViewModelProvider)).put(MainTabViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) mainTabViewModelProvider)).put(MessageThreadViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) messageThreadViewModelProvider)).put(MutedUsersViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) mutedUsersViewModelProvider)).put(NotificationsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) notificationsViewModelProvider)).put(OtherProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) otherProfileViewModelProvider)).put(PostDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) postDetailViewModelProvider)).put(ProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) profileViewModelProvider)).put(SocialSetupViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) socialSetupViewModelProvider)).put(SongDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) songDetailViewModelProvider)).put(SuggestedUsersListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) suggestedUsersListViewModelProvider)).put(ThreadListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) threadListViewModelProvider)).build());
+      return LazyClassKeyMap.<javax.inject.Provider<ViewModel>>of(ImmutableMap.<String, javax.inject.Provider<ViewModel>>builderWithExpectedSize(33).put(AppearanceSettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) appearanceSettingsViewModelProvider)).put(AuthViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) authViewModelProvider)).put(BlockedUsersViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) blockedUsersViewModelProvider)).put(BotListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) botListViewModelProvider)).put(ChangePhoneNumberViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) changePhoneNumberViewModelProvider)).put(ChangeUsernameViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) changeUsernameViewModelProvider)).put(CommentsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) commentsViewModelProvider)).put(ComposeViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) composeViewModelProvider)).put(ContactFriendsListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) contactFriendsListViewModelProvider)).put(CymbalClubViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) cymbalClubViewModelProvider)).put(EditCaptionViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) editCaptionViewModelProvider)).put(EditProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) editProfileViewModelProvider)).put(ExploreViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) exploreViewModelProvider)).put(FeedViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) feedViewModelProvider)).put(FeedbackFormViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) feedbackFormViewModelProvider)).put(FilmDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) filmDetailViewModelProvider)).put(FindPeopleViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) findPeopleViewModelProvider)).put(FollowListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) followListViewModelProvider)).put(GifPickerViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) gifPickerViewModelProvider)).put(HashtagFeedViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) hashtagFeedViewModelProvider)).put(LikesViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) likesViewModelProvider)).put(MainTabViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) mainTabViewModelProvider)).put(MessageThreadViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) messageThreadViewModelProvider)).put(MutedUsersViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) mutedUsersViewModelProvider)).put(NotificationsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) notificationsViewModelProvider)).put(OtherProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) otherProfileViewModelProvider)).put(PostDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) postDetailViewModelProvider)).put(ProfileViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) profileViewModelProvider)).put(SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) settingsViewModelProvider)).put(SocialSetupViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) socialSetupViewModelProvider)).put(SongDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) songDetailViewModelProvider)).put(SuggestedUsersListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) suggestedUsersListViewModelProvider)).put(ThreadListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) threadListViewModelProvider)).build());
     }
 
     @Override
@@ -731,7 +747,7 @@ public final class DaggerCorusApplication_HiltComponents_SingletonC {
           return (T) new CymbalClubViewModel(singletonCImpl.subscriptionRepositoryProvider.get());
 
           case 10: // fm.corus.android.ui.screens.feed.EditCaptionViewModel 
-          return (T) new EditCaptionViewModel(singletonCImpl.postRepositoryProvider.get(), singletonCImpl.userRepositoryProvider.get());
+          return (T) new EditCaptionViewModel(singletonCImpl.postRepositoryProvider.get(), singletonCImpl.userRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get());
 
           case 11: // fm.corus.android.ui.screens.profile.EditProfileViewModel 
           return (T) new EditProfileViewModel(singletonCImpl.userRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.postRepositoryProvider.get(), singletonCImpl.subscriptionRepositoryProvider.get());
@@ -740,7 +756,7 @@ public final class DaggerCorusApplication_HiltComponents_SingletonC {
           return (T) new ExploreViewModel(singletonCImpl.exploreRepositoryProvider.get(), singletonCImpl.userRepositoryProvider.get(), singletonCImpl.spotifyRepositoryProvider.get(), singletonCImpl.tMDBRepositoryProvider.get(), singletonCImpl.remoteConfigServiceProvider.get(), singletonCImpl.provideFirebaseAuthProvider.get());
 
           case 13: // fm.corus.android.ui.screens.feed.FeedViewModel 
-          return (T) new FeedViewModel(singletonCImpl.postRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.postEngagementManagerProvider.get(), singletonCImpl.userRepositoryProvider.get(), singletonCImpl.messageRepositoryProvider.get(), singletonCImpl.nowPlayingManagerProvider.get(), singletonCImpl.remoteConfigServiceProvider.get());
+          return (T) new FeedViewModel(singletonCImpl.postRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.postEngagementManagerProvider.get(), singletonCImpl.userRepositoryProvider.get(), singletonCImpl.messageRepositoryProvider.get(), singletonCImpl.nowPlayingManagerProvider.get(), singletonCImpl.remoteConfigServiceProvider.get(), singletonCImpl.analyticsServiceProvider.get());
 
           case 14: // fm.corus.android.ui.screens.settings.FeedbackFormViewModel 
           return (T) new FeedbackFormViewModel(singletonCImpl.authRepositoryProvider.get(), singletonCImpl.userRepositoryProvider.get());
@@ -749,48 +765,54 @@ public final class DaggerCorusApplication_HiltComponents_SingletonC {
           return (T) new FilmDetailViewModel(singletonCImpl.postRepositoryProvider.get());
 
           case 16: // fm.corus.android.ui.screens.findpeople.FindPeopleViewModel 
-          return (T) new FindPeopleViewModel(singletonCImpl.userRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.exploreRepositoryProvider.get(), singletonCImpl.cloudFunctionsDataSourceProvider.get(), singletonCImpl.spotifyRepositoryProvider.get(), singletonCImpl.preferencesDataStoreProvider.get(), singletonCImpl.firestoreDataSourceProvider.get());
+          return (T) new FindPeopleViewModel(singletonCImpl.userRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.exploreRepositoryProvider.get(), singletonCImpl.cloudFunctionsDataSourceProvider.get(), singletonCImpl.spotifyRepositoryProvider.get(), singletonCImpl.tMDBRepositoryProvider.get(), singletonCImpl.preferencesDataStoreProvider.get(), singletonCImpl.firestoreDataSourceProvider.get());
 
           case 17: // fm.corus.android.ui.screens.profile.FollowListViewModel 
           return (T) new FollowListViewModel(singletonCImpl.userRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.cloudFunctionsDataSourceProvider.get());
 
-          case 18: // fm.corus.android.ui.screens.explore.HashtagFeedViewModel 
+          case 18: // fm.corus.android.ui.components.GifPickerViewModel 
+          return (T) new GifPickerViewModel(singletonCImpl.gifRepositoryProvider.get());
+
+          case 19: // fm.corus.android.ui.screens.explore.HashtagFeedViewModel 
           return (T) new HashtagFeedViewModel(singletonCImpl.postRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get());
 
-          case 19: // fm.corus.android.ui.screens.feed.LikesViewModel 
+          case 20: // fm.corus.android.ui.screens.feed.LikesViewModel 
           return (T) new LikesViewModel(singletonCImpl.postRepositoryProvider.get(), singletonCImpl.userRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get());
 
-          case 20: // fm.corus.android.ui.navigation.MainTabViewModel 
+          case 21: // fm.corus.android.ui.navigation.MainTabViewModel 
           return (T) new MainTabViewModel(singletonCImpl.nowPlayingManagerProvider.get(), singletonCImpl.subscriptionRepositoryProvider.get(), singletonCImpl.preferencesDataStoreProvider.get());
 
-          case 21: // fm.corus.android.ui.screens.messaging.MessageThreadViewModel 
+          case 22: // fm.corus.android.ui.screens.messaging.MessageThreadViewModel 
           return (T) new MessageThreadViewModel(singletonCImpl.messageRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.userRepositoryProvider.get());
 
-          case 22: // fm.corus.android.ui.screens.settings.MutedUsersViewModel 
+          case 23: // fm.corus.android.ui.screens.settings.MutedUsersViewModel 
           return (T) new MutedUsersViewModel(singletonCImpl.authRepositoryProvider.get(), singletonCImpl.userRepositoryProvider.get());
 
-          case 23: // fm.corus.android.ui.screens.notifications.NotificationsViewModel 
+          case 24: // fm.corus.android.ui.screens.notifications.NotificationsViewModel 
           return (T) new NotificationsViewModel(singletonCImpl.notificationRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get());
 
-          case 24: // fm.corus.android.ui.screens.profile.OtherProfileViewModel 
+          case 25: // fm.corus.android.ui.screens.profile.OtherProfileViewModel 
           return (T) new OtherProfileViewModel(singletonCImpl.userRepositoryProvider.get(), singletonCImpl.postRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.nowPlayingManagerProvider.get());
 
-          case 25: // fm.corus.android.ui.screens.feed.PostDetailViewModel 
+          case 26: // fm.corus.android.ui.screens.feed.PostDetailViewModel 
           return (T) new PostDetailViewModel(singletonCImpl.postRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.userRepositoryProvider.get(), singletonCImpl.postEngagementManagerProvider.get());
 
-          case 26: // fm.corus.android.ui.screens.profile.ProfileViewModel 
+          case 27: // fm.corus.android.ui.screens.profile.ProfileViewModel 
           return (T) new ProfileViewModel(singletonCImpl.authRepositoryProvider.get(), singletonCImpl.cloudFunctionsDataSourceProvider.get(), singletonCImpl.userRepositoryProvider.get(), singletonCImpl.subscriptionRepositoryProvider.get(), singletonCImpl.nowPlayingManagerProvider.get());
 
-          case 27: // fm.corus.android.ui.screens.auth.SocialSetupViewModel 
+          case 28: // fm.corus.android.ui.screens.settings.SettingsViewModel 
+          return (T) new SettingsViewModel(singletonCImpl.musicServicePreferenceProvider.get());
+
+          case 29: // fm.corus.android.ui.screens.auth.SocialSetupViewModel 
           return (T) new SocialSetupViewModel(singletonCImpl.authRepositoryProvider.get(), singletonCImpl.userRepositoryProvider.get(), singletonCImpl.postRepositoryProvider.get(), singletonCImpl.cloudFunctionsDataSourceProvider.get(), singletonCImpl.firestoreDataSourceProvider.get(), singletonCImpl.nowPlayingManagerProvider.get());
 
-          case 28: // fm.corus.android.ui.screens.feed.SongDetailViewModel 
+          case 30: // fm.corus.android.ui.screens.feed.SongDetailViewModel 
           return (T) new SongDetailViewModel(singletonCImpl.postRepositoryProvider.get(), singletonCImpl.nowPlayingManagerProvider.get());
 
-          case 29: // fm.corus.android.ui.screens.findpeople.SuggestedUsersListViewModel 
+          case 31: // fm.corus.android.ui.screens.findpeople.SuggestedUsersListViewModel 
           return (T) new SuggestedUsersListViewModel(singletonCImpl.userRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get());
 
-          case 30: // fm.corus.android.ui.screens.messaging.ThreadListViewModel 
+          case 32: // fm.corus.android.ui.screens.messaging.ThreadListViewModel 
           return (T) new ThreadListViewModel(singletonCImpl.messageRepositoryProvider.get(), singletonCImpl.authRepositoryProvider.get(), singletonCImpl.userRepositoryProvider.get());
 
           default: throw new AssertionError(id);
@@ -927,7 +949,11 @@ public final class DaggerCorusApplication_HiltComponents_SingletonC {
 
     private Provider<NowPlayingManager> nowPlayingManagerProvider;
 
+    private Provider<GifRepository> gifRepositoryProvider;
+
     private Provider<NotificationRepository> notificationRepositoryProvider;
+
+    private Provider<MusicServicePreference> musicServicePreferenceProvider;
 
     private SingletonCImpl(ApplicationContextModule applicationContextModuleParam) {
       this.applicationContextModule = applicationContextModuleParam;
@@ -969,7 +995,9 @@ public final class DaggerCorusApplication_HiltComponents_SingletonC {
     private void initialize2(final ApplicationContextModule applicationContextModuleParam) {
       this.messageRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<MessageRepository>(singletonCImpl, 25));
       this.nowPlayingManagerProvider = DoubleCheck.provider(new SwitchingProvider<NowPlayingManager>(singletonCImpl, 26));
-      this.notificationRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<NotificationRepository>(singletonCImpl, 27));
+      this.gifRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<GifRepository>(singletonCImpl, 27));
+      this.notificationRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<NotificationRepository>(singletonCImpl, 28));
+      this.musicServicePreferenceProvider = DoubleCheck.provider(new SwitchingProvider<MusicServicePreference>(singletonCImpl, 29));
     }
 
     @Override
@@ -1086,8 +1114,14 @@ public final class DaggerCorusApplication_HiltComponents_SingletonC {
           case 26: // fm.corus.android.domain.NowPlayingManager 
           return (T) new NowPlayingManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.cloudFunctionsDataSourceProvider.get());
 
-          case 27: // fm.corus.android.data.repository.NotificationRepository 
+          case 27: // fm.corus.android.data.repository.GifRepository 
+          return (T) new GifRepository(singletonCImpl.cloudFunctionsDataSourceProvider.get());
+
+          case 28: // fm.corus.android.data.repository.NotificationRepository 
           return (T) new NotificationRepository(singletonCImpl.cloudFunctionsDataSourceProvider.get(), singletonCImpl.firestoreDataSourceProvider.get());
+
+          case 29: // fm.corus.android.domain.MusicServicePreference 
+          return (T) new MusicServicePreference(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
           default: throw new AssertionError(id);
         }

@@ -215,9 +215,9 @@ fun UsernameWithFlair(
             overflow = TextOverflow.Ellipsis,
         )
 
-        // Flair badge
-        if (isClubMember || isVerified) {
-            val flair = if (isClubMember) flairStyle else FlairStyle.CHECKMARK
+        // Flair badge — club members and verified users see their selected flair (matching iOS hasClubAccess)
+        if ((isClubMember || isVerified) && !isBot) {
+            val flair = flairStyle
             if (flair != FlairStyle.NONE) {
                 Spacer(modifier = Modifier.width(4.dp))
                 if (flair.usesAssetImage) {
@@ -226,6 +226,7 @@ fun UsernameWithFlair(
                         contentDescription = "Corus",
                         modifier = Modifier.size(14.dp),
                         contentScale = ContentScale.Fit,
+                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(CorusColors.Accent),
                     )
                 } else if (flair.icon != null) {
                     Icon(
@@ -292,6 +293,15 @@ fun UsernameWithFlair(
             }
         }
     }
+}
+
+/**
+ * Parse the current mention query from text by checking the last whitespace-separated word.
+ * Returns the query (without @) if the user is typing a mention, or null otherwise.
+ */
+fun parseMentionQuery(text: String): String? {
+    val lastWord = text.split(Regex("\\s+")).lastOrNull() ?: return null
+    return if (lastWord.startsWith("@") && lastWord.length > 1) lastWord.drop(1) else null
 }
 
 /** Extract @mention usernames from text. */

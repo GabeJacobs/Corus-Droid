@@ -10,7 +10,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Tv
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +40,12 @@ import fm.corus.android.ui.util.DateUtils
 @Composable
 fun FilmDetailScreen(
     movieId: String,
+    initialMovieTitle: String? = null,
+    initialDirectorName: String? = null,
+    initialReleaseYear: String? = null,
+    initialPosterURL: String? = null,
+    initialPosterLargeURL: String? = null,
+    initialTrailerURL: String? = null,
     viewModel: FilmDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -48,13 +57,24 @@ fun FilmDetailScreen(
     val hasMore by viewModel.hasMore.collectAsState()
     val loadError by viewModel.loadError.collectAsState()
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
+    val movieHeader by viewModel.movieHeader.collectAsState()
     val context = LocalContext.current
 
     LaunchedEffect(movieId) {
+        if (initialMovieTitle != null) {
+            viewModel.setInitialMovieInfo(
+                MovieHeaderInfo(
+                    movieTitle = initialMovieTitle,
+                    directorName = initialDirectorName,
+                    releaseYear = initialReleaseYear,
+                    posterURL = initialPosterURL,
+                    posterLargeURL = initialPosterLargeURL,
+                    trailerURL = initialTrailerURL,
+                )
+            )
+        }
         viewModel.loadMoviePosts(movieId)
     }
-
-    val movieInfo = posts.firstOrNull()
 
     Scaffold(
         topBar = {
@@ -74,16 +94,18 @@ fun FilmDetailScreen(
                 .fillMaxSize()
                 .padding(padding),
             horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
         ) {
             // Film header
             item {
                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
-                if (movieInfo != null) {
+                val header = movieHeader
+                if (header != null) {
                     // Movie poster
                     AsyncImage(
-                        model = movieInfo.posterLargeURL ?: movieInfo.posterURL,
-                        contentDescription = movieInfo.movieTitle,
+                        model = header.posterLargeURL ?: header.posterURL,
+                        contentDescription = header.movieTitle,
                         modifier = Modifier
                             .width(220.dp)
                             .aspectRatio(2f / 3f)
@@ -100,26 +122,26 @@ fun FilmDetailScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = movieInfo.movieTitle ?: "",
+                            text = header.movieTitle ?: "",
                             style = CorusFont.songTitleLarge,
                             color = CorusColors.Text,
                             textAlign = TextAlign.Center,
                         )
-                        if (!movieInfo.releaseYear.isNullOrBlank()) {
+                        if (!header.releaseYear.isNullOrBlank()) {
                             Text(
-                                text = "(${movieInfo.releaseYear})",
-                                style = CorusFont.artistNameLarge,
+                                text = "(${header.releaseYear})",
+                                style = CorusFont.artistName,
                                 color = CorusColors.Tertiary,
                             )
                         }
                     }
 
                     // Director
-                    if (!movieInfo.directorName.isNullOrBlank()) {
+                    if (!header.directorName.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xxs))
                         Text(
-                            text = movieInfo.directorName,
-                            style = CorusFont.artistNameLarge,
+                            text = header.directorName,
+                            style = CorusFont.artistName,
                             color = CorusColors.Secondary,
                         )
                     }
@@ -134,23 +156,6 @@ fun FilmDetailScreen(
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                         ) {
-                            // Trailer capsule
-                            if (!movieInfo.trailerURL.isNullOrBlank()) {
-                                Button(
-                                    onClick = {
-                                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(movieInfo.trailerURL))) } catch (_: Exception) { }
-                                    },
-                                    shape = RoundedCornerShape(50),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = CorusColors.Text,
-                                        contentColor = Color.White,
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-                                ) {
-                                    Text("Trailer", style = CorusFont.buttonSmall)
-                                }
-                            }
-
                             // Post Film capsule
                             Button(
                                 onClick = { onNavigateToCompose(movieId) },
@@ -161,15 +166,44 @@ fun FilmDetailScreen(
                                 ),
                                 contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                             ) {
+                                Icon(
+                                    Icons.Filled.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(modifier = Modifier.width(CorusSpacing.sm))
                                 Text("Post Film", style = CorusFont.buttonSmall)
+                            }
+
+                            // Watch Trailer capsule
+                            if (!header.trailerURL.isNullOrBlank()) {
+                                Button(
+                                    onClick = {
+                                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(header.trailerURL))) } catch (_: Exception) { }
+                                    },
+                                    shape = RoundedCornerShape(50),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CorusColors.Accent,
+                                        contentColor = Color.White,
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                                ) {
+                                    Icon(
+                                        Icons.Filled.PlayArrow,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                                    Text("Watch Trailer", style = CorusFont.buttonSmall)
+                                }
                             }
                         }
 
                         // Where to Watch outline capsule
-                        if (!movieInfo.movieTitle.isNullOrBlank()) {
+                        if (!header.movieTitle.isNullOrBlank()) {
                             OutlinedButton(
                                 onClick = {
-                                    val url = "https://www.justwatch.com/us/search?q=${Uri.encode(movieInfo.movieTitle)}"
+                                    val url = "https://www.justwatch.com/us/search?q=${Uri.encode(header.movieTitle)}"
                                     try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { }
                                 },
                                 shape = RoundedCornerShape(50),
@@ -178,6 +212,13 @@ fun FilmDetailScreen(
                                 ),
                                 contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                             ) {
+                                Icon(
+                                    Icons.Outlined.Tv,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = CorusColors.Accent,
+                                )
+                                Spacer(modifier = Modifier.width(CorusSpacing.sm))
                                 Text("Where to Watch", style = CorusFont.buttonSmall, color = CorusColors.Accent)
                             }
                         }

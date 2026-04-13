@@ -38,8 +38,17 @@ class FilmDetailViewModel @Inject constructor(
     private var paginationCursor: Long? = null
     private val pageSize = 15
 
+    private val _movieHeader = MutableStateFlow<MovieHeaderInfo?>(null)
+    val movieHeader: StateFlow<MovieHeaderInfo?> = _movieHeader.asStateFlow()
+
     private var currentMovieId: String = ""
     private var movieTitle: String? = null
+
+    fun setInitialMovieInfo(info: MovieHeaderInfo) {
+        if (_movieHeader.value == null) {
+            _movieHeader.value = info
+        }
+    }
 
     fun loadMoviePosts(movieId: String, movieTitle: String? = null) {
         this.currentMovieId = movieId
@@ -60,6 +69,18 @@ class FilmDetailViewModel @Inject constructor(
                 val unique = deduplicateByUser(page.posts)
                 _posts.value = moveFirstPosterToTop(unique, page.firstPosterId)
                 _hasMore.value = page.posts.size >= pageSize
+
+                // Update movie header from fetched post data
+                page.posts.firstOrNull()?.let { post ->
+                    _movieHeader.value = MovieHeaderInfo(
+                        movieTitle = post.movieTitle,
+                        directorName = post.directorName,
+                        releaseYear = post.releaseYear,
+                        posterURL = post.posterURL,
+                        posterLargeURL = post.posterLargeURL,
+                        trailerURL = post.trailerURL,
+                    )
+                }
             } catch (e: Exception) {
                 _loadError.value = "Couldn't load posts for this film."
             }
@@ -96,13 +117,27 @@ class FilmDetailViewModel @Inject constructor(
     }
 
     private fun moveFirstPosterToTop(posts: List<CymbalPost>, firstPosterId: String?): List<CymbalPost> {
-        if (firstPosterId == null) return posts
-        val mutable = posts.toMutableList()
-        val idx = mutable.indexOfFirst { it.user.id == firstPosterId }
-        if (idx > 0) {
-            val first = mutable.removeAt(idx)
-            mutable.add(0, first)
+        // Partition: non-bots first, bots last, preserving relative order
+        val nonBots = posts.filter { !it.user.isBot }
+        val bots = posts.filter { it.user.isBot }
+        val sorted = (nonBots + bots).toMutableList()
+
+        if (firstPosterId != null) {
+            val idx = sorted.indexOfFirst { it.user.id == firstPosterId }
+            if (idx > 0) {
+                val first = sorted.removeAt(idx)
+                sorted.add(0, first)
+            }
         }
-        return mutable
+        return sorted
     }
 }
+
+data class MovieHeaderInfo(
+    val movieTitle: String? = null,
+    val directorName: String? = null,
+    val releaseYear: String? = null,
+    val posterURL: String? = null,
+    val posterLargeURL: String? = null,
+    val trailerURL: String? = null,
+)

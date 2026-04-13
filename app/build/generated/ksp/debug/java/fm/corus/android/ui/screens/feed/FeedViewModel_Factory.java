@@ -10,6 +10,7 @@ import fm.corus.android.data.repository.PostRepository;
 import fm.corus.android.data.repository.UserRepository;
 import fm.corus.android.domain.NowPlayingManager;
 import fm.corus.android.domain.PostEngagementManager;
+import fm.corus.android.service.AnalyticsService;
 import fm.corus.android.service.RemoteConfigService;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
@@ -45,13 +46,16 @@ public final class FeedViewModel_Factory implements Factory<FeedViewModel> {
 
   private final Provider<RemoteConfigService> remoteConfigProvider;
 
+  private final Provider<AnalyticsService> analyticsServiceProvider;
+
   public FeedViewModel_Factory(Provider<PostRepository> postRepositoryProvider,
       Provider<AuthRepository> authRepositoryProvider,
       Provider<PostEngagementManager> engagementManagerProvider,
       Provider<UserRepository> userRepositoryProvider,
       Provider<MessageRepository> messageRepositoryProvider,
       Provider<NowPlayingManager> nowPlayingManagerProvider,
-      Provider<RemoteConfigService> remoteConfigProvider) {
+      Provider<RemoteConfigService> remoteConfigProvider,
+      Provider<AnalyticsService> analyticsServiceProvider) {
     this.postRepositoryProvider = postRepositoryProvider;
     this.authRepositoryProvider = authRepositoryProvider;
     this.engagementManagerProvider = engagementManagerProvider;
@@ -59,11 +63,12 @@ public final class FeedViewModel_Factory implements Factory<FeedViewModel> {
     this.messageRepositoryProvider = messageRepositoryProvider;
     this.nowPlayingManagerProvider = nowPlayingManagerProvider;
     this.remoteConfigProvider = remoteConfigProvider;
+    this.analyticsServiceProvider = analyticsServiceProvider;
   }
 
   @Override
   public FeedViewModel get() {
-    return newInstance(postRepositoryProvider.get(), authRepositoryProvider.get(), engagementManagerProvider.get(), userRepositoryProvider.get(), messageRepositoryProvider.get(), nowPlayingManagerProvider.get(), remoteConfigProvider.get());
+    return newInstance(postRepositoryProvider.get(), authRepositoryProvider.get(), engagementManagerProvider.get(), userRepositoryProvider.get(), messageRepositoryProvider.get(), nowPlayingManagerProvider.get(), remoteConfigProvider.get(), analyticsServiceProvider.get());
   }
 
   public static FeedViewModel_Factory create(Provider<PostRepository> postRepositoryProvider,
@@ -72,14 +77,16 @@ public final class FeedViewModel_Factory implements Factory<FeedViewModel> {
       Provider<UserRepository> userRepositoryProvider,
       Provider<MessageRepository> messageRepositoryProvider,
       Provider<NowPlayingManager> nowPlayingManagerProvider,
-      Provider<RemoteConfigService> remoteConfigProvider) {
-    return new FeedViewModel_Factory(postRepositoryProvider, authRepositoryProvider, engagementManagerProvider, userRepositoryProvider, messageRepositoryProvider, nowPlayingManagerProvider, remoteConfigProvider);
+      Provider<RemoteConfigService> remoteConfigProvider,
+      Provider<AnalyticsService> analyticsServiceProvider) {
+    return new FeedViewModel_Factory(postRepositoryProvider, authRepositoryProvider, engagementManagerProvider, userRepositoryProvider, messageRepositoryProvider, nowPlayingManagerProvider, remoteConfigProvider, analyticsServiceProvider);
   }
 
   public static FeedViewModel newInstance(PostRepository postRepository,
       AuthRepository authRepository, PostEngagementManager engagementManager,
       UserRepository userRepository, MessageRepository messageRepository,
-      NowPlayingManager nowPlayingManager, RemoteConfigService remoteConfig) {
-    return new FeedViewModel(postRepository, authRepository, engagementManager, userRepository, messageRepository, nowPlayingManager, remoteConfig);
+      NowPlayingManager nowPlayingManager, RemoteConfigService remoteConfig,
+      AnalyticsService analyticsService) {
+    return new FeedViewModel(postRepository, authRepository, engagementManager, userRepository, messageRepository, nowPlayingManager, remoteConfig, analyticsService);
   }
 }

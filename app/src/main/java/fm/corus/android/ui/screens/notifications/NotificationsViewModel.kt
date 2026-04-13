@@ -21,7 +21,7 @@ class NotificationsViewModel @Inject constructor(
     private val _notifications = MutableStateFlow<List<CymbalNotification>>(emptyList())
     val notifications: StateFlow<List<CymbalNotification>> = _notifications.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(false)
+    private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)

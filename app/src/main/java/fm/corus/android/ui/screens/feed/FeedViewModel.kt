@@ -12,8 +12,11 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.ToastManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +35,7 @@ class FeedViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     val nowPlayingManager: NowPlayingManager,
     val remoteConfig: RemoteConfigService,
+    val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
@@ -73,6 +77,11 @@ class FeedViewModel @Inject constructor(
 
     private val _isShareSearching = MutableStateFlow(false)
     val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
+
+    private val _isLoadingShareContacts = MutableStateFlow(true)
+    val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
+
+    private var shareSearchJob: Job? = null
 
     fun loadFeed(refresh: Boolean = false) {
         val userId = authRepository.currentUserId ?: return
@@ -164,18 +173,47 @@ class FeedViewModel @Inject constructor(
         engagementManager.repostPost(post, userId)
     }
 
-    // ── Share search ──
+    // ── Share contacts & search ──
+
+    fun loadRecentShareContacts() {
+        val userId = authRepository.currentUserId ?: return
+        _isLoadingShareContacts.value = true
+        viewModelScope.launch {
+            try {
+                val threads = messageRepository.listThreads(userId)
+                val contacts = threads.mapNotNull { it.otherUser }
+                if (contacts.isNotEmpty()) {
+                    _recentShareContacts.value = contacts.take(20)
+                } else {
+                    val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
+                    val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
+                    val seen = mutableSetOf<String>()
+                    val combined = mutableListOf<CymbalUser>()
+                    for (user in following + followers) {
+                        if (seen.add(user.id)) combined.add(user)
+                    }
+                    _recentShareContacts.value = combined.take(20)
+                }
+            } catch (_: Exception) { }
+            _isLoadingShareContacts.value = false
+        }
+    }
 
     fun searchShareUsers(query: String) {
-        if (query.length < 2) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            shareSearchJob?.cancel()
             _shareSearchResults.value = emptyList()
             _isShareSearching.value = false
             return
         }
-        viewModelScope.launch {
+
+        shareSearchJob?.cancel()
+        shareSearchJob = viewModelScope.launch {
             _isShareSearching.value = true
+            delay(250)
             try {
-                _shareSearchResults.value = userRepository.searchUsers(query)
+                _shareSearchResults.value = userRepository.searchUsers(trimmed)
             } catch (_: Exception) {
                 _shareSearchResults.value = emptyList()
             }
@@ -188,12 +226,31 @@ class FeedViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
-                messageRepository.sendTextMessage(
-                    threadId = threadId,
-                    fromUserId = currentUserId,
-                    text = message.ifBlank { "Shared a post" },
-                )
-            } catch (_: Exception) { }
+                val text = message.trim()
+                if (post.isMovie) {
+                    messageRepository.sendSharedFilmMessage(
+                        threadId = threadId,
+                        fromUserId = currentUserId,
+                        text = text,
+                        movieTitle = post.movieTitle ?: post.displayTitle,
+                        directorName = post.directorName ?: post.displaySubtitle,
+                        posterURL = post.posterURL,
+                        tmdbWebURL = post.tmdbWebURL,
+                    )
+                } else {
+                    messageRepository.sendSharedTrackMessage(
+                        threadId = threadId,
+                        fromUserId = currentUserId,
+                        text = text,
+                        trackName = post.track.name,
+                        artistName = post.track.artistName,
+                        albumArtURL = post.track.albumArtURL,
+                        spotifyURL = post.track.spotifyWebURL.ifBlank { null },
+                    )
+                }
+            } catch (_: Exception) {
+                ToastManager.show("Failed to send post")
+            }
         }
     }
 

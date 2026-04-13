@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,11 +29,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -56,6 +63,7 @@ fun CommentsSheet(
 
     var commentText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+    var showGifPicker by remember { mutableStateOf(false) }
 
     val maxChars = 700
     val showCounter = commentText.length >= 650
@@ -161,7 +169,14 @@ fun CommentsSheet(
                         },
                     )
 
-                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                    IconButton(onClick = { showGifPicker = true }) {
+                        Icon(
+                            Icons.Filled.Gif,
+                            contentDescription = "Send GIF",
+                            tint = CorusColors.Accent,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
 
                     IconButton(
                         onClick = {
@@ -190,6 +205,16 @@ fun CommentsSheet(
             }
         },
     ) { padding ->
+        if (showGifPicker) {
+            GifPickerSheet(
+                onGifSelected = { gif ->
+                    viewModel.sendGifComment(gif.gifURL)
+                    showGifPicker = false
+                },
+                onDismiss = { showGifPicker = false },
+            )
+        }
+
         when {
             isLoading && comments.isEmpty() -> {
                 Box(
@@ -309,20 +334,34 @@ private fun CommentRow(
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
         Column(modifier = Modifier.weight(1f)) {
-            // Username + text
+            // Username
             Text(
-                text = buildAnnotatedString {
-                    withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)) {
-                        append(comment.user.username)
-                    }
-                    append(" ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
-                        append(comment.text)
-                    }
-                },
-                style = CorusFont.body,
+                text = comment.user.username,
+                style = CorusFont.body.copy(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp),
                 color = CorusColors.Text,
             )
+
+            // GIF or text content
+            if (comment.gifURL != null) {
+                Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(comment.gifURL)
+                        .build(),
+                    contentDescription = "GIF",
+                    modifier = Modifier
+                        .widthIn(max = 200.dp)
+                        .heightIn(max = 150.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Fit,
+                )
+            } else if (comment.text.isNotEmpty()) {
+                Text(
+                    text = comment.text,
+                    style = CorusFont.body.copy(fontWeight = FontWeight.Normal, fontSize = 15.sp),
+                    color = CorusColors.Text,
+                )
+            }
 
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
 

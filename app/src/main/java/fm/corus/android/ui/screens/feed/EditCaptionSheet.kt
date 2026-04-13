@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.ui.components.parseMentionQuery
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -30,6 +31,7 @@ import kotlinx.coroutines.launch
 fun EditCaptionSheet(
     postId: String,
     initialCaption: String,
+    albumArtURL: String? = null,
     viewModel: EditCaptionViewModel = hiltViewModel(),
     onDismiss: () -> Unit = {},
     onSaved: (String) -> Unit = {},
@@ -57,7 +59,12 @@ fun EditCaptionSheet(
                 actions = {
                     TextButton(
                         onClick = {
-                            viewModel.saveCaption(postId, caption) {
+                            viewModel.saveCaption(
+                                postId = postId,
+                                caption = caption,
+                                oldCaption = initialCaption,
+                                postAlbumArtURL = albumArtURL,
+                            ) {
                                 onSaved(caption)
                                 onDismiss()
                             }
@@ -92,10 +99,9 @@ fun EditCaptionSheet(
                     mentionSearchJob?.cancel()
                     mentionSearchJob = scope.launch {
                         delay(200)
-                        val words = newValue.split(" ")
-                        val lastWord = words.lastOrNull() ?: ""
-                        if (lastWord.startsWith("@") && lastWord.length > 1) {
-                            viewModel.searchMentions(lastWord.drop(1))
+                        val query = parseMentionQuery(newValue)
+                        if (query != null) {
+                            viewModel.searchMentions(query)
                         } else {
                             viewModel.clearMentions()
                         }
@@ -125,11 +131,9 @@ fun EditCaptionSheet(
                         user = user,
                         onClick = {
                             // Replace the @query with @username
-                            val words = caption.split(" ").toMutableList()
-                            val lastIndex = words.lastIndex
-                            if (lastIndex >= 0 && words[lastIndex].startsWith("@")) {
-                                words[lastIndex] = "@${user.username}"
-                                caption = words.joinToString(" ") + " "
+                            val lastAtIndex = caption.lastIndexOf("@")
+                            if (lastAtIndex >= 0) {
+                                caption = caption.substring(0, lastAtIndex) + "@${user.username} "
                             }
                             viewModel.clearMentions()
                         },

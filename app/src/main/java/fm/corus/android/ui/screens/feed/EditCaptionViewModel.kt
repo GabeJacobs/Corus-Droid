@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.ui.components.extractMentions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +18,7 @@ import javax.inject.Inject
 class EditCaptionViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val userRepository: UserRepository,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _isSaving = MutableStateFlow(false)
@@ -24,14 +27,47 @@ class EditCaptionViewModel @Inject constructor(
     private val _mentionSuggestions = MutableStateFlow<List<CymbalUser>>(emptyList())
     val mentionSuggestions: StateFlow<List<CymbalUser>> = _mentionSuggestions.asStateFlow()
 
-    fun saveCaption(postId: String, caption: String, onSuccess: () -> Unit) {
+    fun saveCaption(
+        postId: String,
+        caption: String,
+        oldCaption: String = "",
+        postAlbumArtURL: String? = null,
+        onSuccess: () -> Unit,
+    ) {
         viewModelScope.launch {
             _isSaving.value = true
             try {
                 postRepository.updateCaption(postId, caption)
+                notifyNewMentions(postId, caption, oldCaption, postAlbumArtURL)
                 onSuccess()
             } catch (_: Exception) { }
             _isSaving.value = false
+        }
+    }
+
+    private suspend fun notifyNewMentions(
+        postId: String,
+        newCaption: String,
+        oldCaption: String,
+        postAlbumArtURL: String?,
+    ) {
+        val userId = authRepository.currentUserId ?: return
+        val newMentions = extractMentions(newCaption).toSet()
+        val oldMentions = extractMentions(oldCaption).toSet()
+        val added = newMentions - oldMentions
+
+        for (username in added) {
+            try {
+                val user = userRepository.fetchUserByUsername(username) ?: continue
+                if (user.id == userId) continue
+                postRepository.createNotification(
+                    type = "tag",
+                    fromUserId = userId,
+                    toUserId = user.id,
+                    postId = postId,
+                    postAlbumArtURL = postAlbumArtURL,
+                )
+            } catch (_: Exception) { }
         }
     }
 

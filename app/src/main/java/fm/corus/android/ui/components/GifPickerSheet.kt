@@ -1,0 +1,262 @@
+package fm.corus.android.ui.components
+
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import fm.corus.android.data.model.TenorGif
+import fm.corus.android.data.repository.GifRepository
+import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusSpacing
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GifPickerSheet(
+    gifRepository: GifRepository = hiltGifRepository(),
+    onGifSelected: (TenorGif) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var gifs by remember { mutableStateOf<List<TenorGif>>(emptyList()) }
+    var nextCursor by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
+    var searchJob by remember { mutableStateOf<Job?>(null) }
+
+    // Load trending on first open
+    LaunchedEffect(Unit) {
+        try {
+            val result = gifRepository.getTrendingGifs()
+            gifs = result.gifs
+            nextCursor = result.nextCursor
+        } catch (_: Exception) { }
+        isLoading = false
+    }
+
+    // Debounced search
+    fun doSearch(query: String) {
+        searchJob?.cancel()
+        searchJob = scope.launch {
+            delay(300)
+            isLoading = true
+            try {
+                val result = if (query.isBlank()) {
+                    gifRepository.getTrendingGifs()
+                } else {
+                    gifRepository.searchGifs(query)
+                }
+                gifs = result.gifs
+                nextCursor = result.nextCursor
+            } catch (_: Exception) { }
+            isLoading = false
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        sheetMaxWidth = Int.MAX_VALUE.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.6f)
+                .padding(horizontal = CorusSpacing.lg),
+        ) {
+            // Search bar
+            TextField(
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                    doSearch(it)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search GIFs", style = CorusFont.body, color = CorusColors.Tertiary) },
+                singleLine = true,
+                leadingIcon = {
+                    Icon(Icons.Filled.Search, contentDescription = "Search", tint = CorusColors.Secondary)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "Clear",
+                            modifier = Modifier.clickable {
+                                searchQuery = ""
+                                doSearch("")
+                            },
+                            tint = CorusColors.Secondary,
+                        )
+                    }
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { doSearch(searchQuery) }),
+                shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = CorusColors.CardBackground,
+                    unfocusedContainerColor = CorusColors.CardBackground,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = CorusColors.Accent,
+                ),
+                textStyle = CorusFont.body.copy(color = CorusColors.Text),
+            )
+
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
+            // GIF grid or skeleton
+            if (isLoading && gifs.isEmpty()) {
+                // Skeleton grid
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                ) {
+                    items(8) {
+                        ShimmerBox(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                        )
+                    }
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                ) {
+                    items(gifs, key = { it.id }) { gif ->
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(gif.tinyGifURL)
+                                .build(),
+                            contentDescription = "GIF",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onGifSelected(gif) },
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+
+                    // Load more
+                    if (nextCursor.isNotEmpty()) {
+                        item {
+                            LaunchedEffect(nextCursor) {
+                                try {
+                                    val result = if (searchQuery.isBlank()) {
+                                        gifRepository.getTrendingGifs(pos = nextCursor)
+                                    } else {
+                                        gifRepository.searchGifs(searchQuery, pos = nextCursor)
+                                    }
+                                    gifs = gifs + result.gifs
+                                    nextCursor = result.nextCursor
+                                } catch (_: Exception) { }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(CorusSpacing.md),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = CorusColors.Accent,
+                                    strokeWidth = 2.dp,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Attribution
+            Text(
+                text = "Powered by GIPHY",
+                style = CorusFont.caption,
+                color = CorusColors.Tertiary,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(vertical = CorusSpacing.sm),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ShimmerBox(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val translateAnim by transition.animateFloat(
+        initialValue = -300f,
+        targetValue = 600f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "shimmerTranslate",
+    )
+
+    Box(
+        modifier = modifier
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color(0xFFE0E0E0),
+                        Color(0xFFF5F5F5),
+                        Color(0xFFE0E0E0),
+                    ),
+                    start = Offset(translateAnim, 0f),
+                    end = Offset(translateAnim + 300f, 0f),
+                ),
+            ),
+    )
+}
+
+@Composable
+private fun hiltGifRepository(): GifRepository {
+    return androidx.hilt.navigation.compose.hiltViewModel<GifPickerViewModel>().gifRepository
+}
+
+@dagger.hilt.android.lifecycle.HiltViewModel
+class GifPickerViewModel @javax.inject.Inject constructor(
+    val gifRepository: GifRepository,
+) : androidx.lifecycle.ViewModel()

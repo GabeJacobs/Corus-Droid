@@ -193,6 +193,18 @@ class UserRepository @Inject constructor(
         firestoreDataSource.submitReport(reporterId, targetUserId, postId, reason, details)
     }
 
+    suspend fun subscribeToUserPosts(subscriberId: String, targetUserId: String) {
+        firestoreDataSource.subscribeToUserPosts(subscriberId, targetUserId)
+    }
+
+    suspend fun unsubscribeFromUserPosts(subscriberId: String, targetUserId: String) {
+        firestoreDataSource.unsubscribeFromUserPosts(subscriberId, targetUserId)
+    }
+
+    suspend fun isSubscribedToUserPosts(subscriberId: String, targetUserId: String): Boolean {
+        return firestoreDataSource.isSubscribedToUserPosts(subscriberId, targetUserId)
+    }
+
     fun clearCaches() {
         _followingIds.value = emptySet()
         _blockedIds.value = emptySet()

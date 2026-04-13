@@ -1,6 +1,7 @@
 package fm.corus.android.data.remote
 
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -290,7 +291,9 @@ class FirestoreDataSource @Inject constructor(
             }
         }
 
-        return allDocs.values.toSet().size
+        val uniqueUserIds = allDocs.values.toSet()
+        val botIds = fetchBotUserIds(uniqueUserIds)
+        return uniqueUserIds.count { it !in botIds }
     }
 
     /**
@@ -301,7 +304,25 @@ class FirestoreDataSource @Inject constructor(
             .whereEqualTo("movieId", movieId)
             .get().await()
         val uniqueUserIds = snapshot.documents.mapNotNull { it.getString("userId") }.toSet()
-        return uniqueUserIds.size
+        val botIds = fetchBotUserIds(uniqueUserIds)
+        return uniqueUserIds.count { it !in botIds }
+    }
+
+    /** Given a set of user IDs, returns the subset that are bots. */
+    private suspend fun fetchBotUserIds(userIds: Set<String>): Set<String> {
+        if (userIds.isEmpty()) return emptySet()
+        val botIds = mutableSetOf<String>()
+        // Firestore 'in' queries limited to 30 items
+        userIds.chunked(30).forEach { chunk ->
+            val snap = try {
+                firestore.collection("users_v2")
+                    .whereIn(FieldPath.documentId(), chunk)
+                    .whereEqualTo("isBot", true)
+                    .get().await()
+            } catch (_: Exception) { null }
+            snap?.documents?.forEach { botIds.add(it.id) }
+        }
+        return botIds
     }
 
     suspend fun createPost(userId: String, data: Map<String, Any?>): String {
@@ -384,6 +405,26 @@ class FirestoreDataSource @Inject constructor(
             .await()
     }
 
+    suspend fun createNotification(
+        type: String,
+        fromUserId: String,
+        toUserId: String,
+        postId: String? = null,
+        postAlbumArtURL: String? = null,
+    ) {
+        if (fromUserId == toUserId) return
+        val data = mutableMapOf<String, Any>(
+            "type" to type,
+            "fromUserId" to fromUserId,
+            "toUserId" to toUserId,
+            "isRead" to false,
+            "timestamp" to FieldValue.serverTimestamp(),
+        )
+        if (postId != null) data["postId"] = postId
+        if (postAlbumArtURL != null) data["postAlbumArtURL"] = postAlbumArtURL
+        firestore.collection("notifications").add(data).await()
+    }
+
     suspend fun deletePost(postId: String, userId: String) {
         firestore.collection("posts").document(postId).delete().await()
         firestore.collection("users_v2").document(userId)
@@ -393,7 +434,7 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Comments ──
 
-    suspend fun addComment(postId: String, userId: String, text: String, parentCommentId: String? = null, replyToUserId: String? = null): String {
+    suspend fun addComment(postId: String, userId: String, text: String, parentCommentId: String? = null, replyToUserId: String? = null, gifURL: String? = null): String {
         val commentRef = firestore.collection("posts").document(postId)
             .collection("comments").document()
         val commentData = mutableMapOf<String, Any?>(
@@ -406,6 +447,7 @@ class FirestoreDataSource @Inject constructor(
         )
         parentCommentId?.let { commentData["parentCommentId"] = it }
         replyToUserId?.let { commentData["replyToUserId"] = it }
+        gifURL?.let { commentData["gifURL"] = it }
         commentRef.set(commentData).await()
 
         firestore.collection("posts").document(postId)
@@ -522,50 +564,46 @@ class FirestoreDataSource @Inject constructor(
             .await()
     }
 
-    // ── Trending Songs ──
+    // ── Trending Songs (from trending_cache/songs, matching iOS) ──
 
     @Suppress("UNCHECKED_CAST")
     suspend fun fetchTrendingSongs(limit: Int = 20): List<TrendingSong> {
-        val snapshot = firestore.collection("trackStats")
-            .orderBy("cymbalCount", Query.Direction.DESCENDING)
-            .limit(limit.toLong())
-            .get().await()
-        return snapshot.documents.mapIndexedNotNull { index, doc ->
-            val data = doc.data ?: return@mapIndexedNotNull null
+        val doc = firestore.collection("trending_cache").document("songs").get().await()
+        val items = doc.data?.get("items") as? List<Map<String, Any?>> ?: return emptyList()
+        return items.take(limit).mapNotNull { item ->
+            val trackId = item["trackId"] as? String ?: return@mapNotNull null
             TrendingSong(
-                id = doc.id,
-                rank = index + 1,
-                track = CymbalTrack.fromMap(data),
-                cymbalCount = (data["cymbalCount"] as? Number)?.toInt() ?: 0,
+                id = trackId,
+                rank = (item["rank"] as? Number)?.toInt() ?: 0,
+                track = CymbalTrack.fromMap(item),
+                cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
             )
         }
     }
 
-    // ── Trending Movies ──
+    // ── Trending Movies (from trending_cache/movies, matching iOS) ──
 
     @Suppress("UNCHECKED_CAST")
     suspend fun fetchTrendingMovies(limit: Int = 20): List<TrendingMovie> {
-        val snapshot = firestore.collection("movieStats")
-            .orderBy("cymbalCount", Query.Direction.DESCENDING)
-            .limit(limit.toLong())
-            .get().await()
-        return snapshot.documents.mapIndexedNotNull { index, doc ->
-            val data = doc.data ?: return@mapIndexedNotNull null
+        val doc = firestore.collection("trending_cache").document("movies").get().await()
+        val items = doc.data?.get("items") as? List<Map<String, Any?>> ?: return emptyList()
+        return items.take(limit).mapNotNull { item ->
+            val movieId = item["movieId"] as? String ?: return@mapNotNull null
             TrendingMovie(
-                id = doc.id,
-                rank = index + 1,
-                movieId = data["movieId"] as? String ?: doc.id,
-                movieTitle = data["movieTitle"] as? String ?: "",
-                directorName = data["directorName"] as? String ?: "",
-                releaseYear = data["releaseYear"] as? String ?: "",
-                posterURL = data["posterURL"] as? String,
-                posterLargeURL = data["posterLargeURL"] as? String,
-                tmdbWebURL = data["tmdbWebURL"] as? String ?: "",
-                trailerURL = data["trailerURL"] as? String,
-                movieOverview = data["movieOverview"] as? String ?: "",
-                movieRating = (data["movieRating"] as? Number)?.toDouble() ?: 0.0,
-                movieCast = (data["movieCast"] as? List<String>) ?: emptyList(),
-                cymbalCount = (data["cymbalCount"] as? Number)?.toInt() ?: 0,
+                id = movieId,
+                rank = (item["rank"] as? Number)?.toInt() ?: 0,
+                movieId = movieId,
+                movieTitle = item["movieTitle"] as? String ?: "",
+                directorName = item["directorName"] as? String ?: "",
+                releaseYear = item["releaseYear"] as? String ?: "",
+                posterURL = item["posterURL"] as? String,
+                posterLargeURL = item["posterLargeURL"] as? String,
+                tmdbWebURL = item["tmdbWebURL"] as? String ?: "",
+                trailerURL = item["trailerURL"] as? String,
+                movieOverview = item["movieOverview"] as? String ?: "",
+                movieRating = (item["movieRating"] as? Number)?.toDouble() ?: 0.0,
+                movieCast = (item["movieCast"] as? List<String>) ?: emptyList(),
+                cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
             )
         }
     }
@@ -586,6 +624,21 @@ class FirestoreDataSource @Inject constructor(
     }
 
     // ── Popular Users ──
+
+    suspend fun fetchUsersByIds(ids: List<String>): List<CymbalUser> {
+        if (ids.isEmpty()) return emptyList()
+        val users = mutableListOf<CymbalUser>()
+        ids.chunked(30).forEach { chunk ->
+            val snapshot = firestore.collection("users_v2")
+                .whereIn(FieldPath.documentId(), chunk)
+                .get().await()
+            snapshot.documents.forEach { doc ->
+                val data = doc.data ?: return@forEach
+                users.add(CymbalUser.fromMap(doc.id, data))
+            }
+        }
+        return users
+    }
 
     suspend fun fetchPopularUsers(limit: Int = 10, excludeIds: Set<String> = emptySet()): List<CymbalUser> {
         val snapshot = firestore.collection("users_v2")
@@ -639,6 +692,26 @@ class FirestoreDataSource @Inject constructor(
             .collection("likes").document(userId)
             .get().await()
         return doc.exists()
+    }
+
+    // ── Mutual connections (precomputed) ──
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchPrecomputedMutualConnections(userId: String, limit: Int = 20): List<Pair<CymbalUser, List<String>>> {
+        val snapshot = firestore.collection("users_v2").document(userId)
+            .collection("mutual_connections")
+            .orderBy("mutualCount", Query.Direction.DESCENDING)
+            .limit(limit.toLong())
+            .get().await()
+
+        return snapshot.documents.mapNotNull { doc ->
+            val data = doc.data ?: return@mapNotNull null
+            val userDoc = firestore.collection("users_v2").document(doc.id).get().await()
+            val userData = userDoc.data ?: return@mapNotNull null
+            val user = CymbalUser.fromMap(doc.id, userData)
+            val names = (data["mutualNames"] as? List<String>).orEmpty()
+            user to names
+        }
     }
 
     // ── Username lookup ──
@@ -766,5 +839,29 @@ class FirestoreDataSource @Inject constructor(
             batch.update(doc.reference, "isRead", true)
         }
         batch.commit().await()
+    }
+
+    // ── Post Notification Subscriptions ──
+
+    suspend fun subscribeToUserPosts(subscriberId: String, targetUserId: String) {
+        val docId = "${subscriberId}_${targetUserId}"
+        firestore.collection("postSubscriptions").document(docId).set(
+            mapOf(
+                "subscriberId" to subscriberId,
+                "targetUserId" to targetUserId,
+                "createdAt" to FieldValue.serverTimestamp(),
+            )
+        ).await()
+    }
+
+    suspend fun unsubscribeFromUserPosts(subscriberId: String, targetUserId: String) {
+        val docId = "${subscriberId}_${targetUserId}"
+        firestore.collection("postSubscriptions").document(docId).delete().await()
+    }
+
+    suspend fun isSubscribedToUserPosts(subscriberId: String, targetUserId: String): Boolean {
+        val docId = "${subscriberId}_${targetUserId}"
+        val doc = firestore.collection("postSubscriptions").document(docId).get().await()
+        return doc.exists()
     }
 }

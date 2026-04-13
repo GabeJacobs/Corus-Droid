@@ -1,0 +1,85 @@
+package fm.corus.android.domain
+
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class HapticManager @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val dataStore: DataStore<Preferences>,
+) {
+    companion object {
+        private val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
+    }
+
+    private val vibrator: Vibrator by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            manager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+    }
+
+    val hapticsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[HAPTICS_ENABLED] ?: true
+    }
+
+    suspend fun setHapticsEnabled(enabled: Boolean) {
+        dataStore.edit { it[HAPTICS_ENABLED] = enabled }
+    }
+
+    /** Light impact — button taps, selections. */
+    fun impact(style: ImpactStyle = ImpactStyle.LIGHT) {
+        if (!isEnabled()) return
+        val amplitude = when (style) {
+            ImpactStyle.LIGHT -> 40
+            ImpactStyle.MEDIUM -> 100
+            ImpactStyle.HEAVY -> 200
+        }
+        vibrator.vibrate(VibrationEffect.createOneShot(20, amplitude))
+    }
+
+    /** Notification-style feedback — success, warning, error. */
+    fun notification(type: NotificationType = NotificationType.SUCCESS) {
+        if (!isEnabled()) return
+        val effect = when (type) {
+            NotificationType.SUCCESS -> VibrationEffect.createOneShot(30, 80)
+            NotificationType.WARNING -> VibrationEffect.createOneShot(40, 120)
+            NotificationType.ERROR -> VibrationEffect.createOneShot(50, 200)
+        }
+        vibrator.vibrate(effect)
+    }
+
+    /** Selection tick — subtle change feedback. */
+    fun selection() {
+        if (!isEnabled()) return
+        vibrator.vibrate(VibrationEffect.createOneShot(10, 30))
+    }
+
+    private fun isEnabled(): Boolean = runBlocking {
+        var enabled = true
+        dataStore.data.collect { prefs ->
+            enabled = prefs[HAPTICS_ENABLED] ?: true
+            return@collect
+        }
+        enabled
+    }
+
+    enum class ImpactStyle { LIGHT, MEDIUM, HEAVY }
+    enum class NotificationType { SUCCESS, WARNING, ERROR }
+}

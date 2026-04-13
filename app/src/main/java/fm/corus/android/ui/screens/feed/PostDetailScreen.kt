@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.feed
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -27,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -36,7 +38,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import android.content.Intent
 import android.net.Uri
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -44,6 +45,8 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.R
+import fm.corus.android.ui.components.LikedBySection
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.components.VoiceNotePlayerView
@@ -62,7 +65,7 @@ fun PostDetailScreen(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToComments: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
-    onNavigateToSong: (String) -> Unit = {},
+    onNavigateToSong: (String, String?) -> Unit = { _, _ -> },
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
 ) {
@@ -130,7 +133,8 @@ fun PostDetailScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding),
+                        .padding(top = padding.calculateTopPadding()),
+                    contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
                 ) {
                     // Post header
                     item {
@@ -152,7 +156,7 @@ fun PostDetailScreen(
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
                                 } else {
-                                    onNavigateToSong(currentPost.track.id)
+                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtURL)
                                 }
                             },
                         )
@@ -166,7 +170,7 @@ fun PostDetailScreen(
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
                                 } else {
-                                    onNavigateToSong(currentPost.track.id)
+                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtURL)
                                 }
                             },
                             onSpotifyTap = {
@@ -208,7 +212,7 @@ fun PostDetailScreen(
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
                                 } else {
-                                    onNavigateToSong(currentPost.track.id)
+                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtURL)
                                 }
                             },
                         )
@@ -217,10 +221,9 @@ fun PostDetailScreen(
                     // Liked by section
                     if (likeCount > 0 && currentPost.likers.isNotEmpty()) {
                         item {
-                            PostDetailLikedBy(
+                            LikedBySection(
                                 likers = currentPost.likers,
                                 likeCount = likeCount,
-                                onUserTap = onNavigateToUser,
                                 onLikesTap = { onNavigateToLikes(currentPost.id) },
                             )
                         }
@@ -329,6 +332,7 @@ fun PostDetailScreen(
         EditCaptionSheet(
             postId = postId,
             initialCaption = post!!.caption ?: "",
+            albumArtURL = post!!.displayImageURL,
             onDismiss = { showEditCaption = false },
             onSaved = { _ ->
                 showEditCaption = false
@@ -530,10 +534,10 @@ private fun PostDetailSongInfo(
 
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
-        // Spotify or trailer button
+        // Spotify or trailer button — YouTube red play icon, matching iOS
         if (post.isMovie) {
-            Icon(
-                imageVector = Icons.Filled.PlayCircle,
+            Image(
+                painter = painterResource(R.drawable.ic_play_rectangle_fill),
                 contentDescription = "Watch Trailer",
                 modifier = Modifier
                     .size(22.dp)
@@ -542,7 +546,6 @@ private fun PostDetailSongInfo(
                         indication = null,
                         onClick = onTrailerTap,
                     ),
-                tint = CorusColors.Accent,
             )
         } else {
             Box(
@@ -676,62 +679,6 @@ private fun EngagementButton(
     }
 }
 
-@Composable
-private fun PostDetailLikedBy(
-    likers: List<fm.corus.android.data.model.CymbalUser>,
-    likeCount: Int,
-    onUserTap: (String) -> Unit,
-    onLikesTap: () -> Unit = {},
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onLikesTap)
-            .padding(start = 12.dp, end = CorusSpacing.lg, bottom = CorusSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(modifier = Modifier.height(20.dp)) {
-            likers.take(3).forEachIndexed { index, liker ->
-                UserAvatarView(
-                    avatarURL = liker.avatarURL,
-                    size = 20.dp,
-                    modifier = Modifier
-                        .offset(x = (index * 12).dp)
-                        .zIndex((3 - index).toFloat())
-                        .clickable { onUserTap(liker.id) },
-                )
-            }
-        }
-
-        val avatarStackWidth = when (likers.take(3).size) {
-            1 -> 20.dp
-            2 -> 32.dp
-            else -> 44.dp
-        }
-        Spacer(modifier = Modifier.width(avatarStackWidth + CorusSpacing.xs))
-
-        val likedByText = buildAnnotatedString {
-            append("Liked by ")
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) {
-                append(likers.first().username)
-            }
-            if (likeCount > 1) {
-                append(" and ")
-                withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) {
-                    append("${likeCount - 1} other${if (likeCount - 1 > 1) "s" else ""}")
-                }
-            }
-        }
-        Text(
-            text = likedByText,
-            style = CorusFont.caption,
-            color = CorusColors.Text,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
 
 @Composable
 private fun PostDetailCaption(

@@ -11,6 +11,7 @@ data class CymbalComment(
     val parentCommentId: String? = null,
     val replyToUser: CymbalUser? = null,
     val replyCount: Int = 0,
+    val gifURL: String? = null,
 ) {
     companion object {
         @Suppress("UNCHECKED_CAST")
@@ -25,7 +26,7 @@ data class CymbalComment(
                 CymbalUser.fromMap(rtId, it)
             }
 
-            val timestampMs = data["timestamp"] as? Number
+            val timestampMs = data["createdAt"] as? Number ?: data["timestamp"] as? Number
             val timestamp = if (timestampMs != null) Date(timestampMs.toLong()) else Date()
 
             return CymbalComment(
@@ -37,6 +38,7 @@ data class CymbalComment(
                 parentCommentId = data["parentCommentId"] as? String,
                 replyToUser = replyToUser,
                 replyCount = (data["replyCount"] as? Number)?.toInt() ?: 0,
+                gifURL = data["gifURL"] as? String,
             )
         }
     }

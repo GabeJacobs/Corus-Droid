@@ -3,6 +3,7 @@ package fm.corus.android.data.model
 enum class MessageType(val value: String) {
     TEXT("text"),
     IMAGE("image"),
+    GIF("gif"),
     SHARED_POST("sharedPost"),
     SHARED_TRACK("sharedTrack"),
     SHARED_FILM("sharedFilm");

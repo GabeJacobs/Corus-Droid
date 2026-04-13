@@ -6,37 +6,37 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.HowToReg
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Feedback
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Policy
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import fm.corus.android.R
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.data.model.MusicService
 import fm.corus.android.ui.screens.auth.AuthViewModel
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -45,30 +45,27 @@ import fm.corus.android.ui.theme.CorusSpacing
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit = {},
-    onAppearance: () -> Unit = {},
-    onEditProfile: () -> Unit = {},
     onChangeUsername: () -> Unit = {},
     onChangePhoneNumber: () -> Unit = {},
     onBlockedUsers: () -> Unit = {},
     onMutedUsers: () -> Unit = {},
     onSendFeedback: () -> Unit = {},
+    onNotificationSettings: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
+    settingsViewModel: SettingsViewModel = hiltViewModel(),
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // General toggles
-    var onePerFollower by remember { mutableStateOf(false) }
     var hapticsEnabled by remember { mutableStateOf(true) }
 
-    // Notification toggles
-    var notifyLikes by remember { mutableStateOf(true) }
-    var notifyComments by remember { mutableStateOf(true) }
-    var notifyNewFollowers by remember { mutableStateOf(true) }
-    var notifyFollowRequests by remember { mutableStateOf(true) }
-    var notifyContactJoined by remember { mutableStateOf(true) }
+    // Music Service
+    val musicServicePreference = settingsViewModel.musicServicePreference
+    val currentMusicService by musicServicePreference.current.collectAsState()
+    var showMusicServiceMenu by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     // Messaging
-    var messagePushNotifications by remember { mutableStateOf(true) }
     var whoCanMessageMe by remember { mutableStateOf("Everyone") }
     var showMessageMenu by remember { mutableStateOf(false) }
 
@@ -96,13 +93,37 @@ fun SettingsScreen(
             // ── Section: General ──
             SectionHeader("GENERAL")
 
-            SettingsToggleRow(
-                icon = Icons.Filled.FilterList,
-                title = "One Per Follower",
-                subtitle = "Show only each person's latest corus",
-                checked = onePerFollower,
-                onCheckedChange = { onePerFollower = it },
-            )
+            // Music Service picker
+            Box {
+                SettingsNavRow(
+                    icon = Icons.Filled.MusicNote,
+                    title = "Music Service",
+                    trailingText = currentMusicService.displayLabel,
+                    onClick = { showMusicServiceMenu = true },
+                )
+                DropdownMenu(
+                    expanded = showMusicServiceMenu,
+                    onDismissRequest = { showMusicServiceMenu = false },
+                ) {
+                    MusicService.entries.forEach { service ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = service.displayLabel,
+                                    style = CorusFont.body,
+                                    color = if (service == currentMusicService) CorusColors.Accent else CorusColors.Text,
+                                )
+                            },
+                            onClick = {
+                                showMusicServiceMenu = false
+                                coroutineScope.launch {
+                                    musicServicePreference.syncToFirestore(service)
+                                }
+                            },
+                        )
+                    }
+                }
+            }
 
             SettingsToggleRow(
                 icon = Icons.Outlined.Vibration,
@@ -112,58 +133,14 @@ fun SettingsScreen(
                 onCheckedChange = { hapticsEnabled = it },
             )
 
+            // ── Section: Notifications & Messaging ──
+            SectionHeader("NOTIFICATIONS & MESSAGING")
+
             SettingsNavRow(
-                icon = Icons.Filled.Palette,
-                title = "Appearance",
-                onClick = onAppearance,
-            )
-
-            // ── Section: Notifications ──
-            SectionHeader("NOTIFICATIONS")
-
-            SettingsToggleRow(
-                icon = Icons.Filled.Favorite,
-                title = "Likes",
-                checked = notifyLikes,
-                onCheckedChange = { notifyLikes = it },
-            )
-
-            SettingsToggleRow(
-                icon = Icons.Outlined.ChatBubbleOutline,
-                title = "Comments & Replies",
-                checked = notifyComments,
-                onCheckedChange = { notifyComments = it },
-            )
-
-            SettingsToggleRow(
-                icon = Icons.Outlined.PersonAdd,
-                title = "New Followers",
-                checked = notifyNewFollowers,
-                onCheckedChange = { notifyNewFollowers = it },
-            )
-
-            SettingsToggleRow(
-                icon = Icons.Filled.PersonSearch,
-                title = "Follow Requests",
-                checked = notifyFollowRequests,
-                onCheckedChange = { notifyFollowRequests = it },
-            )
-
-            SettingsToggleRow(
-                icon = Icons.Filled.HowToReg,
-                title = "Contact Joined",
-                checked = notifyContactJoined,
-                onCheckedChange = { notifyContactJoined = it },
-            )
-
-            // ── Section: Messaging ──
-            SectionHeader("MESSAGING")
-
-            SettingsToggleRow(
                 icon = Icons.Filled.Notifications,
-                title = "Message Push Notifications",
-                checked = messagePushNotifications,
-                onCheckedChange = { messagePushNotifications = it },
+                title = "Notifications",
+                subtitle = "Manage push notification preferences",
+                onClick = onNotificationSettings,
             )
 
             // "Who Can Message Me" menu row
@@ -200,24 +177,6 @@ fun SettingsScreen(
             SectionHeader("ACCOUNT")
 
             SettingsNavRow(
-                icon = Icons.Filled.Edit,
-                title = "Edit Profile",
-                onClick = onEditProfile,
-            )
-
-            SettingsNavRow(
-                icon = Icons.Filled.Person,
-                title = "Change Username",
-                onClick = onChangeUsername,
-            )
-
-            SettingsNavRow(
-                icon = Icons.Filled.Phone,
-                title = "Phone Number",
-                onClick = onChangePhoneNumber,
-            )
-
-            SettingsNavRow(
                 icon = Icons.Filled.Block,
                 title = "Blocked Users",
                 onClick = onBlockedUsers,
@@ -227,6 +186,33 @@ fun SettingsScreen(
                 icon = Icons.Filled.VolumeOff,
                 title = "Muted Users",
                 onClick = onMutedUsers,
+            )
+
+            SettingsNavRow(
+                icon = Icons.Filled.Person,
+                title = "Username",
+                onClick = onChangeUsername,
+            )
+
+            SettingsNavRow(
+                icon = Icons.Filled.Phone,
+                title = "Phone Number",
+                onClick = onChangePhoneNumber,
+            )
+
+            // Sign Out
+            SettingsActionRow(
+                icon = Icons.AutoMirrored.Filled.ExitToApp,
+                title = "Sign Out",
+                onClick = { authViewModel.signOut() },
+            )
+
+            // Delete Account
+            SettingsActionRow(
+                icon = Icons.Filled.Delete,
+                title = "Delete Account",
+                color = CorusColors.Error,
+                onClick = { showDeleteConfirm = true },
             )
 
             // ── Section: Support ──
@@ -315,31 +301,40 @@ fun SettingsScreen(
                 },
             )
 
-            // ── Bottom actions ──
-            Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+            // ── Social links ──
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-            TextButton(
-                onClick = { authViewModel.signOut() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CorusSpacing.lg),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
             ) {
-                Text("Sign Out", style = CorusFont.button, color = CorusColors.Text)
-            }
-
-            TextButton(
-                onClick = { showDeleteConfirm = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CorusSpacing.lg),
-            ) {
-                Text(
-                    "Delete Account",
-                    style = CorusFont.button,
-                    color = CorusColors.Error,
+                SocialLinkButton(
+                    icon = Icons.Filled.Language,
+                    label = "Website",
+                    url = "https://corus.fm",
+                    context = context,
+                )
+                SocialLinkButton(
+                    drawableRes = R.drawable.instagram_logo,
+                    label = "Instagram",
+                    url = "https://www.instagram.com/corusapp/",
+                    context = context,
+                )
+                SocialLinkButton(
+                    drawableRes = R.drawable.x_logo,
+                    label = "X",
+                    url = "https://x.com/corusfm",
+                    context = context,
+                )
+                SocialLinkButton(
+                    drawableRes = R.drawable.discord_logo,
+                    label = "Discord",
+                    url = "https://discord.gg/4CJJ89YB",
+                    context = context,
                 )
             }
 
+            // ── Version ──
             Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
             Text(
@@ -458,6 +453,7 @@ private fun SettingsToggleRow(
 private fun SettingsNavRow(
     icon: ImageVector,
     title: String,
+    subtitle: String? = null,
     trailingText: String? = null,
     onClick: () -> Unit,
 ) {
@@ -477,12 +473,12 @@ private fun SettingsNavRow(
 
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
-        Text(
-            text = title,
-            style = CorusFont.body,
-            color = CorusColors.Text,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = CorusFont.body, color = CorusColors.Text)
+            if (subtitle != null) {
+                Text(text = subtitle, style = CorusFont.caption, color = CorusColors.Secondary)
+            }
+        }
 
         if (trailingText != null) {
             Text(
@@ -504,4 +500,78 @@ private fun SettingsNavRow(
         color = CorusColors.Divider,
         modifier = Modifier.padding(horizontal = CorusSpacing.lg),
     )
+}
+
+// ── Action Row (no chevron) ──
+
+@Composable
+private fun SettingsActionRow(
+    icon: ImageVector,
+    title: String,
+    color: androidx.compose.ui.graphics.Color = CorusColors.Text,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        Text(text = title, style = CorusFont.body, color = color)
+    }
+    HorizontalDivider(
+        color = CorusColors.Divider,
+        modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+    )
+}
+
+// ── Social Link Button ──
+
+@Composable
+private fun SocialLinkButton(
+    icon: ImageVector? = null,
+    drawableRes: Int? = null,
+    label: String,
+    url: String,
+    context: android.content.Context,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable {
+                context.startActivity(
+                    android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(url),
+                    )
+                )
+            }
+            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = CorusColors.Secondary,
+                modifier = Modifier.size(18.dp),
+            )
+        } else if (drawableRes != null) {
+            Icon(
+                painter = painterResource(id = drawableRes),
+                contentDescription = label,
+                tint = CorusColors.Secondary,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+        Text(text = label, style = CorusFont.caption, color = CorusColors.Secondary)
+    }
 }

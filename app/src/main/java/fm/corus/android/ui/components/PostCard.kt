@@ -53,6 +53,12 @@ import fm.corus.android.ui.theme.NunitoFamily
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.material.icons.outlined.Movie
+import androidx.compose.material.icons.filled.PlayArrow
 
 @Composable
 fun PostCard(
@@ -94,6 +100,7 @@ fun PostCard(
         ) {
             UserAvatarView(
                 avatarURL = post.user.avatarURL,
+                avatarThumbURL = post.user.avatarThumbURL,
                 size = 28.dp,
                 modifier = Modifier.clickable(onClick = onUserTap),
             )
@@ -224,7 +231,11 @@ fun PostCard(
             }
 
             // Film overlay with action buttons
-            if (post.isMovie && showFilmOverlay) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = post.isMovie && showFilmOverlay,
+                enter = fadeIn(animationSpec = tween(200)),
+                exit = fadeOut(animationSpec = tween(200)),
+            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -239,38 +250,68 @@ fun PostCard(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                        modifier = Modifier.width(IntrinsicSize.Max),
                     ) {
                         // View Film Page button
                         Button(
                             onClick = { onPostTap() },
-                            shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                            shape = CircleShape,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = CorusColors.Accent,
-                                contentColor = Color.White,
+                                containerColor = Color.White,
+                                contentColor = Color.Black,
                             ),
-                            modifier = Modifier.width(200.dp),
+                            contentPadding = PaddingValues(
+                                horizontal = CorusSpacing.xl,
+                                vertical = CorusSpacing.md,
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(
-                                text = "View Film Page",
-                                style = CorusFont.button,
-                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Movie,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                                Text(
+                                    text = "View Film Page",
+                                    style = CorusFont.button,
+                                )
+                            }
                         }
 
                         // Watch Trailer button (only if trailer exists)
                         if (post.trailerURL != null) {
                             Button(
                                 onClick = { onTrailerTap() },
-                                shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                                shape = CircleShape,
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.White,
-                                    contentColor = CorusColors.Text,
+                                    containerColor = Color.Transparent,
+                                    contentColor = Color.White,
                                 ),
-                                modifier = Modifier.width(200.dp),
+                                border = BorderStroke(1.75.dp, Color.White),
+                                contentPadding = PaddingValues(
+                                    horizontal = CorusSpacing.xl,
+                                    vertical = CorusSpacing.md,
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text(
-                                    text = "Watch Trailer",
-                                    style = CorusFont.button,
-                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PlayArrow,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                    Text(
+                                        text = "Watch Trailer",
+                                        style = CorusFont.button,
+                                    )
+                                }
                             }
                         }
                     }
@@ -427,58 +468,12 @@ fun PostCard(
             )
         }
 
-        // 5. LIKED BY (if likeCount > 0) — matching iOS .padding(.horizontal, CymbalSpacing.lg)
-        if (likeCount > 0 && post.likers.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onLikesTap)
-                    .padding(horizontal = CorusSpacing.lg)
-                    .padding(bottom = CorusSpacing.xs),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Overlapping avatars — matching iOS 8dp overlap
-                val likerCount = post.likers.take(3).size
-                val avatarSize = 20.dp
-                val avatarOverlap = 8.dp
-                val avatarStackWidth = avatarSize + (avatarOverlap * maxOf(likerCount - 1, 0))
-
-                Box(modifier = Modifier.height(avatarSize)) {
-                    post.likers.take(3).forEachIndexed { index, liker ->
-                        UserAvatarView(
-                            avatarURL = liker.avatarURL,
-                            size = avatarSize,
-                            modifier = Modifier
-                                .offset(x = avatarOverlap * index)
-                                .zIndex((3 - index).toFloat()),
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(avatarStackWidth + CorusSpacing.xs))
-
-                val likedByText = buildAnnotatedString {
-                    append("Liked by ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) {
-                        append(post.likers.first().username)
-                    }
-                    if (likeCount > 1) {
-                        append(" and ")
-                        withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) {
-                            append("${likeCount - 1} other${if (likeCount - 1 > 1) "s" else ""}")
-                        }
-                    }
-                }
-                Text(
-                    text = likedByText,
-                    style = CorusFont.body,
-                    color = CorusColors.Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
+        // 5. LIKED BY
+        LikedBySection(
+            likers = post.likers,
+            likeCount = likeCount,
+            onLikesTap = onLikesTap,
+        )
 
         // 6. CAPTION or VOICE NOTE
         if (!post.voiceNoteURL.isNullOrBlank()) {

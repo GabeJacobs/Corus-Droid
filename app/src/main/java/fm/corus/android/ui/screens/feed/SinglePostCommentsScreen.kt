@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,8 +29,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -54,6 +57,7 @@ fun SinglePostCommentsScreen(
 
     var commentText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+    var showGifPicker by remember { mutableStateOf(false) }
     val maxChars = 700
 
     LaunchedEffect(postId) {
@@ -131,6 +135,14 @@ fun SinglePostCommentsScreen(
                             }
                         }),
                     )
+                    IconButton(onClick = { showGifPicker = true }) {
+                        Icon(
+                            Icons.Filled.Gif,
+                            contentDescription = "Send GIF",
+                            tint = CorusColors.Accent,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
                     IconButton(
                         onClick = {
                             if (commentText.isNotBlank() && !isSending) {
@@ -150,6 +162,16 @@ fun SinglePostCommentsScreen(
             }
         },
     ) { padding ->
+        if (showGifPicker) {
+            GifPickerSheet(
+                onGifSelected = { gif ->
+                    viewModel.sendGifComment(gif.gifURL)
+                    showGifPicker = false
+                },
+                onDismiss = { showGifPicker = false },
+            )
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -271,7 +293,20 @@ private fun SingleCommentRow(
                     Text(DateUtils.relativeTime(comment.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.xxs))
-                Text(comment.text, style = CorusFont.body, color = CorusColors.Text)
+                if (comment.gifURL != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                            .data(comment.gifURL).build(),
+                        contentDescription = "GIF",
+                        modifier = Modifier
+                            .widthIn(max = 200.dp)
+                            .heightIn(max = 150.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Fit,
+                    )
+                } else {
+                    Text(comment.text, style = CorusFont.body, color = CorusColors.Text)
+                }
                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
                 Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg)) {
                     Text(
@@ -308,7 +343,20 @@ private fun SingleCommentRow(
                         Text(DateUtils.relativeTime(reply.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
                     }
                     Spacer(modifier = Modifier.height(CorusSpacing.xxs))
-                    Text(reply.text, style = CorusFont.body, color = CorusColors.Text)
+                    if (reply.gifURL != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                .data(reply.gifURL).build(),
+                            contentDescription = "GIF",
+                            modifier = Modifier
+                                .widthIn(max = 160.dp)
+                                .heightIn(max = 120.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Fit,
+                        )
+                    } else {
+                        Text(reply.text, style = CorusFont.body, color = CorusColors.Text)
+                    }
                 }
                 IconButton(onClick = { onReplyLike(reply.id) }, modifier = Modifier.size(24.dp)) {
                     Icon(

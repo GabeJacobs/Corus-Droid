@@ -18,8 +18,16 @@ import kotlinx.serialization.Serializable
 // ── Nested Routes ──
 
 @Serializable data class PostDetailRoute(val postId: String)
-@Serializable data class SongDetailRoute(val trackId: String)
-@Serializable data class FilmDetailRoute(val movieId: String)
+@Serializable data class SongDetailRoute(val trackId: String, val albumArtURL: String? = null)
+@Serializable data class FilmDetailRoute(
+    val movieId: String,
+    val movieTitle: String? = null,
+    val directorName: String? = null,
+    val releaseYear: String? = null,
+    val posterURL: String? = null,
+    val posterLargeURL: String? = null,
+    val trailerURL: String? = null,
+)
 @Serializable data class CommentsRoute(val postId: String)
 @Serializable data class LikesRoute(val postId: String)
 @Serializable data class OtherProfileRoute(val userId: String)
@@ -28,9 +36,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class HashtagFeedRoute(val hashtag: String)
 @Serializable data class EditProfileRoute(val userId: String)
 @Serializable object FindPeopleRoute
-@Serializable data class EditCaptionRoute(val postId: String, val initialCaption: String)
+@Serializable data class EditCaptionRoute(val postId: String, val initialCaption: String, val albumArtURL: String? = null)
 @Serializable object SettingsRoute
 @Serializable data object AppearanceSettingsRoute
+@Serializable data object NotificationSettingsRoute
 @Serializable object BlockedUsersRoute
 @Serializable data object MutedUsersRoute
 @Serializable object ChangeUsernameRoute

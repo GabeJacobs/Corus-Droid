@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -67,93 +68,99 @@ fun FeaturedCymbalView(
     val artYFrac = 64f / 447f
     val artSizeFrac = 270f / 585f
 
-    Column(
+    // Gradient wraps entire featured area (vinyl + title row), matching iOS .background(LinearGradient)
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.36f to Color(0xFFF3F3F3),
+                        1.0f to Color(0xFFBFBFBF),
+                    ),
+                ),
+            )
             .clickable(onClick = onPostTap),
     ) {
+        val w = maxWidth
+        val h = w * vinylStyle.canvasRatio
+
         // Vinyl + album art composite
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxWidth(),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(h),
         ) {
-            val w = maxWidth
-            val h = w * vinylStyle.canvasRatio
+            // Shadow
+            Image(
+                painter = painterResource(R.drawable.featured_shadow),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds,
+            )
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(h),
-            ) {
-                // Shadow
-                Image(
-                    painter = painterResource(R.drawable.featured_shadow),
+            // Vinyl record
+            Image(
+                painter = painterResource(vinylDrawable),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds,
+            )
+
+            // Album art on label (circular)
+            val artUrl = post.displayImageLargeURL ?: post.displayImageURL
+            if (artUrl != null) {
+                AsyncImage(
+                    model = artUrl,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier
+                        .offset(
+                            x = w * vinylStyle.labelXFrac,
+                            y = h * vinylStyle.labelYFrac,
+                        )
+                        .size(
+                            width = w * vinylStyle.labelWFrac,
+                            height = h * vinylStyle.labelHFrac,
+                        )
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop,
                 )
 
-                // Vinyl record
-                Image(
-                    painter = painterResource(vinylDrawable),
+                // Big album art
+                AsyncImage(
+                    model = artUrl,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier
+                        .offset(x = w * artXFrac, y = h * artYFrac)
+                        .size(w * artSizeFrac),
+                    contentScale = ContentScale.Crop,
                 )
+            }
 
-                // Album art on label (circular)
-                val artUrl = post.displayImageLargeURL ?: post.displayImageURL
-                if (artUrl != null) {
-                    AsyncImage(
-                        model = artUrl,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .offset(
-                                x = w * vinylStyle.labelXFrac,
-                                y = h * vinylStyle.labelYFrac,
-                            )
-                            .size(
-                                width = w * vinylStyle.labelWFrac,
-                                height = h * vinylStyle.labelHFrac,
-                            )
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop,
-                    )
-
-                    // Big album art
-                    AsyncImage(
-                        model = artUrl,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .offset(x = w * artXFrac, y = h * artYFrac)
-                            .size(w * artSizeFrac),
-                        contentScale = ContentScale.Crop,
-                    )
-                }
-
-                // Weather / disco effects overlay
-                if (rainIntensity != RainIntensity.OFF) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(Color.Black.copy(alpha = if (rainIntensity == RainIntensity.HEAVY) 0.15f else 0.10f)),
-                    )
-                    RainEffectView(intensity = rainIntensity, modifier = Modifier.matchParentSize())
-                }
-                if (snowIntensity != SnowIntensity.OFF) {
-                    Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.06f)))
-                    SnowEffectView(intensity = snowIntensity, modifier = Modifier.matchParentSize())
-                }
-                if (discoIntensity != DiscoIntensity.OFF) {
-                    DiscoEffectView(intensity = discoIntensity, modifier = Modifier.matchParentSize())
-                }
+            // Weather / disco effects overlay
+            if (rainIntensity != RainIntensity.OFF) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(Color.Black.copy(alpha = if (rainIntensity == RainIntensity.HEAVY) 0.15f else 0.10f)),
+                )
+                RainEffectView(intensity = rainIntensity, modifier = Modifier.matchParentSize())
+            }
+            if (snowIntensity != SnowIntensity.OFF) {
+                Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.06f)))
+                SnowEffectView(intensity = snowIntensity, modifier = Modifier.matchParentSize())
+            }
+            if (discoIntensity != DiscoIntensity.OFF) {
+                DiscoEffectView(intensity = discoIntensity, modifier = Modifier.matchParentSize())
             }
         }
 
-        // Track info + engagement row
+        // Track info + engagement row — overlaid at the bottom of the gradient
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                .align(Alignment.BottomStart)
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -183,7 +190,7 @@ fun FeaturedCymbalView(
                 Icon(
                     imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     contentDescription = "Like",
-                    tint = if (isLiked) CorusColors.Like else CorusColors.Tertiary,
+                    tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
                     modifier = Modifier.size(20.dp),
                 )
                 if (likeCount > 0) {

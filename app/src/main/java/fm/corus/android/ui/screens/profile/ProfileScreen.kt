@@ -5,6 +5,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import com.valentinilk.shimmer.shimmer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -17,7 +18,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -67,12 +68,19 @@ fun ProfileScreen(
     val clipboardManager = LocalClipboardManager.current
     val profile by viewModel.profile.collectAsState()
     val posts by viewModel.posts.collectAsState()
+    val likedPosts by viewModel.likedPosts.collectAsState()
+    val savedPosts by viewModel.savedPosts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isLoadingLiked by viewModel.isLoadingLiked.collectAsState()
+    val isLoadingSaved by viewModel.isLoadingSaved.collectAsState()
     val isClubMember by viewModel.isClubMember.collectAsState()
+    val hasFullAccess by viewModel.hasFullAccess.collectAsState()
     val isSavingStyle by viewModel.isSavingStyle.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
     var showStylePicker by remember { mutableStateOf(false) }
+    var showClubOffer by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val clubSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // Avatar context menu state
     var showAvatarMenu by remember { mutableStateOf(false) }
@@ -146,8 +154,19 @@ fun ProfileScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    // Left placeholder (scissors icon — skip for now)
-                    Spacer(modifier = Modifier.size(24.dp))
+                    // Profile customization icon (matching iOS CorusClub icon)
+                    if (posts.isNotEmpty()) {
+                        Icon(
+                            painter = painterResource(fm.corus.android.R.drawable.corus_club_vector),
+                            contentDescription = "Customize Profile",
+                            tint = CorusColors.Accent,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clickable { showStylePicker = true },
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.size(40.dp))
+                    }
 
                     Text(
                         text = currentProfile.displayName,
@@ -158,7 +177,7 @@ fun ProfileScreen(
                     Icon(
                         Icons.Filled.Settings,
                         contentDescription = "Settings",
-                        tint = CorusColors.Text,
+                        tint = CorusColors.Secondary,
                         modifier = Modifier
                             .size(24.dp)
                             .clickable(onClick = onNavigateToSettings),
@@ -228,19 +247,19 @@ fun ProfileScreen(
                     // Right side: stats + edit button
                     Column(
                         modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // Stats row: "777 coruses | 9 followers | 17 following"
+                        // Stats row
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
                         ) {
                             StatItem(count = currentProfile.cymbalCount, label = "coruses")
-                            StatDivider()
                             StatItem(
                                 count = currentProfile.followerCount,
                                 label = "followers",
                                 onClick = { onNavigateToFollowList(currentProfile.id, false) },
                             )
-                            StatDivider()
                             StatItem(
                                 count = currentProfile.followingCount,
                                 label = "following",
@@ -320,7 +339,7 @@ fun ProfileScreen(
                                         modifier = Modifier.alpha(if (hasSongs) 1f else 0.35f),
                                     ) {
                                         Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.List,
+                                            painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
                                             contentDescription = "Playlist",
                                             modifier = Modifier.size(14.dp),
                                             tint = CorusColors.Secondary,
@@ -334,22 +353,6 @@ fun ProfileScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(CorusSpacing.sm))
-
-                            // Vinyl picker icon button
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
-                                    .background(CorusColors.CardBackground)
-                                    .clickable { showStylePicker = true },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = "\uD83C\uDFB5",
-                                    fontSize = 16.sp,
-                                )
-                            }
                         }
                     }
                 }
@@ -417,13 +420,10 @@ fun ProfileScreen(
                 // ── Segment Control ──
                 val tabs = listOf("MUSIC", "FILM", "LIKES", "SAVES")
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.lg),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     tabs.forEachIndexed { index, title ->
                         val isSelected = selectedSegment == index
-                        val accentColor = CorusColors.Accent
                         Column(
                             modifier = Modifier
                                 .weight(1f)
@@ -432,17 +432,16 @@ fun ProfileScreen(
                                     viewModel.loadSegment(index)
                                 }
                                 .drawBehind {
-                                    if (isSelected) {
-                                        val strokeWidth = 2.dp.toPx()
-                                        drawLine(
-                                            color = accentColor,
-                                            start = Offset(0f, size.height),
-                                            end = Offset(size.width, size.height),
-                                            strokeWidth = strokeWidth,
-                                        )
-                                    }
+                                    val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
+                                    val lineColor = if (isSelected) CorusColors.Text else CorusColors.Divider
+                                    drawLine(
+                                        color = lineColor,
+                                        start = Offset(0f, size.height),
+                                        end = Offset(size.width, size.height),
+                                        strokeWidth = strokeWidth,
+                                    )
                                 }
-                                .padding(vertical = CorusSpacing.md),
+                                .padding(vertical = CorusSpacing.sm),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
@@ -458,13 +457,13 @@ fun ProfileScreen(
                 val filteredPosts = when (selectedSegment) {
                     0 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.TRACK }
                     1 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.MOVIE }
-                    2 -> posts // Likes — ViewModel handles
-                    3 -> posts // Saves — ViewModel handles
+                    2 -> likedPosts
+                    3 -> savedPosts
                     else -> posts
                 }
 
-                // ── Featured Post (first post) with vinyl/frame overlay ──
-                if (filteredPosts.isNotEmpty()) {
+                // ── Featured Post — only for Music/Film tabs (matching iOS) ──
+                if (filteredPosts.isNotEmpty() && selectedSegment <= 1) {
                     val featuredPost = filteredPosts.first()
                     if (featuredPost.mediaType == fm.corus.android.data.model.MediaType.MOVIE) {
                         fm.corus.android.ui.components.FeaturedMoviePosterView(
@@ -485,7 +484,10 @@ fun ProfileScreen(
                             onPostTap = { onNavigateToPost(featuredPost.id) },
                         )
                     }
-                } else if (!isLoading) {
+                } else if (filteredPosts.isEmpty() && !isLoading
+                    && !(selectedSegment == 2 && isLoadingLiked)
+                    && !(selectedSegment == 3 && isLoadingSaved)
+                ) {
                     // Empty state per segment (matching iOS)
                     Box(
                         modifier = Modifier
@@ -514,16 +516,35 @@ fun ProfileScreen(
         }
 
         // ── Album Art Grid (filtered) ──
-        val filteredPosts = when (selectedSegment) {
-            0 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.TRACK }
-            1 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.MOVIE }
-            2 -> posts
-            3 -> posts
-            else -> posts
-        }
-        if (filteredPosts.size > 1) {
-            items(filteredPosts.drop(1), key = { it.id }) { post ->
-                PostGridItem(post = post, onClick = { onNavigateToPost(post.id) })
+        val isSegmentLoading = (selectedSegment == 2 && isLoadingLiked && likedPosts.isEmpty())
+            || (selectedSegment == 3 && isLoadingSaved && savedPosts.isEmpty())
+
+        if (isSegmentLoading) {
+            // Skeleton grid cells while likes/saves load (matching iOS)
+            items(15) {
+                Box(
+                    modifier = Modifier
+                        .aspectRatio(1f)
+                        .background(CorusColors.CardBackground)
+                        .shimmer(),
+                )
+            }
+        } else {
+            @Suppress("NAME_SHADOWING")
+            val filteredPosts = when (selectedSegment) {
+                0 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.TRACK }
+                1 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.MOVIE }
+                2 -> likedPosts
+                3 -> savedPosts
+                else -> posts
+            }
+            // For Likes/Saves, show all posts in grid (no featured post);
+            // for Music/Film, skip the first post (already shown as featured)
+            val gridPosts = if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts
+            if (gridPosts.isNotEmpty()) {
+                items(gridPosts, key = { it.id }) { post ->
+                    PostGridItem(post = post, onClick = { onNavigateToPost(post.id) })
+                }
             }
         }
     }
@@ -554,7 +575,7 @@ fun ProfileScreen(
                 latestMoviePost = moviePosts.firstOrNull(),
                 hasTrackPosts = trackPosts.isNotEmpty(),
                 hasMoviePosts = moviePosts.isNotEmpty(),
-                isClubMember = isClubMember,
+                isClubMember = hasFullAccess,
                 isSaving = isSavingStyle,
                 onSave = { selections ->
                     val current = StyleSelections(
@@ -575,9 +596,23 @@ fun ProfileScreen(
                 },
                 onNavigateToClub = {
                     showStylePicker = false
-                    onNavigateToClub()
+                    showClubOffer = true
                 },
                 onDismiss = { showStylePicker = false },
+            )
+        }
+    }
+
+    // ── Club Offer Bottom Sheet ──
+    if (showClubOffer) {
+        ModalBottomSheet(
+            onDismissRequest = { showClubOffer = false },
+            sheetState = clubSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
+                onDismiss = { showClubOffer = false },
             )
         }
     }

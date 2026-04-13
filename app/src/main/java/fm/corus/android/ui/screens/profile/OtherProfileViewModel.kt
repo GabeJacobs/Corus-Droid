@@ -50,6 +50,9 @@ class OtherProfileViewModel @Inject constructor(
     private val _isMuted = MutableStateFlow(false)
     val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
 
+    private val _isSubscribedToNotifications = MutableStateFlow(false)
+    val isSubscribedToNotifications: StateFlow<Boolean> = _isSubscribedToNotifications.asStateFlow()
+
     val currentUserId: String? get() = authRepository.currentUserId
 
     fun loadProfile(userId: String) {
@@ -61,6 +64,10 @@ class OtherProfileViewModel @Inject constructor(
                 _isFollowing.value = userRepository.isFollowing(userId)
                 _isBlocked.value = userRepository.blockedIds.value.contains(userId)
                 _isMuted.value = userRepository.isUserMuted(userId)
+                val viewerIdForSub = authRepository.currentUserId
+                if (viewerIdForSub != null) {
+                    _isSubscribedToNotifications.value = userRepository.isSubscribedToUserPosts(viewerIdForSub, userId)
+                }
 
                 // Load user's posts
                 val viewerId = authRepository.currentUserId ?: return@launch
@@ -121,6 +128,23 @@ class OtherProfileViewModel @Inject constructor(
         return try {
             userRepository.fetchUserByUsername(username)?.id
         } catch (_: Exception) { null }
+    }
+
+    fun togglePostNotifications(userId: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        val wasSubscribed = _isSubscribedToNotifications.value
+        _isSubscribedToNotifications.value = !wasSubscribed
+        viewModelScope.launch {
+            try {
+                if (wasSubscribed) {
+                    userRepository.unsubscribeFromUserPosts(currentUserId, userId)
+                } else {
+                    userRepository.subscribeToUserPosts(currentUserId, userId)
+                }
+            } catch (_: Exception) {
+                _isSubscribedToNotifications.value = wasSubscribed
+            }
+        }
     }
 
     fun toggleMute(userId: String) {

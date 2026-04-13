@@ -49,6 +49,10 @@ class MessageRepository @Inject constructor(
         return url
     }
 
+    suspend fun sendGifMessage(threadId: String, fromUserId: String, gifURL: String) {
+        cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = "", type = "gif", mediaURL = gifURL)
+    }
+
     suspend fun sendSharedTrackMessage(threadId: String, fromUserId: String, text: String, trackName: String, artistName: String, albumArtURL: String?, spotifyURL: String?) {
         cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = text, type = "sharedTrack", trackName = trackName, artistName = artistName, albumArtURL = albumArtURL, spotifyURL = spotifyURL)
     }

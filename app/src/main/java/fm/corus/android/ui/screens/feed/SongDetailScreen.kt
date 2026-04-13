@@ -41,6 +41,7 @@ import fm.corus.android.ui.util.DateUtils
 @Composable
 fun SongDetailScreen(
     trackId: String,
+    albumArtURL: String? = null,
     viewModel: SongDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -88,22 +89,23 @@ fun SongDetailScreen(
             item {
                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
-                if (songInfo != null) {
+                // Show album art immediately if we have a URL from navigation
+                val artUrl = songInfo?.track?.albumArtLargeURL ?: songInfo?.track?.albumArtURL ?: albumArtURL
+                if (artUrl != null) {
                     // Album art with preview play button overlay
                     Box(
                         contentAlignment = Alignment.Center,
                     ) {
                         AsyncImage(
-                            model = songInfo.track.albumArtLargeURL ?: songInfo.track.albumArtURL,
-                            contentDescription = songInfo.displayTitle,
+                            model = artUrl,
+                            contentDescription = songInfo?.displayTitle,
                             modifier = Modifier
                                 .size(200.dp)
-                                .shadow(8.dp, RoundedCornerShape(8.dp))
                                 .clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop,
                         )
 
-                        if (songInfo.track.previewUrl != null) {
+                        if (songInfo?.track?.previewUrl != null) {
                             IconButton(
                                 onClick = { viewModel.togglePreview(songInfo.track.previewUrl) },
                                 modifier = Modifier
@@ -124,7 +126,9 @@ fun SongDetailScreen(
                     }
 
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
+                }
 
+                if (songInfo != null) {
                     // Song title + artist
                     Text(
                         text = songInfo.displayTitle,

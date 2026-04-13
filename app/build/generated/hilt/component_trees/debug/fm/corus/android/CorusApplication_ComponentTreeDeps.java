@@ -41,6 +41,8 @@ import hilt_aggregated_deps._fm_corus_android_MainActivity_GeneratedInjector;
 import hilt_aggregated_deps._fm_corus_android_di_AppModule;
 import hilt_aggregated_deps._fm_corus_android_di_NetworkModule;
 import hilt_aggregated_deps._fm_corus_android_di_RepositoryModule;
+import hilt_aggregated_deps._fm_corus_android_ui_components_GifPickerViewModel_HiltModules_BindsModule;
+import hilt_aggregated_deps._fm_corus_android_ui_components_GifPickerViewModel_HiltModules_KeyModule;
 import hilt_aggregated_deps._fm_corus_android_ui_navigation_MainTabViewModel_HiltModules_BindsModule;
 import hilt_aggregated_deps._fm_corus_android_ui_navigation_MainTabViewModel_HiltModules_KeyModule;
 import hilt_aggregated_deps._fm_corus_android_ui_screens_auth_AuthViewModel_HiltModules_BindsModule;
@@ -101,6 +103,8 @@ import hilt_aggregated_deps._fm_corus_android_ui_screens_settings_FeedbackFormVi
 import hilt_aggregated_deps._fm_corus_android_ui_screens_settings_FeedbackFormViewModel_HiltModules_KeyModule;
 import hilt_aggregated_deps._fm_corus_android_ui_screens_settings_MutedUsersViewModel_HiltModules_BindsModule;
 import hilt_aggregated_deps._fm_corus_android_ui_screens_settings_MutedUsersViewModel_HiltModules_KeyModule;
+import hilt_aggregated_deps._fm_corus_android_ui_screens_settings_SettingsViewModel_HiltModules_BindsModule;
+import hilt_aggregated_deps._fm_corus_android_ui_screens_settings_SettingsViewModel_HiltModules_KeyModule;
 import hilt_aggregated_deps._fm_corus_android_ui_screens_subscription_CymbalClubViewModel_HiltModules_BindsModule;
 import hilt_aggregated_deps._fm_corus_android_ui_screens_subscription_CymbalClubViewModel_HiltModules_KeyModule;
 
@@ -148,6 +152,8 @@ import hilt_aggregated_deps._fm_corus_android_ui_screens_subscription_CymbalClub
         _fm_corus_android_di_AppModule.class,
         _fm_corus_android_di_NetworkModule.class,
         _fm_corus_android_di_RepositoryModule.class,
+        _fm_corus_android_ui_components_GifPickerViewModel_HiltModules_BindsModule.class,
+        _fm_corus_android_ui_components_GifPickerViewModel_HiltModules_KeyModule.class,
         _fm_corus_android_ui_navigation_MainTabViewModel_HiltModules_BindsModule.class,
         _fm_corus_android_ui_navigation_MainTabViewModel_HiltModules_KeyModule.class,
         _fm_corus_android_ui_screens_auth_AuthViewModel_HiltModules_BindsModule.class,
@@ -208,6 +214,8 @@ import hilt_aggregated_deps._fm_corus_android_ui_screens_subscription_CymbalClub
         _fm_corus_android_ui_screens_settings_FeedbackFormViewModel_HiltModules_KeyModule.class,
         _fm_corus_android_ui_screens_settings_MutedUsersViewModel_HiltModules_BindsModule.class,
         _fm_corus_android_ui_screens_settings_MutedUsersViewModel_HiltModules_KeyModule.class,
+        _fm_corus_android_ui_screens_settings_SettingsViewModel_HiltModules_BindsModule.class,
+        _fm_corus_android_ui_screens_settings_SettingsViewModel_HiltModules_KeyModule.class,
         _fm_corus_android_ui_screens_subscription_CymbalClubViewModel_HiltModules_BindsModule.class,
         _fm_corus_android_ui_screens_subscription_CymbalClubViewModel_HiltModules_KeyModule.class
     }

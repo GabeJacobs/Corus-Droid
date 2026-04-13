@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalNotification
-import fm.corus.android.ui.components.SkeletonUserRow
+import fm.corus.android.ui.components.SkeletonNotificationRow
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -73,7 +73,7 @@ fun NotificationsScreen(
                     // Loading skeleton — 12 shimmer rows
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(12) {
-                            SkeletonUserRow()
+                            SkeletonNotificationRow()
                         }
                     }
                 }
@@ -181,6 +181,7 @@ private fun NotificationRow(
         // Left: User avatar (36dp — matches iOS avatarMedium)
         UserAvatarView(
             avatarURL = notification.fromUser.avatarURL,
+            avatarThumbURL = notification.fromUser.avatarThumbURL,
             size = CorusSpacing.avatarMedium,
         )
 

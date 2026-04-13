@@ -2,12 +2,16 @@ package fm.corus.android.ui.screens.findpeople
 
 import android.content.ContentResolver
 import android.provider.ContactsContract
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
+import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.data.model.SuggestionReason
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.remote.CloudFunctionsDataSource
@@ -15,6 +19,7 @@ import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.SpotifyRepository
+import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -34,6 +39,7 @@ class FindPeopleViewModel @Inject constructor(
     private val exploreRepository: ExploreRepository,
     private val cloudFunctions: CloudFunctionsDataSource,
     private val spotifyRepository: SpotifyRepository,
+    private val tmdbRepository: TMDBRepository,
     private val preferencesDataStore: PreferencesDataStore,
     private val firestoreDataSource: FirestoreDataSource,
 ) : ViewModel() {
@@ -44,6 +50,12 @@ class FindPeopleViewModel @Inject constructor(
 
     private val _userSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
     val userSearchResults: StateFlow<List<CymbalUser>> = _userSearchResults.asStateFlow()
+
+    private val _songSearchResults = MutableStateFlow<List<CymbalTrack>>(emptyList())
+    val songSearchResults: StateFlow<List<CymbalTrack>> = _songSearchResults.asStateFlow()
+
+    private val _filmSearchResults = MutableStateFlow<List<CymbalMovie>>(emptyList())
+    val filmSearchResults: StateFlow<List<CymbalMovie>> = _filmSearchResults.asStateFlow()
 
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
@@ -117,40 +129,76 @@ class FindPeopleViewModel @Inject constructor(
                 _followingIds.value = ids
             }
         }
+        // Suggested users from cloud function (taste matches)
         viewModelScope.launch {
             try {
-                _suggestedMatches.value = cloudFunctions.getSuggestedUsers(uid)
-            } catch (_: Exception) { }
+                val matches = cloudFunctions.getSuggestedUsers(uid)
+                Log.d("FindPeopleVM", "Suggested users loaded: ${matches.size}")
+                _suggestedMatches.value = matches
+            } catch (e: Exception) {
+                Log.e("FindPeopleVM", "Failed to load suggested users", e)
+                // Fallback: load mutual connections from Firestore
+                try {
+                    val mutuals = firestoreDataSource.fetchPrecomputedMutualConnections(uid, limit = 20)
+                    Log.d("FindPeopleVM", "Fallback mutuals loaded: ${mutuals.size}")
+                    val fallbackMatches = mutuals.map { (user, names) ->
+                        SuggestedUserMatch(
+                            user = user,
+                            matchData = null,
+                            suggestionReason = SuggestionReason(mutualNames = names),
+                        )
+                    }
+                    _suggestedMatches.value = fallbackMatches
+                } catch (e2: Exception) {
+                    Log.e("FindPeopleVM", "Fallback mutuals also failed", e2)
+                }
+            }
             _isSuggestedLoading.value = false
         }
         viewModelScope.launch {
             try {
                 _trendingSongs.value = exploreRepository.fetchTrendingSongs()
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                Log.e("FindPeopleVM", "Failed to load trending songs", e)
+            }
             _isTrendingLoading.value = false
         }
         viewModelScope.launch {
             try {
                 _trendingMovies.value = exploreRepository.fetchTrendingMovies()
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                Log.e("FindPeopleVM", "Failed to load trending movies", e)
+            }
             _isTrendingMoviesLoading.value = false
         }
         viewModelScope.launch {
             try {
-                _curatedMusicBots.value = cloudFunctions.getBotSuggestions(uid, botType = "music")
-            } catch (_: Exception) { }
+                val musicBots = cloudFunctions.getBotSuggestions(uid, botType = "music")
+                Log.d("FindPeopleVM", "Music bots loaded: ${musicBots.size}")
+                _curatedMusicBots.value = musicBots
+            } catch (e: Exception) {
+                Log.e("FindPeopleVM", "Failed to load music bots", e)
+            }
             try {
-                _curatedFilmBots.value = cloudFunctions.getBotSuggestions(uid, botType = "film")
-            } catch (_: Exception) { }
+                val filmBots = cloudFunctions.getBotSuggestions(uid, botType = "film")
+                Log.d("FindPeopleVM", "Film bots loaded: ${filmBots.size}")
+                _curatedFilmBots.value = filmBots
+            } catch (e: Exception) {
+                Log.e("FindPeopleVM", "Failed to load film bots", e)
+            }
             _isBotsLoading.value = false
         }
         viewModelScope.launch {
             try {
-                _popularUsers.value = userRepository.fetchPopularUsers(
+                val popular = userRepository.fetchPopularUsers(
                     limit = 10,
                     excludeIds = setOf(uid),
                 )
-            } catch (_: Exception) { }
+                Log.d("FindPeopleVM", "Popular users loaded: ${popular.size}")
+                _popularUsers.value = popular
+            } catch (e: Exception) {
+                Log.e("FindPeopleVM", "Failed to load popular users", e)
+            }
             _isPopularLoading.value = false
         }
     }
@@ -158,20 +206,37 @@ class FindPeopleViewModel @Inject constructor(
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
         if (query.isBlank()) {
-            _userSearchResults.value = emptyList()
-            _isSearching.value = false
-            searchJob?.cancel()
+            clearSearch()
             return
         }
+    }
+
+    fun search(query: String, tab: Int) {
         searchJob?.cancel()
+        if (query.isBlank()) {
+            clearSearch()
+            return
+        }
         searchJob = viewModelScope.launch {
             delay(if (query.length <= 2) 500L else 300L)
             _isSearching.value = true
             try {
-                _userSearchResults.value = userRepository.searchUsers(query.lowercase().trim())
+                when (tab) {
+                    0 -> _userSearchResults.value = userRepository.searchUsers(query.lowercase().trim())
+                    1 -> _songSearchResults.value = spotifyRepository.search(query)
+                    2 -> _filmSearchResults.value = tmdbRepository.searchMovies(query)
+                }
             } catch (_: Exception) { }
             _isSearching.value = false
         }
+    }
+
+    fun clearSearch() {
+        searchJob?.cancel()
+        _userSearchResults.value = emptyList()
+        _songSearchResults.value = emptyList()
+        _filmSearchResults.value = emptyList()
+        _isSearching.value = false
     }
 
     fun onUserSelected(user: CymbalUser) {

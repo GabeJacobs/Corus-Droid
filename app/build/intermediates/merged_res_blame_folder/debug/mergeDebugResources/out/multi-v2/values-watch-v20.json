@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "fm.corus.android.app-mergeDebugResources-99:/values-watch-v20/values-watch-v20.xml",
+            "outputFile": "fm.corus.android.app-mergeDebugResources-101:/values-watch-v20/values-watch-v20.xml",
             "map": [
                 {
-                    "source": "/Users/gabejacobs/.gradle/caches/9.0.0/transforms/547d2d07882a50337f7e2868533334a6/transformed/play-services-auth-21.3.0/res/values-watch-v20/values.xml",
+                    "source": "/Users/gabejacobs/.gradle/caches/9.0.0/transforms/be58ef3224e7fed82a84b0acbdec43b1/transformed/play-services-auth-21.3.0/res/values-watch-v20/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11",
                         "startColumns": "0,0,0,0,0,0,0,0",

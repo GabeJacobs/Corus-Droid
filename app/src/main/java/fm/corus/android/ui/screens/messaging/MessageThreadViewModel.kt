@@ -95,6 +95,20 @@ class MessageThreadViewModel @Inject constructor(
         }
     }
 
+    fun sendGifMessage(threadId: String, gifURL: String) {
+        val userId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                messageRepository.sendGifMessage(
+                    threadId = threadId,
+                    fromUserId = userId,
+                    gifURL = gifURL,
+                )
+                _messages.value = messageRepository.listMessages(threadId)
+            } catch (_: Exception) { }
+        }
+    }
+
     fun toggleReaction(threadId: String, messageId: String, emoji: String) {
         viewModelScope.launch {
             try {

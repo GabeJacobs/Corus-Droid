@@ -251,6 +251,7 @@ drawable abc_vector_test
 drawable add
 drawable android
 drawable apple
+drawable apple_music_logo
 drawable attach_money
 drawable attachment
 drawable bar_chart
@@ -282,6 +283,7 @@ drawable common_google_signin_btn_text_light_normal
 drawable common_google_signin_btn_text_light_normal_background
 drawable compare
 drawable corus_club
+drawable corus_club_vector
 drawable default_background
 drawable discord_logo
 drawable download
@@ -393,10 +395,13 @@ drawable ic_call_answer_video
 drawable ic_call_answer_video_low
 drawable ic_call_decline
 drawable ic_call_decline_low
+drawable ic_music_note_list
 drawable ic_other_sign_in
 drawable ic_passkey
 drawable ic_password
+drawable ic_play_rectangle_fill
 drawable insert_drive_file
+drawable instagram_logo
 drawable launch
 drawable layers
 drawable line_chart

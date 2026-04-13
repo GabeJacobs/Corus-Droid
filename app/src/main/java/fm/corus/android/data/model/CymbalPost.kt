@@ -105,7 +105,10 @@ data class CymbalPost(
                 comments = commentsList,
                 likers = likersList,
                 rankInHashtag = (data["rankInHashtag"] as? Number)?.toInt(),
-                trackPostCount = (data["trackPostCount"] as? Number)?.toInt(),
+                trackPostCount = if (mediaType == MediaType.MOVIE)
+                    (data["moviePostCount"] as? Number)?.toInt()
+                else
+                    (data["trackPostCount"] as? Number)?.toInt(),
                 isFirstPoster = data["isFirstPoster"] as? Boolean ?: false,
                 repostedFromPostId = data["repostedFromPostId"] as? String,
                 repostedFromUserId = data["repostedFromUserId"] as? String,

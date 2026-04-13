@@ -26,7 +26,7 @@ class ThreadListViewModel @Inject constructor(
     private val _threads = MutableStateFlow<List<CymbalThread>>(emptyList())
     val threads: StateFlow<List<CymbalThread>> = _threads.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(false)
+    private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     // New Message picker state

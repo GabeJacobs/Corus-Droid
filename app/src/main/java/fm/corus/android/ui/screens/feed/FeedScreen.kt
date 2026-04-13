@@ -41,7 +41,7 @@ fun FeedScreen(
     onNavigateToComments: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
-    onNavigateToSong: (String) -> Unit = {},
+    onNavigateToSong: (String, String?) -> Unit = { _, _ -> },
     onNavigateToFilm: (String) -> Unit = {},
 ) {
     val posts by viewModel.filteredPosts.collectAsState()
@@ -310,6 +310,11 @@ fun FeedScreen(
         val shareSearchResults by viewModel.shareSearchResults.collectAsState()
         val recentShareContacts by viewModel.recentShareContacts.collectAsState()
         val isShareSearching by viewModel.isShareSearching.collectAsState()
+        val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
+
+        LaunchedEffect(Unit) {
+            viewModel.loadRecentShareContacts()
+        }
 
         ModalBottomSheet(
             onDismissRequest = { sharePost = null },
@@ -323,7 +328,7 @@ fun FeedScreen(
                 recentContacts = recentShareContacts,
                 searchResults = shareSearchResults,
                 isSearching = isShareSearching,
-                isLoadingContacts = false,
+                isLoadingContacts = isLoadingShareContacts,
                 instagramShareEnabled = viewModel.remoteConfig.instagramShareEnabled,
                 onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
                 onSendToUser = { userId, message ->
@@ -333,9 +338,17 @@ fun FeedScreen(
                 },
                 onRepost = {
                     viewModel.repostPost(post)
+                    ToastManager.show("Reposted!")
                     sharePost = null
                 },
                 onDismiss = { sharePost = null },
+                onAnalyticsLog = { method ->
+                    viewModel.analyticsService.logPostShared(
+                        postId = post.id,
+                        mediaType = if (post.isMovie) "movie" else "track",
+                        method = method,
+                    )
+                },
             )
         }
     }
@@ -356,7 +369,7 @@ fun FeedScreen(
                 post = post,
                 isMine = isOwn,
                 onDismiss = { menuPost = null },
-                onViewSongPage = { onNavigateToSong(post.track.id) },
+                onViewSongPage = { onNavigateToSong(post.track.id, post.track.albumArtURL) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
                 onRepost = {
                     viewModel.repostPost(post)
@@ -417,6 +430,7 @@ fun FeedScreen(
             EditCaptionSheet(
                 postId = post.id,
                 initialCaption = post.caption.orEmpty(),
+                albumArtURL = post.displayImageURL,
                 onDismiss = { editCaptionPost = null },
                 onSaved = { newCaption ->
                     editCaptionPost = null
