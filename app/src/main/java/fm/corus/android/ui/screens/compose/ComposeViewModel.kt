@@ -67,11 +67,19 @@ class ComposeViewModel @Inject constructor(
         // Load trending songs and movies
         viewModelScope.launch {
             try {
-                _trendingSongs.value = exploreRepository.fetchTrendingSongs()
-            } catch (_: Exception) { }
+                val songs = exploreRepository.fetchTrendingSongs()
+                android.util.Log.d("ComposeVM", "Loaded ${songs.size} trending songs")
+                _trendingSongs.value = songs
+            } catch (e: Exception) {
+                android.util.Log.e("ComposeVM", "Failed to load trending songs", e)
+            }
             try {
-                _trendingMovies.value = exploreRepository.fetchTrendingMovies()
-            } catch (_: Exception) { }
+                val movies = exploreRepository.fetchTrendingMovies()
+                android.util.Log.d("ComposeVM", "Loaded ${movies.size} trending movies")
+                _trendingMovies.value = movies
+            } catch (e: Exception) {
+                android.util.Log.e("ComposeVM", "Failed to load trending movies", e)
+            }
             _isLoadingTrending.value = false
         }
     }

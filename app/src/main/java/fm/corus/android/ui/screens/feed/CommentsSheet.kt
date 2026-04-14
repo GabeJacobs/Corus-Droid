@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -36,12 +37,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.components.GifPickerSheet
+import fm.corus.android.ui.components.TappableMentionText
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.UsernameWithFlair
+import fm.corus.android.ui.components.buildMentionAnnotatedString
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -55,23 +60,23 @@ fun CommentsBottomSheet(
     onNavigateToUser: (String) -> Unit = {},
 ) {
     val viewModel: CommentsViewModel = hiltViewModel()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = Color.White,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
-        Text(
-            "Comments",
-            style = CorusFont.screenTitle,
-            color = CorusColors.Text,
-            modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-        )
-        CommentsBodyContent(
+        CommentsSheetContent(
             postId = postId,
             viewModel = viewModel,
+            onDismiss = onDismiss,
             onNavigateToUser = onNavigateToUser,
+            onExpandSheet = {
+                scope.launch { sheetState.expand() }
+            },
         )
     }
 }
@@ -98,9 +103,10 @@ fun CommentsSheet(
         },
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            CommentsBodyContent(
+            CommentsSheetContent(
                 postId = postId,
                 viewModel = viewModel,
+                onDismiss = onDismiss,
                 onNavigateToUser = onNavigateToUser,
             )
         }
@@ -109,10 +115,12 @@ fun CommentsSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ColumnScope.CommentsBodyContent(
+private fun ColumnScope.CommentsSheetContent(
     postId: String,
     viewModel: CommentsViewModel = hiltViewModel(),
+    onDismiss: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
+    onExpandSheet: () -> Unit = {},
 ) {
     val comments by viewModel.comments.collectAsState()
     val repliesByParent by viewModel.repliesByParent.collectAsState()
@@ -120,6 +128,7 @@ private fun ColumnScope.CommentsBodyContent(
     val isSending by viewModel.isSending.collectAsState()
     val replyingTo by viewModel.replyingTo.collectAsState()
     val likedCommentIds by viewModel.likedCommentIds.collectAsState()
+    val post by viewModel.post.collectAsState()
 
     var commentText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -127,14 +136,24 @@ private fun ColumnScope.CommentsBodyContent(
 
     val maxChars = 700
     val showCounter = commentText.length >= 650
+    val coroutineScope = rememberCoroutineScope()
+
+    val handleMentionTap: (String) -> Unit = { username ->
+        coroutineScope.launch {
+            val userId = viewModel.resolveUsernameToId(username)
+            if (userId != null) onNavigateToUser(userId)
+        }
+    }
 
     LaunchedEffect(postId) {
         viewModel.loadComments(postId)
+        viewModel.loadPost(postId)
     }
 
     LaunchedEffect(replyingTo) {
         if (replyingTo != null) {
             focusRequester.requestFocus()
+            onExpandSheet()
         }
     }
 
@@ -148,177 +167,296 @@ private fun ColumnScope.CommentsBodyContent(
         )
     }
 
+    // Header row with title and close button
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            "Comments",
+            style = CorusFont.screenTitle,
+            color = CorusColors.Text,
+        )
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "Close",
+                    tint = CorusColors.Secondary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
+
     // Comments list — takes remaining space
     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-        when {
-            isLoading && comments.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(color = CorusColors.Accent)
-                }
-            }
-            comments.isEmpty() && !isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("No comments yet", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
-                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                        Text("Start the conversation", style = CorusFont.caption, color = CorusColors.Tertiary)
+            when {
+                isLoading && comments.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = CorusColors.Accent)
                     }
                 }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = CorusSpacing.sm),
-                ) {
-                    comments.forEach { comment ->
-                        item(key = comment.id) {
-                            CommentRow(
-                                comment = comment,
-                                isOwnComment = comment.user.id == viewModel.currentUserId,
-                                isLiked = likedCommentIds.contains(comment.id),
-                                onUserTap = { onNavigateToUser(comment.user.id) },
-                                onReplyTap = { viewModel.setReplyingTo(comment) },
-                                onLikeTap = { viewModel.toggleCommentLike(comment.id) },
-                                onDeleteTap = { viewModel.deleteComment(comment.id) },
-                            )
+                comments.isEmpty() && !isLoading && (post?.caption.isNullOrEmpty()) -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("No comments yet", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                            Text("Start the conversation", style = CorusFont.caption, color = CorusColors.Tertiary)
                         }
-                        // Replies
-                        val replies = repliesByParent[comment.id] ?: emptyList()
-                        replies.forEach { reply ->
-                            item(key = reply.id) {
-                                CommentRow(
-                                    comment = reply,
-                                    isOwnComment = reply.user.id == viewModel.currentUserId,
-                                    isReply = true,
-                                    isLiked = likedCommentIds.contains(reply.id),
-                                    onUserTap = { onNavigateToUser(reply.user.id) },
-                                    onReplyTap = { viewModel.setReplyingTo(reply) },
-                                    onLikeTap = { viewModel.toggleCommentLike(reply.id) },
-                                    onDeleteTap = { viewModel.deleteComment(reply.id) },
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = CorusSpacing.sm),
+                    ) {
+                        // Caption row (matching iOS — show post author + caption at top)
+                        val captionText = post?.caption
+                        if (!captionText.isNullOrEmpty()) {
+                            item(key = "caption") {
+                                CaptionRow(
+                                    user = post?.user,
+                                    caption = captionText,
+                                    timestamp = post?.timestamp,
+                                    onUserTap = {
+                                        post?.user?.id?.let { onNavigateToUser(it) }
+                                    },
+                                    onMentionTap = handleMentionTap,
                                 )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                                    color = CorusColors.Divider,
+                                )
+                            }
+                        }
+
+                        comments.forEach { comment ->
+                            item(key = comment.id) {
+                                CommentRow(
+                                    comment = comment,
+                                    isOwnComment = comment.user.id == viewModel.currentUserId,
+                                    isLiked = likedCommentIds.contains(comment.id),
+                                    onUserTap = { onNavigateToUser(comment.user.id) },
+                                    onReplyTap = { viewModel.setReplyingTo(comment) },
+                                    onLikeTap = { viewModel.toggleCommentLike(comment.id) },
+                                    onDeleteTap = { viewModel.deleteComment(comment.id) },
+                                    onMentionTap = handleMentionTap,
+                                )
+                            }
+                            // Replies
+                            val replies = repliesByParent[comment.id] ?: emptyList()
+                            replies.forEach { reply ->
+                                item(key = reply.id) {
+                                    CommentRow(
+                                        comment = reply,
+                                        isOwnComment = reply.user.id == viewModel.currentUserId,
+                                        isReply = true,
+                                        isLiked = likedCommentIds.contains(reply.id),
+                                        onUserTap = { onNavigateToUser(reply.user.id) },
+                                        onReplyTap = { viewModel.setReplyingTo(reply) },
+                                        onLikeTap = { viewModel.toggleCommentLike(reply.id) },
+                                        onDeleteTap = { viewModel.deleteComment(reply.id) },
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
-    }
 
-    // Reply-to banner
-    if (replyingTo != null) {
+        // Reply-to banner
+        if (replyingTo != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CorusColors.CardBackground)
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Replying to @${replyingTo?.user?.username}",
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "Cancel reply",
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { viewModel.setReplyingTo(null) },
+                    tint = CorusColors.Secondary,
+                )
+            }
+        }
+
+        // Comment input
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CorusColors.CardBackground)
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                .background(Color.White)
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+                .imePadding(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "Replying to @${replyingTo?.user?.username}",
-                style = CorusFont.caption,
-                color = CorusColors.Secondary,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                Icons.Filled.Close,
-                contentDescription = "Cancel reply",
+            TextField(
+                value = commentText,
+                onValueChange = {
+                    if (it.length <= maxChars) commentText = it
+                },
                 modifier = Modifier
-                    .size(16.dp)
-                    .clickable { viewModel.setReplyingTo(null) },
-                tint = CorusColors.Secondary,
+                    .weight(1f)
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { state ->
+                        if (state.isFocused) onExpandSheet()
+                    },
+                placeholder = {
+                    Text("Add a comment...", style = CorusFont.body, color = CorusColors.Tertiary)
+                },
+                singleLine = false,
+                maxLines = 4,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(
+                    onSend = {
+                        if (commentText.isNotBlank() && !isSending) {
+                            viewModel.sendComment(commentText)
+                            commentText = ""
+                        }
+                    },
+                ),
+                shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = CorusColors.CardBackground,
+                    unfocusedContainerColor = CorusColors.CardBackground,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = CorusColors.Accent,
+                ),
+                textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                trailingIcon = {
+                    if (showCounter) {
+                        Text(
+                            text = "${maxChars - commentText.length}",
+                            style = CorusFont.caption,
+                            color = if (commentText.length >= maxChars) CorusColors.Error else CorusColors.Secondary,
+                        )
+                    }
+                },
             )
-        }
-    }
 
-    // Comment input
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.White)
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TextField(
-            value = commentText,
-            onValueChange = {
-                if (it.length <= maxChars) commentText = it
-            },
-            modifier = Modifier
-                .weight(1f)
-                .focusRequester(focusRequester),
-            placeholder = {
-                Text("Add a comment...", style = CorusFont.body, color = CorusColors.Tertiary)
-            },
-            singleLine = false,
-            maxLines = 4,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(
-                onSend = {
+            if (viewModel.giphySupport) {
+                IconButton(onClick = { showGifPicker = true }) {
+                    Icon(
+                        Icons.Filled.Gif,
+                        contentDescription = "Send GIF",
+                        tint = CorusColors.Accent,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = {
                     if (commentText.isNotBlank() && !isSending) {
                         viewModel.sendComment(commentText)
                         commentText = ""
                     }
                 },
-            ),
-            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = CorusColors.CardBackground,
-                unfocusedContainerColor = CorusColors.CardBackground,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = CorusColors.Accent,
-            ),
-            textStyle = CorusFont.body.copy(color = CorusColors.Text),
-            trailingIcon = {
-                if (showCounter) {
-                    Text(
-                        text = "${maxChars - commentText.length}",
-                        style = CorusFont.caption,
-                        color = if (commentText.length >= maxChars) CorusColors.Error else CorusColors.Secondary,
+                enabled = commentText.isNotBlank() && !isSending,
+            ) {
+                if (isSending) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = CorusColors.Accent,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send",
+                        tint = if (commentText.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary,
                     )
                 }
-            },
-        )
-
-        if (viewModel.giphySupport) {
-            IconButton(onClick = { showGifPicker = true }) {
-                Icon(
-                    Icons.Filled.Gif,
-                    contentDescription = "Send GIF",
-                    tint = CorusColors.Accent,
-                    modifier = Modifier.size(28.dp),
-                )
             }
         }
+    }
 
-        IconButton(
-            onClick = {
-                if (commentText.isNotBlank() && !isSending) {
-                    viewModel.sendComment(commentText)
-                    commentText = ""
-                }
-            },
-            enabled = commentText.isNotBlank() && !isSending,
-        ) {
-            if (isSending) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = CorusColors.Accent,
-                    strokeWidth = 2.dp,
+@Composable
+private fun CaptionRow(
+    user: CymbalUser?,
+    caption: String,
+    timestamp: java.util.Date?,
+    onUserTap: () -> Unit = {},
+    onMentionTap: (String) -> Unit = {},
+) {
+    if (user == null) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+    ) {
+        UserAvatarView(
+            avatarURL = user.avatarURL,
+            size = CorusSpacing.avatarSmall,
+            modifier = Modifier.clickable(onClick = onUserTap),
+        )
+
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            ) {
+                UsernameWithFlair(
+                    username = user.username,
+                    isVerified = user.isVerified,
+                    isClubMember = user.isClubMember,
+                    flairStyle = user.flairStyle,
+                    isBot = user.isBot,
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onUserTap,
+                    ),
                 )
-            } else {
-                Icon(
-                    Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Send",
-                    tint = if (commentText.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary,
+                if (timestamp != null) {
+                    Text(
+                        text = DateUtils.relativeTime(timestamp),
+                        style = CorusFont.caption,
+                        color = CorusColors.Tertiary,
+                    )
+                }
+            }
+            val annotatedCaption = remember(caption) {
+                buildMentionAnnotatedString(
+                    text = caption,
+                    baseStyle = SpanStyle(
+                        fontFamily = CorusFont.body.fontFamily,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 15.sp,
+                    ),
                 )
             }
+            TappableMentionText(
+                text = annotatedCaption,
+                style = CorusFont.body.copy(fontSize = 15.sp),
+                onMentionTap = onMentionTap,
+            )
         }
     }
 }
@@ -333,6 +471,7 @@ private fun CommentRow(
     onReplyTap: () -> Unit = {},
     onLikeTap: () -> Unit = {},
     onDeleteTap: () -> Unit = {},
+    onMentionTap: (String) -> Unit = {},
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -375,12 +514,24 @@ private fun CommentRow(
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
         Column(modifier = Modifier.weight(1f)) {
-            // Username
-            Text(
-                text = comment.user.username,
-                style = CorusFont.body.copy(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp),
-                color = CorusColors.Text,
-            )
+            // Username with flair badges
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            ) {
+                UsernameWithFlair(
+                    username = comment.user.username,
+                    isVerified = comment.user.isVerified,
+                    isClubMember = comment.user.isClubMember,
+                    flairStyle = comment.user.flairStyle,
+                    isBot = comment.user.isBot,
+                )
+                Text(
+                    text = DateUtils.relativeTime(comment.timestamp),
+                    style = CorusFont.caption,
+                    color = CorusColors.Tertiary,
+                )
+            }
 
             // GIF or text content
             if (comment.gifURL != null) {
@@ -397,66 +548,71 @@ private fun CommentRow(
                     contentScale = ContentScale.Fit,
                 )
             } else if (comment.text.isNotEmpty()) {
-                Text(
-                    text = comment.text,
-                    style = CorusFont.body.copy(fontWeight = FontWeight.Normal, fontSize = 15.sp),
-                    color = CorusColors.Text,
+                val annotatedText = remember(comment.text) {
+                    buildMentionAnnotatedString(
+                        text = comment.text,
+                        baseStyle = SpanStyle(
+                            fontFamily = CorusFont.body.fontFamily,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 15.sp,
+                        ),
+                    )
+                }
+                TappableMentionText(
+                    text = annotatedText,
+                    style = CorusFont.body.copy(fontSize = 15.sp),
+                    onMentionTap = onMentionTap,
                 )
             }
 
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
-            // Timestamp + Reply + Delete (own) buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
-            ) {
-                Text(
-                    text = DateUtils.relativeTime(comment.timestamp),
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                )
-                Text(
-                    text = "Reply",
-                    style = CorusFont.captionMedium,
-                    color = CorusColors.Secondary,
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onReplyTap,
-                    ),
-                )
-            }
-        }
-
-        // Like button
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onLikeTap,
-            ),
-        ) {
-            Icon(
-                imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                contentDescription = "Like comment",
-                modifier = Modifier.size(14.dp),
-                tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
+            // Reply button
+            Text(
+                text = "Reply",
+                style = CorusFont.captionMedium,
+                color = CorusColors.Secondary,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onReplyTap,
+                ),
             )
-            if (comment.likeCount > 0) {
-                Text(
-                    text = "${comment.likeCount}",
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                )
-            }
         }
 
-        // "..." menu button for own comments (matching iOS)
-        if (isOwnComment) {
-            var showMenu by remember { mutableStateOf(false) }
-            Spacer(modifier = Modifier.width(CorusSpacing.xs))
-            Box {
+        // Like button + menu — vertically centered on the row
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.align(Alignment.CenterVertically),
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onLikeTap,
+                ),
+            ) {
+                Icon(
+                    imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    contentDescription = "Like comment",
+                    modifier = Modifier.size(14.dp),
+                    tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
+                )
+                if (comment.likeCount > 0) {
+                    Text(
+                        text = "${comment.likeCount}",
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                    )
+                }
+            }
+
+            // "..." menu button for own comments (matching iOS)
+            if (isOwnComment) {
+                var showMenu by remember { mutableStateOf(false) }
+                Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                Box {
                 Icon(
                     imageVector = Icons.Filled.MoreHoriz,
                     contentDescription = "Comment options",
@@ -487,6 +643,7 @@ private fun CommentRow(
                         },
                     )
                 }
+            }
             }
         }
     }

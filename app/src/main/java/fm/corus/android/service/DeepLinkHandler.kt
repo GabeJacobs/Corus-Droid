@@ -7,6 +7,7 @@ sealed class DeepLinkDestination {
     data class Profile(val userId: String) : DeepLinkDestination()
     data class ProfileByUsername(val username: String) : DeepLinkDestination()
     data class Post(val postId: String) : DeepLinkDestination()
+    data class PostComment(val postId: String, val commentId: String) : DeepLinkDestination()
     data class Thread(val threadId: String, val otherUserId: String = "") : DeepLinkDestination()
     data class Hashtag(val tag: String) : DeepLinkDestination()
 }
@@ -54,7 +55,12 @@ object DeepLinkHandler {
         return when (type) {
             "follow" -> data["userId"]?.let { DeepLinkDestination.Profile(it) }
             "message" -> data["threadId"]?.let { DeepLinkDestination.Thread(it, data["userId"] ?: "") }
-            "comment", "reply", "mention", "comment_like" -> data["postId"]?.let { DeepLinkDestination.Post(it) }
+            "comment", "reply", "mention", "comment_like" -> {
+                val postId = data["postId"] ?: return fallbackParse(data)
+                val commentId = data["commentId"]
+                if (commentId != null) DeepLinkDestination.PostComment(postId, commentId)
+                else DeepLinkDestination.Post(postId)
+            }
             "like", "save", "new_post" -> data["postId"]?.let { DeepLinkDestination.Post(it) }
             else -> fallbackParse(data)
         }

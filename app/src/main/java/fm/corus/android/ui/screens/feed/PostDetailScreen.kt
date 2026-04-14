@@ -48,6 +48,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.R
 import fm.corus.android.ui.components.LikedBySection
+import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.components.VoiceNotePlayerView
@@ -74,6 +75,9 @@ fun PostDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val comments by viewModel.comments.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
+    val currentUserProfile by viewModel.currentUserProfile.collectAsState()
+    val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
+    val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -152,6 +156,8 @@ fun PostDetailScreen(
                     item {
                         PostDetailAlbumArt(
                             post = currentPost,
+                            isPreviewLoading = currentPost.isTrack && loadingTrackId == currentPost.track.id,
+                            isPreviewPlaying = currentPost.isTrack && nowPlayingState.trackId == currentPost.track.id && nowPlayingState.isPlaying,
                             onDoubleTap = { viewModel.toggleLike(currentPost.id) },
                             onSongTap = {
                                 if (currentPost.isMovie) {
@@ -220,12 +226,14 @@ fun PostDetailScreen(
                     }
 
                     // Liked by section
-                    if (likeCount > 0 && currentPost.likers.isNotEmpty()) {
+                    if (likeCount > 0) {
                         item {
                             LikedBySection(
                                 likers = currentPost.likers,
                                 likeCount = likeCount,
                                 onLikesTap = { onNavigateToLikes(currentPost.id) },
+                                currentUser = currentUserProfile,
+                                isLiked = isLiked,
                             )
                         }
                     }
@@ -445,6 +453,8 @@ private fun PostDetailHeader(
 @Composable
 private fun PostDetailAlbumArt(
     post: CymbalPost,
+    isPreviewLoading: Boolean = false,
+    isPreviewPlaying: Boolean = false,
     onDoubleTap: () -> Unit,
     onSongTap: () -> Unit,
 ) {
@@ -485,6 +495,31 @@ private fun PostDetailAlbumArt(
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
         )
+
+        // Preview loading/playing overlay (track posts only)
+        if (post.isTrack && (isPreviewLoading || isPreviewPlaying)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.4f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (isPreviewLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(40.dp),
+                        strokeWidth = 3.dp,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.Pause,
+                        contentDescription = "Pause",
+                        tint = Color.White,
+                        modifier = Modifier.size(52.dp),
+                    )
+                }
+            }
+        }
 
         // Heart animation overlay
         Icon(
@@ -610,14 +645,30 @@ private fun PostDetailEngagementRow(
             onClick = onShareTap,
         )
 
-        // Track post count
-        if (trackPostCount > 0) {
-            EngagementButton(
-                icon = Icons.Filled.MusicNote,
-                count = trackPostCount,
-                tint = CorusColors.Secondary,
-                onClick = onSongCountTap,
-            )
+        // Track post count — only show when 2+ people posted the same song/film
+        if (trackPostCount > 1) {
+            Row(
+                modifier = Modifier
+                    .height(CorusSpacing.touchTarget)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onSongCountTap,
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                VennDiagramIcon(
+                    size = 22.dp,
+                    color = CorusColors.Secondary,
+                )
+                Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                Text(
+                    text = trackPostCount.toString(),
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                )
+            }
         }
 
         Spacer(modifier = Modifier.weight(1f))

@@ -1,10 +1,13 @@
 package fm.corus.android.ui.screens.feed
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,11 +41,13 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.util.DateUtils
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SinglePostCommentsScreen(
     postId: String,
+    highlightCommentId: String? = null,
     viewModel: CommentsViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -59,10 +64,36 @@ fun SinglePostCommentsScreen(
     val focusRequester = remember { FocusRequester() }
     var showGifPicker by remember { mutableStateOf(false) }
     val maxChars = 700
+    val listState = rememberLazyListState()
+
+    // Highlight flash state — matches iOS 1.5s flash then fade
+    var activeHighlightId by remember { mutableStateOf<String?>(null) }
+    var hasScrolledToTarget by remember { mutableStateOf(false) }
 
     LaunchedEffect(postId) {
         viewModel.loadComments(postId)
         viewModel.loadPost(postId)
+    }
+
+    // Scroll to target comment once comments are loaded
+    LaunchedEffect(comments, highlightCommentId) {
+        if (highlightCommentId == null || comments.isEmpty() || hasScrolledToTarget) return@LaunchedEffect
+        // Build flat list of IDs in display order to find the index
+        val flatIds = mutableListOf<String>()
+        // Index 0 is the post header item
+        flatIds.add("header")
+        for (comment in comments) {
+            flatIds.add(comment.id)
+            repliesByParent[comment.id]?.forEach { reply -> flatIds.add(reply.id) }
+        }
+        val targetIndex = flatIds.indexOf(highlightCommentId)
+        if (targetIndex >= 0) {
+            listState.animateScrollToItem(targetIndex)
+            hasScrolledToTarget = true
+            activeHighlightId = highlightCommentId
+            delay(1500)
+            activeHighlightId = null
+        }
     }
 
     Scaffold(
@@ -175,13 +206,14 @@ fun SinglePostCommentsScreen(
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
             // Post header section
             post?.let { p ->
-                item {
+                item(key = "header") {
                     PostHeaderSection(
                         post = p,
                         onUserTap = { onNavigateToUser(p.user.id) },
@@ -217,6 +249,7 @@ fun SinglePostCommentsScreen(
                         isLiked = likedCommentIds.contains(comment.id),
                         replies = repliesByParent[comment.id] ?: emptyList(),
                         likedCommentIds = likedCommentIds,
+                        highlightedCommentId = activeHighlightId,
                         onLike = { viewModel.toggleCommentLike(postId, comment.id) },
                         onReply = { viewModel.setReplyTo(comment) },
                         onUserTap = { onNavigateToUser(comment.user.id) },
@@ -271,15 +304,22 @@ private fun SingleCommentRow(
     isLiked: Boolean,
     replies: List<CymbalComment>,
     likedCommentIds: Set<String>,
+    highlightedCommentId: String? = null,
     onLike: () -> Unit,
     onReply: () -> Unit,
     onUserTap: () -> Unit,
     onReplyLike: (String) -> Unit,
 ) {
+    val commentHighlightColor by animateColorAsState(
+        targetValue = if (highlightedCommentId == comment.id) CorusColors.Accent.copy(alpha = 0.1f) else Color.Transparent,
+        animationSpec = tween(durationMillis = if (highlightedCommentId == comment.id) 200 else 500),
+        label = "commentHighlight",
+    )
     Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(commentHighlightColor)
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         ) {
             UserAvatarView(
@@ -331,9 +371,15 @@ private fun SingleCommentRow(
 
         // Replies
         replies.forEach { reply ->
+            val replyHighlightColor by animateColorAsState(
+                targetValue = if (highlightedCommentId == reply.id) CorusColors.Accent.copy(alpha = 0.1f) else Color.Transparent,
+                animationSpec = tween(durationMillis = if (highlightedCommentId == reply.id) 200 else 500),
+                label = "replyHighlight",
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(replyHighlightColor)
                     .padding(start = 56.dp, end = CorusSpacing.lg, top = CorusSpacing.xxs, bottom = CorusSpacing.xxs),
             ) {
                 UserAvatarView(avatarURL = reply.user.avatarURL, size = 24.dp)

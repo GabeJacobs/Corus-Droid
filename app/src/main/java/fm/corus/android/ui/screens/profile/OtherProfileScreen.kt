@@ -44,8 +44,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
-import coil3.request.ImageRequest
-import coil3.size.Size
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
@@ -87,6 +85,7 @@ fun OtherProfileScreen(
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
+    var isFeaturedArtReady by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showAvatarFullScreen by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
@@ -460,7 +459,10 @@ fun OtherProfileScreen(
                                 Column(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clickable { selectedSegment = index }
+                                        .clickable {
+                                            selectedSegment = index
+                                            isFeaturedArtReady = false
+                                        }
                                         .drawBehind {
                                             val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
                                             val lineColor = if (isSelected) CorusColors.Text else CorusColors.Divider
@@ -503,27 +505,52 @@ fun OtherProfileScreen(
                     }
 
                     // Featured post — only for Music/Film tabs (matching iOS)
+                    // Show skeleton until the featured art image has loaded
                     if (filteredPosts.isNotEmpty() && isFeaturedTab) {
                         val featured = filteredPosts.first()
                         val userProfile = profile
-                        if (userProfile != null && featured.mediaType == MediaType.MOVIE) {
-                            FeaturedMoviePosterView(
-                                post = featured,
-                                frameStyle = userProfile.frameStyle,
-                                rainIntensity = userProfile.rainIntensity,
-                                snowIntensity = userProfile.snowIntensity,
-                                discoIntensity = userProfile.discoIntensityLevel,
-                                onPostTap = { onNavigateToPost(featured.id) },
-                            )
+                        if (userProfile != null && !isFeaturedArtReady) {
+                            Box {
+                                Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .alpha(0f)
+                                ) {
+                                    if (featured.mediaType == MediaType.MOVIE) {
+                                        FeaturedMoviePosterView(
+                                            post = featured,
+                                            frameStyle = userProfile.frameStyle,
+                                            onArtReady = { isFeaturedArtReady = true },
+                                        )
+                                    } else {
+                                        FeaturedCymbalView(
+                                            post = featured,
+                                            vinylStyle = userProfile.vinylStyle,
+                                            onArtReady = { isFeaturedArtReady = true },
+                                        )
+                                    }
+                                }
+                                SkeletonProfileGrid()
+                            }
                         } else if (userProfile != null) {
-                            FeaturedCymbalView(
-                                post = featured,
-                                vinylStyle = userProfile.vinylStyle,
-                                rainIntensity = userProfile.rainIntensity,
-                                snowIntensity = userProfile.snowIntensity,
-                                discoIntensity = userProfile.discoIntensityLevel,
-                                onPostTap = { onNavigateToPost(featured.id) },
-                            )
+                            if (featured.mediaType == MediaType.MOVIE) {
+                                FeaturedMoviePosterView(
+                                    post = featured,
+                                    frameStyle = userProfile.frameStyle,
+                                    rainIntensity = userProfile.rainIntensity,
+                                    snowIntensity = userProfile.snowIntensity,
+                                    discoIntensity = userProfile.discoIntensityLevel,
+                                    onPostTap = { onNavigateToPost(featured.id) },
+                                )
+                            } else {
+                                FeaturedCymbalView(
+                                    post = featured,
+                                    vinylStyle = userProfile.vinylStyle,
+                                    rainIntensity = userProfile.rainIntensity,
+                                    snowIntensity = userProfile.snowIntensity,
+                                    discoIntensity = userProfile.discoIntensityLevel,
+                                    onPostTap = { onNavigateToPost(featured.id) },
+                                )
+                            }
                         }
                     } else if (filteredPosts.isEmpty() && !isLoading) {
                         // Empty state per segment (matching iOS: icon + text, no emoji)
@@ -569,15 +596,16 @@ fun OtherProfileScreen(
             }
             // For Likes, show all posts in grid (no featured);
             // for Music/Film (and bots), skip the first post (already shown as featured)
+            @Suppress("NAME_SHADOWING")
             val isFeaturedTab = currentProfile.isBot || selectedSegment <= 1
             val gridPosts = if (isFeaturedTab) filteredPosts.drop(1) else filteredPosts
-            if (gridPosts.isNotEmpty()) {
+            // Hide grid while featured art is loading (skeleton in header covers both areas)
+            if (isFeaturedTab && !isFeaturedArtReady && filteredPosts.isNotEmpty()) {
+                // SkeletonProfileGrid in header already covers grid area
+            } else if (gridPosts.isNotEmpty()) {
                 items(gridPosts, key = { it.id }) { post ->
                     ShimmerAsyncImage(
-                        model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                            .data(post.displayImageLargeURL ?: post.displayImageURL)
-                            .size(Size.ORIGINAL)
-                            .build(),
+                        model = post.displayImageLargeURL ?: post.displayImageURL,
                         contentDescription = post.displayTitle,
                         modifier = Modifier
                             .aspectRatio(1f)

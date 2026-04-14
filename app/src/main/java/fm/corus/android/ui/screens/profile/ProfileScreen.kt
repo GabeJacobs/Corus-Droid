@@ -44,8 +44,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
-import coil3.size.Size
+
+
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
@@ -83,6 +83,7 @@ fun ProfileScreen(
     val hasFullAccess by viewModel.hasFullAccess.collectAsState()
     val isSavingStyle by viewModel.isSavingStyle.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
+    var isFeaturedArtReady by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -464,6 +465,7 @@ fun ProfileScreen(
                                 .weight(1f)
                                 .clickable {
                                     selectedSegment = index
+                                    isFeaturedArtReady = false
                                     viewModel.loadSegment(index)
                                 }
                                 .drawBehind {
@@ -498,26 +500,54 @@ fun ProfileScreen(
                 }
 
                 // ── Featured Post — only for Music/Film tabs (matching iOS) ──
+                // Show skeleton until the featured art image has loaded,
+                // matching the iOS pattern of hiding the real view until ready.
                 if (filteredPosts.isNotEmpty() && selectedSegment <= 1) {
                     val featuredPost = filteredPosts.first()
-                    if (featuredPost.mediaType == fm.corus.android.data.model.MediaType.MOVIE) {
-                        fm.corus.android.ui.components.FeaturedMoviePosterView(
-                            post = featuredPost,
-                            frameStyle = currentProfile.frameStyle,
-                            rainIntensity = currentProfile.rainIntensity,
-                            snowIntensity = currentProfile.snowIntensity,
-                            discoIntensity = currentProfile.discoIntensityLevel,
-                            onPostTap = { onNavigateToPost(featuredPost.id) },
-                        )
+                    if (!isFeaturedArtReady) {
+                        // Render featured view off-screen to trigger image load,
+                        // show skeleton on top (like iOS's .hidden() + ZStack)
+                        Box {
+                            Box(modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(0f)
+                            ) {
+                                if (featuredPost.mediaType == fm.corus.android.data.model.MediaType.MOVIE) {
+                                    fm.corus.android.ui.components.FeaturedMoviePosterView(
+                                        post = featuredPost,
+                                        frameStyle = currentProfile.frameStyle,
+                                        onArtReady = { isFeaturedArtReady = true },
+                                    )
+                                } else {
+                                    fm.corus.android.ui.components.FeaturedCymbalView(
+                                        post = featuredPost,
+                                        vinylStyle = currentProfile.vinylStyle,
+                                        onArtReady = { isFeaturedArtReady = true },
+                                    )
+                                }
+                            }
+                            fm.corus.android.ui.components.SkeletonProfileGrid()
+                        }
                     } else {
-                        fm.corus.android.ui.components.FeaturedCymbalView(
-                            post = featuredPost,
-                            vinylStyle = currentProfile.vinylStyle,
-                            rainIntensity = currentProfile.rainIntensity,
-                            snowIntensity = currentProfile.snowIntensity,
-                            discoIntensity = currentProfile.discoIntensityLevel,
-                            onPostTap = { onNavigateToPost(featuredPost.id) },
-                        )
+                        if (featuredPost.mediaType == fm.corus.android.data.model.MediaType.MOVIE) {
+                            fm.corus.android.ui.components.FeaturedMoviePosterView(
+                                post = featuredPost,
+                                frameStyle = currentProfile.frameStyle,
+                                rainIntensity = currentProfile.rainIntensity,
+                                snowIntensity = currentProfile.snowIntensity,
+                                discoIntensity = currentProfile.discoIntensityLevel,
+                                onPostTap = { onNavigateToPost(featuredPost.id) },
+                            )
+                        } else {
+                            fm.corus.android.ui.components.FeaturedCymbalView(
+                                post = featuredPost,
+                                vinylStyle = currentProfile.vinylStyle,
+                                rainIntensity = currentProfile.rainIntensity,
+                                snowIntensity = currentProfile.snowIntensity,
+                                discoIntensity = currentProfile.discoIntensityLevel,
+                                onPostTap = { onNavigateToPost(featuredPost.id) },
+                            )
+                        }
                     }
                 } else if (filteredPosts.isEmpty() && !isLoading
                     && !(selectedSegment == 2 && isLoadingLiked)
@@ -551,10 +581,18 @@ fun ProfileScreen(
         }
 
         // ── Album Art Grid (filtered) ──
+        // Hide grid while featured art is loading (skeleton in header covers both areas)
+        val isFeaturedTab = selectedSegment <= 1
+        val isFeaturedArtLoading = isFeaturedTab && !isFeaturedArtReady && posts.any {
+            it.mediaType == if (selectedSegment == 0) fm.corus.android.data.model.MediaType.TRACK
+            else fm.corus.android.data.model.MediaType.MOVIE
+        }
         val isSegmentLoading = (selectedSegment == 2 && isLoadingLiked && likedPosts.isEmpty())
             || (selectedSegment == 3 && isLoadingSaved && savedPosts.isEmpty())
 
-        if (isSegmentLoading) {
+        if (isFeaturedArtLoading) {
+            // SkeletonProfileGrid in the header already covers grid area; emit nothing here
+        } else if (isSegmentLoading) {
             // Skeleton grid cells while likes/saves load (matching iOS)
             items(15) {
                 Box(
@@ -727,10 +765,7 @@ private fun StatDivider() {
 @Composable
 private fun PostGridItem(post: CymbalPost, onClick: () -> Unit = {}) {
     ShimmerAsyncImage(
-        model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-            .data(post.displayImageLargeURL ?: post.displayImageURL)
-            .size(Size.ORIGINAL)
-            .build(),
+        model = post.displayImageLargeURL ?: post.displayImageURL,
         contentDescription = post.displayTitle,
         modifier = Modifier
             .aspectRatio(1f)

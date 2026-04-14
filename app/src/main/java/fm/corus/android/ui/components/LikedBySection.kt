@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
@@ -35,12 +36,27 @@ fun LikedBySection(
     likeCount: Int,
     onLikesTap: () -> Unit = {},
     modifier: Modifier = Modifier,
+    currentUser: CymbalUser? = null,
+    isLiked: Boolean = false,
 ) {
-    if (likeCount <= 0 || likers.isEmpty()) return
+    if (likeCount <= 0) return
+
+    // Build an optimistic likers list that reflects the current user's like state
+    val effectiveLikers = remember(likers, currentUser, isLiked) {
+        if (currentUser == null) return@remember likers
+        val currentUserInList = likers.any { it.id == currentUser.id }
+        when {
+            isLiked && !currentUserInList -> listOf(currentUser) + likers
+            !isLiked && currentUserInList -> likers.filter { it.id != currentUser.id }
+            else -> likers
+        }
+    }
+
+    if (effectiveLikers.isEmpty()) return
 
     val avatarSize = 20.dp
     val avatarOverlap = 8.dp
-    val visibleLikers = likers.take(3)
+    val visibleLikers = effectiveLikers.take(3)
     val avatarStackWidth = avatarSize + (avatarOverlap * maxOf(visibleLikers.size - 1, 0))
 
     Row(
@@ -74,7 +90,7 @@ fun LikedBySection(
         val likedByText = buildAnnotatedString {
             append("Liked by ")
             withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) {
-                append(likers.first().username)
+                append(effectiveLikers.first().username)
             }
             if (likeCount > 1) {
                 append(" and ")

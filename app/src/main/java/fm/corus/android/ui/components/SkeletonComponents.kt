@@ -28,6 +28,9 @@ import fm.corus.android.ui.theme.CorusSpacing
 /**
  * Async image that shows a shimmer skeleton while loading and fades in when ready.
  * Use this everywhere an image is loaded from a URL to get consistent loading UX.
+ *
+ * When Coil serves the image from its memory cache the shimmer and fade are
+ * skipped entirely so that recycled grid items appear instantly.
  */
 @Composable
 fun ShimmerAsyncImage(
@@ -38,9 +41,10 @@ fun ShimmerAsyncImage(
     shape: Shape = RectangleShape,
 ) {
     var isLoading by remember(model) { mutableStateOf(true) }
+    var fromMemoryCache by remember(model) { mutableStateOf(false) }
     val imageAlpha by animateFloatAsState(
         targetValue = if (isLoading) 0f else 1f,
-        animationSpec = tween(durationMillis = 300),
+        animationSpec = if (fromMemoryCache) tween(durationMillis = 0) else tween(durationMillis = 300),
         label = "shimmerFade",
     )
 
@@ -60,7 +64,10 @@ fun ShimmerAsyncImage(
                 .fillMaxSize()
                 .alpha(imageAlpha),
             contentScale = contentScale,
-            onSuccess = { isLoading = false },
+            onSuccess = { state ->
+                fromMemoryCache = state.result.dataSource == coil3.decode.DataSource.MEMORY_CACHE
+                isLoading = false
+            },
             onError = { isLoading = false },
         )
     }

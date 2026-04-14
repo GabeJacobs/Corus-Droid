@@ -48,6 +48,7 @@ fun NotificationsScreen(
     onNavigateToMessages: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
+    onNavigateToPostComments: (postId: String, commentId: String) -> Unit = { _, _ -> },
 ) {
     val notifications by viewModel.notifications.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -102,7 +103,9 @@ fun NotificationsScreen(
                                 notification = notification,
                                 onClick = {
                                     val postId = notification.postId
-                                    if (postId != null) {
+                                    if (notification.supportsCommentActions && postId != null && notification.commentId != null) {
+                                        onNavigateToPostComments(postId, notification.commentId)
+                                    } else if (postId != null) {
                                         onNavigateToPost(postId)
                                     } else {
                                         onNavigateToUser(notification.fromUser.id)

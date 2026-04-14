@@ -46,6 +46,7 @@ fun FeaturedCymbalView(
     onLikeTap: () -> Unit = {},
     onSpotifyTap: () -> Unit = {},
     onPostTap: () -> Unit = {},
+    onArtReady: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val vinylDrawable = remember(vinylStyle) {
@@ -133,6 +134,7 @@ fun FeaturedCymbalView(
                         .offset(x = w * artXFrac, y = h * artYFrac)
                         .size(w * artSizeFrac),
                     contentScale = ContentScale.Crop,
+                    onSuccess = { onArtReady() },
                 )
             }
 

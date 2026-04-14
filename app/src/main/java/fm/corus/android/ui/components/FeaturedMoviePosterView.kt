@@ -50,6 +50,7 @@ fun FeaturedMoviePosterView(
     onLikeTap: () -> Unit = {},
     onTrailerTap: () -> Unit = {},
     onPostTap: () -> Unit = {},
+    onArtReady: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val frameDrawable = remember(frameStyle) {
@@ -111,6 +112,7 @@ fun FeaturedMoviePosterView(
                         .offset(x = w * posterXRatio, y = h * posterYRatio)
                         .size(width = w * posterWRatio, height = h * posterHRatio),
                     contentScale = ContentScale.Crop,
+                    onSuccess = { onArtReady() },
                 )
             }
 

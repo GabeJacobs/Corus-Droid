@@ -413,7 +413,7 @@ private fun SuggestedUsersContent(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = CorusSpacing.lg),
+        contentPadding = PaddingValues(top = CorusSpacing.xs),
     ) {
         // ── Recent Searches (only visible when search field is focused, matching iOS) ──
         if (isSearchFocused && recentSearches.isNotEmpty()) {

@@ -47,6 +47,7 @@ import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -68,6 +69,7 @@ fun PostCard(
     commentCount: Int = post.commentCount,
     isLiked: Boolean = post.isLiked,
     isSaved: Boolean = false,
+    currentUser: CymbalUser? = null,
     onLikeTap: () -> Unit = {},
     onSaveTap: () -> Unit = {},
     onUserTap: () -> Unit = {},
@@ -83,6 +85,8 @@ fun PostCard(
     onLikesTap: () -> Unit = {},
     onMentionTap: (String) -> Unit = {},
     onHashtagTap: (String) -> Unit = {},
+    trackPostCount: Int = post.trackPostCount ?: 0,
+    onSongCountTap: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val heartScale = remember { Animatable(0f) }
@@ -501,6 +505,29 @@ fun PostCard(
                 tint = CorusColors.Text,
             )
 
+            // Track post count — only show when 2+ people posted the same song/film
+            if (trackPostCount > 1) {
+                Row(
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onSongCountTap,
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+                ) {
+                    VennDiagramIcon(
+                        size = 20.dp,
+                        color = CorusColors.Text,
+                    )
+                    Text(
+                        text = trackPostCount.toString(),
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Text,
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.weight(1f))
 
             // Save button
@@ -523,6 +550,8 @@ fun PostCard(
             likers = post.likers,
             likeCount = likeCount,
             onLikesTap = onLikesTap,
+            currentUser = currentUser,
+            isLiked = isLiked,
         )
 
         // 6. CAPTION or VOICE NOTE

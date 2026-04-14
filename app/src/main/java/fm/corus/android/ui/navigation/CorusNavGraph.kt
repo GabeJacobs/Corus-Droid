@@ -150,6 +150,9 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToMessages = { navController.navigate(ThreadListRoute) },
+                onNavigateToPostComments = { postId, commentId ->
+                    navController.navigate(SinglePostCommentsRoute(postId, commentId))
+                },
             )
         }
         sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it })
@@ -444,6 +447,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<SinglePostCommentsRoute>()
         SinglePostCommentsScreen(
             postId = route.postId,
+            highlightCommentId = route.commentId,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
         )

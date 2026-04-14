@@ -54,10 +54,19 @@ fun FeedScreen(
     val allPosts by viewModel.posts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
+    val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
+
+    LaunchedEffect(playlistError) {
+        if (playlistError != null) {
+            ToastManager.show(playlistError!!)
+            viewModel.nowPlayingManager.clearPlaylistError()
+        }
+    }
     val hasLoaded by viewModel.hasLoaded.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
+    val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     val feedMediaFilter by viewModel.feedMediaFilter.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
@@ -93,7 +102,10 @@ fun FeedScreen(
             // Music note / playlist button on the right (hidden when filter is Movie)
             if (posts.isNotEmpty() && feedMediaFilter != MediaType.MOVIE) {
                 IconButton(
-                    onClick = { viewModel.generateFeedPlaylist() },
+                    onClick = {
+                        ToastManager.show("Generating playlist\u2026")
+                        viewModel.generateFeedPlaylist()
+                    },
                     modifier = Modifier.align(Alignment.CenterEnd),
                     enabled = !isGeneratingPlaylist,
                 ) {
@@ -260,6 +272,7 @@ fun FeedScreen(
                                 likeCount = engagement?.likeCount ?: post.likeCount,
                                 commentCount = engagement?.commentCount ?: post.commentCount,
                                 isLiked = engagement?.isLiked ?: post.isLiked,
+                                currentUser = currentUserProfile,
                                 isPreviewLoading = loadingTrackId == post.track.id,
                                 isPreviewPlaying = nowPlayingState.trackId == post.track.id && nowPlayingState.isPlaying,
                                 onLikeTap = { viewModel.toggleLike(post.id) },
@@ -300,6 +313,13 @@ fun FeedScreen(
                                 },
                                 onMentionTap = { username -> onNavigateToUserByUsername(username) },
                                 onHashtagTap = { hashtag -> onNavigateToHashtag(hashtag) },
+                                onSongCountTap = {
+                                    if (post.isMovie) {
+                                        onNavigateToFilm(post.movieId ?: "")
+                                    } else {
+                                        onNavigateToSong(post.track)
+                                    }
+                                },
                             )
                             HorizontalDivider(
                                 color = CorusColors.Divider,

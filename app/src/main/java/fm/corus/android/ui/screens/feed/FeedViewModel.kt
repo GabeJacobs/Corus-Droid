@@ -67,6 +67,7 @@ class FeedViewModel @Inject constructor(
     private var lastTimestamp: Long? = null
 
     val engagementStates = engagementManager.states
+    val currentUserProfile = authRepository.userProfile
 
     // ── Share search state ──
     private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())

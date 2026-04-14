@@ -22,7 +22,7 @@ class PostDetailViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val engagementManager: PostEngagementManager,
-    private val nowPlayingManager: NowPlayingManager,
+    val nowPlayingManager: NowPlayingManager,
 ) : ViewModel() {
 
     private val _post = MutableStateFlow<CymbalPost?>(null)
@@ -35,6 +35,7 @@ class PostDetailViewModel @Inject constructor(
     val comments: StateFlow<List<CymbalComment>> = _comments.asStateFlow()
 
     val engagementStates = engagementManager.states
+    val currentUserProfile = authRepository.userProfile
 
     val currentUserId: String? get() = authRepository.currentUserId
 

@@ -110,6 +110,9 @@ fun MainTabScreen(
         selectedTab = CorusTab.FEED
         when (notificationDestination) {
             is DeepLinkDestination.Post -> navController.navigate(PostDetailRoute(notificationDestination.postId))
+            is DeepLinkDestination.PostComment -> navController.navigate(
+                SinglePostCommentsRoute(notificationDestination.postId, notificationDestination.commentId)
+            )
             is DeepLinkDestination.Profile -> navController.navigate(OtherProfileRoute(notificationDestination.userId))
             is DeepLinkDestination.Thread -> navController.navigate(MessageThreadRoute(
                 threadId = notificationDestination.threadId,
@@ -121,6 +124,7 @@ fun MainTabScreen(
         onNotificationDestinationConsumed()
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         bottomBar = {
             Column {
@@ -198,24 +202,6 @@ fun MainTabScreen(
             }
         }
 
-        // Compose screen as full-screen overlay with slide-up animation
-        AnimatedVisibility(
-            visible = showCompose,
-            enter = slideInVertically { it },
-            exit = slideOutVertically { it },
-        ) {
-            ComposeScreen(
-                onDismiss = {
-                    showCompose = false
-                    viewModel.clearPreSelectedMedia()
-                    viewModel.checkPostMilestonePaywall()
-                },
-                movieModeEnabled = preSelectedMovieId != null,
-                preSelectedTrackId = preSelectedTrackId,
-                preSelectedMovieId = preSelectedMovieId,
-            )
-        }
-
         // Post limit paywall (shown when compose is gated)
         if (showPostLimitPaywall) {
             PostLimitPaywallSheet(
@@ -241,6 +227,25 @@ fun MainTabScreen(
         // Toast overlay
         fm.corus.android.ui.components.ToastHost()
     }
+
+    // Compose screen as full-screen overlay OVER everything (including bottom bar & mini player)
+    AnimatedVisibility(
+        visible = showCompose,
+        enter = slideInVertically { it },
+        exit = slideOutVertically { it },
+    ) {
+        ComposeScreen(
+            onDismiss = {
+                showCompose = false
+                viewModel.clearPreSelectedMedia()
+                viewModel.checkPostMilestonePaywall()
+            },
+            movieModeEnabled = preSelectedMovieId != null,
+            preSelectedTrackId = preSelectedTrackId,
+            preSelectedMovieId = preSelectedMovieId,
+        )
+    }
+    } // end outer Box
 }
 
 @Composable

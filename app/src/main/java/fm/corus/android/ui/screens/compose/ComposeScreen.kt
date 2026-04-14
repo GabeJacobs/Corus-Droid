@@ -1,5 +1,13 @@
 package fm.corus.android.ui.screens.compose
 
+import android.util.Log
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,7 +30,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
@@ -92,7 +107,12 @@ fun ComposeScreen(
         modifier = Modifier.fillMaxSize(),
         color = CorusColors.Background,
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+        ) {
             // ── Header ──
             Box(
                 modifier = Modifier
@@ -144,69 +164,80 @@ fun ComposeScreen(
                 )
             }
 
-            if (!hasSelection) {
-                // ════════════════════════════════════════
-                // SEARCH MODE
-                // ════════════════════════════════════════
-                SearchModeContent(
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = { query ->
-                        searchQuery = query
-                        if (query.length >= 2) {
-                            viewModel.search(query, mediaType)
-                        }
-                    },
-                    mediaType = mediaType,
-                    onMediaTypeChange = { newType ->
-                        mediaType = newType
-                        viewModel.clearSelection()
-                        searchQuery = ""
-                    },
-                    isSearching = isSearching,
-                    searchResults = searchResults,
-                    onResultClick = { result ->
-                        viewModel.selectResult(result, mediaType)
-                    },
-                    trendingSongs = trendingSongs,
-                    trendingMovies = trendingMovies,
-                    isLoadingTrending = isLoadingTrending,
-                    onTrendingSongClick = { viewModel.selectTrendingSong(it) },
-                    onTrendingMovieClick = { viewModel.selectTrendingMovie(it) },
-                )
-            } else {
-                // ════════════════════════════════════════
-                // COMPOSE MODE
-                // ════════════════════════════════════════
-                ComposeModeContent(
-                    mediaType = mediaType,
-                    selectedTrack = selectedTrack,
-                    selectedMovie = selectedMovie,
-                    caption = caption,
-                    onCaptionChange = { newCaption ->
-                        caption = newCaption.take(700)
-                        viewModel.checkForMention(caption)
-                    },
-                    isPosting = isPosting,
-                    onPost = {
-                        viewModel.createPost(
-                            caption = if (captionMode == "text") caption else "",
-                            mediaType = mediaType,
-                            voiceNoteData = if (captionMode == "voice") voiceRecorderState.audioData else null,
-                        )
-                    },
-                    mentionSuggestions = mentionSuggestions,
-                    onMentionSelected = { user ->
-                        val words = caption.split(" ").toMutableList()
-                        if (words.isNotEmpty() && words.last().startsWith("@")) {
-                            words[words.lastIndex] = "@${user.username} "
-                            caption = words.joinToString(" ")
-                        }
-                        viewModel.clearMentionSuggestions()
-                    },
-                    captionMode = captionMode,
-                    onCaptionModeChange = { captionMode = it },
-                    voiceRecorderState = voiceRecorderState,
-                )
+            // Animated transition between search and compose (push from right like iOS)
+            AnimatedContent(
+                targetState = hasSelection,
+                transitionSpec = {
+                    if (targetState) {
+                        // Search → Compose: slide in from right
+                        (slideInHorizontally(tween(250)) { it } + fadeIn(tween(250)))
+                            .togetherWith(slideOutHorizontally(tween(250)) { -it / 3 } + fadeOut(tween(150)))
+                    } else {
+                        // Compose → Search: slide out to right
+                        (slideInHorizontally(tween(250)) { -it / 3 } + fadeIn(tween(250)))
+                            .togetherWith(slideOutHorizontally(tween(250)) { it } + fadeOut(tween(150)))
+                    }
+                },
+                label = "search_compose_transition",
+            ) { selected ->
+                if (!selected) {
+                    SearchModeContent(
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { query ->
+                            searchQuery = query
+                            if (query.length >= 2) {
+                                viewModel.search(query, mediaType)
+                            }
+                        },
+                        mediaType = mediaType,
+                        onMediaTypeChange = { newType ->
+                            mediaType = newType
+                            viewModel.clearSelection()
+                            searchQuery = ""
+                        },
+                        isSearching = isSearching,
+                        searchResults = searchResults,
+                        onResultClick = { result ->
+                            viewModel.selectResult(result, mediaType)
+                        },
+                        trendingSongs = trendingSongs,
+                        trendingMovies = trendingMovies,
+                        isLoadingTrending = isLoadingTrending,
+                        onTrendingSongClick = { viewModel.selectTrendingSong(it) },
+                        onTrendingMovieClick = { viewModel.selectTrendingMovie(it) },
+                    )
+                } else {
+                    ComposeModeContent(
+                        mediaType = mediaType,
+                        selectedTrack = selectedTrack,
+                        selectedMovie = selectedMovie,
+                        caption = caption,
+                        onCaptionChange = { newCaption ->
+                            caption = newCaption.take(700)
+                            viewModel.checkForMention(caption)
+                        },
+                        isPosting = isPosting,
+                        onPost = {
+                            viewModel.createPost(
+                                caption = if (captionMode == "text") caption else "",
+                                mediaType = mediaType,
+                                voiceNoteData = if (captionMode == "voice") voiceRecorderState.audioData else null,
+                            )
+                        },
+                        mentionSuggestions = mentionSuggestions,
+                        onMentionSelected = { user ->
+                            val words = caption.split(" ").toMutableList()
+                            if (words.isNotEmpty() && words.last().startsWith("@")) {
+                                words[words.lastIndex] = "@${user.username} "
+                                caption = words.joinToString(" ")
+                            }
+                            viewModel.clearMentionSuggestions()
+                        },
+                        captionMode = captionMode,
+                        onCaptionModeChange = { captionMode = it },
+                        voiceRecorderState = voiceRecorderState,
+                    )
+                }
             }
         }
     }
@@ -253,7 +284,24 @@ private fun SearchModeContent(
     onTrendingSongClick: (TrendingSong) -> Unit,
     onTrendingMovieClick: (TrendingMovie) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val scrollDismissConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y != 0f) {
+                    keyboardController?.hide()
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Column(modifier = Modifier.fillMaxSize().nestedScroll(scrollDismissConnection)) {
         // ── Songs / Films segmented toggle ──
         SegmentedToggle(
             options = listOf("Songs", "Films"),
@@ -283,7 +331,7 @@ private fun SearchModeContent(
             BasicTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).focusRequester(focusRequester),
                 textStyle = CorusFont.body.copy(color = CorusColors.Text),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -734,6 +782,7 @@ private fun ComposeModeContent(
                 recorderState = voiceRecorderState,
                 modifier = Modifier.fillMaxWidth(),
             )
+            Spacer(modifier = Modifier.weight(1f))
         } else {
         // ── Caption text field (borderless, like iOS TextEditor) ──
         Box(
