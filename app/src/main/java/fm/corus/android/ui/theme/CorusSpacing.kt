@@ -14,7 +14,7 @@ object CorusSpacing {
 
     val avatarSmall = 28.dp
     val avatarMedium = 36.dp
-    val avatarLarge = 64.dp
+    val avatarLarge = 72.dp
 
     val albumArtThumbnail = 56.dp
     val albumArtSearch = 48.dp

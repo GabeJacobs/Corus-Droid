@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
@@ -30,6 +31,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadListScreen(
+    onBack: () -> Unit = {},
     onThreadTap: (String, String) -> Unit = { _, _ -> },
     viewModel: ThreadListViewModel = hiltViewModel(),
 ) {
@@ -42,14 +44,17 @@ fun ThreadListScreen(
         viewModel.loadThreads()
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Header with compose button
+    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
+        // Header with back and compose button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                .padding(start = CorusSpacing.xs, end = CorusSpacing.lg, top = CorusSpacing.md, bottom = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+            }
             Text(
                 "Messages",
                 style = CorusFont.screenTitle,

@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -26,7 +27,7 @@ fun ChangeUsernameScreen(
     val validationState by viewModel.validationState.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
         // Header
         Row(
             modifier = Modifier

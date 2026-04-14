@@ -87,7 +87,7 @@ fun MessageThreadScreen(
         viewModel.loadMessages(threadId, otherUserId)
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
         // Header
         Row(
             modifier = Modifier

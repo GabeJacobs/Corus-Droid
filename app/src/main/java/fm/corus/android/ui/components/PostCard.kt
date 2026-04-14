@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil3.request.ImageRequest
+import coil3.request.crossfade
 import coil3.size.Size
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -198,6 +199,7 @@ fun PostCard(
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(post.displayImageLargeURL ?: post.displayImageURL)
+                    .crossfade(true)
                     .size(Size.ORIGINAL)
                     .build(),
                 contentDescription = post.displayTitle,
@@ -362,7 +364,55 @@ fun PostCard(
 
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
-            if (!post.isMovie) {
+            if (post.isMovie) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Film info icon — circle with "i", matching iOS FilmInfoIcon
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .offset(y = (-4).dp)
+                            .background(
+                                CorusColors.Secondary.copy(alpha = 0.15f),
+                                CircleShape,
+                            )
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onSpotifyTap, // navigates to film detail page
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "i",
+                            style = CorusFont.bodyMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 13.sp,
+                            ),
+                            color = CorusColors.Secondary,
+                        )
+                    }
+
+                    // Trailer button — YouTube red play icon, matching iOS TrailerButton
+                    if (post.trailerURL != null) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Watch Trailer",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .offset(y = (-4).dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onTrailerTap,
+                                ),
+                            tint = Color(0xFFFF0000), // YouTube red
+                        )
+                    }
+                }
+            } else {
                 Image(
                     painter = painterResource(R.drawable.spotify_logo),
                     contentDescription = "Play on Spotify",
@@ -486,18 +536,10 @@ fun PostCard(
                     .padding(bottom = CorusSpacing.xs),
             )
         } else if (!post.caption.isNullOrBlank()) {
-            val captionAnnotated = buildCaptionAnnotatedString(
+            ExpandableCaptionText(
                 username = post.user.username,
                 caption = post.caption,
-            )
-
-            var isExpanded by remember { mutableStateOf(false) }
-
-            TappableMentionText(
-                text = captionAnnotated,
-                style = CorusFont.body,
-                maxLines = if (isExpanded) Int.MAX_VALUE else 3,
-                overflow = if (isExpanded) TextOverflow.Clip else TextOverflow.Ellipsis,
+                maxCollapsedLines = 3,
                 onMentionTap = { onMentionTap(it) },
                 onHashtagTap = { onHashtagTap(it) },
                 modifier = Modifier

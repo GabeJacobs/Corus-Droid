@@ -87,7 +87,7 @@ data class CymbalPost(
                 CymbalUser.fromMap(likerId, it)
             } ?: emptyList()
 
-            val timestampMs = data["timestamp"] as? Number
+            val timestampMs = data["createdAt"] as? Number ?: data["timestamp"] as? Number
             val timestamp = if (timestampMs != null) Date(timestampMs.toLong()) else Date()
 
             return CymbalPost(

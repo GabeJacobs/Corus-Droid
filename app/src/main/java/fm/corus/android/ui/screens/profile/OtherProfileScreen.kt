@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.profile
 
+import com.valentinilk.shimmer.shimmer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -35,6 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import coil3.request.ImageRequest
+import coil3.size.Size
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
@@ -66,14 +71,33 @@ fun OtherProfileScreen(
     val isBlocked by viewModel.isBlocked.collectAsState()
     val isMuted by viewModel.isMuted.collectAsState()
     val isSubscribedToNotifications by viewModel.isSubscribedToNotifications.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMore by viewModel.hasMore.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
+    val gridState = rememberLazyGridState()
+
+    // Infinite scroll: load more when near the bottom
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val layoutInfo = gridState.layoutInfo
+            val totalItems = layoutInfo.totalItemsCount
+            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            totalItems > 0 && lastVisibleItem >= totalItems - 6
+        }
+    }
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore && hasMore && !isLoadingMore && !isLoading) {
+            viewModel.loadMore(userId)
+        }
+    }
 
     LaunchedEffect(userId) {
         viewModel.loadProfile(userId)
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
@@ -206,6 +230,7 @@ fun OtherProfileScreen(
         }
 
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Fixed(3),
             modifier = Modifier
                 .fillMaxSize()
@@ -219,7 +244,7 @@ fun OtherProfileScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
-                        verticalAlignment = Alignment.Top,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         UserAvatarView(
                             avatarURL = currentProfile.avatarURL,
@@ -255,26 +280,21 @@ fun OtherProfileScreen(
                             // Follow button + Playlist button
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
                             ) {
                                 // Follow button — matching iOS Capsule with fill/stroke
                                 val followShape = RoundedCornerShape(50)
-                                Button(
-                                    onClick = { viewModel.toggleFollow(userId) },
+                                Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .defaultMinSize(minHeight = 1.dp)
-                                        .height(34.dp)
+                                        .clip(followShape)
                                         .then(
                                             if (isFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
-                                            else Modifier
-                                        ),
-                                    shape = followShape,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isFollowing) Color.Transparent else CorusColors.Accent,
-                                        contentColor = if (isFollowing) CorusColors.Secondary else Color.White,
-                                    ),
-                                    enabled = !isFollowLoading,
-                                    contentPadding = PaddingValues(vertical = 0.dp, horizontal = CorusSpacing.md),
+                                            else Modifier.background(CorusColors.Accent)
+                                        )
+                                        .clickable(enabled = !isFollowLoading) { viewModel.toggleFollow(userId) }
+                                        .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
+                                    contentAlignment = Alignment.Center,
                                 ) {
                                     if (isFollowLoading) {
                                         CircularProgressIndicator(
@@ -285,11 +305,10 @@ fun OtherProfileScreen(
                                         Text(
                                             text = if (isFollowing) "FOLLOWING" else "FOLLOW",
                                             style = CorusFont.button,
+                                            color = if (isFollowing) CorusColors.Secondary else Color.White,
                                         )
                                     }
                                 }
-
-                                Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
                                 // Playlist button
                                 val hasSongs = posts.any { it.mediaType == MediaType.TRACK }
@@ -303,24 +322,19 @@ fun OtherProfileScreen(
                                     }
                                 }
 
-                                OutlinedButton(
-                                    onClick = {
-                                        if (hasSongs) {
-                                            viewModel.generatePlaylist(userId)
-                                        } else {
-                                            ToastManager.show("No songs to make a playlist")
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
+                                        .clickable(enabled = hasSongs && !isGeneratingPlaylist) {
+                                            if (hasSongs) {
+                                                viewModel.generatePlaylist(userId)
+                                            } else {
+                                                ToastManager.show("No songs to make a playlist")
+                                            }
                                         }
-                                    },
-                                    enabled = hasSongs && !isGeneratingPlaylist,
-                                    shape = RoundedCornerShape(50),
-                                    contentPadding = PaddingValues(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = CorusColors.Secondary,
-                                    ),
-                                    border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
-                                        brush = androidx.compose.ui.graphics.SolidColor(CorusColors.Divider),
-                                    ),
-                                    modifier = Modifier.height(34.dp),
+                                        .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
+                                    contentAlignment = Alignment.Center,
                                 ) {
                                     if (isGeneratingPlaylist) {
                                         CircularProgressIndicator(
@@ -337,10 +351,12 @@ fun OtherProfileScreen(
                                                 painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
                                                 contentDescription = "Playlist",
                                                 modifier = Modifier.size(14.dp),
+                                                tint = CorusColors.Secondary,
                                             )
                                             Text(
                                                 text = "PLAYLIST",
                                                 style = CorusFont.button,
+                                                color = CorusColors.Secondary,
                                             )
                                         }
                                     }
@@ -502,15 +518,50 @@ fun OtherProfileScreen(
             val gridPosts = if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts
             if (gridPosts.isNotEmpty()) {
                 items(gridPosts, key = { it.id }) { post ->
-                    AsyncImage(
-                        model = post.displayImageURL,
-                        contentDescription = post.displayTitle,
+                    var isImageLoading by remember { mutableStateOf(true) }
+                    Box(
                         modifier = Modifier
                             .aspectRatio(1f)
-                            .padding(CorusSpacing.xxs)
                             .clickable { onNavigateToPost(post.id) },
-                        contentScale = ContentScale.Crop,
-                    )
+                    ) {
+                        if (isImageLoading) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .shimmer()
+                                    .background(CorusColors.CardBackground),
+                            )
+                        }
+                        AsyncImage(
+                            model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                .data(post.displayImageLargeURL ?: post.displayImageURL)
+                                .size(Size.ORIGINAL)
+                                .build(),
+                            contentDescription = post.displayTitle,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            onSuccess = { isImageLoading = false },
+                            onError = { isImageLoading = false },
+                        )
+                    }
+                }
+            }
+
+            // Loading more indicator
+            if (isLoadingMore) {
+                item(span = { GridItemSpan(3) }) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(CorusSpacing.lg),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = CorusColors.Accent,
+                        )
+                    }
                 }
             }
         }

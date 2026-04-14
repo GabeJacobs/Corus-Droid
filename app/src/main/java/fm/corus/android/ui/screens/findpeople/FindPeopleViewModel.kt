@@ -118,9 +118,22 @@ class FindPeopleViewModel @Inject constructor(
     private val _isPopularLoading = MutableStateFlow(true)
     val isPopularLoading: StateFlow<Boolean> = _isPopularLoading.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     val currentUserId: String? get() = authRepository.currentUserId
 
     private var searchJob: Job? = null
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            loadInitialData()
+            // Give data a moment to load before hiding the indicator
+            delay(500)
+            _isRefreshing.value = false
+        }
+    }
 
     fun loadInitialData() {
         val uid = authRepository.currentUserId ?: return
@@ -129,30 +142,62 @@ class FindPeopleViewModel @Inject constructor(
                 _followingIds.value = ids
             }
         }
-        // Suggested users from cloud function (taste matches)
+        // Fetch taste matches (cloud function) and mutual connections (Firestore) in parallel,
+        // then merge them — matching how iOS loads suggestions.
         viewModelScope.launch {
-            try {
-                val matches = cloudFunctions.getSuggestedUsers(uid)
-                Log.d("FindPeopleVM", "Suggested users loaded: ${matches.size}")
-                _suggestedMatches.value = matches
-            } catch (e: Exception) {
-                Log.e("FindPeopleVM", "Failed to load suggested users", e)
-                // Fallback: load mutual connections from Firestore
+            val musicMatchesDeferred = async {
+                try {
+                    cloudFunctions.getSuggestedUsers(uid)
+                } catch (e: Exception) {
+                    Log.e("FindPeopleVM", "Failed to load suggested users", e)
+                    emptyList()
+                }
+            }
+            val mutualConnectionsDeferred = async {
                 try {
                     val mutuals = firestoreDataSource.fetchPrecomputedMutualConnections(uid, limit = 20)
-                    Log.d("FindPeopleVM", "Fallback mutuals loaded: ${mutuals.size}")
-                    val fallbackMatches = mutuals.map { (user, names) ->
+                    mutuals.map { (user, names) ->
                         SuggestedUserMatch(
                             user = user,
                             matchData = null,
                             suggestionReason = SuggestionReason(mutualNames = names),
                         )
                     }
-                    _suggestedMatches.value = fallbackMatches
-                } catch (e2: Exception) {
-                    Log.e("FindPeopleVM", "Fallback mutuals also failed", e2)
+                } catch (e: Exception) {
+                    Log.e("FindPeopleVM", "Failed to load mutual connections", e)
+                    emptyList()
                 }
             }
+
+            val musicMatches = musicMatchesDeferred.await()
+            val socialMatches = mutualConnectionsDeferred.await()
+            Log.d("FindPeopleVM", "Music matches: ${musicMatches.size}, Social matches: ${socialMatches.size}")
+            for (m in musicMatches) {
+                Log.d("FindPeopleVM", "  CF user: ${m.user.username} cymbal=${m.user.cymbalCount} hasSim=${m.matchData?.hasSimilarityData} mutualNames=${m.suggestionReason?.mutualNames} artistsInCommon=${m.user.artistsInCommonCount}")
+            }
+
+            // Merge: music matches first, then social suggestions (dedup by user ID).
+            // Carry over suggestionReason from social onto music matches.
+            val socialReasonById = socialMatches
+                .filter { it.suggestionReason != null }
+                .associateBy({ it.user.id }, { it.suggestionReason!! })
+
+            val seenIds = mutableSetOf<String>()
+            val merged = mutableListOf<SuggestedUserMatch>()
+
+            for (match in musicMatches) {
+                if (!seenIds.add(match.user.id)) continue
+                val withReason = if (match.suggestionReason == null) {
+                    socialReasonById[match.user.id]?.let { match.copy(suggestionReason = it) } ?: match
+                } else match
+                merged.add(withReason)
+            }
+            for (match in socialMatches) {
+                if (!seenIds.add(match.user.id)) continue
+                merged.add(match)
+            }
+
+            _suggestedMatches.value = merged
             _isSuggestedLoading.value = false
         }
         viewModelScope.launch {
@@ -264,15 +309,22 @@ class FindPeopleViewModel @Inject constructor(
             try {
                 val phoneNumbers = readContactPhoneNumbers(contentResolver)
                 if (phoneNumbers.isNotEmpty()) {
-                    val storeJob = async { firestoreDataSource.storeSyncedContacts(userId, phoneNumbers) }
-                    val matchesJob = async {
-                        firestoreDataSource.fetchUsersByPhoneNumbers(phoneNumbers, setOf(userId))
+                    // Fire-and-forget: store contacts and notify (non-fatal if they fail)
+                    launch {
+                        try { firestoreDataSource.storeSyncedContacts(userId, phoneNumbers) }
+                        catch (e: Exception) { Log.w("FindPeopleVM", "storeSyncedContacts failed", e) }
                     }
-                    val notifyJob = async { cloudFunctions.notifyContactsOnSync() }
-
-                    storeJob.await()
-                    _contactMatches.value = matchesJob.await()
-                    notifyJob.await()
+                    launch {
+                        try { cloudFunctions.notifyContactsOnSync() }
+                        catch (e: Exception) { Log.w("FindPeopleVM", "notifyContactsOnSync failed", e) }
+                    }
+                    // Only the match lookup is essential for the UI
+                    try {
+                        _contactMatches.value =
+                            firestoreDataSource.fetchUsersByPhoneNumbers(phoneNumbers, setOf(userId))
+                    } catch (e: Exception) {
+                        Log.e("FindPeopleVM", "fetchUsersByPhoneNumbers failed", e)
+                    }
                 }
                 preferencesDataStore.setContactsSyncStatus("synced")
             } catch (_: Exception) { }

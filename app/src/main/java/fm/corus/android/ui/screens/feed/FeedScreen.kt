@@ -16,6 +16,8 @@ import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -40,6 +42,7 @@ fun FeedScreen(
     scrollToTopTrigger: Int = 0,
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
+    onNavigateToUserByUsername: (String) -> Unit = {},
     onNavigateToComments: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
@@ -151,6 +154,17 @@ fun FeedScreen(
         }
 
         // Posts start directly below header — no divider (matching iOS)
+        // Hoist list state above the when block so scroll position survives
+        // navigation (rememberSaveable key stays stable across recompositions)
+        val listState = rememberLazyListState()
+        var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
+        LaunchedEffect(scrollToTopTrigger) {
+            if (scrollToTopTrigger > lastScrollTrigger) {
+                listState.animateScrollToItem(0)
+                lastScrollTrigger = scrollToTopTrigger
+            }
+        }
+
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = { viewModel.loadFeed(refresh = true) },
@@ -223,20 +237,22 @@ fun FeedScreen(
 
                 // Posts list
                 else -> {
-                    val listState = rememberLazyListState()
-
-                    LaunchedEffect(scrollToTopTrigger) {
-                        if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
+                    // Pagination: load more when user scrolls within 3 items of end
+                    val shouldLoadMore by remember {
+                        derivedStateOf {
+                            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            val total = listState.layoutInfo.totalItemsCount
+                            total > 0 && lastVisible >= total - 3
+                        }
+                    }
+                    LaunchedEffect(shouldLoadMore, hasMore, isLoading) {
+                        if (shouldLoadMore && hasMore && !isLoading) {
+                            viewModel.loadFeed()
+                        }
                     }
 
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                         itemsIndexed(posts, key = { _, post -> post.id }) { index, post ->
-                            // Trigger next page when within 3 of end — matches iOS .onAppear approach
-                            if (index >= posts.size - 3 && hasMore && !isLoading) {
-                                LaunchedEffect(post.id) {
-                                    viewModel.loadFeed()
-                                }
-                            }
                             val engagement = engagementStates[post.id]
                             PostCard(
                                 post = post,
@@ -281,7 +297,7 @@ fun FeedScreen(
                                         }
                                     }
                                 },
-                                onMentionTap = { username -> onNavigateToUser(username) },
+                                onMentionTap = { username -> onNavigateToUserByUsername(username) },
                                 onHashtagTap = { hashtag -> onNavigateToHashtag(hashtag) },
                             )
                             HorizontalDivider(
@@ -377,7 +393,7 @@ fun FeedScreen(
                 post = post,
                 isMine = isOwn,
                 onDismiss = { menuPost = null },
-                onViewSongPage = { onNavigateToSong(post.track.id, post.track.albumArtURL) },
+                onViewSongPage = { onNavigateToSong(post.track.id, post.track.albumArtLargeURL ?: post.track.albumArtURL) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
                 onRepost = {
                     viewModel.repostPost(post)

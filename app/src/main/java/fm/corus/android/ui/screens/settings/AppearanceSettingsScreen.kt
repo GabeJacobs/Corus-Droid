@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,7 +25,7 @@ fun AppearanceSettingsScreen(
 ) {
     val isDarkMode by viewModel.isDarkMode.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
         // ── Header ──
         Row(
             modifier = Modifier

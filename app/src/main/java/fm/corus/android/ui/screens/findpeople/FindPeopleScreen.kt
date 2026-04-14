@@ -18,15 +18,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -58,6 +65,7 @@ enum class SearchTab(val label: String) {
     FILMS("Films"),
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FindPeopleScreen(
     viewModel: FindPeopleViewModel = hiltViewModel(),
@@ -74,6 +82,7 @@ fun FindPeopleScreen(
     val songSearchResults by viewModel.songSearchResults.collectAsState()
     val filmSearchResults by viewModel.filmSearchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val trendingSongs by viewModel.trendingSongs.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val isTrendingLoading by viewModel.isTrendingLoading.collectAsState()
@@ -92,19 +101,22 @@ fun FindPeopleScreen(
 
     var activeTab by remember { mutableStateOf(SearchTab.USERS) }
     val hasSearchQuery = searchQuery.isNotBlank()
+    var isSearchFocused by remember { mutableStateOf(false) }
 
     // List states for scroll-to-top
     val usersListState = rememberLazyListState()
     val songsListState = rememberLazyListState()
     val filmsListState = rememberLazyListState()
 
+    var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTrigger) {
-        if (scrollToTopTrigger > 0) {
+        if (scrollToTopTrigger > lastScrollTrigger) {
             when (activeTab) {
                 SearchTab.USERS -> usersListState.animateScrollToItem(0)
                 SearchTab.SONGS -> songsListState.animateScrollToItem(0)
                 SearchTab.FILMS -> filmsListState.animateScrollToItem(0)
             }
+            lastScrollTrigger = scrollToTopTrigger
         }
     }
 
@@ -117,21 +129,26 @@ fun FindPeopleScreen(
         viewModel.search(searchQuery, activeTab.ordinal)
     }
 
-    // Derived suggestion categories
+    val followingIds by viewModel.followingIds.collectAsState()
+    val localFollowedIds by viewModel.localFollowedIds.collectAsState()
+
+    // Derived suggestion categories (matching iOS logic)
     val musicMatchUsers = remember(suggestedMatches) {
         suggestedMatches
             .filter { it.matchData?.hasSimilarityData == true || (it.user.artistsInCommonCount ?: 0) > 0 }
             .sortedByDescending { it.matchData?.similarityScore ?: 0.0 }
     }
 
-    val mutualConnectionUsers = remember(suggestedMatches) {
+    val mutualConnectionUsers = remember(suggestedMatches, followingIds, localFollowedIds) {
+        val allFollowed = followingIds + localFollowedIds
         suggestedMatches
+            .filter { !allFollowed.contains(it.user.id) }
             .filter { it.matchData?.hasSimilarityData != true && (it.user.artistsInCommonCount ?: 0) == 0 }
             .filter { it.user.cymbalCount > 0 }
             .filter { it.suggestionReason?.mutualNames?.isNotEmpty() == true }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
         // Header
         Box(
             modifier = Modifier
@@ -149,7 +166,9 @@ fun FindPeopleScreen(
             onClear = {
                 viewModel.onSearchQueryChange("")
                 viewModel.clearSearch()
+                isSearchFocused = false
             },
+            onFocusChanged = { isSearchFocused = it },
             placeholder = when (activeTab) {
                 SearchTab.SONGS -> "Search for a song"
                 SearchTab.FILMS -> "Search for a film"
@@ -166,79 +185,86 @@ fun FindPeopleScreen(
         )
 
         // Content
-        when (activeTab) {
-            SearchTab.USERS -> {
-                if (hasSearchQuery) {
-                    UserSearchResults(
-                        listState = usersListState,
-                        results = userResults,
-                        isSearching = isSearching,
-                        viewModel = viewModel,
-                        onNavigateToUser = { userId ->
-                            val user = userResults.find { it.id == userId }
-                            if (user != null) viewModel.onUserSelected(user)
-                            onNavigateToUser(userId)
-                        },
-                    )
-                } else {
-                    SuggestedUsersContent(
-                        listState = usersListState,
-                        recentSearches = recentSearches,
-                        musicMatchUsers = musicMatchUsers,
-                        mutualConnectionUsers = mutualConnectionUsers,
-                        curatedMusicBots = curatedMusicBots,
-                        curatedFilmBots = curatedFilmBots,
-                        contactMatches = contactMatches,
-                        contactsSyncStatus = contactsSyncStatus,
-                        isSyncingContacts = isSyncingContacts,
-                        popularUsers = popularUsers,
-                        isPopularLoading = isPopularLoading,
-                        isSuggestedLoading = isSuggestedLoading,
-                        isBotsLoading = isBotsLoading,
-                        viewModel = viewModel,
-                        onNavigateToUser = onNavigateToUser,
-                        onNavigateToBotList = onNavigateToBotList,
-                        onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
-                        onNavigateToContactFriends = onNavigateToContactFriends,
-                        onRecentSearchTap = { query ->
-                            viewModel.populateSearchFromRecent(query)
-                        },
-                        onClearRecentSearches = { viewModel.clearRecentSearches() },
-                    )
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            when (activeTab) {
+                SearchTab.USERS -> {
+                    if (hasSearchQuery) {
+                        UserSearchResults(
+                            listState = usersListState,
+                            results = userResults,
+                            isSearching = isSearching,
+                            viewModel = viewModel,
+                            onNavigateToUser = { userId ->
+                                val user = userResults.find { it.id == userId }
+                                if (user != null) viewModel.onUserSelected(user)
+                                onNavigateToUser(userId)
+                            },
+                        )
+                    } else {
+                        SuggestedUsersContent(
+                            listState = usersListState,
+                            recentSearches = recentSearches,
+                            isSearchFocused = isSearchFocused,
+                            musicMatchUsers = musicMatchUsers,
+                            mutualConnectionUsers = mutualConnectionUsers,
+                            curatedMusicBots = curatedMusicBots,
+                            curatedFilmBots = curatedFilmBots,
+                            contactMatches = contactMatches,
+                            contactsSyncStatus = contactsSyncStatus,
+                            isSyncingContacts = isSyncingContacts,
+                            popularUsers = popularUsers,
+                            isPopularLoading = isPopularLoading,
+                            isSuggestedLoading = isSuggestedLoading,
+                            isBotsLoading = isBotsLoading,
+                            viewModel = viewModel,
+                            onNavigateToUser = onNavigateToUser,
+                            onNavigateToBotList = onNavigateToBotList,
+                            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+                            onNavigateToContactFriends = onNavigateToContactFriends,
+                            onRecentSearchTap = { query ->
+                                viewModel.populateSearchFromRecent(query)
+                            },
+                            onClearRecentSearches = { viewModel.clearRecentSearches() },
+                        )
+                    }
                 }
-            }
-            SearchTab.SONGS -> {
-                if (hasSearchQuery) {
-                    SongSearchResultsList(
-                        listState = songsListState,
-                        tracks = songSearchResults,
-                        isSearching = isSearching,
-                        onSongTap = onNavigateToSong,
-                    )
-                } else {
-                    TrendingSongsContent(
-                        listState = songsListState,
-                        songs = trendingSongs,
-                        isLoading = isTrendingLoading,
-                        onSongTap = onNavigateToSong,
-                    )
+                SearchTab.SONGS -> {
+                    if (hasSearchQuery) {
+                        SongSearchResultsList(
+                            listState = songsListState,
+                            tracks = songSearchResults,
+                            isSearching = isSearching,
+                            onSongTap = onNavigateToSong,
+                        )
+                    } else {
+                        TrendingSongsContent(
+                            listState = songsListState,
+                            songs = trendingSongs,
+                            isLoading = isTrendingLoading,
+                            onSongTap = onNavigateToSong,
+                        )
+                    }
                 }
-            }
-            SearchTab.FILMS -> {
-                if (hasSearchQuery) {
-                    FilmSearchResultsList(
-                        listState = filmsListState,
-                        movies = filmSearchResults,
-                        isSearching = isSearching,
-                        onFilmTap = onNavigateToFilm,
-                    )
-                } else {
-                    TrendingFilmsContent(
-                        listState = filmsListState,
-                        movies = trendingMovies,
-                        isLoading = isTrendingMoviesLoading,
-                        onFilmTap = onNavigateToFilm,
-                    )
+                SearchTab.FILMS -> {
+                    if (hasSearchQuery) {
+                        FilmSearchResultsList(
+                            listState = filmsListState,
+                            movies = filmSearchResults,
+                            isSearching = isSearching,
+                            onFilmTap = onNavigateToFilm,
+                        )
+                    } else {
+                        TrendingFilmsContent(
+                            listState = filmsListState,
+                            movies = trendingMovies,
+                            isLoading = isTrendingMoviesLoading,
+                            onFilmTap = onNavigateToFilm,
+                        )
+                    }
                 }
             }
         }
@@ -250,16 +276,19 @@ private fun SearchBarSection(
     query: String,
     onQueryChange: (String) -> Unit,
     onClear: () -> Unit,
+    onFocusChanged: (Boolean) -> Unit = {},
     placeholder: String,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
 
     TextField(
         value = query,
         onValueChange = onQueryChange,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg),
+            .padding(horizontal = CorusSpacing.lg)
+            .onFocusChanged { onFocusChanged(it.isFocused) },
         placeholder = {
             Text(placeholder, style = CorusFont.body, color = CorusColors.Tertiary)
         },
@@ -345,6 +374,7 @@ private fun FindPeopleTabBar(
 private fun SuggestedUsersContent(
     listState: LazyListState = rememberLazyListState(),
     recentSearches: List<String>,
+    isSearchFocused: Boolean = false,
     musicMatchUsers: List<SuggestedUserMatch>,
     mutualConnectionUsers: List<SuggestedUserMatch>,
     curatedMusicBots: List<SuggestedUserMatch>,
@@ -388,8 +418,8 @@ private fun SuggestedUsersContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = CorusSpacing.lg),
     ) {
-        // ── Recent Searches ──
-        if (recentSearches.isNotEmpty()) {
+        // ── Recent Searches (only visible when search field is focused, matching iOS) ──
+        if (isSearchFocused && recentSearches.isNotEmpty()) {
             item {
                 Row(
                     modifier = Modifier
@@ -516,9 +546,7 @@ private fun SuggestedUsersContent(
             items(mutualConnectionUsers.take(2)) { match ->
                 SuggestedUserRow(
                     user = match.user,
-                    subtitle = match.suggestionReason?.mutualNames?.let {
-                        if (it.isNotEmpty()) "Followed by ${it.first()}" else null
-                    },
+                    subtitle = formatMutualFollowersText(match.suggestionReason?.mutualNames),
                     isFollowed = viewModel.isFollowed(match.user.id),
                     onTap = { onNavigateToUser(match.user.id) },
                     onFollow = { viewModel.toggleFollow(match.user) },
@@ -674,6 +702,23 @@ private fun SectionHeader(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val iconVector = when (icon) {
+            "sparkles" -> Icons.Filled.AutoAwesome
+            "people" -> Icons.Filled.People
+            "trending" -> Icons.Filled.AutoAwesome
+            "contacts" -> Icons.Filled.Contacts
+            "bot" -> Icons.Filled.SmartToy
+            else -> null
+        }
+        if (iconVector != null) {
+            Icon(
+                imageVector = iconVector,
+                contentDescription = null,
+                tint = CorusColors.Accent,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        }
         Text(title, style = CorusFont.sectionHeader, color = CorusColors.Secondary)
         Spacer(modifier = Modifier.weight(1f))
         if (showSeeAll) {
@@ -741,42 +786,55 @@ fun SuggestedUserRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = user.avatarURL, size = CorusSpacing.avatarMedium)
+        UserAvatarView(avatarURL = user.avatarURL, size = 44.dp)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
+            // Display name (bold)
+            Text(
+                text = user.displayName.ifBlank { user.username },
+                style = CorusFont.bodyMedium,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // @username + verified badge
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = user.displayName.ifBlank { user.username },
-                    style = CorusFont.bodyMedium,
-                    color = CorusColors.Text,
+                    text = "@${user.username}",
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (user.isVerified) {
-                    Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                    Spacer(modifier = Modifier.width(CorusSpacing.xxs))
                     Icon(
                         Icons.Filled.CheckCircle,
                         contentDescription = "Verified",
                         tint = CorusColors.Verified,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(12.dp),
                     )
                 }
             }
-            Text(
-                text = subtitle ?: "@${user.username}",
-                style = CorusFont.caption,
-                color = CorusColors.Secondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // Flavor text (subtitle like "Followed by @user1, @user2")
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Button(
             onClick = onFollow,
             shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isFollowed) CorusColors.Divider else CorusColors.Accent,
+                containerColor = if (isFollowed) CorusColors.CardBackground else CorusColors.Accent,
                 contentColor = if (isFollowed) CorusColors.Secondary else Color.White,
             ),
+            border = if (isFollowed) androidx.compose.foundation.BorderStroke(1.dp, CorusColors.Divider) else null,
             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
             modifier = Modifier.height(30.dp),
         ) {
@@ -1039,6 +1097,20 @@ private fun FilmSearchRow(movie: CymbalMovie, onClick: () -> Unit) {
                     Text("(${movie.year})", style = CorusFont.artistName, color = CorusColors.Tertiary)
                 }
             }
+        }
+    }
+}
+
+// ── Helpers ──
+
+private fun formatMutualFollowersText(names: List<String>?): String? {
+    if (names.isNullOrEmpty()) return null
+    return when (names.size) {
+        1 -> "Followed by @${names[0]}"
+        2 -> "Followed by @${names[0]} and @${names[1]}"
+        else -> {
+            val others = names.size - 2
+            "Followed by @${names[0]}, @${names[1]}, and $others ${if (others == 1) "other" else "others"}"
         }
     }
 }

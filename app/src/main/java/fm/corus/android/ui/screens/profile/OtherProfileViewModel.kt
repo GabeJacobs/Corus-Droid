@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
@@ -38,6 +39,16 @@ class OtherProfileViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _hasMore = MutableStateFlow(true)
+    val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
+
+    private var postsLastTimestamp: Long? = null
+    private val PAGE_SIZE = 30
+    private val MIN_SEGMENT_POSTS = 12
+
     private val _isFollowing = MutableStateFlow(false)
     val isFollowing: StateFlow<Boolean> = _isFollowing.asStateFlow()
 
@@ -69,15 +80,55 @@ class OtherProfileViewModel @Inject constructor(
                     _isSubscribedToNotifications.value = userRepository.isSubscribedToUserPosts(viewerIdForSub, userId)
                 }
 
-                // Load user's posts
+                // Load user's posts — keep fetching until both music and film
+                // tabs have enough filtered posts or the server runs out
                 val viewerId = authRepository.currentUserId ?: return@launch
-                val userPosts = postRepository.getProfilePosts(
-                    userId = userId,
-                    viewerId = viewerId,
-                )
-                _posts.value = userPosts
+                var allPosts = listOf<CymbalPost>()
+                var cursor: Long? = null
+                var serverHasMore = true
+                while (serverHasMore) {
+                    val page = postRepository.getProfilePosts(
+                        userId = userId,
+                        viewerId = viewerId,
+                        limit = PAGE_SIZE,
+                        lastTimestamp = cursor,
+                    )
+                    allPosts = allPosts + page
+                    serverHasMore = page.size >= PAGE_SIZE
+                    if (page.isNotEmpty()) cursor = page.last().timestamp.time
+                    val tracks = allPosts.count { it.mediaType == MediaType.TRACK }
+                    val movies = allPosts.count { it.mediaType == MediaType.MOVIE }
+                    if (tracks >= MIN_SEGMENT_POSTS && movies >= MIN_SEGMENT_POSTS) break
+                    if (!serverHasMore) break
+                }
+                _posts.value = allPosts
+                postsLastTimestamp = cursor
+                _hasMore.value = serverHasMore
             } catch (_: Exception) { }
             _isLoading.value = false
+        }
+    }
+
+    fun loadMore(userId: String) {
+        if (!_hasMore.value || _isLoadingMore.value) return
+        val viewerId = authRepository.currentUserId ?: return
+        val cursor = postsLastTimestamp ?: return
+        _isLoadingMore.value = true
+        viewModelScope.launch {
+            try {
+                val newPosts = postRepository.getProfilePosts(
+                    userId = userId,
+                    viewerId = viewerId,
+                    limit = PAGE_SIZE,
+                    lastTimestamp = cursor,
+                )
+                _posts.value = _posts.value + newPosts
+                if (newPosts.isNotEmpty()) {
+                    postsLastTimestamp = newPosts.last().timestamp.time
+                }
+                _hasMore.value = newPosts.size >= PAGE_SIZE
+            } catch (_: Exception) { }
+            _isLoadingMore.value = false
         }
     }
 

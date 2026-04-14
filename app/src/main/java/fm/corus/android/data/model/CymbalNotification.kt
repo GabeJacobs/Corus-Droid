@@ -37,7 +37,7 @@ data class CymbalNotification(
             val fromUserId = fromUserData["id"] as? String ?: data["fromUserId"] as? String ?: ""
             val fromUser = CymbalUser.fromMap(fromUserId, fromUserData)
 
-            val timestampMs = data["timestamp"] as? Number
+            val timestampMs = data["createdAt"] as? Number ?: data["timestamp"] as? Number
             val timestamp = if (timestampMs != null) Date(timestampMs.toLong()) else Date()
 
             return CymbalNotification(

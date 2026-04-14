@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.SubscriptionRepository
@@ -82,8 +83,8 @@ class ProfileViewModel @Inject constructor(
     val hasMore: StateFlow<Map<Int, Boolean>> = _hasMore.asStateFlow()
 
     private var postsLastTimestamp: Long? = null
-    private var likedLastTimestamp: Long? = null
-    private var savedLastTimestamp: Long? = null
+    private var likedOffset: Int = 0
+    private var savedOffset: Int = 0
 
     private var likedLoaded = false
     private var savedLoaded = false
@@ -91,6 +92,8 @@ class ProfileViewModel @Inject constructor(
     private var segmentLoadJob: Job? = null
 
     private val PAGE_SIZE = 30
+    // Minimum filtered posts per segment before we stop auto-fetching more pages
+    private val MIN_SEGMENT_POSTS = 12
 
     fun loadProfile() {
         val userId = authRepository.currentUserId ?: return
@@ -99,15 +102,27 @@ class ProfileViewModel @Inject constructor(
             try {
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
-                // Load profile posts (shared by MUSIC and FILM tabs)
-                val posts = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null)
-                _posts.value = posts
-                if (posts.isNotEmpty()) {
-                    postsLastTimestamp = posts.last().timestamp.time
+                // Load profile posts (shared by MUSIC and FILM tabs).
+                // Keep fetching pages until both segments have enough filtered
+                // posts or the server runs out.
+                var allPosts = listOf<CymbalPost>()
+                var cursor: Long? = null
+                var serverHasMore = true
+                while (serverHasMore) {
+                    val page = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
+                    allPosts = allPosts + page
+                    serverHasMore = page.size >= PAGE_SIZE
+                    if (page.isNotEmpty()) cursor = page.last().timestamp.time
+                    val tracks = allPosts.count { it.mediaType == MediaType.TRACK }
+                    val movies = allPosts.count { it.mediaType == MediaType.MOVIE }
+                    if (tracks >= MIN_SEGMENT_POSTS && movies >= MIN_SEGMENT_POSTS) break
+                    if (!serverHasMore) break
                 }
+                _posts.value = allPosts
+                postsLastTimestamp = cursor
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
-                    this[0] = posts.size >= PAGE_SIZE
-                    this[1] = posts.size >= PAGE_SIZE
+                    this[0] = serverHasMore
+                    this[1] = serverHasMore
                 }
             } catch (_: Exception) { }
             _isLoading.value = false
@@ -121,12 +136,24 @@ class ProfileViewModel @Inject constructor(
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
                 val userId = authRepository.currentUserId ?: return@launch
-                val posts = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null)
-                _posts.value = posts
-                postsLastTimestamp = if (posts.isNotEmpty()) posts.last().timestamp.time else null
+                var allPosts = listOf<CymbalPost>()
+                var cursor: Long? = null
+                var serverHasMore = true
+                while (serverHasMore) {
+                    val page = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
+                    allPosts = allPosts + page
+                    serverHasMore = page.size >= PAGE_SIZE
+                    if (page.isNotEmpty()) cursor = page.last().timestamp.time
+                    val tracks = allPosts.count { it.mediaType == MediaType.TRACK }
+                    val movies = allPosts.count { it.mediaType == MediaType.MOVIE }
+                    if (tracks >= MIN_SEGMENT_POSTS && movies >= MIN_SEGMENT_POSTS) break
+                    if (!serverHasMore) break
+                }
+                _posts.value = allPosts
+                postsLastTimestamp = cursor
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
-                    this[0] = posts.size >= PAGE_SIZE
-                    this[1] = posts.size >= PAGE_SIZE
+                    this[0] = serverHasMore
+                    this[1] = serverHasMore
                 }
                 // Reset lazy-loaded segments so they reload on next visit
                 likedLoaded = false
@@ -137,8 +164,8 @@ class ProfileViewModel @Inject constructor(
                     this[2] = true
                     this[3] = true
                 }
-                likedLastTimestamp = null
-                savedLastTimestamp = null
+                likedOffset = 0
+                savedOffset = 0
             } catch (_: Exception) { }
             _isLoading.value = false
         }
@@ -213,7 +240,7 @@ class ProfileViewModel @Inject constructor(
 
     fun loadMoreForSegment(segment: Int) {
         if (_hasMore.value[segment] != true) return
-        if (_isLoadingMore.value) return
+        if (_isLoadingMore.value || _isLoading.value) return
         val userId = authRepository.currentUserId ?: return
 
         _isLoadingMore.value = true
@@ -221,37 +248,52 @@ class ProfileViewModel @Inject constructor(
             try {
                 when (segment) {
                     0, 1 -> {
-                        val cursor = postsLastTimestamp ?: return@launch
-                        val newPosts = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
-                        _posts.value = _posts.value + newPosts
-                        if (newPosts.isNotEmpty()) {
-                            postsLastTimestamp = newPosts.last().timestamp.time
-                        }
-                        _hasMore.value = _hasMore.value.toMutableMap().apply {
-                            this[0] = newPosts.size >= PAGE_SIZE
-                            this[1] = newPosts.size >= PAGE_SIZE
+                        val cursor = postsLastTimestamp
+                        if (cursor != null) {
+                            val newPosts = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
+                            _posts.value = _posts.value + newPosts
+                            if (newPosts.isNotEmpty()) {
+                                postsLastTimestamp = newPosts.last().timestamp.time
+                            }
+                            _hasMore.value = _hasMore.value.toMutableMap().apply {
+                                this[0] = newPosts.size >= PAGE_SIZE
+                                this[1] = newPosts.size >= PAGE_SIZE
+                            }
+                        } else {
+                            _hasMore.value = _hasMore.value.toMutableMap().apply {
+                                this[0] = false
+                                this[1] = false
+                            }
                         }
                     }
                     2 -> {
-                        val cursor = likedLastTimestamp ?: return@launch
-                        val newPosts = cloudFunctions.getLikedPosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
-                        _likedPosts.value = _likedPosts.value + newPosts
-                        if (newPosts.isNotEmpty()) {
-                            likedLastTimestamp = newPosts.last().timestamp.time
-                        }
-                        _hasMore.value = _hasMore.value.toMutableMap().apply {
-                            this[2] = newPosts.size >= PAGE_SIZE
+                        val cursor = likedLastTimestamp
+                        if (cursor != null) {
+                            val newPosts = cloudFunctions.getLikedPosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
+                            _likedPosts.value = _likedPosts.value + newPosts
+                            if (newPosts.isNotEmpty()) {
+                                likedLastTimestamp = newPosts.last().timestamp.time
+                            }
+                            _hasMore.value = _hasMore.value.toMutableMap().apply {
+                                this[2] = newPosts.size >= PAGE_SIZE
+                            }
+                        } else {
+                            _hasMore.value = _hasMore.value.toMutableMap().apply { this[2] = false }
                         }
                     }
                     3 -> {
-                        val cursor = savedLastTimestamp ?: return@launch
-                        val newPosts = cloudFunctions.getSavedPosts(userId, limit = PAGE_SIZE, lastTimestamp = cursor)
-                        _savedPosts.value = _savedPosts.value + newPosts
-                        if (newPosts.isNotEmpty()) {
-                            savedLastTimestamp = newPosts.last().timestamp.time
-                        }
-                        _hasMore.value = _hasMore.value.toMutableMap().apply {
-                            this[3] = newPosts.size >= PAGE_SIZE
+                        val cursor = savedLastTimestamp
+                        if (cursor != null) {
+                            val newPosts = cloudFunctions.getSavedPosts(userId, limit = PAGE_SIZE, lastTimestamp = cursor)
+                            _savedPosts.value = _savedPosts.value + newPosts
+                            if (newPosts.isNotEmpty()) {
+                                savedLastTimestamp = newPosts.last().timestamp.time
+                            }
+                            _hasMore.value = _hasMore.value.toMutableMap().apply {
+                                this[3] = newPosts.size >= PAGE_SIZE
+                            }
+                        } else {
+                            _hasMore.value = _hasMore.value.toMutableMap().apply { this[3] = false }
                         }
                     }
                 }

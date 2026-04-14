@@ -1,5 +1,6 @@
 package fm.corus.android.data.remote
 
+import android.util.Log
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
@@ -794,8 +795,13 @@ class FirestoreDataSource @Inject constructor(
     // ── Contacts ──
 
     suspend fun storeSyncedContacts(userId: String, phoneNumbers: List<String>) {
-        firestore.collection("users_v2").document(userId)
-            .update(mapOf("syncedContacts" to phoneNumbers)).await()
+        try {
+            firestore.collection("users_v2").document(userId)
+                .update(mapOf("syncedContacts" to phoneNumbers)).await()
+        } catch (e: Exception) {
+            // Firestore security rules may reject this write; don't crash.
+            Log.w("FirestoreDS", "storeSyncedContacts failed (permission denied?)", e)
+        }
     }
 
     @Suppress("UNCHECKED_CAST")

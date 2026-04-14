@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -44,7 +45,7 @@ fun MutedUsersScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
             Row(

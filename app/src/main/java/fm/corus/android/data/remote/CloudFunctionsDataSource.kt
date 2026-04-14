@@ -98,9 +98,9 @@ class CloudFunctionsDataSource @Inject constructor(
     @Suppress("UNCHECKED_CAST")
     suspend fun getProfilePosts(userId: String, viewerId: String, limit: Int = 30, lastTimestamp: Long? = null): List<CymbalPost> {
         val params = mutableMapOf<String, Any>(
-            "userId" to userId, "viewerId" to viewerId, "limit" to limit
+            "userId" to userId, "viewerId" to viewerId, "pageSize" to limit
         )
-        lastTimestamp?.let { params["lastTimestamp"] = it }
+        lastTimestamp?.let { params["beforeMs"] = it }
         val result = functions.getHttpsCallable("getProfilePosts").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val posts = data["posts"] as? List<Map<String, Any?>> ?: return emptyList()
@@ -108,11 +108,10 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun getLikedPosts(userId: String, viewerId: String, limit: Int = 30, lastTimestamp: Long? = null): List<CymbalPost> {
+    suspend fun getLikedPosts(userId: String, viewerId: String, limit: Int = 30, offset: Int = 0): List<CymbalPost> {
         val params = mutableMapOf<String, Any>(
-            "userId" to userId, "viewerId" to viewerId, "limit" to limit
+            "userId" to userId, "viewerId" to viewerId, "limit" to limit, "offset" to offset
         )
-        lastTimestamp?.let { params["lastTimestamp"] = it }
         val result = functions.getHttpsCallable("getLikedPosts").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val posts = data["posts"] as? List<Map<String, Any?>> ?: return emptyList()
@@ -120,9 +119,8 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun getSavedPosts(userId: String, limit: Int = 30, lastTimestamp: Long? = null): List<CymbalPost> {
-        val params = mutableMapOf<String, Any>("userId" to userId, "limit" to limit)
-        lastTimestamp?.let { params["lastTimestamp"] = it }
+    suspend fun getSavedPosts(userId: String, limit: Int = 30, offset: Int = 0): List<CymbalPost> {
+        val params = mutableMapOf<String, Any>("userId" to userId, "limit" to limit, "offset" to offset)
         val result = functions.getHttpsCallable("getSavedPosts").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val posts = data["posts"] as? List<Map<String, Any?>> ?: return emptyList()
@@ -373,13 +371,13 @@ class CloudFunctionsDataSource @Inject constructor(
     // ── Suggestions ──
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun getSuggestedUsers(userId: String): List<SuggestedUserMatch> {
+    suspend fun getSuggestedUsers(userId: String, limit: Int = 50, includeFollowing: Boolean = true): List<SuggestedUserMatch> {
         val result = functions.getHttpsCallable("getSuggestedUsers").call(
-            mapOf("currentUserId" to userId)
+            mapOf("currentUserId" to userId, "limit" to limit, "includeFollowing" to includeFollowing)
         ).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
-        val suggestions = data["suggestions"] as? List<Map<String, Any?>> ?: return emptyList()
-        return parseSuggestions(suggestions)
+        val rows = data["users"] as? List<Map<String, Any?>> ?: return emptyList()
+        return parseUserRows(rows)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -392,23 +390,79 @@ class CloudFunctionsDataSource @Inject constructor(
         botType?.let { params["botType"] = it }
         val result = functions.getHttpsCallable("getSuggestedUsers").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
-        val suggestions = data["suggestions"] as? List<Map<String, Any?>> ?: return emptyList()
-        return parseSuggestions(suggestions)
+        val rows = data["users"] as? List<Map<String, Any?>> ?: return emptyList()
+        return parseUserRows(rows)
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun parseSuggestions(suggestions: List<Map<String, Any?>>): List<SuggestedUserMatch> {
-        return suggestions.mapNotNull { item ->
-            val userData = item["user"] as? Map<String, Any?> ?: return@mapNotNull null
-            val uid = userData["id"] as? String ?: return@mapNotNull null
-            val user = CymbalUser.fromMap(uid, userData)
-            val matchDataMap = item["matchData"] as? Map<String, Any?>
-            val matchData = matchDataMap?.let { MusicMatchData.fromMap(it) }
-            val reasonMap = item["suggestionReason"] as? Map<String, Any?>
-            val reason = reasonMap?.let {
-                val mutualNames = (it["mutualNames"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-                SuggestionReason(mutualNames)
-            }
+    private fun parseUserRows(rows: List<Map<String, Any?>>): List<SuggestedUserMatch> {
+        return rows.mapNotNull { row ->
+            val uid = row["id"] as? String ?: return@mapNotNull null
+            val user = CymbalUser.fromMap(uid, row)
+
+            // Match data is inline in the row (not nested under a "matchData" key)
+            val score = (row["similarityScore"] as? Number)?.toDouble() ?: 0.0
+            val sharedPostedTracks = (row["sharedPostedTracks"] as? Number)?.toInt() ?: 0
+            val sharedLikedTracks = (row["sharedLikedTracks"] as? Number)?.toInt() ?: 0
+            val sharedArtists = (row["sharedArtists"] as? Number)?.toInt() ?: 0
+            val adjacentArtists = (row["adjacentArtists"] as? Number)?.toInt() ?: 0
+            val sharedPostedMovies = (row["sharedPostedMovies"] as? Number)?.toInt() ?: 0
+            val sharedLikedMovies = (row["sharedLikedMovies"] as? Number)?.toInt() ?: 0
+            val sharedDirectors = (row["sharedDirectors"] as? Number)?.toInt() ?: 0
+            val sharedHashtags = (row["sharedHashtags"] as? Number)?.toInt() ?: 0
+            val mutualFollows = (row["mutualFollows"] as? Number)?.toInt() ?: 0
+
+            val trackPreviews = (row["sharedTrackPreviews"] as? List<Map<String, Any?>>)?.mapNotNull { dict ->
+                val trackId = dict["trackId"] as? String ?: ""
+                val albumArt = dict["albumArtURL"] as? String ?: ""
+                val posterArt = dict["posterURL"] as? String ?: ""
+                if (trackId.isEmpty() && albumArt.isEmpty() && posterArt.isEmpty()) return@mapNotNull null
+                SharedTrackPreview(
+                    trackId = trackId,
+                    trackName = dict["trackName"] as? String ?: "",
+                    artistName = dict["artistName"] as? String ?: "",
+                    albumArtURL = dict["albumArtURL"] as? String,
+                    posterURL = dict["posterURL"] as? String,
+                    isMovie = dict["isMovie"] as? Boolean ?: false,
+                )
+            } ?: emptyList()
+
+            val moviePreviews = (row["sharedMoviePreviews"] as? List<Map<String, Any?>>)?.mapNotNull { dict ->
+                val movieId = dict["movieId"] as? String ?: return@mapNotNull null
+                if (movieId.isEmpty()) return@mapNotNull null
+                SharedMoviePreview(
+                    movieId = movieId,
+                    movieTitle = dict["movieTitle"] as? String ?: "",
+                    directorName = dict["directorName"] as? String ?: "",
+                    posterURL = dict["posterURL"] as? String,
+                )
+            } ?: emptyList()
+
+            val hasMatchData = sharedPostedTracks + sharedLikedTracks > 0 || sharedArtists > 0 ||
+                adjacentArtists > 0 || sharedPostedMovies + sharedLikedMovies > 0 ||
+                sharedDirectors > 0 || score > 0 || trackPreviews.isNotEmpty() || moviePreviews.isNotEmpty()
+
+            val matchData = if (hasMatchData) {
+                MusicMatchData(
+                    similarityScore = score,
+                    sharedPostedTracks = sharedPostedTracks,
+                    sharedLikedTracks = sharedLikedTracks,
+                    sharedArtists = sharedArtists,
+                    adjacentArtists = adjacentArtists,
+                    sharedPostedMovies = sharedPostedMovies,
+                    sharedLikedMovies = sharedLikedMovies,
+                    sharedDirectors = sharedDirectors,
+                    sharedHashtags = sharedHashtags,
+                    mutualFollows = mutualFollows,
+                    sharedTrackPreviews = trackPreviews,
+                    sharedMoviePreviews = moviePreviews,
+                )
+            } else null
+
+            // Mutual names are inline in the row
+            val mutualNames = (row["mutualNames"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            val reason = if (mutualNames.isNotEmpty()) SuggestionReason(mutualNames) else null
+
             SuggestedUserMatch(user = user, matchData = matchData, suggestionReason = reason)
         }
     }

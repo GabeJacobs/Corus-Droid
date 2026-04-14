@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Gif
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -384,18 +385,6 @@ private fun CommentRow(
                         onClick = onReplyTap,
                     ),
                 )
-                if (isOwnComment) {
-                    Text(
-                        text = "Delete",
-                        style = CorusFont.captionMedium,
-                        color = CorusColors.Error,
-                        modifier = Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { showDeleteConfirm = true },
-                        ),
-                    )
-                }
             }
         }
 
@@ -420,6 +409,44 @@ private fun CommentRow(
                     style = CorusFont.caption,
                     color = CorusColors.Secondary,
                 )
+            }
+        }
+
+        // "..." menu button for own comments (matching iOS)
+        if (isOwnComment) {
+            var showMenu by remember { mutableStateOf(false) }
+            Spacer(modifier = Modifier.width(CorusSpacing.xs))
+            Box {
+                Icon(
+                    imageVector = Icons.Filled.MoreHoriz,
+                    contentDescription = "Comment options",
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { showMenu = true },
+                        ),
+                    tint = CorusColors.Secondary,
+                )
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Delete",
+                                style = CorusFont.body,
+                                color = CorusColors.Error,
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            showDeleteConfirm = true
+                        },
+                    )
+                }
             }
         }
     }

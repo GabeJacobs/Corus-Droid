@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,10 +51,15 @@ fun NotificationsScreen(
     val notifications by viewModel.notifications.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val hasMoreNotifications by viewModel.hasMoreNotifications.collectAsState()
     val listState = rememberLazyListState()
 
+    var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTrigger) {
-        if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
+        if (scrollToTopTrigger > lastScrollTrigger) {
+            listState.animateScrollToItem(0)
+            lastScrollTrigger = scrollToTopTrigger
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -108,6 +114,22 @@ fun NotificationsScreen(
                                     start = CorusSpacing.lg + CorusSpacing.avatarMedium + CorusSpacing.md,
                                 ),
                             )
+                        }
+
+                        if (hasMoreNotifications) {
+                            item {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = CorusSpacing.xl)
+                                        .wrapContentWidth(Alignment.CenterHorizontally),
+                                    color = CorusColors.Secondary,
+                                    strokeWidth = 2.dp,
+                                )
+                                LaunchedEffect(Unit) {
+                                    viewModel.loadMoreNotifications()
+                                }
+                            }
                         }
                     }
                 }

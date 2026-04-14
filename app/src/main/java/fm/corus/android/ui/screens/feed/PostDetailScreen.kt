@@ -156,7 +156,7 @@ fun PostDetailScreen(
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
                                 } else {
-                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtURL)
+                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtLargeURL ?: currentPost.track.albumArtURL)
                                 }
                             },
                         )
@@ -170,7 +170,7 @@ fun PostDetailScreen(
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
                                 } else {
-                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtURL)
+                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtLargeURL ?: currentPost.track.albumArtURL)
                                 }
                             },
                             onSpotifyTap = {
@@ -212,7 +212,7 @@ fun PostDetailScreen(
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
                                 } else {
-                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtURL)
+                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtLargeURL ?: currentPost.track.albumArtURL)
                                 }
                             },
                         )

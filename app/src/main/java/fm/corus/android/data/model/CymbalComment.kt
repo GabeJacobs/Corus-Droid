@@ -26,7 +26,7 @@ data class CymbalComment(
                 CymbalUser.fromMap(rtId, it)
             }
 
-            val timestampMs = data["createdAt"] as? Number ?: data["timestamp"] as? Number
+            val timestampMs = data["createdAt"] as? Number ?: data["timestamp"] as? Number  // server sends createdAt
             val timestamp = if (timestampMs != null) Date(timestampMs.toLong()) else Date()
 
             return CymbalComment(

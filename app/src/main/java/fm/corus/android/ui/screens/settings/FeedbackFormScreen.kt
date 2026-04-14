@@ -31,7 +31,7 @@ fun FeedbackFormScreen(
     val showSuccess by viewModel.showSuccess.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
             Row(

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -142,9 +143,30 @@ fun ProfileScreen(
     val currentProfile = profile ?: return
 
     val gridState = rememberLazyGridState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMore by viewModel.hasMore.collectAsState()
 
+    var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTrigger) {
-        if (scrollToTopTrigger > 0) gridState.animateScrollToItem(0)
+        if (scrollToTopTrigger > lastScrollTrigger) {
+            gridState.animateScrollToItem(0)
+            lastScrollTrigger = scrollToTopTrigger
+        }
+    }
+
+    // Infinite scroll: load more when near the bottom
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val layoutInfo = gridState.layoutInfo
+            val totalItems = layoutInfo.totalItemsCount
+            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            totalItems > 0 && lastVisibleItem >= totalItems - 6
+        }
+    }
+    LaunchedEffect(shouldLoadMore, selectedSegment) {
+        if (shouldLoadMore && hasMore[selectedSegment] == true && !isLoadingMore && !isLoading) {
+            viewModel.loadMoreForSegment(selectedSegment)
+        }
     }
 
     LazyVerticalGrid(
@@ -198,7 +220,7 @@ fun ProfileScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = CorusSpacing.lg),
-                    verticalAlignment = Alignment.Top,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // Large circular avatar with long-press context menu
                     Box {
@@ -315,7 +337,7 @@ fun ProfileScreen(
 
                             Box(
                                 modifier = Modifier
-                                    .height(34.dp)
+                                    .height(30.dp)
                                     .clip(RoundedCornerShape(50))
                                     .background(Color.Transparent)
                                     .then(
@@ -555,6 +577,24 @@ fun ProfileScreen(
                     PostGridItem(post = post, onClick = { onNavigateToPost(post.id) })
                 }
             }
+
+            // Loading more indicator
+            if (isLoadingMore) {
+                item(span = { GridItemSpan(3) }) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(CorusSpacing.lg),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = CorusColors.Accent,
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -682,15 +722,30 @@ private fun StatDivider() {
 
 @Composable
 private fun PostGridItem(post: CymbalPost, onClick: () -> Unit = {}) {
-    AsyncImage(
-        model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-            .data(post.displayImageLargeURL ?: post.displayImageURL)
-            .size(Size.ORIGINAL)
-            .build(),
-        contentDescription = post.displayTitle,
+    var isLoading by remember { mutableStateOf(true) }
+    Box(
         modifier = Modifier
             .aspectRatio(1f)
             .clickable(onClick = onClick),
-        contentScale = ContentScale.Crop,
-    )
+    ) {
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .shimmer()
+                    .background(CorusColors.CardBackground),
+            )
+        }
+        AsyncImage(
+            model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                .data(post.displayImageLargeURL ?: post.displayImageURL)
+                .size(Size.ORIGINAL)
+                .build(),
+            contentDescription = post.displayTitle,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            onSuccess = { isLoading = false },
+            onError = { isLoading = false },
+        )
+    }
 }

@@ -29,6 +29,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.UserAvatarView
@@ -97,7 +99,10 @@ fun SongDetailScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         AsyncImage(
-                            model = artUrl,
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(artUrl)
+                                .crossfade(true)
+                                .build(),
                             contentDescription = songInfo?.displayTitle,
                             modifier = Modifier
                                 .size(200.dp)

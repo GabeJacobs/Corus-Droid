@@ -1,9 +1,13 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -184,6 +189,93 @@ fun TappableMentionText(
                 }
         },
     )
+}
+
+/**
+ * Expandable caption text with "... more" truncation, matching iOS TappableMentionText.
+ * Shows up to [maxCollapsedLines] lines when collapsed. If text overflows, appends
+ * "... more" (with "more" in secondary color). Tapping expands to full text.
+ */
+@Composable
+fun ExpandableCaptionText(
+    username: String,
+    caption: String,
+    maxCollapsedLines: Int = 3,
+    onMentionTap: (String) -> Unit = {},
+    onHashtagTap: (String) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    // null = not yet measured, false = fits, true = overflows
+    var overflowState by remember(caption) { mutableStateOf<Boolean?>(null) }
+    var trimmedText by remember(caption) { mutableStateOf<AnnotatedString?>(null) }
+
+    val fullText = remember(username, caption) {
+        buildCaptionAnnotatedString(username = username, caption = caption)
+    }
+
+    val displayText = when {
+        isExpanded -> fullText
+        overflowState == true && trimmedText != null -> trimmedText!!
+        else -> fullText
+    }
+    val displayMaxLines = if (isExpanded) Int.MAX_VALUE else maxCollapsedLines
+    val canExpand = !isExpanded && overflowState == true
+
+    Column(
+        modifier = modifier.animateContentSize(
+            animationSpec = tween(durationMillis = 200, easing = EaseInOut),
+        ),
+    ) {
+        if (overflowState == null) {
+            // First render: measure with BasicText to detect overflow
+            BasicText(
+                text = fullText,
+                style = CorusFont.body.copy(color = CorusColors.Text),
+                maxLines = maxCollapsedLines,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { result ->
+                    if (!result.hasVisualOverflow) {
+                        overflowState = false
+                    } else {
+                        val lastLine = result.lineCount - 1
+                        val lineEnd = result.getLineEnd(lastLine, visibleEnd = true)
+                        val reserveChars = 8
+                        val truncEnd = (lineEnd - reserveChars).coerceAtLeast(0)
+                        val plainFull = fullText.text
+                        var cutoff = truncEnd
+                        while (cutoff > 0 && plainFull[cutoff] != ' ') cutoff--
+                        if (cutoff == 0) cutoff = truncEnd
+
+                        val baseStyle = SpanStyle(
+                            fontFamily = NunitoFamily,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 15.sp,
+                        )
+                        trimmedText = buildAnnotatedString {
+                            append(fullText, 0, cutoff)
+                            withStyle(baseStyle) { append("... ") }
+                            withStyle(baseStyle.copy(color = CorusColors.Secondary)) { append("more") }
+                        }
+                        overflowState = true
+                    }
+                },
+            )
+        } else {
+            ClickableText(
+                text = displayText,
+                style = CorusFont.body.copy(color = CorusColors.Text),
+                maxLines = displayMaxLines,
+                onClick = { offset ->
+                    displayText.getStringAnnotations(tag = MENTION_TAG, start = offset, end = offset)
+                        .firstOrNull()?.let { onMentionTap(it.item); return@ClickableText }
+                    displayText.getStringAnnotations(tag = HASHTAG_TAG, start = offset, end = offset)
+                        .firstOrNull()?.let { onHashtagTap(it.item); return@ClickableText }
+                    if (canExpand) isExpanded = true
+                },
+            )
+        }
+    }
 }
 
 /**

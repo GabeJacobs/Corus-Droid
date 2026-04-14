@@ -1,5 +1,8 @@
 package fm.corus.android.ui.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -49,12 +52,20 @@ import androidx.compose.runtime.setValue
 
 @Composable
 fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
-    NavHost(navController = navController, startDestination = FeedTabRoute) {
+    NavHost(
+        navController = navController,
+        startDestination = FeedTabRoute,
+        enterTransition = { slideInHorizontally(tween(400), initialOffsetX = { it }) },
+        exitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { -it / 3 }) },
+        popEnterTransition = { slideInHorizontally(tween(400), initialOffsetX = { -it / 3 }) },
+        popExitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { it }) },
+    ) {
         composable<FeedTabRoute> {
             FeedScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+                onNavigateToUserByUsername = { username -> navController.navigate(ProfileByUsernameRoute(username)) },
                 onNavigateToComments = { postId -> navController.navigate(CommentsRoute(postId)) },
                 onNavigateToLikes = { postId -> navController.navigate(LikesRoute(postId)) },
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
@@ -68,7 +79,14 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
 
 @Composable
 fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
-    NavHost(navController = navController, startDestination = ExploreTabRoute) {
+    NavHost(
+        navController = navController,
+        startDestination = ExploreTabRoute,
+        enterTransition = { slideInHorizontally(tween(400), initialOffsetX = { it }) },
+        exitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { -it / 3 }) },
+        popEnterTransition = { slideInHorizontally(tween(400), initialOffsetX = { -it / 3 }) },
+        popExitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { it }) },
+    ) {
         composable<ExploreTabRoute> {
             FindPeopleScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
@@ -86,7 +104,14 @@ fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
 
 @Composable
 fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
-    NavHost(navController = navController, startDestination = NotificationsTabRoute) {
+    NavHost(
+        navController = navController,
+        startDestination = NotificationsTabRoute,
+        enterTransition = { slideInHorizontally(tween(400), initialOffsetX = { it }) },
+        exitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { -it / 3 }) },
+        popEnterTransition = { slideInHorizontally(tween(400), initialOffsetX = { -it / 3 }) },
+        popExitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { it }) },
+    ) {
         composable<NotificationsTabRoute> {
             NotificationsScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
@@ -101,7 +126,14 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
 
 @Composable
 fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
-    NavHost(navController = navController, startDestination = ProfileTabRoute) {
+    NavHost(
+        navController = navController,
+        startDestination = ProfileTabRoute,
+        enterTransition = { slideInHorizontally(tween(400), initialOffsetX = { it }) },
+        exitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { -it / 3 }) },
+        popEnterTransition = { slideInHorizontally(tween(400), initialOffsetX = { -it / 3 }) },
+        popExitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { it }) },
+    ) {
         composable<ProfileTabRoute> {
             ProfileScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
@@ -362,6 +394,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
 
     composable<ThreadListRoute> {
         ThreadListScreen(
+            onBack = { navController.popBackStack() },
             onThreadTap = { threadId, otherUserId ->
                 navController.navigate(MessageThreadRoute(threadId, otherUserId))
             },
