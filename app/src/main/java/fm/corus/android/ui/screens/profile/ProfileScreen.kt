@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,6 +59,7 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
+    scrollToTopTrigger: Int = 0,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToEditProfile: (String) -> Unit = {},
     onNavigateToFollowList: (String, Boolean) -> Unit = { _, _ -> },
@@ -139,7 +141,14 @@ fun ProfileScreen(
 
     val currentProfile = profile ?: return
 
+    val gridState = rememberLazyGridState()
+
+    LaunchedEffect(scrollToTopTrigger) {
+        if (scrollToTopTrigger > 0) gridState.animateScrollToItem(0)
+    }
+
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Fixed(3),
         modifier = Modifier.fillMaxSize(),
     ) {

@@ -8,6 +8,7 @@ import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -36,6 +37,7 @@ import fm.corus.android.ui.theme.CorusSpacing
 @Composable
 fun FeedScreen(
     viewModel: FeedViewModel = hiltViewModel(),
+    scrollToTopTrigger: Int = 0,
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToComments: (String) -> Unit = {},
@@ -221,7 +223,13 @@ fun FeedScreen(
 
                 // Posts list
                 else -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    val listState = rememberLazyListState()
+
+                    LaunchedEffect(scrollToTopTrigger) {
+                        if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
+                    }
+
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                         itemsIndexed(posts, key = { _, post -> post.id }) { index, post ->
                             // Trigger next page when within 3 of end — matches iOS .onAppear approach
                             if (index >= posts.size - 3 && hasMore && !isLoading) {

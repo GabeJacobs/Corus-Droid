@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -40,6 +41,7 @@ import fm.corus.android.ui.util.DateUtils
 @Composable
 fun NotificationsScreen(
     viewModel: NotificationsViewModel = hiltViewModel(),
+    scrollToTopTrigger: Int = 0,
     unreadMessageCount: Int = 0,
     onNavigateToMessages: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -48,6 +50,11 @@ fun NotificationsScreen(
     val notifications by viewModel.notifications.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(scrollToTopTrigger) {
+        if (scrollToTopTrigger > 0) listState.animateScrollToItem(0)
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadNotifications()
@@ -82,7 +89,7 @@ fun NotificationsScreen(
                     NotificationsEmptyState()
                 }
                 else -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                         items(notifications, key = { it.id }) { notification ->
                             NotificationRow(
                                 notification = notification,
@@ -138,7 +145,7 @@ private fun NotificationsHeader(
             Icon(
                 imageVector = Icons.Filled.Email,
                 contentDescription = "Messages",
-                modifier = Modifier.size(14.dp),
+                modifier = Modifier.size(24.dp),
                 tint = CorusColors.Secondary,
             )
 

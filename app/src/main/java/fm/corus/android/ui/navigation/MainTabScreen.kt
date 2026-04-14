@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -95,6 +96,12 @@ fun MainTabScreen(
         )
     }
 
+    // Scroll-to-top triggers: increment to signal a root screen should scroll up
+    val feedScrollToTop = remember { mutableIntStateOf(0) }
+    val exploreScrollToTop = remember { mutableIntStateOf(0) }
+    val notificationsScrollToTop = remember { mutableIntStateOf(0) }
+    val profileScrollToTop = remember { mutableIntStateOf(0) }
+
     // Handle notification tap navigation
     val notificationDestination = pendingNotificationDestination?.collectAsState()?.value
     LaunchedEffect(notificationDestination) {
@@ -138,13 +145,18 @@ fun MainTabScreen(
                         else showPostLimitPaywall = true
                     } else {
                         if (tab == selectedTab) {
-                            // Re-tap: pop to start destination
-                            when (tab) {
-                                CorusTab.FEED -> feedNavController.popToStart()
-                                CorusTab.EXPLORE -> exploreNavController.popToStart()
-                                CorusTab.NOTIFICATIONS -> notificationsNavController.popToStart()
-                                CorusTab.PROFILE -> profileNavController.popToStart()
-                                else -> {}
+                            // Re-tap: pop to root if deep, scroll to top if already at root
+                            val navController = navControllers[tab]!!
+                            val popped = navController.popToStart()
+                            if (!popped) {
+                                // Already at root — scroll to top
+                                when (tab) {
+                                    CorusTab.FEED -> feedScrollToTop.intValue++
+                                    CorusTab.EXPLORE -> exploreScrollToTop.intValue++
+                                    CorusTab.NOTIFICATIONS -> notificationsScrollToTop.intValue++
+                                    CorusTab.PROFILE -> profileScrollToTop.intValue++
+                                    else -> {}
+                                }
                             }
                         }
                         selectedTab = tab
@@ -166,16 +178,16 @@ fun MainTabScreen(
             // Keep all tab NavHosts alive but only show the selected one.
             // This preserves scroll position and back stack per tab.
             TabContent(visible = selectedTab == CorusTab.FEED) {
-                FeedNavGraph(navController = feedNavController, mainTabViewModel = viewModel)
+                FeedNavGraph(navController = feedNavController, mainTabViewModel = viewModel, scrollToTopTrigger = feedScrollToTop.intValue)
             }
             TabContent(visible = selectedTab == CorusTab.EXPLORE) {
-                ExploreNavGraph(navController = exploreNavController, mainTabViewModel = viewModel)
+                ExploreNavGraph(navController = exploreNavController, mainTabViewModel = viewModel, scrollToTopTrigger = exploreScrollToTop.intValue)
             }
             TabContent(visible = selectedTab == CorusTab.NOTIFICATIONS) {
-                NotificationsNavGraph(navController = notificationsNavController, mainTabViewModel = viewModel)
+                NotificationsNavGraph(navController = notificationsNavController, mainTabViewModel = viewModel, scrollToTopTrigger = notificationsScrollToTop.intValue)
             }
             TabContent(visible = selectedTab == CorusTab.PROFILE) {
-                ProfileNavGraph(navController = profileNavController, mainTabViewModel = viewModel)
+                ProfileNavGraph(navController = profileNavController, mainTabViewModel = viewModel, scrollToTopTrigger = profileScrollToTop.intValue)
             }
         }
 
@@ -235,9 +247,9 @@ private fun TabContent(visible: Boolean, content: @Composable () -> Unit) {
     }
 }
 
-private fun NavHostController.popToStart() {
+private fun NavHostController.popToStart(): Boolean {
     val startId = graph.startDestinationId
-    popBackStack(startId, inclusive = false)
+    return popBackStack(startId, inclusive = false)
 }
 
 @Composable
@@ -313,13 +325,13 @@ private fun TabItem(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(30.dp),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(24.dp),
                 tint = color,
             )
         }

@@ -48,10 +48,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
 @Composable
-fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel) {
+fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
     NavHost(navController = navController, startDestination = FeedTabRoute) {
         composable<FeedTabRoute> {
             FeedScreen(
+                scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToComments = { postId -> navController.navigate(CommentsRoute(postId)) },
@@ -84,10 +85,11 @@ fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
 }
 
 @Composable
-fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel) {
+fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
     NavHost(navController = navController, startDestination = NotificationsTabRoute) {
         composable<NotificationsTabRoute> {
             NotificationsScreen(
+                scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToMessages = { navController.navigate(ThreadListRoute) },
@@ -98,10 +100,11 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
 }
 
 @Composable
-fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel) {
+fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
     NavHost(navController = navController, startDestination = ProfileTabRoute) {
         composable<ProfileTabRoute> {
             ProfileScreen(
+                scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToSettings = { navController.navigate(SettingsRoute) },
                 onNavigateToEditProfile = { navController.navigate(EditProfileRoute(it)) },
                 onNavigateToFollowList = { userId, isFollowers ->
