@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Tv
 import androidx.compose.material3.*
@@ -31,6 +30,7 @@ import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -354,33 +354,17 @@ private fun FilmPostedByRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "@${post.user.username}",
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                )
-                if (post.user.isVerified) {
-                    Spacer(modifier = Modifier.width(CorusSpacing.xs))
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = "Verified",
-                        tint = CorusColors.Verified,
-                        modifier = Modifier.size(12.dp),
-                    )
-                }
-                if (post.isFirstPoster) {
-                    Spacer(modifier = Modifier.width(CorusSpacing.xs))
-                    Text(
-                        text = "FIRST",
-                        style = CorusFont.captionMedium,
-                        color = CorusColors.Accent,
-                        modifier = Modifier
-                            .background(CorusColors.Accent.copy(alpha = 0.1f), RoundedCornerShape(CorusSpacing.pillCornerRadius))
-                            .padding(horizontal = CorusSpacing.sm, vertical = CorusSpacing.xxs),
-                    )
-                }
-            }
+            UsernameWithFlair(
+                username = post.user.username,
+                isVerified = post.user.isVerified,
+                isClubMember = post.user.isClubMember,
+                flairStyle = post.user.flairStyle,
+                isBot = post.user.isBot,
+                isFirstPoster = post.isFirstPoster,
+                showAtPrefix = true,
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+            )
         }
         Text(
             text = DateUtils.relativeTime(post.timestamp),

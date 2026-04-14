@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Group
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -247,24 +247,13 @@ private fun FollowUserRow(
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = user.username,
-                    style = CorusFont.username,
-                    color = CorusColors.Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (user.isVerified) {
-                    Spacer(modifier = Modifier.width(CorusSpacing.xs))
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = "Verified",
-                        tint = CorusColors.Verified,
-                        modifier = Modifier.size(14.dp),
-                    )
-                }
-            }
+            UsernameWithFlair(
+                username = user.username,
+                isVerified = user.isVerified,
+                isClubMember = user.isClubMember,
+                flairStyle = user.flairStyle,
+                isBot = user.isBot,
+            )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = user.displayName,

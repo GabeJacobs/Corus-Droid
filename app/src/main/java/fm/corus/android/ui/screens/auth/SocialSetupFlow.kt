@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
@@ -45,6 +44,7 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -794,19 +794,15 @@ private fun FilmBotPreviewSheet(
             UserAvatarView(avatarURL = match.user.avatarURL, size = 64.dp)
             Spacer(modifier = Modifier.height(CorusSpacing.md))
 
-            // Username + verified badge
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(match.user.username, style = CorusFont.bodyMedium, color = CorusColors.Text)
-                if (match.user.isVerified || match.user.isBot) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = CorusColors.Accent,
-                        modifier = Modifier.size(14.dp),
-                    )
-                }
-            }
+            // Username + flair badge
+            UsernameWithFlair(
+                username = match.user.username,
+                isVerified = match.user.isVerified,
+                isClubMember = match.user.isClubMember,
+                flairStyle = match.user.flairStyle,
+                isBot = match.user.isBot,
+                style = CorusFont.bodyMedium,
+            )
 
             // Bio
             if (match.user.bio.isNotBlank()) {

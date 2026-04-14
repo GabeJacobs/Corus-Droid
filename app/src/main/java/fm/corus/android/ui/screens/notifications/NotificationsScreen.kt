@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -106,6 +107,9 @@ fun NotificationsScreen(
                                     } else {
                                         onNavigateToUser(notification.fromUser.id)
                                     }
+                                },
+                                onUserTap = {
+                                    onNavigateToUser(notification.fromUser.id)
                                 },
                             )
                             HorizontalDivider(
@@ -199,6 +203,7 @@ private fun NotificationsHeader(
 private fun NotificationRow(
     notification: CymbalNotification,
     onClick: () -> Unit,
+    onUserTap: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -207,52 +212,61 @@ private fun NotificationRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Left: User avatar (36dp — matches iOS avatarMedium)
-        UserAvatarView(
-            avatarURL = notification.fromUser.avatarURL,
-            avatarThumbURL = notification.fromUser.avatarThumbURL,
-            displayName = notification.fromUser.displayName,
-            size = CorusSpacing.avatarMedium,
-        )
+        // Left: User avatar (36dp — matches iOS avatarMedium) — taps to user profile
+        Box(modifier = Modifier.clickable(onClick = onUserTap)) {
+            UserAvatarView(
+                avatarURL = notification.fromUser.avatarURL,
+                avatarThumbURL = notification.fromUser.avatarThumbURL,
+                displayName = notification.fromUser.displayName,
+                size = CorusSpacing.avatarMedium,
+            )
+        }
 
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
         // Middle: username + message + timestamp — matches iOS inline Text concat
-        Text(
-            text = buildAnnotatedString {
-                withStyle(
-                    SpanStyle(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.sp,
-                    )
-                ) {
-                    append(notification.fromUser.username)
-                }
-                append(" ")
-                withStyle(
-                    SpanStyle(
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 15.sp,
-                    )
-                ) {
-                    append(notification.message)
-                }
-                append(" ")
-                withStyle(
-                    SpanStyle(
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 12.sp,
-                        color = CorusColors.Secondary,
-                    )
-                ) {
-                    append(DateUtils.relativeTime(notification.timestamp))
-                }
-            },
-            style = CorusFont.body,
-            color = CorusColors.Text,
+        // Username portion is tappable to user profile via ClickableText
+        val annotatedText = buildAnnotatedString {
+            pushStringAnnotation(tag = "USER", annotation = notification.fromUser.id)
+            withStyle(
+                SpanStyle(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp,
+                )
+            ) {
+                append(notification.fromUser.username)
+            }
+            pop()
+            append(" ")
+            withStyle(
+                SpanStyle(
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 15.sp,
+                )
+            ) {
+                append(notification.message)
+            }
+            append(" ")
+            withStyle(
+                SpanStyle(
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 12.sp,
+                    color = CorusColors.Secondary,
+                )
+            ) {
+                append(DateUtils.relativeTime(notification.timestamp))
+            }
+        }
+        ClickableText(
+            text = annotatedText,
+            style = CorusFont.body.copy(color = CorusColors.Text),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
+            onClick = { offset ->
+                annotatedText.getStringAnnotations(tag = "USER", start = offset, end = offset)
+                    .firstOrNull()?.let { onUserTap() }
+            },
         )
 
         // Right: Post album art thumbnail (44dp square, rounded 6dp — matches iOS)

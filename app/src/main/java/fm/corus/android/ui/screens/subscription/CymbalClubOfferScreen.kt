@@ -176,7 +176,7 @@ fun CymbalClubOfferScreen(
                 PlanCard(
                     label = "Yearly",
                     price = "$yearlyPrice/yr",
-                    detail = "Only ${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.toDouble() ?: 19.99) / 12)}/mo",
+                    detail = "Only ${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 19.99) / 12)}/mo",
                     isSelected = selectedPlan == "yearly",
                     onClick = { selectedPlan = "yearly" },
                     modifier = Modifier.weight(1f),
@@ -380,7 +380,7 @@ fun CymbalClubOfferSheet(
             PlanCard(
                 label = "Yearly",
                 price = "$yearlyPrice/yr",
-                detail = "Only ${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.toDouble() ?: 19.99) / 12)}/mo",
+                detail = "Only ${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 19.99) / 12)}/mo",
                 isSelected = selectedPlan == "yearly",
                 onClick = { selectedPlan = "yearly" },
                 modifier = Modifier.weight(1f),

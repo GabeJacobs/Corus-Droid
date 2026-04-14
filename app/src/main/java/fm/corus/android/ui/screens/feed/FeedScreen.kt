@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.ui.components.PostActionMenu
 import fm.corus.android.ui.components.PostCard
@@ -46,7 +47,7 @@ fun FeedScreen(
     onNavigateToComments: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
-    onNavigateToSong: (String, String?) -> Unit = { _, _ -> },
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
 ) {
     val posts by viewModel.filteredPosts.collectAsState()
@@ -393,7 +394,7 @@ fun FeedScreen(
                 post = post,
                 isMine = isOwn,
                 onDismiss = { menuPost = null },
-                onViewSongPage = { onNavigateToSong(post.track.id, post.track.albumArtLargeURL ?: post.track.albumArtURL) },
+                onViewSongPage = { onNavigateToSong(post.track) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
                 onRepost = {
                     viewModel.repostPost(post)

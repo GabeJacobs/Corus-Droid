@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,6 +28,7 @@ import kotlinx.coroutines.launch
 fun MutedUsersScreen(
     viewModel: MutedUsersViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit = {},
+    onNavigateToUser: (String) -> Unit = {},
 ) {
     val mutedUsers by viewModel.mutedUsers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -102,6 +104,7 @@ fun MutedUsersScreen(
                                 user = user,
                                 isUnmuting = unmutingIds.contains(user.id),
                                 onUnmute = { viewModel.unmute(user.id) },
+                                onUserTap = { onNavigateToUser(user.id) },
                             )
                             HorizontalDivider(
                                 color = CorusColors.Divider,
@@ -126,10 +129,12 @@ private fun MutedUserRow(
     user: CymbalUser,
     isUnmuting: Boolean,
     onUnmute: () -> Unit,
+    onUserTap: () -> Unit = {},
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .clickable(onClick = onUserTap)
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {

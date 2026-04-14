@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import fm.corus.android.ui.components.UsernameWithFlair
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MusicNote
@@ -67,7 +66,7 @@ private enum class ExploreTab(val label: String) {
 fun ExploreScreen(
     viewModel: ExploreViewModel = hiltViewModel(),
     onNavigateToUser: (String) -> Unit = {},
-    onNavigateToSong: (String, String?) -> Unit = { _, _ -> },
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
 ) {
@@ -427,7 +426,7 @@ private fun UserSearchRow(
 private fun SongSearchResultsList(
     tracks: List<CymbalTrack>,
     isSearching: Boolean,
-    onSongTap: (String, String?) -> Unit,
+    onSongTap: (CymbalTrack) -> Unit,
 ) {
     if (isSearching) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -443,7 +442,7 @@ private fun SongSearchResultsList(
             contentPadding = PaddingValues(vertical = CorusSpacing.sm),
         ) {
             items(tracks, key = { it.id }) { track ->
-                SongSearchRow(track = track, onClick = { onSongTap(track.id, track.albumArtURL) })
+                SongSearchRow(track = track, onClick = { onSongTap(track) })
                 HorizontalDivider(
                     modifier = Modifier.padding(start = 72.dp),
                     color = CorusColors.Divider,
@@ -918,7 +917,7 @@ private fun SuggestedUserCard(
 // ── Songs Tab ──
 
 @Composable
-private fun SongsTabContent(songs: List<TrendingSong>, onSongTap: (String, String?) -> Unit = { _, _ -> }) {
+private fun SongsTabContent(songs: List<TrendingSong>, onSongTap: (CymbalTrack) -> Unit = {}) {
     if (songs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -942,7 +941,7 @@ private fun SongsTabContent(songs: List<TrendingSong>, onSongTap: (String, Strin
             }
 
             itemsIndexed(songs) { index, song ->
-                TrendingSongRow(song = song, onClick = { onSongTap(song.track.id, song.track.albumArtURL) })
+                TrendingSongRow(song = song, onClick = { onSongTap(song.track) })
                 if (index < songs.lastIndex) {
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 72.dp),

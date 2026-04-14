@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
@@ -34,6 +33,7 @@ import coil3.request.crossfade
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -44,6 +44,12 @@ import fm.corus.android.ui.util.DateUtils
 fun SongDetailScreen(
     trackId: String,
     albumArtURL: String? = null,
+    albumArtLargeURL: String? = null,
+    songName: String? = null,
+    artistName: String? = null,
+    spotifyURI: String? = null,
+    spotifyWebURL: String? = null,
+    previewUrl: String? = null,
     viewModel: SongDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -58,6 +64,15 @@ fun SongDetailScreen(
     val isPlayingPreview by viewModel.isPlayingPreview.collectAsState()
     val context = LocalContext.current
 
+    // Use route metadata immediately, upgrade to post data when available
+    val songInfo = posts.firstOrNull()
+    val displayName = songInfo?.displayTitle ?: songName
+    val displayArtist = songInfo?.displaySubtitle ?: artistName
+    val artUrl = songInfo?.track?.albumArtLargeURL ?: songInfo?.track?.albumArtURL ?: albumArtLargeURL ?: albumArtURL
+    val effectiveSpotifyURI = songInfo?.track?.spotifyURI ?: spotifyURI ?: ""
+    val effectiveSpotifyWebURL = songInfo?.track?.spotifyWebURL ?: spotifyWebURL ?: ""
+    val effectivePreviewUrl = songInfo?.track?.previewUrl ?: previewUrl
+
     LaunchedEffect(trackId) {
         viewModel.loadSongPosts(trackId)
     }
@@ -65,8 +80,6 @@ fun SongDetailScreen(
     DisposableEffect(Unit) {
         onDispose { viewModel.stopPreview() }
     }
-
-    val songInfo = posts.firstOrNull()
 
     Scaffold(
         topBar = {
@@ -87,12 +100,10 @@ fun SongDetailScreen(
                 .padding(padding),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Song header
+            // Song header — always shown using route metadata
             item {
                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
-                // Show album art immediately if we have a URL from navigation
-                val artUrl = songInfo?.track?.albumArtLargeURL ?: songInfo?.track?.albumArtURL ?: albumArtURL
                 if (artUrl != null) {
                     // Album art with preview play button overlay
                     Box(
@@ -103,16 +114,17 @@ fun SongDetailScreen(
                                 .data(artUrl)
                                 .crossfade(true)
                                 .build(),
-                            contentDescription = songInfo?.displayTitle,
+                            contentDescription = displayName,
                             modifier = Modifier
                                 .size(200.dp)
-                                .clip(RoundedCornerShape(8.dp)),
+                                .clip(RoundedCornerShape(8.dp))
+                                .shadow(4.dp, RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop,
                         )
 
-                        if (songInfo?.track?.previewUrl != null) {
+                        if (effectivePreviewUrl != null) {
                             IconButton(
-                                onClick = { viewModel.togglePreview(songInfo.track.previewUrl) },
+                                onClick = { viewModel.togglePreview(effectivePreviewUrl) },
                                 modifier = Modifier
                                     .size(56.dp)
                                     .background(
@@ -133,62 +145,64 @@ fun SongDetailScreen(
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                 }
 
-                if (songInfo != null) {
-                    // Song title + artist
+                // Song title + artist — show immediately from route data
+                if (displayName != null) {
                     Text(
-                        text = songInfo.displayTitle,
+                        text = displayName,
                         style = CorusFont.songTitleLarge,
                         color = CorusColors.Text,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg),
                     )
+                }
+                if (displayArtist != null) {
                     Spacer(modifier = Modifier.height(CorusSpacing.xxs))
                     Text(
-                        text = songInfo.displaySubtitle,
+                        text = displayArtist,
                         style = CorusFont.artistNameLarge,
                         color = CorusColors.Secondary,
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
 
-                    // Capsule buttons row
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                // Capsule buttons row — Post Song + Play in Spotify (matching iOS order)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                ) {
+                    // Post Song capsule
+                    Button(
+                        onClick = { onNavigateToCompose(trackId) },
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CorusColors.Accent,
+                            contentColor = Color.White,
+                        ),
+                        contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                     ) {
-                        // Play in Spotify capsule
-                        Button(
-                            onClick = {
-                                val uri = songInfo.track.spotifyURI.ifBlank { songInfo.track.spotifyWebURL }
-                                if (uri.isNotBlank()) {
-                                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
-                                }
-                            },
-                            shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = CorusColors.SpotifyGreen,
-                                contentColor = Color.White,
-                            ),
-                            contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-                        ) {
-                            Text("Play in Spotify", style = CorusFont.buttonSmall)
-                        }
-
-                        // Post Song capsule
-                        Button(
-                            onClick = { onNavigateToCompose(trackId) },
-                            shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = CorusColors.Accent,
-                                contentColor = Color.White,
-                            ),
-                            contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-                        ) {
-                            Text("Post Song", style = CorusFont.buttonSmall)
-                        }
+                        Text("+ Post Song", style = CorusFont.buttonSmall)
                     }
 
-                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    // Play in Spotify capsule
+                    Button(
+                        onClick = {
+                            val uri = effectiveSpotifyURI.ifBlank { effectiveSpotifyWebURL }
+                            if (uri.isNotBlank()) {
+                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
+                            }
+                        },
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CorusColors.SpotifyGreen,
+                            contentColor = Color.White,
+                        ),
+                        contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                    ) {
+                        Text("Play in Spotify", style = CorusFont.buttonSmall)
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
 
                 HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
             }
@@ -324,33 +338,17 @@ private fun PostedByRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "@${post.user.username}",
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                )
-                if (post.user.isVerified) {
-                    Spacer(modifier = Modifier.width(CorusSpacing.xs))
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = "Verified",
-                        tint = CorusColors.Verified,
-                        modifier = Modifier.size(12.dp),
-                    )
-                }
-                if (post.isFirstPoster) {
-                    Spacer(modifier = Modifier.width(CorusSpacing.xs))
-                    Text(
-                        text = "FIRST",
-                        style = CorusFont.captionMedium,
-                        color = CorusColors.Accent,
-                        modifier = Modifier
-                            .background(CorusColors.Accent.copy(alpha = 0.1f), RoundedCornerShape(CorusSpacing.pillCornerRadius))
-                            .padding(horizontal = CorusSpacing.sm, vertical = CorusSpacing.xxs),
-                    )
-                }
-            }
+            UsernameWithFlair(
+                username = post.user.username,
+                isVerified = post.user.isVerified,
+                isClubMember = post.user.isClubMember,
+                flairStyle = post.user.flairStyle,
+                isBot = post.user.isBot,
+                isFirstPoster = post.isFirstPoster,
+                showAtPrefix = true,
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+            )
         }
 
         Text(

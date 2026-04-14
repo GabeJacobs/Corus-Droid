@@ -18,7 +18,16 @@ import kotlinx.serialization.Serializable
 // ── Nested Routes ──
 
 @Serializable data class PostDetailRoute(val postId: String)
-@Serializable data class SongDetailRoute(val trackId: String, val albumArtURL: String? = null)
+@Serializable data class SongDetailRoute(
+    val trackId: String,
+    val albumArtURL: String? = null,
+    val albumArtLargeURL: String? = null,
+    val songName: String? = null,
+    val artistName: String? = null,
+    val spotifyURI: String? = null,
+    val spotifyWebURL: String? = null,
+    val previewUrl: String? = null,
+)
 @Serializable data class FilmDetailRoute(
     val movieId: String,
     val movieTitle: String? = null,

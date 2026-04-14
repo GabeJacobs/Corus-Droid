@@ -44,6 +44,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import fm.corus.android.data.model.CymbalComment
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.R
 import fm.corus.android.ui.components.LikedBySection
@@ -65,7 +66,7 @@ fun PostDetailScreen(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToComments: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
-    onNavigateToSong: (String, String?) -> Unit = { _, _ -> },
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
 ) {
@@ -156,7 +157,7 @@ fun PostDetailScreen(
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
                                 } else {
-                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtLargeURL ?: currentPost.track.albumArtURL)
+                                    onNavigateToSong(currentPost.track)
                                 }
                             },
                         )
@@ -170,7 +171,7 @@ fun PostDetailScreen(
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
                                 } else {
-                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtLargeURL ?: currentPost.track.albumArtURL)
+                                    onNavigateToSong(currentPost.track)
                                 }
                             },
                             onSpotifyTap = {
@@ -212,7 +213,7 @@ fun PostDetailScreen(
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
                                 } else {
-                                    onNavigateToSong(currentPost.track.id, currentPost.track.albumArtLargeURL ?: currentPost.track.albumArtURL)
+                                    onNavigateToSong(currentPost.track)
                                 }
                             },
                         )

@@ -1,5 +1,7 @@
 package fm.corus.android.data.model
 
+import fm.corus.android.ui.navigation.SongDetailRoute
+
 data class CymbalTrack(
     val id: String,
     val name: String,
@@ -19,6 +21,17 @@ data class CymbalTrack(
             val seconds = durationMs / 1000
             return "${seconds / 60}:${"%02d".format(seconds % 60)}"
         }
+
+    fun toSongDetailRoute() = SongDetailRoute(
+        trackId = id,
+        albumArtURL = albumArtURL,
+        albumArtLargeURL = albumArtLargeURL,
+        songName = name,
+        artistName = artistName,
+        spotifyURI = spotifyURI,
+        spotifyWebURL = spotifyWebURL,
+        previewUrl = previewUrl,
+    )
 
     companion object {
         val EMPTY = CymbalTrack(id = "", name = "", artistName = "", albumName = "")

@@ -55,7 +55,7 @@ fun CommentsBottomSheet(
     onNavigateToUser: (String) -> Unit = {},
 ) {
     val viewModel: CommentsViewModel = hiltViewModel()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

@@ -133,7 +133,14 @@ fun MainTabScreen(
                         val trackId = state.trackId
                         when {
                             postId != null -> navController.navigate(PostDetailRoute(postId))
-                            trackId != null -> navController.navigate(SongDetailRoute(trackId, state.albumArtURL))
+                            trackId != null -> navController.navigate(SongDetailRoute(
+                                trackId = trackId,
+                                albumArtURL = state.albumArtURL,
+                                songName = state.trackName,
+                                artistName = state.artistName,
+                                spotifyURI = state.spotifyURI,
+                                spotifyWebURL = state.spotifyWebURL,
+                            ))
                         }
                     },
                 )

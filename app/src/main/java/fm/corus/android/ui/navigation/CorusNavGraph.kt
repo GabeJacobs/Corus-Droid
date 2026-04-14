@@ -19,6 +19,7 @@ import fm.corus.android.ui.screens.feed.LikesSheet
 import fm.corus.android.ui.screens.feed.PostDetailScreen
 import fm.corus.android.ui.screens.feed.SinglePostCommentsScreen
 import fm.corus.android.ui.screens.feed.SongDetailScreen
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.ui.screens.subscription.CymbalClubOfferScreen
 import fm.corus.android.ui.screens.notifications.NotificationsScreen
 import fm.corus.android.ui.screens.profile.EditProfileScreen
@@ -74,7 +75,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                 onNavigateToComments = { postId -> commentPostId = postId },
                 onNavigateToLikes = { postId -> navController.navigate(LikesRoute(postId)) },
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
-                onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
+                onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             )
         }
@@ -109,7 +110,7 @@ fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
             FindPeopleScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-                onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
+                onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
                 onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
                 onNavigateToSuggestedUsers = { title, useRowLayout -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout)) },
@@ -221,7 +222,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToComments = onShowComments,
             onNavigateToLikes = { postId -> navController.navigate(LikesRoute(postId)) },
-            onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
+            onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
         )
@@ -279,6 +280,12 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         SongDetailScreen(
             trackId = route.trackId,
             albumArtURL = route.albumArtURL,
+            albumArtLargeURL = route.albumArtLargeURL,
+            songName = route.songName,
+            artistName = route.artistName,
+            spotifyURI = route.spotifyURI,
+            spotifyWebURL = route.spotifyWebURL,
+            previewUrl = route.previewUrl,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToCompose = { trackId ->
@@ -397,6 +404,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     composable<MutedUsersRoute> {
         MutedUsersScreen(
             onNavigateBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
         )
     }
 
@@ -415,7 +423,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     composable<FindPeopleRoute> {
         FindPeopleScreen(
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
+            onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
             onNavigateToSuggestedUsers = { title, useRowLayout -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout)) },

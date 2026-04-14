@@ -73,7 +73,7 @@ fun FindPeopleScreen(
     viewModel: FindPeopleViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
     onNavigateToUser: (String) -> Unit = {},
-    onNavigateToSong: (String, String?) -> Unit = { _, _ -> },
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToBotList: (String?) -> Unit = {},
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean) -> Unit = { _, _ -> },
@@ -867,7 +867,7 @@ private fun TrendingSongsContent(
     listState: LazyListState = rememberLazyListState(),
     songs: List<TrendingSong>,
     isLoading: Boolean,
-    onSongTap: (String, String?) -> Unit,
+    onSongTap: (CymbalTrack) -> Unit,
 ) {
     if (isLoading) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
@@ -889,7 +889,7 @@ private fun TrendingSongsContent(
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
             item { SectionHeader(icon = "music", title = "TRENDING THIS MONTH") }
             itemsIndexed(songs) { index, song ->
-                TrendingSongRow(song = song, onClick = { onSongTap(song.track.id, song.track.albumArtURL) })
+                TrendingSongRow(song = song, onClick = { onSongTap(song.track) })
                 if (index < songs.lastIndex) {
                     HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
                 }
@@ -1012,7 +1012,7 @@ private fun SongSearchResultsList(
     listState: LazyListState = rememberLazyListState(),
     tracks: List<CymbalTrack>,
     isSearching: Boolean,
-    onSongTap: (String, String?) -> Unit,
+    onSongTap: (CymbalTrack) -> Unit,
 ) {
     if (isSearching && tracks.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1025,7 +1025,7 @@ private fun SongSearchResultsList(
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
             itemsIndexed(tracks) { index, track ->
-                SongSearchRow(track = track, onClick = { onSongTap(track.id, track.albumArtURL) })
+                SongSearchRow(track = track, onClick = { onSongTap(track) })
                 if (index < tracks.lastIndex) {
                     HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
                 }
