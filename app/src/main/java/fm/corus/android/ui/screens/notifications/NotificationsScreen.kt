@@ -211,6 +211,7 @@ private fun NotificationRow(
         UserAvatarView(
             avatarURL = notification.fromUser.avatarURL,
             avatarThumbURL = notification.fromUser.avatarThumbURL,
+            displayName = notification.fromUser.displayName,
             size = CorusSpacing.avatarMedium,
         )
 

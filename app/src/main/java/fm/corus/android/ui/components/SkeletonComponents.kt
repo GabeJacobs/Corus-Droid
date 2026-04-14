@@ -738,9 +738,9 @@ fun SkeletonSectionHeader() {
 
 // 10. SkeletonTasteMatchCard — 2x2 album grid + avatar + username + follow button in card
 @Composable
-fun SkeletonTasteMatchCard() {
+fun SkeletonTasteMatchCard(modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .shimmer()
             .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
             .border(

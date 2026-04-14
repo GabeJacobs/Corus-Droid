@@ -7,10 +7,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fm.corus.android.ui.theme.CorusColors
@@ -20,6 +23,7 @@ import fm.corus.android.ui.theme.CorusSpacing
 fun UserAvatarView(
     avatarURL: String?,
     avatarThumbURL: String? = null,
+    displayName: String? = null,
     size: Dp = CorusSpacing.avatarMedium,
     modifier: Modifier = Modifier,
 ) {
@@ -27,6 +31,7 @@ fun UserAvatarView(
     val resolvedURL = if (size <= 36.dp && !avatarThumbURL.isNullOrBlank()) avatarThumbURL else avatarURL
 
     if (resolvedURL.isNullOrBlank()) {
+        val initial = displayName?.firstOrNull()?.uppercaseChar()?.toString()
         Box(
             modifier = modifier
                 .size(size)
@@ -34,12 +39,22 @@ fun UserAvatarView(
                 .background(CorusColors.CardBackground),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                Icons.Filled.Person,
-                contentDescription = "Avatar placeholder",
-                modifier = Modifier.size(size * 0.5f),
-                tint = CorusColors.Secondary,
-            )
+            if (initial != null) {
+                val fontSize = with(LocalDensity.current) { (size * 0.4f).toSp() }
+                Text(
+                    text = initial,
+                    color = CorusColors.Secondary,
+                    fontSize = fontSize,
+                    fontWeight = FontWeight.Bold,
+                )
+            } else {
+                Icon(
+                    Icons.Filled.Person,
+                    contentDescription = "Avatar placeholder",
+                    modifier = Modifier.size(size * 0.5f),
+                    tint = CorusColors.Secondary,
+                )
+            }
         }
     } else {
         ShimmerAsyncImage(

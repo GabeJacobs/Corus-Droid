@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -125,6 +127,34 @@ class PostEngagementManager @Inject constructor(
                     val current = map[post.id] ?: return@update map
                     map + (post.id to current.copy(repostCount = (current.repostCount - 1).coerceAtLeast(0)))
                 }
+            }
+        }
+    }
+
+    /**
+     * Check actual like status from Firestore for the given posts.
+     * Mirrors iOS PostCard.checkStatus() — the backend doesn't return isLiked,
+     * so we query the likes subcollection directly.
+     */
+    fun checkLikeStatuses(postIds: List<String>, userId: String) {
+        scope.launch {
+            val results = postIds.map { postId ->
+                async {
+                    postId to (try { postRepository.isPostLiked(userId, postId) } catch (_: Exception) { null })
+                }
+            }.awaitAll()
+
+            _states.update { map ->
+                var updated = map
+                for ((postId, liked) in results) {
+                    if (liked == null) continue
+                    if (userModifiedPostIds.contains(postId)) continue
+                    val current = updated[postId] ?: continue
+                    if (current.isLiked != liked) {
+                        updated = updated + (postId to current.copy(isLiked = liked))
+                    }
+                }
+                updated
             }
         }
     }

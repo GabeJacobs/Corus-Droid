@@ -693,24 +693,13 @@ private fun SuggestedUserRow(
         UserAvatarView(avatarURL = match.user.avatarURL, size = CorusSpacing.avatarMedium)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = match.user.username,
-                    style = CorusFont.username,
-                    color = CorusColors.Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (match.user.isVerified) {
-                    Spacer(modifier = Modifier.width(CorusSpacing.xs))
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = "Verified",
-                        tint = CorusColors.Verified,
-                        modifier = Modifier.size(14.dp),
-                    )
-                }
-            }
+            UsernameWithFlair(
+                username = match.user.username,
+                isVerified = match.user.isVerified,
+                isClubMember = match.user.isClubMember,
+                flairStyle = match.user.flairStyle,
+                isBot = match.user.isBot,
+            )
             if (!subtitle.isNullOrBlank()) {
                 Text(
                     text = subtitle,
@@ -866,22 +855,13 @@ private fun SuggestedUserCard(
                 contentScale = ContentScale.Crop,
             )
             Spacer(modifier = Modifier.width(CorusSpacing.xs))
-            Text(
-                text = user.username,
-                style = CorusFont.username,
-                color = CorusColors.Text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            UsernameWithFlair(
+                username = user.username,
+                isVerified = user.isVerified,
+                isClubMember = user.isClubMember,
+                flairStyle = user.flairStyle,
+                isBot = isBot,
             )
-            if (user.isVerified) {
-                Spacer(modifier = Modifier.width(CorusSpacing.xxs))
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = "Verified",
-                    tint = CorusColors.Verified,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
             if (isBot) {
                 Spacer(modifier = Modifier.width(CorusSpacing.xs))
                 Text(

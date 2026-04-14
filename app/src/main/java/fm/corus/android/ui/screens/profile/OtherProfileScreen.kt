@@ -46,6 +46,7 @@ import coil3.size.Size
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.FeaturedCymbalView
 import fm.corus.android.ui.components.FeaturedMoviePosterView
 import fm.corus.android.ui.components.ShimmerAsyncImage
@@ -84,6 +85,7 @@ fun OtherProfileScreen(
     val hasMore by viewModel.hasMore.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
+    var showAvatarFullScreen by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
 
     // Infinite scroll: load more when near the bottom
@@ -270,6 +272,7 @@ fun OtherProfileScreen(
                         UserAvatarView(
                             avatarURL = currentProfile.avatarURL,
                             size = CorusSpacing.avatarLarge,
+                            modifier = Modifier.clickable { showAvatarFullScreen = true },
                         )
 
                         Spacer(modifier = Modifier.width(CorusSpacing.md))
@@ -570,7 +573,15 @@ fun OtherProfileScreen(
                 }
             }
         }
+
     }
+
+    // Full-screen avatar overlay (outside Scaffold to cover entire screen)
+    FullScreenAvatarOverlay(
+        avatarURL = profile?.avatarURL,
+        visible = showAvatarFullScreen,
+        onDismiss = { showAvatarFullScreen = false },
+    )
 }
 
 @Composable

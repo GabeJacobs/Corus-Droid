@@ -162,12 +162,13 @@ fun CymbalClubOfferScreen(
                     .padding(horizontal = CorusSpacing.xl),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$2.99/mo"
-                val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$19.99/yr"
+                val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$2.99"
+                val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$19.99"
 
                 PlanCard(
                     label = "Monthly",
                     price = "$monthlyPrice/mo",
+                    detail = "Billed at $monthlyPrice/mo.",
                     isSelected = selectedPlan == "monthly",
                     onClick = { selectedPlan = "monthly" },
                     modifier = Modifier.weight(1f),
@@ -175,6 +176,7 @@ fun CymbalClubOfferScreen(
                 PlanCard(
                     label = "Yearly",
                     price = "$yearlyPrice/yr",
+                    detail = "Only ${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.toDouble() ?: 19.99) / 12)}/mo",
                     isSelected = selectedPlan == "yearly",
                     onClick = { selectedPlan = "yearly" },
                     modifier = Modifier.weight(1f),
@@ -364,12 +366,13 @@ fun CymbalClubOfferSheet(
                 .padding(horizontal = CorusSpacing.xl),
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
-            val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$2.99/mo"
-            val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$19.99/yr"
+            val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$2.99"
+            val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$19.99"
 
             PlanCard(
                 label = "Monthly",
                 price = "$monthlyPrice/mo",
+                detail = "Billed at $monthlyPrice/mo.",
                 isSelected = selectedPlan == "monthly",
                 onClick = { selectedPlan = "monthly" },
                 modifier = Modifier.weight(1f),
@@ -377,6 +380,7 @@ fun CymbalClubOfferSheet(
             PlanCard(
                 label = "Yearly",
                 price = "$yearlyPrice/yr",
+                detail = "Only ${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.toDouble() ?: 19.99) / 12)}/mo",
                 isSelected = selectedPlan == "yearly",
                 onClick = { selectedPlan = "yearly" },
                 modifier = Modifier.weight(1f),
@@ -462,6 +466,7 @@ private fun FeatureRow(icon: ImageVector, text: String) {
 private fun PlanCard(
     label: String,
     price: String,
+    detail: String,
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -470,31 +475,53 @@ private fun PlanCard(
     val borderWidth = if (isSelected) 2.dp else 1.dp
     val borderColor = if (isSelected) CorusColors.Accent else CorusColors.Secondary.copy(alpha = 0.2f)
 
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
-            .border(borderWidth, borderColor, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
-            .clickable(onClick = onClick)
-            .padding(CorusSpacing.lg),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(text = label, style = CorusFont.bodyMedium, color = CorusColors.Text)
-        Spacer(modifier = Modifier.height(CorusSpacing.xs))
-        Text(text = price, style = CorusFont.songTitleLarge, color = if (isSelected) CorusColors.Accent else CorusColors.Secondary)
-        if (badge != null) {
+    Box(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+                .border(borderWidth, borderColor, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+                .clickable(onClick = onClick)
+                .padding(CorusSpacing.lg),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = label, style = CorusFont.bodyMedium, color = CorusColors.Text)
+                Icon(
+                    imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
+                    contentDescription = null,
+                    tint = if (isSelected) CorusColors.Accent else CorusColors.Secondary.copy(alpha = 0.4f),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
-            Text(
-                text = badge,
-                style = CorusFont.caption,
-                color = CorusColors.Accent,
-            )
+            Text(text = price, style = CorusFont.songTitleLarge, color = CorusColors.Text)
+            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+            Text(text = detail, style = CorusFont.caption, color = CorusColors.Secondary)
         }
-        Spacer(modifier = Modifier.height(CorusSpacing.sm))
-        Icon(
-            imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
-            contentDescription = null,
-            tint = if (isSelected) CorusColors.Accent else CorusColors.Secondary.copy(alpha = 0.4f),
-            modifier = Modifier.size(20.dp),
-        )
+
+        // Badge overlay on top of card
+        if (badge != null) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = (-10).dp),
+                shape = RoundedCornerShape(50),
+                color = CorusColors.Accent,
+            ) {
+                Text(
+                    text = badge,
+                    style = CorusFont.caption.copy(
+                        fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp),
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    ),
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.sm, vertical = 4.dp),
+                )
+            }
+        }
     }
 }

@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.ui.components.SkeletonTasteMatchCard
+import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -25,14 +27,16 @@ import fm.corus.android.ui.theme.CorusSpacing
 @Composable
 fun SuggestedUsersListScreen(
     matches: List<SuggestedUserMatch>,
-    title: String = "Suggested Users",
+    title: String = "Taste Matches",
     useRowLayout: Boolean = false,
+    isLoading: Boolean = false,
     isFollowed: (String) -> Boolean = { false },
     onFollow: (CymbalUser) -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
     onBack: () -> Unit = {},
 ) {
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = { Text(title, style = CorusFont.screenTitle, color = CorusColors.Text) },
@@ -41,11 +45,31 @@ fun SuggestedUsersListScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
                     }
                 },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
             )
         },
     ) { padding ->
-        if (matches.isEmpty()) {
+        if (isLoading) {
+            if (useRowLayout) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentPadding = PaddingValues(top = CorusSpacing.md),
+                ) {
+                    items(6) { SkeletonUserRow() }
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(CorusSpacing.lg),
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                    verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                ) {
+                    items(4) { SkeletonTasteMatchCard() }
+                }
+            }
+        } else if (matches.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
@@ -60,6 +84,7 @@ fun SuggestedUsersListScreen(
                 items(matches, key = { it.id }) { match ->
                     SuggestedUserRow(
                         user = match.user,
+                        subtitle = formatMutualFollowersText(match.suggestionReason?.mutualNames),
                         isFollowed = isFollowed(match.user.id),
                         onTap = { onNavigateToUser(match.user.id) },
                         onFollow = { onFollow(match.user) },

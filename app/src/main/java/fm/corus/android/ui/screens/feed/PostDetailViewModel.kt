@@ -52,6 +52,8 @@ class PostDetailViewModel @Inject constructor(
                         isLiked = loadedPost.isLiked,
                         isSaved = false,
                     )
+                    // Check actual like status from Firestore (backend doesn't return isLiked)
+                    engagementManager.checkLikeStatuses(listOf(loadedPost.id), userId)
                 }
                 // Load comments
                 val loadedComments = postRepository.getComments(postId)

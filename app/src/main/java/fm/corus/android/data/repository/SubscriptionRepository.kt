@@ -84,18 +84,29 @@ class SubscriptionRepository @Inject constructor(
         _totalPostCount.value = count
     }
 
-    fun loginUser(uid: String) {
+    suspend fun loginUser(uid: String) {
         Purchases.sharedInstance.updatedCustomerInfoListener = this
-        Purchases.sharedInstance.logIn(
-            uid,
-            object : com.revenuecat.purchases.interfaces.LogInCallback {
-                override fun onReceived(customerInfo: CustomerInfo, created: Boolean) {
-                    updateClubStatus(customerInfo)
-                    syncClubStatusToFirestore()
-                }
-                override fun onError(error: PurchasesError) { }
+        try {
+            val customerInfo = suspendCancellableCoroutine { cont ->
+                Purchases.sharedInstance.logIn(
+                    uid,
+                    object : com.revenuecat.purchases.interfaces.LogInCallback {
+                        override fun onReceived(customerInfo: CustomerInfo, created: Boolean) {
+                            cont.resume(customerInfo)
+                        }
+                        override fun onError(error: PurchasesError) {
+                            cont.resume(null)
+                        }
+                    }
+                )
             }
-        )
+            if (customerInfo != null) {
+                updateClubStatus(customerInfo)
+                syncClubStatusToFirestore()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SubscriptionRepo", "loginUser failed", e)
+        }
     }
 
     override fun onReceived(customerInfo: CustomerInfo) {
@@ -162,15 +173,26 @@ class SubscriptionRepository @Inject constructor(
         )
     }
 
-    fun checkStatus() {
-        Purchases.sharedInstance.getCustomerInfo(
-            callback = object : com.revenuecat.purchases.interfaces.ReceiveCustomerInfoCallback {
-                override fun onReceived(customerInfo: CustomerInfo) {
-                    updateClubStatus(customerInfo)
-                }
-                override fun onError(error: PurchasesError) { }
+    suspend fun checkStatus() {
+        try {
+            val customerInfo = suspendCancellableCoroutine { cont ->
+                Purchases.sharedInstance.getCustomerInfo(
+                    callback = object : com.revenuecat.purchases.interfaces.ReceiveCustomerInfoCallback {
+                        override fun onReceived(customerInfo: CustomerInfo) {
+                            cont.resume(customerInfo)
+                        }
+                        override fun onError(error: PurchasesError) {
+                            cont.resume(null)
+                        }
+                    }
+                )
             }
-        )
+            if (customerInfo != null) {
+                updateClubStatus(customerInfo)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SubscriptionRepo", "checkStatus failed", e)
+        }
     }
 
     private fun updateClubStatus(customerInfo: CustomerInfo) {

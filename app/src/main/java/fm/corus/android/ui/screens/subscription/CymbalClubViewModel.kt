@@ -28,7 +28,7 @@ class CymbalClubViewModel @Inject constructor(
 
     init {
         subscriptionRepository.fetchOfferings()
-        subscriptionRepository.checkStatus()
+        viewModelScope.launch { subscriptionRepository.checkStatus() }
     }
 
     fun purchase(activity: Activity, pkg: Package) {

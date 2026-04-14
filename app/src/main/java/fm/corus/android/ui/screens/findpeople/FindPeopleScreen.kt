@@ -20,7 +20,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.People
@@ -53,9 +52,11 @@ import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.ui.components.SkeletonFilmRow
 import fm.corus.android.ui.components.SkeletonTrendingSongRow
+import fm.corus.android.ui.components.SkeletonTasteMatchCard
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -75,7 +76,7 @@ fun FindPeopleScreen(
     onNavigateToSong: (String, String?) -> Unit = { _, _ -> },
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToBotList: (String?) -> Unit = {},
-    onNavigateToSuggestedUsers: () -> Unit = {},
+    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean) -> Unit = { _, _ -> },
     onNavigateToContactFriends: () -> Unit = {},
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -390,7 +391,7 @@ private fun SuggestedUsersContent(
     viewModel: FindPeopleViewModel,
     onNavigateToUser: (String) -> Unit,
     onNavigateToBotList: (String?) -> Unit,
-    onNavigateToSuggestedUsers: () -> Unit,
+    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean) -> Unit,
     onNavigateToContactFriends: () -> Unit,
     onRecentSearchTap: (String) -> Unit,
     onClearRecentSearches: () -> Unit,
@@ -403,15 +404,6 @@ private fun SuggestedUsersContent(
         if (granted) {
             viewModel.syncContacts(context.contentResolver)
         }
-    }
-
-    if (isSuggestedLoading && isBotsLoading) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-            items(6) {
-                SkeletonUserRow()
-            }
-        }
-        return
     }
 
     LazyColumn(
@@ -504,13 +496,30 @@ private fun SuggestedUsersContent(
         }
 
         // ── Taste Matches section ──
+        if (isSuggestedLoading && musicMatchUsers.isEmpty()) {
+            item {
+                SectionHeader(icon = "sparkles", title = "TASTE MATCHES")
+            }
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = CorusSpacing.lg),
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                ) {
+                    SkeletonTasteMatchCard(modifier = Modifier.weight(1f))
+                    SkeletonTasteMatchCard(modifier = Modifier.weight(1f))
+                }
+                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+            }
+        }
         if (musicMatchUsers.isNotEmpty()) {
             item {
                 SectionHeader(
                     icon = "sparkles",
                     title = "TASTE MATCHES",
-                    showSeeAll = musicMatchUsers.size > 4,
-                    onSeeAll = onNavigateToSuggestedUsers,
+                    showSeeAll = musicMatchUsers.size > 2,
+                    onSeeAll = { onNavigateToSuggestedUsers("Taste Matches", false) },
                 )
             }
             item {
@@ -544,7 +553,7 @@ private fun SuggestedUsersContent(
                     icon = "people",
                     title = "MUTUAL CONNECTIONS",
                     showSeeAll = mutualConnectionUsers.size > 2,
-                    onSeeAll = onNavigateToSuggestedUsers,
+                    onSeeAll = { onNavigateToSuggestedUsers("Mutual Connections", true) },
                 )
             }
             items(mutualConnectionUsers.take(2)) { match ->
@@ -815,25 +824,17 @@ fun SuggestedUserRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            // @username + verified badge
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "@${user.username}",
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (user.isVerified) {
-                    Spacer(modifier = Modifier.width(CorusSpacing.xxs))
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = "Verified",
-                        tint = CorusColors.Verified,
-                        modifier = Modifier.size(12.dp),
-                    )
-                }
-            }
+            // @username + flair badge
+            UsernameWithFlair(
+                username = user.username,
+                isVerified = user.isVerified,
+                isClubMember = user.isClubMember,
+                flairStyle = user.flairStyle,
+                isBot = user.isBot,
+                showAtPrefix = true,
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+            )
             // Flavor text (subtitle like "Followed by @user1, @user2")
             if (!subtitle.isNullOrBlank()) {
                 Text(
@@ -1121,7 +1122,7 @@ private fun FilmSearchRow(movie: CymbalMovie, onClick: () -> Unit) {
 
 // ── Helpers ──
 
-private fun formatMutualFollowersText(names: List<String>?): String? {
+internal fun formatMutualFollowersText(names: List<String>?): String? {
     if (names.isNullOrEmpty()) return null
     return when (names.size) {
         1 -> "Followed by @${names[0]}"

@@ -37,7 +37,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil3.compose.AsyncImage
+import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.MessageType
 import fm.corus.android.ui.components.FullScreenImageView
@@ -415,7 +415,7 @@ private fun MessageBubble(
             Column {
                 // Image content
                 if (message.type == MessageType.IMAGE && message.mediaURL != null) {
-                    AsyncImage(
+                    ShimmerAsyncImage(
                         model = message.mediaURL,
                         contentDescription = "Shared image",
                         modifier = Modifier
@@ -432,7 +432,7 @@ private fun MessageBubble(
 
                 // GIF content
                 if (message.type == MessageType.GIF && message.mediaURL != null) {
-                    AsyncImage(
+                    ShimmerAsyncImage(
                         model = message.mediaURL,
                         contentDescription = "GIF",
                         modifier = Modifier

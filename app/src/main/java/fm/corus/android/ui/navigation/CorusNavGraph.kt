@@ -112,7 +112,7 @@ fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
                 onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
                 onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
-                onNavigateToSuggestedUsers = { navController.navigate(SuggestedUsersListRoute) },
+                onNavigateToSuggestedUsers = { title, useRowLayout -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout)) },
                 onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
             )
         }
@@ -418,7 +418,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
-            onNavigateToSuggestedUsers = { navController.navigate(SuggestedUsersListRoute) },
+            onNavigateToSuggestedUsers = { title, useRowLayout -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout)) },
             onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
         )
     }
@@ -459,28 +459,22 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         )
     }
 
-    composable<SuggestedUsersListRoute> {
+    composable<SuggestedUsersListRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<SuggestedUsersListRoute>()
         val viewModel: SuggestedUsersListViewModel = hiltViewModel()
         val suggestions by viewModel.suggestions.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
 
-        if (isLoading) {
-            SuggestedUsersListScreen(
-                matches = emptyList(),
-                title = "Suggested Users",
-                onBack = { navController.popBackStack() },
-                onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            )
-        } else {
-            SuggestedUsersListScreen(
-                matches = suggestions,
-                title = "Suggested Users",
-                isFollowed = { viewModel.isFollowed(it) },
-                onFollow = { viewModel.toggleFollow(it) },
-                onBack = { navController.popBackStack() },
-                onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            )
-        }
+        SuggestedUsersListScreen(
+            matches = suggestions,
+            title = route.title,
+            useRowLayout = route.useRowLayout,
+            isLoading = isLoading,
+            isFollowed = { viewModel.isFollowed(it) },
+            onFollow = { viewModel.toggleFollow(it) },
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+        )
     }
 
     composable<ContactFriendsListRoute> {
