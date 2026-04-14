@@ -55,9 +55,10 @@ fun SnowEffectView(
     Canvas(modifier = modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
+        val scale = density
 
         if (tick == 1) {
-            flakes = List(intensity.flakeCount) { createSnowflake(w, h, isBlizzard) }
+            flakes = List(intensity.flakeCount) { createSnowflake(w, h, isBlizzard, scale) }
         }
 
         val dt = 1f / 60f
@@ -67,7 +68,7 @@ fun SnowEffectView(
             var newX = flake.x + flake.driftX * dt
 
             if (newY > h + flake.radius + 10f) {
-                return@map createSnowflake(w, h, isBlizzard, fullHeight = false)
+                return@map createSnowflake(w, h, isBlizzard, scale, fullHeight = false)
             }
             // Wrap horizontally
             if (newX < -15f) newX = w + 10f
@@ -147,6 +148,7 @@ private fun createSnowflake(
     width: Float,
     height: Float,
     isBlizzard: Boolean,
+    scale: Float = 1f,
     fullHeight: Boolean = true,
 ): Snowflake {
     val isForeground = Random.nextFloat() > 0.4f
@@ -183,13 +185,13 @@ private fun createSnowflake(
     return Snowflake(
         x = x,
         y = y,
-        radius = radius,
-        speed = speed,
+        radius = radius * scale,
+        speed = speed * scale,
         opacity = opacity,
         layer = layer,
-        swayAmount = swayAmount,
+        swayAmount = swayAmount * scale,
         swaySpeed = swaySpeed,
         swayPhase = Random.nextFloat() * 6.28f,
-        driftX = driftX,
+        driftX = driftX * scale,
     )
 }

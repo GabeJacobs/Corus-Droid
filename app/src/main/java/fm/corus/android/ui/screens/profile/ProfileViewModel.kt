@@ -204,12 +204,10 @@ class ProfileViewModel @Inject constructor(
         _isLoadingLiked.value = true
         segmentLoadJob = viewModelScope.launch {
             try {
-                val posts = cloudFunctions.getLikedPosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null)
+                val posts = cloudFunctions.getLikedPosts(userId, userId, limit = PAGE_SIZE, offset = 0)
                 _likedPosts.value = posts
                 likedLoaded = true
-                if (posts.isNotEmpty()) {
-                    likedLastTimestamp = posts.last().timestamp.time
-                }
+                likedOffset = posts.size
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
                     this[2] = posts.size >= PAGE_SIZE
                 }
@@ -224,12 +222,10 @@ class ProfileViewModel @Inject constructor(
         _isLoadingSaved.value = true
         segmentLoadJob = viewModelScope.launch {
             try {
-                val posts = cloudFunctions.getSavedPosts(userId, limit = PAGE_SIZE, lastTimestamp = null)
+                val posts = cloudFunctions.getSavedPosts(userId, limit = PAGE_SIZE, offset = 0)
                 _savedPosts.value = posts
                 savedLoaded = true
-                if (posts.isNotEmpty()) {
-                    savedLastTimestamp = posts.last().timestamp.time
-                }
+                savedOffset = posts.size
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
                     this[3] = posts.size >= PAGE_SIZE
                 }
@@ -267,33 +263,19 @@ class ProfileViewModel @Inject constructor(
                         }
                     }
                     2 -> {
-                        val cursor = likedLastTimestamp
-                        if (cursor != null) {
-                            val newPosts = cloudFunctions.getLikedPosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
-                            _likedPosts.value = _likedPosts.value + newPosts
-                            if (newPosts.isNotEmpty()) {
-                                likedLastTimestamp = newPosts.last().timestamp.time
-                            }
-                            _hasMore.value = _hasMore.value.toMutableMap().apply {
-                                this[2] = newPosts.size >= PAGE_SIZE
-                            }
-                        } else {
-                            _hasMore.value = _hasMore.value.toMutableMap().apply { this[2] = false }
+                        val newPosts = cloudFunctions.getLikedPosts(userId, userId, limit = PAGE_SIZE, offset = likedOffset)
+                        _likedPosts.value = _likedPosts.value + newPosts
+                        likedOffset += newPosts.size
+                        _hasMore.value = _hasMore.value.toMutableMap().apply {
+                            this[2] = newPosts.size >= PAGE_SIZE
                         }
                     }
                     3 -> {
-                        val cursor = savedLastTimestamp
-                        if (cursor != null) {
-                            val newPosts = cloudFunctions.getSavedPosts(userId, limit = PAGE_SIZE, lastTimestamp = cursor)
-                            _savedPosts.value = _savedPosts.value + newPosts
-                            if (newPosts.isNotEmpty()) {
-                                savedLastTimestamp = newPosts.last().timestamp.time
-                            }
-                            _hasMore.value = _hasMore.value.toMutableMap().apply {
-                                this[3] = newPosts.size >= PAGE_SIZE
-                            }
-                        } else {
-                            _hasMore.value = _hasMore.value.toMutableMap().apply { this[3] = false }
+                        val newPosts = cloudFunctions.getSavedPosts(userId, limit = PAGE_SIZE, offset = savedOffset)
+                        _savedPosts.value = _savedPosts.value + newPosts
+                        savedOffset += newPosts.size
+                        _hasMore.value = _hasMore.value.toMutableMap().apply {
+                            this[3] = newPosts.size >= PAGE_SIZE
                         }
                     }
                 }

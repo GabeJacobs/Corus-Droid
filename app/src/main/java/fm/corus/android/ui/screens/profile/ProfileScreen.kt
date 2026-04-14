@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.profile
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -48,6 +50,7 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
+import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -722,30 +725,14 @@ private fun StatDivider() {
 
 @Composable
 private fun PostGridItem(post: CymbalPost, onClick: () -> Unit = {}) {
-    var isLoading by remember { mutableStateOf(true) }
-    Box(
+    ShimmerAsyncImage(
+        model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+            .data(post.displayImageLargeURL ?: post.displayImageURL)
+            .size(Size.ORIGINAL)
+            .build(),
+        contentDescription = post.displayTitle,
         modifier = Modifier
             .aspectRatio(1f)
             .clickable(onClick = onClick),
-    ) {
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .shimmer()
-                    .background(CorusColors.CardBackground),
-            )
-        }
-        AsyncImage(
-            model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                .data(post.displayImageLargeURL ?: post.displayImageURL)
-                .size(Size.ORIGINAL)
-                .build(),
-            contentDescription = post.displayTitle,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            onSuccess = { isLoading = false },
-            onError = { isLoading = false },
-        )
-    }
+    )
 }

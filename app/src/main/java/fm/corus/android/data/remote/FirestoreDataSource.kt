@@ -8,7 +8,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import fm.corus.android.data.model.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
@@ -713,6 +716,68 @@ class FirestoreDataSource @Inject constructor(
             val names = (data["mutualNames"] as? List<String>).orEmpty()
             user to names
         }
+    }
+
+    /**
+     * Client-side graph traversal fallback when precomputed mutual_connections is empty.
+     * For each user the caller follows, fetches who *they* follow, then finds candidates
+     * followed by multiple friends. Matches iOS fetchFriendsOfFriends logic.
+     */
+    suspend fun fetchFriendsOfFriends(
+        currentUserId: String,
+        excludeIds: Set<String>,
+        limit: Int = 20,
+    ): List<Pair<CymbalUser, List<String>>> = coroutineScope {
+        // Get the users we follow (cap at 50, most recent first)
+        val followingSnapshot = firestore.collection("users_v2").document(currentUserId)
+            .collection("following")
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(51)
+            .get().await()
+        val followingIds = followingSnapshot.documents.map { it.id }.filter { it != currentUserId }
+        if (followingIds.isEmpty()) return@coroutineScope emptyList()
+
+        // Fetch followed users to get their usernames
+        val followedUsers = fetchUsersByIds(followingIds)
+        val usernameById = followedUsers.associate { it.id to it.username }
+
+        // For each followed user, fetch who they follow in parallel
+        val candidateMutuals = mutableMapOf<String, MutableList<String>>() // candidateId -> [mutual usernames]
+        val results = followingIds.map { followedId ->
+            async {
+                try {
+                    val theirFollowing = fetchFollowingIds(followedId)
+                    followedId to theirFollowing
+                } catch (_: Exception) {
+                    followedId to emptySet()
+                }
+            }
+        }.awaitAll()
+
+        for ((followedId, theirFollowing) in results) {
+            val username = usernameById[followedId] ?: followedId
+            for (candidateId in theirFollowing) {
+                if (candidateId in excludeIds) continue
+                candidateMutuals.getOrPut(candidateId) { mutableListOf() }.add(username)
+            }
+        }
+
+        if (candidateMutuals.isEmpty()) return@coroutineScope emptyList()
+
+        // Fetch candidate user profiles
+        val allCandidateIds = candidateMutuals.keys.toList()
+        val users = fetchUsersByIds(allCandidateIds)
+        val userById = users.associateBy { it.id }
+
+        // Sort by mutual count desc, filter out bots
+        candidateMutuals.entries
+            .mapNotNull { (id, usernames) ->
+                val user = userById[id] ?: return@mapNotNull null
+                if (user.isBot) return@mapNotNull null
+                user to usernames.toList()
+            }
+            .sortedByDescending { it.second.size }
+            .take(limit)
     }
 
     // ── Username lookup ──

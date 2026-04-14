@@ -35,11 +35,14 @@ class PostEngagementManager @Inject constructor(
     private val _states = MutableStateFlow<Map<String, EngagementState>>(emptyMap())
     val states: StateFlow<Map<String, EngagementState>> = _states.asStateFlow()
 
+    /** Post IDs the user has modified locally (like/save toggle) — these are preserved on refresh. */
+    private val userModifiedPostIds = mutableSetOf<String>()
+
     fun getState(postId: String): EngagementState? = _states.value[postId]
 
     fun initState(postId: String, likeCount: Int, commentCount: Int, repostCount: Int, isLiked: Boolean, isSaved: Boolean) {
         _states.update { map ->
-            if (map.containsKey(postId)) map
+            if (map.containsKey(postId) && userModifiedPostIds.contains(postId)) map
             else map + (postId to EngagementState(likeCount, commentCount, repostCount, isLiked, isSaved))
         }
     }
@@ -49,6 +52,7 @@ class PostEngagementManager @Inject constructor(
         val newLiked = !current.isLiked
         val newCount = if (newLiked) current.likeCount + 1 else maxOf(0, current.likeCount - 1)
 
+        userModifiedPostIds.add(postId)
         _states.update { map ->
             map + (postId to current.copy(isLiked = newLiked, likeCount = newCount))
         }
@@ -57,7 +61,9 @@ class PostEngagementManager @Inject constructor(
             try {
                 if (newLiked) postRepository.likePost(userId, postId)
                 else postRepository.unlikePost(userId, postId)
+                userModifiedPostIds.remove(postId)
             } catch (e: Exception) {
+                userModifiedPostIds.remove(postId)
                 // Rollback on failure
                 _states.update { map ->
                     map + (postId to current)
@@ -70,6 +76,7 @@ class PostEngagementManager @Inject constructor(
         val current = _states.value[postId] ?: return
         val newSaved = !current.isSaved
 
+        userModifiedPostIds.add(postId)
         _states.update { map ->
             map + (postId to current.copy(isSaved = newSaved))
         }
@@ -78,7 +85,9 @@ class PostEngagementManager @Inject constructor(
             try {
                 if (newSaved) postRepository.savePost(userId, postId)
                 else postRepository.unsavePost(userId, postId)
+                userModifiedPostIds.remove(postId)
             } catch (e: Exception) {
+                userModifiedPostIds.remove(postId)
                 _states.update { map ->
                     map + (postId to current)
                 }
@@ -122,5 +131,6 @@ class PostEngagementManager @Inject constructor(
 
     fun clearAll() {
         _states.value = emptyMap()
+        userModifiedPostIds.clear()
     }
 }

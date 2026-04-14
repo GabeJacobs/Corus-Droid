@@ -10,6 +10,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +23,11 @@ class CommentsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val engagementManager: PostEngagementManager,
+    private val remoteConfigService: RemoteConfigService,
 ) : ViewModel() {
+
+    val giphySupport: Boolean
+        get() = remoteConfigService.giphySupport
 
     private val _comments = MutableStateFlow<List<CymbalComment>>(emptyList())
     val comments: StateFlow<List<CymbalComment>> = _comments.asStateFlow()

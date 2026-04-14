@@ -5,7 +5,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
+import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.service.CorusFirebaseMessagingService
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.service.DeepLinkHandler
@@ -13,9 +17,12 @@ import fm.corus.android.ui.CorusApp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var subscriptionRepository: SubscriptionRepository
 
     private val _pendingNotificationDestination = MutableStateFlow<DeepLinkDestination?>(null)
     val pendingNotificationDestination: StateFlow<DeepLinkDestination?> = _pendingNotificationDestination.asStateFlow()
@@ -24,6 +31,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         handleNotificationIntent(intent)
         enableEdgeToEdge()
+
+        lifecycle.addObserver(LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && FirebaseAuth.getInstance().currentUser != null) {
+                subscriptionRepository.checkStatus()
+            }
+        })
+
         setContent {
             CorusApp(
                 deepLinkIntent = intent,

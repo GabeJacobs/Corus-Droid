@@ -9,6 +9,7 @@ import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -22,6 +23,7 @@ import javax.inject.Inject
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
+    private val subscriptionRepository: SubscriptionRepository,
     private val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
     private val firebaseAuth: FirebaseAuth,
@@ -87,6 +89,7 @@ class AuthViewModel @Inject constructor(
                         launch { userRepository.prefetchMutedSet(user.uid) }
                         launch { authRepository.registerFCMToken() }
                         launch { remoteConfigService.fetchAndActivate() }
+                        subscriptionRepository.loginUser(user.uid)
                         analyticsService.setUserId(user.uid)
                         _authState.value = AuthState.SignedIn
                     }
@@ -206,6 +209,7 @@ class AuthViewModel @Inject constructor(
     fun signOut() {
         viewModelScope.launch {
             analyticsService.logSignOut()
+            subscriptionRepository.logoutUser()
             authRepository.signOut()
             userRepository.clearCaches()
             didSignInThisSession = false

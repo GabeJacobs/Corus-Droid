@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.profile
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import com.valentinilk.shimmer.shimmer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +28,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -45,6 +48,10 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.ui.components.FeaturedCymbalView
 import fm.corus.android.ui.components.FeaturedMoviePosterView
+import fm.corus.android.ui.components.ShimmerAsyncImage
+import fm.corus.android.ui.components.SkeletonProfileGrid
+import fm.corus.android.ui.components.SkeletonProfileView
+import fm.corus.android.ui.components.SkeletonProfileWithAvatar
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -56,6 +63,8 @@ import fm.corus.android.ui.theme.CorusSpacing
 @Composable
 fun OtherProfileScreen(
     userId: String,
+    initialAvatarURL: String? = null,
+    initialAvatarThumbURL: String? = null,
     viewModel: OtherProfileViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
@@ -100,13 +109,7 @@ fun OtherProfileScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = profile?.displayName ?: "",
-                        style = CorusFont.displayName,
-                        color = CorusColors.Text,
-                    )
-                },
+                title = { },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
@@ -187,17 +190,26 @@ fun OtherProfileScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
+                windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
     ) { padding ->
         if (isLoading && profile == null) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator(color = CorusColors.Accent)
+                if (initialAvatarURL != null || initialAvatarThumbURL != null) {
+                    // Show skeleton with pre-loaded avatar from the feed
+                    SkeletonProfileWithAvatar(
+                        avatarURL = initialAvatarURL,
+                        avatarThumbURL = initialAvatarThumbURL,
+                    )
+                } else {
+                    SkeletonProfileView()
+                }
+                SkeletonProfileGrid()
             }
             return@Scaffold
         }
@@ -239,6 +251,15 @@ fun OtherProfileScreen(
         ) {
             item(span = { GridItemSpan(3) }) {
                 Column {
+                    // Display name centered (matching iOS)
+                    Text(
+                        text = currentProfile.displayName,
+                        style = CorusFont.displayName,
+                        color = CorusColors.Text,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
                     // Avatar + Stats Row
                     Row(
                         modifier = Modifier
@@ -518,32 +539,16 @@ fun OtherProfileScreen(
             val gridPosts = if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts
             if (gridPosts.isNotEmpty()) {
                 items(gridPosts, key = { it.id }) { post ->
-                    var isImageLoading by remember { mutableStateOf(true) }
-                    Box(
+                    ShimmerAsyncImage(
+                        model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                            .data(post.displayImageLargeURL ?: post.displayImageURL)
+                            .size(Size.ORIGINAL)
+                            .build(),
+                        contentDescription = post.displayTitle,
                         modifier = Modifier
                             .aspectRatio(1f)
                             .clickable { onNavigateToPost(post.id) },
-                    ) {
-                        if (isImageLoading) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .shimmer()
-                                    .background(CorusColors.CardBackground),
-                            )
-                        }
-                        AsyncImage(
-                            model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                                .data(post.displayImageLargeURL ?: post.displayImageURL)
-                                .size(Size.ORIGINAL)
-                                .build(),
-                            contentDescription = post.displayTitle,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            onSuccess = { isImageLoading = false },
-                            onError = { isImageLoading = false },
-                        )
-                    }
+                    )
                 }
             }
 

@@ -1,9 +1,14 @@
 package fm.corus.android.data.repository
 
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -11,6 +16,7 @@ import javax.inject.Singleton
 class MessageRepository @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val storageDataSource: FirebaseStorageDataSource,
+    private val firestore: FirebaseFirestore,
 ) {
     suspend fun listThreads(userId: String): List<CymbalThread> {
         return cloudFunctions.listThreads(userId)
@@ -67,5 +73,23 @@ class MessageRepository @Inject constructor(
 
     suspend fun markThreadRead(threadId: String, userId: String) {
         cloudFunctions.markThreadRead(threadId, userId)
+    }
+
+    fun listenToMessages(threadId: String): Flow<List<CymbalMessage>> = callbackFlow {
+        val registration = firestore
+            .collection("threads")
+            .document(threadId)
+            .collection("messages")
+            .orderBy("createdAt", Query.Direction.ASCENDING)
+            .limit(200)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                val messages = snapshot.documents.mapNotNull { doc ->
+                    val data = doc.data ?: return@mapNotNull null
+                    CymbalMessage.fromFirestoreDoc(doc.id, threadId, data)
+                }
+                trySend(messages)
+            }
+        awaitClose { registration.remove() }
     }
 }

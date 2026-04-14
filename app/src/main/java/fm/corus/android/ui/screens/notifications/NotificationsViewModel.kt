@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import android.util.Log
 import javax.inject.Inject
 
 @HiltViewModel
@@ -78,6 +79,7 @@ class NotificationsViewModel @Inject constructor(
         val current = _notifications.value
         if (current.isEmpty()) {
             _notifications.value = incoming
+            Log.d("Notifications", "merge: initial set, ${incoming.size} items")
             return
         }
 
@@ -86,14 +88,22 @@ class NotificationsViewModel @Inject constructor(
         // Split: items in the incoming window vs older paginated items
         val tailItems = current.filter { it.id !in incomingIds }
 
+        Log.d("Notifications", "merge: incoming=${incoming.size}, tail=${tailItems.size}, total=${incoming.size + tailItems.size}")
+
         // Build head from incoming order (includes new + updated items)
         _notifications.value = incoming + tailItems
     }
 
     fun loadMoreNotifications() {
         val userId = authRepository.currentUserId ?: return
+        Log.d("Notifications", "loadMore called: isLoadingMore=${_isLoadingMore.value}, hasMore=${_hasMoreNotifications.value}, count=${_notifications.value.size}")
         if (_isLoadingMore.value || !_hasMoreNotifications.value) return
-        val lastTimestamp = _notifications.value.lastOrNull()?.timestamp?.time ?: return
+        val lastTimestamp = _notifications.value.lastOrNull()?.timestamp?.time
+        if (lastTimestamp == null) {
+            Log.d("Notifications", "loadMore: no lastTimestamp, aborting")
+            return
+        }
+        Log.d("Notifications", "loadMore: fetching with lastTimestamp=$lastTimestamp")
 
         viewModelScope.launch {
             _isLoadingMore.value = true
@@ -101,11 +111,15 @@ class NotificationsViewModel @Inject constructor(
                 val fetched = notificationRepository.getNotifications(
                     userId, limit = pageSize, lastTimestamp = lastTimestamp,
                 )
+                Log.d("Notifications", "loadMore: fetched ${fetched.size} items")
                 val existingIds = _notifications.value.map { it.id }.toSet()
                 val newItems = fetched.filter { it.id !in existingIds }
+                Log.d("Notifications", "loadMore: ${newItems.size} new items after dedup")
                 _notifications.value = _notifications.value + newItems
                 _hasMoreNotifications.value = fetched.size >= pageSize && newItems.isNotEmpty()
-            } catch (_: Exception) {
+                Log.d("Notifications", "loadMore: hasMore=${_hasMoreNotifications.value}, total=${_notifications.value.size}")
+            } catch (e: Exception) {
+                Log.e("Notifications", "loadMore failed", e)
                 _hasMoreNotifications.value = false
             }
             _isLoadingMore.value = false

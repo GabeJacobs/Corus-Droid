@@ -135,13 +135,15 @@ fun SinglePostCommentsScreen(
                             }
                         }),
                     )
-                    IconButton(onClick = { showGifPicker = true }) {
-                        Icon(
-                            Icons.Filled.Gif,
-                            contentDescription = "Send GIF",
-                            tint = CorusColors.Accent,
-                            modifier = Modifier.size(28.dp),
-                        )
+                    if (viewModel.giphySupport) {
+                        IconButton(onClick = { showGifPicker = true }) {
+                            Icon(
+                                Icons.Filled.Gif,
+                                contentDescription = "Send GIF",
+                                tint = CorusColors.Accent,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
                     }
                     IconButton(
                         onClick = {
@@ -162,7 +164,7 @@ fun SinglePostCommentsScreen(
             }
         },
     ) { padding ->
-        if (showGifPicker) {
+        if (viewModel.giphySupport && showGifPicker) {
             GifPickerSheet(
                 onGifSelected = { gif ->
                     viewModel.sendGifComment(gif.gifURL)

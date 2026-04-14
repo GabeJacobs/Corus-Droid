@@ -7,6 +7,8 @@ import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.service.RemoteConfigService
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +20,11 @@ class MessageThreadViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
+    private val remoteConfigService: RemoteConfigService,
 ) : ViewModel() {
+
+    val giphySupport: Boolean
+        get() = remoteConfigService.giphySupport
 
     private val _messages = MutableStateFlow<List<CymbalMessage>>(emptyList())
     val messages: StateFlow<List<CymbalMessage>> = _messages.asStateFlow()
@@ -35,6 +41,7 @@ class MessageThreadViewModel @Inject constructor(
     val replyToMessage: StateFlow<CymbalMessage?> = _replyToMessage.asStateFlow()
 
     private var currentThreadId: String? = null
+    private var listenerJob: Job? = null
 
     fun loadMessages(threadId: String, otherUserId: String) {
         currentThreadId = threadId
@@ -45,17 +52,40 @@ class MessageThreadViewModel @Inject constructor(
                 val profile = userRepository.fetchUserProfile(otherUserId)
                 _otherUsername.value = profile?.username ?: ""
 
-                // Load messages
-                _messages.value = messageRepository.listMessages(threadId)
+                // Resolve threadId if empty (e.g. navigating from a user profile)
+                var resolvedId = threadId
+                if (resolvedId.isBlank()) {
+                    val userId = authRepository.currentUserId ?: throw IllegalStateException("Not signed in")
+                    resolvedId = messageRepository.getOrCreateThread(userId, otherUserId)
+                    currentThreadId = resolvedId
+                }
+
+                // Start real-time Firestore listener (matches iOS snapshot listener)
+                startListening(resolvedId)
 
                 // Mark as read
                 val userId = authRepository.currentUserId
                 if (userId != null) {
-                    messageRepository.markThreadRead(threadId, userId)
+                    messageRepository.markThreadRead(resolvedId, userId)
                 }
             } catch (_: Exception) { }
             _isLoading.value = false
         }
+    }
+
+    private fun startListening(threadId: String) {
+        listenerJob?.cancel()
+        listenerJob = viewModelScope.launch {
+            messageRepository.listenToMessages(threadId).collect { messages ->
+                // Reverse so newest is first — LazyColumn uses reverseLayout = true
+                _messages.value = messages.asReversed()
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        listenerJob?.cancel()
     }
 
     fun setReplyTo(message: CymbalMessage?) {
@@ -64,11 +94,12 @@ class MessageThreadViewModel @Inject constructor(
 
     fun sendMessage(threadId: String, text: String) {
         val userId = authRepository.currentUserId ?: return
+        val resolvedId = currentThreadId ?: threadId
         val reply = _replyToMessage.value
         viewModelScope.launch {
             try {
                 messageRepository.sendTextMessage(
-                    threadId = threadId,
+                    threadId = resolvedId,
                     fromUserId = userId,
                     text = text,
                     replyToMessageId = reply?.id,
@@ -76,44 +107,43 @@ class MessageThreadViewModel @Inject constructor(
                     replyToUserId = reply?.fromUserId,
                 )
                 _replyToMessage.value = null
-                _messages.value = messageRepository.listMessages(threadId)
             } catch (_: Exception) { }
         }
     }
 
     fun sendImageMessage(threadId: String, imageData: ByteArray) {
         val userId = authRepository.currentUserId ?: return
+        val resolvedId = currentThreadId ?: threadId
         viewModelScope.launch {
             try {
                 messageRepository.sendImageMessage(
-                    threadId = threadId,
+                    threadId = resolvedId,
                     fromUserId = userId,
                     imageData = imageData,
                 )
-                _messages.value = messageRepository.listMessages(threadId)
             } catch (_: Exception) { }
         }
     }
 
     fun sendGifMessage(threadId: String, gifURL: String) {
         val userId = authRepository.currentUserId ?: return
+        val resolvedId = currentThreadId ?: threadId
         viewModelScope.launch {
             try {
                 messageRepository.sendGifMessage(
-                    threadId = threadId,
+                    threadId = resolvedId,
                     fromUserId = userId,
                     gifURL = gifURL,
                 )
-                _messages.value = messageRepository.listMessages(threadId)
             } catch (_: Exception) { }
         }
     }
 
     fun toggleReaction(threadId: String, messageId: String, emoji: String) {
+        val resolvedId = currentThreadId ?: threadId
         viewModelScope.launch {
             try {
-                messageRepository.toggleReaction(threadId, messageId, emoji)
-                _messages.value = messageRepository.listMessages(threadId)
+                messageRepository.toggleReaction(resolvedId, messageId, emoji)
             } catch (_: Exception) { }
         }
     }

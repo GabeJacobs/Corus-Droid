@@ -52,6 +52,7 @@ class ThreadListViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 _threads.value = messageRepository.listThreads(userId)
+                    .filter { it.lastMessageFromUserId != null }
             } catch (_: Exception) { }
             _isLoading.value = false
         }

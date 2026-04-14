@@ -7,6 +7,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -472,6 +473,9 @@ private fun SuggestedUsersContent(
                     onTap = {
                         contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
                     },
+                    onDismiss = {
+                        viewModel.dismissContactsSync()
+                    },
                 )
                 Spacer(modifier = Modifier.height(CorusSpacing.lg))
             }
@@ -637,54 +641,68 @@ private fun SuggestedUsersContent(
 private fun FindFriendsFromContactsCard(
     isSyncing: Boolean,
     onTap: () -> Unit,
+    onDismiss: () -> Unit = {},
 ) {
-    Card(
+    val cardShape = RoundedCornerShape(CorusSpacing.cornerRadiusLarge)
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = CorusSpacing.lg)
-            .clickable(enabled = !isSyncing, onClick = onTap),
-        shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-        colors = CardDefaults.cardColors(containerColor = CorusColors.CardBackground),
+            .clip(cardShape)
+            .background(CorusColors.CardBackground)
+            .border(0.5.dp, CorusColors.Divider, cardShape)
+            .padding(CorusSpacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(CorusSpacing.lg),
-            verticalAlignment = Alignment.CenterVertically,
+        Icon(
+            Icons.Filled.Contacts,
+            contentDescription = null,
+            tint = CorusColors.Accent,
+            modifier = Modifier.size(40.dp),
+        )
+
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+
+        Text(
+            "Find your friends on corus",
+            style = CorusFont.songTitleLarge,
+            color = CorusColors.Text,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+        Text(
+            "See which of your contacts are already here",
+            style = CorusFont.body,
+            color = CorusColors.Secondary,
+        )
+
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+
+        Button(
+            onClick = onTap,
+            enabled = !isSyncing,
+            shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CorusColors.Accent,
+                contentColor = Color.White,
+            ),
+            contentPadding = PaddingValues(vertical = CorusSpacing.md),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "Find Friends from Contacts",
-                    style = CorusFont.bodyMedium,
-                    color = CorusColors.Text,
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                Text(
-                    "Discover who you know on Corus",
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                )
-            }
             if (isSyncing) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = CorusColors.Accent,
+                    modifier = Modifier.size(18.dp),
+                    color = Color.White,
                     strokeWidth = 2.dp,
                 )
             } else {
-                Button(
-                    onClick = onTap,
-                    shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = CorusColors.Accent,
-                        contentColor = Color.White,
-                    ),
-                    contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
-                    modifier = Modifier.height(30.dp),
-                ) {
-                    Text("Sync", style = CorusFont.buttonSmall)
-                }
+                Text("Sync Contacts", style = CorusFont.buttonSmall)
             }
+        }
+
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
+        TextButton(onClick = onDismiss) {
+            Text("Not now", style = CorusFont.caption, color = CorusColors.Tertiary)
         }
     }
 }

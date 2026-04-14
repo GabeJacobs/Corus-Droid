@@ -5,6 +5,7 @@ import com.revenuecat.purchases.Package
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesError
 import com.revenuecat.purchases.getOfferingsWith
+import com.revenuecat.purchases.interfaces.UpdatedCustomerInfoListener
 import com.revenuecat.purchases.models.StoreTransaction
 import com.revenuecat.purchases.purchaseWith
 import com.revenuecat.purchases.restorePurchasesWith
@@ -30,7 +31,7 @@ import kotlin.coroutines.resumeWithException
 class SubscriptionRepository @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val remoteConfig: RemoteConfigService,
-) {
+) : UpdatedCustomerInfoListener {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
@@ -84,19 +85,32 @@ class SubscriptionRepository @Inject constructor(
     }
 
     fun loginUser(uid: String) {
+        Purchases.sharedInstance.updatedCustomerInfoListener = this
         Purchases.sharedInstance.logIn(
             uid,
             object : com.revenuecat.purchases.interfaces.LogInCallback {
                 override fun onReceived(customerInfo: CustomerInfo, created: Boolean) {
                     updateClubStatus(customerInfo)
+                    syncClubStatusToFirestore()
                 }
                 override fun onError(error: PurchasesError) { }
             }
         )
     }
 
+    override fun onReceived(customerInfo: CustomerInfo) {
+        val wasClubMember = _isClubMember.value
+        updateClubStatus(customerInfo)
+        syncClubStatusToFirestore()
+        if (wasClubMember && !_isClubMember.value) {
+            // Subscription expired — could log analytics here
+        }
+    }
+
     fun logoutUser() {
         _isClubMember.value = false
+        _isVerified.value = false
+        Purchases.sharedInstance.updatedCustomerInfoListener = null
         Purchases.sharedInstance.logOut()
     }
 
@@ -161,5 +175,14 @@ class SubscriptionRepository @Inject constructor(
 
     private fun updateClubStatus(customerInfo: CustomerInfo) {
         _isClubMember.value = customerInfo.entitlements[CLUB_ENTITLEMENT_ID]?.isActive == true
+    }
+
+    private fun syncClubStatusToFirestore() {
+        val userId = Purchases.sharedInstance.appUserID
+        scope.launch {
+            try {
+                cloudFunctions.syncClubMemberStatus(userId, isClubMember = _isClubMember.value)
+            } catch (_: Exception) { }
+        }
     }
 }

@@ -40,6 +40,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.MessageType
+import fm.corus.android.ui.components.FullScreenImageView
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -66,6 +67,7 @@ fun MessageThreadScreen(
     val listState = rememberLazyListState()
     var reactionTarget by remember { mutableStateOf<CymbalMessage?>(null) }
     var showGifPicker by remember { mutableStateOf(false) }
+    var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -122,6 +124,7 @@ fun MessageThreadScreen(
                     onReactionTap = { emoji ->
                         viewModel.toggleReaction(threadId, message.id, emoji)
                     },
+                    onImageTap = { url -> fullScreenImageUrl = url },
                 )
             }
         }
@@ -179,13 +182,15 @@ fun MessageThreadScreen(
                 )
             }
 
-            IconButton(onClick = { showGifPicker = true }) {
-                Icon(
-                    Icons.Filled.Gif,
-                    contentDescription = "Send GIF",
-                    tint = CorusColors.Accent,
-                    modifier = Modifier.size(28.dp),
-                )
+            if (viewModel.giphySupport) {
+                IconButton(onClick = { showGifPicker = true }) {
+                    Icon(
+                        Icons.Filled.Gif,
+                        contentDescription = "Send GIF",
+                        tint = CorusColors.Accent,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
             }
 
             OutlinedTextField(
@@ -216,7 +221,7 @@ fun MessageThreadScreen(
         }
     }
 
-    if (showGifPicker) {
+    if (viewModel.giphySupport && showGifPicker) {
         GifPickerSheet(
             onGifSelected = { gif ->
                 viewModel.sendGifMessage(threadId, gif.gifURL)
@@ -225,6 +230,13 @@ fun MessageThreadScreen(
             onDismiss = { showGifPicker = false },
         )
     }
+
+    // Full-screen image viewer
+    FullScreenImageView(
+        imageUrl = fullScreenImageUrl,
+        visible = fullScreenImageUrl != null,
+        onDismiss = { fullScreenImageUrl = null },
+    )
 
     // Reaction overlay
     if (reactionTarget != null) {
@@ -354,6 +366,7 @@ private fun MessageBubble(
     onLongPress: () -> Unit,
     onReply: () -> Unit,
     onReactionTap: (String) -> Unit,
+    onImageTap: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -408,7 +421,8 @@ private fun MessageBubble(
                         modifier = Modifier
                             .widthIn(max = 240.dp)
                             .heightIn(max = 300.dp)
-                            .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+                            .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                            .clickable { onImageTap(message.mediaURL!!) },
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                     )
                     if (!message.text.isNullOrBlank()) {

@@ -81,9 +81,10 @@ private fun RainCanvas(
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
+        val scale = density
 
         if (tick == 1) {
-            drops = List(intensity.dropCount) { createRaindrop(w, h, intensity) }
+            drops = List(intensity.dropCount) { createRaindrop(w, h, intensity, scale) }
         }
 
         val dt = 1f / 60f
@@ -99,15 +100,15 @@ private fun RainCanvas(
                     newSplashes.add(
                         Splash(
                             x = drop.x,
-                            y = h - Random.nextFloat() * 4f,
+                            y = h - Random.nextFloat() * 4f * scale,
                             startTick = tick,
                             particleCount = Random.nextInt(2, 5),
                             baseAngle = 0.314f, // ~pi * 0.1
-                            maxSpread = Random.nextFloat() * 4f + 4f,
+                            maxSpread = (Random.nextFloat() * 4f + 4f) * scale,
                         )
                     )
                 }
-                return@map createRaindrop(w, h, intensity, fullHeight = false)
+                return@map createRaindrop(w, h, intensity, scale, fullHeight = false)
             }
             if (newX > w + 10f) newX -= w + 20f
             if (newX < -10f) newX += w + 20f
@@ -130,7 +131,7 @@ private fun RainCanvas(
                 color = Color.White.copy(alpha = alpha),
                 start = Offset(drop.x, drop.y),
                 end = Offset(drop.x - dx, drop.y - dy),
-                strokeWidth = 1f,
+                strokeWidth = 1f * scale,
             )
         }
 
@@ -143,7 +144,7 @@ private fun RainCanvas(
                 color = Color.White.copy(alpha = drop.opacity),
                 start = Offset(drop.x, drop.y),
                 end = Offset(drop.x - dx, drop.y - dy),
-                strokeWidth = 1.5f,
+                strokeWidth = 1.5f * scale,
             )
         }
 
@@ -163,7 +164,7 @@ private fun RainCanvas(
 
                 drawCircle(
                     color = Color.White.copy(alpha = alpha),
-                    radius = 1.5f,
+                    radius = 1.5f * scale,
                     center = Offset(px, py),
                 )
             }
@@ -216,6 +217,7 @@ private fun createRaindrop(
     width: Float,
     height: Float,
     intensity: RainIntensity,
+    scale: Float = 1f,
     fullHeight: Boolean = true,
 ): Raindrop {
     val isForeground = Random.nextFloat() > 0.35f
@@ -268,8 +270,8 @@ private fun createRaindrop(
     return Raindrop(
         x = x,
         y = y,
-        speed = speed,
-        length = length,
+        speed = speed * scale,
+        length = length * scale,
         opacity = opacity,
         layer = layer,
     )

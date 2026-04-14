@@ -204,7 +204,7 @@ class CloudFunctionsDataSource @Inject constructor(
     @Suppress("UNCHECKED_CAST")
     suspend fun getHashtagPosts(hashtag: String, userId: String, limit: Int = 30, lastTimestamp: Long? = null): List<CymbalPost> {
         val params = mutableMapOf<String, Any>("hashtag" to hashtag, "userId" to userId, "limit" to limit)
-        lastTimestamp?.let { params["lastTimestamp"] = it }
+        lastTimestamp?.let { params["beforeMs"] = it }
         val result = functions.getHttpsCallable("getHashtagPosts").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val posts = data["posts"] as? List<Map<String, Any?>> ?: return emptyList()
@@ -216,7 +216,7 @@ class CloudFunctionsDataSource @Inject constructor(
     @Suppress("UNCHECKED_CAST")
     suspend fun getNotifications(userId: String, limit: Int = 15, lastTimestamp: Long? = null): List<CymbalNotification> {
         val params = mutableMapOf<String, Any>("userId" to userId, "limit" to limit)
-        lastTimestamp?.let { params["lastTimestamp"] = it }
+        lastTimestamp?.let { params["startAfter"] = it }
         val result = functions.getHttpsCallable("getNotifications").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val notifications = data["notifications"] as? List<Map<String, Any?>> ?: return emptyList()
@@ -240,7 +240,7 @@ class CloudFunctionsDataSource @Inject constructor(
     @Suppress("UNCHECKED_CAST")
     suspend fun listMessages(threadId: String, limit: Int = 50, lastTimestamp: Long? = null): List<CymbalMessage> {
         val params = mutableMapOf<String, Any>("threadId" to threadId, "limit" to limit)
-        lastTimestamp?.let { params["lastTimestamp"] = it }
+        lastTimestamp?.let { params["beforeMs"] = it }
         val result = functions.getHttpsCallable("listMessages").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val messages = data["messages"] as? List<Map<String, Any?>> ?: return emptyList()

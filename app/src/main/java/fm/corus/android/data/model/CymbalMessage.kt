@@ -1,5 +1,6 @@
 package fm.corus.android.data.model
 
+import com.google.firebase.Timestamp
 import java.util.Date
 
 data class CymbalMessage(
@@ -36,6 +37,38 @@ data class CymbalMessage(
             return CymbalMessage(
                 id = id,
                 threadId = data["threadId"] as? String ?: "",
+                fromUserId = data["fromUserId"] as? String ?: "",
+                text = data["text"] as? String,
+                type = MessageType.from(data["type"] as? String),
+                mediaURL = data["mediaURL"] as? String,
+                createdAt = createdAt,
+                sharedPostId = data["sharedPostId"] as? String,
+                trackName = data["trackName"] as? String,
+                artistName = data["artistName"] as? String,
+                albumArtURL = data["albumArtURL"] as? String,
+                spotifyURL = data["spotifyURL"] as? String,
+                movieTitle = data["movieTitle"] as? String,
+                directorName = data["directorName"] as? String,
+                posterURL = data["posterURL"] as? String,
+                tmdbWebURL = data["tmdbWebURL"] as? String,
+                likedByUserIds = data["likedByUserIds"] as? List<String> ?: emptyList(),
+                reactions = (data["reactions"] as? Map<String, Any?>)?.mapValues { (_, v) ->
+                    (v as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                } ?: emptyMap(),
+                replyToMessageId = data["replyToMessageId"] as? String,
+                replyToText = data["replyToText"] as? String,
+                replyToUserId = data["replyToUserId"] as? String,
+            )
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        fun fromFirestoreDoc(id: String, threadId: String, data: Map<String, Any?>): CymbalMessage {
+            val ts = data["createdAt"] as? Timestamp
+            val createdAt = ts?.toDate() ?: Date()
+
+            return CymbalMessage(
+                id = id,
+                threadId = threadId,
                 fromUserId = data["fromUserId"] as? String ?: "",
                 text = data["text"] as? String,
                 type = MessageType.from(data["type"] as? String),

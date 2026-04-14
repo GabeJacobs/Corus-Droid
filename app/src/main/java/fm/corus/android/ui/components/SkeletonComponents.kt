@@ -1,18 +1,70 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusSpacing
+
+/**
+ * Async image that shows a shimmer skeleton while loading and fades in when ready.
+ * Use this everywhere an image is loaded from a URL to get consistent loading UX.
+ */
+@Composable
+fun ShimmerAsyncImage(
+    model: Any?,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+    shape: Shape = RectangleShape,
+) {
+    var isLoading by remember(model) { mutableStateOf(true) }
+    val imageAlpha by animateFloatAsState(
+        targetValue = if (isLoading) 0f else 1f,
+        animationSpec = tween(durationMillis = 300),
+        label = "shimmerFade",
+    )
+
+    Box(modifier = modifier.clip(shape)) {
+        if (imageAlpha < 1f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .shimmer()
+                    .background(CorusColors.CardBackground),
+            )
+        }
+        AsyncImage(
+            model = model,
+            contentDescription = contentDescription,
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(imageAlpha),
+            contentScale = contentScale,
+            onSuccess = { isLoading = false },
+            onError = { isLoading = false },
+        )
+    }
+}
 
 @Composable
 fun SkeletonPostCard() {
@@ -202,6 +254,120 @@ fun SkeletonProfileView() {
         Column(
             modifier = Modifier
                 .padding(start = CorusSpacing.lg + 12.dp, end = CorusSpacing.lg),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(100.dp)
+                    .height(13.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.CardBackground)
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+            Box(
+                modifier = Modifier
+                    .width(180.dp)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.CardBackground)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+    }
+}
+
+// 1b. SkeletonProfileWithAvatar — Profile header skeleton with a pre-loaded avatar
+@Composable
+fun SkeletonProfileWithAvatar(
+    avatarURL: String?,
+    avatarThumbURL: String? = null,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth(),
+    ) {
+        // Display name shimmer
+        Box(
+            modifier = Modifier
+                .padding(top = CorusSpacing.xs)
+                .align(Alignment.CenterHorizontally)
+                .width(140.dp)
+                .height(16.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .shimmer()
+                .background(CorusColors.CardBackground)
+        )
+
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
+
+        // Avatar + stats row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = CorusSpacing.lg + 12.dp, end = CorusSpacing.lg),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Real avatar (pre-loaded from feed)
+            UserAvatarView(
+                avatarURL = avatarURL,
+                avatarThumbURL = avatarThumbURL,
+                size = CorusSpacing.avatarLarge,
+            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = CorusSpacing.lg)
+                    .shimmer(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                // Stats row (3 columns)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                ) {
+                    repeat(3) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .width(28.dp)
+                                    .height(14.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(CorusColors.CardBackground)
+                            )
+                            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                            Box(
+                                modifier = Modifier
+                                    .width(44.dp)
+                                    .height(10.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(CorusColors.CardBackground)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
+
+                // Follow button bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = CorusSpacing.lg)
+                        .height(30.dp)
+                        .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
+                        .background(CorusColors.CardBackground)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+
+        // Username + bio shimmer
+        Column(
+            modifier = Modifier
+                .padding(start = CorusSpacing.lg + 12.dp, end = CorusSpacing.lg)
+                .shimmer(),
         ) {
             Box(
                 modifier = Modifier

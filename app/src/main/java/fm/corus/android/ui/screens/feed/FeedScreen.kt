@@ -41,7 +41,7 @@ fun FeedScreen(
     viewModel: FeedViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
     onNavigateToPost: (String) -> Unit = {},
-    onNavigateToUser: (String) -> Unit = {},
+    onNavigateToUser: (userId: String, avatarURL: String?, avatarThumbURL: String?) -> Unit = { _, _, _ -> },
     onNavigateToUserByUsername: (String) -> Unit = {},
     onNavigateToComments: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
@@ -263,7 +263,7 @@ fun FeedScreen(
                                 isPreviewPlaying = nowPlayingState.trackId == post.track.id && nowPlayingState.isPlaying,
                                 onLikeTap = { viewModel.toggleLike(post.id) },
                                 onSaveTap = { viewModel.toggleSave(post.id) },
-                                onUserTap = { onNavigateToUser(post.user.id) },
+                                onUserTap = { onNavigateToUser(post.user.id, post.user.avatarURL, post.user.avatarThumbURL) },
                                 onPostTap = { onNavigateToPost(post.id) },
                                 onPreviewTap = {
                                     viewModel.playPreview(post)

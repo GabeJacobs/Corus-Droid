@@ -30,7 +30,11 @@ import kotlinx.serialization.Serializable
 )
 @Serializable data class CommentsRoute(val postId: String)
 @Serializable data class LikesRoute(val postId: String)
-@Serializable data class OtherProfileRoute(val userId: String)
+@Serializable data class OtherProfileRoute(
+    val userId: String,
+    val avatarURL: String? = null,
+    val avatarThumbURL: String? = null,
+)
 @Serializable data class ProfileByUsernameRoute(val username: String)
 @Serializable data class FollowListRoute(val userId: String, val isFollowers: Boolean)
 @Serializable data class HashtagFeedRoute(val hashtag: String)
@@ -50,5 +54,5 @@ import kotlinx.serialization.Serializable
 @Serializable data class MessageThreadRoute(val threadId: String, val otherUserId: String)
 @Serializable data class BotListRoute(val botType: String? = null)
 @Serializable data class SinglePostCommentsRoute(val postId: String)
-@Serializable data object SuggestedUsersListRoute
+@Serializable data class SuggestedUsersListRoute(val title: String = "Taste Matches", val useRowLayout: Boolean = false)
 @Serializable data object ContactFriendsListRoute

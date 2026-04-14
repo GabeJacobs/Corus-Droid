@@ -155,7 +155,15 @@ class FindPeopleViewModel @Inject constructor(
             }
             val mutualConnectionsDeferred = async {
                 try {
-                    val mutuals = firestoreDataSource.fetchPrecomputedMutualConnections(uid, limit = 20)
+                    // Try precomputed mutual connections first
+                    var mutuals = firestoreDataSource.fetchPrecomputedMutualConnections(uid, limit = 20)
+                    // Fallback: client-side graph traversal (matching iOS)
+                    if (mutuals.isEmpty()) {
+                        val followingIds = firestoreDataSource.fetchFollowingIds(uid)
+                        val excludeIds = followingIds + uid
+                        mutuals = firestoreDataSource.fetchFriendsOfFriends(uid, excludeIds, limit = 20)
+                    }
+                    Log.d("FindPeopleVM", "Mutual connections loaded: ${mutuals.size}")
                     mutuals.map { (user, names) ->
                         SuggestedUserMatch(
                             user = user,
@@ -301,6 +309,12 @@ class FindPeopleViewModel @Inject constructor(
     }
 
     // ── Contact Sync ──
+
+    fun dismissContactsSync() {
+        viewModelScope.launch {
+            preferencesDataStore.setContactsSyncStatus("skipped")
+        }
+    }
 
     fun syncContacts(contentResolver: ContentResolver) {
         val userId = authRepository.currentUserId ?: return

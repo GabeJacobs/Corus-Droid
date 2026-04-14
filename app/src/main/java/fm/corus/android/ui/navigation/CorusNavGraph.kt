@@ -10,6 +10,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import fm.corus.android.ui.screens.explore.ExploreScreen
 import fm.corus.android.ui.screens.explore.HashtagFeedScreen
+import fm.corus.android.ui.screens.feed.CommentsBottomSheet
 import fm.corus.android.ui.screens.feed.CommentsSheet
 import fm.corus.android.ui.screens.feed.EditCaptionSheet
 import fm.corus.android.ui.screens.feed.FeedScreen
@@ -52,6 +53,8 @@ import androidx.compose.runtime.setValue
 
 @Composable
 fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
+    var commentPostId by remember { mutableStateOf<String?>(null) }
+
     NavHost(
         navController = navController,
         startDestination = FeedTabRoute,
@@ -64,21 +67,36 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
             FeedScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
-                onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+                onNavigateToUser = { userId, avatarURL, avatarThumbURL ->
+                    navController.navigate(OtherProfileRoute(userId, avatarURL, avatarThumbURL))
+                },
                 onNavigateToUserByUsername = { username -> navController.navigate(ProfileByUsernameRoute(username)) },
-                onNavigateToComments = { postId -> navController.navigate(CommentsRoute(postId)) },
+                onNavigateToComments = { postId -> commentPostId = postId },
                 onNavigateToLikes = { postId -> navController.navigate(LikesRoute(postId)) },
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
                 onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel)
+        sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it })
+    }
+
+    commentPostId?.let { postId ->
+        CommentsBottomSheet(
+            postId = postId,
+            onDismiss = { commentPostId = null },
+            onNavigateToUser = { userId ->
+                commentPostId = null
+                navController.navigate(OtherProfileRoute(userId))
+            },
+        )
     }
 }
 
 @Composable
 fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
+    var commentPostId by remember { mutableStateOf<String?>(null) }
+
     NavHost(
         navController = navController,
         startDestination = ExploreTabRoute,
@@ -98,12 +116,25 @@ fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
                 onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel)
+        sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it })
+    }
+
+    commentPostId?.let { postId ->
+        CommentsBottomSheet(
+            postId = postId,
+            onDismiss = { commentPostId = null },
+            onNavigateToUser = { userId ->
+                commentPostId = null
+                navController.navigate(OtherProfileRoute(userId))
+            },
+        )
     }
 }
 
 @Composable
 fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
+    var commentPostId by remember { mutableStateOf<String?>(null) }
+
     NavHost(
         navController = navController,
         startDestination = NotificationsTabRoute,
@@ -120,12 +151,25 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
                 onNavigateToMessages = { navController.navigate(ThreadListRoute) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel)
+        sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it })
+    }
+
+    commentPostId?.let { postId ->
+        CommentsBottomSheet(
+            postId = postId,
+            onDismiss = { commentPostId = null },
+            onNavigateToUser = { userId ->
+                commentPostId = null
+                navController.navigate(OtherProfileRoute(userId))
+            },
+        )
     }
 }
 
 @Composable
 fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
+    var commentPostId by remember { mutableStateOf<String?>(null) }
+
     NavHost(
         navController = navController,
         startDestination = ProfileTabRoute,
@@ -146,7 +190,18 @@ fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
                 onNavigateToClub = { navController.navigate(CymbalClubOfferRoute) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel)
+        sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it })
+    }
+
+    commentPostId?.let { postId ->
+        CommentsBottomSheet(
+            postId = postId,
+            onDismiss = { commentPostId = null },
+            onNavigateToUser = { userId ->
+                commentPostId = null
+                navController.navigate(OtherProfileRoute(userId))
+            },
+        )
     }
 }
 
@@ -156,6 +211,7 @@ fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
 private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     navController: NavHostController,
     mainTabViewModel: MainTabViewModel,
+    onShowComments: (String) -> Unit = {},
 ) {
     composable<PostDetailRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<PostDetailRoute>()
@@ -163,7 +219,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             postId = route.postId,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            onNavigateToComments = { postId -> navController.navigate(CommentsRoute(postId)) },
+            onNavigateToComments = onShowComments,
             onNavigateToLikes = { postId -> navController.navigate(LikesRoute(postId)) },
             onNavigateToSong = { trackId, albumArtURL -> navController.navigate(SongDetailRoute(trackId, albumArtURL)) },
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
@@ -175,6 +231,8 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<OtherProfileRoute>()
         OtherProfileScreen(
             userId = route.userId,
+            initialAvatarURL = route.avatarURL,
+            initialAvatarThumbURL = route.avatarThumbURL,
             onBack = { navController.popBackStack() },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
@@ -271,15 +329,6 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         EditProfileScreen(
             onBack = { navController.popBackStack() },
             onNavigateToClub = { navController.navigate(CymbalClubOfferRoute) },
-        )
-    }
-
-    composable<CommentsRoute> { backStackEntry ->
-        val route = backStackEntry.toRoute<CommentsRoute>()
-        CommentsSheet(
-            postId = route.postId,
-            onDismiss = { navController.popBackStack() },
-            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
         )
     }
 
