@@ -20,9 +20,12 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -444,47 +447,63 @@ fun OtherProfileScreen(
 
                     Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-                    // Segment control
-                    val tabs = listOf("MUSIC", "FILM", "LIKES")
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        tabs.forEachIndexed { index, title ->
-                            val isSelected = selectedSegment == index
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { selectedSegment = index }
-                                    .drawBehind {
-                                        val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
-                                        val lineColor = if (isSelected) CorusColors.Text else CorusColors.Divider
-                                        drawLine(
-                                            color = lineColor,
-                                            start = Offset(0f, size.height),
-                                            end = Offset(size.width, size.height),
-                                            strokeWidth = strokeWidth,
-                                        )
-                                    }
-                                    .padding(vertical = CorusSpacing.sm),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Text(
-                                    text = title,
-                                    style = CorusFont.tabLabel,
-                                    color = if (isSelected) CorusColors.Text else CorusColors.Tertiary,
-                                )
+                    // Segment control — bots only show their content type (no tabs)
+                    val tabs = when {
+                        currentProfile.isMusicBot -> listOf("MUSIC")
+                        currentProfile.isFilmBot -> listOf("FILM")
+                        else -> listOf("MUSIC", "FILM", "LIKES")
+                    }
+                    if (!currentProfile.isBot) {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            tabs.forEachIndexed { index, title ->
+                                val isSelected = selectedSegment == index
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { selectedSegment = index }
+                                        .drawBehind {
+                                            val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
+                                            val lineColor = if (isSelected) CorusColors.Text else CorusColors.Divider
+                                            drawLine(
+                                                color = lineColor,
+                                                start = Offset(0f, size.height),
+                                                end = Offset(size.width, size.height),
+                                                strokeWidth = strokeWidth,
+                                            )
+                                        }
+                                        .padding(vertical = CorusSpacing.sm),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Text(
+                                        text = title,
+                                        style = CorusFont.tabLabel,
+                                        color = if (isSelected) CorusColors.Text else CorusColors.Tertiary,
+                                    )
+                                }
                             }
                         }
                     }
 
                     // Filter posts by segment
-                    val filteredPosts = when (selectedSegment) {
-                        0 -> posts.filter { it.mediaType == MediaType.TRACK }
-                        1 -> posts.filter { it.mediaType == MediaType.MOVIE }
-                        2 -> posts // Likes — show all (ViewModel would handle this)
-                        else -> posts
+                    val filteredPosts = when {
+                        currentProfile.isMusicBot -> posts.filter { it.mediaType == MediaType.TRACK }
+                        currentProfile.isFilmBot -> posts.filter { it.mediaType == MediaType.MOVIE }
+                        else -> when (selectedSegment) {
+                            0 -> posts.filter { it.mediaType == MediaType.TRACK }
+                            1 -> posts.filter { it.mediaType == MediaType.MOVIE }
+                            2 -> posts // Likes — show all (ViewModel would handle this)
+                            else -> posts
+                        }
+                    }
+
+                    // Whether we're on a "featured" tab (music/film, not likes)
+                    val isFeaturedTab = when {
+                        currentProfile.isBot -> true // Bots always show featured
+                        else -> selectedSegment <= 1
                     }
 
                     // Featured post — only for Music/Film tabs (matching iOS)
-                    if (filteredPosts.isNotEmpty() && selectedSegment <= 1) {
+                    if (filteredPosts.isNotEmpty() && isFeaturedTab) {
                         val featured = filteredPosts.first()
                         val userProfile = profile
                         if (userProfile != null && featured.mediaType == MediaType.MOVIE) {
@@ -507,22 +526,29 @@ fun OtherProfileScreen(
                             )
                         }
                     } else if (filteredPosts.isEmpty() && !isLoading) {
-                        // Empty state per segment
+                        // Empty state per segment (matching iOS: icon + text, no emoji)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(200.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            val (icon, message) = when (selectedSegment) {
-                                0 -> "🎵" to "No music posts yet"
-                                1 -> "🎬" to "No film posts yet"
-                                else -> "❤️" to "No liked posts yet"
+                            val (icon, message) = when {
+                                currentProfile.isMusicBot || (!currentProfile.isBot && selectedSegment == 0) ->
+                                    Icons.Filled.MusicNote to "No songs yet"
+                                currentProfile.isFilmBot || (!currentProfile.isBot && selectedSegment == 1) ->
+                                    Icons.Filled.Movie to "No films yet"
+                                else -> Icons.Outlined.FavoriteBorder to "No liked posts yet"
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(icon, fontSize = 32.sp)
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(36.dp),
+                                    tint = CorusColors.Tertiary,
+                                )
                                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                                Text(message, style = CorusFont.body, color = CorusColors.Secondary)
+                                Text(message, style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                             }
                         }
                     }
@@ -531,15 +557,20 @@ fun OtherProfileScreen(
 
             // Album art grid (filtered)
             @Suppress("NAME_SHADOWING")
-            val filteredPosts = when (selectedSegment) {
-                0 -> posts.filter { it.mediaType == MediaType.TRACK }
-                1 -> posts.filter { it.mediaType == MediaType.MOVIE }
-                2 -> posts
-                else -> posts
+            val filteredPosts = when {
+                currentProfile.isMusicBot -> posts.filter { it.mediaType == MediaType.TRACK }
+                currentProfile.isFilmBot -> posts.filter { it.mediaType == MediaType.MOVIE }
+                else -> when (selectedSegment) {
+                    0 -> posts.filter { it.mediaType == MediaType.TRACK }
+                    1 -> posts.filter { it.mediaType == MediaType.MOVIE }
+                    2 -> posts
+                    else -> posts
+                }
             }
             // For Likes, show all posts in grid (no featured);
-            // for Music/Film, skip the first post (already shown as featured)
-            val gridPosts = if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts
+            // for Music/Film (and bots), skip the first post (already shown as featured)
+            val isFeaturedTab = currentProfile.isBot || selectedSegment <= 1
+            val gridPosts = if (isFeaturedTab) filteredPosts.drop(1) else filteredPosts
             if (gridPosts.isNotEmpty()) {
                 items(gridPosts, key = { it.id }) { post ->
                     ShimmerAsyncImage(

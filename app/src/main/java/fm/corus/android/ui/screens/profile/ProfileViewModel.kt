@@ -37,7 +37,9 @@ class ProfileViewModel @Inject constructor(
                 userRepository.uploadAvatar(uid, imageData)
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "uploadAvatar failed", e)
+            }
         }
     }
 
@@ -124,7 +126,9 @@ class ProfileViewModel @Inject constructor(
                     this[0] = serverHasMore
                     this[1] = serverHasMore
                 }
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "loadProfile failed", e)
+            }
             _isLoading.value = false
         }
     }
@@ -166,7 +170,9 @@ class ProfileViewModel @Inject constructor(
                 }
                 likedOffset = 0
                 savedOffset = 0
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "refreshProfile failed", e)
+            }
             _isLoading.value = false
         }
     }
@@ -179,7 +185,9 @@ class ProfileViewModel @Inject constructor(
                 userRepository.updateUserProfile(uid, fields)
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "saveStyleSelections failed", e)
+            }
             _isSavingStyle.value = false
         }
     }
@@ -211,7 +219,9 @@ class ProfileViewModel @Inject constructor(
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
                     this[2] = posts.size >= PAGE_SIZE
                 }
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "loadLikedPosts failed", e)
+            }
             _isLoadingLiked.value = false
         }
     }
@@ -229,7 +239,9 @@ class ProfileViewModel @Inject constructor(
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
                     this[3] = posts.size >= PAGE_SIZE
                 }
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "loadSavedPosts failed", e)
+            }
             _isLoadingSaved.value = false
         }
     }
@@ -279,7 +291,9 @@ class ProfileViewModel @Inject constructor(
                         }
                     }
                 }
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "loadMoreForSegment failed", e)
+            }
             _isLoadingMore.value = false
         }
     }

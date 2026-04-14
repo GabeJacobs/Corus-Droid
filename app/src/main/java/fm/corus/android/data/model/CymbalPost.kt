@@ -82,7 +82,9 @@ data class CymbalPost(
                 CymbalComment.fromMap(it)
             } ?: emptyList()
 
-            val likersList = (data["likers"] as? List<Map<String, Any?>>)?.map {
+            val likersRaw = (data["likers"] as? List<Map<String, Any?>>)
+                ?: (data["recentLikers"] as? List<Map<String, Any?>>)
+            val likersList = likersRaw?.map {
                 val likerId = it["id"] as? String ?: ""
                 CymbalUser.fromMap(likerId, it)
             } ?: emptyList()

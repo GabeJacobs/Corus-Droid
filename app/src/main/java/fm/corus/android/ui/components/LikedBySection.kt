@@ -52,7 +52,11 @@ fun LikedBySection(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Overlapping avatar stack
-        Box(modifier = Modifier.height(avatarSize)) {
+        Box(
+            modifier = Modifier
+                .height(avatarSize)
+                .width(avatarStackWidth),
+        ) {
             visibleLikers.forEachIndexed { index, liker ->
                 UserAvatarView(
                     avatarURL = liker.avatarURL,
@@ -65,7 +69,7 @@ fun LikedBySection(
             }
         }
 
-        Spacer(modifier = Modifier.width(avatarStackWidth + CorusSpacing.xs))
+        Spacer(modifier = Modifier.width(CorusSpacing.xs))
 
         val likedByText = buildAnnotatedString {
             append("Liked by ")

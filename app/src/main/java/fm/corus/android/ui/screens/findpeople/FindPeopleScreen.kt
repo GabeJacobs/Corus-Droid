@@ -3,9 +3,13 @@ package fm.corus.android.ui.screens.findpeople
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -458,18 +462,23 @@ private fun SuggestedUsersContent(
         }
 
         // ── Find Friends from Contacts ──
-        if (contactsSyncStatus == "notAsked") {
-            item {
-                FindFriendsFromContactsCard(
-                    isSyncing = isSyncingContacts,
-                    onTap = {
-                        contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-                    },
-                    onDismiss = {
-                        viewModel.dismissContactsSync()
-                    },
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        item {
+            AnimatedVisibility(
+                visible = contactsSyncStatus == "notAsked",
+                exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
+            ) {
+                Column {
+                    FindFriendsFromContactsCard(
+                        isSyncing = isSyncingContacts,
+                        onTap = {
+                            contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                        },
+                        onDismiss = {
+                            viewModel.dismissContactsSync()
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                }
             }
         }
 
@@ -660,17 +669,17 @@ private fun FindFriendsFromContactsCard(
             .clip(cardShape)
             .background(CorusColors.CardBackground)
             .border(0.5.dp, CorusColors.Divider, cardShape)
-            .padding(CorusSpacing.xl),
+            .padding(CorusSpacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
             Icons.Filled.Contacts,
             contentDescription = null,
             tint = CorusColors.Accent,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(32.dp),
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
 
         Text(
             "Find your friends on corus",
@@ -684,7 +693,7 @@ private fun FindFriendsFromContactsCard(
             color = CorusColors.Secondary,
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
 
         Button(
             onClick = onTap,
@@ -708,9 +717,12 @@ private fun FindFriendsFromContactsCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
-        TextButton(onClick = onDismiss) {
+        TextButton(
+            onClick = onDismiss,
+            contentPadding = PaddingValues(horizontal = CorusSpacing.md, vertical = CorusSpacing.xs),
+        ) {
             Text("Not now", style = CorusFont.caption, color = CorusColors.Tertiary)
         }
     }

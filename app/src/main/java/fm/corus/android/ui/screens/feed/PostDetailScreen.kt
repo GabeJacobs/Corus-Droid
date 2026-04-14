@@ -157,7 +157,7 @@ fun PostDetailScreen(
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
                                 } else {
-                                    onNavigateToSong(currentPost.track)
+                                    viewModel.playPreview(currentPost)
                                 }
                             },
                         )
@@ -549,20 +549,18 @@ private fun PostDetailSongInfo(
                     ),
             )
         } else {
-            Box(
+            Image(
+                painter = painterResource(R.drawable.spotify_logo),
+                contentDescription = "Play on Spotify",
                 modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(CorusColors.SpotifyGreen)
+                    .size(28.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onSpotifyTap,
                     ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("S", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
+                contentScale = ContentScale.Fit,
+            )
         }
     }
 }

@@ -137,8 +137,9 @@ fun ProfileScreen(
     }
 
     if (isLoading && profile == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = CorusColors.Accent)
+        Column(modifier = Modifier.fillMaxSize()) {
+            fm.corus.android.ui.components.SkeletonProfileView()
+            fm.corus.android.ui.components.SkeletonProfileGrid()
         }
         return
     }

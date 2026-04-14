@@ -34,6 +34,7 @@ data class CymbalUser(
     val snowIntensity: SnowIntensity get() = SnowIntensity.from(snowEffect)
     val discoIntensityLevel: DiscoIntensity get() = DiscoIntensity.from(discoEffect)
     val isMusicBot: Boolean get() = isBot && botType == "music"
+    val isFilmBot: Boolean get() = isBot && botType == "film"
 
     fun withArtistsInCommonCount(count: Int?): CymbalUser =
         copy(artistsInCommonCount = count)

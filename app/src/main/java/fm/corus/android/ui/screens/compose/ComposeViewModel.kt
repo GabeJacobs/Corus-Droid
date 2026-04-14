@@ -8,7 +8,10 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.model.TrendingMovie
+import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SpotifyRepository
 import fm.corus.android.data.repository.SubscriptionRepository
@@ -32,6 +35,7 @@ class ComposeViewModel @Inject constructor(
     private val analyticsService: AnalyticsService,
     private val userRepository: UserRepository,
     private val subscriptionRepository: SubscriptionRepository,
+    private val exploreRepository: ExploreRepository,
 ) : ViewModel() {
 
     // Post limit / Cymbal Club
@@ -59,6 +63,17 @@ class ComposeViewModel @Inject constructor(
                 } catch (_: Exception) { }
             }
         }
+
+        // Load trending songs and movies
+        viewModelScope.launch {
+            try {
+                _trendingSongs.value = exploreRepository.fetchTrendingSongs()
+            } catch (_: Exception) { }
+            try {
+                _trendingMovies.value = exploreRepository.fetchTrendingMovies()
+            } catch (_: Exception) { }
+            _isLoadingTrending.value = false
+        }
     }
 
     private val _selectedTrack = MutableStateFlow<CymbalTrack?>(null)
@@ -85,6 +100,16 @@ class ComposeViewModel @Inject constructor(
 
     private val _mentionSuggestions = MutableStateFlow<List<CymbalUser>>(emptyList())
     val mentionSuggestions: StateFlow<List<CymbalUser>> = _mentionSuggestions.asStateFlow()
+
+    // Trending songs & movies
+    private val _trendingSongs = MutableStateFlow<List<TrendingSong>>(emptyList())
+    val trendingSongs: StateFlow<List<TrendingSong>> = _trendingSongs.asStateFlow()
+
+    private val _trendingMovies = MutableStateFlow<List<TrendingMovie>>(emptyList())
+    val trendingMovies: StateFlow<List<TrendingMovie>> = _trendingMovies.asStateFlow()
+
+    private val _isLoadingTrending = MutableStateFlow(true)
+    val isLoadingTrending: StateFlow<Boolean> = _isLoadingTrending.asStateFlow()
 
     // Trophy celebration state
     private val _showTrophy = MutableStateFlow(false)
@@ -130,6 +155,16 @@ class ComposeViewModel @Inject constructor(
     fun clearSelection() {
         _selectedTrack.value = null
         _selectedMovie.value = null
+        _searchResults.value = emptyList()
+    }
+
+    fun selectTrendingSong(song: TrendingSong) {
+        _selectedTrack.value = song.track
+        _searchResults.value = emptyList()
+    }
+
+    fun selectTrendingMovie(movie: TrendingMovie) {
+        _selectedMovie.value = movie.asCymbalMovie()
         _searchResults.value = emptyList()
     }
 

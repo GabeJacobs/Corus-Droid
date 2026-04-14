@@ -20,7 +20,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
@@ -206,20 +205,14 @@ fun FeaturedCymbalView(
             Spacer(modifier = Modifier.width(CorusSpacing.md))
 
             // Spotify button
-            Box(
+            Image(
+                painter = painterResource(R.drawable.spotify_logo),
+                contentDescription = "Play on Spotify",
                 modifier = Modifier
-                    .size(20.dp)
-                    .clip(CircleShape)
-                    .background(CorusColors.SpotifyGreen)
+                    .size(21.dp)
                     .clickable(onClick = onSpotifyTap),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "S",
-                    color = Color.White,
-                    fontSize = 11.sp,
-                )
-            }
+                contentScale = ContentScale.Fit,
+            )
         }
     }
 }

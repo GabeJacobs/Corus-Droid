@@ -8,6 +8,7 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,7 @@ class PostDetailViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val engagementManager: PostEngagementManager,
+    private val nowPlayingManager: NowPlayingManager,
 ) : ViewModel() {
 
     private val _post = MutableStateFlow<CymbalPost?>(null)
@@ -76,6 +78,22 @@ class PostDetailViewModel @Inject constructor(
     fun repost(post: CymbalPost) {
         val userId = authRepository.currentUserId ?: return
         engagementManager.repostPost(post, userId)
+    }
+
+    fun playPreview(post: CymbalPost) {
+        viewModelScope.launch {
+            nowPlayingManager.play(
+                trackId = post.track.id,
+                trackName = post.track.name,
+                artistName = post.track.artistName,
+                albumArtURL = post.track.albumArtURL,
+                previewUrl = post.track.previewUrl,
+                spotifyURI = post.track.spotifyURI,
+                spotifyWebURL = post.track.spotifyWebURL,
+                isrc = post.track.isrc,
+                sourcePostId = post.id,
+            )
+        }
     }
 
     fun deletePost(postId: String) {

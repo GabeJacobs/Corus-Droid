@@ -5,20 +5,25 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -28,6 +33,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.model.TrendingMovie
+import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.ui.components.TrophyCelebrationView
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.VoiceNoteRecorderView
@@ -55,6 +62,9 @@ fun ComposeScreen(
     val showTrophy by viewModel.showTrophy.collectAsState()
     val trophyPost by viewModel.trophyPost.collectAsState()
     val showPostLimitPaywall by viewModel.showPostLimitPaywall.collectAsState()
+    val trendingSongs by viewModel.trendingSongs.collectAsState()
+    val trendingMovies by viewModel.trendingMovies.collectAsState()
+    val isLoadingTrending by viewModel.isLoadingTrending.collectAsState()
     var mediaType by remember { mutableStateOf(MediaType.TRACK) }
     var searchQuery by remember { mutableStateOf("") }
     var caption by remember { mutableStateOf("") }
@@ -94,7 +104,7 @@ fun ComposeScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = CorusColors.Text,
+                        tint = CorusColors.Secondary,
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .size(20.dp)
@@ -124,39 +134,6 @@ fun ComposeScreen(
                 )
             }
 
-            // ── Media type toggle chips (if movie mode enabled) ──
-            if (movieModeEnabled) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    MediaTypeChip(
-                        label = "Music",
-                        icon = Icons.Filled.MusicNote,
-                        selected = mediaType == MediaType.TRACK,
-                        onClick = {
-                            mediaType = MediaType.TRACK
-                            viewModel.clearSelection()
-                            searchQuery = ""
-                        },
-                    )
-                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                    MediaTypeChip(
-                        label = "Film",
-                        icon = Icons.Filled.Movie,
-                        selected = mediaType == MediaType.MOVIE,
-                        onClick = {
-                            mediaType = MediaType.MOVIE
-                            viewModel.clearSelection()
-                            searchQuery = ""
-                        },
-                    )
-                }
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            }
-
             // ── Error banner ──
             if (error != null) {
                 Text(
@@ -180,11 +157,21 @@ fun ComposeScreen(
                         }
                     },
                     mediaType = mediaType,
+                    onMediaTypeChange = { newType ->
+                        mediaType = newType
+                        viewModel.clearSelection()
+                        searchQuery = ""
+                    },
                     isSearching = isSearching,
                     searchResults = searchResults,
                     onResultClick = { result ->
                         viewModel.selectResult(result, mediaType)
                     },
+                    trendingSongs = trendingSongs,
+                    trendingMovies = trendingMovies,
+                    isLoadingTrending = isLoadingTrending,
+                    onTrendingSongClick = { viewModel.selectTrendingSong(it) },
+                    onTrendingMovieClick = { viewModel.selectTrendingMovie(it) },
                 )
             } else {
                 // ════════════════════════════════════════
@@ -241,7 +228,6 @@ fun ComposeScreen(
             onNavigateToClub = {
                 viewModel.dismissPostLimitPaywall()
                 onDismiss()
-                // The CymbalClubOfferScreen will be navigated to via the nav graph
             },
         )
     }
@@ -257,58 +243,373 @@ private fun SearchModeContent(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     mediaType: MediaType,
+    onMediaTypeChange: (MediaType) -> Unit,
     isSearching: Boolean,
     searchResults: List<Triple<String?, String, String>>,
     onResultClick: (Triple<String?, String, String>) -> Unit,
+    trendingSongs: List<TrendingSong>,
+    trendingMovies: List<TrendingMovie>,
+    isLoadingTrending: Boolean,
+    onTrendingSongClick: (TrendingSong) -> Unit,
+    onTrendingMovieClick: (TrendingMovie) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // Search field
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
+        // ── Songs / Films segmented toggle ──
+        SegmentedToggle(
+            options = listOf("Songs", "Films"),
+            selectedIndex = if (mediaType == MediaType.TRACK) 0 else 1,
+            onSelected = { index ->
+                onMediaTypeChange(if (index == 0) MediaType.TRACK else MediaType.MOVIE)
+            },
+            modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        )
+
+        // ── Search bar with icon ──
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg),
-            placeholder = {
-                Text(
-                    text = if (mediaType == MediaType.TRACK) "Search for a song..." else "Search for a film...",
-                    style = CorusFont.body,
-                    color = CorusColors.Secondary,
-                )
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-        )
+                .padding(horizontal = CorusSpacing.lg)
+                .background(CorusColors.CardBackground, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = null,
+                tint = CorusColors.Tertiary,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                modifier = Modifier.weight(1f),
+                textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                cursorBrush = SolidColor(CorusColors.Accent),
+                decorationBox = { innerTextField ->
+                    if (searchQuery.isEmpty()) {
+                        Text(
+                            text = if (mediaType == MediaType.TRACK) "Search for a song" else "Search for a film",
+                            style = CorusFont.body,
+                            color = CorusColors.Secondary,
+                        )
+                    }
+                    innerTextField()
+                },
+            )
+        }
 
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-        if (isSearching) {
+        if (searchQuery.isNotEmpty()) {
+            // ── Search results ──
+            if (isSearching) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = CorusSpacing.lg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = CorusColors.Accent,
+                        strokeWidth = 2.dp,
+                    )
+                }
+            }
+
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(searchResults) { result ->
+                    SearchResultRow(
+                        imageURL = result.first,
+                        title = result.second,
+                        subtitle = result.third,
+                        onClick = { onResultClick(result) },
+                    )
+                }
+            }
+        } else {
+            // ── Trending content (when no search query) ──
+            if (isLoadingTrending) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = CorusSpacing.xxl),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = CorusColors.Accent,
+                        strokeWidth = 2.dp,
+                    )
+                }
+            } else if (mediaType == MediaType.TRACK && trendingSongs.isNotEmpty()) {
+                TrendingSongsSection(
+                    songs = trendingSongs,
+                    onSongClick = onTrendingSongClick,
+                )
+            } else if (mediaType == MediaType.MOVIE && trendingMovies.isNotEmpty()) {
+                TrendingMoviesSection(
+                    movies = trendingMovies,
+                    onMovieClick = onTrendingMovieClick,
+                )
+            }
+        }
+    }
+}
+
+// ── Segmented Toggle (matches iOS Picker .segmented) ──
+
+@Composable
+private fun SegmentedToggle(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(CorusColors.CardBackground, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+            .padding(CorusSpacing.xxs),
+    ) {
+        options.forEachIndexed { index, label ->
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = CorusSpacing.lg),
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .then(
+                        if (index == selectedIndex) {
+                            Modifier.background(Color.White, RoundedCornerShape(10.dp))
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .clickable { onSelected(index) }
+                    .padding(vertical = CorusSpacing.sm),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = CorusColors.Accent,
-                    strokeWidth = 2.dp,
+                Text(
+                    text = label,
+                    style = CorusFont.bodyMedium,
+                    color = if (index == selectedIndex) CorusColors.Text else CorusColors.Secondary,
+                )
+            }
+        }
+    }
+}
+
+// ── Trending Songs Section ──
+
+@Composable
+private fun TrendingSongsSection(
+    songs: List<TrendingSong>,
+    onSongClick: (TrendingSong) -> Unit,
+) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item {
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = CorusSpacing.lg)
+                    .padding(top = CorusSpacing.sm, bottom = CorusSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.TrendingUp,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = "TRENDING SONGS",
+                    style = CorusFont.sectionHeader,
+                    color = CorusColors.Secondary,
                 )
             }
         }
 
-        // Results list
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(searchResults) { result ->
-                SearchResultRow(
-                    imageURL = result.first,
-                    title = result.second,
-                    subtitle = result.third,
-                    onClick = { onResultClick(result) },
+        itemsIndexed(songs) { index, song ->
+            TrendingSongRow(
+                song = song,
+                onClick = { onSongClick(song) },
+            )
+            if (index < songs.lastIndex) {
+                HorizontalDivider(
+                    color = CorusColors.Divider,
+                    modifier = Modifier.padding(start = 72.dp),
                 )
             }
         }
+    }
+}
+
+// ── Trending Movies Section ──
+
+@Composable
+private fun TrendingMoviesSection(
+    movies: List<TrendingMovie>,
+    onMovieClick: (TrendingMovie) -> Unit,
+) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item {
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = CorusSpacing.lg)
+                    .padding(top = CorusSpacing.sm, bottom = CorusSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.TrendingUp,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = "TRENDING FILMS",
+                    style = CorusFont.sectionHeader,
+                    color = CorusColors.Secondary,
+                )
+            }
+        }
+
+        itemsIndexed(movies) { index, movie ->
+            TrendingMovieRow(
+                movie = movie,
+                onClick = { onMovieClick(movie) },
+            )
+            if (index < movies.lastIndex) {
+                HorizontalDivider(
+                    color = CorusColors.Divider,
+                    modifier = Modifier.padding(start = 72.dp),
+                )
+            }
+        }
+    }
+}
+
+// ── Trending Song Row ──
+
+@Composable
+private fun TrendingSongRow(
+    song: TrendingSong,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .defaultMinSize(minHeight = CorusSpacing.touchTarget),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "${song.rank}",
+            style = CorusFont.engagementCount,
+            color = CorusColors.Secondary,
+            modifier = Modifier.width(24.dp),
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        AsyncImage(
+            model = song.track.albumArtLargeURL ?: song.track.albumArtURL,
+            contentDescription = song.track.name,
+            modifier = Modifier
+                .size(CorusSpacing.albumArtSearch)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = song.track.name,
+                style = CorusFont.body,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = song.track.artistName,
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = "${song.cymbalCount}",
+            style = CorusFont.captionMedium,
+            color = CorusColors.Secondary,
+        )
+    }
+}
+
+// ── Trending Movie Row ──
+
+@Composable
+private fun TrendingMovieRow(
+    movie: TrendingMovie,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .defaultMinSize(minHeight = CorusSpacing.touchTarget),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "${movie.rank}",
+            style = CorusFont.engagementCount,
+            color = CorusColors.Secondary,
+            modifier = Modifier.width(24.dp),
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        AsyncImage(
+            model = movie.posterURL,
+            contentDescription = movie.movieTitle,
+            modifier = Modifier
+                .width(40.dp)
+                .height(60.dp)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = movie.movieTitle,
+                style = CorusFont.body,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs)) {
+                Text(
+                    text = movie.directorName,
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (movie.releaseYear.isNotEmpty()) {
+                    Text(
+                        text = "(${movie.releaseYear})",
+                        style = CorusFont.caption,
+                        color = CorusColors.Tertiary,
+                    )
+                }
+            }
+        }
+        Text(
+            text = "${movie.cymbalCount}",
+            style = CorusFont.captionMedium,
+            color = CorusColors.Secondary,
+        )
     }
 }
 
@@ -376,7 +677,6 @@ private fun ComposeModeContent(
     val imageURL = if (mediaType == MediaType.TRACK) selectedTrack?.albumArtURL else selectedMovie?.posterURL
     val title = if (mediaType == MediaType.TRACK) selectedTrack?.name.orEmpty() else selectedMovie?.title.orEmpty()
     val subtitle = if (mediaType == MediaType.TRACK) selectedTrack?.artistName.orEmpty() else selectedMovie?.directorName.orEmpty()
-    val hasPreview = mediaType == MediaType.TRACK && selectedTrack?.previewUrl != null
 
     Column(
         modifier = Modifier
@@ -387,7 +687,7 @@ private fun ComposeModeContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = CorusSpacing.sm),
+                .padding(vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AsyncImage(
@@ -415,62 +715,16 @@ private fun ComposeModeContent(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (hasPreview) {
-                Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(CorusColors.Accent),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.PlayArrow,
-                        contentDescription = "Play preview",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-
-        // ── Caption mode toggle (Text / Voice) ──
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            FilterChip(
-                selected = captionMode == "text",
-                onClick = { onCaptionModeChange("text") },
-                label = { Text("Text", style = CorusFont.buttonSmall) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = CorusColors.Accent.copy(alpha = 0.15f),
-                    selectedLabelColor = CorusColors.Accent,
-                ),
-                border = FilterChipDefaults.filterChipBorder(
-                    selectedBorderColor = CorusColors.Accent,
-                    enabled = true,
-                    selected = captionMode == "text",
-                ),
-            )
-            Spacer(modifier = Modifier.width(CorusSpacing.sm))
-            FilterChip(
-                selected = captionMode == "voice",
-                onClick = { onCaptionModeChange("voice") },
-                label = { Text("Voice", style = CorusFont.buttonSmall) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = CorusColors.Accent.copy(alpha = 0.15f),
-                    selectedLabelColor = CorusColors.Accent,
-                ),
-                border = FilterChipDefaults.filterChipBorder(
-                    selectedBorderColor = CorusColors.Accent,
-                    enabled = true,
-                    selected = captionMode == "voice",
-                ),
-            )
-        }
+        // ── Caption mode toggle (Text / Voice) — segmented style like iOS ──
+        SegmentedToggle(
+            options = listOf("Text", "Voice"),
+            selectedIndex = if (captionMode == "text") 0 else 1,
+            onSelected = { index ->
+                onCaptionModeChange(if (index == 0) "text" else "voice")
+            },
+        )
 
         Spacer(modifier = Modifier.height(CorusSpacing.md))
 
@@ -481,23 +735,32 @@ private fun ComposeModeContent(
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
-        // ── Caption text field ──
-        OutlinedTextField(
-            value = caption,
-            onValueChange = onCaptionChange,
+        // ── Caption text field (borderless, like iOS TextEditor) ──
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .defaultMinSize(minHeight = 120.dp),
-            placeholder = {
+                .weight(1f),
+        ) {
+            if (caption.isEmpty()) {
                 Text(
-                    text = "Add a caption...",
+                    text = "Write a caption...",
                     style = CorusFont.body,
-                    color = CorusColors.Secondary,
+                    color = CorusColors.Secondary.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(top = CorusSpacing.xs),
                 )
-            },
-            maxLines = 8,
-            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-        )
+            }
+            BasicTextField(
+                value = caption,
+                onValueChange = onCaptionChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(top = CorusSpacing.xs),
+                textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                maxLines = Int.MAX_VALUE,
+                cursorBrush = SolidColor(CorusColors.Accent),
+            )
+        }
 
         // Character counter (visible at 650+)
         if (caption.length >= 650) {
@@ -557,21 +820,19 @@ private fun ComposeModeContent(
         }
         } // end else (text mode)
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        // ── Post button ──
+        // ── Post button — "SET YOUR CORUS →" like iOS ──
         Button(
             onClick = onPost,
             enabled = !isPosting,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = CorusSpacing.xxl),
+                .padding(vertical = CorusSpacing.lg),
             shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
             colors = ButtonDefaults.buttonColors(
                 containerColor = CorusColors.Accent,
                 disabledContainerColor = CorusColors.Accent.copy(alpha = 0.5f),
             ),
-            contentPadding = PaddingValues(vertical = CorusSpacing.md),
+            contentPadding = PaddingValues(vertical = CorusSpacing.lg),
         ) {
             if (isPosting) {
                 CircularProgressIndicator(
@@ -581,51 +842,11 @@ private fun ComposeModeContent(
                 )
             } else {
                 Text(
-                    text = "Post",
+                    text = "SET YOUR CORUS \u2192",
                     style = CorusFont.button,
                     color = Color.White,
                 )
             }
         }
     }
-}
-
-// ════════════════════════════════════════════════════════════
-// Media Type Chip
-// ════════════════════════════════════════════════════════════
-
-@Composable
-private fun MediaTypeChip(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = {
-            Text(
-                text = label,
-                style = CorusFont.buttonSmall,
-            )
-        },
-        leadingIcon = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-            )
-        },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = CorusColors.Accent.copy(alpha = 0.15f),
-            selectedLabelColor = CorusColors.Accent,
-            selectedLeadingIconColor = CorusColors.Accent,
-        ),
-        border = FilterChipDefaults.filterChipBorder(
-            selectedBorderColor = CorusColors.Accent,
-            enabled = true,
-            selected = selected,
-        ),
-    )
 }
