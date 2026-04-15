@@ -104,6 +104,7 @@ fun StylePickerSheet(
     hasMoviePosts: Boolean,
     isClubMember: Boolean,
     isSaving: Boolean,
+    initialPage: Int = 0,
     onSave: (StyleSelections) -> Unit,
     onNavigateToClub: () -> Unit,
     onDismiss: () -> Unit,
@@ -121,7 +122,10 @@ fun StylePickerSheet(
         }
     }
 
-    val pagerState = rememberPagerState(pageCount = { pages.size })
+    val pagerState = rememberPagerState(
+        initialPage = initialPage.coerceIn(0, (pages.size - 1).coerceAtLeast(0)),
+        pageCount = { pages.size },
+    )
 
     Column(
         modifier = Modifier

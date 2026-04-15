@@ -200,6 +200,9 @@ fun MainTabScreen(
             TabContent(visible = selectedTab == CorusTab.PROFILE) {
                 ProfileNavGraph(navController = profileNavController, mainTabViewModel = viewModel, scrollToTopTrigger = profileScrollToTop.intValue)
             }
+
+            // Toast overlay (inside padded Box so it renders above the bottom bar)
+            fm.corus.android.ui.components.ToastHost()
         }
 
         // Post limit paywall (shown when compose is gated)
@@ -223,9 +226,6 @@ fun MainTabScreen(
                 },
             )
         }
-
-        // Toast overlay
-        fm.corus.android.ui.components.ToastHost()
     }
 
     // Compose screen as full-screen overlay OVER everything (including bottom bar & mini player)

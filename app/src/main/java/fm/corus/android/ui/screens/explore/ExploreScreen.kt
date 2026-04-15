@@ -28,6 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -89,6 +93,18 @@ fun ExploreScreen(
     var searchQuery by remember { mutableStateOf("") }
     val hasSearchQuery = searchQuery.isNotBlank()
 
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val scrollDismissConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y != 0f) {
+                    keyboardController?.hide()
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.loadTrending()
     }
@@ -98,7 +114,7 @@ fun ExploreScreen(
         viewModel.search(searchQuery, selectedTab.ordinal)
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().nestedScroll(scrollDismissConnection)) {
         // Header: centered "Search" title
         Box(
             modifier = Modifier

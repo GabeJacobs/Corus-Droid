@@ -106,6 +106,7 @@ fun SinglePostCommentsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
         bottomBar = {

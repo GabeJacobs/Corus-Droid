@@ -77,6 +77,7 @@ fun FeedScreen(
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<CymbalPost?>(null) }
+    var filmInfoPost by remember { mutableStateOf<CymbalPost?>(null) }
 
     LaunchedEffect(Unit) {
         if (allPosts.isEmpty()) {
@@ -294,9 +295,10 @@ fun FeedScreen(
                                 onLikesTap = { onNavigateToLikes(post.id) },
                                 onShareTap = { sharePost = post },
                                 onMenuTap = { menuPost = post },
+                                onFilmPageTap = { onNavigateToFilm(post.movieId ?: "") },
                                 onSpotifyTap = {
                                     if (post.isMovie) {
-                                        onNavigateToFilm(post.movieId ?: "")
+                                        filmInfoPost = post
                                     } else {
                                         val uri = post.track.spotifyURI
                                         val webUrl = post.track.spotifyWebURL
@@ -485,5 +487,14 @@ fun FeedScreen(
                 },
             )
         }
+    }
+
+    // ── Film Info Sheet ──
+    filmInfoPost?.let { post ->
+        FilmInfoSheet(
+            post = post,
+            onDismiss = { filmInfoPost = null },
+            fetchMovieDetails = { movieId -> viewModel.fetchMovieDetails(movieId) },
+        )
     }
 }

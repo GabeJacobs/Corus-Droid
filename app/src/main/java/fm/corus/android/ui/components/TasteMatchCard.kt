@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -111,25 +110,16 @@ fun TasteMatchCard(
             )
 
             Column(modifier = Modifier.weight(1f)) {
-                // Username + verified badge
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = user.username,
-                        style = CorusFont.username,
-                        color = CorusColors.Text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (user.isVerified) {
-                        Spacer(modifier = Modifier.width(CorusSpacing.xxs))
-                        Icon(
-                            Icons.Filled.CheckCircle,
-                            contentDescription = "Verified",
-                            tint = CorusColors.Verified,
-                            modifier = Modifier.size(12.dp),
-                        )
-                    }
-                }
+                // Username + flair badge
+                UsernameWithFlair(
+                    username = user.username,
+                    isBot = user.isBot,
+                    isVerified = user.isVerified,
+                    isClubMember = user.isClubMember,
+                    flairStyle = user.flairStyle,
+                    style = CorusFont.username,
+                    color = CorusColors.Text,
+                )
 
                 // Match flavor text
                 val flavorText = buildMatchFlavorText(matchData)

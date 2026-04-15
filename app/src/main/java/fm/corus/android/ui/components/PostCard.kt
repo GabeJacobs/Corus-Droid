@@ -86,6 +86,7 @@ fun PostCard(
     onHashtagTap: (String) -> Unit = {},
     trackPostCount: Int = post.trackPostCount ?: 0,
     onSongCountTap: () -> Unit = {},
+    onFilmPageTap: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val heartScale = remember { Animatable(0f) }
@@ -258,7 +259,7 @@ fun PostCard(
                     ) {
                         // View Film Page button
                         Button(
-                            onClick = { onPostTap() },
+                            onClick = { onFilmPageTap() },
                             shape = CircleShape,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color.White,

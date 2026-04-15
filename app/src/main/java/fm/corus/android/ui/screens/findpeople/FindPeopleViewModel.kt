@@ -108,6 +108,9 @@ class FindPeopleViewModel @Inject constructor(
     private val _isSyncingContacts = MutableStateFlow(false)
     val isSyncingContacts: StateFlow<Boolean> = _isSyncingContacts.asStateFlow()
 
+    private val _showNoContactMatches = MutableStateFlow(false)
+    val showNoContactMatches: StateFlow<Boolean> = _showNoContactMatches.asStateFlow()
+
     val contactsSyncStatus: StateFlow<String> = preferencesDataStore.contactsSyncStatus
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "notAsked")
 
@@ -320,6 +323,8 @@ class FindPeopleViewModel @Inject constructor(
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             _isSyncingContacts.value = true
+            _showNoContactMatches.value = false
+            preferencesDataStore.setContactsSyncStatus("synced")
             try {
                 val phoneNumbers = readContactPhoneNumbers(contentResolver)
                 if (phoneNumbers.isNotEmpty()) {
@@ -340,9 +345,11 @@ class FindPeopleViewModel @Inject constructor(
                         Log.e("FindPeopleVM", "fetchUsersByPhoneNumbers failed", e)
                     }
                 }
-                preferencesDataStore.setContactsSyncStatus("synced")
             } catch (_: Exception) { }
             _isSyncingContacts.value = false
+            if (_contactMatches.value.isEmpty()) {
+                _showNoContactMatches.value = true
+            }
         }
     }
 

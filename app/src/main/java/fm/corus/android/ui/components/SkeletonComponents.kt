@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.valentinilk.shimmer.shimmer
@@ -995,7 +997,207 @@ fun SkeletonNotificationRow(
     }
 }
 
-// 12. SkeletonFeaturedCymbal — Large rectangle for featured post area
+// 12. SkeletonFilmInfoSheet — Loading skeleton for the film info bottom sheet
+@Composable
+fun SkeletonFilmInfoSheet() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shimmer(),
+    ) {
+        // Header: poster + title + year + genre chip
+        Row(
+            modifier = Modifier
+                .padding(horizontal = CorusSpacing.lg)
+                .padding(top = CorusSpacing.xl, bottom = CorusSpacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(60.dp)
+                    .height(90.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(CorusSpacing.xs)) {
+                Box(
+                    modifier = Modifier
+                        .width(170.dp)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(CorusColors.Skeleton)
+                )
+                Box(
+                    modifier = Modifier
+                        .width(85.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(CorusColors.Skeleton)
+                )
+                Box(
+                    modifier = Modifier
+                        .width(72.dp)
+                        .height(26.dp)
+                        .clip(RoundedCornerShape(13.dp))
+                        .background(CorusColors.Skeleton)
+                )
+            }
+        }
+
+        HorizontalDivider(color = CorusColors.Divider)
+
+        // Country / Language rows
+        Column(
+            modifier = Modifier
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+        ) {
+            SkeletonInfoRow(labelWidth = 58.dp, valueWidth = 180.dp)
+            SkeletonInfoRow(labelWidth = 65.dp, valueWidth = 60.dp)
+        }
+
+        HorizontalDivider(color = CorusColors.Divider)
+
+        // Director / Screenplay rows
+        Column(
+            modifier = Modifier
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+        ) {
+            SkeletonInfoRow(labelWidth = 58.dp, valueWidth = 100.dp)
+            SkeletonInfoRow(labelWidth = 75.dp, valueWidth = 190.dp)
+        }
+
+        HorizontalDivider(color = CorusColors.Divider)
+
+        // Synopsis
+        Column(
+            modifier = Modifier
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(66.dp)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Box(
+                modifier = Modifier
+                    .width(200.dp)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+        }
+
+        HorizontalDivider(color = CorusColors.Divider)
+
+        // Cast
+        Column(
+            modifier = Modifier
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(36.dp)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            repeat(4) {
+                Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm)) {
+                    Box(
+                        modifier = Modifier
+                            .width(130.dp)
+                            .height(14.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(CorusColors.Skeleton)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(80.dp)
+                            .height(14.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(CorusColors.Skeleton)
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(color = CorusColors.Divider)
+
+        // Link buttons
+        Row(
+            modifier = Modifier
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(70.dp)
+                    .height(30.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Box(
+                modifier = Modifier
+                    .width(110.dp)
+                    .height(30.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Box(
+                modifier = Modifier
+                    .width(135.dp)
+                    .height(30.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(CorusColors.Skeleton)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SkeletonInfoRow(labelWidth: Dp, valueWidth: Dp) {
+    Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm)) {
+        Box(
+            modifier = Modifier
+                .width(labelWidth)
+                .height(11.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(CorusColors.Skeleton),
+        )
+        Spacer(modifier = Modifier.width(80.dp - labelWidth))
+        Box(
+            modifier = Modifier
+                .width(valueWidth)
+                .height(14.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(CorusColors.Skeleton),
+        )
+    }
+}
+
+// 13. SkeletonFeaturedCymbal — Large rectangle for featured post area
 @Composable
 fun SkeletonFeaturedCymbal() {
     Column(

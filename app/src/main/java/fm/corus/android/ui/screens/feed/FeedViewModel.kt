@@ -6,6 +6,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.remote.TMDBApiService
+import fm.corus.android.data.remote.TMDBMovieDetails
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
@@ -33,6 +35,7 @@ class FeedViewModel @Inject constructor(
     private val engagementManager: PostEngagementManager,
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
+    private val tmdbApiService: TMDBApiService,
     val nowPlayingManager: NowPlayingManager,
     val remoteConfig: RemoteConfigService,
     val analyticsService: AnalyticsService,
@@ -323,5 +326,13 @@ class FeedViewModel @Inject constructor(
 
     fun isPostSaved(postId: String): Boolean {
         return engagementManager.getState(postId)?.isSaved ?: false
+    }
+
+    suspend fun fetchMovieDetails(movieId: Int): TMDBMovieDetails? {
+        return try {
+            tmdbApiService.getMovieDetails(movieId)
+        } catch (_: Exception) {
+            null
+        }
     }
 }

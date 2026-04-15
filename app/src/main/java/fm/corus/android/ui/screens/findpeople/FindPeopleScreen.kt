@@ -36,8 +36,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -104,12 +108,25 @@ fun FindPeopleScreen(
     val contactMatches by viewModel.contactMatches.collectAsState()
     val isSyncingContacts by viewModel.isSyncingContacts.collectAsState()
     val contactsSyncStatus by viewModel.contactsSyncStatus.collectAsState()
+    val showNoContactMatches by viewModel.showNoContactMatches.collectAsState()
     val popularUsers by viewModel.popularUsers.collectAsState()
     val isPopularLoading by viewModel.isPopularLoading.collectAsState()
 
     var activeTab by remember { mutableStateOf(SearchTab.USERS) }
     val hasSearchQuery = searchQuery.isNotBlank()
     var isSearchFocused by remember { mutableStateOf(false) }
+
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val scrollDismissConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y != 0f) {
+                    keyboardController?.hide()
+                }
+                return Offset.Zero
+            }
+        }
+    }
 
     // List states for scroll-to-top
     val usersListState = rememberLazyListState()
@@ -156,7 +173,7 @@ fun FindPeopleScreen(
             .filter { it.suggestionReason?.mutualNames?.isNotEmpty() == true }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
+    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background).nestedScroll(scrollDismissConnection)) {
         // Header
         Box(
             modifier = Modifier
@@ -224,6 +241,7 @@ fun FindPeopleScreen(
                             contactMatches = contactMatches,
                             contactsSyncStatus = contactsSyncStatus,
                             isSyncingContacts = isSyncingContacts,
+                            showNoContactMatches = showNoContactMatches,
                             popularUsers = popularUsers,
                             isPopularLoading = isPopularLoading,
                             isSuggestedLoading = isSuggestedLoading,
@@ -390,6 +408,7 @@ private fun SuggestedUsersContent(
     contactMatches: List<CymbalUser>,
     contactsSyncStatus: String,
     isSyncingContacts: Boolean,
+    showNoContactMatches: Boolean,
     popularUsers: List<CymbalUser>,
     isPopularLoading: Boolean,
     isSuggestedLoading: Boolean,
@@ -479,13 +498,21 @@ private fun SuggestedUsersContent(
                             viewModel.dismissContactsSync()
                         },
                     )
-                    Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
                 }
             }
         }
 
         // ── Friends on Corus (contact matches) ──
-        if (contactMatches.isNotEmpty()) {
+        if (isSyncingContacts && contactsSyncStatus == "synced") {
+            item {
+                SectionHeader(icon = "contacts", title = "FRIENDS ON CORUS")
+            }
+            items(3) {
+                SkeletonUserRow()
+            }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
+        } else if (contactMatches.isNotEmpty()) {
             item {
                 SectionHeader(
                     icon = "contacts",
@@ -502,6 +529,11 @@ private fun SuggestedUsersContent(
                     onTap = { onNavigateToUser(user.id) },
                     onFollow = { viewModel.toggleFollow(user) },
                 )
+            }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
+        } else if (showNoContactMatches) {
+            item {
+                NoContactMatchesCard()
             }
             item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
         }
@@ -725,6 +757,28 @@ private fun FindFriendsFromContactsCard(
         ) {
             Text("Not now", style = CorusFont.caption, color = CorusColors.Tertiary)
         }
+    }
+}
+
+@Composable
+private fun NoContactMatchesCard() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = CorusSpacing.lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            "None of your contacts are on Corus yet",
+            style = CorusFont.body,
+            color = CorusColors.Secondary,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+        Text(
+            "We\u2019ll let you know when they join",
+            style = CorusFont.caption,
+            color = CorusColors.Tertiary,
+        )
     }
 }
 

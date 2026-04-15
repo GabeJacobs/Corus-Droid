@@ -301,7 +301,7 @@ private fun SearchModeContent(
         focusRequester.requestFocus()
     }
 
-    Column(modifier = Modifier.fillMaxSize().nestedScroll(scrollDismissConnection)) {
+    Column(modifier = Modifier.fillMaxSize().imePadding().nestedScroll(scrollDismissConnection)) {
         // ── Songs / Films segmented toggle ──
         SegmentedToggle(
             options = listOf("Songs", "Films"),
@@ -726,6 +726,16 @@ private fun ComposeModeContent(
     val title = if (mediaType == MediaType.TRACK) selectedTrack?.name.orEmpty() else selectedMovie?.title.orEmpty()
     val subtitle = if (mediaType == MediaType.TRACK) selectedTrack?.artistName.orEmpty() else selectedMovie?.directorName.orEmpty()
 
+    val captionFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(captionMode) {
+        if (captionMode == "text") {
+            captionFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -804,7 +814,8 @@ private fun ComposeModeContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight()
-                    .padding(top = CorusSpacing.xs),
+                    .padding(top = CorusSpacing.xs)
+                    .focusRequester(captionFocusRequester),
                 textStyle = CorusFont.body.copy(color = CorusColors.Text),
                 maxLines = Int.MAX_VALUE,
                 cursorBrush = SolidColor(CorusColors.Accent),

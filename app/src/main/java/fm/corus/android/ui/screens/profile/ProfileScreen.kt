@@ -363,30 +363,34 @@ fun ProfileScreen(
                                     .padding(horizontal = CorusSpacing.md),
                                 contentAlignment = Alignment.Center,
                             ) {
+                                // Always render label to preserve button width
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+                                    modifier = Modifier.alpha(
+                                        if (!hasSongs) 0.35f
+                                        else if (isGeneratingPlaylist) 0f
+                                        else 1f
+                                    ),
+                                ) {
+                                    Icon(
+                                        painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                        contentDescription = "Playlist",
+                                        modifier = Modifier.size(14.dp),
+                                        tint = CorusColors.Secondary,
+                                    )
+                                    Text(
+                                        text = "PLAYLIST",
+                                        style = CorusFont.button,
+                                        color = CorusColors.Secondary,
+                                    )
+                                }
                                 if (isGeneratingPlaylist) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(14.dp),
                                         strokeWidth = 2.dp,
                                         color = CorusColors.Secondary,
                                     )
-                                } else {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-                                        modifier = Modifier.alpha(if (hasSongs) 1f else 0.35f),
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
-                                            contentDescription = "Playlist",
-                                            modifier = Modifier.size(14.dp),
-                                            tint = CorusColors.Secondary,
-                                        )
-                                        Text(
-                                            text = "PLAYLIST",
-                                            style = CorusFont.button,
-                                            color = CorusColors.Secondary,
-                                        )
-                                    }
                                 }
                             }
 
@@ -652,6 +656,15 @@ fun ProfileScreen(
             containerColor = CorusColors.Background,
             dragHandle = null,
         ) {
+            // When on the FILM tab, open directly to the frame color page
+            val styleInitialPage = if (selectedSegment == 1 && trackPosts.isNotEmpty() && moviePosts.isNotEmpty()) {
+                1 // FRAME is at index 1 when both track and movie posts exist (VINYL=0, FRAME=1)
+            } else if (selectedSegment == 1 && moviePosts.isNotEmpty()) {
+                0 // FRAME is at index 0 when only movie posts exist
+            } else {
+                0
+            }
+
             StylePickerSheet(
                 currentSelections = StyleSelections(
                     vinylColor = currentProfile.vinylStyle,
@@ -669,6 +682,7 @@ fun ProfileScreen(
                 hasMoviePosts = moviePosts.isNotEmpty(),
                 isClubMember = hasFullAccess,
                 isSaving = isSavingStyle,
+                initialPage = styleInitialPage,
                 onSave = { selections ->
                     val current = StyleSelections(
                         vinylColor = currentProfile.vinylStyle,
