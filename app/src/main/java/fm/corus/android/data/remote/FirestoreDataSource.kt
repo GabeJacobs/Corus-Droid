@@ -533,6 +533,23 @@ class FirestoreDataSource @Inject constructor(
         }
     }
 
+    // ── Per-post engagement listener (matching iOS PostEngagementStore) ──
+
+    fun listenForPostUpdates(
+        postId: String,
+        onUpdate: (likeCount: Int, commentCount: Int, repostCount: Int) -> Unit,
+    ): ListenerRegistration {
+        return firestore.collection("posts").document(postId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+                val data = snapshot?.data ?: return@addSnapshotListener
+                val likeCount = (data["likeCount"] as? Number)?.toInt() ?: 0
+                val commentCount = (data["commentCount"] as? Number)?.toInt() ?: 0
+                val repostCount = (data["repostCount"] as? Number)?.toInt() ?: 0
+                onUpdate(likeCount, commentCount, repostCount)
+            }
+    }
+
     // ── Notifications listener ──
 
     fun observeNotifications(userId: String, limit: Int = 15): Flow<List<CymbalNotification>> = callbackFlow {

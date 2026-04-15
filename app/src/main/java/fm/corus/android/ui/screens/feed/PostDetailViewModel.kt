@@ -39,6 +39,8 @@ class PostDetailViewModel @Inject constructor(
 
     val currentUserId: String? get() = authRepository.currentUserId
 
+    private var listeningPostId: String? = null
+
     fun loadPost(postId: String) {
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
@@ -55,6 +57,11 @@ class PostDetailViewModel @Inject constructor(
                         isLiked = loadedPost.isLiked,
                         isSaved = false,
                     )
+                    // Start real-time listener (matching iOS PostEngagementStore)
+                    listeningPostId?.let { engagementManager.stopListening(it) }
+                    engagementManager.startListening(loadedPost.id)
+                    listeningPostId = loadedPost.id
+
                     // Check actual like status from Firestore (backend doesn't return isLiked)
                     engagementManager.checkLikeStatuses(listOf(loadedPost.id), userId)
                 }
@@ -112,5 +119,10 @@ class PostDetailViewModel @Inject constructor(
         } catch (_: Exception) {
             null
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        listeningPostId?.let { engagementManager.stopListening(it) }
     }
 }

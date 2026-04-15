@@ -249,6 +249,7 @@ private fun ColumnScope.CommentsSheetContent(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(vertical = CorusSpacing.sm),
+                        userScrollEnabled = isSheetExpanded,
                     ) {
                         // Caption row (matching iOS — show post author + caption at top)
                         val captionText = post?.caption

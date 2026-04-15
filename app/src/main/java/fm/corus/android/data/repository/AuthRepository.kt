@@ -1,6 +1,5 @@
 package fm.corus.android.data.repository
 
-import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
@@ -146,18 +145,11 @@ class AuthRepository @Inject constructor(
     // ── FCM ──
 
     suspend fun registerFCMToken() {
-        val uid = auth.currentUser?.uid ?: run {
-            Log.w("FCM", "registerFCMToken: no current user")
-            return
-        }
+        val uid = auth.currentUser?.uid ?: return
         try {
             val token = messaging.token.await()
-            Log.d("FCM", "registerFCMToken: got token ${token.take(20)}... for uid=$uid")
             firestoreDataSource.updateFCMToken(uid, token)
-            Log.d("FCM", "registerFCMToken: token saved to Firestore")
-        } catch (e: Exception) {
-            Log.e("FCM", "registerFCMToken failed", e)
-        }
+        } catch (_: Exception) { }
     }
 
     // ── Sign Out ──

@@ -3,6 +3,9 @@ package fm.corus.android
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
@@ -10,9 +13,14 @@ import com.revenuecat.purchases.LogLevel
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesConfiguration
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 @HiltAndroidApp
-class CorusApplication : Application() {
+class CorusApplication : Application(), SingletonImageLoader.Factory {
+
+    @Inject lateinit var imageLoader: ImageLoader
+
+    override fun newImageLoader(context: PlatformContext): ImageLoader = imageLoader
 
     override fun onCreate() {
         super.onCreate()

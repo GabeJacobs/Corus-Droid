@@ -11,15 +11,38 @@ import javax.inject.Singleton
 class ExploreRepository @Inject constructor(
     private val firestoreDataSource: FirestoreDataSource,
 ) {
+    companion object {
+        private const val TRENDING_TTL_MS = 5L * 60 * 1000 // 5 minutes — matches iOS
+    }
+
+    @Volatile private var trendingSongsCache: CacheEntry<List<TrendingSong>>? = null
+    @Volatile private var trendingMoviesCache: CacheEntry<List<TrendingMovie>>? = null
+    @Volatile private var trendingHashtagsCache: CacheEntry<List<CymbalHashtag>>? = null
+
     suspend fun fetchTrendingHashtags(limit: Int = 10): List<CymbalHashtag> {
-        return firestoreDataSource.fetchTrendingHashtags(limit)
+        trendingHashtagsCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value }
+        return firestoreDataSource.fetchTrendingHashtags(limit).also {
+            trendingHashtagsCache = CacheEntry(it)
+        }
     }
 
     suspend fun fetchTrendingSongs(limit: Int = 20): List<TrendingSong> {
-        return firestoreDataSource.fetchTrendingSongs(limit)
+        trendingSongsCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value }
+        return firestoreDataSource.fetchTrendingSongs(limit).also {
+            trendingSongsCache = CacheEntry(it)
+        }
     }
 
     suspend fun fetchTrendingMovies(limit: Int = 20): List<TrendingMovie> {
-        return firestoreDataSource.fetchTrendingMovies(limit)
+        trendingMoviesCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value }
+        return firestoreDataSource.fetchTrendingMovies(limit).also {
+            trendingMoviesCache = CacheEntry(it)
+        }
+    }
+
+    fun clearCaches() {
+        trendingSongsCache = null
+        trendingMoviesCache = null
+        trendingHashtagsCache = null
     }
 }

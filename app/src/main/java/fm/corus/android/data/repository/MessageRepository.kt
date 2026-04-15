@@ -33,6 +33,7 @@ class MessageRepository @Inject constructor(
         replyToMessageId: String? = null,
         replyToText: String? = null,
         replyToUserId: String? = null,
+        clientMessageId: String? = null,
     ) {
         cloudFunctions.sendMessage(
             threadId = threadId,
@@ -41,6 +42,7 @@ class MessageRepository @Inject constructor(
             replyToMessageId = replyToMessageId,
             replyToText = replyToText,
             replyToUserId = replyToUserId,
+            clientMessageId = clientMessageId,
         )
     }
 
@@ -48,15 +50,15 @@ class MessageRepository @Inject constructor(
         cloudFunctions.toggleMessageReaction(threadId, messageId, emoji)
     }
 
-    suspend fun sendImageMessage(threadId: String, fromUserId: String, imageData: ByteArray): String {
-        val messageId = "${System.currentTimeMillis()}"
+    suspend fun sendImageMessage(threadId: String, fromUserId: String, imageData: ByteArray, clientMessageId: String? = null): String {
+        val messageId = clientMessageId ?: "${System.currentTimeMillis()}"
         val url = storageDataSource.uploadMessageImage(threadId, messageId, imageData)
-        cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = "", type = "image", mediaURL = url)
+        cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = "", type = "image", mediaURL = url, clientMessageId = clientMessageId)
         return url
     }
 
-    suspend fun sendGifMessage(threadId: String, fromUserId: String, gifURL: String) {
-        cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = "", type = "gif", mediaURL = gifURL)
+    suspend fun sendGifMessage(threadId: String, fromUserId: String, gifURL: String, clientMessageId: String? = null) {
+        cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = "", type = "gif", mediaURL = gifURL, clientMessageId = clientMessageId)
     }
 
     suspend fun sendSharedTrackMessage(threadId: String, fromUserId: String, text: String, trackName: String, artistName: String, albumArtURL: String?, spotifyURL: String?) {

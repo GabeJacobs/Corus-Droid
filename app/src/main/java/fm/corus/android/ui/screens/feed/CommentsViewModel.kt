@@ -58,6 +58,7 @@ class CommentsViewModel @Inject constructor(
 
     private var postId: String = ""
     private var _currentUserProfile: CymbalUser? = null
+    private var listeningPostId: String? = null
 
     private val _sendError = MutableStateFlow<String?>(null)
     val sendError: StateFlow<String?> = _sendError.asStateFlow()
@@ -80,6 +81,11 @@ class CommentsViewModel @Inject constructor(
                         isSaved = false,
                     )
                     engagementManager.checkLikeStatuses(listOf(loadedPost.id), userId)
+
+                    // Start real-time listener (matching iOS PostEngagementStore)
+                    listeningPostId?.let { engagementManager.stopListening(it) }
+                    engagementManager.startListening(loadedPost.id)
+                    listeningPostId = loadedPost.id
                 }
             } catch (_: Exception) { }
         }
@@ -366,5 +372,10 @@ class CommentsViewModel @Inject constructor(
         } catch (_: Exception) {
             null
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        listeningPostId?.let { engagementManager.stopListening(it) }
     }
 }

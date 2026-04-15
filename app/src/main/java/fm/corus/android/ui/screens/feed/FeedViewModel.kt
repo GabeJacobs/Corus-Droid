@@ -87,6 +87,9 @@ class FeedViewModel @Inject constructor(
 
     private var shareSearchJob: Job? = null
 
+    // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
+    private val activeListenerPostIds = mutableSetOf<String>()
+
     fun loadFeed(refresh: Boolean = false) {
         val userId = authRepository.currentUserId ?: return
 
@@ -127,6 +130,13 @@ class FeedViewModel @Inject constructor(
                 _hasMore.value = page.hasMore
                 if (newPosts.isNotEmpty()) {
                     lastTimestamp = newPosts.last().timestamp.time
+                }
+
+                // Start real-time listeners for new posts (matching iOS PostEngagementStore)
+                newPosts.forEach { post ->
+                    if (activeListenerPostIds.add(post.id)) {
+                        engagementManager.startListening(post.id)
+                    }
                 }
 
                 // Check actual like status from Firestore (backend doesn't return isLiked)
@@ -334,5 +344,11 @@ class FeedViewModel @Inject constructor(
         } catch (_: Exception) {
             null
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        activeListenerPostIds.forEach { engagementManager.stopListening(it) }
+        activeListenerPostIds.clear()
     }
 }

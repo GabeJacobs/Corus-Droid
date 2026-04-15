@@ -434,6 +434,7 @@ fun OtherProfileScreen(
             }
             ProfileFeedCache.posts = filteredForNav
             ProfileFeedCache.hasMore = hasMore
+            ProfileFeedCache.profileUser = currentProfile
             onNavigateToProfileFeed(
                 currentProfile.id,
                 currentProfile.username,

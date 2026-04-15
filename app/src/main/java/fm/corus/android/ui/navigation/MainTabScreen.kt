@@ -3,7 +3,6 @@ package fm.corus.android.ui.navigation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,9 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,6 +45,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.screens.compose.ComposeScreen
+import fm.corus.android.ui.screens.compose.ComposeViewModel
 import fm.corus.android.ui.screens.subscription.PostLimitPaywallSheet
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.theme.CorusColors
@@ -64,6 +62,7 @@ fun MainTabScreen(
     var selectedTab by rememberSaveable { mutableStateOf(CorusTab.FEED) }
     var showCompose by rememberSaveable { mutableStateOf(false) }
     var showPostLimitPaywall by remember { mutableStateOf(false) }
+    val composeViewModel: ComposeViewModel = hiltViewModel()
     val showMilestonePaywall by viewModel.showMilestonePaywall.collectAsState()
 
     // Observe pre-selected media IDs for compose-with-preselection flow.
@@ -73,14 +72,18 @@ fun MainTabScreen(
     // When a pre-selected media ID becomes non-null, open compose overlay.
     LaunchedEffect(preSelectedTrackId) {
         if (preSelectedTrackId != null) {
-            if (viewModel.subscriptionRepository.canPost) showCompose = true
-            else showPostLimitPaywall = true
+            if (viewModel.subscriptionRepository.canPost) {
+                composeViewModel.reset()
+                showCompose = true
+            } else showPostLimitPaywall = true
         }
     }
     LaunchedEffect(preSelectedMovieId) {
         if (preSelectedMovieId != null) {
-            if (viewModel.subscriptionRepository.canPost) showCompose = true
-            else showPostLimitPaywall = true
+            if (viewModel.subscriptionRepository.canPost) {
+                composeViewModel.reset()
+                showCompose = true
+            } else showPostLimitPaywall = true
         }
     }
 
@@ -156,8 +159,10 @@ fun MainTabScreen(
                 selectedTab = selectedTab,
                 onTabSelected = { tab ->
                     if (tab == CorusTab.COMPOSE) {
-                        if (viewModel.subscriptionRepository.canPost) showCompose = true
-                        else showPostLimitPaywall = true
+                        if (viewModel.subscriptionRepository.canPost) {
+                            composeViewModel.reset()
+                            showCompose = true
+                        } else showPostLimitPaywall = true
                     } else {
                         if (tab == selectedTab) {
                             // Re-tap: pop to root if deep, scroll to top if already at root
@@ -178,8 +183,10 @@ fun MainTabScreen(
                     }
                 },
                 onComposeTapped = {
-                    if (viewModel.subscriptionRepository.canPost) showCompose = true
-                    else showPostLimitPaywall = true
+                    if (viewModel.subscriptionRepository.canPost) {
+                        composeViewModel.reset()
+                        showCompose = true
+                    } else showPostLimitPaywall = true
                 },
             )
             }
@@ -388,26 +395,12 @@ private fun ComposeButton(onClick: () -> Unit) {
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(modifier = Modifier.size(24.dp)) {
-                val stroke = 2.8.dp.toPx()
-                val cap = StrokeCap.Round
-                // horizontal bar
-                drawLine(
-                    color = Color.White,
-                    start = Offset(0f, size.height / 2),
-                    end = Offset(size.width, size.height / 2),
-                    strokeWidth = stroke,
-                    cap = cap,
-                )
-                // vertical bar
-                drawLine(
-                    color = Color.White,
-                    start = Offset(size.width / 2, 0f),
-                    end = Offset(size.width / 2, size.height),
-                    strokeWidth = stroke,
-                    cap = cap,
-                )
-            }
+            Icon(
+                imageVector = Icons.Rounded.Add,
+                contentDescription = "Compose",
+                modifier = Modifier.size(18.dp),
+                tint = Color.White,
+            )
         }
     }
 }

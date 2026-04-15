@@ -83,6 +83,9 @@ class ProfileFeedViewModel @Inject constructor(
 
     private var shareSearchJob: Job? = null
 
+    // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
+    private val activeListenerPostIds = mutableSetOf<String>()
+
     fun initFeed(userId: String, segment: Int) {
         if (initialized) return
         initialized = true
@@ -129,9 +132,21 @@ class ProfileFeedViewModel @Inject constructor(
                 isLiked = post.isLiked,
                 isSaved = false,
             )
+            if (activeListenerPostIds.add(post.id)) {
+                engagementManager.startListening(post.id)
+            }
         }
         viewModelScope.launch {
             engagementManager.checkLikeStatuses(_posts.value.map { it.id }, viewerId)
+        }
+    }
+
+    private fun enrichPost(post: CymbalPost): CymbalPost {
+        val pu = profileUser ?: return post
+        return if (post.user.username.isBlank() || post.user.avatarURL.isNullOrBlank()) {
+            post.copy(user = pu)
+        } else {
+            post
         }
     }
 
@@ -157,7 +172,7 @@ class ProfileFeedViewModel @Inject constructor(
                         val mediaType = if (source == ProfileFeedSource.SONGS) MediaType.TRACK else MediaType.MOVIE
                         val filtered = allNew.filter { it.mediaType == mediaType }
                         val existingIds = _posts.value.map { it.id }.toSet()
-                        val unique = filtered.filter { it.id !in existingIds }
+                        val unique = filtered.filter { it.id !in existingIds }.map { enrichPost(it) }
                         _posts.value = _posts.value + unique
                         if (allNew.size < PAGE_SIZE) _hasMore.value = false
                         // Init engagement for new posts
@@ -170,6 +185,9 @@ class ProfileFeedViewModel @Inject constructor(
                                 isLiked = post.isLiked,
                                 isSaved = false,
                             )
+                            if (activeListenerPostIds.add(post.id)) {
+                                engagementManager.startListening(post.id)
+                            }
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
@@ -196,6 +214,9 @@ class ProfileFeedViewModel @Inject constructor(
                                 isLiked = post.isLiked,
                                 isSaved = false,
                             )
+                            if (activeListenerPostIds.add(post.id)) {
+                                engagementManager.startListening(post.id)
+                            }
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
@@ -221,6 +242,9 @@ class ProfileFeedViewModel @Inject constructor(
                                 isLiked = post.isLiked,
                                 isSaved = false,
                             )
+                            if (activeListenerPostIds.add(post.id)) {
+                                engagementManager.startListening(post.id)
+                            }
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
@@ -396,5 +420,11 @@ class ProfileFeedViewModel @Inject constructor(
                 ToastManager.show("Failed to block user")
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        activeListenerPostIds.forEach { engagementManager.stopListening(it) }
+        activeListenerPostIds.clear()
     }
 }

@@ -247,7 +247,7 @@ class CloudFunctionsDataSource @Inject constructor(
         return messages.map { CymbalMessage.fromMap(it["id"] as? String ?: "", it) }
     }
 
-    suspend fun sendMessage(threadId: String, fromUserId: String, text: String, type: String = "text", mediaURL: String? = null, sharedPostId: String? = null, trackName: String? = null, artistName: String? = null, albumArtURL: String? = null, spotifyURL: String? = null, movieTitle: String? = null, directorName: String? = null, posterURL: String? = null, tmdbWebURL: String? = null, replyToMessageId: String? = null, replyToText: String? = null, replyToUserId: String? = null) {
+    suspend fun sendMessage(threadId: String, fromUserId: String, text: String, type: String = "text", mediaURL: String? = null, sharedPostId: String? = null, trackName: String? = null, artistName: String? = null, albumArtURL: String? = null, spotifyURL: String? = null, movieTitle: String? = null, directorName: String? = null, posterURL: String? = null, tmdbWebURL: String? = null, replyToMessageId: String? = null, replyToText: String? = null, replyToUserId: String? = null, clientMessageId: String? = null) {
         val params = mutableMapOf<String, Any>(
             "threadId" to threadId,
             "fromUserId" to fromUserId,
@@ -267,6 +267,7 @@ class CloudFunctionsDataSource @Inject constructor(
         replyToMessageId?.let { params["replyToMessageId"] = it }
         replyToText?.let { params["replyToText"] = it }
         replyToUserId?.let { params["replyToUserId"] = it }
+        clientMessageId?.let { params["clientMessageId"] = it }
         functions.getHttpsCallable("sendMessage").call(params).await()
     }
 

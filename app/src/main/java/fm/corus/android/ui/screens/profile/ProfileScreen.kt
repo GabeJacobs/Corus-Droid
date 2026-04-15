@@ -185,6 +185,7 @@ fun ProfileScreen(
         }
         ProfileFeedCache.posts = filteredForNav
         ProfileFeedCache.hasMore = hasMore[selectedSegment] == true
+        ProfileFeedCache.profileUser = currentProfile
         onNavigateToProfileFeed(
             currentProfile.id,
             currentProfile.username,

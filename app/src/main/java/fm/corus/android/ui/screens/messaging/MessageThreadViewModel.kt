@@ -4,15 +4,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalMessage
+import fm.corus.android.data.model.MessageFailureReason
+import fm.corus.android.data.model.MessageSendStatus
+import fm.corus.android.data.model.MessageType
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Date
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -26,8 +34,19 @@ class MessageThreadViewModel @Inject constructor(
     val giphySupport: Boolean
         get() = remoteConfigService.giphySupport
 
-    private val _messages = MutableStateFlow<List<CymbalMessage>>(emptyList())
-    val messages: StateFlow<List<CymbalMessage>> = _messages.asStateFlow()
+    private val _serverMessages = MutableStateFlow<List<CymbalMessage>>(emptyList())
+
+    private val _pendingMessages = MutableStateFlow<Map<String, CymbalMessage>>(emptyMap())
+
+    /** Merged server + unconfirmed pending messages, reversed for reverseLayout LazyColumn. */
+    val messages: StateFlow<List<CymbalMessage>> = combine(
+        _serverMessages,
+        _pendingMessages,
+    ) { server, pending ->
+        val confirmedIds = server.map { it.id }.toSet()
+        val unconfirmed = pending.values.filter { it.id !in confirmedIds }
+        (server + unconfirmed).sortedByDescending { it.createdAt }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -76,9 +95,11 @@ class MessageThreadViewModel @Inject constructor(
     private fun startListening(threadId: String) {
         listenerJob?.cancel()
         listenerJob = viewModelScope.launch {
-            messageRepository.listenToMessages(threadId).collect { messages ->
-                // Reverse so newest is first — LazyColumn uses reverseLayout = true
-                _messages.value = messages.asReversed()
+            messageRepository.listenToMessages(threadId).collect { serverMessages ->
+                // Remove pending messages that the server has now confirmed
+                val confirmedIds = serverMessages.map { it.id }.toSet()
+                _pendingMessages.value = _pendingMessages.value.filterKeys { it !in confirmedIds }
+                _serverMessages.value = serverMessages
             }
         }
     }
@@ -92,10 +113,30 @@ class MessageThreadViewModel @Inject constructor(
         _replyToMessage.value = message
     }
 
+    // ── Optimistic send: text ──
+
     fun sendMessage(threadId: String, text: String) {
         val userId = authRepository.currentUserId ?: return
         val resolvedId = currentThreadId ?: threadId
         val reply = _replyToMessage.value
+        val clientId = UUID.randomUUID().toString()
+
+        // Optimistic insert
+        val optimistic = CymbalMessage(
+            id = clientId,
+            threadId = resolvedId,
+            fromUserId = userId,
+            text = text,
+            type = MessageType.TEXT,
+            createdAt = Date(),
+            sendStatus = MessageSendStatus.SENDING,
+            replyToMessageId = reply?.id,
+            replyToText = reply?.text,
+            replyToUserId = reply?.fromUserId,
+        )
+        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
+        _replyToMessage.value = null
+
         viewModelScope.launch {
             try {
                 messageRepository.sendTextMessage(
@@ -105,39 +146,121 @@ class MessageThreadViewModel @Inject constructor(
                     replyToMessageId = reply?.id,
                     replyToText = reply?.text,
                     replyToUserId = reply?.fromUserId,
+                    clientMessageId = clientId,
                 )
-                _replyToMessage.value = null
-            } catch (_: Exception) { }
+                // Server confirmed — Firestore listener will add the real message and
+                // startListening will prune the pending copy.
+                _pendingMessages.value = _pendingMessages.value - clientId
+            } catch (e: Exception) {
+                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+            }
         }
     }
+
+    // ── Optimistic send: image ──
 
     fun sendImageMessage(threadId: String, imageData: ByteArray) {
         val userId = authRepository.currentUserId ?: return
         val resolvedId = currentThreadId ?: threadId
+        val clientId = UUID.randomUUID().toString()
+
+        val optimistic = CymbalMessage(
+            id = clientId,
+            threadId = resolvedId,
+            fromUserId = userId,
+            text = null,
+            type = MessageType.IMAGE,
+            createdAt = Date(),
+            sendStatus = MessageSendStatus.SENDING,
+        )
+        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
+
         viewModelScope.launch {
             try {
                 messageRepository.sendImageMessage(
                     threadId = resolvedId,
                     fromUserId = userId,
                     imageData = imageData,
+                    clientMessageId = clientId,
                 )
-            } catch (_: Exception) { }
+                _pendingMessages.value = _pendingMessages.value - clientId
+            } catch (e: Exception) {
+                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+            }
         }
     }
+
+    // ── Optimistic send: GIF ──
 
     fun sendGifMessage(threadId: String, gifURL: String) {
         val userId = authRepository.currentUserId ?: return
         val resolvedId = currentThreadId ?: threadId
+        val clientId = UUID.randomUUID().toString()
+
+        val optimistic = CymbalMessage(
+            id = clientId,
+            threadId = resolvedId,
+            fromUserId = userId,
+            text = null,
+            type = MessageType.GIF,
+            mediaURL = gifURL,
+            createdAt = Date(),
+            sendStatus = MessageSendStatus.SENDING,
+        )
+        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
+
         viewModelScope.launch {
             try {
                 messageRepository.sendGifMessage(
                     threadId = resolvedId,
                     fromUserId = userId,
                     gifURL = gifURL,
+                    clientMessageId = clientId,
                 )
-            } catch (_: Exception) { }
+                _pendingMessages.value = _pendingMessages.value - clientId
+            } catch (e: Exception) {
+                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+            }
         }
     }
+
+    // ── Retry ──
+
+    fun retrySendMessage(messageId: String) {
+        val message = _pendingMessages.value[messageId] ?: return
+        if (message.failureReason == MessageFailureReason.MESSAGING_DISABLED) return
+
+        updatePendingStatus(messageId, MessageSendStatus.SENDING)
+
+        viewModelScope.launch {
+            try {
+                when (message.type) {
+                    MessageType.TEXT -> messageRepository.sendTextMessage(
+                        threadId = message.threadId,
+                        fromUserId = message.fromUserId,
+                        text = message.text ?: "",
+                        replyToMessageId = message.replyToMessageId,
+                        replyToText = message.replyToText,
+                        replyToUserId = message.replyToUserId,
+                        clientMessageId = messageId,
+                    )
+                    MessageType.GIF -> messageRepository.sendGifMessage(
+                        threadId = message.threadId,
+                        fromUserId = message.fromUserId,
+                        gifURL = message.mediaURL ?: "",
+                        clientMessageId = messageId,
+                    )
+                    // Image retry is not supported — the original imageData is not retained
+                    else -> {}
+                }
+                _pendingMessages.value = _pendingMessages.value - messageId
+            } catch (e: Exception) {
+                updatePendingStatus(messageId, MessageSendStatus.FAILED, failureReasonFrom(e))
+            }
+        }
+    }
+
+    // ── Reactions ──
 
     fun toggleReaction(threadId: String, messageId: String, emoji: String) {
         val resolvedId = currentThreadId ?: threadId
@@ -145,6 +268,28 @@ class MessageThreadViewModel @Inject constructor(
             try {
                 messageRepository.toggleReaction(resolvedId, messageId, emoji)
             } catch (_: Exception) { }
+        }
+    }
+
+    // ── Helpers ──
+
+    private fun updatePendingStatus(
+        messageId: String,
+        status: MessageSendStatus,
+        reason: MessageFailureReason = MessageFailureReason.GENERIC,
+    ) {
+        val current = _pendingMessages.value[messageId] ?: return
+        _pendingMessages.value = _pendingMessages.value + (messageId to current.copy(
+            sendStatus = status,
+            failureReason = reason,
+        ))
+    }
+
+    private fun failureReasonFrom(error: Exception): MessageFailureReason {
+        return if (error.message?.contains("turned off messaging") == true) {
+            MessageFailureReason.MESSAGING_DISABLED
+        } else {
+            MessageFailureReason.GENERIC
         }
     }
 }

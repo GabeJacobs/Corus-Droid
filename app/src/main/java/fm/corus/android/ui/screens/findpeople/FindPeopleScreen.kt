@@ -436,7 +436,7 @@ private fun RecentSearchesOverlay(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = CorusSpacing.lg)
-                    .padding(top = CorusSpacing.xs, bottom = CorusSpacing.xs),
+                    .padding(top = CorusSpacing.sm, bottom = CorusSpacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Recent", style = CorusFont.bodyMedium, color = CorusColors.Secondary)

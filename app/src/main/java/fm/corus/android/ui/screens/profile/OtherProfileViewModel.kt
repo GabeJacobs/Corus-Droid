@@ -68,6 +68,9 @@ class OtherProfileViewModel @Inject constructor(
 
     val currentUserId: String? get() = authRepository.currentUserId
 
+    // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
+    private val activeListenerPostIds = mutableSetOf<String>()
+
     fun loadProfile(userId: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -116,6 +119,9 @@ class OtherProfileViewModel @Inject constructor(
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
+                    if (activeListenerPostIds.add(post.id)) {
+                        engagementManager.startListening(post.id)
+                    }
                 }
                 engagementManager.checkLikeStatuses(allPosts.map { it.id }, viewerId)
             } catch (_: Exception) { }
@@ -151,6 +157,9 @@ class OtherProfileViewModel @Inject constructor(
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
+                    if (activeListenerPostIds.add(post.id)) {
+                        engagementManager.startListening(post.id)
+                    }
                 }
                 engagementManager.checkLikeStatuses(newPosts.map { it.id }, viewerId)
             } catch (_: Exception) { }

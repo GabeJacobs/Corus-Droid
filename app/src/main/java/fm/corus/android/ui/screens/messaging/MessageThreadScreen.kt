@@ -9,6 +9,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.imePadding
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
@@ -40,6 +42,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.data.model.CymbalMessage
+import fm.corus.android.data.model.MessageFailureReason
+import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
 import fm.corus.android.ui.components.FullScreenImageView
 import fm.corus.android.ui.components.GifPickerSheet
@@ -126,6 +130,7 @@ fun MessageThreadScreen(
                         viewModel.toggleReaction(threadId, message.id, emoji)
                     },
                     onImageTap = { url -> fullScreenImageUrl = url },
+                    onRetry = { viewModel.retrySendMessage(message.id) },
                 )
             }
         }
@@ -368,8 +373,11 @@ private fun MessageBubble(
     onReply: () -> Unit,
     onReactionTap: (String) -> Unit,
     onImageTap: (String) -> Unit = {},
+    onRetry: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val isSending = message.sendStatus == MessageSendStatus.SENDING
+    val isFailed = message.sendStatus == MessageSendStatus.FAILED
 
     Column(
         modifier = Modifier
@@ -403,6 +411,7 @@ private fun MessageBubble(
         Box(
             modifier = Modifier
                 .widthIn(max = 280.dp)
+                .then(if (isSending) Modifier.alpha(0.7f) else Modifier)
                 .combinedClickable(
                     onClick = {},
                     onLongClick = onLongPress,
@@ -469,6 +478,54 @@ private fun MessageBubble(
                     style = CorusFont.caption,
                     color = if (isFromCurrentUser) Color.White.copy(alpha = 0.7f) else CorusColors.Secondary,
                 )
+            }
+        }
+
+        // Send status indicators
+        if (isSending) {
+            Text(
+                text = "Sending...",
+                style = CorusFont.caption,
+                color = CorusColors.Tertiary,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+        if (isFailed) {
+            Row(
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .then(
+                        if (message.failureReason != MessageFailureReason.MESSAGING_DISABLED)
+                            Modifier.clickable(onClick = onRetry)
+                        else Modifier
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ErrorOutline,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = Color.Red,
+                )
+                if (message.failureReason == MessageFailureReason.MESSAGING_DISABLED) {
+                    Text(
+                        text = "This user has messaging disabled",
+                        style = CorusFont.caption,
+                        color = Color.Red,
+                    )
+                } else {
+                    Text(
+                        text = "Failed to deliver",
+                        style = CorusFont.caption,
+                        color = Color.Red,
+                    )
+                    Text(
+                        text = "\u00B7 Tap to retry",
+                        style = CorusFont.caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                        color = Color.Red,
+                    )
+                }
             }
         }
 

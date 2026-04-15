@@ -10,6 +10,7 @@ import fm.corus.android.data.remote.FirestoreDataSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,6 +21,18 @@ class UserRepository @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val preferencesDataStore: PreferencesDataStore,
 ) {
+    companion object {
+        private const val PROFILE_TTL_MS = 5L * 60 * 1000      // 5 minutes — matches iOS
+        private const val USERNAME_TTL_MS = 5L * 60 * 1000      // 5 minutes — matches iOS
+        private const val SUGGESTED_MATCHES_TTL_MS = 4L * 60 * 60 * 1000 // 4 hours — matches iOS
+    }
+
+    // ── TTL Caches (matching iOS DatabaseService caching) ──
+
+    private val profileCache = ConcurrentHashMap<String, CacheEntry<CymbalUser>>()
+    private val usernameCache = ConcurrentHashMap<String, CacheEntry<String>>() // username → uid
+    @Volatile private var suggestedMatchesCache: CacheEntry<List<SuggestedUserMatch>>? = null
+
     // Cached following set
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     val followingIds: StateFlow<Set<String>> = _followingIds.asStateFlow()
@@ -42,20 +55,35 @@ class UserRepository @Inject constructor(
 
     fun isFollowing(userId: String): Boolean = _followingIds.value.contains(userId)
 
-    // ── Profile ──
+    // ── Profile (with TTL cache, matching iOS) ──
 
     suspend fun fetchUserProfile(uid: String): CymbalUser? {
-        return firestoreDataSource.fetchUserProfile(uid)
+        profileCache[uid]?.let { entry ->
+            if (entry.isValid(PROFILE_TTL_MS)) return entry.value
+        }
+        val user = firestoreDataSource.fetchUserProfile(uid) ?: return null
+        profileCache[uid] = CacheEntry(user)
+        return user
+    }
+
+    fun cacheUser(user: CymbalUser) {
+        profileCache[user.id] = CacheEntry(user)
+    }
+
+    fun invalidateUserProfileCache(uid: String) {
+        profileCache.remove(uid)
     }
 
     suspend fun updateUserProfile(uid: String, fields: Map<String, Any?>) {
         firestoreDataSource.updateUserProfile(uid, fields)
+        invalidateUserProfileCache(uid)
     }
 
     suspend fun uploadAvatar(uid: String, imageData: ByteArray): String {
         val url = storageDataSource.uploadAvatar(uid, imageData)
         val timestamp = System.currentTimeMillis()
         firestoreDataSource.updateUserProfile(uid, mapOf("avatarURL" to "$url?v=$timestamp"))
+        invalidateUserProfileCache(uid)
         return "$url?v=$timestamp"
     }
 
@@ -155,10 +183,15 @@ class UserRepository @Inject constructor(
         }
     }
 
-    // ── Suggestions ──
+    // ── Suggestions (with 4-hour in-memory cache, matching iOS) ──
 
     suspend fun getSuggestedUsers(userId: String): List<SuggestedUserMatch> {
-        return cloudFunctions.getSuggestedUsers(userId)
+        suggestedMatchesCache?.let { entry ->
+            if (entry.isValid(SUGGESTED_MATCHES_TTL_MS)) return entry.value
+        }
+        val result = cloudFunctions.getSuggestedUsers(userId)
+        suggestedMatchesCache = CacheEntry(result)
+        return result
     }
 
     // ── Popular ──
@@ -174,7 +207,17 @@ class UserRepository @Inject constructor(
     }
 
     suspend fun fetchUserByUsername(username: String): CymbalUser? {
-        return firestoreDataSource.fetchUserByUsername(username)
+        val lowerName = username.lowercase()
+        // Two-level cache: username → uid, then uid → profile (matching iOS)
+        usernameCache[lowerName]?.let { entry ->
+            if (entry.isValid(USERNAME_TTL_MS)) {
+                return fetchUserProfile(entry.value)
+            }
+        }
+        val user = firestoreDataSource.fetchUserByUsername(lowerName) ?: return null
+        usernameCache[lowerName] = CacheEntry(user.id)
+        profileCache[user.id] = CacheEntry(user)
+        return user
     }
 
     // ── Feedback / Report ──
@@ -209,5 +252,8 @@ class UserRepository @Inject constructor(
         _followingIds.value = emptySet()
         _blockedIds.value = emptySet()
         _mutedIds.value = emptySet()
+        profileCache.clear()
+        usernameCache.clear()
+        suggestedMatchesCache = null
     }
 }

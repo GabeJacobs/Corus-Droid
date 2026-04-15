@@ -9,8 +9,10 @@ import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +26,8 @@ class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val subscriptionRepository: SubscriptionRepository,
+    private val exploreRepository: ExploreRepository,
+    private val engagementManager: PostEngagementManager,
     private val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
     private val firebaseAuth: FirebaseAuth,
@@ -212,6 +216,8 @@ class AuthViewModel @Inject constructor(
             subscriptionRepository.logoutUser()
             authRepository.signOut()
             userRepository.clearCaches()
+            exploreRepository.clearCaches()
+            engagementManager.clearAll()
             didSignInThisSession = false
         }
     }
