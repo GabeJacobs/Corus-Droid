@@ -82,6 +82,7 @@ fun ProfileScreen(
     val isClubMember by viewModel.isClubMember.collectAsState()
     val hasFullAccess by viewModel.hasFullAccess.collectAsState()
     val isSavingStyle by viewModel.isSavingStyle.collectAsState()
+    val engagementStates by viewModel.engagementStates.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
     var isFeaturedArtReady by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
@@ -555,6 +556,7 @@ fun ProfileScreen(
                             fm.corus.android.ui.components.SkeletonProfileGrid()
                         }
                     } else {
+                        val featuredEngagement = engagementStates[featuredPost.id]
                         if (featuredPost.mediaType == fm.corus.android.data.model.MediaType.MOVIE) {
                             fm.corus.android.ui.components.FeaturedMoviePosterView(
                                 post = featuredPost,
@@ -562,6 +564,9 @@ fun ProfileScreen(
                                 rainIntensity = currentProfile.rainIntensity,
                                 snowIntensity = currentProfile.snowIntensity,
                                 discoIntensity = currentProfile.discoIntensityLevel,
+                                likeCount = featuredEngagement?.likeCount ?: featuredPost.likeCount,
+                                isLiked = featuredEngagement?.isLiked ?: featuredPost.isLiked,
+                                onLikeTap = { viewModel.toggleLike(featuredPost.id) },
                                 onPostTap = { navigateToFeed(featuredPost.id) },
                             )
                         } else {
@@ -571,6 +576,9 @@ fun ProfileScreen(
                                 rainIntensity = currentProfile.rainIntensity,
                                 snowIntensity = currentProfile.snowIntensity,
                                 discoIntensity = currentProfile.discoIntensityLevel,
+                                likeCount = featuredEngagement?.likeCount ?: featuredPost.likeCount,
+                                isLiked = featuredEngagement?.isLiked ?: featuredPost.isLiked,
+                                onLikeTap = { viewModel.toggleLike(featuredPost.id) },
                                 onPostTap = { navigateToFeed(featuredPost.id) },
                             )
                         }

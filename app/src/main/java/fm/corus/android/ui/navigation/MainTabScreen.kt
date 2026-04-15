@@ -398,7 +398,7 @@ private fun ComposeButton(onClick: () -> Unit) {
             Icon(
                 imageVector = Icons.Rounded.Add,
                 contentDescription = "Compose",
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(25.dp),
                 tint = Color.White,
             )
         }

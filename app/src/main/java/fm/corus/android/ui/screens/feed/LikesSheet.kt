@@ -82,7 +82,9 @@ private fun LikesSheetContent(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.statusBars),
     ) {
         // Title
         Text(

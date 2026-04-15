@@ -56,15 +56,29 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleNotificationIntent(intent: Intent?) {
-        if (intent?.getBooleanExtra(CorusFirebaseMessagingService.EXTRA_FROM_NOTIFICATION, false) != true) return
+        val extras = intent?.extras ?: return
+
+        // Case 1: Foreground — our CorusFirebaseMessagingService built the notification
+        // with a from_notification flag and notif_-prefixed data keys.
+        val fromCustomNotification = extras.getBoolean(CorusFirebaseMessagingService.EXTRA_FROM_NOTIFICATION, false)
+
+        // Case 2: Background — FCM auto-displayed the notification; the raw data
+        // payload arrives as plain intent extras (no prefix, no from_notification flag).
+        val hasRawFcmData = !fromCustomNotification && extras.getString("type") != null
+
+        if (!fromCustomNotification && !hasRawFcmData) return
 
         val data = mutableMapOf<String, String>()
-        intent.extras?.let { extras ->
+        if (fromCustomNotification) {
             for (key in extras.keySet()) {
                 if (key.startsWith(CorusFirebaseMessagingService.EXTRA_NOTIF_PREFIX)) {
                     val cleanKey = key.removePrefix(CorusFirebaseMessagingService.EXTRA_NOTIF_PREFIX)
                     extras.getString(key)?.let { data[cleanKey] = it }
                 }
+            }
+        } else {
+            for (key in extras.keySet()) {
+                extras.getString(key)?.let { data[key] = it }
             }
         }
 
@@ -73,7 +87,8 @@ class MainActivity : ComponentActivity() {
             _pendingNotificationDestination.value = destination
         }
 
-        // Clear the flag so re-launch doesn't re-trigger
+        // Clear flags so re-launch doesn't re-trigger
         intent.removeExtra(CorusFirebaseMessagingService.EXTRA_FROM_NOTIFICATION)
+        if (hasRawFcmData) intent.removeExtra("type")
     }
 }

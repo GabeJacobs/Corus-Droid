@@ -11,6 +11,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostEngagementManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,10 +26,18 @@ class ProfileViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val subscriptionRepository: SubscriptionRepository,
     val nowPlayingManager: NowPlayingManager,
+    private val engagementManager: PostEngagementManager,
 ) : ViewModel() {
 
     val isClubMember = subscriptionRepository.isClubMember
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
+
+    val engagementStates = engagementManager.states
+
+    fun toggleLike(postId: String) {
+        val userId = authRepository.currentUserId ?: return
+        engagementManager.toggleLike(postId, userId)
+    }
 
     fun uploadAvatar(imageData: ByteArray) {
         val uid = authRepository.currentUserId ?: return
@@ -126,6 +135,17 @@ class ProfileViewModel @Inject constructor(
                     this[0] = serverHasMore
                     this[1] = serverHasMore
                 }
+                allPosts.forEach { post ->
+                    engagementManager.initState(
+                        postId = post.id,
+                        likeCount = post.likeCount,
+                        commentCount = post.commentCount,
+                        repostCount = post.repostCount,
+                        isLiked = post.isLiked,
+                        isSaved = false,
+                    )
+                }
+                engagementManager.checkLikeStatuses(allPosts.map { it.id }, userId)
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "loadProfile failed", e)
             }
@@ -159,6 +179,17 @@ class ProfileViewModel @Inject constructor(
                     this[0] = serverHasMore
                     this[1] = serverHasMore
                 }
+                allPosts.forEach { post ->
+                    engagementManager.initState(
+                        postId = post.id,
+                        likeCount = post.likeCount,
+                        commentCount = post.commentCount,
+                        repostCount = post.repostCount,
+                        isLiked = post.isLiked,
+                        isSaved = false,
+                    )
+                }
+                engagementManager.checkLikeStatuses(allPosts.map { it.id }, userId)
                 // Reset lazy-loaded segments so they reload on next visit
                 likedLoaded = false
                 savedLoaded = false

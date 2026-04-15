@@ -21,6 +21,7 @@ fun UserAvatarView(
     avatarURL: String?,
     avatarThumbURL: String? = null,
     displayName: String? = null,
+    username: String? = null,
     size: Dp = CorusSpacing.avatarMedium,
     modifier: Modifier = Modifier,
 ) {
@@ -28,7 +29,8 @@ fun UserAvatarView(
     val resolvedURL = if (size <= 36.dp && !avatarThumbURL.isNullOrBlank()) avatarThumbURL else avatarURL
 
     if (resolvedURL.isNullOrBlank()) {
-        val initial = displayName?.firstOrNull()?.uppercaseChar()?.toString()
+        val initial = (displayName?.firstOrNull() ?: username?.firstOrNull())
+            ?.uppercaseChar()?.toString() ?: ""
         Box(
             modifier = modifier
                 .size(size)
@@ -38,7 +40,7 @@ fun UserAvatarView(
         ) {
             val fontSize = with(LocalDensity.current) { (size * 0.4f).toSp() }
             Text(
-                text = initial ?: "?",
+                text = initial,
                 color = CorusColors.Secondary,
                 fontSize = fontSize,
                 fontWeight = FontWeight.Bold,

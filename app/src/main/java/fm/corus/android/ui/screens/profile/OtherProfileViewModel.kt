@@ -68,6 +68,13 @@ class OtherProfileViewModel @Inject constructor(
 
     val currentUserId: String? get() = authRepository.currentUserId
 
+    val engagementStates = engagementManager.states
+
+    fun toggleLike(postId: String) {
+        val userId = authRepository.currentUserId ?: return
+        engagementManager.toggleLike(postId, userId)
+    }
+
     // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
     private val activeListenerPostIds = mutableSetOf<String>()
 
@@ -248,5 +255,11 @@ class OtherProfileViewModel @Inject constructor(
                 _isMuted.value = wasMuted
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        activeListenerPostIds.forEach { engagementManager.stopListening(it) }
+        activeListenerPostIds.clear()
     }
 }
