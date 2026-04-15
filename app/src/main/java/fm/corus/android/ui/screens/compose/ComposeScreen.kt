@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.compose
 
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TrendingUp
@@ -86,6 +88,8 @@ fun ComposeScreen(
     var caption by remember { mutableStateOf("") }
     var captionMode by remember { mutableStateOf("text") } // "text" or "voice"
     val voiceRecorderState = rememberVoiceNoteRecorderState()
+    val nowPlayingState by viewModel.nowPlayingState.collectAsState()
+    val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
 
     val hasSelection = selectedTrack != null || selectedMovie != null || isLoadingPreSelection
 
@@ -229,6 +233,11 @@ fun ComposeScreen(
                         captionMode = captionMode,
                         onCaptionModeChange = { captionMode = it },
                         voiceRecorderState = voiceRecorderState,
+                        isPreviewPlaying = selectedTrack != null && nowPlayingState.trackId == selectedTrack?.id && nowPlayingState.isPlaying,
+                        isPreviewLoading = selectedTrack != null && previewLoadingTrackId == selectedTrack?.id,
+                        onAlbumArtTap = {
+                            selectedTrack?.let { viewModel.togglePreview(it) }
+                        },
                     )
                 } else {
                     // Pre-selected track/movie is loading — show empty placeholder
@@ -726,10 +735,24 @@ private fun ComposeModeContent(
     captionMode: String = "text",
     onCaptionModeChange: (String) -> Unit = {},
     voiceRecorderState: fm.corus.android.ui.components.VoiceNoteRecorderState? = null,
+    isPreviewPlaying: Boolean = false,
+    isPreviewLoading: Boolean = false,
+    onAlbumArtTap: () -> Unit = {},
 ) {
-    val imageURL = if (mediaType == MediaType.TRACK) selectedTrack?.albumArtURL else selectedMovie?.posterURL
+    val imageURL = if (mediaType == MediaType.TRACK) (selectedTrack?.albumArtLargeURL ?: selectedTrack?.albumArtURL) else selectedMovie?.posterURL
     val title = if (mediaType == MediaType.TRACK) selectedTrack?.name.orEmpty() else selectedMovie?.title.orEmpty()
-    val subtitle = if (mediaType == MediaType.TRACK) selectedTrack?.artistName.orEmpty() else selectedMovie?.directorName.orEmpty()
+    val subtitle = if (mediaType == MediaType.TRACK) {
+        selectedTrack?.artistName.orEmpty()
+    } else {
+        buildString {
+            append(selectedMovie?.directorName.orEmpty())
+            val year = selectedMovie?.year.orEmpty()
+            if (year.isNotEmpty()) {
+                if (isNotEmpty()) append("  ")
+                append(year)
+            }
+        }
+    }
 
     val captionFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -754,14 +777,50 @@ private fun ComposeModeContent(
                 .padding(vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AsyncImage(
-                model = imageURL,
-                contentDescription = title,
+            Box(
                 modifier = Modifier
                     .size(CorusSpacing.albumArtThumbnail) // 56dp
-                    .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
-                contentScale = ContentScale.Crop,
-            )
+                    .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                    .clickable(enabled = mediaType == MediaType.TRACK) { onAlbumArtTap() },
+                contentAlignment = Alignment.Center,
+            ) {
+                AsyncImage(
+                    model = imageURL,
+                    contentDescription = title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+                // Scrim overlay when playing or loading
+                val showOverlay = isPreviewPlaying || isPreviewLoading
+                val overlayAlpha by animateFloatAsState(
+                    targetValue = if (showOverlay) 1f else 0f,
+                    animationSpec = tween(200),
+                    label = "previewOverlay",
+                )
+                if (overlayAlpha > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f * overlayAlpha)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (isPreviewLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White.copy(alpha = overlayAlpha),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.Pause,
+                                contentDescription = "Pause preview",
+                                tint = Color.White.copy(alpha = overlayAlpha),
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+                }
+            }
             Spacer(modifier = Modifier.width(CorusSpacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Text(

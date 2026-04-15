@@ -12,7 +12,10 @@ data class CymbalComment(
     val replyToUser: CymbalUser? = null,
     val replyCount: Int = 0,
     val gifURL: String? = null,
+    val editedAt: Date? = null,
 ) {
+    val isEdited: Boolean get() = editedAt != null
+
     companion object {
         @Suppress("UNCHECKED_CAST")
         fun fromMap(data: Map<String, Any?>): CymbalComment {
@@ -29,6 +32,9 @@ data class CymbalComment(
             val timestampMs = data["createdAt"] as? Number ?: data["timestamp"] as? Number  // server sends createdAt
             val timestamp = if (timestampMs != null) Date(timestampMs.toLong()) else Date()
 
+            val editedAtMs = data["editedAt"] as? Number
+            val editedAt = if (editedAtMs != null) Date(editedAtMs.toLong()) else null
+
             return CymbalComment(
                 id = data["id"] as? String ?: "",
                 user = user,
@@ -39,6 +45,7 @@ data class CymbalComment(
                 replyToUser = replyToUser,
                 replyCount = (data["replyCount"] as? Number)?.toInt() ?: 0,
                 gifURL = data["gifURL"] as? String,
+                editedAt = editedAt,
             )
         }
     }

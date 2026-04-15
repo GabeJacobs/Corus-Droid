@@ -60,12 +60,30 @@ class CommentsViewModel @Inject constructor(
     private var _currentUserProfile: CymbalUser? = null
     private var listeningPostId: String? = null
 
+    private val _editingComment = MutableStateFlow<CymbalComment?>(null)
+    val editingComment: StateFlow<CymbalComment?> = _editingComment.asStateFlow()
+
     private val _sendError = MutableStateFlow<String?>(null)
     val sendError: StateFlow<String?> = _sendError.asStateFlow()
 
     fun clearSendError() { _sendError.value = null }
 
+    fun startEditing(comment: CymbalComment) {
+        _replyingTo.value = null
+        _editingComment.value = comment
+    }
+
+    fun cancelEditing() {
+        _editingComment.value = null
+    }
+
     fun loadPost(postId: String) {
+        // Show cached post immediately so the caption appears without delay
+        val cached = postRepository.getCachedPost(postId)
+        if (cached != null && _post.value == null) {
+            _post.value = cached
+        }
+
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
@@ -265,6 +283,47 @@ class CommentsViewModel @Inject constructor(
                     replies.filter { it.id != commentId }
                 }
             } catch (_: Exception) { }
+        }
+    }
+
+    fun editComment(commentId: String, newText: String) {
+        val trimmed = newText.trim()
+        if (trimmed.isBlank()) return
+
+        val editing = _editingComment.value ?: return
+        if (trimmed == editing.text) {
+            cancelEditing()
+            return
+        }
+
+        // Optimistic update
+        val updated = editing.copy(text = trimmed, editedAt = java.util.Date())
+        updateCommentInPlace(updated)
+        cancelEditing()
+
+        viewModelScope.launch {
+            try {
+                postRepository.editComment(postId, commentId, trimmed)
+            } catch (_: Exception) {
+                // Revert on failure
+                updateCommentInPlace(editing)
+                _sendError.value = "Couldn't save changes. Please try again."
+            }
+        }
+    }
+
+    private fun updateCommentInPlace(updated: CymbalComment) {
+        if (updated.parentCommentId != null) {
+            _repliesByParent.value = _repliesByParent.value.toMutableMap().apply {
+                val parentId = updated.parentCommentId
+                this[parentId] = (this[parentId] ?: emptyList()).map {
+                    if (it.id == updated.id) updated else it
+                }
+            }
+        } else {
+            _comments.value = _comments.value.map {
+                if (it.id == updated.id) updated else it
+            }
         }
     }
 

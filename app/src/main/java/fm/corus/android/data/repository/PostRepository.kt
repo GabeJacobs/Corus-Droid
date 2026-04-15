@@ -14,6 +14,16 @@ class PostRepository @Inject constructor(
     private val firestoreDataSource: FirestoreDataSource,
     private val storageDataSource: FirebaseStorageDataSource,
 ) {
+    // ── In-memory post cache (for instant caption display in sheets) ──
+
+    private val postCache = java.util.concurrent.ConcurrentHashMap<String, CymbalPost>()
+
+    fun getCachedPost(postId: String): CymbalPost? = postCache[postId]
+
+    private fun cachePosts(posts: List<CymbalPost>) {
+        for (post in posts) postCache[post.id] = post
+    }
+
     // ── Feed ──
 
     suspend fun getFeedPage(
@@ -23,18 +33,21 @@ class PostRepository @Inject constructor(
         onePerFollower: Boolean = false,
     ): CloudFunctionsDataSource.FeedPage {
         return cloudFunctions.getFeedPage(userId, pageSize, lastTimestamp, onePerFollower)
+            .also { cachePosts(it.posts) }
     }
 
     // ── Post Detail ──
 
     suspend fun getPostDetail(postId: String, userId: String): CymbalPost? {
         return cloudFunctions.getPostDetail(postId, userId)
+            ?.also { postCache[it.id] = it }
     }
 
     // ── Profile posts ──
 
     suspend fun getProfilePosts(userId: String, viewerId: String, limit: Int = 30, lastTimestamp: Long? = null): List<CymbalPost> {
         return cloudFunctions.getProfilePosts(userId, viewerId, limit, lastTimestamp)
+            .also { cachePosts(it) }
     }
 
     // ── Content-specific feeds ──
@@ -167,6 +180,10 @@ class PostRepository @Inject constructor(
 
     suspend fun addComment(postId: String, userId: String, text: String, parentCommentId: String? = null, replyToUserId: String? = null, gifURL: String? = null): String {
         return firestoreDataSource.addComment(postId, userId, text, parentCommentId, replyToUserId, gifURL)
+    }
+
+    suspend fun editComment(postId: String, commentId: String, newText: String) {
+        firestoreDataSource.editComment(postId, commentId, newText)
     }
 
     suspend fun deleteComment(postId: String, commentId: String) {

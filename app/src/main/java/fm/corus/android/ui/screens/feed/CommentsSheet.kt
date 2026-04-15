@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,7 +71,7 @@ fun CommentsBottomSheet(
         containerColor = Color.White,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
-        val isSheetExpanded = sheetState.currentValue == SheetValue.Expanded
+        val isSheetExpanded = sheetState.targetValue == SheetValue.Expanded
         CommentsSheetContent(
             postId = postId,
             viewModel = viewModel,
@@ -134,6 +135,7 @@ private fun ColumnScope.CommentsSheetContent(
     val likedCommentIds by viewModel.likedCommentIds.collectAsState()
     val post by viewModel.post.collectAsState()
     val sendError by viewModel.sendError.collectAsState()
+    val editingComment by viewModel.editingComment.collectAsState()
 
     var commentText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -207,9 +209,11 @@ private fun ColumnScope.CommentsSheetContent(
         }
     }
 
+    val configuration = LocalConfiguration.current
+    val commentsPartialMaxHeight = (configuration.screenHeightDp * 0.25).dp
+
     Box(
-        modifier = Modifier
-            .weight(1f)
+        modifier = (if (isSheetExpanded) Modifier.weight(1f) else Modifier.heightIn(min = 100.dp, max = commentsPartialMaxHeight))
             .fillMaxWidth()
     ) {
             when {
@@ -277,6 +281,10 @@ private fun ColumnScope.CommentsSheetContent(
                                     onReplyTap = { viewModel.setReplyingTo(comment) },
                                     onLikeTap = { viewModel.toggleCommentLike(comment.id) },
                                     onDeleteTap = { viewModel.deleteComment(comment.id) },
+                                    onEditTap = {
+                                        viewModel.startEditing(comment)
+                                        commentText = comment.text
+                                    },
                                     onMentionTap = handleMentionTap,
                                 )
                             }
@@ -293,6 +301,10 @@ private fun ColumnScope.CommentsSheetContent(
                                         onReplyTap = { viewModel.setReplyingTo(reply) },
                                         onLikeTap = { viewModel.toggleCommentLike(reply.id) },
                                         onDeleteTap = { viewModel.deleteComment(reply.id) },
+                                        onEditTap = {
+                                            viewModel.startEditing(reply)
+                                            commentText = reply.text
+                                        },
                                     )
                                 }
                             }
@@ -315,8 +327,37 @@ private fun ColumnScope.CommentsSheetContent(
             )
         }
 
+        // Editing banner
+        if (editingComment != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CorusColors.CardBackground)
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Editing comment",
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "Cancel edit",
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable {
+                            viewModel.cancelEditing()
+                            commentText = ""
+                        },
+                    tint = CorusColors.Secondary,
+                )
+            }
+        }
+
         // Reply-to banner
-        if (replyingTo != null) {
+        if (replyingTo != null && editingComment == null) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -371,7 +412,11 @@ private fun ColumnScope.CommentsSheetContent(
                 keyboardActions = KeyboardActions(
                     onSend = {
                         if (commentText.isNotBlank() && !isSending) {
-                            viewModel.sendComment(commentText)
+                            if (editingComment != null) {
+                                viewModel.editComment(editingComment!!.id, commentText)
+                            } else {
+                                viewModel.sendComment(commentText)
+                            }
                             commentText = ""
                         }
                     },
@@ -410,7 +455,11 @@ private fun ColumnScope.CommentsSheetContent(
             IconButton(
                 onClick = {
                     if (commentText.isNotBlank() && !isSending) {
-                        viewModel.sendComment(commentText)
+                        if (editingComment != null) {
+                            viewModel.editComment(editingComment!!.id, commentText)
+                        } else {
+                            viewModel.sendComment(commentText)
+                        }
                         commentText = ""
                     }
                 },
@@ -510,6 +559,7 @@ private fun CommentRow(
     onReplyTap: () -> Unit = {},
     onLikeTap: () -> Unit = {},
     onDeleteTap: () -> Unit = {},
+    onEditTap: () -> Unit = {},
     onMentionTap: (String) -> Unit = {},
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -565,12 +615,24 @@ private fun CommentRow(
                     isClubMember = comment.user.isClubMember,
                     flairStyle = comment.user.flairStyle,
                     isBot = comment.user.isBot,
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onUserTap,
+                    ),
                 )
                 Text(
                     text = DateUtils.relativeTime(comment.timestamp),
                     style = CorusFont.caption,
                     color = CorusColors.Tertiary,
                 )
+                if (comment.isEdited) {
+                    Text(
+                        text = "edited",
+                        style = CorusFont.caption,
+                        color = CorusColors.Tertiary,
+                    )
+                }
             }
 
             // GIF or text content
@@ -669,6 +731,21 @@ private fun CommentRow(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
                 ) {
+                    if (comment.gifURL == null) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Edit",
+                                    style = CorusFont.body,
+                                    color = CorusColors.Text,
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onEditTap()
+                            },
+                        )
+                    }
                     DropdownMenuItem(
                         text = {
                             Text(

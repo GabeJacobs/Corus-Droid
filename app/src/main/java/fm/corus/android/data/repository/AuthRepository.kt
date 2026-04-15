@@ -1,5 +1,8 @@
 package fm.corus.android.data.repository
 
+import android.content.Context
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
@@ -7,6 +10,8 @@ import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.messaging.FirebaseMessaging
+import dagger.hilt.android.qualifiers.ApplicationContext
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
@@ -20,6 +25,7 @@ import javax.inject.Singleton
 
 @Singleton
 class AuthRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val auth: FirebaseAuth,
     private val firestoreDataSource: FirestoreDataSource,
     private val storageDataSource: FirebaseStorageDataSource,
@@ -160,6 +166,12 @@ class AuthRepository @Inject constructor(
             try { firestoreDataSource.removeFCMToken(uid) } catch (_: Exception) { }
         }
         auth.signOut()
+        // Clear Google's cached account selection so the account picker shows on next sign-in
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(context.getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        try { GoogleSignIn.getClient(context, gso).signOut().await() } catch (_: Exception) { }
         _currentUser.value = null
         _userProfile.value = null
         _isClubMember.value = false
@@ -170,6 +182,11 @@ class AuthRepository @Inject constructor(
     suspend fun deleteAccount() {
         try { cloudFunctions.deleteAllUserData() } catch (_: Exception) { }
         auth.currentUser?.delete()?.await()
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(context.getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        try { GoogleSignIn.getClient(context, gso).revokeAccess().await() } catch (_: Exception) { }
         _currentUser.value = null
         _userProfile.value = null
         _isClubMember.value = false

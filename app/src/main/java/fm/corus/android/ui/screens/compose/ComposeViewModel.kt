@@ -17,6 +17,7 @@ import fm.corus.android.data.repository.SpotifyRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -36,6 +37,7 @@ class ComposeViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val subscriptionRepository: SubscriptionRepository,
     private val exploreRepository: ExploreRepository,
+    private val nowPlayingManager: NowPlayingManager,
 ) : ViewModel() {
 
     // Post limit / Cymbal Club
@@ -146,7 +148,16 @@ class ComposeViewModel @Inject constructor(
                     _searchResults.value = cachedTracks.map { Triple(it.albumArtURL, it.name, it.artistName) }
                 } else {
                     cachedMovies = tmdbRepository.searchMovies(query)
-                    _searchResults.value = cachedMovies.map { Triple(it.posterURL, it.title, it.directorName) }
+                    _searchResults.value = cachedMovies.map { movie ->
+                        val subtitle = buildString {
+                            append(movie.directorName)
+                            if (movie.year.isNotEmpty()) {
+                                if (isNotEmpty()) append("  ")
+                                append(movie.year)
+                            }
+                        }
+                        Triple(movie.posterURL, movie.title, subtitle)
+                    }
                 }
             } catch (_: Exception) {
                 _searchResults.value = emptyList()
@@ -165,6 +176,7 @@ class ComposeViewModel @Inject constructor(
     }
 
     fun clearSelection() {
+        stopPreview()
         _selectedTrack.value = null
         _selectedMovie.value = null
         _searchResults.value = emptyList()
@@ -346,10 +358,38 @@ class ComposeViewModel @Inject constructor(
         _mentionSuggestions.value = emptyList()
     }
 
+    // ── Preview playback ──
+
+    val nowPlayingState = nowPlayingManager.state
+    val previewLoadingTrackId = nowPlayingManager.loadingTrackId
+
+    fun togglePreview(track: CymbalTrack) {
+        viewModelScope.launch {
+            nowPlayingManager.play(
+                trackId = track.id,
+                trackName = track.name,
+                artistName = track.artistName,
+                albumArtURL = track.albumArtURL,
+                previewUrl = track.previewUrl,
+                isrc = track.isrc,
+            )
+        }
+    }
+
+    fun stopPreview() {
+        nowPlayingManager.stop()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopPreview()
+    }
+
     /** Reset all transient state so the screen opens fresh. */
     fun reset() {
         searchJob?.cancel()
         mentionJob?.cancel()
+        stopPreview()
         _selectedTrack.value = null
         _selectedMovie.value = null
         _searchResults.value = emptyList()

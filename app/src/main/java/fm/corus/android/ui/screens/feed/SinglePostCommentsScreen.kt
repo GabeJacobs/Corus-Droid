@@ -332,6 +332,8 @@ fun SinglePostCommentsScreen(
                         onLike = { viewModel.toggleCommentLike(postId, comment.id) },
                         onReply = { viewModel.setReplyTo(comment) },
                         onUserTap = { onNavigateToUser(comment.user.id) },
+                        onReplyUserTap = { userId -> onNavigateToUser(userId) },
+                        onReplyReply = { reply -> viewModel.setReplyTo(reply) },
                         onReplyLike = { replyId -> viewModel.toggleCommentLike(postId, replyId) },
                     )
                 }
@@ -350,6 +352,8 @@ private fun SingleCommentRow(
     onLike: () -> Unit,
     onReply: () -> Unit,
     onUserTap: () -> Unit,
+    onReplyUserTap: (String) -> Unit,
+    onReplyReply: (CymbalComment) -> Unit,
     onReplyLike: (String) -> Unit,
 ) {
     val commentHighlightColor by animateColorAsState(
@@ -373,7 +377,12 @@ private fun SingleCommentRow(
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(comment.user.username, style = CorusFont.captionMedium, color = CorusColors.Text)
+                    Text(
+                        comment.user.username,
+                        style = CorusFont.captionMedium,
+                        color = CorusColors.Text,
+                        modifier = Modifier.clickable(onClick = onUserTap),
+                    )
                     Spacer(modifier = Modifier.width(CorusSpacing.sm))
                     Text(DateUtils.relativeTime(comment.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
                 }
@@ -425,11 +434,21 @@ private fun SingleCommentRow(
                     .background(replyHighlightColor)
                     .padding(start = 56.dp, end = CorusSpacing.lg, top = CorusSpacing.xxs, bottom = CorusSpacing.xxs),
             ) {
-                UserAvatarView(avatarURL = reply.user.avatarURL, displayName = reply.user.displayName, size = 24.dp)
+                UserAvatarView(
+                    avatarURL = reply.user.avatarURL,
+                    displayName = reply.user.displayName,
+                    size = 24.dp,
+                    modifier = Modifier.clickable { onReplyUserTap(reply.user.id) },
+                )
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(reply.user.username, style = CorusFont.captionMedium, color = CorusColors.Text)
+                        Text(
+                            reply.user.username,
+                            style = CorusFont.captionMedium,
+                            color = CorusColors.Text,
+                            modifier = Modifier.clickable { onReplyUserTap(reply.user.id) },
+                        )
                         Spacer(modifier = Modifier.width(CorusSpacing.sm))
                         Text(DateUtils.relativeTime(reply.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
                     }
@@ -447,6 +466,15 @@ private fun SingleCommentRow(
                         )
                     } else {
                         Text(reply.text, style = CorusFont.body, color = CorusColors.Text)
+                    }
+                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg)) {
+                        Text(
+                            "Reply",
+                            style = CorusFont.captionMedium,
+                            color = CorusColors.Secondary,
+                            modifier = Modifier.clickable { onReplyReply(reply) },
+                        )
                     }
                 }
                 IconButton(onClick = { onReplyLike(reply.id) }, modifier = Modifier.size(24.dp)) {

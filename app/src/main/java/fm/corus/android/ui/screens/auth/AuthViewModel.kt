@@ -94,12 +94,22 @@ class AuthViewModel @Inject constructor(
                     if (needsOnboarding) {
                         _authState.value = AuthState.NeedsOnboarding
                     } else {
+                        // Set verified status from the profile already fetched
+                        // by checkNeedsOnboarding() — must happen before authState
+                        // becomes SignedIn so canPost is correct immediately.
+                        val profile = authRepository.userProfile.value
+                        if (profile != null) {
+                            subscriptionRepository.updateVerifiedStatus(profile.isVerified)
+                            subscriptionRepository.setTotalPostCount(profile.cymbalCount)
+                        }
+
                         // Prefetch in parallel
                         launch { userRepository.prefetchFollowingSet(user.uid) }
                         launch { userRepository.prefetchBlockedSet(user.uid) }
                         launch { userRepository.prefetchMutedSet(user.uid) }
                         launch { authRepository.registerFCMToken() }
                         launch { remoteConfigService.fetchAndActivate() }
+                        launch { subscriptionRepository.refreshTodayPostCount(user.uid) }
                         subscriptionRepository.loginUser(user.uid)
                         analyticsService.setUserId(user.uid)
                         _authState.value = AuthState.SignedIn

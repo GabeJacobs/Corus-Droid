@@ -468,6 +468,17 @@ class FirestoreDataSource @Inject constructor(
         return commentRef.id
     }
 
+    suspend fun editComment(postId: String, commentId: String, newText: String) {
+        firestore.collection("posts").document(postId)
+            .collection("comments").document(commentId)
+            .update(
+                mapOf(
+                    "text" to newText,
+                    "editedAt" to FieldValue.serverTimestamp(),
+                )
+            ).await()
+    }
+
     suspend fun deleteComment(postId: String, commentId: String) {
         val commentRef = firestore.collection("posts").document(postId)
             .collection("comments").document(commentId)
