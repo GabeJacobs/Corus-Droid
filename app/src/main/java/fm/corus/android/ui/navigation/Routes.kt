@@ -38,11 +38,18 @@ import kotlinx.serialization.Serializable
     val trailerURL: String? = null,
 )
 @Serializable data class CommentsRoute(val postId: String)
-@Serializable data class LikesRoute(val postId: String)
 @Serializable data class OtherProfileRoute(
     val userId: String,
     val avatarURL: String? = null,
     val avatarThumbURL: String? = null,
+    val initialDisplayName: String? = null,
+    val initialUsername: String? = null,
+    val initialBio: String? = null,
+    val initialCymbalCount: Int? = null,
+    val initialFollowerCount: Int? = null,
+    val initialFollowingCount: Int? = null,
+    val initialIsVerified: Boolean? = null,
+    val initialIsClubMember: Boolean? = null,
 )
 @Serializable data class ProfileByUsernameRoute(val username: String)
 @Serializable data class FollowListRoute(val userId: String, val isFollowers: Boolean)

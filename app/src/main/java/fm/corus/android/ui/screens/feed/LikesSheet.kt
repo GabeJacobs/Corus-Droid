@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Search
@@ -32,7 +31,30 @@ import fm.corus.android.ui.theme.CorusSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LikesSheet(
+fun LikesBottomSheet(
+    postId: String,
+    onDismiss: () -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color.White,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+    ) {
+        LikesSheetContent(
+            postId = postId,
+            onDismiss = onDismiss,
+            onNavigateToUser = onNavigateToUser,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LikesSheetContent(
     postId: String,
     viewModel: LikesViewModel = hiltViewModel(),
     onDismiss: () -> Unit = {},
@@ -57,135 +79,129 @@ fun LikesSheet(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Likes", style = CorusFont.screenTitle, color = CorusColors.Text) },
-                navigationIcon = {
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
-            )
-        },
-    ) { padding ->
-        Column(
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        // Title
+        Text(
+            text = "Likes",
+            style = CorusFont.screenTitle,
+            color = CorusColors.Text,
+            modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        )
+
+        // Search bar
+        TextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            // Search bar
-            TextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-                placeholder = { Text("Search", style = CorusFont.body, color = CorusColors.Tertiary) },
-                leadingIcon = {
-                    Icon(Icons.Filled.Search, contentDescription = "Search", tint = CorusColors.Tertiary, modifier = Modifier.size(15.dp))
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Filled.Close, contentDescription = "Clear", tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
-                        }
-                    }
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                shape = RoundedCornerShape(CorusSpacing.cornerRadius),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = CorusColors.CardBackground,
-                    unfocusedContainerColor = CorusColors.CardBackground,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = CorusColors.Accent,
-                ),
-                textStyle = CorusFont.body.copy(color = CorusColors.Text),
-            )
-
-            HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
-
-            when {
-                isLoading && likers.isEmpty() -> {
-                    // Skeleton loading
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(10) {
-                            SkeletonLikerRow()
-                        }
+                .fillMaxWidth()
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            placeholder = { Text("Search", style = CorusFont.body, color = CorusColors.Tertiary) },
+            leadingIcon = {
+                Icon(Icons.Filled.Search, contentDescription = "Search", tint = CorusColors.Tertiary, modifier = Modifier.size(15.dp))
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Clear", tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
                     }
                 }
-                filteredLikers.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-                        ) {
-                            Icon(
-                                Icons.Filled.Favorite,
-                                contentDescription = null,
-                                tint = CorusColors.Tertiary,
-                                modifier = Modifier.size(36.dp),
-                            )
-                            Text(
-                                text = if (searchQuery.isEmpty()) "No likes yet" else "No results",
-                                style = CorusFont.bodyMedium,
-                                color = CorusColors.Secondary,
-                            )
-                        }
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            shape = RoundedCornerShape(CorusSpacing.cornerRadius),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = CorusColors.CardBackground,
+                unfocusedContainerColor = CorusColors.CardBackground,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                cursorColor = CorusColors.Accent,
+            ),
+            textStyle = CorusFont.body.copy(color = CorusColors.Text),
+        )
+
+        HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+
+        when {
+            isLoading && likers.isEmpty() -> {
+                // Skeleton loading
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(10) {
+                        SkeletonLikerRow()
                     }
                 }
-                else -> {
-                    val listState = rememberLazyListState()
-
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
+            }
+            filteredLikers.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 200.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     ) {
-                        items(filteredLikers, key = { it.id }) { user ->
-                            val isSelf = user.id == viewModel.currentUserId
-                            val isFollowing = followingIds.contains(user.id)
-                            val isFollower = followerIds.contains(user.id)
+                        Icon(
+                            Icons.Filled.Favorite,
+                            contentDescription = null,
+                            tint = CorusColors.Tertiary,
+                            modifier = Modifier.size(36.dp),
+                        )
+                        Text(
+                            text = if (searchQuery.isEmpty()) "No likes yet" else "No results",
+                            style = CorusFont.bodyMedium,
+                            color = CorusColors.Secondary,
+                        )
+                    }
+                }
+            }
+            else -> {
+                val listState = rememberLazyListState()
 
-                            LikerRow(
-                                user = user,
-                                isFollowing = isFollowing,
-                                isFollower = isFollower,
-                                isSelf = isSelf,
-                                onUserTap = {
-                                    onNavigateToUser(user.id)
-                                    onDismiss()
-                                },
-                                onFollowTap = { viewModel.toggleFollow(user.id) },
-                            )
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    items(filteredLikers, key = { it.id }) { user ->
+                        val isSelf = user.id == viewModel.currentUserId
+                        val isFollowing = followingIds.contains(user.id)
+                        val isFollower = followerIds.contains(user.id)
 
-                            // Trigger pagination when reaching last item
-                            if (user.id == filteredLikers.lastOrNull()?.id && searchQuery.isEmpty()) {
-                                LaunchedEffect(user.id) {
-                                    viewModel.loadNextPageIfNeeded()
-                                }
+                        LikerRow(
+                            user = user,
+                            isFollowing = isFollowing,
+                            isFollower = isFollower,
+                            isSelf = isSelf,
+                            onUserTap = {
+                                onNavigateToUser(user.id)
+                                onDismiss()
+                            },
+                            onFollowTap = { viewModel.toggleFollow(user.id) },
+                        )
+
+                        // Trigger pagination when reaching last item
+                        if (user.id == filteredLikers.lastOrNull()?.id && searchQuery.isEmpty()) {
+                            LaunchedEffect(user.id) {
+                                viewModel.loadNextPageIfNeeded()
                             }
                         }
+                    }
 
-                        if (isLoadingMore) {
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = CorusSpacing.md),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator(
-                                        color = CorusColors.Accent,
-                                        modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp,
-                                    )
-                                }
+                    if (isLoadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = CorusSpacing.md),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(
+                                    color = CorusColors.Accent,
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                )
                             }
                         }
                     }

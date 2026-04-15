@@ -24,7 +24,18 @@ class CorusApplication : Application() {
 
     private fun initAppCheck() {
         val factory = if (BuildConfig.DEBUG) {
-            android.util.Log.w("CORUS_DEBUG", "=== Using Debug App Check Provider ===")
+            // Pre-seed a fixed debug token so it's the same across emulator instances.
+            // Register this token once in Firebase Console > App Check > Manage debug tokens.
+            val token = BuildConfig.APP_CHECK_DEBUG_TOKEN
+            if (token.isNotEmpty()) {
+                val persistenceKey = FirebaseApp.getInstance().persistenceKey
+                getSharedPreferences(
+                    "com.google.firebase.appcheck.debug.store.$persistenceKey",
+                    MODE_PRIVATE
+                ).edit().putString(
+                    "com.google.firebase.appcheck.debug.DEBUG_SECRET", token
+                ).apply()
+            }
             try {
                 val clazz = Class.forName("com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory")
                 clazz.getMethod("getInstance").invoke(null) as com.google.firebase.appcheck.AppCheckProviderFactory

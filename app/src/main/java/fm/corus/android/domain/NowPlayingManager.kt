@@ -9,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.ui.components.ToastManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,6 +72,7 @@ class NowPlayingManager @Inject constructor(
 
     suspend fun generateFeedPlaylist() {
         _isGeneratingPlaylist.value = true
+        ToastManager.show("Generating playlist\u2026")
 
         if (!isNetworkAvailable()) {
             _playlistError.value = "Couldn't connect. Check your connection."
@@ -99,6 +101,7 @@ class NowPlayingManager @Inject constructor(
 
     suspend fun generateProfilePlaylist(userId: String) {
         _isGeneratingPlaylist.value = true
+        ToastManager.show("Generating playlist\u2026")
 
         if (!isNetworkAvailable()) {
             _playlistError.value = "Couldn't connect. Check your connection."

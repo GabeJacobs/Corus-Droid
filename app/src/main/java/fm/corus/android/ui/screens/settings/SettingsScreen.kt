@@ -12,7 +12,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -26,7 +25,6 @@ import androidx.compose.material.icons.outlined.Policy
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,7 +35,6 @@ import fm.corus.android.R
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import fm.corus.android.data.model.MusicService
 import fm.corus.android.ui.screens.auth.AuthViewModel
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -59,12 +56,6 @@ fun SettingsScreen(
 
     // General toggles
     var hapticsEnabled by remember { mutableStateOf(true) }
-
-    // Music Service
-    val musicServicePreference = settingsViewModel.musicServicePreference
-    val currentMusicService by musicServicePreference.current.collectAsState()
-    var showMusicServiceMenu by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
 
     // Messaging
     var whoCanMessageMe by remember { mutableStateOf("Everyone") }
@@ -93,38 +84,6 @@ fun SettingsScreen(
         ) {
             // ── Section: General ──
             SectionHeader("GENERAL")
-
-            // Music Service picker
-            Box {
-                SettingsNavRow(
-                    icon = Icons.Filled.MusicNote,
-                    title = "Music Service",
-                    trailingText = currentMusicService.displayLabel,
-                    onClick = { showMusicServiceMenu = true },
-                )
-                DropdownMenu(
-                    expanded = showMusicServiceMenu,
-                    onDismissRequest = { showMusicServiceMenu = false },
-                ) {
-                    MusicService.entries.forEach { service ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = service.displayLabel,
-                                    style = CorusFont.body,
-                                    color = if (service == currentMusicService) CorusColors.Accent else CorusColors.Text,
-                                )
-                            },
-                            onClick = {
-                                showMusicServiceMenu = false
-                                coroutineScope.launch {
-                                    musicServicePreference.syncToFirestore(service)
-                                }
-                            },
-                        )
-                    }
-                }
-            }
 
             SettingsToggleRow(
                 icon = Icons.Outlined.Vibration,
@@ -156,7 +115,7 @@ fun SettingsScreen(
                     expanded = showMessageMenu,
                     onDismissRequest = { showMessageMenu = false },
                 ) {
-                    listOf("Everyone", "Followers", "No One").forEach { option ->
+                    listOf("Everyone", "My Followers", "People I Follow", "Nobody").forEach { option ->
                         DropdownMenuItem(
                             text = {
                                 Text(

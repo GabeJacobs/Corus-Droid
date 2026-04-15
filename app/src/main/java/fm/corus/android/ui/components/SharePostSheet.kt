@@ -363,7 +363,7 @@ private fun SkeletonShareContactsGrid() {
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)
-                        .background(CorusColors.CardBackground),
+                        .background(CorusColors.Skeleton),
                 )
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
                 Box(
@@ -371,7 +371,7 @@ private fun SkeletonShareContactsGrid() {
                         .width(50.dp)
                         .height(10.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(CorusColors.CardBackground),
+                        .background(CorusColors.Skeleton),
                 )
             }
         }

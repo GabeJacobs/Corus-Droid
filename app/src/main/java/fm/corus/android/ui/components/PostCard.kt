@@ -35,7 +35,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import coil3.size.Size
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -204,7 +203,6 @@ fun PostCard(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(post.displayImageLargeURL ?: post.displayImageURL)
                     .crossfade(true)
-                    .size(Size.ORIGINAL)
                     .build(),
                 contentDescription = post.displayTitle,
                 modifier = Modifier.fillMaxSize(),

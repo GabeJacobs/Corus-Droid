@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.ui.components.PostActionMenu
 import fm.corus.android.ui.components.PostCard
@@ -42,7 +43,7 @@ fun FeedScreen(
     viewModel: FeedViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
     onNavigateToPost: (String) -> Unit = {},
-    onNavigateToUser: (userId: String, avatarURL: String?, avatarThumbURL: String?) -> Unit = { _, _, _ -> },
+    onNavigateToUser: (CymbalUser) -> Unit = {},
     onNavigateToUserByUsername: (String) -> Unit = {},
     onNavigateToComments: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
@@ -102,10 +103,7 @@ fun FeedScreen(
             // Music note / playlist button on the right (hidden when filter is Movie)
             if (posts.isNotEmpty() && feedMediaFilter != MediaType.MOVIE) {
                 IconButton(
-                    onClick = {
-                        ToastManager.show("Generating playlist\u2026")
-                        viewModel.generateFeedPlaylist()
-                    },
+                    onClick = { viewModel.generateFeedPlaylist() },
                     modifier = Modifier.align(Alignment.CenterEnd),
                     enabled = !isGeneratingPlaylist,
                 ) {
@@ -265,7 +263,11 @@ fun FeedScreen(
                     }
 
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                        itemsIndexed(posts, key = { _, post -> post.id }) { index, post ->
+                        itemsIndexed(
+                            posts,
+                            key = { _, post -> post.id },
+                            contentType = { _, _ -> "post_card" },
+                        ) { index, post ->
                             val engagement = engagementStates[post.id]
                             PostCard(
                                 post = post,
@@ -277,7 +279,7 @@ fun FeedScreen(
                                 isPreviewPlaying = nowPlayingState.trackId == post.track.id && nowPlayingState.isPlaying,
                                 onLikeTap = { viewModel.toggleLike(post.id) },
                                 onSaveTap = { viewModel.toggleSave(post.id) },
-                                onUserTap = { onNavigateToUser(post.user.id, post.user.avatarURL, post.user.avatarThumbURL) },
+                                onUserTap = { onNavigateToUser(post.user) },
                                 onPostTap = { onNavigateToPost(post.id) },
                                 onPreviewTap = {
                                     viewModel.playPreview(post)

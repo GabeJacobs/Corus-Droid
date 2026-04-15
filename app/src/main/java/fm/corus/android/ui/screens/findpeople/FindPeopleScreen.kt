@@ -54,7 +54,9 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
+import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.SkeletonFilmRow
+import fm.corus.android.ui.components.SkeletonTrendingFilmRow
 import fm.corus.android.ui.components.SkeletonTrendingSongRow
 import fm.corus.android.ui.components.SkeletonTasteMatchCard
 import fm.corus.android.ui.components.SkeletonUserRow
@@ -467,7 +469,7 @@ private fun SuggestedUsersContent(
                 visible = contactsSyncStatus == "notAsked",
                 exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
             ) {
-                Column {
+                Column(modifier = Modifier.padding(top = CorusSpacing.md)) {
                     FindFriendsFromContactsCard(
                         isSyncing = isSyncingContacts,
                         onTap = {
@@ -669,20 +671,20 @@ private fun FindFriendsFromContactsCard(
             .clip(cardShape)
             .background(CorusColors.CardBackground)
             .border(0.5.dp, CorusColors.Divider, cardShape)
-            .padding(CorusSpacing.lg),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
             Icons.Filled.Contacts,
             contentDescription = null,
             tint = CorusColors.Accent,
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(36.dp),
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.md))
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
         Text(
-            "Find your friends on corus",
+            "Find your friends on Corus",
             style = CorusFont.songTitleLarge,
             color = CorusColors.Text,
         )
@@ -693,7 +695,7 @@ private fun FindFriendsFromContactsCard(
             color = CorusColors.Secondary,
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.md))
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
         Button(
             onClick = onTap,
@@ -703,7 +705,7 @@ private fun FindFriendsFromContactsCard(
                 containerColor = CorusColors.Accent,
                 contentColor = Color.White,
             ),
-            contentPadding = PaddingValues(vertical = CorusSpacing.md),
+            contentPadding = PaddingValues(vertical = CorusSpacing.sm),
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (isSyncing) {
@@ -716,8 +718,6 @@ private fun FindFriendsFromContactsCard(
                 Text("Sync Contacts", style = CorusFont.buttonSmall)
             }
         }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
         TextButton(
             onClick = onDismiss,
@@ -954,7 +954,7 @@ private fun TrendingFilmsContent(
     if (isLoading) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
             item { SectionHeader(icon = "film", title = "TRENDING THIS MONTH") }
-            items(5) { SkeletonFilmRow() }
+            items(10) { SkeletonTrendingFilmRow() }
         }
         return
     }
@@ -999,13 +999,13 @@ private fun TrendingFilmRow(
             modifier = Modifier.width(24.dp),
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
-        AsyncImage(
+        ShimmerAsyncImage(
             model = movie.posterURL,
             contentDescription = null,
             modifier = Modifier
                 .width(33.dp)
-                .height(44.dp)
-                .clip(RoundedCornerShape(4.dp)),
+                .height(44.dp),
+            shape = RoundedCornerShape(4.dp),
             contentScale = ContentScale.Crop,
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))

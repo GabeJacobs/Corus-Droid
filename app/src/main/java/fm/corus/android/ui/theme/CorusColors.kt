@@ -11,6 +11,7 @@ object CorusColors {
     val Tertiary = Color(0xFFC7C7CC)
     val Background = Color.White
     val CardBackground = Color(0xFFF8F8FA)
+    val Skeleton = Color(0xFFE8E8ED)
     val Divider = Color(0xFFEEEEF0)
     val Verified = Color(0xFF2ED573)
     val SpotifyGreen = Color(0xFF1DB954)

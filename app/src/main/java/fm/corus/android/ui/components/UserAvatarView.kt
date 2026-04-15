@@ -4,9 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -39,22 +36,13 @@ fun UserAvatarView(
                 .background(CorusColors.CardBackground),
             contentAlignment = Alignment.Center,
         ) {
-            if (initial != null) {
-                val fontSize = with(LocalDensity.current) { (size * 0.4f).toSp() }
-                Text(
-                    text = initial,
-                    color = CorusColors.Secondary,
-                    fontSize = fontSize,
-                    fontWeight = FontWeight.Bold,
-                )
-            } else {
-                Icon(
-                    Icons.Filled.Person,
-                    contentDescription = "Avatar placeholder",
-                    modifier = Modifier.size(size * 0.5f),
-                    tint = CorusColors.Secondary,
-                )
-            }
+            val fontSize = with(LocalDensity.current) { (size * 0.4f).toSp() }
+            Text(
+                text = initial ?: "?",
+                color = CorusColors.Secondary,
+                fontSize = fontSize,
+                fontWeight = FontWeight.Bold,
+            )
         }
     } else {
         ShimmerAsyncImage(

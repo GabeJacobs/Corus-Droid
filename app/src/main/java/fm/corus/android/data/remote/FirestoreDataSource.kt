@@ -191,12 +191,12 @@ class FirestoreDataSource @Inject constructor(
         batch.set(
             firestore.collection("posts").document(postId)
                 .collection("likes").document(userId),
-            mapOf("timestamp" to FieldValue.serverTimestamp())
+            mapOf("createdAt" to FieldValue.serverTimestamp())
         )
         batch.set(
             firestore.collection("users_v2").document(userId)
                 .collection("liked").document(postId),
-            mapOf("timestamp" to FieldValue.serverTimestamp())
+            mapOf("createdAt" to FieldValue.serverTimestamp())
         )
         batch.update(
             firestore.collection("posts").document(postId),
@@ -504,13 +504,13 @@ class FirestoreDataSource @Inject constructor(
 
     suspend fun fetchMutedUserIds(userId: String): List<String> {
         val snapshot = firestore.collection("users_v2").document(userId)
-            .collection("muted_users").get().await()
+            .collection("muted").get().await()
         return snapshot.documents.map { it.id }
     }
 
     suspend fun unmuteUser(currentUserId: String, targetUserId: String) {
         firestore.collection("users_v2").document(currentUserId)
-            .collection("muted_users").document(targetUserId)
+            .collection("muted").document(targetUserId)
             .delete().await()
     }
 
@@ -803,7 +803,7 @@ class FirestoreDataSource @Inject constructor(
     suspend fun fetchPostLikers(postId: String, limit: Int = 20, lastTimestamp: Long? = null): LikersPage {
         var query = firestore.collection("posts").document(postId)
             .collection("likes")
-            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(limit.toLong())
         if (lastTimestamp != null) {
             query = query.startAfter(Date(lastTimestamp))
@@ -812,7 +812,7 @@ class FirestoreDataSource @Inject constructor(
         val docs = snapshot.documents
         val userIds = docs.map { it.id }
         val users = userIds.mapNotNull { fetchUserProfile(it) }
-        val nextTimestamp = docs.lastOrNull()?.getTimestamp("timestamp")?.toDate()?.time
+        val nextTimestamp = docs.lastOrNull()?.getTimestamp("createdAt")?.toDate()?.time
         return LikersPage(
             users = users,
             lastTimestamp = nextTimestamp,

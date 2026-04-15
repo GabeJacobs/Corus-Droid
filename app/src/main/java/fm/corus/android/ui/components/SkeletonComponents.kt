@@ -54,7 +54,7 @@ fun ShimmerAsyncImage(
                 modifier = Modifier
                     .fillMaxSize()
                     .shimmer()
-                    .background(CorusColors.CardBackground),
+                    .background(CorusColors.Skeleton),
             )
         }
         AsyncImage(
@@ -91,7 +91,7 @@ fun SkeletonPostCard() {
                 modifier = Modifier
                     .size(CorusSpacing.avatarSmall)
                     .clip(CircleShape)
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Box(
@@ -99,7 +99,7 @@ fun SkeletonPostCard() {
                     .fillMaxWidth()
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
 
@@ -108,7 +108,7 @@ fun SkeletonPostCard() {
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
 
         // Song info bars
@@ -124,14 +124,14 @@ fun SkeletonPostCard() {
                     .fillMaxWidth()
                     .height(14.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(11.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
     }
@@ -150,7 +150,7 @@ fun SkeletonUserRow() {
             modifier = Modifier
                 .size(CorusSpacing.avatarMedium)
                 .clip(CircleShape)
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column {
@@ -159,7 +159,7 @@ fun SkeletonUserRow() {
                     .width(120.dp)
                     .height(14.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
             Box(
@@ -167,7 +167,7 @@ fun SkeletonUserRow() {
                     .width(80.dp)
                     .height(12.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
     }
@@ -189,7 +189,7 @@ fun SkeletonProfileView() {
                 .width(140.dp)
                 .height(16.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
 
         Spacer(modifier = Modifier.height(CorusSpacing.md))
@@ -198,7 +198,7 @@ fun SkeletonProfileView() {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = CorusSpacing.lg + 12.dp, end = CorusSpacing.lg),
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Avatar (72dp circle)
@@ -206,13 +206,14 @@ fun SkeletonProfileView() {
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
+
+            Spacer(modifier = Modifier.width(CorusSpacing.md))
 
             Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(start = CorusSpacing.lg),
+                    .weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // Stats row (3 columns)
@@ -227,7 +228,7 @@ fun SkeletonProfileView() {
                                     .width(28.dp)
                                     .height(14.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(CorusColors.CardBackground)
+                                    .background(CorusColors.Skeleton)
                             )
                             Spacer(modifier = Modifier.height(CorusSpacing.xxs))
                             Box(
@@ -235,7 +236,7 @@ fun SkeletonProfileView() {
                                     .width(44.dp)
                                     .height(10.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(CorusColors.CardBackground)
+                                    .background(CorusColors.Skeleton)
                             )
                         }
                     }
@@ -250,24 +251,22 @@ fun SkeletonProfileView() {
                         .padding(horizontal = CorusSpacing.lg)
                         .height(30.dp)
                         .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
-                        .background(CorusColors.CardBackground)
+                        .background(CorusColors.Skeleton)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xs))
-
         // Username + bio
         Column(
             modifier = Modifier
-                .padding(start = CorusSpacing.lg + 12.dp, end = CorusSpacing.lg),
+                .padding(start = 28.dp, end = CorusSpacing.lg),
         ) {
             Box(
                 modifier = Modifier
                     .width(100.dp)
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Spacer(modifier = Modifier.height(CorusSpacing.xxs))
             Box(
@@ -275,7 +274,7 @@ fun SkeletonProfileView() {
                     .width(180.dp)
                     .height(11.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
 
@@ -302,7 +301,7 @@ fun SkeletonProfileWithAvatar(
                 .height(16.dp)
                 .clip(RoundedCornerShape(4.dp))
                 .shimmer()
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
 
         Spacer(modifier = Modifier.height(CorusSpacing.md))
@@ -311,7 +310,7 @@ fun SkeletonProfileWithAvatar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = CorusSpacing.lg + 12.dp, end = CorusSpacing.lg),
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Real avatar (pre-loaded from feed)
@@ -321,10 +320,11 @@ fun SkeletonProfileWithAvatar(
                 size = CorusSpacing.avatarLarge,
             )
 
+            Spacer(modifier = Modifier.width(CorusSpacing.md))
+
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = CorusSpacing.lg)
                     .shimmer(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -340,7 +340,7 @@ fun SkeletonProfileWithAvatar(
                                     .width(28.dp)
                                     .height(14.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(CorusColors.CardBackground)
+                                    .background(CorusColors.Skeleton)
                             )
                             Spacer(modifier = Modifier.height(CorusSpacing.xxs))
                             Box(
@@ -348,7 +348,7 @@ fun SkeletonProfileWithAvatar(
                                     .width(44.dp)
                                     .height(10.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(CorusColors.CardBackground)
+                                    .background(CorusColors.Skeleton)
                             )
                         }
                     }
@@ -363,17 +363,15 @@ fun SkeletonProfileWithAvatar(
                         .padding(horizontal = CorusSpacing.lg)
                         .height(30.dp)
                         .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
-                        .background(CorusColors.CardBackground)
+                        .background(CorusColors.Skeleton)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xs))
-
         // Username + bio shimmer
         Column(
             modifier = Modifier
-                .padding(start = CorusSpacing.lg + 12.dp, end = CorusSpacing.lg)
+                .padding(start = 28.dp, end = CorusSpacing.lg)
                 .shimmer(),
         ) {
             Box(
@@ -381,7 +379,7 @@ fun SkeletonProfileWithAvatar(
                     .width(100.dp)
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Spacer(modifier = Modifier.height(CorusSpacing.xxs))
             Box(
@@ -389,7 +387,7 @@ fun SkeletonProfileWithAvatar(
                     .width(180.dp)
                     .height(11.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
 
@@ -446,7 +444,7 @@ fun SkeletonCommentRow() {
                 modifier = Modifier
                     .size(CorusSpacing.avatarMedium)
                     .clip(CircleShape)
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
 
             Column(
@@ -459,7 +457,7 @@ fun SkeletonCommentRow() {
                         .width(80.dp)
                         .height(12.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(CorusColors.CardBackground)
+                        .background(CorusColors.Skeleton)
                 )
                 // Comment line 1
                 Box(
@@ -467,7 +465,7 @@ fun SkeletonCommentRow() {
                         .fillMaxWidth()
                         .height(12.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(CorusColors.CardBackground)
+                        .background(CorusColors.Skeleton)
                 )
                 // Comment line 2 (partial)
                 Row {
@@ -476,7 +474,7 @@ fun SkeletonCommentRow() {
                             .weight(1f)
                             .height(12.dp)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(CorusColors.CardBackground)
+                            .background(CorusColors.Skeleton)
                     )
                     Spacer(modifier = Modifier.weight(1f))
                 }
@@ -493,7 +491,7 @@ fun SkeletonCommentRow() {
                 .width(36.dp)
                 .height(10.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
     }
 }
@@ -516,7 +514,7 @@ fun SkeletonTrendingSongRow() {
                 .width(24.dp)
                 .height(13.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.CardBackground),
+                .background(CorusColors.Skeleton),
             contentAlignment = Alignment.Center,
         ) {}
 
@@ -525,7 +523,7 @@ fun SkeletonTrendingSongRow() {
             modifier = Modifier
                 .size(CorusSpacing.albumArtSearch)
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
 
         // Title + artist
@@ -538,14 +536,14 @@ fun SkeletonTrendingSongRow() {
                     .width(110.dp)
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Box(
                 modifier = Modifier
                     .width(75.dp)
                     .height(10.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
 
@@ -555,7 +553,7 @@ fun SkeletonTrendingSongRow() {
                 .width(20.dp)
                 .height(10.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
     }
 }
@@ -580,12 +578,12 @@ fun SkeletonHashtagCard() {
             verticalArrangement = Arrangement.spacedBy(gap),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
-                Box(modifier = Modifier.size(tileSize.dp).background(CorusColors.CardBackground))
-                Box(modifier = Modifier.size(tileSize.dp).background(CorusColors.CardBackground))
+                Box(modifier = Modifier.size(tileSize.dp).background(CorusColors.Skeleton))
+                Box(modifier = Modifier.size(tileSize.dp).background(CorusColors.Skeleton))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
-                Box(modifier = Modifier.size(tileSize.dp).background(CorusColors.CardBackground))
-                Box(modifier = Modifier.size(tileSize.dp).background(CorusColors.CardBackground))
+                Box(modifier = Modifier.size(tileSize.dp).background(CorusColors.Skeleton))
+                Box(modifier = Modifier.size(tileSize.dp).background(CorusColors.Skeleton))
             }
         }
 
@@ -595,7 +593,7 @@ fun SkeletonHashtagCard() {
                 .width(80.dp)
                 .height(13.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
 
         // Post count
@@ -604,7 +602,7 @@ fun SkeletonHashtagCard() {
                 .width(55.dp)
                 .height(10.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
     }
 }
@@ -618,7 +616,7 @@ fun SkeletonAlbumGridCell(
     Box(
         modifier = modifier
             .aspectRatio(aspectRatio)
-            .background(CorusColors.CardBackground)
+            .background(CorusColors.Skeleton)
     )
 }
 
@@ -638,7 +636,7 @@ fun SkeletonSongRow() {
             modifier = Modifier
                 .size(CorusSpacing.albumArtThumbnail)
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
 
         // Title + artist
@@ -651,14 +649,14 @@ fun SkeletonSongRow() {
                     .width(120.dp)
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Box(
                 modifier = Modifier
                     .width(80.dp)
                     .height(11.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
 
@@ -668,7 +666,7 @@ fun SkeletonSongRow() {
                 .width(32.dp)
                 .height(11.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
     }
 }
@@ -690,7 +688,7 @@ fun SkeletonFilmRow() {
                 .width(40.dp)
                 .height(60.dp)
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
 
         // Title + year
@@ -703,16 +701,79 @@ fun SkeletonFilmRow() {
                     .width(120.dp)
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Box(
                 modifier = Modifier
                     .width(80.dp)
                     .height(11.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
+    }
+}
+
+// 8b. SkeletonTrendingFilmRow — Rank + Poster + title + year + count
+@Composable
+fun SkeletonTrendingFilmRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shimmer()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+    ) {
+        // Rank number placeholder
+        Box(
+            modifier = Modifier
+                .width(14.dp)
+                .height(13.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(CorusColors.Skeleton),
+            contentAlignment = Alignment.Center,
+        ) {}
+        Spacer(modifier = Modifier.width(10.dp - CorusSpacing.md))
+
+        // Poster rectangle
+        Box(
+            modifier = Modifier
+                .width(33.dp)
+                .height(44.dp)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                .background(CorusColors.Skeleton)
+        )
+
+        // Title + director
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(120.dp)
+                    .height(13.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Box(
+                modifier = Modifier
+                    .width(80.dp)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+        }
+
+        // Cymbal count placeholder
+        Box(
+            modifier = Modifier
+                .width(20.dp)
+                .height(11.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(CorusColors.Skeleton)
+        )
     }
 }
 
@@ -730,7 +791,7 @@ fun SkeletonSectionHeader() {
             modifier = Modifier
                 .size(14.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
         Spacer(modifier = Modifier.width(CorusSpacing.xs))
         Box(
@@ -738,7 +799,7 @@ fun SkeletonSectionHeader() {
                 .width(120.dp)
                 .height(11.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
     }
 }
@@ -755,7 +816,7 @@ fun SkeletonTasteMatchCard(modifier: Modifier = Modifier) {
                 color = CorusColors.Divider,
                 shape = RoundedCornerShape(CorusSpacing.cornerRadiusLarge),
             )
-            .background(CorusColors.CardBackground)
+            .background(CorusColors.Skeleton)
             .padding(CorusSpacing.sm),
         verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {
@@ -771,12 +832,12 @@ fun SkeletonTasteMatchCard(modifier: Modifier = Modifier) {
 
             Column(verticalArrangement = Arrangement.spacedBy(gap)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    Box(modifier = Modifier.size(tileSize).background(CorusColors.CardBackground))
-                    Box(modifier = Modifier.size(tileSize).background(CorusColors.CardBackground))
+                    Box(modifier = Modifier.size(tileSize).background(CorusColors.Skeleton))
+                    Box(modifier = Modifier.size(tileSize).background(CorusColors.Skeleton))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    Box(modifier = Modifier.size(tileSize).background(CorusColors.CardBackground))
-                    Box(modifier = Modifier.size(tileSize).background(CorusColors.CardBackground))
+                    Box(modifier = Modifier.size(tileSize).background(CorusColors.Skeleton))
+                    Box(modifier = Modifier.size(tileSize).background(CorusColors.Skeleton))
                 }
             }
         }
@@ -790,7 +851,7 @@ fun SkeletonTasteMatchCard(modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .size(CorusSpacing.avatarSmall)
                     .clip(CircleShape)
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Column(verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs)) {
                 Box(
@@ -798,14 +859,14 @@ fun SkeletonTasteMatchCard(modifier: Modifier = Modifier) {
                         .width(70.dp)
                         .height(12.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(CorusColors.CardBackground)
+                        .background(CorusColors.Skeleton)
                 )
                 Box(
                     modifier = Modifier
                         .width(50.dp)
                         .height(10.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(CorusColors.CardBackground)
+                        .background(CorusColors.Skeleton)
                 )
             }
         }
@@ -816,7 +877,7 @@ fun SkeletonTasteMatchCard(modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .height(30.dp)
                 .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
     }
 }
@@ -837,7 +898,7 @@ fun SkeletonMessageThreadRow() {
             modifier = Modifier
                 .size(CorusSpacing.avatarMedium)
                 .clip(CircleShape)
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
 
         // Username + message preview
@@ -850,14 +911,14 @@ fun SkeletonMessageThreadRow() {
                     .width(100.dp)
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Box(
                 modifier = Modifier
                     .width(160.dp)
                     .height(11.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
 
@@ -867,7 +928,7 @@ fun SkeletonMessageThreadRow() {
                 .width(28.dp)
                 .height(10.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
     }
 }
@@ -890,7 +951,7 @@ fun SkeletonNotificationRow(
             modifier = Modifier
                 .size(CorusSpacing.avatarMedium)
                 .clip(CircleShape)
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
 
         // 2-line text
@@ -903,14 +964,14 @@ fun SkeletonNotificationRow(
                     .fillMaxWidth()
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Box(
                 modifier = Modifier
                     .width(140.dp)
                     .height(11.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
 
@@ -920,7 +981,7 @@ fun SkeletonNotificationRow(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         } else {
             Box(
@@ -928,7 +989,7 @@ fun SkeletonNotificationRow(
                     .width(80.dp)
                     .height(30.dp)
                     .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
     }
@@ -947,7 +1008,7 @@ fun SkeletonFeaturedCymbal() {
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(585f / 448f)
-                .background(CorusColors.CardBackground)
+                .background(CorusColors.Skeleton)
         )
 
         // Title + artist bars below
@@ -963,14 +1024,14 @@ fun SkeletonFeaturedCymbal() {
                     .width(130.dp)
                     .height(14.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
             Box(
                 modifier = Modifier
                     .width(90.dp)
                     .height(11.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.CardBackground)
+                    .background(CorusColors.Skeleton)
             )
         }
     }

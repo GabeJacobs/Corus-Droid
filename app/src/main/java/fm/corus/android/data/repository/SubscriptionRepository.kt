@@ -122,7 +122,7 @@ class SubscriptionRepository @Inject constructor(
         _isClubMember.value = false
         _isVerified.value = false
         Purchases.sharedInstance.updatedCustomerInfoListener = null
-        Purchases.sharedInstance.logOut()
+        try { Purchases.sharedInstance.logOut() } catch (_: Exception) { }
     }
 
     fun fetchOfferings() {

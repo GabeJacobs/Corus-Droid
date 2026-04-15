@@ -67,6 +67,14 @@ fun OtherProfileScreen(
     userId: String,
     initialAvatarURL: String? = null,
     initialAvatarThumbURL: String? = null,
+    initialDisplayName: String? = null,
+    initialUsername: String? = null,
+    initialBio: String? = null,
+    initialCymbalCount: Int? = null,
+    initialFollowerCount: Int? = null,
+    initialFollowingCount: Int? = null,
+    initialIsVerified: Boolean? = null,
+    initialIsClubMember: Boolean? = null,
     viewModel: OtherProfileViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
@@ -198,14 +206,182 @@ fun OtherProfileScreen(
             )
         },
     ) { padding ->
+        val hasInitialData = initialDisplayName != null && initialUsername != null
         if (isLoading && profile == null) {
+            if (hasInitialData) {
+                // Show real header with initial data from the feed; only shimmer the posts grid
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = padding.calculateTopPadding()),
+                    contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+                ) {
+                    item(span = { GridItemSpan(3) }) {
+                        Column {
+                            // Display name
+                            Text(
+                                text = initialDisplayName,
+                                style = CorusFont.displayName,
+                                color = CorusColors.Text,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+
+                            // Avatar + Stats Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                UserAvatarView(
+                                    avatarURL = initialAvatarURL,
+                                    avatarThumbURL = initialAvatarThumbURL,
+                                    displayName = initialDisplayName,
+                                    size = CorusSpacing.avatarLarge,
+                                )
+
+                                Spacer(modifier = Modifier.width(CorusSpacing.md))
+
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
+                                    ) {
+                                        StatItem(count = initialCymbalCount ?: 0, label = "coruses")
+                                        StatItem(count = initialFollowerCount ?: 0, label = "followers")
+                                        StatItem(count = initialFollowingCount ?: 0, label = "following")
+                                    }
+
+                                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
+                                    // Follow + Playlist buttons (non-interactive placeholders)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                                    ) {
+                                        val followShape = RoundedCornerShape(50)
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(followShape)
+                                                .background(CorusColors.Accent)
+                                                .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = "FOLLOW",
+                                                style = CorusFont.button,
+                                                color = Color.White,
+                                            )
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(50))
+                                                .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
+                                                .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                                    contentDescription = "Playlist",
+                                                    modifier = Modifier.size(14.dp),
+                                                    tint = CorusColors.Secondary,
+                                                )
+                                                Text(
+                                                    text = "PLAYLIST",
+                                                    style = CorusFont.button,
+                                                    color = CorusColors.Secondary,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Username + Bio
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 28.dp, end = CorusSpacing.lg),
+                            ) {
+                                UsernameWithFlair(
+                                    username = initialUsername,
+                                    isBot = false,
+                                    isVerified = initialIsVerified ?: false,
+                                    isClubMember = initialIsClubMember ?: false,
+                                    showAtPrefix = true,
+                                    style = CorusFont.username,
+                                    color = CorusColors.Text,
+                                )
+
+                                if (!initialBio.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                                    Text(
+                                        text = initialBio,
+                                        style = CorusFont.bio,
+                                        color = CorusColors.Secondary,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+
+                            // Segment tabs
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                listOf("MUSIC", "FILM", "LIKES").forEachIndexed { index, title ->
+                                    val isSelected = index == 0
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .drawBehind {
+                                                val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
+                                                val lineColor = if (isSelected) CorusColors.Text else CorusColors.Divider
+                                                drawLine(
+                                                    color = lineColor,
+                                                    start = Offset(0f, size.height),
+                                                    end = Offset(size.width, size.height),
+                                                    strokeWidth = strokeWidth,
+                                                )
+                                            }
+                                            .padding(vertical = CorusSpacing.sm),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    ) {
+                                        Text(
+                                            text = title,
+                                            style = CorusFont.tabLabel,
+                                            color = if (isSelected) CorusColors.Text else CorusColors.Tertiary,
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Skeleton grid for posts
+                            SkeletonProfileGrid()
+                        }
+                    }
+                }
+                return@Scaffold
+            }
+
+            // No initial data — show full skeleton
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
             ) {
                 if (initialAvatarURL != null || initialAvatarThumbURL != null) {
-                    // Show skeleton with pre-loaded avatar from the feed
                     SkeletonProfileWithAvatar(
                         avatarURL = initialAvatarURL,
                         avatarThumbURL = initialAvatarThumbURL,
@@ -273,6 +449,7 @@ fun OtherProfileScreen(
                     ) {
                         UserAvatarView(
                             avatarURL = currentProfile.avatarURL,
+                            displayName = currentProfile.displayName,
                             size = CorusSpacing.avatarLarge,
                             modifier = Modifier.clickable { showAvatarFullScreen = true },
                         )

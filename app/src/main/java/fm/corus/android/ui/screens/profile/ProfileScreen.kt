@@ -231,6 +231,7 @@ fun ProfileScreen(
                     Box {
                         UserAvatarView(
                             avatarURL = currentProfile.avatarURL,
+                            displayName = currentProfile.displayName,
                             size = CorusSpacing.avatarLarge,
                             modifier = Modifier.combinedClickable(
                                 onClick = { },
@@ -352,7 +353,7 @@ fun ProfileScreen(
                                             RoundedCornerShape(50),
                                         )
                                     )
-                                    .clickable(enabled = hasSongs && !isGeneratingPlaylist) {
+                                    .clickable(enabled = !isGeneratingPlaylist) {
                                         if (hasSongs) {
                                             viewModel.generatePlaylist()
                                         } else {
@@ -598,7 +599,7 @@ fun ProfileScreen(
                 Box(
                     modifier = Modifier
                         .aspectRatio(1f)
-                        .background(CorusColors.CardBackground)
+                        .background(CorusColors.Skeleton)
                         .shimmer(),
                 )
             }
@@ -615,7 +616,7 @@ fun ProfileScreen(
             // for Music/Film, skip the first post (already shown as featured)
             val gridPosts = if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts
             if (gridPosts.isNotEmpty()) {
-                items(gridPosts, key = { it.id }) { post ->
+                items(gridPosts, key = { it.id }, contentType = { "post_grid" }) { post ->
                     PostGridItem(post = post, onClick = { onNavigateToPost(post.id) })
                 }
             }

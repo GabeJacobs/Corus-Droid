@@ -45,7 +45,16 @@ class PostEngagementManager @Inject constructor(
     fun initState(postId: String, likeCount: Int, commentCount: Int, repostCount: Int, isLiked: Boolean, isSaved: Boolean) {
         _states.update { map ->
             if (map.containsKey(postId) && userModifiedPostIds.contains(postId)) map
-            else map + (postId to EngagementState(likeCount, commentCount, repostCount, isLiked, isSaved))
+            else {
+                val existing = map[postId]
+                if (existing != null) {
+                    // Preserve local isLiked/isSaved state to avoid flash;
+                    // checkLikeStatuses() will reconcile from Firestore shortly after.
+                    map + (postId to existing.copy(likeCount = likeCount, commentCount = commentCount, repostCount = repostCount))
+                } else {
+                    map + (postId to EngagementState(likeCount, commentCount, repostCount, isLiked, isSaved))
+                }
+            }
         }
     }
 
