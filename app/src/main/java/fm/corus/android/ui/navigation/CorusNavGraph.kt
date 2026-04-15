@@ -136,7 +136,7 @@ fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
                 scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
-                onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
+                onNavigateToFilm = { route -> navController.navigate(route) },
                 onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
                 onNavigateToSuggestedUsers = { title, useRowLayout -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout)) },
                 onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
@@ -487,7 +487,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         FindPeopleScreen(
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
-            onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
+            onNavigateToFilm = { route -> navController.navigate(route) },
             onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
             onNavigateToSuggestedUsers = { title, useRowLayout -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout)) },
             onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },

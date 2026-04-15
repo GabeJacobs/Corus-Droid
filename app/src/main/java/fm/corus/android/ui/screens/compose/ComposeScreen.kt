@@ -80,13 +80,23 @@ fun ComposeScreen(
     val trendingSongs by viewModel.trendingSongs.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val isLoadingTrending by viewModel.isLoadingTrending.collectAsState()
+    val isLoadingPreSelection by viewModel.isLoadingPreSelection.collectAsState()
     var mediaType by remember { mutableStateOf(MediaType.TRACK) }
     var searchQuery by remember { mutableStateOf("") }
     var caption by remember { mutableStateOf("") }
     var captionMode by remember { mutableStateOf("text") } // "text" or "voice"
     val voiceRecorderState = rememberVoiceNoteRecorderState()
 
-    val hasSelection = selectedTrack != null || selectedMovie != null
+    // Reset all state when the screen enters composition (plus button tapped)
+    LaunchedEffect(Unit) {
+        viewModel.reset()
+        searchQuery = ""
+        caption = ""
+        captionMode = "text"
+        mediaType = if (movieModeEnabled) MediaType.MOVIE else MediaType.TRACK
+    }
+
+    val hasSelection = selectedTrack != null || selectedMovie != null || isLoadingPreSelection
 
     LaunchedEffect(postSuccess) {
         if (postSuccess) {
@@ -119,8 +129,8 @@ fun ComposeScreen(
                     .fillMaxWidth()
                     .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
             ) {
-                // Left: back chevron (only in compose mode)
-                if (hasSelection) {
+                // Left: back chevron (only in compose mode, not when pre-selected)
+                if (hasSelection && preSelectedTrackId == null && preSelectedMovieId == null) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
@@ -206,7 +216,7 @@ fun ComposeScreen(
                         onTrendingSongClick = { viewModel.selectTrendingSong(it) },
                         onTrendingMovieClick = { viewModel.selectTrendingMovie(it) },
                     )
-                } else {
+                } else if (selectedTrack != null || selectedMovie != null) {
                     ComposeModeContent(
                         mediaType = mediaType,
                         selectedTrack = selectedTrack,
@@ -237,6 +247,18 @@ fun ComposeScreen(
                         onCaptionModeChange = { captionMode = it },
                         voiceRecorderState = voiceRecorderState,
                     )
+                } else {
+                    // Pre-selected track/movie is loading — show empty placeholder
+                    // so the search mode doesn't flash briefly
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            color = CorusColors.Secondary,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
                 }
             }
         }
@@ -739,6 +761,7 @@ private fun ComposeModeContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .padding(horizontal = CorusSpacing.lg),
     ) {
         // ── Selected media row ──

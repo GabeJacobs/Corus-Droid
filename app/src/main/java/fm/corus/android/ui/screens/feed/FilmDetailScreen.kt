@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.ui.components.SkeletonFilmDetailHeader
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -99,9 +100,15 @@ fun FilmDetailScreen(
         ) {
             // Film header
             item {
+                val header = movieHeader
+                if (header == null && isLoading) {
+                    SkeletonFilmDetailHeader()
+                    HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+                    return@item
+                }
+
                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
-                val header = movieHeader
                 if (header != null) {
                     // Movie poster
                     AsyncImage(

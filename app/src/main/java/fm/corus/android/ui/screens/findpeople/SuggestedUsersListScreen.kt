@@ -56,7 +56,7 @@ fun SuggestedUsersListScreen(
                     modifier = Modifier.fillMaxSize().padding(padding),
                     contentPadding = PaddingValues(top = CorusSpacing.md),
                 ) {
-                    items(6) { SkeletonUserRow() }
+                    items(10) { SkeletonUserRow() }
                 }
             } else {
                 LazyVerticalGrid(
@@ -66,7 +66,7 @@ fun SuggestedUsersListScreen(
                     verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     modifier = Modifier.fillMaxSize().padding(padding),
                 ) {
-                    items(4) { SkeletonTasteMatchCard() }
+                    items(10) { SkeletonTasteMatchCard() }
                 }
             }
         } else if (matches.isEmpty()) {

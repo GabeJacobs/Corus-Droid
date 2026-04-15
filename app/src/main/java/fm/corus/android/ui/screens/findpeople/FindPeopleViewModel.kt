@@ -44,6 +44,23 @@ class FindPeopleViewModel @Inject constructor(
     private val firestoreDataSource: FirestoreDataSource,
 ) : ViewModel() {
 
+    // Tab state
+    private val _activeTab = MutableStateFlow(0) // 0=Users, 1=Songs, 2=Films
+    val activeTab: StateFlow<Int> = _activeTab.asStateFlow()
+
+    fun setActiveTab(tabIndex: Int) {
+        if (_activeTab.value == tabIndex) return
+        _activeTab.value = tabIndex
+        // Clear results for the new tab so stale data from a prior search doesn't flash
+        if (_searchQuery.value.isNotBlank()) {
+            when (tabIndex) {
+                0 -> _userSearchResults.value = emptyList()
+                1 -> _songSearchResults.value = emptyList()
+                2 -> _filmSearchResults.value = emptyList()
+            }
+        }
+    }
+
     // Search
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -273,6 +290,18 @@ class FindPeopleViewModel @Inject constructor(
             clearSearch()
             return
         }
+
+        // Check if the target tab already has results; if not, show loading immediately
+        val hasResults = when (tab) {
+            0 -> _userSearchResults.value.isNotEmpty()
+            1 -> _songSearchResults.value.isNotEmpty()
+            2 -> _filmSearchResults.value.isNotEmpty()
+            else -> false
+        }
+        if (!hasResults) {
+            _isSearching.value = true
+        }
+
         searchJob = viewModelScope.launch {
             delay(if (query.length <= 2) 500L else 300L)
             _isSearching.value = true

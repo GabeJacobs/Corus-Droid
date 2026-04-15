@@ -779,6 +779,71 @@ fun SkeletonTrendingFilmRow() {
     }
 }
 
+// 8c. SkeletonFilmDetailHeader — Poster + title + buttons for film detail page
+@Composable
+fun SkeletonFilmDetailHeader() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shimmer()
+            .padding(top = CorusSpacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        // Poster placeholder
+        Box(
+            modifier = Modifier
+                .width(220.dp)
+                .aspectRatio(2f / 3f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(CorusColors.Skeleton),
+        )
+
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
+
+        // Title placeholder
+        Box(
+            modifier = Modifier
+                .width(180.dp)
+                .height(20.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(CorusColors.Skeleton),
+        )
+
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+
+        // Director placeholder
+        Box(
+            modifier = Modifier
+                .width(100.dp)
+                .height(14.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(CorusColors.Skeleton),
+        )
+
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
+
+        // Button placeholders
+        Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md)) {
+            Box(
+                modifier = Modifier
+                    .width(120.dp)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(CorusColors.Skeleton),
+            )
+            Box(
+                modifier = Modifier
+                    .width(130.dp)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(CorusColors.Skeleton),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
+    }
+}
+
 // 9. SkeletonSectionHeader — Shimmer placeholder for section headers (matches iOS)
 @Composable
 fun SkeletonSectionHeader() {

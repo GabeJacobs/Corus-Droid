@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.ui.navigation.FilmDetailRoute
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
@@ -84,7 +85,7 @@ fun FindPeopleScreen(
     scrollToTopTrigger: Int = 0,
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
-    onNavigateToFilm: (String) -> Unit = {},
+    onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
     onNavigateToBotList: (String?) -> Unit = {},
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean) -> Unit = { _, _ -> },
     onNavigateToContactFriends: () -> Unit = {},
@@ -112,7 +113,8 @@ fun FindPeopleScreen(
     val popularUsers by viewModel.popularUsers.collectAsState()
     val isPopularLoading by viewModel.isPopularLoading.collectAsState()
 
-    var activeTab by remember { mutableStateOf(SearchTab.USERS) }
+    val activeTabIndex by viewModel.activeTab.collectAsState()
+    val activeTab = SearchTab.entries[activeTabIndex]
     val hasSearchQuery = searchQuery.isNotBlank()
     var isSearchFocused by remember { mutableStateOf(false) }
 
@@ -206,7 +208,7 @@ fun FindPeopleScreen(
         // Tab bar
         FindPeopleTabBar(
             selectedTab = activeTab,
-            onTabSelected = { activeTab = it },
+            onTabSelected = { viewModel.setActiveTab(it.ordinal) },
         )
 
         // Content
@@ -1003,7 +1005,7 @@ private fun TrendingFilmsContent(
     listState: LazyListState = rememberLazyListState(),
     movies: List<TrendingMovie>,
     isLoading: Boolean,
-    onFilmTap: (String) -> Unit,
+    onFilmTap: (FilmDetailRoute) -> Unit,
 ) {
     if (isLoading) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
@@ -1025,7 +1027,17 @@ private fun TrendingFilmsContent(
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
             item { SectionHeader(icon = "film", title = "TRENDING THIS MONTH") }
             itemsIndexed(movies) { index, movie ->
-                TrendingFilmRow(movie = movie, onClick = { onFilmTap(movie.movieId) })
+                TrendingFilmRow(movie = movie, onClick = {
+                    onFilmTap(FilmDetailRoute(
+                        movieId = movie.movieId,
+                        movieTitle = movie.movieTitle,
+                        directorName = movie.directorName.ifBlank { null },
+                        releaseYear = movie.releaseYear.ifBlank { null },
+                        posterURL = movie.posterURL,
+                        posterLargeURL = movie.posterLargeURL,
+                        trailerURL = movie.trailerURL,
+                    ))
+                })
                 if (index < movies.lastIndex) {
                     HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
                 }
@@ -1131,7 +1143,7 @@ private fun FilmSearchResultsList(
     listState: LazyListState = rememberLazyListState(),
     movies: List<CymbalMovie>,
     isSearching: Boolean,
-    onFilmTap: (String) -> Unit,
+    onFilmTap: (FilmDetailRoute) -> Unit,
 ) {
     if (isSearching && movies.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1144,7 +1156,17 @@ private fun FilmSearchResultsList(
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
             itemsIndexed(movies) { index, movie ->
-                FilmSearchRow(movie = movie, onClick = { onFilmTap(movie.id) })
+                FilmSearchRow(movie = movie, onClick = {
+                    onFilmTap(FilmDetailRoute(
+                        movieId = movie.id,
+                        movieTitle = movie.title,
+                        directorName = movie.directorName.ifBlank { null },
+                        releaseYear = movie.year.ifBlank { null },
+                        posterURL = movie.posterURL,
+                        posterLargeURL = movie.posterLargeURL,
+                        trailerURL = movie.trailerURL,
+                    ))
+                })
                 if (index < movies.lastIndex) {
                     HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
                 }

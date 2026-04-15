@@ -50,12 +50,12 @@ fun ToastHost(
 
     Box(
         modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.BottomCenter,
+        contentAlignment = Alignment.TopCenter,
     ) {
         AnimatedVisibility(
             visible = visible,
-            enter = fadeIn() + slideInVertically { it / 2 },
-            exit = fadeOut() + slideOutVertically { it / 2 },
+            enter = fadeIn() + slideInVertically { -it / 2 },
+            exit = fadeOut() + slideOutVertically { -it / 2 },
         ) {
             currentMessage?.let { message ->
                 Text(
@@ -65,7 +65,7 @@ fun ToastHost(
                     ),
                     color = Color.White,
                     modifier = Modifier
-                        .padding(bottom = CorusSpacing.lg)
+                        .padding(top = CorusSpacing.lg)
                         .clip(RoundedCornerShape(50))
                         .background(Color.Black.copy(alpha = 0.7f))
                         .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),

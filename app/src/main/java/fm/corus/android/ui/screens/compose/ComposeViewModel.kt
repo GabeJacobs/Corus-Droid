@@ -119,6 +119,10 @@ class ComposeViewModel @Inject constructor(
     private val _isLoadingTrending = MutableStateFlow(true)
     val isLoadingTrending: StateFlow<Boolean> = _isLoadingTrending.asStateFlow()
 
+    // Pre-selection loading (hides search mode while fetching track/movie by ID)
+    private val _isLoadingPreSelection = MutableStateFlow(false)
+    val isLoadingPreSelection: StateFlow<Boolean> = _isLoadingPreSelection.asStateFlow()
+
     // Trophy celebration state
     private val _showTrophy = MutableStateFlow(false)
     val showTrophy: StateFlow<Boolean> = _showTrophy.asStateFlow()
@@ -177,6 +181,7 @@ class ComposeViewModel @Inject constructor(
     }
 
     fun loadAndSelectTrack(trackId: String) {
+        _isLoadingPreSelection.value = true
         viewModelScope.launch {
             try {
                 val track = spotifyRepository.getTrack(trackId)
@@ -187,10 +192,12 @@ class ComposeViewModel @Inject constructor(
             } catch (_: Exception) {
                 _error.value = "Could not load track."
             }
+            _isLoadingPreSelection.value = false
         }
     }
 
     fun loadAndSelectMovie(movieId: String) {
+        _isLoadingPreSelection.value = true
         viewModelScope.launch {
             try {
                 val movie = tmdbRepository.getMovieDetails(movieId.toInt())
@@ -199,6 +206,7 @@ class ComposeViewModel @Inject constructor(
             } catch (_: Exception) {
                 _error.value = "Could not load movie."
             }
+            _isLoadingPreSelection.value = false
         }
     }
 
@@ -336,5 +344,25 @@ class ComposeViewModel @Inject constructor(
     fun clearMentionSuggestions() {
         mentionJob?.cancel()
         _mentionSuggestions.value = emptyList()
+    }
+
+    /** Reset all transient state so the screen opens fresh. */
+    fun reset() {
+        searchJob?.cancel()
+        mentionJob?.cancel()
+        _selectedTrack.value = null
+        _selectedMovie.value = null
+        _searchResults.value = emptyList()
+        _isSearching.value = false
+        _isPosting.value = false
+        _postSuccess.value = false
+        _error.value = null
+        _mentionSuggestions.value = emptyList()
+        _isLoadingPreSelection.value = false
+        _showTrophy.value = false
+        _trophyPost.value = null
+        _showPostLimitPaywall.value = false
+        cachedTracks = emptyList()
+        cachedMovies = emptyList()
     }
 }

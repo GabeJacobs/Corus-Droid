@@ -126,13 +126,15 @@ fun MiniPlayerBar(
                         ) {
                             val uri = state.spotifyURI
                             val webUrl = state.spotifyWebURL
-                            try {
-                                if (!uri.isNullOrBlank()) {
+                            val opened = if (!uri.isNullOrBlank()) {
+                                try {
                                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
-                                } else if (!webUrl.isNullOrBlank()) {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)))
-                                }
-                            } catch (_: Exception) { }
+                                    true
+                                } catch (_: Exception) { false }
+                            } else false
+                            if (!opened && !webUrl.isNullOrBlank()) {
+                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
+                            }
                         },
                 )
             }

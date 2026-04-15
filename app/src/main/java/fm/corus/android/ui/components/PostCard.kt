@@ -398,10 +398,10 @@ fun PostCard(
                         )
                     }
 
-                    // Trailer button — YouTube red play icon, matching iOS TrailerButton
+                    // Trailer button — red rectangle with white play icon, matching iOS TrailerButton
                     if (post.trailerURL != null) {
-                        Icon(
-                            imageVector = Icons.Filled.PlayArrow,
+                        Image(
+                            painter = painterResource(R.drawable.ic_play_rectangle_fill),
                             contentDescription = "Watch Trailer",
                             modifier = Modifier
                                 .size(24.dp)
@@ -411,7 +411,6 @@ fun PostCard(
                                     indication = null,
                                     onClick = onTrailerTap,
                                 ),
-                            tint = Color(0xFFFF0000), // YouTube red
                         )
                     }
                 }
