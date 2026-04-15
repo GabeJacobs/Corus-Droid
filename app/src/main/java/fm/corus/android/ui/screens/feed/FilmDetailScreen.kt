@@ -352,7 +352,7 @@ private fun FilmPostedByRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = post.user.avatarURL, size = CorusSpacing.avatarMedium)
+        UserAvatarView(avatarURL = post.user.avatarURL, displayName = post.user.displayName, size = CorusSpacing.avatarMedium)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(

@@ -119,6 +119,7 @@ fun MiniPlayerBar(
                     painter = painterResource(fm.corus.android.R.drawable.spotify_logo),
                     contentDescription = "Open in Spotify",
                     modifier = Modifier
+                        .padding(start = CorusSpacing.xs)
                         .size(22.dp)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },

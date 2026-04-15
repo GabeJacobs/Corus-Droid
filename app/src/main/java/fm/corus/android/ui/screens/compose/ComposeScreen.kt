@@ -98,6 +98,11 @@ fun ComposeScreen(
 
     val hasSelection = selectedTrack != null || selectedMovie != null || isLoadingPreSelection
 
+    // Track whether the screen has finished its initial entrance animation
+    // so the inner AnimatedContent doesn't produce a sideways slide on first appearance.
+    var initialComposition by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) { initialComposition = false }
+
     LaunchedEffect(postSuccess) {
         if (postSuccess) {
             onDismiss()
@@ -178,7 +183,10 @@ fun ComposeScreen(
             AnimatedContent(
                 targetState = hasSelection,
                 transitionSpec = {
-                    if (targetState) {
+                    if (initialComposition) {
+                        // First frame — no inner animation so it doesn't clash with the slide-up entrance
+                        fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+                    } else if (targetState) {
                         // Search → Compose: slide in from right
                         (slideInHorizontally(tween(250)) { it } + fadeIn(tween(250)))
                             .togetherWith(slideOutHorizontally(tween(250)) { -it / 3 } + fadeOut(tween(150)))
@@ -876,7 +884,7 @@ private fun ComposeModeContent(
                                 .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            UserAvatarView(avatarURL = user.avatarURL, size = 28.dp)
+                            UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = 28.dp)
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
                             Text(
                                 text = user.username,

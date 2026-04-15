@@ -77,7 +77,7 @@ fun OtherProfileScreen(
     initialIsClubMember: Boolean? = null,
     viewModel: OtherProfileViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
-    onNavigateToPost: (String) -> Unit = {},
+    onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToFollowList: (String, Boolean) -> Unit = { _, _ -> },
     onNavigateToMessages: (String, String) -> Unit = { _, _ -> },
@@ -267,10 +267,9 @@ fun OtherProfileScreen(
                                         val followShape = RoundedCornerShape(50)
                                         Box(
                                             modifier = Modifier
-                                                .weight(1f)
                                                 .clip(followShape)
                                                 .background(CorusColors.Accent)
-                                                .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
+                                                .padding(vertical = 6.dp, horizontal = 20.dp),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Text(
@@ -421,6 +420,28 @@ fun OtherProfileScreen(
             return@Scaffold
         }
 
+        // Helper: populate cache and navigate to profile feed
+        val navigateToFeed: (String) -> Unit = { postId ->
+            val filteredForNav = when {
+                currentProfile.isMusicBot -> posts.filter { it.mediaType == MediaType.TRACK }
+                currentProfile.isFilmBot -> posts.filter { it.mediaType == MediaType.MOVIE }
+                else -> when (selectedSegment) {
+                    0 -> posts.filter { it.mediaType == MediaType.TRACK }
+                    1 -> posts.filter { it.mediaType == MediaType.MOVIE }
+                    2 -> posts
+                    else -> posts
+                }
+            }
+            ProfileFeedCache.posts = filteredForNav
+            ProfileFeedCache.hasMore = hasMore
+            onNavigateToProfileFeed(
+                currentProfile.id,
+                currentProfile.username,
+                postId,
+                selectedSegment,
+            )
+        }
+
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Fixed(3),
@@ -489,14 +510,13 @@ fun OtherProfileScreen(
                                 val followShape = RoundedCornerShape(50)
                                 Box(
                                     modifier = Modifier
-                                        .weight(1f)
                                         .clip(followShape)
                                         .then(
                                             if (isFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
                                             else Modifier.background(CorusColors.Accent)
                                         )
                                         .clickable(enabled = !isFollowLoading) { viewModel.toggleFollow(userId) }
-                                        .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
+                                        .padding(vertical = 6.dp, horizontal = 20.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     if (isFollowLoading) {
@@ -716,7 +736,7 @@ fun OtherProfileScreen(
                                     rainIntensity = userProfile.rainIntensity,
                                     snowIntensity = userProfile.snowIntensity,
                                     discoIntensity = userProfile.discoIntensityLevel,
-                                    onPostTap = { onNavigateToPost(featured.id) },
+                                    onPostTap = { navigateToFeed(featured.id) },
                                 )
                             } else {
                                 FeaturedCymbalView(
@@ -725,7 +745,7 @@ fun OtherProfileScreen(
                                     rainIntensity = userProfile.rainIntensity,
                                     snowIntensity = userProfile.snowIntensity,
                                     discoIntensity = userProfile.discoIntensityLevel,
-                                    onPostTap = { onNavigateToPost(featured.id) },
+                                    onPostTap = { navigateToFeed(featured.id) },
                                 )
                             }
                         }
@@ -786,7 +806,7 @@ fun OtherProfileScreen(
                         contentDescription = post.displayTitle,
                         modifier = Modifier
                             .aspectRatio(1f)
-                            .clickable { onNavigateToPost(post.id) },
+                            .clickable { navigateToFeed(post.id) },
                     )
                 }
             }

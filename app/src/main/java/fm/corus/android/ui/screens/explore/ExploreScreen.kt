@@ -705,7 +705,7 @@ private fun SuggestedUserRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = match.user.avatarURL, size = CorusSpacing.avatarMedium)
+        UserAvatarView(avatarURL = match.user.avatarURL, displayName = match.user.displayName, size = CorusSpacing.avatarMedium)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             UsernameWithFlair(

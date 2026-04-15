@@ -163,7 +163,7 @@ private fun MentionSuggestionRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = user.avatarURL, size = 28.dp)
+        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = 28.dp)
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
         Column {
             Text(

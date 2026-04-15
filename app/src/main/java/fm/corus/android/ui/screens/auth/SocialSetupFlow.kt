@@ -629,7 +629,7 @@ private fun OnboardingUserRow(
             .padding(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = user.avatarURL, size = CorusSpacing.avatarMedium)
+        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -791,7 +791,7 @@ private fun FilmBotPreviewSheet(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Avatar
-            UserAvatarView(avatarURL = match.user.avatarURL, size = 64.dp)
+            UserAvatarView(avatarURL = match.user.avatarURL, displayName = match.user.displayName, size = 64.dp)
             Spacer(modifier = Modifier.height(CorusSpacing.md))
 
             // Username + flair badge

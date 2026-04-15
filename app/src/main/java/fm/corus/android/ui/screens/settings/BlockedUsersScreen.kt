@@ -133,7 +133,7 @@ private fun BlockedUserRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = user.avatarURL, size = CorusSpacing.avatarMedium)
+        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium)
 
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 

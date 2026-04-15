@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalNotification
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.NotificationRepository
+import fm.corus.android.data.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +18,7 @@ import javax.inject.Inject
 class NotificationsViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val authRepository: AuthRepository,
+    private val userRepository: UserRepository,
 ) : ViewModel() {
 
     private val pageSize = 15
@@ -36,6 +38,10 @@ class NotificationsViewModel @Inject constructor(
     private val _hasMoreNotifications = MutableStateFlow(true)
     val hasMoreNotifications: StateFlow<Boolean> = _hasMoreNotifications.asStateFlow()
 
+    val followingIds: StateFlow<Set<String>> = userRepository.followingIds
+
+    private var hasStartedLoading = false
+
     fun refreshNotifications() {
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
@@ -49,6 +55,8 @@ class NotificationsViewModel @Inject constructor(
     }
 
     fun loadNotifications() {
+        if (hasStartedLoading) return
+        hasStartedLoading = true
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             _isLoading.value = true
@@ -123,6 +131,20 @@ class NotificationsViewModel @Inject constructor(
                 _hasMoreNotifications.value = false
             }
             _isLoadingMore.value = false
+        }
+    }
+
+    fun toggleFollow(targetUserId: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            val wasFollowing = userRepository.isFollowing(targetUserId)
+            try {
+                if (wasFollowing) {
+                    userRepository.unfollowUser(currentUserId, targetUserId)
+                } else {
+                    userRepository.followUser(currentUserId, targetUserId)
+                }
+            } catch (_: Exception) { }
         }
     }
 

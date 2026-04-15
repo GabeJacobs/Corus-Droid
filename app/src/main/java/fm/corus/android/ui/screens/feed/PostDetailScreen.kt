@@ -370,6 +370,7 @@ private fun PostDetailHeader(
     ) {
         UserAvatarView(
             avatarURL = post.user.avatarURL,
+            displayName = post.user.displayName,
             size = CorusSpacing.avatarMedium,
             modifier = Modifier.clickable(onClick = onUserTap),
         )
@@ -626,7 +627,7 @@ private fun PostDetailEngagementRow(
         EngagementButton(
             icon = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
             count = likeCount,
-            tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
+            tint = if (isLiked) CorusColors.Like else CorusColors.Text,
             onClick = onLikeTap,
         )
 
@@ -634,7 +635,7 @@ private fun PostDetailEngagementRow(
         EngagementButton(
             icon = Icons.Outlined.ChatBubbleOutline,
             count = commentCount,
-            tint = CorusColors.Secondary,
+            tint = CorusColors.Text,
             onClick = onCommentTap,
         )
 
@@ -642,7 +643,7 @@ private fun PostDetailEngagementRow(
         EngagementButton(
             icon = Icons.AutoMirrored.Filled.Send,
             count = repostCount,
-            tint = CorusColors.Secondary,
+            tint = CorusColors.Text,
             onClick = onShareTap,
         )
 

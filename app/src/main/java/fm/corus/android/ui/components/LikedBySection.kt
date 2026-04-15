@@ -77,6 +77,7 @@ fun LikedBySection(
                 UserAvatarView(
                     avatarURL = liker.avatarURL,
                     avatarThumbURL = liker.avatarThumbURL,
+                    displayName = liker.displayName,
                     size = avatarSize,
                     modifier = Modifier
                         .offset(x = avatarOverlap * index)

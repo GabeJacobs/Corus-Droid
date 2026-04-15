@@ -279,6 +279,7 @@ private fun UserPickerRow(user: CymbalUser, onClick: () -> Unit) {
     ) {
         UserAvatarView(
             avatarURL = user.avatarURL,
+            displayName = user.displayName,
             size = CorusSpacing.avatarMedium,
         )
 
@@ -317,6 +318,7 @@ private fun ThreadRow(thread: CymbalThread, onClick: () -> Unit) {
     ) {
         UserAvatarView(
             avatarURL = thread.otherUser?.avatarURL,
+            displayName = thread.otherUser?.displayName,
             size = CorusSpacing.avatarMedium,
         )
 

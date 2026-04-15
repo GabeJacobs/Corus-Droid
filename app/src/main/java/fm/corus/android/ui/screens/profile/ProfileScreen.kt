@@ -67,7 +67,7 @@ fun ProfileScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToEditProfile: (String) -> Unit = {},
     onNavigateToFollowList: (String, Boolean) -> Unit = { _, _ -> },
-    onNavigateToPost: (String) -> Unit = {},
+    onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
     onNavigateToClub: () -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -172,6 +172,25 @@ fun ProfileScreen(
         if (shouldLoadMore && hasMore[selectedSegment] == true && !isLoadingMore && !isLoading) {
             viewModel.loadMoreForSegment(selectedSegment)
         }
+    }
+
+    // Helper: populate cache and navigate to profile feed
+    val navigateToFeed: (String) -> Unit = { postId ->
+        val filteredForNav = when (selectedSegment) {
+            0 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.TRACK }
+            1 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.MOVIE }
+            2 -> likedPosts
+            3 -> savedPosts
+            else -> posts
+        }
+        ProfileFeedCache.posts = filteredForNav
+        ProfileFeedCache.hasMore = hasMore[selectedSegment] == true
+        onNavigateToProfileFeed(
+            currentProfile.id,
+            currentProfile.username,
+            postId,
+            selectedSegment,
+        )
     }
 
     LazyVerticalGrid(
@@ -308,6 +327,7 @@ fun ProfileScreen(
 
                         // Edit Profile button + playlist + vinyl picker
                         Row(
+                            modifier = Modifier.padding(horizontal = CorusSpacing.xs),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             // Edit Profile — matching iOS Capsule with stroke border
@@ -541,7 +561,7 @@ fun ProfileScreen(
                                 rainIntensity = currentProfile.rainIntensity,
                                 snowIntensity = currentProfile.snowIntensity,
                                 discoIntensity = currentProfile.discoIntensityLevel,
-                                onPostTap = { onNavigateToPost(featuredPost.id) },
+                                onPostTap = { navigateToFeed(featuredPost.id) },
                             )
                         } else {
                             fm.corus.android.ui.components.FeaturedCymbalView(
@@ -550,7 +570,7 @@ fun ProfileScreen(
                                 rainIntensity = currentProfile.rainIntensity,
                                 snowIntensity = currentProfile.snowIntensity,
                                 discoIntensity = currentProfile.discoIntensityLevel,
-                                onPostTap = { onNavigateToPost(featuredPost.id) },
+                                onPostTap = { navigateToFeed(featuredPost.id) },
                             )
                         }
                     }
@@ -621,7 +641,7 @@ fun ProfileScreen(
             val gridPosts = if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts
             if (gridPosts.isNotEmpty()) {
                 items(gridPosts, key = { it.id }, contentType = { "post_grid" }) { post ->
-                    PostGridItem(post = post, onClick = { onNavigateToPost(post.id) })
+                    PostGridItem(post = post, onClick = { navigateToFeed(post.id) })
                 }
             }
 

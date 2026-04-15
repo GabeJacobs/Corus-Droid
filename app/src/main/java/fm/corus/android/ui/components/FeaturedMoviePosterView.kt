@@ -202,7 +202,7 @@ fun FeaturedMoviePosterView(
                     painter = painterResource(R.drawable.ic_play_rectangle_fill),
                     contentDescription = "Watch Trailer",
                     modifier = Modifier
-                        .size(24.dp)
+                        .height(22.dp)
                         .clickable(onClick = onTrailerTap),
                 )
             }

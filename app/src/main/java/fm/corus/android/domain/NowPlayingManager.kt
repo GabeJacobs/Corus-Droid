@@ -6,6 +6,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.remote.CloudFunctionsDataSource
@@ -166,6 +167,13 @@ class NowPlayingManager @Inject constructor(
         // New track — start playback
         stop()
         player = ExoPlayer.Builder(context).build().apply {
+            addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_ENDED) {
+                        _state.value = _state.value.copy(isPlaying = false)
+                    }
+                }
+            })
             setMediaItem(MediaItem.fromUri(resolvedUrl))
             prepare()
             play()
@@ -247,11 +255,15 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun togglePlayPause() {
-        if (player?.isPlaying == true) {
-            player?.pause()
+        val p = player ?: return
+        if (p.isPlaying) {
+            p.pause()
             _state.value = _state.value.copy(isPlaying = false)
         } else {
-            player?.play()
+            if (p.playbackState == Player.STATE_ENDED) {
+                p.seekTo(0)
+            }
+            p.play()
             _state.value = _state.value.copy(isPlaying = true)
         }
     }

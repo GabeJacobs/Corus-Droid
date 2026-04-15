@@ -10,6 +10,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostEngagementManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +23,7 @@ class OtherProfileViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
     val nowPlayingManager: NowPlayingManager,
+    private val engagementManager: PostEngagementManager,
 ) : ViewModel() {
 
     fun generatePlaylist(userId: String) {
@@ -104,6 +106,18 @@ class OtherProfileViewModel @Inject constructor(
                 _posts.value = allPosts
                 postsLastTimestamp = cursor
                 _hasMore.value = serverHasMore
+
+                allPosts.forEach { post ->
+                    engagementManager.initState(
+                        postId = post.id,
+                        likeCount = post.likeCount,
+                        commentCount = post.commentCount,
+                        repostCount = post.repostCount,
+                        isLiked = post.isLiked,
+                        isSaved = false,
+                    )
+                }
+                engagementManager.checkLikeStatuses(allPosts.map { it.id }, viewerId)
             } catch (_: Exception) { }
             _isLoading.value = false
         }
@@ -127,6 +141,18 @@ class OtherProfileViewModel @Inject constructor(
                     postsLastTimestamp = newPosts.last().timestamp.time
                 }
                 _hasMore.value = newPosts.size >= PAGE_SIZE
+
+                newPosts.forEach { post ->
+                    engagementManager.initState(
+                        postId = post.id,
+                        likeCount = post.likeCount,
+                        commentCount = post.commentCount,
+                        repostCount = post.repostCount,
+                        isLiked = post.isLiked,
+                        isSaved = false,
+                    )
+                }
+                engagementManager.checkLikeStatuses(newPosts.map { it.id }, viewerId)
             } catch (_: Exception) { }
             _isLoadingMore.value = false
         }

@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalNotification
+import fm.corus.android.data.model.NotificationType
 import fm.corus.android.ui.components.SkeletonNotificationRow
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
@@ -54,6 +55,7 @@ fun NotificationsScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val hasMoreNotifications by viewModel.hasMoreNotifications.collectAsState()
+    val followingIds by viewModel.followingIds.collectAsState()
     val listState = rememberLazyListState()
 
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
@@ -101,6 +103,7 @@ fun NotificationsScreen(
                         items(notifications, key = { it.id }) { notification ->
                             NotificationRow(
                                 notification = notification,
+                                isFollowing = followingIds.contains(notification.fromUser.id),
                                 onClick = {
                                     val postId = notification.postId
                                     if (notification.supportsCommentActions && postId != null && notification.commentId != null) {
@@ -113,6 +116,9 @@ fun NotificationsScreen(
                                 },
                                 onUserTap = {
                                     onNavigateToUser(notification.fromUser.id)
+                                },
+                                onFollowToggle = {
+                                    viewModel.toggleFollow(notification.fromUser.id)
                                 },
                             )
                             HorizontalDivider(
@@ -205,9 +211,14 @@ private fun NotificationsHeader(
 @Composable
 private fun NotificationRow(
     notification: CymbalNotification,
+    isFollowing: Boolean,
     onClick: () -> Unit,
     onUserTap: () -> Unit,
+    onFollowToggle: () -> Unit,
 ) {
+    val showFollowButton = notification.type == NotificationType.FOLLOW ||
+            notification.type == NotificationType.CONTACT_JOINED
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -229,7 +240,15 @@ private fun NotificationRow(
 
         // Middle: username + message + timestamp — matches iOS inline Text concat
         // Username portion is tappable to user profile via ClickableText
-        val annotatedText = buildAnnotatedString {
+        // For notifications with comment text (COMMENT, MENTION, REPLY), we allow
+        // 3 lines for the message and ensure the timestamp is always visible even
+        // when truncated, matching the iOS .truncationMode(.middle) behavior.
+        val hasCommentText = notification.commentText != null
+        val maxLines = if (hasCommentText) 4 else 2
+        val timeString = DateUtils.relativeTime(notification.timestamp)
+        val timeSuffix = " $timeString"
+
+        val fullAnnotatedText = buildAnnotatedString {
             pushStringAnnotation(tag = "USER", annotation = notification.fromUser.id)
             withStyle(
                 SpanStyle(
@@ -257,23 +276,76 @@ private fun NotificationRow(
                     color = CorusColors.Secondary,
                 )
             ) {
-                append(DateUtils.relativeTime(notification.timestamp))
+                append(timeString)
             }
         }
+
+        // When comment text overflows, we rebuild the string with the message
+        // trimmed so that "... {timestamp}" always appears at the end.
+        var displayText by remember(notification.id) { mutableStateOf(fullAnnotatedText) }
+        var didOverflow by remember(notification.id) { mutableStateOf(false) }
+
         ClickableText(
-            text = annotatedText,
+            text = displayText,
             style = CorusFont.body.copy(color = CorusColors.Text),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+            maxLines = maxLines,
+            overflow = if (didOverflow) TextOverflow.Clip else TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
+            onTextLayout = { layoutResult ->
+                if (hasCommentText && layoutResult.hasVisualOverflow && !didOverflow) {
+                    // Text overflowed — find how many chars fit within the visible
+                    // lines, then trim the message so "... {timestamp}" is appended.
+                    val lastVisibleLine = (maxLines - 1).coerceAtMost(layoutResult.lineCount - 1)
+                    val lastCharIndex = layoutResult.getLineEnd(lastVisibleLine, visibleEnd = true)
+                    // Reserve space for the ellipsis + timestamp suffix
+                    val suffixLen = timeSuffix.length + 1 // "…" + " 1d"
+                    val trimEnd = (lastCharIndex - suffixLen).coerceAtLeast(0)
+
+                    val trimmedText = buildAnnotatedString {
+                        // Reuse the original up to the trim point
+                        append(fullAnnotatedText, 0, trimEnd.coerceAtMost(fullAnnotatedText.length))
+                        append("…")
+                        withStyle(
+                            SpanStyle(
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 12.sp,
+                                color = CorusColors.Secondary,
+                            )
+                        ) {
+                            append(timeSuffix)
+                        }
+                    }
+                    displayText = trimmedText
+                    didOverflow = true
+                }
+            },
             onClick = { offset ->
-                annotatedText.getStringAnnotations(tag = "USER", start = offset, end = offset)
+                displayText.getStringAnnotations(tag = "USER", start = offset, end = offset)
                     .firstOrNull()?.let { onUserTap() }
             },
         )
 
-        // Right: Post album art thumbnail (44dp square, rounded 6dp — matches iOS)
-        if (notification.postAlbumArtURL != null) {
+        // Right: Follow button for follow/contact_joined, album art for others
+        if (showFollowButton) {
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            val buttonText = when {
+                isFollowing -> "Following"
+                notification.type == NotificationType.CONTACT_JOINED -> "Follow"
+                else -> "Follow back"
+            }
+            Button(
+                onClick = onFollowToggle,
+                shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isFollowing) CorusColors.Divider else CorusColors.Accent,
+                    contentColor = if (isFollowing) CorusColors.Secondary else Color.White,
+                ),
+                contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                modifier = Modifier.height(32.dp),
+            ) {
+                Text(buttonText, style = CorusFont.buttonSmall)
+            }
+        } else if (notification.postAlbumArtURL != null) {
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             AsyncImage(
                 model = notification.postAlbumArtURL,

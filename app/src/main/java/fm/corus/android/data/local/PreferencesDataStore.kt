@@ -5,10 +5,53 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import fm.corus.android.data.model.CymbalUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
+
+@Serializable
+private data class RecentSearchEntry(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarURL: String? = null,
+    val avatarThumbURL: String? = null,
+    val isVerified: Boolean = false,
+    val isClubMember: Boolean = false,
+    val isBot: Boolean = false,
+    val profileFlair: String = "checkmark",
+)
+
+private val recentJson = Json { ignoreUnknownKeys = true }
+
+private fun CymbalUser.toRecentEntry() = RecentSearchEntry(
+    id = id,
+    username = username,
+    displayName = displayName,
+    avatarURL = avatarURL,
+    avatarThumbURL = avatarThumbURL,
+    isVerified = isVerified,
+    isClubMember = isClubMember,
+    isBot = isBot,
+    profileFlair = profileFlair,
+)
+
+private fun RecentSearchEntry.toUser() = CymbalUser(
+    id = id,
+    username = username,
+    displayName = displayName,
+    avatarURL = avatarURL,
+    avatarThumbURL = avatarThumbURL,
+    isVerified = isVerified,
+    isClubMember = isClubMember,
+    isBot = isBot,
+    profileFlair = profileFlair,
+)
 
 @Singleton
 class PreferencesDataStore @Inject constructor(
@@ -72,22 +115,48 @@ class PreferencesDataStore @Inject constructor(
         dataStore.edit { it[HAS_SEEN_TENTH_POST_PAYWALL] = true }
     }
 
-    // ── Recent Searches ──
+    // ── Recent Searches (stored as JSON array of user objects) ──
 
-    val recentSearches: Flow<List<String>> = dataStore.data.map { prefs ->
+    val recentSearchUsers: Flow<List<CymbalUser>> = dataStore.data.map { prefs ->
         val raw = prefs[RECENT_SEARCHES] ?: ""
-        if (raw.isBlank()) emptyList() else raw.split(",")
+        if (raw.isBlank()) {
+            emptyList()
+        } else {
+            try {
+                recentJson.decodeFromString<List<RecentSearchEntry>>(raw).map { it.toUser() }
+            } catch (_: Exception) {
+                // Migrate old comma-separated username format gracefully
+                emptyList()
+            }
+        }
     }
 
-    suspend fun addRecentSearch(query: String) {
-        val trimmed = query.trim()
-        if (trimmed.isBlank()) return
+    suspend fun addRecentSearchUser(user: CymbalUser) {
         dataStore.edit { prefs ->
-            val existing = (prefs[RECENT_SEARCHES] ?: "")
-                .split(",")
-                .filter { it.isNotBlank() }
-            val updated = listOf(trimmed) + existing.filter { it != trimmed }
-            prefs[RECENT_SEARCHES] = updated.take(10).joinToString(",")
+            val existing = try {
+                val raw = prefs[RECENT_SEARCHES] ?: ""
+                if (raw.isBlank()) emptyList()
+                else recentJson.decodeFromString<List<RecentSearchEntry>>(raw)
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val entry = user.toRecentEntry()
+            val updated = listOf(entry) + existing.filter { it.id != user.id }
+            prefs[RECENT_SEARCHES] = recentJson.encodeToString(updated.take(15))
+        }
+    }
+
+    suspend fun removeRecentSearchUser(userId: String) {
+        dataStore.edit { prefs ->
+            val existing = try {
+                val raw = prefs[RECENT_SEARCHES] ?: ""
+                if (raw.isBlank()) emptyList()
+                else recentJson.decodeFromString<List<RecentSearchEntry>>(raw)
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val updated = existing.filter { it.id != userId }
+            prefs[RECENT_SEARCHES] = recentJson.encodeToString(updated)
         }
     }
 

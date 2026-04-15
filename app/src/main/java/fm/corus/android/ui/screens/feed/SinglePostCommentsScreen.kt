@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -27,6 +29,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,13 +38,16 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.ui.components.GifPickerSheet
+import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.util.DateUtils
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +57,10 @@ fun SinglePostCommentsScreen(
     viewModel: CommentsViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
+    onNavigateToFilm: (String) -> Unit = {},
+    onNavigateToHashtag: (String) -> Unit = {},
+    onNavigateToLikes: (String) -> Unit = {},
 ) {
     val comments by viewModel.comments.collectAsState()
     val repliesByParent by viewModel.repliesByParent.collectAsState()
@@ -59,6 +69,12 @@ fun SinglePostCommentsScreen(
     val replyingTo by viewModel.replyingTo.collectAsState()
     val likedCommentIds by viewModel.likedCommentIds.collectAsState()
     val post by viewModel.post.collectAsState()
+    val engagementStates by viewModel.engagementStates.collectAsState()
+    val currentUserProfile by viewModel.currentUserProfile.collectAsState()
+    val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
+    val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var commentText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -99,7 +115,7 @@ fun SinglePostCommentsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Comments", style = CorusFont.screenTitle, color = CorusColors.Text) },
+                title = { Text("Corus", style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
@@ -212,12 +228,74 @@ fun SinglePostCommentsScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            // Post header section
+            // Full post card (matches iOS SinglePostCommentsView)
             post?.let { p ->
                 item(key = "header") {
-                    PostHeaderSection(
+                    val engagement = engagementStates[p.id]
+                    val likeCount = engagement?.likeCount ?: p.likeCount
+                    val commentCount = engagement?.commentCount ?: p.commentCount
+                    val isLiked = engagement?.isLiked ?: p.isLiked
+                    val isSaved = engagement?.isSaved ?: false
+
+                    PostCard(
                         post = p,
+                        likeCount = likeCount,
+                        commentCount = commentCount,
+                        isLiked = isLiked,
+                        isSaved = isSaved,
+                        currentUser = currentUserProfile,
+                        isPreviewLoading = p.isTrack && loadingTrackId == p.track.id,
+                        isPreviewPlaying = p.isTrack && nowPlayingState.trackId == p.track.id && nowPlayingState.isPlaying,
+                        hideComments = true,
+                        onLikeTap = { viewModel.togglePostLike(p.id) },
+                        onSaveTap = { viewModel.togglePostSave(p.id) },
                         onUserTap = { onNavigateToUser(p.user.id) },
+                        onPreviewTap = {
+                            if (p.isMovie) {
+                                p.movieId?.let { onNavigateToFilm(it) }
+                            } else {
+                                viewModel.playPreview(p)
+                            }
+                        },
+                        onTrailerTap = {
+                            p.trailerURL?.let { url ->
+                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { }
+                            }
+                        },
+                        onCommentTap = {
+                            scope.launch { listState.animateScrollToItem(1) }
+                        },
+                        onShareTap = {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, "https://corus.fm/post/${p.id}")
+                            }
+                            try { context.startActivity(Intent.createChooser(shareIntent, "Share")) } catch (_: Exception) { }
+                        },
+                        onSpotifyTap = {
+                            val spotifyUri = p.track.spotifyURI
+                            val spotifyWeb = p.track.spotifyWebURL
+                            val uri = spotifyUri.ifBlank { spotifyWeb }
+                            if (uri.isNotBlank()) {
+                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
+                            }
+                        },
+                        onLikesTap = { onNavigateToLikes(p.id) },
+                        onMentionTap = { username ->
+                            scope.launch {
+                                val userId = viewModel.resolveUsernameToId(username.removePrefix("@"))
+                                if (userId != null) onNavigateToUser(userId)
+                            }
+                        },
+                        onHashtagTap = { hashtag -> onNavigateToHashtag(hashtag.removePrefix("#")) },
+                        onSongCountTap = {
+                            if (p.isMovie) {
+                                p.movieId?.let { onNavigateToFilm(it) }
+                            } else {
+                                onNavigateToSong(p.track)
+                            }
+                        },
+                        onFilmPageTap = { p.movieId?.let { onNavigateToFilm(it) } },
                     )
                     HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
                 }
@@ -263,43 +341,6 @@ fun SinglePostCommentsScreen(
 }
 
 @Composable
-private fun PostHeaderSection(
-    post: CymbalPost,
-    onUserTap: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onUserTap)
-            .padding(CorusSpacing.lg),
-        verticalAlignment = Alignment.Top,
-    ) {
-        UserAvatarView(avatarURL = post.user.avatarURL, size = CorusSpacing.avatarMedium)
-        Spacer(modifier = Modifier.width(CorusSpacing.md))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(post.user.displayName, style = CorusFont.bodyMedium, color = CorusColors.Text)
-            if (!post.caption.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                Text(post.caption, style = CorusFont.body, color = CorusColors.Text)
-            }
-            Spacer(modifier = Modifier.height(CorusSpacing.xs))
-            Text(DateUtils.relativeTime(post.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
-        }
-        if (post.displayImageURL != null) {
-            Spacer(modifier = Modifier.width(CorusSpacing.md))
-            AsyncImage(
-                model = post.displayImageURL,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                contentScale = ContentScale.Crop,
-            )
-        }
-    }
-}
-
-@Composable
 private fun SingleCommentRow(
     comment: CymbalComment,
     isLiked: Boolean,
@@ -325,6 +366,7 @@ private fun SingleCommentRow(
         ) {
             UserAvatarView(
                 avatarURL = comment.user.avatarURL,
+                displayName = comment.user.displayName,
                 size = 32.dp,
                 modifier = Modifier.clickable(onClick = onUserTap),
             )
@@ -383,7 +425,7 @@ private fun SingleCommentRow(
                     .background(replyHighlightColor)
                     .padding(start = 56.dp, end = CorusSpacing.lg, top = CorusSpacing.xxs, bottom = CorusSpacing.xxs),
             ) {
-                UserAvatarView(avatarURL = reply.user.avatarURL, size = 24.dp)
+                UserAvatarView(avatarURL = reply.user.avatarURL, displayName = reply.user.displayName, size = 24.dp)
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

@@ -389,7 +389,7 @@ private fun ShareContactCell(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box {
-            UserAvatarView(avatarURL = user.avatarURL, size = 72.dp)
+            UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = 72.dp)
             if (isSelected) {
                 Box(
                     modifier = Modifier
@@ -434,7 +434,7 @@ private fun ShareUserRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = user.avatarURL, size = CorusSpacing.avatarMedium)
+        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(user.username, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)

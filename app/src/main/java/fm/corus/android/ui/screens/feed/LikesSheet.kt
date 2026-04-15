@@ -227,7 +227,7 @@ private fun LikerRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = user.avatarURL, size = CorusSpacing.avatarMedium + 8.dp)
+        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium + 8.dp)
 
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 

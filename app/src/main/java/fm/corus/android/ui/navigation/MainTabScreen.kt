@@ -3,6 +3,7 @@ package fm.corus.android.ui.navigation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,7 +38,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -185,6 +189,7 @@ fun MainTabScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .consumeWindowInsets(padding)
         ) {
             // Keep all tab NavHosts alive but only show the selected one.
             // This preserves scroll position and back stack per tab.
@@ -383,12 +388,26 @@ private fun ComposeButton(onClick: () -> Unit) {
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = Icons.Rounded.Add,
-                contentDescription = "Compose",
-                modifier = Modifier.size(18.dp),
-                tint = Color.White,
-            )
+            Canvas(modifier = Modifier.size(24.dp)) {
+                val stroke = 2.8.dp.toPx()
+                val cap = StrokeCap.Round
+                // horizontal bar
+                drawLine(
+                    color = Color.White,
+                    start = Offset(0f, size.height / 2),
+                    end = Offset(size.width, size.height / 2),
+                    strokeWidth = stroke,
+                    cap = cap,
+                )
+                // vertical bar
+                drawLine(
+                    color = Color.White,
+                    start = Offset(size.width / 2, 0f),
+                    end = Offset(size.width / 2, size.height),
+                    strokeWidth = stroke,
+                    cap = cap,
+                )
+            }
         }
     }
 }

@@ -87,6 +87,7 @@ fun PostCard(
     trackPostCount: Int = post.trackPostCount ?: 0,
     onSongCountTap: () -> Unit = {},
     onFilmPageTap: () -> Unit = {},
+    hideComments: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
     val heartScale = remember { Animatable(0f) }
@@ -106,6 +107,7 @@ fun PostCard(
             UserAvatarView(
                 avatarURL = post.user.avatarURL,
                 avatarThumbURL = post.user.avatarThumbURL,
+                displayName = post.user.displayName,
                 size = 28.dp,
                 modifier = Modifier.clickable(onClick = onUserTap),
             )
@@ -404,7 +406,7 @@ fun PostCard(
                             painter = painterResource(R.drawable.ic_play_rectangle_fill),
                             contentDescription = "Watch Trailer",
                             modifier = Modifier
-                                .size(24.dp)
+                                .height(22.dp)
                                 .offset(y = (-4).dp)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
@@ -577,7 +579,7 @@ fun PostCard(
         }
 
         // 7. COMMENT PREVIEW (max 2)
-        if (post.comments.isNotEmpty()) {
+        if (!hideComments && post.comments.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

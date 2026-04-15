@@ -114,8 +114,8 @@ class FindPeopleViewModel @Inject constructor(
     private val _localFollowedIds = MutableStateFlow<Set<String>>(emptySet())
     val localFollowedIds: StateFlow<Set<String>> = _localFollowedIds.asStateFlow()
 
-    // Recent searches (persisted in DataStore)
-    val recentSearches: StateFlow<List<String>> = preferencesDataStore.recentSearches
+    // Recent searches (persisted as full user objects in DataStore)
+    val recentSearchUsers: StateFlow<List<CymbalUser>> = preferencesDataStore.recentSearchUsers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Contact sync
@@ -326,7 +326,13 @@ class FindPeopleViewModel @Inject constructor(
 
     fun onUserSelected(user: CymbalUser) {
         viewModelScope.launch {
-            preferencesDataStore.addRecentSearch(user.username)
+            preferencesDataStore.addRecentSearchUser(user)
+        }
+    }
+
+    fun removeRecentSearch(userId: String) {
+        viewModelScope.launch {
+            preferencesDataStore.removeRecentSearchUser(userId)
         }
     }
 

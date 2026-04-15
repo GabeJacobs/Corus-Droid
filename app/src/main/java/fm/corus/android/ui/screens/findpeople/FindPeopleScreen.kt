@@ -3,6 +3,7 @@ package fm.corus.android.ui.screens.findpeople
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -46,6 +47,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -105,7 +107,7 @@ fun FindPeopleScreen(
     val curatedMusicBots by viewModel.curatedMusicBots.collectAsState()
     val curatedFilmBots by viewModel.curatedFilmBots.collectAsState()
     val isBotsLoading by viewModel.isBotsLoading.collectAsState()
-    val recentSearches by viewModel.recentSearches.collectAsState()
+    val recentSearchUsers by viewModel.recentSearchUsers.collectAsState()
     val contactMatches by viewModel.contactMatches.collectAsState()
     val isSyncingContacts by viewModel.isSyncingContacts.collectAsState()
     val contactsSyncStatus by viewModel.contactsSyncStatus.collectAsState()
@@ -117,6 +119,14 @@ fun FindPeopleScreen(
     val activeTab = SearchTab.entries[activeTabIndex]
     val hasSearchQuery = searchQuery.isNotBlank()
     var isSearchFocused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val showRecentOverlay = isSearchFocused && !hasSearchQuery
+
+    // Dismiss the recent-searches overlay on back press
+    BackHandler(enabled = showRecentOverlay) {
+        focusManager.clearFocus()
+        isSearchFocused = false
+    }
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val scrollDismissConnection = remember {
@@ -189,10 +199,12 @@ fun FindPeopleScreen(
         // Search bar
         SearchBarSection(
             query = searchQuery,
+            showClearButton = searchQuery.isNotBlank() || isSearchFocused,
             onQueryChange = { viewModel.onSearchQueryChange(it) },
             onClear = {
                 viewModel.onSearchQueryChange("")
                 viewModel.clearSearch()
+                focusManager.clearFocus()
                 isSearchFocused = false
             },
             onFocusChanged = { isSearchFocused = it },
@@ -211,89 +223,98 @@ fun FindPeopleScreen(
             onTabSelected = { viewModel.setActiveTab(it.ordinal) },
         )
 
-        // Content
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { viewModel.refresh() },
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            when (activeTab) {
-                SearchTab.USERS -> {
-                    if (hasSearchQuery) {
-                        UserSearchResults(
-                            listState = usersListState,
-                            results = userResults,
-                            isSearching = isSearching,
-                            viewModel = viewModel,
-                            onNavigateToUser = { userId ->
-                                val user = userResults.find { it.id == userId }
-                                if (user != null) viewModel.onUserSelected(user)
-                                onNavigateToUser(userId)
-                            },
-                        )
-                    } else {
-                        SuggestedUsersContent(
-                            listState = usersListState,
-                            recentSearches = recentSearches,
-                            isSearchFocused = isSearchFocused,
-                            musicMatchUsers = musicMatchUsers,
-                            mutualConnectionUsers = mutualConnectionUsers,
-                            curatedMusicBots = curatedMusicBots,
-                            curatedFilmBots = curatedFilmBots,
-                            contactMatches = contactMatches,
-                            contactsSyncStatus = contactsSyncStatus,
-                            isSyncingContacts = isSyncingContacts,
-                            showNoContactMatches = showNoContactMatches,
-                            popularUsers = popularUsers,
-                            isPopularLoading = isPopularLoading,
-                            isSuggestedLoading = isSuggestedLoading,
-                            isBotsLoading = isBotsLoading,
-                            viewModel = viewModel,
-                            onNavigateToUser = onNavigateToUser,
-                            onNavigateToBotList = onNavigateToBotList,
-                            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
-                            onNavigateToContactFriends = onNavigateToContactFriends,
-                            onRecentSearchTap = { query ->
-                                viewModel.populateSearchFromRecent(query)
-                            },
-                            onClearRecentSearches = { viewModel.clearRecentSearches() },
-                        )
+        // Content area – a Box so the recent-searches overlay can sit on top
+        Box(modifier = Modifier.fillMaxSize()) {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { viewModel.refresh() },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                when (activeTab) {
+                    SearchTab.USERS -> {
+                        if (hasSearchQuery) {
+                            UserSearchResults(
+                                listState = usersListState,
+                                results = userResults,
+                                isSearching = isSearching,
+                                viewModel = viewModel,
+                                onNavigateToUser = { userId ->
+                                    val user = userResults.find { it.id == userId }
+                                    if (user != null) viewModel.onUserSelected(user)
+                                    onNavigateToUser(userId)
+                                },
+                            )
+                        } else {
+                            SuggestedUsersContent(
+                                listState = usersListState,
+                                musicMatchUsers = musicMatchUsers,
+                                mutualConnectionUsers = mutualConnectionUsers,
+                                curatedMusicBots = curatedMusicBots,
+                                curatedFilmBots = curatedFilmBots,
+                                contactMatches = contactMatches,
+                                contactsSyncStatus = contactsSyncStatus,
+                                isSyncingContacts = isSyncingContacts,
+                                showNoContactMatches = showNoContactMatches,
+                                popularUsers = popularUsers,
+                                isPopularLoading = isPopularLoading,
+                                isSuggestedLoading = isSuggestedLoading,
+                                isBotsLoading = isBotsLoading,
+                                viewModel = viewModel,
+                                onNavigateToUser = onNavigateToUser,
+                                onNavigateToBotList = onNavigateToBotList,
+                                onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+                                onNavigateToContactFriends = onNavigateToContactFriends,
+                            )
+                        }
+                    }
+                    SearchTab.SONGS -> {
+                        if (hasSearchQuery) {
+                            SongSearchResultsList(
+                                listState = songsListState,
+                                tracks = songSearchResults,
+                                isSearching = isSearching,
+                                onSongTap = onNavigateToSong,
+                            )
+                        } else {
+                            TrendingSongsContent(
+                                listState = songsListState,
+                                songs = trendingSongs,
+                                isLoading = isTrendingLoading,
+                                onSongTap = onNavigateToSong,
+                            )
+                        }
+                    }
+                    SearchTab.FILMS -> {
+                        if (hasSearchQuery) {
+                            FilmSearchResultsList(
+                                listState = filmsListState,
+                                movies = filmSearchResults,
+                                isSearching = isSearching,
+                                onFilmTap = onNavigateToFilm,
+                            )
+                        } else {
+                            TrendingFilmsContent(
+                                listState = filmsListState,
+                                movies = trendingMovies,
+                                isLoading = isTrendingMoviesLoading,
+                                onFilmTap = onNavigateToFilm,
+                            )
+                        }
                     }
                 }
-                SearchTab.SONGS -> {
-                    if (hasSearchQuery) {
-                        SongSearchResultsList(
-                            listState = songsListState,
-                            tracks = songSearchResults,
-                            isSearching = isSearching,
-                            onSongTap = onNavigateToSong,
-                        )
-                    } else {
-                        TrendingSongsContent(
-                            listState = songsListState,
-                            songs = trendingSongs,
-                            isLoading = isTrendingLoading,
-                            onSongTap = onNavigateToSong,
-                        )
-                    }
-                }
-                SearchTab.FILMS -> {
-                    if (hasSearchQuery) {
-                        FilmSearchResultsList(
-                            listState = filmsListState,
-                            movies = filmSearchResults,
-                            isSearching = isSearching,
-                            onFilmTap = onNavigateToFilm,
-                        )
-                    } else {
-                        TrendingFilmsContent(
-                            listState = filmsListState,
-                            movies = trendingMovies,
-                            isLoading = isTrendingMoviesLoading,
-                            onFilmTap = onNavigateToFilm,
-                        )
-                    }
-                }
+            }
+
+            // Full-screen recent-searches overlay (matches iOS behaviour)
+            if (showRecentOverlay) {
+                RecentSearchesOverlay(
+                    recentUsers = recentSearchUsers,
+                    onUserTap = { user ->
+                        viewModel.onUserSelected(user)
+                        onNavigateToUser(user.id)
+                    },
+                    onRemoveUser = { userId -> viewModel.removeRecentSearch(userId) },
+                    onClearAll = { viewModel.clearRecentSearches() },
+                )
             }
         }
     }
@@ -302,13 +323,13 @@ fun FindPeopleScreen(
 @Composable
 private fun SearchBarSection(
     query: String,
+    showClearButton: Boolean = query.isNotBlank(),
     onQueryChange: (String) -> Unit,
     onClear: () -> Unit,
     onFocusChanged: (Boolean) -> Unit = {},
     placeholder: String,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
-    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
 
     TextField(
         value = query,
@@ -324,7 +345,7 @@ private fun SearchBarSection(
             Icon(Icons.Filled.Search, contentDescription = "Search", tint = CorusColors.Secondary)
         },
         trailingIcon = {
-            if (query.isNotBlank()) {
+            if (showClearButton) {
                 IconButton(onClick = onClear) {
                     Icon(Icons.Filled.Close, contentDescription = "Clear", tint = CorusColors.Secondary, modifier = Modifier.size(18.dp))
                 }
@@ -399,10 +420,85 @@ private fun FindPeopleTabBar(
 }
 
 @Composable
+private fun RecentSearchesOverlay(
+    recentUsers: List<CymbalUser>,
+    onUserTap: (CymbalUser) -> Unit,
+    onRemoveUser: (String) -> Unit,
+    onClearAll: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CorusColors.Background),
+    ) {
+        if (recentUsers.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.lg)
+                    .padding(top = CorusSpacing.xs, bottom = CorusSpacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Recent", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = "Clear all",
+                    style = CorusFont.captionMedium,
+                    color = CorusColors.Accent,
+                    modifier = Modifier.clickable { onClearAll() },
+                )
+            }
+            recentUsers.forEach { user ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onUserTap(user) }
+                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    UserAvatarView(
+                        avatarURL = user.avatarURL,
+                        avatarThumbURL = user.avatarThumbURL,
+                        displayName = user.displayName,
+                        size = 40.dp,
+                    )
+                    Spacer(modifier = Modifier.width(CorusSpacing.md))
+                    Column(modifier = Modifier.weight(1f)) {
+                        UsernameWithFlair(
+                            username = user.username,
+                            isVerified = user.isVerified,
+                            isClubMember = user.isClubMember,
+                            flairStyle = user.flairStyle,
+                            style = CorusFont.bodyMedium,
+                            color = CorusColors.Text,
+                        )
+                        if (user.displayName.isNotBlank()) {
+                            Text(
+                                text = user.displayName,
+                                style = CorusFont.caption,
+                                color = CorusColors.Secondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    IconButton(onClick = { onRemoveUser(user.id) }) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "Remove",
+                            tint = CorusColors.Tertiary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SuggestedUsersContent(
     listState: LazyListState = rememberLazyListState(),
-    recentSearches: List<String>,
-    isSearchFocused: Boolean = false,
     musicMatchUsers: List<SuggestedUserMatch>,
     mutualConnectionUsers: List<SuggestedUserMatch>,
     curatedMusicBots: List<SuggestedUserMatch>,
@@ -420,8 +516,6 @@ private fun SuggestedUsersContent(
     onNavigateToBotList: (String?) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean) -> Unit,
     onNavigateToContactFriends: () -> Unit,
-    onRecentSearchTap: (String) -> Unit,
-    onClearRecentSearches: () -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -438,52 +532,6 @@ private fun SuggestedUsersContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = CorusSpacing.xs),
     ) {
-        // ── Recent Searches (only visible when search field is focused, matching iOS) ──
-        if (isSearchFocused && recentSearches.isNotEmpty()) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("RECENT", style = CorusFont.sectionHeader, color = CorusColors.Secondary)
-                    Spacer(modifier = Modifier.weight(1f))
-                    TextButton(onClick = onClearRecentSearches) {
-                        Text("Clear", style = CorusFont.captionMedium, color = CorusColors.Accent)
-                    }
-                }
-            }
-            items(recentSearches, key = { "recent-$it" }) { query ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onRecentSearchTap(query) }
-                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Filled.Search,
-                        contentDescription = null,
-                        tint = CorusColors.Tertiary,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(CorusSpacing.md))
-                    Text(
-                        text = query,
-                        style = CorusFont.body,
-                        color = CorusColors.Text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            item {
-                HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
-                Spacer(modifier = Modifier.height(CorusSpacing.md))
-            }
-        }
-
         // ── Find Friends from Contacts ──
         item {
             AnimatedVisibility(
@@ -881,7 +929,7 @@ fun SuggestedUserRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = user.avatarURL, size = 44.dp)
+        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = 44.dp)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             // Display name (bold)

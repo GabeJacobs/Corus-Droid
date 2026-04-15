@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -89,7 +90,7 @@ fun MessageThreadScreen(
         viewModel.loadMessages(threadId, otherUserId)
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
+    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background).imePadding()) {
         // Header
         Row(
             modifier = Modifier

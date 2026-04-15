@@ -106,6 +106,7 @@ fun TasteMatchCard(
         ) {
             UserAvatarView(
                 avatarURL = user.avatarURL,
+                displayName = user.displayName,
                 size = CorusSpacing.avatarSmall,
             )
 

@@ -25,6 +25,7 @@ import fm.corus.android.ui.screens.notifications.NotificationsScreen
 import fm.corus.android.ui.screens.profile.EditProfileScreen
 import fm.corus.android.ui.screens.profile.FollowListScreen
 import fm.corus.android.ui.screens.profile.OtherProfileScreen
+import fm.corus.android.ui.screens.profile.ProfileFeedScreen
 import fm.corus.android.ui.screens.profile.ProfileScreen
 import fm.corus.android.ui.screens.settings.BlockedUsersScreen
 import fm.corus.android.ui.screens.settings.MutedUsersScreen
@@ -239,7 +240,9 @@ fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
                 onNavigateToFollowList = { userId, isFollowers ->
                     navController.navigate(FollowListRoute(userId, isFollowers))
                 },
-                onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+                onNavigateToProfileFeed = { userId, username, postId, segment ->
+                    navController.navigate(ProfileFeedRoute(userId, username, segment, postId))
+                },
                 onNavigateToClub = { navController.navigate(CymbalClubOfferRoute) },
             )
         }
@@ -292,6 +295,24 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         )
     }
 
+    composable<ProfileFeedRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<ProfileFeedRoute>()
+        ProfileFeedScreen(
+            userId = route.userId,
+            username = route.username,
+            segment = route.segment,
+            initialPostId = route.initialPostId,
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToUserByUsername = { username -> navController.navigate(ProfileByUsernameRoute(username)) },
+            onNavigateToComments = onShowComments,
+            onNavigateToLikes = onShowLikes,
+            onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
+            onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
+            onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
+        )
+    }
+
     composable<OtherProfileRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<OtherProfileRoute>()
         OtherProfileScreen(
@@ -307,7 +328,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             initialIsVerified = route.initialIsVerified,
             initialIsClubMember = route.initialIsClubMember,
             onBack = { navController.popBackStack() },
-            onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+            onNavigateToProfileFeed = { userId, username, postId, segment ->
+                navController.navigate(ProfileFeedRoute(userId, username, segment, postId))
+            },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToFollowList = { userId, isFollowers ->
                 navController.navigate(FollowListRoute(userId, isFollowers))
@@ -335,7 +358,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 userId = userId,
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
-                onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+                onNavigateToProfileFeed = { uid, uname, postId, segment ->
+                    navController.navigate(ProfileFeedRoute(uid, uname, segment, postId))
+                },
                 onNavigateToUser = { uid -> navController.navigate(OtherProfileRoute(uid)) },
                 onNavigateToFollowList = { uid, isFollowers ->
                     navController.navigate(FollowListRoute(uid, isFollowers))
@@ -510,6 +535,10 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             highlightCommentId = route.commentId,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
+            onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
+            onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
+            onNavigateToLikes = onShowLikes,
         )
     }
 

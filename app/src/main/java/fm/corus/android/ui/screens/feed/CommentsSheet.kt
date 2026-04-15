@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +43,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.ui.components.SkeletonCommentRow
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.TappableMentionText
 import fm.corus.android.ui.components.UserAvatarView
@@ -60,7 +62,7 @@ fun CommentsBottomSheet(
     onNavigateToUser: (String) -> Unit = {},
 ) {
     val viewModel: CommentsViewModel = hiltViewModel()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val scope = rememberCoroutineScope()
 
     ModalBottomSheet(
@@ -69,11 +71,13 @@ fun CommentsBottomSheet(
         containerColor = Color.White,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
+        val isSheetExpanded = sheetState.targetValue == SheetValue.Expanded
         CommentsSheetContent(
             postId = postId,
             viewModel = viewModel,
             onDismiss = onDismiss,
             onNavigateToUser = onNavigateToUser,
+            isSheetExpanded = isSheetExpanded,
             onExpandSheet = {
                 scope.launch { sheetState.expand() }
             },
@@ -120,6 +124,7 @@ private fun ColumnScope.CommentsSheetContent(
     viewModel: CommentsViewModel = hiltViewModel(),
     onDismiss: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
+    isSheetExpanded: Boolean = true,
     onExpandSheet: () -> Unit = {},
 ) {
     val comments by viewModel.comments.collectAsState()
@@ -129,6 +134,7 @@ private fun ColumnScope.CommentsSheetContent(
     val replyingTo by viewModel.replyingTo.collectAsState()
     val likedCommentIds by viewModel.likedCommentIds.collectAsState()
     val post by viewModel.post.collectAsState()
+    val sendError by viewModel.sendError.collectAsState()
 
     var commentText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -142,6 +148,13 @@ private fun ColumnScope.CommentsSheetContent(
         coroutineScope.launch {
             val userId = viewModel.resolveUsernameToId(username)
             if (userId != null) onNavigateToUser(userId)
+        }
+    }
+
+    LaunchedEffect(sendError) {
+        if (sendError != null) {
+            kotlinx.coroutines.delay(3000)
+            viewModel.clearSendError()
         }
     }
 
@@ -195,15 +208,29 @@ private fun ColumnScope.CommentsSheetContent(
         }
     }
 
-    // Comments list — takes remaining space
-    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+    // Comments list — takes remaining space; bounded in half-sheet so input stays visible
+    val configuration = LocalConfiguration.current
+    val commentsPartialMaxHeight = (configuration.screenHeightDp * 0.25).dp
+
+    Box(
+        modifier = (if (isSheetExpanded) Modifier.weight(1f) else Modifier.heightIn(min = 100.dp, max = commentsPartialMaxHeight))
+            .fillMaxWidth()
+    ) {
             when {
                 isLoading && comments.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(color = CorusColors.Accent)
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        val skeletonCount = post?.let { maxOf(minOf(it.commentCount, 5), 2) } ?: 3
+                        repeat(skeletonCount) { index ->
+                            SkeletonCommentRow()
+                            if (index < skeletonCount - 1) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(
+                                        start = CorusSpacing.lg + CorusSpacing.avatarMedium + CorusSpacing.sm,
+                                    ),
+                                    color = CorusColors.Divider,
+                                )
+                            }
+                        }
                     }
                 }
                 comments.isEmpty() && !isLoading && (post?.caption.isNullOrEmpty()) -> {
@@ -278,6 +305,19 @@ private fun ColumnScope.CommentsSheetContent(
             }
         }
 
+        // Error banner
+        if (sendError != null) {
+            Text(
+                text = sendError ?: "",
+                style = CorusFont.caption,
+                color = CorusColors.Error,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CorusColors.Error.copy(alpha = 0.1f))
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            )
+        }
+
         // Reply-to banner
         if (replyingTo != null) {
             Row(
@@ -308,6 +348,7 @@ private fun ColumnScope.CommentsSheetContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .background(Color.White)
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
                 .imePadding(),
@@ -411,6 +452,7 @@ private fun CaptionRow(
     ) {
         UserAvatarView(
             avatarURL = user.avatarURL,
+            displayName = user.displayName,
             size = CorusSpacing.avatarSmall,
             modifier = Modifier.clickable(onClick = onUserTap),
         )
@@ -507,6 +549,7 @@ private fun CommentRow(
     ) {
         UserAvatarView(
             avatarURL = comment.user.avatarURL,
+            displayName = comment.user.displayName,
             size = if (isReply) 24.dp else CorusSpacing.avatarSmall,
             modifier = Modifier.clickable(onClick = onUserTap),
         )

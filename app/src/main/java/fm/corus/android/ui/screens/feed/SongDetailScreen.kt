@@ -326,6 +326,7 @@ private fun PostedByRow(
     ) {
         UserAvatarView(
             avatarURL = post.user.avatarURL,
+            displayName = post.user.displayName,
             size = CorusSpacing.avatarMedium,
         )
 

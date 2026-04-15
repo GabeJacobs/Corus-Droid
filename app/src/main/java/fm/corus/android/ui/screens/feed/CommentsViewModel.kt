@@ -9,6 +9,7 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ class CommentsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val engagementManager: PostEngagementManager,
+    val nowPlayingManager: NowPlayingManager,
     private val remoteConfigService: RemoteConfigService,
 ) : ViewModel() {
 
@@ -51,14 +53,34 @@ class CommentsViewModel @Inject constructor(
     val post: StateFlow<CymbalPost?> = _post.asStateFlow()
 
     val currentUserId: String? get() = authRepository.currentUserId
+    val engagementStates = engagementManager.states
+    val currentUserProfile = authRepository.userProfile
 
     private var postId: String = ""
+    private var _currentUserProfile: CymbalUser? = null
+
+    private val _sendError = MutableStateFlow<String?>(null)
+    val sendError: StateFlow<String?> = _sendError.asStateFlow()
+
+    fun clearSendError() { _sendError.value = null }
 
     fun loadPost(postId: String) {
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
-                _post.value = postRepository.getPostDetail(postId, userId)
+                val loadedPost = postRepository.getPostDetail(postId, userId)
+                _post.value = loadedPost
+                if (loadedPost != null) {
+                    engagementManager.initState(
+                        postId = loadedPost.id,
+                        likeCount = loadedPost.likeCount,
+                        commentCount = loadedPost.commentCount,
+                        repostCount = loadedPost.repostCount,
+                        isLiked = loadedPost.isLiked,
+                        isSaved = false,
+                    )
+                    engagementManager.checkLikeStatuses(listOf(loadedPost.id), userId)
+                }
             } catch (_: Exception) { }
         }
     }
@@ -109,11 +131,40 @@ class CommentsViewModel @Inject constructor(
 
         viewModelScope.launch {
             _isSending.value = true
-            try {
-                val replyTo = _replyingTo.value
-                val parentId = replyTo?.parentCommentId ?: replyTo?.id
-                val replyToUserId = replyTo?.user?.id
 
+            val replyTo = _replyingTo.value
+            val parentId = replyTo?.parentCommentId ?: replyTo?.id
+            val replyToUserId = replyTo?.user?.id
+
+            // Build optimistic comment
+            val userProfile = _currentUserProfile
+                ?: try { userRepository.fetchUserProfile(userId) } catch (_: Exception) { null }
+            _currentUserProfile = userProfile
+
+            val tempId = "temp_${System.currentTimeMillis()}"
+            val optimisticComment = CymbalComment(
+                id = tempId,
+                user = userProfile ?: CymbalUser(id = userId, username = "", displayName = ""),
+                text = text,
+                timestamp = java.util.Date(),
+                parentCommentId = parentId,
+                replyToUser = replyTo?.user,
+            )
+
+            // Insert optimistically
+            if (parentId != null) {
+                _repliesByParent.value = _repliesByParent.value.toMutableMap().apply {
+                    this[parentId] = (this[parentId] ?: emptyList()) + optimisticComment
+                }
+            } else {
+                _comments.value = _comments.value + optimisticComment
+            }
+            engagementManager.incrementCommentCount(postId)
+            _replyingTo.value = null
+            _isSending.value = false
+
+            // Send to server, reload on success, rollback on failure
+            try {
                 postRepository.addComment(
                     postId = postId,
                     userId = userId,
@@ -121,14 +172,19 @@ class CommentsViewModel @Inject constructor(
                     parentCommentId = parentId,
                     replyToUserId = replyToUserId,
                 )
-
-                engagementManager.incrementCommentCount(postId)
-                _replyingTo.value = null
-
-                // Reload comments
                 loadComments(postId)
-            } catch (_: Exception) { }
-            _isSending.value = false
+            } catch (_: Exception) {
+                // Rollback optimistic insert
+                if (parentId != null) {
+                    _repliesByParent.value = _repliesByParent.value.toMutableMap().apply {
+                        this[parentId] = (this[parentId] ?: emptyList()).filter { it.id != tempId }
+                    }
+                } else {
+                    _comments.value = _comments.value.filter { it.id != tempId }
+                }
+                engagementManager.decrementCommentCount(postId)
+                _sendError.value = "Failed to send comment"
+            }
         }
     }
 
@@ -137,11 +193,38 @@ class CommentsViewModel @Inject constructor(
 
         viewModelScope.launch {
             _isSending.value = true
-            try {
-                val replyTo = _replyingTo.value
-                val parentId = replyTo?.parentCommentId ?: replyTo?.id
-                val replyToUserId = replyTo?.user?.id
 
+            val replyTo = _replyingTo.value
+            val parentId = replyTo?.parentCommentId ?: replyTo?.id
+            val replyToUserId = replyTo?.user?.id
+
+            val userProfile = _currentUserProfile
+                ?: try { userRepository.fetchUserProfile(userId) } catch (_: Exception) { null }
+            _currentUserProfile = userProfile
+
+            val tempId = "temp_${System.currentTimeMillis()}"
+            val optimisticComment = CymbalComment(
+                id = tempId,
+                user = userProfile ?: CymbalUser(id = userId, username = "", displayName = ""),
+                text = "",
+                timestamp = java.util.Date(),
+                parentCommentId = parentId,
+                replyToUser = replyTo?.user,
+                gifURL = gifURL,
+            )
+
+            if (parentId != null) {
+                _repliesByParent.value = _repliesByParent.value.toMutableMap().apply {
+                    this[parentId] = (this[parentId] ?: emptyList()) + optimisticComment
+                }
+            } else {
+                _comments.value = _comments.value + optimisticComment
+            }
+            engagementManager.incrementCommentCount(postId)
+            _replyingTo.value = null
+            _isSending.value = false
+
+            try {
                 postRepository.addComment(
                     postId = postId,
                     userId = userId,
@@ -150,12 +233,18 @@ class CommentsViewModel @Inject constructor(
                     replyToUserId = replyToUserId,
                     gifURL = gifURL,
                 )
-
-                engagementManager.incrementCommentCount(postId)
-                _replyingTo.value = null
                 loadComments(postId)
-            } catch (_: Exception) { }
-            _isSending.value = false
+            } catch (_: Exception) {
+                if (parentId != null) {
+                    _repliesByParent.value = _repliesByParent.value.toMutableMap().apply {
+                        this[parentId] = (this[parentId] ?: emptyList()).filter { it.id != tempId }
+                    }
+                } else {
+                    _comments.value = _comments.value.filter { it.id != tempId }
+                }
+                engagementManager.decrementCommentCount(postId)
+                _sendError.value = "Failed to send GIF"
+            }
         }
     }
 
@@ -238,6 +327,34 @@ class CommentsViewModel @Inject constructor(
             } catch (_: Exception) {
                 _mentionSuggestions.value = emptyList()
             }
+        }
+    }
+
+    // ── Post Engagement ──
+
+    fun togglePostLike(postId: String) {
+        val userId = authRepository.currentUserId ?: return
+        engagementManager.toggleLike(postId, userId)
+    }
+
+    fun togglePostSave(postId: String) {
+        val userId = authRepository.currentUserId ?: return
+        engagementManager.toggleSave(postId, userId)
+    }
+
+    fun playPreview(post: CymbalPost) {
+        viewModelScope.launch {
+            nowPlayingManager.play(
+                trackId = post.track.id,
+                trackName = post.track.name,
+                artistName = post.track.artistName,
+                albumArtURL = post.track.albumArtURL,
+                previewUrl = post.track.previewUrl,
+                spotifyURI = post.track.spotifyURI,
+                spotifyWebURL = post.track.spotifyWebURL,
+                isrc = post.track.isrc,
+                sourcePostId = post.id,
+            )
         }
     }
 

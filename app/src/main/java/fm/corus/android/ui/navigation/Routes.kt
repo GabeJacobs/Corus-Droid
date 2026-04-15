@@ -18,6 +18,12 @@ import kotlinx.serialization.Serializable
 // ── Nested Routes ──
 
 @Serializable data class PostDetailRoute(val postId: String)
+@Serializable data class ProfileFeedRoute(
+    val userId: String,
+    val username: String,
+    val segment: Int,
+    val initialPostId: String,
+)
 @Serializable data class SongDetailRoute(
     val trackId: String,
     val albumArtURL: String? = null,
