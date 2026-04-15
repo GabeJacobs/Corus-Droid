@@ -11,10 +11,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
@@ -27,16 +27,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlinx.coroutines.delay
+import java.io.File
 
 @Composable
 fun OnboardingScreen(
@@ -48,12 +49,19 @@ fun OnboardingScreen(
 
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
     var avatarData by remember { mutableStateOf<ByteArray?>(null) }
-    var displayName by remember { mutableStateOf("") }
+
+    // Pre-fill display name from OAuth provider (matching iOS behavior)
+    val oauthDisplayName = viewModel.oauthDisplayName
+    var displayName by remember { mutableStateOf(oauthDisplayName ?: "") }
+    val showDisplayNameField = oauthDisplayName.isNullOrBlank()
+
     var username by remember { mutableStateOf("") }
     var usernameAvailable by remember { mutableStateOf<Boolean?>(null) }
     var checkingUsername by remember { mutableStateOf(false) }
     var showAvatarNudge by remember { mutableStateOf(false) }
+    var showPhotoDialog by remember { mutableStateOf(false) }
 
+    // Gallery picker
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -61,6 +69,25 @@ fun OnboardingScreen(
             avatarUri = uri
             try {
                 val inputStream = context.contentResolver.openInputStream(uri)
+                avatarData = inputStream?.readBytes()
+                inputStream?.close()
+            } catch (_: Exception) { }
+        }
+    }
+
+    // Camera — matches ProfileScreen pattern using FileProvider + TakePicture
+    val cameraPhotoUri = remember {
+        val photoFile = File(context.cacheDir, "onboarding_avatar.jpg")
+        FileProvider.getUriForFile(context, "${context.packageName}.provider", photoFile)
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            avatarUri = cameraPhotoUri
+            try {
+                val inputStream = context.contentResolver.openInputStream(cameraPhotoUri)
                 avatarData = inputStream?.readBytes()
                 inputStream?.close()
             } catch (_: Exception) { }
@@ -95,299 +122,363 @@ fun OnboardingScreen(
 
     val scrollState = rememberScrollState()
 
-    // Matches iOS: single-page layout with all fields visible
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        // Title section — matches iOS: "Welcome" + "set up your profile"
-        Column(
-            modifier = Modifier.padding(top = 60.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Back button — matches iOS: top-left arrow that calls signOut()
+        IconButton(
+            onClick = { viewModel.signOut() },
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(start = CorusSpacing.sm, top = CorusSpacing.sm)
+                .align(Alignment.TopStart),
         ) {
-            Text(
-                text = "Welcome",
-                style = CorusFont.custom(900, 28),
-                color = CorusColors.Text,
-            )
-
-            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-
-            Text(
-                text = "set up your profile",
-                style = CorusFont.bodyMedium,
-                color = CorusColors.Secondary,
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = CorusColors.Text,
             )
         }
 
-        // Avatar section — matches iOS: 100dp circle + camera badge + "Add photo" label
-        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
-
-        Box(
+        Column(
             modifier = Modifier
-                .clickable {
-                    photoPickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
-                },
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .verticalScroll(scrollState),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(contentAlignment = Alignment.BottomEnd) {
-                if (avatarUri != null) {
-                    AsyncImage(
-                        model = avatarUri,
-                        contentDescription = "Avatar",
-                        modifier = Modifier
-                            .size(100.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
+            // Title section — matches iOS: "Welcome" + "set up your profile"
+            Column(
+                modifier = Modifier.padding(top = 60.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "Welcome",
+                    style = CorusFont.custom(900, 28),
+                    color = CorusColors.Text,
+                )
+
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
+                Text(
+                    text = "set up your profile",
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Secondary,
+                )
+            }
+
+            // Avatar section — matches iOS: 100dp circle + camera badge + "Add photo" label
+            Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+
+            Box(
+                modifier = Modifier.clickable { showPhotoDialog = true },
+            ) {
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    if (avatarUri != null) {
+                        AsyncImage(
+                            model = avatarUri,
+                            contentDescription = "Avatar",
+                            modifier = Modifier
+                                .size(100.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .clip(CircleShape)
+                                .background(CorusColors.CardBackground)
+                                .border(1.dp, CorusColors.Divider, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.Person,
+                                contentDescription = "Add photo",
+                                modifier = Modifier.size(40.dp),
+                                tint = CorusColors.Tertiary,
+                            )
+                        }
+                    }
+
+                    // Camera badge — matches iOS: 32dp accent circle with camera icon
                     Box(
                         modifier = Modifier
-                            .size(100.dp)
+                            .size(32.dp)
                             .clip(CircleShape)
-                            .background(CorusColors.CardBackground)
-                            .border(1.dp, CorusColors.Divider, CircleShape),
+                            .background(CorusColors.Accent),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
+                            Icons.Filled.CameraAlt,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = Color.White,
+                        )
+                    }
+                }
+            }
+
+            if (avatarUri == null) {
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                Text(
+                    text = "Add photo",
+                    style = CorusFont.captionMedium,
+                    color = CorusColors.Accent,
+                )
+            }
+
+            // Name field — only shown if OAuth didn't provide a name (matching iOS)
+            Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+
+            if (showDisplayNameField) {
+                Column(
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                CorusColors.CardBackground,
+                                RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                            )
+                            .border(
+                                1.dp,
+                                CorusColors.Divider,
+                                RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                            )
+                            .padding(CorusSpacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
                             Icons.Filled.Person,
-                            contentDescription = "Add photo",
-                            modifier = Modifier.size(40.dp),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
                             tint = CorusColors.Tertiary,
                         )
+                        Spacer(modifier = Modifier.width(CorusSpacing.md))
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (displayName.isEmpty()) {
+                                Text(
+                                    "Full Name",
+                                    style = CorusFont.body,
+                                    color = CorusColors.Tertiary,
+                                )
+                            }
+                            BasicTextField(
+                                value = displayName,
+                                onValueChange = { displayName = it.take(30) },
+                                textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
                 }
 
-                // Camera badge — matches iOS: 32dp accent circle with camera icon
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(CorusColors.Accent),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Filled.CameraAlt,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = Color.White,
-                    )
-                }
-            }
-        }
-
-        if (avatarUri == null) {
-            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            Text(
-                text = "Add photo",
-                style = CorusFont.captionMedium,
-                color = CorusColors.Accent,
-            )
-        }
-
-        // Name field — matches iOS: icon + text field in card-style container
-        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
-
-        Column(
-            modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        CorusColors.CardBackground,
-                        RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-                    )
-                    .border(
-                        1.dp,
-                        CorusColors.Divider,
-                        RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-                    )
-                    .padding(CorusSpacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = CorusColors.Tertiary,
-                )
-                Spacer(modifier = Modifier.width(CorusSpacing.md))
-                Box(modifier = Modifier.weight(1f)) {
-                    if (displayName.isEmpty()) {
-                        Text(
-                            "Full Name",
-                            style = CorusFont.body,
-                            color = CorusColors.Tertiary,
-                        )
-                    }
-                    androidx.compose.foundation.text.BasicTextField(
-                        value = displayName,
-                        onValueChange = { displayName = it.take(30) },
-                        textStyle = CorusFont.body.copy(color = CorusColors.Text),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        }
-
-        // Username field — matches iOS: @ icon + text field + status indicator
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-
-        Column(
-            modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
-        ) {
-            val borderColor = when {
-                usernameAvailable == true -> CorusColors.Verified
-                usernameAvailable == false -> CorusColors.Error
-                else -> CorusColors.Divider
+                // Username field spacing
+                Spacer(modifier = Modifier.height(CorusSpacing.lg))
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        CorusColors.CardBackground,
-                        RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-                    )
-                    .border(
-                        1.dp,
-                        borderColor,
-                        RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-                    )
-                    .padding(CorusSpacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "@",
-                    style = CorusFont.body.copy(fontSize = 15.sp),
-                    color = CorusColors.Tertiary,
-                    modifier = Modifier.width(20.dp),
-                )
-                Spacer(modifier = Modifier.width(CorusSpacing.md))
-                Box(modifier = Modifier.weight(1f)) {
-                    if (username.isEmpty()) {
-                        Text(
-                            "Username",
-                            style = CorusFont.body,
-                            color = CorusColors.Tertiary,
-                        )
-                    }
-                    androidx.compose.foundation.text.BasicTextField(
-                        value = username,
-                        onValueChange = { value ->
-                            username = value.lowercase().filter { it.isLetterOrDigit() || it == '_' || it == '.' }.take(20)
-                        },
-                        textStyle = CorusFont.body.copy(color = CorusColors.Text),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                // Status indicator — matches iOS
-                if (checkingUsername) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = CorusColors.Accent,
-                        strokeWidth = 1.5.dp,
-                    )
-                } else if (usernameAvailable == true) {
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = CorusColors.Verified,
-                        modifier = Modifier.size(18.dp),
-                    )
-                } else if (usernameAvailable == false) {
-                    Icon(
-                        Icons.Filled.Cancel,
-                        contentDescription = null,
-                        tint = CorusColors.Error,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
-
-            // Validation messages — matches iOS
-            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            when {
-                usernameAvailable == false -> {
-                    Text(
-                        "Username is already taken",
-                        style = CorusFont.caption,
-                        color = CorusColors.Error,
-                    )
-                }
-                username.isNotEmpty() && !username.all { it.isLetterOrDigit() || it == '_' || it == '.' } -> {
-                    Text(
-                        "Only letters, numbers, underscores and periods",
-                        style = CorusFont.caption,
-                        color = CorusColors.Error,
-                    )
-                }
-            }
-        }
-
-        // Error message
-        if (error != null) {
-            Spacer(modifier = Modifier.height(CorusSpacing.md))
-            Text(
-                text = error ?: "",
-                style = CorusFont.caption,
-                color = CorusColors.Error,
-                textAlign = TextAlign.Center,
+            // Username field — matches iOS: @ icon + text field + status indicator
+            Column(
                 modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
+            ) {
+                val borderColor = when {
+                    usernameAvailable == true -> CorusColors.Verified
+                    usernameAvailable == false -> CorusColors.Error
+                    else -> CorusColors.Divider
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            CorusColors.CardBackground,
+                            RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                        )
+                        .border(
+                            1.dp,
+                            borderColor,
+                            RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                        )
+                        .padding(CorusSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "@",
+                        style = CorusFont.body.copy(fontSize = 15.sp),
+                        color = CorusColors.Tertiary,
+                        modifier = Modifier.width(20.dp),
+                    )
+                    Spacer(modifier = Modifier.width(CorusSpacing.md))
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (username.isEmpty()) {
+                            Text(
+                                "Username",
+                                style = CorusFont.body,
+                                color = CorusColors.Tertiary,
+                            )
+                        }
+                        BasicTextField(
+                            value = username,
+                            onValueChange = { value ->
+                                username = value.lowercase().filter { it.isLetterOrDigit() || it == '_' || it == '.' }.take(20)
+                            },
+                            textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    // Status indicator — matches iOS
+                    if (checkingUsername) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = CorusColors.Accent,
+                            strokeWidth = 1.5.dp,
+                        )
+                    } else if (usernameAvailable == true) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = CorusColors.Verified,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    } else if (usernameAvailable == false) {
+                        Icon(
+                            Icons.Filled.Cancel,
+                            contentDescription = null,
+                            tint = CorusColors.Error,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+
+                // Validation messages — matches iOS
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                when {
+                    usernameAvailable == false -> {
+                        Text(
+                            "Username is already taken",
+                            style = CorusFont.caption,
+                            color = CorusColors.Error,
+                        )
+                    }
+                    username.isNotEmpty() && !username.all { it.isLetterOrDigit() || it == '_' || it == '.' } -> {
+                        Text(
+                            "Only letters, numbers, underscores and periods",
+                            style = CorusFont.caption,
+                            color = CorusColors.Error,
+                        )
+                    }
+                }
+            }
+
+            // Error message
+            if (error != null) {
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
+                Text(
+                    text = error ?: "",
+                    style = CorusFont.caption,
+                    color = CorusColors.Error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Terms of Use — matches iOS
+            Text(
+                text = "By creating an account, you agree to our Terms of Use and Privacy Policy.",
+                style = CorusFont.caption,
+                color = CorusColors.Tertiary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .padding(horizontal = CorusSpacing.xxl)
+                    .padding(bottom = CorusSpacing.sm),
             )
-        }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Terms of Use — matches iOS
-        Text(
-            text = "By creating an account, you agree to our Terms of Use and Privacy Policy.",
-            style = CorusFont.caption,
-            color = CorusColors.Tertiary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .padding(horizontal = CorusSpacing.xxl)
-                .padding(bottom = CorusSpacing.sm),
-        )
-
-        // Continue button — matches iOS: full-width accent capsule
-        Button(
-            onClick = {
-                if (avatarUri == null && !showAvatarNudge) {
-                    showAvatarNudge = true
+            // Continue button — matches iOS: full-width accent capsule
+            Button(
+                onClick = {
+                    if (avatarUri == null && !showAvatarNudge) {
+                        showAvatarNudge = true
+                    } else {
+                        viewModel.completeOnboarding(username, displayName, avatarData)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.xxl)
+                    .padding(bottom = CorusSpacing.xxxl),
+                enabled = canSubmit,
+                shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (canSubmit) CorusColors.Accent else CorusColors.Accent.copy(alpha = 0.4f),
+                    disabledContainerColor = CorusColors.Accent.copy(alpha = 0.4f),
+                ),
+                contentPadding = PaddingValues(vertical = CorusSpacing.lg),
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                    )
                 } else {
-                    viewModel.completeOnboarding(username, displayName, avatarData)
+                    Text("CONTINUE", style = CorusFont.button, color = Color.White)
+                }
+            }
+        }
+    }
+
+    // Photo source dialog — matches iOS action sheet: Take Photo / Choose from Library / Remove Photo
+    if (showPhotoDialog) {
+        AlertDialog(
+            onDismissRequest = { showPhotoDialog = false },
+            title = { Text("Profile Photo", style = CorusFont.songTitleLarge) },
+            text = {
+                Column {
+                    TextButton(
+                        onClick = {
+                            showPhotoDialog = false
+                            cameraLauncher.launch(cameraPhotoUri)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Take Photo", style = CorusFont.body, color = CorusColors.Text)
+                    }
+                    TextButton(
+                        onClick = {
+                            showPhotoDialog = false
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Choose from Library", style = CorusFont.body, color = CorusColors.Text)
+                    }
+                    if (avatarUri != null) {
+                        TextButton(
+                            onClick = {
+                                showPhotoDialog = false
+                                avatarUri = null
+                                avatarData = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Remove Photo", style = CorusFont.body, color = CorusColors.Error)
+                        }
+                    }
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.xxl)
-                .padding(bottom = CorusSpacing.xxxl),
-            enabled = canSubmit,
-            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (canSubmit) CorusColors.Accent else CorusColors.Accent.copy(alpha = 0.4f),
-                disabledContainerColor = CorusColors.Accent.copy(alpha = 0.4f),
-            ),
-            contentPadding = PaddingValues(vertical = CorusSpacing.lg),
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Text("CONTINUE", style = CorusFont.button, color = Color.White)
-            }
-        }
+            confirmButton = {
+                TextButton(onClick = { showPhotoDialog = false }) {
+                    Text("Cancel", color = CorusColors.Secondary)
+                }
+            },
+        )
     }
 
     // Avatar nudge dialog — matches iOS alert
@@ -399,9 +490,7 @@ fun OnboardingScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showAvatarNudge = false
-                    photoPickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
+                    showPhotoDialog = true
                 }) {
                     Text("Add Photo", color = CorusColors.Accent)
                 }

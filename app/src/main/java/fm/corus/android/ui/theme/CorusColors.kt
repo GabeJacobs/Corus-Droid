@@ -15,5 +15,6 @@ object CorusColors {
     val Divider = Color(0xFFEEEEF0)
     val Verified = Color(0xFF2ED573)
     val SpotifyGreen = Color(0xFF1DB954)
+    val AppleMusicPink = Color(0xFFFC3C44)
     val Error = Color(0xFFE74C3C)
 }

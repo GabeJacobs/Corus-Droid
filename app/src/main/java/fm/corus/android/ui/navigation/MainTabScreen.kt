@@ -70,21 +70,23 @@ fun MainTabScreen(
     val preSelectedMovieId by viewModel.preSelectedMovieId.collectAsState()
 
     // When a pre-selected media ID becomes non-null, open compose overlay.
+    // Reset then immediately start the load so isLoadingPreSelection is true
+    // before ComposeScreen enters composition (avoids a flash of the search view).
     LaunchedEffect(preSelectedTrackId) {
-        if (preSelectedTrackId != null) {
-            if (viewModel.subscriptionRepository.canPost) {
-                composeViewModel.reset()
-                showCompose = true
-            } else showPostLimitPaywall = true
-        }
+        val trackId = preSelectedTrackId ?: return@LaunchedEffect
+        if (viewModel.subscriptionRepository.canPost) {
+            composeViewModel.reset()
+            composeViewModel.loadAndSelectTrack(trackId)
+            showCompose = true
+        } else showPostLimitPaywall = true
     }
     LaunchedEffect(preSelectedMovieId) {
-        if (preSelectedMovieId != null) {
-            if (viewModel.subscriptionRepository.canPost) {
-                composeViewModel.reset()
-                showCompose = true
-            } else showPostLimitPaywall = true
-        }
+        val movieId = preSelectedMovieId ?: return@LaunchedEffect
+        if (viewModel.subscriptionRepository.canPost) {
+            composeViewModel.reset()
+            composeViewModel.loadAndSelectMovie(movieId)
+            showCompose = true
+        } else showPostLimitPaywall = true
     }
 
     // Each tab gets its own NavController to preserve back stack

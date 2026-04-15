@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.size.Size
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -206,6 +207,7 @@ fun PostCard(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(post.displayImageLargeURL ?: post.displayImageURL)
                     .crossfade(true)
+                    .size(if (post.isMovie) Size(780, 1170) else Size(640, 640))
                     .build(),
                 contentDescription = post.displayTitle,
                 modifier = Modifier.fillMaxSize(),
@@ -330,7 +332,7 @@ fun PostCard(
                 Icon(
                     imageVector = Icons.Filled.Favorite,
                     contentDescription = null,
-                    tint = CorusColors.Like,
+                    tint = Color.White,
                     modifier = Modifier
                         .size(80.dp)
                         .scale(heartScale.value)

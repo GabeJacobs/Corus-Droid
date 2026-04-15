@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,7 +29,10 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import kotlinx.coroutines.delay
 import fm.corus.android.R
 import fm.corus.android.ui.screens.settings.CountryCode
 import fm.corus.android.ui.theme.CorusColors
@@ -84,6 +88,10 @@ fun AuthScreen(
             onSendCode = { viewModel.sendVerificationCode(phoneNumber, selectedCountry.dialCode, activity) },
             onVerifyCode = { viewModel.verifyCode(verificationCode) },
             onBack = { showPhoneInput = false },
+            onUseDifferentNumber = {
+                verificationCode = ""
+                viewModel.resetVerification()
+            },
         )
     } else {
         // Main auth screen — matches iOS AuthView layout exactly
@@ -255,12 +263,27 @@ private fun PhoneAuthContent(
     onSendCode: () -> Unit,
     onVerifyCode: () -> Unit,
     onBack: () -> Unit,
+    onUseDifferentNumber: () -> Unit = {},
 ) {
+    // Resend cooldown timer — matches iOS behavior
+    var resendCooldown by remember { mutableIntStateOf(0) }
+    LaunchedEffect(verificationSent) {
+        if (verificationSent) {
+            resendCooldown = 30
+            while (resendCooldown > 0) {
+                kotlinx.coroutines.delay(1000)
+                resendCooldown--
+            }
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(CorusSpacing.xxl),
+            .imePadding()
+            .padding(CorusSpacing.xxl)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
         // Back button
         Row(
@@ -272,7 +295,7 @@ private fun PhoneAuthContent(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
 
         Text(
             text = "corus",
@@ -401,6 +424,31 @@ private fun PhoneAuthContent(
                     Text("VERIFY", style = CorusFont.button, color = Color.White)
                 }
             }
+
+            // Resend Code — matches iOS: disabled during cooldown with timer text
+            Spacer(modifier = Modifier.height(CorusSpacing.md))
+            TextButton(
+                onClick = {
+                    resendCooldown = 30
+                    onSendCode()
+                },
+                enabled = resendCooldown == 0 && !isLoading,
+            ) {
+                Text(
+                    if (resendCooldown > 0) "Resend in ${resendCooldown}s" else "Resend Code",
+                    style = CorusFont.captionMedium,
+                    color = if (resendCooldown > 0) CorusColors.Tertiary else CorusColors.Accent,
+                )
+            }
+
+            // Use a different number — matches iOS
+            TextButton(onClick = onUseDifferentNumber) {
+                Text(
+                    "Use a different number",
+                    style = CorusFont.captionMedium,
+                    color = CorusColors.Accent,
+                )
+            }
         }
 
         if (error != null) {
@@ -413,7 +461,7 @@ private fun PhoneAuthContent(
             )
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
 
         // Country picker dialog
         if (showCountryPicker) {

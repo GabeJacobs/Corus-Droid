@@ -33,7 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,7 +70,7 @@ fun CommentsBottomSheet(
         containerColor = Color.White,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
-        val isSheetExpanded = sheetState.targetValue == SheetValue.Expanded
+        val isSheetExpanded = sheetState.currentValue == SheetValue.Expanded
         CommentsSheetContent(
             postId = postId,
             viewModel = viewModel,
@@ -208,12 +207,9 @@ private fun ColumnScope.CommentsSheetContent(
         }
     }
 
-    // Comments list — takes remaining space; bounded in half-sheet so input stays visible
-    val configuration = LocalConfiguration.current
-    val commentsPartialMaxHeight = (configuration.screenHeightDp * 0.25).dp
-
     Box(
-        modifier = (if (isSheetExpanded) Modifier.weight(1f) else Modifier.heightIn(min = 100.dp, max = commentsPartialMaxHeight))
+        modifier = Modifier
+            .weight(1f)
             .fillMaxWidth()
     ) {
             when {

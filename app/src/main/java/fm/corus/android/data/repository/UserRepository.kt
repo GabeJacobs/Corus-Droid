@@ -118,9 +118,7 @@ class UserRepository @Inject constructor(
         startAfter: DocumentSnapshot? = null,
     ): PaginatedUsersResult {
         val result = firestoreDataSource.fetchFollowerIdsPaginated(userId, limit, startAfter)
-        val profiles = result.ids.mapNotNull { id ->
-            try { fetchUserProfile(id) } catch (_: Exception) { null }
-        }
+        val profiles = fetchUsersByIdsBatched(result.ids)
         return PaginatedUsersResult(users = profiles, lastDocument = result.lastDocument)
     }
 
@@ -130,10 +128,39 @@ class UserRepository @Inject constructor(
         startAfter: DocumentSnapshot? = null,
     ): PaginatedUsersResult {
         val result = firestoreDataSource.fetchFollowingIdsPaginated(userId, limit, startAfter)
-        val profiles = result.ids.mapNotNull { id ->
-            try { fetchUserProfile(id) } catch (_: Exception) { null }
-        }
+        val profiles = fetchUsersByIdsBatched(result.ids)
         return PaginatedUsersResult(users = profiles, lastDocument = result.lastDocument)
+    }
+
+    /**
+     * Batch-fetch user profiles: checks the in-memory TTL cache first, then
+     * fetches any cache misses via a single batched Firestore query (chunked
+     * by 30, matching iOS's `fetchUsers(byIds:)`). Results are returned in
+     * the same order as [ids], with unknown IDs omitted.
+     */
+    private suspend fun fetchUsersByIdsBatched(ids: List<String>): List<CymbalUser> {
+        if (ids.isEmpty()) return emptyList()
+
+        val cached = mutableMapOf<String, CymbalUser>()
+        val missIds = mutableListOf<String>()
+        for (id in ids) {
+            val entry = profileCache[id]
+            if (entry != null && entry.isValid(PROFILE_TTL_MS)) {
+                cached[id] = entry.value
+            } else {
+                missIds.add(id)
+            }
+        }
+
+        if (missIds.isNotEmpty()) {
+            val fetched = firestoreDataSource.fetchUsersByIds(missIds)
+            for (user in fetched) {
+                profileCache[user.id] = CacheEntry(user)
+                cached[user.id] = user
+            }
+        }
+
+        return ids.mapNotNull { cached[it] }
     }
 
     // ── Block ──
@@ -177,10 +204,8 @@ class UserRepository @Inject constructor(
     }
 
     suspend fun fetchMutedUsers(userId: String): List<CymbalUser> {
-        val ids = firestoreDataSource.fetchMutedUserIds(userId)
-        return ids.mapNotNull { id ->
-            try { fetchUserProfile(id) } catch (_: Exception) { null }
-        }
+        val ids = _mutedIds.value.toList()
+        return fetchUsersByIdsBatched(ids)
     }
 
     // ── Suggestions (with 4-hour in-memory cache, matching iOS) ──

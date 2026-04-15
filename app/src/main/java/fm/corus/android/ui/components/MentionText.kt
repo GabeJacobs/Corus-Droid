@@ -398,7 +398,7 @@ fun parseMentionQuery(text: String): String? {
 
 /** Extract @mention usernames from text. */
 fun extractMentions(text: String): List<String> {
-    return Regex("@([\\w.]+)").findAll(text).map { it.groupValues[1] }.toList()
+    return Regex("@([\\w.]+)").findAll(text).map { it.groupValues[1].lowercase() }.toList()
 }
 
 /** Extract #hashtag names from text. */

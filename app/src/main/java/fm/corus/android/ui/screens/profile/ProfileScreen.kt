@@ -36,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,7 +45,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
-
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import coil3.size.Size
 
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
@@ -809,7 +812,11 @@ private fun StatDivider() {
 @Composable
 private fun PostGridItem(post: CymbalPost, onClick: () -> Unit = {}) {
     ShimmerAsyncImage(
-        model = post.displayImageLargeURL ?: post.displayImageURL,
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(post.displayImageLargeURL ?: post.displayImageURL)
+            .crossfade(true)
+            .size(Size(360, 360))
+            .build(),
         contentDescription = post.displayTitle,
         modifier = Modifier
             .aspectRatio(1f)

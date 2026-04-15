@@ -81,20 +81,11 @@ fun ComposeScreen(
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val isLoadingTrending by viewModel.isLoadingTrending.collectAsState()
     val isLoadingPreSelection by viewModel.isLoadingPreSelection.collectAsState()
-    var mediaType by remember { mutableStateOf(MediaType.TRACK) }
+    var mediaType by remember { mutableStateOf(if (movieModeEnabled) MediaType.MOVIE else MediaType.TRACK) }
     var searchQuery by remember { mutableStateOf("") }
     var caption by remember { mutableStateOf("") }
     var captionMode by remember { mutableStateOf("text") } // "text" or "voice"
     val voiceRecorderState = rememberVoiceNoteRecorderState()
-
-    // Reset all state when the screen enters composition (plus button tapped)
-    LaunchedEffect(Unit) {
-        viewModel.reset()
-        searchQuery = ""
-        caption = ""
-        captionMode = "text"
-        mediaType = if (movieModeEnabled) MediaType.MOVIE else MediaType.TRACK
-    }
 
     val hasSelection = selectedTrack != null || selectedMovie != null || isLoadingPreSelection
 
@@ -102,14 +93,6 @@ fun ComposeScreen(
         if (postSuccess) {
             onDismiss()
         }
-    }
-
-    LaunchedEffect(preSelectedTrackId) {
-        if (preSelectedTrackId != null) viewModel.loadAndSelectTrack(preSelectedTrackId)
-    }
-
-    LaunchedEffect(preSelectedMovieId) {
-        if (preSelectedMovieId != null) viewModel.loadAndSelectMovie(preSelectedMovieId)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {

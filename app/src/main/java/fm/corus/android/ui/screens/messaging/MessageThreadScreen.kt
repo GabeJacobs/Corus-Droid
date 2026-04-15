@@ -50,12 +50,35 @@ import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
-import fm.corus.android.ui.util.DateUtils
 
 private val REACTION_EMOJIS = listOf("❤️", "😂", "👍", "😮", "😢", "🔥")
 private val REACTION_KEYS = listOf("heart", "laugh", "thumbsup", "wow", "cry", "fire")
 
 private val URL_REGEX = Regex("""https?://\S+""", RegexOption.IGNORE_CASE)
+
+/** Returns true when [text] contains only 1-3 emoji (with optional modifiers/ZWJ). */
+private fun isEmojiOnly(text: String): Boolean {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return false
+    var emojiCount = 0
+    for (codePoint in trimmed.codePoints()) {
+        val type = Character.getType(codePoint)
+        if (type == Character.OTHER_SYMBOL.toInt() ||
+            type == Character.SURROGATE.toInt() ||
+            codePoint == 0xFE0F || // variation selector
+            codePoint == 0x200D || // ZWJ
+            codePoint in 0x1F3FB..0x1F3FF || // skin tones
+            codePoint in 0x1F1E0..0x1F1FF // regional indicators (flags)
+        ) {
+            if (type == Character.OTHER_SYMBOL.toInt() || codePoint in 0x1F1E0..0x1F1FF) {
+                emojiCount++
+            }
+            continue
+        }
+        return false
+    }
+    return emojiCount in 1..3
+}
 
 @Composable
 fun MessageThreadScreen(
@@ -92,6 +115,13 @@ fun MessageThreadScreen(
 
     LaunchedEffect(threadId) {
         viewModel.loadMessages(threadId, otherUserId)
+    }
+
+    // Auto-scroll to newest message when the list grows (reverseLayout: index 0 = bottom)
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(0)
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background).imePadding()) {
@@ -378,6 +408,9 @@ private fun MessageBubble(
     val context = LocalContext.current
     val isSending = message.sendStatus == MessageSendStatus.SENDING
     val isFailed = message.sendStatus == MessageSendStatus.FAILED
+    val hasMedia = message.type != MessageType.TEXT
+    val emojiOnly = !hasMedia && message.replyToText == null &&
+        !message.text.isNullOrBlank() && isEmojiOnly(message.text!!)
 
     Column(
         modifier = Modifier
@@ -417,10 +450,15 @@ private fun MessageBubble(
                     onLongClick = onLongPress,
                 )
                 .background(
-                    color = if (isFromCurrentUser) CorusColors.Accent else CorusColors.CardBackground,
+                    color = if (emojiOnly) Color.Transparent
+                            else if (isFromCurrentUser) CorusColors.Accent
+                            else CorusColors.CardBackground,
                     shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                 )
-                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                .padding(
+                    horizontal = if (emojiOnly) 0.dp else CorusSpacing.md,
+                    vertical = if (emojiOnly) 0.dp else CorusSpacing.sm,
+                ),
         ) {
             Column {
                 // Image content
@@ -455,29 +493,31 @@ private fun MessageBubble(
 
                 // Text content
                 if (!message.text.isNullOrBlank()) {
-                    val annotatedText = buildLinkifiedText(
-                        message.text ?: "",
-                        isFromCurrentUser,
-                    )
-                    androidx.compose.foundation.text.ClickableText(
-                        text = annotatedText,
-                        style = CorusFont.body.copy(
-                            color = if (isFromCurrentUser) Color.White else CorusColors.Text,
-                        ),
-                        onClick = { offset ->
-                            annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { annotation ->
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(annotation.item))
-                                context.startActivity(intent)
-                            }
-                        },
-                    )
+                    if (emojiOnly) {
+                        Text(
+                            text = message.text ?: "",
+                            fontSize = 40.sp,
+                        )
+                    } else {
+                        val annotatedText = buildLinkifiedText(
+                            message.text ?: "",
+                            isFromCurrentUser,
+                        )
+                        androidx.compose.foundation.text.ClickableText(
+                            text = annotatedText,
+                            style = CorusFont.body.copy(
+                                color = if (isFromCurrentUser) Color.White else CorusColors.Text,
+                            ),
+                            onClick = { offset ->
+                                annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { annotation ->
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(annotation.item))
+                                    context.startActivity(intent)
+                                }
+                            },
+                        )
+                    }
                 }
 
-                Text(
-                    text = DateUtils.relativeTime(message.createdAt),
-                    style = CorusFont.caption,
-                    color = if (isFromCurrentUser) Color.White.copy(alpha = 0.7f) else CorusColors.Secondary,
-                )
             }
         }
 

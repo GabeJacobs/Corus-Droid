@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
-import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
@@ -49,8 +48,6 @@ class OtherProfileViewModel @Inject constructor(
 
     private var postsLastTimestamp: Long? = null
     private val PAGE_SIZE = 30
-    private val MIN_SEGMENT_POSTS = 12
-
     private val _isFollowing = MutableStateFlow(false)
     val isFollowing: StateFlow<Boolean> = _isFollowing.asStateFlow()
 
@@ -92,32 +89,19 @@ class OtherProfileViewModel @Inject constructor(
                     _isSubscribedToNotifications.value = userRepository.isSubscribedToUserPosts(viewerIdForSub, userId)
                 }
 
-                // Load user's posts — keep fetching until both music and film
-                // tabs have enough filtered posts or the server runs out
+                // Load initial page of posts (matching iOS fixed-page approach)
                 val viewerId = authRepository.currentUserId ?: return@launch
-                var allPosts = listOf<CymbalPost>()
-                var cursor: Long? = null
-                var serverHasMore = true
-                while (serverHasMore) {
-                    val page = postRepository.getProfilePosts(
-                        userId = userId,
-                        viewerId = viewerId,
-                        limit = PAGE_SIZE,
-                        lastTimestamp = cursor,
-                    )
-                    allPosts = allPosts + page
-                    serverHasMore = page.size >= PAGE_SIZE
-                    if (page.isNotEmpty()) cursor = page.last().timestamp.time
-                    val tracks = allPosts.count { it.mediaType == MediaType.TRACK }
-                    val movies = allPosts.count { it.mediaType == MediaType.MOVIE }
-                    if (tracks >= MIN_SEGMENT_POSTS && movies >= MIN_SEGMENT_POSTS) break
-                    if (!serverHasMore) break
-                }
-                _posts.value = allPosts
-                postsLastTimestamp = cursor
-                _hasMore.value = serverHasMore
+                val page = postRepository.getProfilePosts(
+                    userId = userId,
+                    viewerId = viewerId,
+                    limit = PAGE_SIZE,
+                    lastTimestamp = null,
+                )
+                _posts.value = page
+                if (page.isNotEmpty()) postsLastTimestamp = page.last().timestamp.time
+                _hasMore.value = page.size >= PAGE_SIZE
 
-                allPosts.forEach { post ->
+                page.forEach { post ->
                     engagementManager.initState(
                         postId = post.id,
                         likeCount = post.likeCount,
@@ -130,7 +114,7 @@ class OtherProfileViewModel @Inject constructor(
                         engagementManager.startListening(post.id)
                     }
                 }
-                engagementManager.checkLikeStatuses(allPosts.map { it.id }, viewerId)
+                engagementManager.checkLikeStatuses(page.map { it.id }, viewerId)
             } catch (_: Exception) { }
             _isLoading.value = false
         }

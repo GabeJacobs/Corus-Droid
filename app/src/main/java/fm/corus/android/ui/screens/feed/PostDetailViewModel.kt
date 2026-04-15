@@ -31,6 +31,9 @@ class PostDetailViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private val _comments = MutableStateFlow<List<CymbalComment>>(emptyList())
     val comments: StateFlow<List<CymbalComment>> = _comments.asStateFlow()
 
@@ -70,6 +73,32 @@ class PostDetailViewModel @Inject constructor(
                 _comments.value = loadedComments
             } catch (_: Exception) { }
             _isLoading.value = false
+        }
+    }
+
+    fun refresh(postId: String) {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val userId = authRepository.currentUserId
+            if (userId != null) {
+                try {
+                    val loadedPost = postRepository.getPostDetail(postId, userId)
+                    _post.value = loadedPost
+                    if (loadedPost != null) {
+                        engagementManager.initState(
+                            postId = loadedPost.id,
+                            likeCount = loadedPost.likeCount,
+                            commentCount = loadedPost.commentCount,
+                            repostCount = loadedPost.repostCount,
+                            isLiked = loadedPost.isLiked,
+                            isSaved = false,
+                        )
+                        engagementManager.checkLikeStatuses(listOf(loadedPost.id), userId)
+                    }
+                    _comments.value = postRepository.getComments(postId)
+                } catch (_: Exception) { }
+            }
+            _isRefreshing.value = false
         }
     }
 

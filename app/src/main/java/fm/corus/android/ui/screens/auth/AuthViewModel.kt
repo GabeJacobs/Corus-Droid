@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuth.AuthStateListener
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -56,8 +57,14 @@ class AuthViewModel @Inject constructor(
     // Whether this session created a new sign-in (vs app relaunch)
     private var didSignInThisSession = false
 
+    /** Display name from the OAuth provider (Google), if any. Used to conditionally show name field. */
+    val oauthDisplayName: String?
+        get() = firebaseAuth.currentUser?.displayName?.takeIf { it.isNotBlank() }
+
+    private var authStateListener: AuthStateListener? = null
+
     fun observeAuthState() {
-        firebaseAuth.addAuthStateListener { auth ->
+        val listener = AuthStateListener { auth ->
             viewModelScope.launch {
                 val user = auth.currentUser
                 if (user == null) {
@@ -103,6 +110,13 @@ class AuthViewModel @Inject constructor(
                 }
             }
         }
+        authStateListener = listener
+        firebaseAuth.addAuthStateListener(listener)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        authStateListener?.let { firebaseAuth.removeAuthStateListener(it) }
     }
 
     // ── Phone Auth ──
@@ -206,6 +220,11 @@ class AuthViewModel @Inject constructor(
 
     fun finishSocialSetup() {
         _authState.value = AuthState.SignedIn
+    }
+
+    fun resetVerification() {
+        _verificationSent.value = false
+        _error.value = null
     }
 
     // ── Sign Out ──

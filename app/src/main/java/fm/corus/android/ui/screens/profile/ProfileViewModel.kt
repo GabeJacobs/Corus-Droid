@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
-import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.SubscriptionRepository
@@ -103,9 +102,6 @@ class ProfileViewModel @Inject constructor(
     private var segmentLoadJob: Job? = null
 
     private val PAGE_SIZE = 30
-    // Minimum filtered posts per segment before we stop auto-fetching more pages
-    private val MIN_SEGMENT_POSTS = 12
-
     fun loadProfile() {
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
@@ -113,29 +109,17 @@ class ProfileViewModel @Inject constructor(
             try {
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
-                // Load profile posts (shared by MUSIC and FILM tabs).
-                // Keep fetching pages until both segments have enough filtered
-                // posts or the server runs out.
-                var allPosts = listOf<CymbalPost>()
-                var cursor: Long? = null
-                var serverHasMore = true
-                while (serverHasMore) {
-                    val page = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
-                    allPosts = allPosts + page
-                    serverHasMore = page.size >= PAGE_SIZE
-                    if (page.isNotEmpty()) cursor = page.last().timestamp.time
-                    val tracks = allPosts.count { it.mediaType == MediaType.TRACK }
-                    val movies = allPosts.count { it.mediaType == MediaType.MOVIE }
-                    if (tracks >= MIN_SEGMENT_POSTS && movies >= MIN_SEGMENT_POSTS) break
-                    if (!serverHasMore) break
-                }
-                _posts.value = allPosts
-                postsLastTimestamp = cursor
+                // Load initial page of posts (matching iOS fixed-page approach).
+                // Users load more on demand via loadMorePosts().
+                val page = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null)
+                _posts.value = page
+                if (page.isNotEmpty()) postsLastTimestamp = page.last().timestamp.time
+                val serverHasMore = page.size >= PAGE_SIZE
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
                     this[0] = serverHasMore
                     this[1] = serverHasMore
                 }
-                allPosts.forEach { post ->
+                page.forEach { post ->
                     engagementManager.initState(
                         postId = post.id,
                         likeCount = post.likeCount,
@@ -145,7 +129,7 @@ class ProfileViewModel @Inject constructor(
                         isSaved = false,
                     )
                 }
-                engagementManager.checkLikeStatuses(allPosts.map { it.id }, userId)
+                engagementManager.checkLikeStatuses(page.map { it.id }, userId)
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "loadProfile failed", e)
             }
@@ -160,26 +144,15 @@ class ProfileViewModel @Inject constructor(
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
                 val userId = authRepository.currentUserId ?: return@launch
-                var allPosts = listOf<CymbalPost>()
-                var cursor: Long? = null
-                var serverHasMore = true
-                while (serverHasMore) {
-                    val page = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
-                    allPosts = allPosts + page
-                    serverHasMore = page.size >= PAGE_SIZE
-                    if (page.isNotEmpty()) cursor = page.last().timestamp.time
-                    val tracks = allPosts.count { it.mediaType == MediaType.TRACK }
-                    val movies = allPosts.count { it.mediaType == MediaType.MOVIE }
-                    if (tracks >= MIN_SEGMENT_POSTS && movies >= MIN_SEGMENT_POSTS) break
-                    if (!serverHasMore) break
-                }
-                _posts.value = allPosts
-                postsLastTimestamp = cursor
+                val page = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null)
+                _posts.value = page
+                if (page.isNotEmpty()) postsLastTimestamp = page.last().timestamp.time
+                val serverHasMore = page.size >= PAGE_SIZE
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
                     this[0] = serverHasMore
                     this[1] = serverHasMore
                 }
-                allPosts.forEach { post ->
+                page.forEach { post ->
                     engagementManager.initState(
                         postId = post.id,
                         likeCount = post.likeCount,
@@ -189,7 +162,7 @@ class ProfileViewModel @Inject constructor(
                         isSaved = false,
                     )
                 }
-                engagementManager.checkLikeStatuses(allPosts.map { it.id }, userId)
+                engagementManager.checkLikeStatuses(page.map { it.id }, userId)
                 // Reset lazy-loaded segments so they reload on next visit
                 likedLoaded = false
                 savedLoaded = false

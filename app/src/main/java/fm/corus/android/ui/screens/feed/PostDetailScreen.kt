@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,6 +74,7 @@ fun PostDetailScreen(
 ) {
     val post by viewModel.post.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val comments by viewModel.comments.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
     val currentUserProfile by viewModel.currentUserProfile.collectAsState()
@@ -136,10 +138,15 @@ fun PostDetailScreen(
                 val isLiked = engagement?.isLiked ?: currentPost.isLiked
                 val isSaved = engagement?.isSaved ?: false
 
-                LazyColumn(
+                PullToRefreshBox(
+                    isRefreshing = isRefreshing,
+                    onRefresh = { viewModel.refresh(postId) },
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = padding.calculateTopPadding()),
+                ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
                 ) {
                     // Post header
@@ -304,6 +311,7 @@ fun PostDetailScreen(
                                 .padding(top = CorusSpacing.xs, bottom = CorusSpacing.sm),
                         )
                     }
+                }
                 }
             }
         }

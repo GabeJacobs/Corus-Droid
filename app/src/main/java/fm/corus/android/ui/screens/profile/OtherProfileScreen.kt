@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -37,6 +38,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -44,6 +46,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import coil3.size.Size
+import android.content.Intent
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
@@ -156,6 +162,10 @@ fun OtherProfileScreen(
                     }
 
                     Box {
+                        val menuContext = LocalContext.current
+                        val hasSongs = posts.any { it.mediaType == MediaType.TRACK }
+                        val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
+
                         IconButton(onClick = { showMenu = true }) {
                             Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = CorusColors.Text)
                         }
@@ -163,10 +173,44 @@ fun OtherProfileScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
                         ) {
+                            // View Spotify Playlist (only for non-film-bot profiles)
+                            if (profile?.isFilmBot != true) {
+                                DropdownMenuItem(
+                                    text = { Text("View Spotify Playlist", style = CorusFont.body) },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    },
+                                    enabled = hasSongs && !isGeneratingPlaylist,
+                                    onClick = {
+                                        showMenu = false
+                                        viewModel.generatePlaylist(userId)
+                                    },
+                                )
+                            }
+                            // Share Profile
                             DropdownMenuItem(
-                                text = { Text("Report", style = CorusFont.body) },
-                                onClick = { showMenu = false },
+                                text = { Text("Share Profile", style = CorusFont.body) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Filled.Share,
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    val username = profile?.username ?: ""
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, "https://corus.fm/u/$username")
+                                    }
+                                    menuContext.startActivity(Intent.createChooser(shareIntent, null))
+                                },
                             )
+                            // Mute/Unmute
                             DropdownMenuItem(
                                 text = {
                                     Text(
@@ -185,6 +229,19 @@ fun OtherProfileScreen(
                                     showMenu = false
                                 },
                             )
+                            HorizontalDivider()
+                            // Report
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Report",
+                                        style = CorusFont.body,
+                                        color = CorusColors.Error,
+                                    )
+                                },
+                                onClick = { showMenu = false },
+                            )
+                            // Block/Unblock
                             DropdownMenuItem(
                                 text = {
                                     Text(
@@ -270,7 +327,7 @@ fun OtherProfileScreen(
                                             modifier = Modifier
                                                 .clip(followShape)
                                                 .background(CorusColors.Accent)
-                                                .padding(vertical = 6.dp, horizontal = 20.dp),
+                                                .padding(vertical = 6.dp, horizontal = 36.dp),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Text(
@@ -518,7 +575,7 @@ fun OtherProfileScreen(
                                             else Modifier.background(CorusColors.Accent)
                                         )
                                         .clickable(enabled = !isFollowLoading) { viewModel.toggleFollow(userId) }
-                                        .padding(vertical = 6.dp, horizontal = 20.dp),
+                                        .padding(vertical = 6.dp, horizontal = 36.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     if (isFollowLoading) {
@@ -811,7 +868,11 @@ fun OtherProfileScreen(
             } else if (gridPosts.isNotEmpty()) {
                 items(gridPosts, key = { it.id }) { post ->
                     ShimmerAsyncImage(
-                        model = post.displayImageLargeURL ?: post.displayImageURL,
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(post.displayImageLargeURL ?: post.displayImageURL)
+                            .crossfade(true)
+                            .size(Size(360, 360))
+                            .build(),
                         contentDescription = post.displayTitle,
                         modifier = Modifier
                             .aspectRatio(1f)

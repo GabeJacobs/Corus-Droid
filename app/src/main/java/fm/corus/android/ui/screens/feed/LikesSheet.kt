@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,7 +62,6 @@ private fun LikesSheetContent(
 ) {
     val likers by viewModel.likers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val followingIds by viewModel.followingIds.collectAsState()
     val followerIds by viewModel.followerIds.collectAsState()
@@ -82,9 +80,7 @@ private fun LikesSheetContent(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.statusBars),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         // Title
         Text(
@@ -127,91 +123,85 @@ private fun LikesSheetContent(
 
         HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
 
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { viewModel.refresh() },
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        ) {
-            when {
-                isLoading && likers.isEmpty() -> {
-                    // Skeleton loading
-                    LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                        items(10) {
-                            SkeletonLikerRow()
-                        }
+        when {
+            isLoading && likers.isEmpty() -> {
+                // Skeleton loading
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(10) {
+                        SkeletonLikerRow()
                     }
                 }
-                filteredLikers.isEmpty() -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 200.dp),
-                        contentAlignment = Alignment.Center,
+            }
+            filteredLikers.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 200.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-                        ) {
-                            Icon(
-                                Icons.Filled.Favorite,
-                                contentDescription = null,
-                                tint = CorusColors.Tertiary,
-                                modifier = Modifier.size(36.dp),
-                            )
-                            Text(
-                                text = if (searchQuery.isEmpty()) "No likes yet" else "No results",
-                                style = CorusFont.bodyMedium,
-                                color = CorusColors.Secondary,
-                            )
-                        }
+                        Icon(
+                            Icons.Filled.Favorite,
+                            contentDescription = null,
+                            tint = CorusColors.Tertiary,
+                            modifier = Modifier.size(36.dp),
+                        )
+                        Text(
+                            text = if (searchQuery.isEmpty()) "No likes yet" else "No results",
+                            style = CorusFont.bodyMedium,
+                            color = CorusColors.Secondary,
+                        )
                     }
                 }
-                else -> {
-                    val listState = rememberLazyListState()
+            }
+            else -> {
+                val listState = rememberLazyListState()
 
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        items(filteredLikers, key = { it.id }) { user ->
-                            val isSelf = user.id == viewModel.currentUserId
-                            val isFollowing = followingIds.contains(user.id)
-                            val isFollower = followerIds.contains(user.id)
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    items(filteredLikers, key = { it.id }) { user ->
+                        val isSelf = user.id == viewModel.currentUserId
+                        val isFollowing = followingIds.contains(user.id)
+                        val isFollower = followerIds.contains(user.id)
 
-                            LikerRow(
-                                user = user,
-                                isFollowing = isFollowing,
-                                isFollower = isFollower,
-                                isSelf = isSelf,
-                                onUserTap = {
-                                    onNavigateToUser(user.id)
-                                    onDismiss()
-                                },
-                                onFollowTap = { viewModel.toggleFollow(user.id) },
-                            )
+                        LikerRow(
+                            user = user,
+                            isFollowing = isFollowing,
+                            isFollower = isFollower,
+                            isSelf = isSelf,
+                            onUserTap = {
+                                onNavigateToUser(user.id)
+                                onDismiss()
+                            },
+                            onFollowTap = { viewModel.toggleFollow(user.id) },
+                        )
 
-                            // Trigger pagination when reaching last item
-                            if (user.id == filteredLikers.lastOrNull()?.id && searchQuery.isEmpty()) {
-                                LaunchedEffect(user.id) {
-                                    viewModel.loadNextPageIfNeeded()
-                                }
+                        // Trigger pagination when reaching last item
+                        if (user.id == filteredLikers.lastOrNull()?.id && searchQuery.isEmpty()) {
+                            LaunchedEffect(user.id) {
+                                viewModel.loadNextPageIfNeeded()
                             }
                         }
+                    }
 
-                        if (isLoadingMore) {
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = CorusSpacing.md),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator(
-                                        color = CorusColors.Accent,
-                                        modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp,
-                                    )
-                                }
+                    if (isLoadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = CorusSpacing.md),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(
+                                    color = CorusColors.Accent,
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                )
                             }
                         }
                     }

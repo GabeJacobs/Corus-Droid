@@ -10,9 +10,11 @@ import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +31,7 @@ class SocialSetupViewModel @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val firestoreDataSource: FirestoreDataSource,
     private val nowPlayingManager: NowPlayingManager,
+    private val musicServicePreference: MusicServicePreference,
 ) : ViewModel() {
 
     // ── Contact Sync ──
@@ -187,6 +190,12 @@ class SocialSetupViewModel @Inject constructor(
                 _filmBotPosts.value = posts.filter { it.isMovie }
             } catch (_: Exception) { }
             _isLoadingFilmBotPosts.value = false
+        }
+    }
+
+    fun saveMusicService(service: MusicService) {
+        viewModelScope.launch {
+            musicServicePreference.syncToFirestore(service)
         }
     }
 

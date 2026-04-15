@@ -1,12 +1,15 @@
 package fm.corus.android.ui.screens.auth
 
 import android.Manifest
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,29 +21,33 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.components.UserAvatarView
@@ -49,7 +56,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
-private enum class SetupStep { SYNC_CONTACTS, FOLLOW_FRIENDS }
+private enum class SetupStep { SYNC_CONTACTS, FOLLOW_FRIENDS, MUSIC_SERVICE }
 
 @Composable
 fun SocialSetupFlow(
@@ -72,6 +79,10 @@ fun SocialSetupFlow(
                 },
             )
             SetupStep.FOLLOW_FRIENDS -> FollowFriendsScreen(
+                viewModel = viewModel,
+                onFinished = { step = SetupStep.MUSIC_SERVICE },
+            )
+            SetupStep.MUSIC_SERVICE -> MusicServiceScreen(
                 viewModel = viewModel,
                 onFinished = onFinished,
             )
@@ -104,6 +115,7 @@ private fun SyncContactsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .navigationBarsPadding()
             .padding(horizontal = CorusSpacing.xxl),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -123,56 +135,8 @@ private fun SyncContactsScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Radar illustration placeholder
-        Box(
-            modifier = Modifier.size(240.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            // Outer ring
-            Box(
-                modifier = Modifier
-                    .size(210.dp)
-                    .clip(CircleShape)
-                    .background(CorusColors.Accent.copy(alpha = 0.08f)),
-            )
-            // Inner ring
-            Box(
-                modifier = Modifier
-                    .size(140.dp)
-                    .clip(CircleShape)
-                    .background(CorusColors.Accent.copy(alpha = 0.12f)),
-            )
-            // Center avatar placeholders
-            val angles = listOf(0f, 72f, 144f, 216f, 288f)
-            angles.forEachIndexed { index, angle ->
-                val radians = Math.toRadians(angle.toDouble())
-                val radius = 72.dp
-                Box(
-                    modifier = Modifier
-                        .offset(
-                            x = (radius.value * kotlin.math.cos(radians)).dp,
-                            y = (radius.value * kotlin.math.sin(radians)).dp,
-                        )
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(CorusColors.Accent.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Filled.Person,
-                        contentDescription = null,
-                        tint = CorusColors.Accent,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
-            // Center logo
-            Text(
-                "c",
-                style = CorusFont.appTitle,
-                color = CorusColors.Accent,
-            )
-        }
+        // Animated radar illustration — matches iOS: expanding ring + sequential avatar highlights
+        RadarAnimation()
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -185,6 +149,7 @@ private fun SyncContactsScreen(
 
         Spacer(modifier = Modifier.height(CorusSpacing.xxl))
 
+        // Sync button with icon — matches iOS: person.crop.circle.badge.plus
         Button(
             onClick = {
                 permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
@@ -202,6 +167,13 @@ private fun SyncContactsScreen(
                     strokeWidth = 2.dp,
                 )
             } else {
+                Icon(
+                    Icons.Filled.PersonAdd,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = Color.White,
+                )
+                Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Text("SYNC CONTACTS", style = CorusFont.button, color = Color.White)
             }
         }
@@ -211,6 +183,116 @@ private fun SyncContactsScreen(
         }
 
         Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+    }
+}
+
+/**
+ * Animated radar illustration matching iOS:
+ * - Expanding radar ring (2.4s duration)
+ * - Person avatars highlight sequentially as radar passes
+ */
+@Composable
+private fun RadarAnimation() {
+    val infiniteTransition = rememberInfiniteTransition(label = "radar")
+
+    // Radar ring expansion: 0f → 1f over 2.4s
+    val radarProgress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "radar-ring",
+    )
+
+    // Radar ring opacity: fades out as it expands
+    val radarAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "radar-alpha",
+    )
+
+    Box(
+        modifier = Modifier.size(240.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Outer static ring
+        Box(
+            modifier = Modifier
+                .size(210.dp)
+                .clip(CircleShape)
+                .background(CorusColors.Accent.copy(alpha = 0.08f)),
+        )
+        // Inner static ring
+        Box(
+            modifier = Modifier
+                .size(140.dp)
+                .clip(CircleShape)
+                .background(CorusColors.Accent.copy(alpha = 0.12f)),
+        )
+
+        // Animated expanding radar ring
+        Box(
+            modifier = Modifier
+                .size((60 + 180 * radarProgress).dp)
+                .clip(CircleShape)
+                .border(2.dp, CorusColors.Accent.copy(alpha = radarAlpha), CircleShape),
+        )
+
+        // Avatar placeholders at 72° intervals — highlight as radar passes
+        val angles = listOf(0f, 72f, 144f, 216f, 288f)
+        angles.forEachIndexed { index, angle ->
+            val radians = Math.toRadians(angle.toDouble())
+            val radius = 72.dp
+
+            // Each avatar highlights when the radar ring reaches its position
+            val avatarDistance = 72f / 105f // normalized position (radius / max radar radius)
+            val isHighlighted = radarProgress > avatarDistance &&
+                    radarProgress < avatarDistance + 0.3f
+
+            val avatarScale by animateFloatAsState(
+                targetValue = if (isHighlighted) 1.15f else 1f,
+                animationSpec = tween(200),
+                label = "avatar-scale-$index",
+            )
+            val avatarAlpha by animateFloatAsState(
+                targetValue = if (isHighlighted) 1f else 0.5f,
+                animationSpec = tween(200),
+                label = "avatar-alpha-$index",
+            )
+
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = (radius.value * kotlin.math.cos(radians)).dp,
+                        y = (radius.value * kotlin.math.sin(radians)).dp,
+                    )
+                    .scale(avatarScale)
+                    .graphicsLayer { alpha = avatarAlpha }
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(CorusColors.Accent.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.Person,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+        // Center logo
+        Text(
+            "c",
+            style = CorusFont.appTitle,
+            color = CorusColors.Accent,
+        )
     }
 }
 
@@ -261,7 +343,7 @@ private fun FollowFriendsScreen(
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
         Spacer(modifier = Modifier.height(60.dp))
 
         // Header
@@ -328,11 +410,11 @@ private fun FollowFriendsScreen(
             } else {
                 // Suggestion sections
 
-                // Friends on Corus
+                // Friends on Corus — with emoji matching iOS
                 if (contactMatches.isNotEmpty()) {
                     item {
                         OnboardingSectionHeader(
-                            title = "Friends on Corus",
+                            title = "\uD83D\uDC65 Friends on Corus",
                             showSeeAll = contactMatches.size > 5,
                             onSeeAll = { showSeeAll = SeeAllDestination.FRIENDS },
                         )
@@ -346,20 +428,47 @@ private fun FollowFriendsScreen(
                             onTap = { viewModel.playUserPreview(user.id) },
                         )
                     }
+                } else {
+                    // Friends empty state — matches iOS
+                    item {
+                        OnboardingSectionHeader(
+                            title = "\uD83D\uDC65 Friends on Corus",
+                        )
+                    }
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.lg),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                "None of your contacts are on Corus yet",
+                                style = CorusFont.bodyMedium,
+                                color = CorusColors.Secondary,
+                            )
+                            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                            Text(
+                                "We'll notify you when they join",
+                                style = CorusFont.caption,
+                                color = CorusColors.Tertiary,
+                            )
+                        }
+                    }
                 }
 
-                // Popular on Corus
+                // Popular on Corus — with emoji, show 4 (matching iOS)
                 item {
                     OnboardingSectionHeader(
-                        title = "Popular on Corus",
-                        showSeeAll = popularUsers.size > 3,
+                        title = "\uD83D\uDD25 Popular on Corus",
+                        showSeeAll = popularUsers.size > 4,
                         onSeeAll = { showSeeAll = SeeAllDestination.POPULAR },
                     )
                 }
                 if (isLoading) {
-                    items(3) { SkeletonUserRow() }
+                    items(4) { SkeletonUserRow() }
                 } else {
-                    items(popularUsers.take(3), key = { "popular-${it.id}" }) { user ->
+                    items(popularUsers.take(4), key = { "popular-${it.id}" }) { user ->
                         OnboardingUserRow(
                             user = user,
                             subtitle = "${user.followerCount} followers",
@@ -434,7 +543,7 @@ private fun FollowFriendsScreen(
             }
         }
 
-        // Get Started button
+        // Continue button — matches iOS button text
         Button(
             onClick = onFinished,
             modifier = Modifier
@@ -448,7 +557,7 @@ private fun FollowFriendsScreen(
             if (isFinishing) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
             } else {
-                Text("GET STARTED", style = CorusFont.button, color = Color.White)
+                Text("CONTINUE", style = CorusFont.button, color = Color.White)
             }
         }
     }
@@ -461,6 +570,196 @@ private fun FollowFriendsScreen(
             onDismiss = { filmBotPreviewMatch = null },
             viewModel = viewModel,
         )
+    }
+}
+
+// ═══════════════════════════════════════════════
+// MUSIC SERVICE SELECTION SCREEN
+// ═══════════════════════════════════════════════
+
+@Composable
+private fun MusicServiceScreen(
+    viewModel: SocialSetupViewModel,
+    onFinished: () -> Unit,
+) {
+    var selectedService by remember { mutableStateOf(MusicService.SPOTIFY) }
+    var isFinishing by remember { mutableStateOf(false) }
+
+    // Request notification permission on this screen (matching iOS flow)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        // Proceed regardless of permission result
+        isFinishing = false
+        onFinished()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+            .padding(horizontal = CorusSpacing.xxl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(modifier = Modifier.height(60.dp))
+
+        // Header — matches iOS
+        Text(
+            "Choose Your Player",
+            style = CorusFont.appTitle,
+            color = CorusColors.Text,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            "pick your preferred music service",
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Secondary,
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Service selection cards — matches iOS: 2 cards side by side
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
+        ) {
+            // Spotify card
+            MusicServiceCard(
+                label = "Spotify",
+                logoResId = R.drawable.spotify_logo,
+                isSelected = selectedService == MusicService.SPOTIFY,
+                selectedColor = CorusColors.SpotifyGreen,
+                onClick = { selectedService = MusicService.SPOTIFY },
+                modifier = Modifier.weight(1f),
+            )
+
+            // Apple Music card
+            MusicServiceCard(
+                label = "Apple Music",
+                logoResId = R.drawable.apple_music_logo,
+                isSelected = selectedService == MusicService.APPLE_MUSIC,
+                selectedColor = CorusColors.AppleMusicPink,
+                onClick = { selectedService = MusicService.APPLE_MUSIC },
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+
+        Text(
+            "Stay tuned for support for more streaming services.",
+            style = CorusFont.caption,
+            color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Skip — defaults to Spotify (matching iOS)
+        TextButton(onClick = {
+            viewModel.saveMusicService(MusicService.SPOTIFY)
+            finishWithNotification(
+                notificationPermissionLauncher,
+                onFinished,
+                setFinishing = { isFinishing = it },
+            )
+        }) {
+            Text("Skip", style = CorusFont.captionMedium, color = CorusColors.Secondary)
+        }
+
+        // GET STARTED button
+        Button(
+            onClick = {
+                viewModel.saveMusicService(selectedService)
+                finishWithNotification(
+                    notificationPermissionLauncher,
+                    onFinished,
+                    setFinishing = { isFinishing = it },
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = CorusSpacing.xxxl),
+            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+            enabled = !isFinishing,
+            contentPadding = PaddingValues(vertical = CorusSpacing.lg),
+            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+        ) {
+            if (isFinishing) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+            } else {
+                Text("GET STARTED", style = CorusFont.button, color = Color.White)
+            }
+        }
+    }
+}
+
+private fun finishWithNotification(
+    launcher: androidx.activity.result.ActivityResultLauncher<String>,
+    onFinished: () -> Unit,
+    setFinishing: (Boolean) -> Unit,
+) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        setFinishing(true)
+        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+        onFinished()
+    }
+}
+
+@Composable
+private fun MusicServiceCard(
+    label: String,
+    logoResId: Int,
+    isSelected: Boolean,
+    selectedColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val bgColor = if (isSelected) selectedColor.copy(alpha = 0.08f) else CorusColors.CardBackground
+    val borderColor = if (isSelected) selectedColor else CorusColors.Divider
+    val borderWidth = if (isSelected) 2.dp else 1.dp
+
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(CorusSpacing.cornerRadiusLarge),
+        color = bgColor,
+        border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor),
+    ) {
+        Box {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = CorusSpacing.xxl),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Image(
+                    painter = painterResource(id = logoResId),
+                    contentDescription = label,
+                    modifier = Modifier.size(48.dp),
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
+                Text(
+                    label,
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                )
+            }
+
+            // Checkmark overlay — top-right when selected
+            if (isSelected) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = selectedColor,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-8).dp, y = 8.dp),
+                )
+            }
+        }
     }
 }
 
