@@ -83,6 +83,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                         initialFollowingCount = user.followingCount,
                         initialIsVerified = user.isVerified,
                         initialIsClubMember = user.isClubMember,
+                        initialIsFollowing = true,
                     ))
                 },
                 onNavigateToUserByUsername = { username -> navController.navigate(ProfileByUsernameRoute(username)) },
@@ -327,6 +328,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             initialFollowingCount = route.initialFollowingCount,
             initialIsVerified = route.initialIsVerified,
             initialIsClubMember = route.initialIsClubMember,
+            initialIsFollowing = route.initialIsFollowing,
             onBack = { navController.popBackStack() },
             onNavigateToProfileFeed = { userId, username, postId, segment ->
                 navController.navigate(ProfileFeedRoute(userId, username, segment, postId))

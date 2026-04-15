@@ -160,21 +160,6 @@ fun SettingsScreen(
                 onClick = onChangePhoneNumber,
             )
 
-            // Sign Out
-            SettingsActionRow(
-                icon = Icons.AutoMirrored.Filled.ExitToApp,
-                title = "Sign Out",
-                onClick = { authViewModel.signOut() },
-            )
-
-            // Delete Account
-            SettingsActionRow(
-                icon = Icons.Filled.Delete,
-                title = "Delete Account",
-                color = CorusColors.Error,
-                onClick = { showDeleteConfirm = true },
-            )
-
             // ── Section: Support ──
             SectionHeader("SUPPORT")
 
@@ -293,6 +278,23 @@ fun SettingsScreen(
                     context = context,
                 )
             }
+
+            // ── Section: Account Actions ──
+            SectionHeader("ACCOUNT ACTIONS")
+
+            SettingsActionRow(
+                icon = Icons.AutoMirrored.Filled.ExitToApp,
+                title = "Sign Out",
+                color = CorusColors.Secondary,
+                onClick = { authViewModel.signOut() },
+            )
+
+            SettingsActionRow(
+                icon = Icons.Filled.Delete,
+                title = "Delete Account",
+                color = CorusColors.Error,
+                onClick = { showDeleteConfirm = true },
+            )
 
             // ── Version ──
             Spacer(modifier = Modifier.height(CorusSpacing.lg))

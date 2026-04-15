@@ -32,9 +32,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -171,6 +177,15 @@ private fun ColumnScope.CommentsSheetContent(
         }
     }
 
+    // Expand sheet when keyboard appears
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    LaunchedEffect(imeBottom) {
+        if (imeBottom > 0) onExpandSheet()
+    }
+
+    val latestOnExpand by rememberUpdatedState(onExpandSheet)
+
     if (viewModel.giphySupport && showGifPicker) {
         GifPickerSheet(
             onGifSelected = { gif ->
@@ -213,7 +228,28 @@ private fun ColumnScope.CommentsSheetContent(
     val commentsPartialMaxHeight = (configuration.screenHeightDp * 0.25).dp
 
     Box(
-        modifier = (if (isSheetExpanded) Modifier.weight(1f) else Modifier.heightIn(min = 100.dp, max = commentsPartialMaxHeight))
+        modifier = (if (isSheetExpanded) Modifier.weight(1f) else Modifier
+            .heightIn(min = 100.dp, max = commentsPartialMaxHeight)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    var dragY = 0f
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull() ?: return@awaitEachGesture
+                        if (!change.pressed) return@awaitEachGesture
+                        dragY += change.positionChange().y
+                        if (dragY < -viewConfiguration.touchSlop) {
+                            event.changes.forEach { it.consume() }
+                            latestOnExpand()
+                            return@awaitEachGesture
+                        }
+                        if (dragY > viewConfiguration.touchSlop) {
+                            return@awaitEachGesture // downward drag — let sheet handle dismiss
+                        }
+                    }
+                }
+            })
             .fillMaxWidth()
     ) {
             when {
@@ -249,7 +285,6 @@ private fun ColumnScope.CommentsSheetContent(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(vertical = CorusSpacing.sm),
-                        userScrollEnabled = isSheetExpanded,
                     ) {
                         // Caption row (matching iOS — show post author + caption at top)
                         val captionText = post?.caption

@@ -1,5 +1,6 @@
 package fm.corus.android.data.repository
 
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalUser
@@ -20,6 +21,7 @@ class UserRepository @Inject constructor(
     private val storageDataSource: FirebaseStorageDataSource,
     private val cloudFunctions: CloudFunctionsDataSource,
     private val preferencesDataStore: PreferencesDataStore,
+    private val auth: FirebaseAuth,
 ) {
     companion object {
         private const val PROFILE_TTL_MS = 5L * 60 * 1000      // 5 minutes — matches iOS
@@ -59,7 +61,10 @@ class UserRepository @Inject constructor(
 
     suspend fun fetchUserProfile(uid: String): CymbalUser? {
         profileCache[uid]?.let { entry ->
-            if (entry.isValid(PROFILE_TTL_MS)) return entry.value
+            // Current user's profile never expires from cache (matching iOS) —
+            // it's always needed for optimistic UI (comments, etc.)
+            val isCurrentUser = uid == auth.currentUser?.uid
+            if (isCurrentUser || entry.isValid(PROFILE_TTL_MS)) return entry.value
         }
         val user = firestoreDataSource.fetchUserProfile(uid) ?: return null
         profileCache[uid] = CacheEntry(user)
@@ -143,9 +148,10 @@ class UserRepository @Inject constructor(
 
         val cached = mutableMapOf<String, CymbalUser>()
         val missIds = mutableListOf<String>()
+        val currentUid = auth.currentUser?.uid
         for (id in ids) {
             val entry = profileCache[id]
-            if (entry != null && entry.isValid(PROFILE_TTL_MS)) {
+            if (entry != null && (id == currentUid || entry.isValid(PROFILE_TTL_MS))) {
                 cached[id] = entry.value
             } else {
                 missIds.add(id)
@@ -208,7 +214,18 @@ class UserRepository @Inject constructor(
         return fetchUsersByIdsBatched(ids)
     }
 
-    // ── Suggestions (with 4-hour in-memory cache, matching iOS) ──
+    // ── Suggestions (with 4-hour cache + DataStore persistence, matching iOS) ──
+
+    /**
+     * Load suggested matches from DataStore into memory on app start.
+     * Call during auth init alongside prefetchFollowingSet etc.
+     */
+    suspend fun prefetchSuggestedMatches(userId: String) {
+        if (suggestedMatchesCache != null) return
+        val persisted = preferencesDataStore.loadSuggestedMatchesAsync(userId) ?: return
+        val (matches, fetchedAt) = persisted
+        suggestedMatchesCache = CacheEntry(matches, fetchedAt)
+    }
 
     suspend fun getSuggestedUsers(userId: String): List<SuggestedUserMatch> {
         suggestedMatchesCache?.let { entry ->
@@ -216,6 +233,7 @@ class UserRepository @Inject constructor(
         }
         val result = cloudFunctions.getSuggestedUsers(userId)
         suggestedMatchesCache = CacheEntry(result)
+        preferencesDataStore.persistSuggestedMatches(result, userId)
         return result
     }
 

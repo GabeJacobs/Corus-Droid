@@ -75,6 +75,10 @@ class OtherProfileViewModel @Inject constructor(
     // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
     private val activeListenerPostIds = mutableSetOf<String>()
 
+    fun setInitialFollowing(value: Boolean) {
+        _isFollowing.value = value
+    }
+
     fun loadProfile(userId: String) {
         viewModelScope.launch {
             _isLoading.value = true

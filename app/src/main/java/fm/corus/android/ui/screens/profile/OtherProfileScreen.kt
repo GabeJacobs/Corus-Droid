@@ -81,6 +81,7 @@ fun OtherProfileScreen(
     initialFollowingCount: Int? = null,
     initialIsVerified: Boolean? = null,
     initialIsClubMember: Boolean? = null,
+    initialIsFollowing: Boolean? = null,
     viewModel: OtherProfileViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
@@ -121,6 +122,7 @@ fun OtherProfileScreen(
     }
 
     LaunchedEffect(userId) {
+        if (initialIsFollowing != null) viewModel.setInitialFollowing(initialIsFollowing)
         viewModel.loadProfile(userId)
     }
 
@@ -323,17 +325,21 @@ fun OtherProfileScreen(
                                         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
                                     ) {
                                         val followShape = RoundedCornerShape(50)
+                                        val hintFollowing = initialIsFollowing == true
                                         Box(
                                             modifier = Modifier
                                                 .clip(followShape)
-                                                .background(CorusColors.Accent)
+                                                .then(
+                                                    if (hintFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
+                                                    else Modifier.background(CorusColors.Accent)
+                                                )
                                                 .padding(vertical = 6.dp, horizontal = 36.dp),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Text(
-                                                text = "FOLLOW",
+                                                text = if (hintFollowing) "FOLLOWING" else "FOLLOW",
                                                 style = CorusFont.button,
-                                                color = Color.White,
+                                                color = if (hintFollowing) CorusColors.Secondary else Color.White,
                                             )
                                         }
 

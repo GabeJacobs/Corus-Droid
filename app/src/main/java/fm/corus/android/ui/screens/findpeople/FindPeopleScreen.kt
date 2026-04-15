@@ -120,7 +120,7 @@ fun FindPeopleScreen(
     val hasSearchQuery = searchQuery.isNotBlank()
     var isSearchFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
-    val showRecentOverlay = isSearchFocused && !hasSearchQuery
+    val showRecentOverlay = isSearchFocused && !hasSearchQuery && activeTab == SearchTab.USERS
 
     // Dismiss the recent-searches overlay on back press
     BackHandler(enabled = showRecentOverlay) {
@@ -717,6 +717,7 @@ private fun SuggestedUsersContent(
         }
 
         // ── Invite friends ──
+        if (!isSuggestedLoading && !isBotsLoading && !isPopularLoading) {
         item {
             Column(
                 modifier = Modifier
@@ -735,6 +736,7 @@ private fun SuggestedUsersContent(
                     Text("invite friends", style = CorusFont.bodyMedium)
                 }
             }
+        }
         }
     }
 }

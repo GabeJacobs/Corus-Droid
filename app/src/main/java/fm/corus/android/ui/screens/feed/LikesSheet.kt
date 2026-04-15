@@ -80,7 +80,9 @@ private fun LikesSheetContent(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 400.dp),
     ) {
         // Title
         Text(

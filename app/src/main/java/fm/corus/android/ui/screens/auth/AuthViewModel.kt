@@ -107,6 +107,7 @@ class AuthViewModel @Inject constructor(
                         launch { userRepository.prefetchFollowingSet(user.uid) }
                         launch { userRepository.prefetchBlockedSet(user.uid) }
                         launch { userRepository.prefetchMutedSet(user.uid) }
+                        launch { userRepository.prefetchSuggestedMatches(user.uid) }
                         launch { authRepository.registerFCMToken() }
                         launch { remoteConfigService.fetchAndActivate() }
                         launch { subscriptionRepository.refreshTodayPostCount(user.uid) }

@@ -6,6 +6,11 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MusicMatchData
+import fm.corus.android.data.model.SharedMoviePreview
+import fm.corus.android.data.model.SharedTrackPreview
+import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.data.model.SuggestionReason
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -13,6 +18,139 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
+
+// ── Serializable DTOs for suggested matches persistence (matching iOS UserDefaults) ──
+
+@Serializable
+private data class PersistedSuggestedMatch(
+    val userId: String,
+    val username: String,
+    val displayName: String,
+    val avatarURL: String? = null,
+    val avatarThumbURL: String? = null,
+    val isVerified: Boolean = false,
+    val isClubMember: Boolean = false,
+    val isBot: Boolean = false,
+    val botType: String? = null,
+    val profileFlair: String = "checkmark",
+    val followerCount: Int = 0,
+    val followingCount: Int = 0,
+    val cymbalCount: Int = 0,
+    val bio: String = "",
+    // Match data
+    val similarityScore: Double = 0.0,
+    val sharedPostedTracks: Int = 0,
+    val sharedLikedTracks: Int = 0,
+    val sharedArtists: Int = 0,
+    val adjacentArtists: Int = 0,
+    val sharedPostedMovies: Int = 0,
+    val sharedLikedMovies: Int = 0,
+    val sharedDirectors: Int = 0,
+    val sharedHashtags: Int = 0,
+    val mutualFollows: Int = 0,
+    val trackPreviews: List<PersistedTrackPreview> = emptyList(),
+    val moviePreviews: List<PersistedMoviePreview> = emptyList(),
+    // Suggestion reason
+    val mutualNames: List<String> = emptyList(),
+)
+
+@Serializable
+private data class PersistedTrackPreview(
+    val trackId: String,
+    val trackName: String,
+    val artistName: String,
+    val albumArtURL: String? = null,
+    val posterURL: String? = null,
+    val isMovie: Boolean = false,
+)
+
+@Serializable
+private data class PersistedMoviePreview(
+    val movieId: String,
+    val movieTitle: String,
+    val directorName: String,
+    val posterURL: String? = null,
+)
+
+@Serializable
+private data class PersistedSuggestedMatchesWrapper(
+    val fetchedAt: Long,
+    val matches: List<PersistedSuggestedMatch>,
+)
+
+private fun SuggestedUserMatch.toPersisted() = PersistedSuggestedMatch(
+    userId = user.id,
+    username = user.username,
+    displayName = user.displayName,
+    avatarURL = user.avatarURL,
+    avatarThumbURL = user.avatarThumbURL,
+    isVerified = user.isVerified,
+    isClubMember = user.isClubMember,
+    isBot = user.isBot,
+    botType = user.botType,
+    profileFlair = user.profileFlair,
+    followerCount = user.followerCount,
+    followingCount = user.followingCount,
+    cymbalCount = user.cymbalCount,
+    bio = user.bio,
+    similarityScore = matchData?.similarityScore ?: 0.0,
+    sharedPostedTracks = matchData?.sharedPostedTracks ?: 0,
+    sharedLikedTracks = matchData?.sharedLikedTracks ?: 0,
+    sharedArtists = matchData?.sharedArtists ?: 0,
+    adjacentArtists = matchData?.adjacentArtists ?: 0,
+    sharedPostedMovies = matchData?.sharedPostedMovies ?: 0,
+    sharedLikedMovies = matchData?.sharedLikedMovies ?: 0,
+    sharedDirectors = matchData?.sharedDirectors ?: 0,
+    sharedHashtags = matchData?.sharedHashtags ?: 0,
+    mutualFollows = matchData?.mutualFollows ?: 0,
+    trackPreviews = matchData?.sharedTrackPreviews?.map {
+        PersistedTrackPreview(it.trackId, it.trackName, it.artistName, it.albumArtURL, it.posterURL, it.isMovie)
+    } ?: emptyList(),
+    moviePreviews = matchData?.sharedMoviePreviews?.map {
+        PersistedMoviePreview(it.movieId, it.movieTitle, it.directorName, it.posterURL)
+    } ?: emptyList(),
+    mutualNames = suggestionReason?.mutualNames ?: emptyList(),
+)
+
+private fun PersistedSuggestedMatch.toModel() = SuggestedUserMatch(
+    user = CymbalUser(
+        id = userId,
+        username = username,
+        displayName = displayName,
+        avatarURL = avatarURL,
+        avatarThumbURL = avatarThumbURL,
+        isVerified = isVerified,
+        isClubMember = isClubMember,
+        isBot = isBot,
+        botType = botType,
+        profileFlair = profileFlair,
+        followerCount = followerCount,
+        followingCount = followingCount,
+        cymbalCount = cymbalCount,
+        bio = bio,
+    ),
+    matchData = MusicMatchData(
+        similarityScore = similarityScore,
+        sharedPostedTracks = sharedPostedTracks,
+        sharedLikedTracks = sharedLikedTracks,
+        sharedArtists = sharedArtists,
+        adjacentArtists = adjacentArtists,
+        sharedPostedMovies = sharedPostedMovies,
+        sharedLikedMovies = sharedLikedMovies,
+        sharedDirectors = sharedDirectors,
+        sharedHashtags = sharedHashtags,
+        mutualFollows = mutualFollows,
+        sharedTrackPreviews = trackPreviews.map {
+            SharedTrackPreview(it.trackId, it.trackName, it.artistName, it.albumArtURL, it.posterURL, it.isMovie)
+        },
+        sharedMoviePreviews = moviePreviews.map {
+            SharedMoviePreview(it.movieId, it.movieTitle, it.directorName, it.posterURL)
+        },
+    ),
+    suggestionReason = if (mutualNames.isNotEmpty()) SuggestionReason(mutualNames) else null,
+)
+
+// ── Serializable DTO for recent search persistence ──
 
 @Serializable
 private data class RecentSearchEntry(
@@ -162,6 +300,42 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun clearRecentSearches() {
         dataStore.edit { it.remove(RECENT_SEARCHES) }
+    }
+
+    // ── Suggested Matches (persisted for instant cold-start, matching iOS UserDefaults) ──
+
+    suspend fun persistSuggestedMatches(matches: List<SuggestedUserMatch>, userId: String) {
+        val key = stringPreferencesKey("suggestedMatches_$userId")
+        val wrapper = PersistedSuggestedMatchesWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            matches = matches.map { it.toPersisted() },
+        )
+        dataStore.edit { it[key] = recentJson.encodeToString(wrapper) }
+    }
+
+    /**
+     * Returns the persisted suggested matches with their original fetchedAt timestamp,
+     * or null if nothing is persisted. Caller is responsible for TTL validation.
+     */
+    suspend fun loadSuggestedMatchesAsync(userId: String): Pair<List<SuggestedUserMatch>, Long>? {
+        val key = stringPreferencesKey("suggestedMatches_$userId")
+        var result: Pair<List<SuggestedUserMatch>, Long>? = null
+        dataStore.data.collect { prefs ->
+            val raw = prefs[key]
+            if (!raw.isNullOrBlank()) {
+                try {
+                    val wrapper = recentJson.decodeFromString<PersistedSuggestedMatchesWrapper>(raw)
+                    result = Pair(wrapper.matches.map { it.toModel() }, wrapper.fetchedAt)
+                } catch (_: Exception) { }
+            }
+            return@collect
+        }
+        return result
+    }
+
+    suspend fun clearSuggestedMatches(userId: String) {
+        val key = stringPreferencesKey("suggestedMatches_$userId")
+        dataStore.edit { it.remove(key) }
     }
 
     // ── Muted IDs (persisted for offline access, matching iOS UserDefaults pattern) ──
