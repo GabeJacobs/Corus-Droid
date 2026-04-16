@@ -344,6 +344,8 @@ private fun ExploreTabBar(
         }
 
         HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
     }
 }
 
@@ -649,7 +651,7 @@ private fun UsersTabContent(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+                Spacer(modifier = Modifier.height(CorusSpacing.lg))
             }
         }
 
@@ -671,7 +673,7 @@ private fun UsersTabContent(
                     onFollowTap = { onFollowTap(match.user.id, followedIds.contains(match.user.id)) },
                 )
             }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.xxl)) }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
         }
 
         // 3. Popular on Corus (show if no music matches)
@@ -689,7 +691,7 @@ private fun UsersTabContent(
                     onFollowTap = { onFollowTap(match.user.id, followedIds.contains(match.user.id)) },
                 )
             }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.xxl)) }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
         }
 
         // 4. Curated Bots section

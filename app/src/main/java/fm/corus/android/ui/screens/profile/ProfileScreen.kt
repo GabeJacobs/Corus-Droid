@@ -662,7 +662,11 @@ fun ProfileScreen(
             val gridPosts = if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts
             if (gridPosts.isNotEmpty()) {
                 items(gridPosts, key = { it.id }, contentType = { "post_grid" }) { post ->
-                    PostGridItem(post = post, onClick = { navigateToFeed(post.id) })
+                    PostGridItem(
+                        post = post,
+                        isFilmPoster = selectedSegment == 1,
+                        onClick = { navigateToFeed(post.id) },
+                    )
                 }
             }
 
@@ -846,16 +850,18 @@ private fun StatDivider() {
 
 
 @Composable
-private fun PostGridItem(post: CymbalPost, onClick: () -> Unit = {}) {
+private fun PostGridItem(post: CymbalPost, isFilmPoster: Boolean = false, onClick: () -> Unit = {}) {
+    val aspectRatio = if (isFilmPoster) 2f / 3f else 1f
+    val imageSize = if (isFilmPoster) Size(360, 540) else Size(360, 360)
     ShimmerAsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
             .data(post.displayImageLargeURL ?: post.displayImageURL)
             .crossfade(true)
-            .size(Size(360, 360))
+            .size(imageSize)
             .build(),
         contentDescription = post.displayTitle,
         modifier = Modifier
-            .aspectRatio(1f)
+            .aspectRatio(aspectRatio)
             .clickable(onClick = onClick),
     )
 }

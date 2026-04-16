@@ -101,6 +101,14 @@ class UserRepository @Inject constructor(
     suspend fun followUser(userId: String, targetUserId: String) {
         firestoreDataSource.followUser(userId, targetUserId)
         _followingIds.value = _followingIds.value + targetUserId
+        // Send follow notification (matches iOS)
+        try {
+            firestoreDataSource.createNotification(
+                type = "follow",
+                fromUserId = userId,
+                toUserId = targetUserId,
+            )
+        } catch (_: Exception) { }
     }
 
     suspend fun unfollowUser(userId: String, targetUserId: String) {

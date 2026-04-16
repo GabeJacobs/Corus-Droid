@@ -111,8 +111,10 @@ class PostRepository @Inject constructor(
         toUserId: String,
         postId: String? = null,
         postAlbumArtURL: String? = null,
+        commentText: String? = null,
+        commentId: String? = null,
     ) {
-        firestoreDataSource.createNotification(type, fromUserId, toUserId, postId, postAlbumArtURL)
+        firestoreDataSource.createNotification(type, fromUserId, toUserId, postId, postAlbumArtURL, commentText, commentId)
     }
 
     suspend fun deletePost(postId: String, userId: String) {

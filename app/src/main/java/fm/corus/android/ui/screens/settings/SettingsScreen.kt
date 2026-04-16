@@ -38,10 +38,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.ui.components.CymbalClubVinyl
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.auth.AuthViewModel
+import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
+import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit = {},
@@ -51,10 +54,10 @@ fun SettingsScreen(
     onMutedUsers: () -> Unit = {},
     onSendFeedback: () -> Unit = {},
     onNotificationSettings: () -> Unit = {},
-    onNavigateToClub: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    var showClubOffer by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val isDeletingAccount by authViewModel.isDeletingAccount.collectAsState()
     val deleteError by authViewModel.error.collectAsState()
@@ -114,7 +117,7 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(onClick = onNavigateToClub)
+                        .clickable { showClubOffer = true }
                         .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -374,6 +377,22 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = CorusSpacing.xxl),
+            )
+        }
+    }
+
+    // ── Club Offer Sheet ──
+    if (showClubOffer) {
+        val clubSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showClubOffer = false },
+            sheetState = clubSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            CymbalClubOfferSheet(
+                source = PaywallSource.SETTINGS,
+                onDismiss = { showClubOffer = false },
             )
         }
     }

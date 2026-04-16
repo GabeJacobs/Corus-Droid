@@ -9,13 +9,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.*
@@ -63,6 +62,16 @@ private fun ctaText(selectedPackage: Package?, isClubMember: Boolean): String {
     if (isClubMember) return "You're a member!"
     val trial = trialDurationText(selectedPackage)
     return if (trial != null) "Try Free for $trial" else "Join the Club"
+}
+
+private fun monthlyDetailText(pkg: Package?, price: String): String {
+    val trial = trialDurationText(pkg)
+    return if (trial != null) "$trial free, then $price/mo" else "Billed at $price/mo."
+}
+
+private fun yearlyDetailText(pkg: Package?, price: String, monthlyEquivalent: String): String {
+    val trial = trialDurationText(pkg)
+    return if (trial != null) "$trial free, then $price/yr" else "Only $monthlyEquivalent/mo"
 }
 
 // --- Full-screen paywall ---
@@ -122,15 +131,15 @@ fun CymbalClubOfferScreen(
         topBar = {
             TopAppBar(
                 title = {},
-                navigationIcon = {
+                actions = {
                     IconButton(onClick = {
                         viewModel.logPaywallDismissed()
                         onBack()
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.Filled.Close, contentDescription = "Close", tint = CorusColors.Secondary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
@@ -144,13 +153,8 @@ fun CymbalClubOfferScreen(
         ) {
             Spacer(modifier = Modifier.height(CorusSpacing.xxl))
 
-            // Club icon
-            Image(
-                painter = painterResource(R.drawable.vinyl_black),
-                contentDescription = null,
-                modifier = Modifier.size(140.dp),
-                contentScale = ContentScale.Fit,
-            )
+            // Spinning vinyl record
+            fm.corus.android.ui.components.CymbalClubVinyl(size = 140.dp)
 
             Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
@@ -179,8 +183,8 @@ fun CymbalClubOfferScreen(
             ) {
                 FeatureRow(icon = Icons.Filled.AllInclusive, text = "Unlimited posts")
                 FeatureRow(icon = Icons.Filled.Verified, text = "Verified badge")
-                FeatureRow(icon = Icons.Filled.Palette, text = "Custom vinyl colors")
                 FeatureRow(icon = Icons.Filled.Person, text = "Profile customization")
+                FeatureRow(icon = Icons.Filled.QueueMusic, text = "Generate Spotify playlists")
                 FeatureRow(icon = Icons.Filled.Favorite, text = "Help keep Corus running")
             }
 
@@ -205,11 +209,12 @@ fun CymbalClubOfferScreen(
             ) {
                 val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$2.99"
                 val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$19.99"
+                val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 19.99) / 12)}"
 
                 PlanCard(
                     label = "Monthly",
                     price = "$monthlyPrice/mo",
-                    detail = "Billed at $monthlyPrice/mo.",
+                    detail = monthlyDetailText(monthlyPackage, monthlyPrice),
                     isSelected = selectedPlan == "monthly",
                     onClick = { selectedPlan = "monthly" },
                     modifier = Modifier.weight(1f),
@@ -217,7 +222,7 @@ fun CymbalClubOfferScreen(
                 PlanCard(
                     label = "Yearly",
                     price = "$yearlyPrice/yr",
-                    detail = "Only ${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 19.99) / 12)}/mo",
+                    detail = yearlyDetailText(yearlyPackage, yearlyPrice, yearlyMonthly),
                     isSelected = selectedPlan == "yearly",
                     onClick = { selectedPlan = "yearly" },
                     modifier = Modifier.weight(1f),
@@ -227,7 +232,7 @@ fun CymbalClubOfferScreen(
 
             Spacer(modifier = Modifier.height(CorusSpacing.xxl))
 
-            // Inline error message (matches iOS red text)
+            // Inline error message
             if (errorMessage != null) {
                 Text(
                     text = errorMessage!!,
@@ -355,6 +360,7 @@ fun CymbalClubOfferSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .fillMaxHeight(0.95f)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -362,7 +368,7 @@ fun CymbalClubOfferSheet(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(end = CorusSpacing.md, top = CorusSpacing.md),
+                .padding(end = CorusSpacing.md),
             contentAlignment = Alignment.TopEnd,
         ) {
             IconButton(onClick = {
@@ -377,12 +383,10 @@ fun CymbalClubOfferSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.md))
-
         // Spinning vinyl record
-        fm.corus.android.ui.components.CymbalClubVinyl(size = 140.dp)
+        fm.corus.android.ui.components.CymbalClubVinyl(size = 120.dp)
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xl))
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
         Text(
             text = "Join the Corus Club",
@@ -390,7 +394,7 @@ fun CymbalClubOfferSheet(
             color = CorusColors.Text,
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
         Text(
             text = source.subtitle,
@@ -400,20 +404,20 @@ fun CymbalClubOfferSheet(
             modifier = Modifier.padding(horizontal = CorusSpacing.xl),
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+        Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
         Column(
             modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-            verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
         ) {
             FeatureRow(icon = Icons.Filled.AllInclusive, text = "Unlimited posts")
             FeatureRow(icon = Icons.Filled.Verified, text = "Verified badge")
-            FeatureRow(icon = Icons.Filled.Palette, text = "Custom vinyl colors")
             FeatureRow(icon = Icons.Filled.Person, text = "Profile customization")
+            FeatureRow(icon = Icons.Filled.QueueMusic, text = "Generate Spotify playlists")
             FeatureRow(icon = Icons.Filled.Favorite, text = "Help keep Corus running")
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.md))
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
         Text(
             text = "Corus is built by a small team. Club members help keep Corus ad-free, independent, and growing.",
@@ -423,7 +427,7 @@ fun CymbalClubOfferSheet(
             modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+        Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
         Row(
             modifier = Modifier
@@ -433,11 +437,12 @@ fun CymbalClubOfferSheet(
         ) {
             val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$2.99"
             val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$19.99"
+            val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 19.99) / 12)}"
 
             PlanCard(
                 label = "Monthly",
                 price = "$monthlyPrice/mo",
-                detail = "Billed at $monthlyPrice/mo.",
+                detail = monthlyDetailText(monthlyPackage, monthlyPrice),
                 isSelected = selectedPlan == "monthly",
                 onClick = { selectedPlan = "monthly" },
                 modifier = Modifier.weight(1f),
@@ -445,7 +450,7 @@ fun CymbalClubOfferSheet(
             PlanCard(
                 label = "Yearly",
                 price = "$yearlyPrice/yr",
-                detail = "Only ${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 19.99) / 12)}/mo",
+                detail = yearlyDetailText(yearlyPackage, yearlyPrice, yearlyMonthly),
                 isSelected = selectedPlan == "yearly",
                 onClick = { selectedPlan = "yearly" },
                 modifier = Modifier.weight(1f),
@@ -453,9 +458,9 @@ fun CymbalClubOfferSheet(
             )
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-        // Inline error message (matches iOS red text)
+        // Inline error message
         if (errorMessage != null) {
             Text(
                 text = errorMessage!!,
@@ -477,7 +482,7 @@ fun CymbalClubOfferSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = CorusSpacing.xl)
-                .height(52.dp),
+                .height(48.dp),
             shape = RoundedCornerShape(50),
             colors = ButtonDefaults.buttonColors(
                 containerColor = CorusColors.Accent,
@@ -498,7 +503,7 @@ fun CymbalClubOfferSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.md))
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
@@ -519,7 +524,7 @@ fun CymbalClubOfferSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
     }
 }
 

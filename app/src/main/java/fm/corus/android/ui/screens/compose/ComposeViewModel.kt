@@ -21,6 +21,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.ui.components.extractMentions
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -319,10 +320,28 @@ class ComposeViewModel @Inject constructor(
                     data["albumArtURL"] = movie.posterURL ?: ""
                 }
 
-                postRepository.createPost(userId, data, voiceNoteData)
+                val newPostId = postRepository.createPost(userId, data, voiceNoteData)
                 analyticsService.logPostCreated(mediaType.value)
                 subscriptionRepository.incrementPostCount()
                 postCreationEvent.notifyPostCreated()
+
+                // Send tag notifications for @mentions in caption (matches iOS)
+                val albumArtURL = data["albumArtURL"] as? String
+                    ?: data["albumArtThumbnailURL"] as? String
+                val mentionedUsernames = extractMentions(caption)
+                for (username in mentionedUsernames) {
+                    try {
+                        val mentionedUser = userRepository.fetchUserByUsername(username) ?: continue
+                        if (mentionedUser.id == userId) continue
+                        postRepository.createNotification(
+                            type = "tag",
+                            fromUserId = userId,
+                            toUserId = mentionedUser.id,
+                            postId = newPostId,
+                            postAlbumArtURL = albumArtURL,
+                        )
+                    } catch (_: Exception) { }
+                }
 
                 if (isFirstPoster) {
                     // Build a lightweight CymbalPost for the trophy celebration

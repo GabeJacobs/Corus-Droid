@@ -116,12 +116,12 @@ class FirestoreDataSource @Inject constructor(
         batch.set(
             firestore.collection("users_v2").document(userId)
                 .collection("following").document(targetUserId),
-            mapOf("timestamp" to FieldValue.serverTimestamp())
+            mapOf("createdAt" to FieldValue.serverTimestamp())
         )
         batch.set(
             firestore.collection("users_v2").document(targetUserId)
                 .collection("followers").document(userId),
-            mapOf("timestamp" to FieldValue.serverTimestamp())
+            mapOf("createdAt" to FieldValue.serverTimestamp())
         )
         batch.update(
             firestore.collection("users_v2").document(userId),
@@ -265,7 +265,7 @@ class FirestoreDataSource @Inject constructor(
     suspend fun savePost(userId: String, postId: String) {
         firestore.collection("users_v2").document(userId)
             .collection("saves").document(postId)
-            .set(mapOf("timestamp" to FieldValue.serverTimestamp()))
+            .set(mapOf("createdAt" to FieldValue.serverTimestamp()))
             .await()
     }
 
@@ -396,7 +396,7 @@ class FirestoreDataSource @Inject constructor(
             "repostedFromPostId" to originalPost.id,
             "repostedFromUserId" to originalPost.user.id,
             "repostedFromUsername" to originalPost.user.username,
-            "timestamp" to FieldValue.serverTimestamp(),
+            "createdAt" to FieldValue.serverTimestamp(),
             "likeCount" to 0,
             "commentCount" to 0,
             "repostCount" to 0,
@@ -453,6 +453,8 @@ class FirestoreDataSource @Inject constructor(
         toUserId: String,
         postId: String? = null,
         postAlbumArtURL: String? = null,
+        commentText: String? = null,
+        commentId: String? = null,
     ) {
         if (remoteConfigService.serverNotificationsEnabled) return
         if (fromUserId == toUserId) return
@@ -461,11 +463,30 @@ class FirestoreDataSource @Inject constructor(
             "fromUserId" to fromUserId,
             "toUserId" to toUserId,
             "isRead" to false,
-            "timestamp" to FieldValue.serverTimestamp(),
+            "createdAt" to FieldValue.serverTimestamp(),
         )
         if (postId != null) data["postId"] = postId
         if (postAlbumArtURL != null) data["postAlbumArtURL"] = postAlbumArtURL
-        firestore.collection("notifications").add(data).await()
+        if (commentText != null) data["commentText"] = commentText
+        if (commentId != null) data["commentId"] = commentId
+
+        // Deterministic IDs for actions that can be toggled — matches iOS behavior.
+        val deterministicId = when (type) {
+            "follow" -> "follow_${fromUserId}_${toUserId}"
+            "like" -> "like_${fromUserId}_${postId.orEmpty()}"
+            "comment_like" -> "comment_like_${fromUserId}_${commentId.orEmpty()}"
+            "save" -> "save_${fromUserId}_${postId.orEmpty()}"
+            else -> null
+        }
+
+        val collection = firestore.collection("notifications")
+        if (deterministicId != null) {
+            val docRef = collection.document(deterministicId)
+            try { docRef.delete().await() } catch (_: Exception) { }
+            docRef.set(data).await()
+        } else {
+            collection.add(data).await()
+        }
     }
 
     suspend fun deletePost(postId: String, userId: String) {
@@ -484,7 +505,7 @@ class FirestoreDataSource @Inject constructor(
             "id" to commentRef.id,
             "userId" to userId,
             "text" to text,
-            "timestamp" to FieldValue.serverTimestamp(),
+            "createdAt" to FieldValue.serverTimestamp(),
             "likeCount" to 0,
             "replyCount" to 0,
         )
@@ -605,7 +626,7 @@ class FirestoreDataSource @Inject constructor(
     fun observeNotifications(userId: String, limit: Int = 15): Flow<List<CymbalNotification>> = callbackFlow {
         val registration: ListenerRegistration = firestore.collection("notifications")
             .whereEqualTo("toUserId", userId)
-            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(limit.toLong())
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -743,7 +764,7 @@ class FirestoreDataSource @Inject constructor(
             firestore.collection("posts").document(postId)
                 .collection("comments").document(commentId)
                 .collection("likes").document(userId),
-            mapOf("timestamp" to FieldValue.serverTimestamp())
+            mapOf("createdAt" to FieldValue.serverTimestamp())
         )
         batch.update(
             firestore.collection("posts").document(postId)
@@ -915,7 +936,7 @@ class FirestoreDataSource @Inject constructor(
                 "description" to description,
                 "deviceInfo" to deviceInfo,
                 "platform" to "android",
-                "timestamp" to FieldValue.serverTimestamp(),
+                "createdAt" to FieldValue.serverTimestamp(),
             )
         ).await()
     }
@@ -930,7 +951,7 @@ class FirestoreDataSource @Inject constructor(
                 "postId" to postId,
                 "reason" to reason,
                 "details" to details,
-                "timestamp" to FieldValue.serverTimestamp(),
+                "createdAt" to FieldValue.serverTimestamp(),
             )
         ).await()
     }

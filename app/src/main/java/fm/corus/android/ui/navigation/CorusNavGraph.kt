@@ -477,7 +477,6 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onMutedUsers = { navController.navigate(MutedUsersRoute) },
             onSendFeedback = { navController.navigate(FeedbackFormRoute) },
             onNotificationSettings = { navController.navigate(NotificationSettingsRoute) },
-            onNavigateToClub = { navController.navigate(CymbalClubOfferRoute(source = "settings")) },
         )
     }
 

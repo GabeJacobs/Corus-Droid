@@ -883,16 +883,19 @@ fun OtherProfileScreen(
             if (isFeaturedTab && !isFeaturedArtReady && filteredPosts.isNotEmpty()) {
                 // SkeletonProfileGrid in header already covers grid area
             } else if (gridPosts.isNotEmpty()) {
+                val isFilmPoster = currentProfile.isFilmBot || (!currentProfile.isMusicBot && selectedSegment == 1)
                 items(gridPosts, key = { it.id }) { post ->
+                    val aspectRatio = if (isFilmPoster) 2f / 3f else 1f
+                    val imageSize = if (isFilmPoster) Size(360, 540) else Size(360, 360)
                     ShimmerAsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(post.displayImageLargeURL ?: post.displayImageURL)
                             .crossfade(true)
-                            .size(Size(360, 360))
+                            .size(imageSize)
                             .build(),
                         contentDescription = post.displayTitle,
                         modifier = Modifier
-                            .aspectRatio(1f)
+                            .aspectRatio(aspectRatio)
                             .clickable { navigateToFeed(post.id) },
                     )
                 }
@@ -939,8 +942,10 @@ fun OtherProfileScreen(
 
     // Club offer sheet
     if (showClubOffer) {
+        val clubSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
         androidx.compose.material3.ModalBottomSheet(
             onDismissRequest = { showClubOffer = false },
+            sheetState = clubSheetState,
             containerColor = CorusColors.Background,
             dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
         ) {

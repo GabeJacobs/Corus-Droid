@@ -12,6 +12,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.RemoteConfigService
+import fm.corus.android.ui.components.extractMentions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -133,7 +134,6 @@ class CommentsViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 val allComments = postRepository.getComments(postId)
-                android.util.Log.d("CorusComments", "loadComments returned ${allComments.size} comments: ${allComments.map { "${it.id} '${it.text}'" }}")
                 // Separate top-level comments from replies
                 val topLevel = allComments.filter { it.parentCommentId == null }
                 val replies = allComments.filter { it.parentCommentId != null }
@@ -141,9 +141,7 @@ class CommentsViewModel @Inject constructor(
 
                 _comments.value = topLevel
                 _repliesByParent.value = replies
-            } catch (e: Exception) {
-                android.util.Log.e("CorusComments", "loadComments failed", e)
-            }
+            } catch (_: Exception) { }
             _isLoading.value = false
         }
     }
@@ -192,19 +190,24 @@ class CommentsViewModel @Inject constructor(
 
             // Send to server, reload on success, rollback on failure
             try {
-                val newId = postRepository.addComment(
+                val newCommentId = postRepository.addComment(
                     postId = postId,
                     userId = userId,
                     text = text,
                     parentCommentId = parentId,
                     replyToUserId = replyToUserId,
                 )
-                android.util.Log.d("CorusComments", "addComment succeeded, newId=$newId, now reloading")
-                // Small delay to allow Firestore write to propagate before Cloud Function reads it
-                kotlinx.coroutines.delay(500)
                 loadComments(postId)
-            } catch (e: Exception) {
-                android.util.Log.e("CorusComments", "Failed to send comment", e)
+                sendCommentNotifications(
+                    userId = userId,
+                    postId = postId,
+                    newCommentId = newCommentId,
+                    text = text,
+                    gifURL = null,
+                    parentId = parentId,
+                    replyToUserId = replyToUserId,
+                )
+            } catch (_: Exception) {
                 // Rollback optimistic insert
                 if (parentId != null) {
                     _repliesByParent.value = _repliesByParent.value.toMutableMap().apply {
@@ -256,7 +259,7 @@ class CommentsViewModel @Inject constructor(
             _isSending.value = false
 
             try {
-                postRepository.addComment(
+                val newCommentId = postRepository.addComment(
                     postId = postId,
                     userId = userId,
                     text = "",
@@ -265,6 +268,15 @@ class CommentsViewModel @Inject constructor(
                     gifURL = gifURL,
                 )
                 loadComments(postId)
+                sendCommentNotifications(
+                    userId = userId,
+                    postId = postId,
+                    newCommentId = newCommentId,
+                    text = "",
+                    gifURL = gifURL,
+                    parentId = parentId,
+                    replyToUserId = replyToUserId,
+                )
             } catch (_: Exception) {
                 if (parentId != null) {
                     _repliesByParent.value = _repliesByParent.value.toMutableMap().apply {
@@ -358,6 +370,23 @@ class CommentsViewModel @Inject constructor(
                     postRepository.unlikeComment(userId, postId, commentId)
                 } else {
                     postRepository.likeComment(userId, postId, commentId)
+                    // Send comment_like notification (matches iOS)
+                    try {
+                        val comment = _comments.value.find { it.id == commentId }
+                            ?: _repliesByParent.value.values.flatten().find { it.id == commentId }
+                        val commentOwnerId = comment?.user?.id
+                        val post = postRepository.getCachedPost(postId)
+                        if (commentOwnerId != null) {
+                            postRepository.createNotification(
+                                type = "comment_like",
+                                fromUserId = userId,
+                                toUserId = commentOwnerId,
+                                postId = postId,
+                                postAlbumArtURL = post?.displayImageURL,
+                                commentId = commentId,
+                            )
+                        }
+                    } catch (_: Exception) { }
                 }
             } catch (_: Exception) {
                 // Revert optimistic update on failure
@@ -437,6 +466,115 @@ class CommentsViewModel @Inject constructor(
             userRepository.fetchUserByUsername(username)?.id
         } catch (_: Exception) {
             null
+        }
+    }
+
+    // ── Comment/reply/mention notifications (matches iOS addComment) ──
+
+    private fun sendCommentNotifications(
+        userId: String,
+        postId: String,
+        newCommentId: String,
+        text: String,
+        gifURL: String?,
+        parentId: String?,
+        replyToUserId: String?,
+    ) {
+        viewModelScope.launch {
+            try {
+                val post = postRepository.getCachedPost(postId)
+                val ownerId = post?.user?.id
+                val albumArtURL = post?.displayImageURL
+                val truncatedText = if (gifURL != null) "sent a GIF"
+                    else if (text.length > 100) text.take(100) + "…"
+                    else text
+
+                val notifiedIds = mutableSetOf(userId) // Don't notify self
+
+                if (parentId != null) {
+                    // Reply — notify parent comment author
+                    val parentComment = _comments.value.find { it.id == parentId }
+                        ?: _repliesByParent.value.values.flatten().find { it.id == parentId }
+                    val parentOwnerId = parentComment?.user?.id
+                    if (parentOwnerId != null && notifiedIds.add(parentOwnerId)) {
+                        try {
+                            postRepository.createNotification(
+                                type = "reply",
+                                fromUserId = userId,
+                                toUserId = parentOwnerId,
+                                postId = postId,
+                                postAlbumArtURL = albumArtURL,
+                                commentText = truncatedText,
+                                commentId = newCommentId,
+                            )
+                        } catch (_: Exception) { }
+                    }
+
+                    // Notify the user being replied to (if different from parent author)
+                    if (replyToUserId != null && notifiedIds.add(replyToUserId)) {
+                        try {
+                            postRepository.createNotification(
+                                type = "reply",
+                                fromUserId = userId,
+                                toUserId = replyToUserId,
+                                postId = postId,
+                                postAlbumArtURL = albumArtURL,
+                                commentText = truncatedText,
+                                commentId = newCommentId,
+                            )
+                        } catch (_: Exception) { }
+                    }
+
+                    // Notify post owner as a comment notification (if not already notified)
+                    if (ownerId != null && notifiedIds.add(ownerId)) {
+                        try {
+                            postRepository.createNotification(
+                                type = "comment",
+                                fromUserId = userId,
+                                toUserId = ownerId,
+                                postId = postId,
+                                postAlbumArtURL = albumArtURL,
+                                commentText = truncatedText,
+                                commentId = newCommentId,
+                            )
+                        } catch (_: Exception) { }
+                    }
+                } else {
+                    // Top-level comment — notify post owner
+                    if (ownerId != null && notifiedIds.add(ownerId)) {
+                        try {
+                            postRepository.createNotification(
+                                type = "comment",
+                                fromUserId = userId,
+                                toUserId = ownerId,
+                                postId = postId,
+                                postAlbumArtURL = albumArtURL,
+                                commentText = truncatedText,
+                                commentId = newCommentId,
+                            )
+                        } catch (_: Exception) { }
+                    }
+                }
+
+                // Mention notifications
+                val mentionedUsernames = extractMentions(text)
+                for (username in mentionedUsernames) {
+                    val mentionedUser = try { userRepository.fetchUserByUsername(username) } catch (_: Exception) { null }
+                    if (mentionedUser != null && mentionedUser.id != userId && mentionedUser.id != ownerId) {
+                        try {
+                            postRepository.createNotification(
+                                type = "mention",
+                                fromUserId = userId,
+                                toUserId = mentionedUser.id,
+                                postId = postId,
+                                postAlbumArtURL = albumArtURL,
+                                commentText = truncatedText,
+                                commentId = newCommentId,
+                            )
+                        } catch (_: Exception) { }
+                    }
+                }
+            } catch (_: Exception) { }
         }
     }
 

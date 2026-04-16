@@ -57,7 +57,9 @@ data class CymbalPost(
         @Suppress("UNCHECKED_CAST")
         fun fromCloudData(data: Map<String, Any?>): CymbalPost {
             val userData = data["user"] as? Map<String, Any?> ?: emptyMap()
-            val userId = userData["id"] as? String ?: ""
+            val userId = userData["id"] as? String
+                ?: data["userId"] as? String  // fallback to top-level userId
+                ?: ""
             val user = CymbalUser.fromMap(userId, userData)
 
             val mediaTypeStr = data["mediaType"] as? String

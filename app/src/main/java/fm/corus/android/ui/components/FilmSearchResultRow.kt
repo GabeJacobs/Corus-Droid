@@ -73,7 +73,7 @@ fun FilmSearchResultRow(
                     )
                     if (movie.year.isNotBlank()) {
                         Text(
-                            text = movie.year,
+                            text = "(${movie.year})",
                             style = CorusFont.caption,
                             color = CorusColors.Tertiary,
                         )
@@ -93,7 +93,7 @@ fun FilmSearchResultRow(
                     )
                     if (movie.year.isNotBlank()) {
                         Text(
-                            text = movie.year,
+                            text = "(${movie.year})",
                             style = CorusFont.caption,
                             color = CorusColors.Tertiary,
                         )

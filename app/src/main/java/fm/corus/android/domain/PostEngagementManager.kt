@@ -129,8 +129,24 @@ class PostEngagementManager @Inject constructor(
 
         scope.launch {
             try {
-                if (newLiked) postRepository.likePost(userId, postId)
-                else postRepository.unlikePost(userId, postId)
+                if (newLiked) {
+                    postRepository.likePost(userId, postId)
+                    // Send notification to post owner (matches iOS behavior)
+                    try {
+                        val post = postRepository.getCachedPost(postId)
+                        if (post != null) {
+                            postRepository.createNotification(
+                                type = "like",
+                                fromUserId = userId,
+                                toUserId = post.user.id,
+                                postId = postId,
+                                postAlbumArtURL = post.displayImageURL,
+                            )
+                        }
+                    } catch (_: Exception) { }
+                } else {
+                    postRepository.unlikePost(userId, postId)
+                }
             } catch (e: Exception) {
                 // Rollback on failure
                 _states.update { map ->
@@ -154,8 +170,24 @@ class PostEngagementManager @Inject constructor(
 
         scope.launch {
             try {
-                if (newSaved) postRepository.savePost(userId, postId)
-                else postRepository.unsavePost(userId, postId)
+                if (newSaved) {
+                    postRepository.savePost(userId, postId)
+                    // Send save notification (matches iOS)
+                    try {
+                        val post = postRepository.getCachedPost(postId)
+                        if (post != null) {
+                            postRepository.createNotification(
+                                type = "save",
+                                fromUserId = userId,
+                                toUserId = post.user.id,
+                                postId = postId,
+                                postAlbumArtURL = post.displayImageURL,
+                            )
+                        }
+                    } catch (_: Exception) { }
+                } else {
+                    postRepository.unsavePost(userId, postId)
+                }
             } catch (e: Exception) {
                 _states.update { map ->
                     map + (postId to current)
@@ -190,6 +222,16 @@ class PostEngagementManager @Inject constructor(
         scope.launch {
             try {
                 postRepository.repostPost(userId, post)
+                // Send repost notification (matches iOS)
+                try {
+                    postRepository.createNotification(
+                        type = "repost",
+                        fromUserId = userId,
+                        toUserId = post.user.id,
+                        postId = post.id,
+                        postAlbumArtURL = post.displayImageURL,
+                    )
+                } catch (_: Exception) { }
             } catch (e: Exception) {
                 // Rollback on failure
                 _states.update { map ->

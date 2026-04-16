@@ -47,11 +47,14 @@ import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
 import fm.corus.android.service.DeepLinkDestination
+import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
+import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlinx.coroutines.flow.StateFlow
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun MainTabScreen(
     viewModel: MainTabViewModel = hiltViewModel(),
@@ -64,6 +67,10 @@ fun MainTabScreen(
     val composeViewModel: ComposeViewModel = hiltViewModel()
     val showMilestonePaywall by viewModel.showMilestonePaywall.collectAsState()
     val milestonePaywallSource by viewModel.milestonePaywallSource.collectAsState()
+
+    // Club offer sheet state
+    var showClubOffer by remember { mutableStateOf(false) }
+    var clubOfferSource by remember { mutableStateOf(PaywallSource.DEFAULT) }
 
     // Observe pre-selected media IDs for compose-with-preselection flow.
     val preSelectedTrackId by viewModel.preSelectedTrackId.collectAsState()
@@ -94,7 +101,7 @@ fun MainTabScreen(
             composeViewModel.reset()
             composeViewModel.loadAndSelectTrack(trackId)
             showCompose = true
-        } else navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = "POST_LIMIT"))
+        } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
     }
     LaunchedEffect(preSelectedMovieId) {
         val movieId = preSelectedMovieId ?: return@LaunchedEffect
@@ -102,7 +109,7 @@ fun MainTabScreen(
             composeViewModel.reset()
             composeViewModel.loadAndSelectMovie(movieId)
             showCompose = true
-        } else navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = "POST_LIMIT"))
+        } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
     }
 
     // Scroll-to-top triggers: increment to signal a root screen should scroll up
@@ -164,7 +171,7 @@ fun MainTabScreen(
                         if (viewModel.subscriptionRepository.canPost) {
                             composeViewModel.reset()
                             showCompose = true
-                        } else navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = "POST_LIMIT"))
+                        } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
                     } else {
                         if (tab == selectedTab) {
                             // Re-tap: pop to root if deep, scroll to top if already at root
@@ -188,7 +195,7 @@ fun MainTabScreen(
                     if (viewModel.subscriptionRepository.canPost) {
                         composeViewModel.reset()
                         showCompose = true
-                    } else navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = "POST_LIMIT"))
+                    } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
                 },
             )
             }
@@ -221,7 +228,7 @@ fun MainTabScreen(
                             composeViewModel.reset()
                             composeMovieMode = mediaType == "movie"
                             showCompose = true
-                        } else navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = "POST_LIMIT"))
+                        } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
                     },
                 )
             }
@@ -230,16 +237,16 @@ fun MainTabScreen(
             fm.corus.android.ui.components.ToastHost()
         }
 
-        // Milestone paywall — navigate to full Corus Club offer screen
+        // Milestone paywall — show club offer sheet
         if (showMilestonePaywall) {
             LaunchedEffect(Unit) {
-                val source = when (milestonePaywallSource) {
-                    MilestonePaywallSource.FIRST_POST -> "FIRST_POST"
-                    MilestonePaywallSource.TENTH_POST -> "TENTH_POST"
-                    null -> "DEFAULT"
+                clubOfferSource = when (milestonePaywallSource) {
+                    MilestonePaywallSource.FIRST_POST -> PaywallSource.FIRST_POST
+                    MilestonePaywallSource.TENTH_POST -> PaywallSource.TENTH_POST
+                    null -> PaywallSource.DEFAULT
                 }
                 viewModel.dismissMilestonePaywall()
-                navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = source))
+                showClubOffer = true
             }
         }
     }
@@ -262,6 +269,22 @@ fun MainTabScreen(
             preSelectedMovieId = preSelectedMovieId,
         )
     }
+    // ── Club Offer Sheet ──
+    if (showClubOffer) {
+        val clubSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { showClubOffer = false },
+            sheetState = clubSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
+        ) {
+            CymbalClubOfferSheet(
+                source = clubOfferSource,
+                onDismiss = { showClubOffer = false },
+            )
+        }
+    }
+
     } // end outer Box
 }
 
