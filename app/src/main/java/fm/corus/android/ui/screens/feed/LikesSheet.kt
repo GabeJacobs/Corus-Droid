@@ -125,89 +125,89 @@ private fun LikesSheetContent(
 
         HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
 
-        when {
-            isLoading && likers.isEmpty() -> {
-                // Skeleton loading
-                LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    items(10) {
-                        SkeletonLikerRow()
-                    }
-                }
-            }
-            filteredLikers.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 200.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        // Single LazyColumn for all states. The bottom spacer guarantees the content
+        // always overflows, which is required for ModalBottomSheet drag-to-expand to work.
+        val listState = rememberLazyListState()
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (isLoading && likers.isEmpty()) {
+                items(10) { SkeletonLikerRow() }
+            } else if (filteredLikers.isEmpty()) {
+                item(key = "empty") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 200.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            Icons.Filled.Favorite,
-                            contentDescription = null,
-                            tint = CorusColors.Tertiary,
-                            modifier = Modifier.size(36.dp),
-                        )
-                        Text(
-                            text = if (searchQuery.isEmpty()) "No likes yet" else "No results",
-                            style = CorusFont.bodyMedium,
-                            color = CorusColors.Secondary,
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                        ) {
+                            Icon(
+                                Icons.Filled.Favorite,
+                                contentDescription = null,
+                                tint = CorusColors.Tertiary,
+                                modifier = Modifier.size(36.dp),
+                            )
+                            Text(
+                                text = if (searchQuery.isEmpty()) "No likes yet" else "No results",
+                                style = CorusFont.bodyMedium,
+                                color = CorusColors.Secondary,
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(filteredLikers, key = { it.id }) { user ->
+                    val isSelf = user.id == viewModel.currentUserId
+                    val isFollowing = followingIds.contains(user.id)
+                    val isFollower = followerIds.contains(user.id)
+
+                    LikerRow(
+                        user = user,
+                        isFollowing = isFollowing,
+                        isFollower = isFollower,
+                        isSelf = isSelf,
+                        onUserTap = {
+                            onNavigateToUser(user.id)
+                            onDismiss()
+                        },
+                        onFollowTap = { viewModel.toggleFollow(user.id) },
+                    )
+
+                    if (user.id == filteredLikers.lastOrNull()?.id && searchQuery.isEmpty()) {
+                        LaunchedEffect(user.id) {
+                            viewModel.loadNextPageIfNeeded()
+                        }
+                    }
+                }
+
+                if (isLoadingMore) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = CorusSpacing.md),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(
+                                color = CorusColors.Accent,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        }
                     }
                 }
             }
-            else -> {
-                val listState = rememberLazyListState()
 
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    items(filteredLikers, key = { it.id }) { user ->
-                        val isSelf = user.id == viewModel.currentUserId
-                        val isFollowing = followingIds.contains(user.id)
-                        val isFollower = followerIds.contains(user.id)
-
-                        LikerRow(
-                            user = user,
-                            isFollowing = isFollowing,
-                            isFollower = isFollower,
-                            isSelf = isSelf,
-                            onUserTap = {
-                                onNavigateToUser(user.id)
-                                onDismiss()
-                            },
-                            onFollowTap = { viewModel.toggleFollow(user.id) },
-                        )
-
-                        // Trigger pagination when reaching last item
-                        if (user.id == filteredLikers.lastOrNull()?.id && searchQuery.isEmpty()) {
-                            LaunchedEffect(user.id) {
-                                viewModel.loadNextPageIfNeeded()
-                            }
-                        }
-                    }
-
-                    if (isLoadingMore) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = CorusSpacing.md),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator(
-                                    color = CorusColors.Accent,
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                            }
-                        }
-                    }
-                }
+            // Invisible spacer that forces content to always overflow the visible area.
+            // Without this, drag-to-expand won't work when there are few items.
+            item(key = "expand_spacer") {
+                Spacer(modifier = Modifier.fillParentMaxHeight())
             }
         }
     }

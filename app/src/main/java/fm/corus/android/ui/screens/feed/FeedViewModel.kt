@@ -3,9 +3,12 @@ package fm.corus.android.ui.screens.feed
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import android.util.Log
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.TMDBApiService
 import fm.corus.android.data.remote.TMDBMovieDetails
 import fm.corus.android.data.repository.AuthRepository
@@ -35,6 +38,7 @@ class FeedViewModel @Inject constructor(
     private val engagementManager: PostEngagementManager,
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
+    private val cloudFunctions: CloudFunctionsDataSource,
     private val tmdbApiService: TMDBApiService,
     val nowPlayingManager: NowPlayingManager,
     val remoteConfig: RemoteConfigService,
@@ -86,6 +90,20 @@ class FeedViewModel @Inject constructor(
     val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
 
     private var shareSearchJob: Job? = null
+
+    // ── Curated bots (empty feed) ──
+    private val _curatedMusicBots = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
+    val curatedMusicBots: StateFlow<List<SuggestedUserMatch>> = _curatedMusicBots.asStateFlow()
+
+    private val _curatedFilmBots = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
+    val curatedFilmBots: StateFlow<List<SuggestedUserMatch>> = _curatedFilmBots.asStateFlow()
+
+    private val _isBotsLoading = MutableStateFlow(true)
+    val isBotsLoading: StateFlow<Boolean> = _isBotsLoading.asStateFlow()
+
+    // Follow state for bot cards
+    private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
+    private val _localFollowedIds = MutableStateFlow<Set<String>>(emptySet())
 
     // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
     private val activeListenerPostIds = mutableSetOf<String>()
@@ -336,6 +354,55 @@ class FeedViewModel @Inject constructor(
 
     fun isPostSaved(postId: String): Boolean {
         return engagementManager.getState(postId)?.isSaved ?: false
+    }
+
+    // ── Curated bots ──
+
+    fun loadBotSuggestions() {
+        val uid = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            userRepository.followingIds.collect { ids ->
+                _followingIds.value = ids
+            }
+        }
+        viewModelScope.launch {
+            try {
+                val musicBots = cloudFunctions.getBotSuggestions(uid, botType = "music")
+                _curatedMusicBots.value = musicBots
+            } catch (e: Exception) {
+                Log.e("FeedVM", "Failed to load music bots", e)
+            }
+            try {
+                val filmBots = cloudFunctions.getBotSuggestions(uid, botType = "film")
+                _curatedFilmBots.value = filmBots
+            } catch (e: Exception) {
+                Log.e("FeedVM", "Failed to load film bots", e)
+            }
+            _isBotsLoading.value = false
+        }
+    }
+
+    fun toggleBotFollow(user: CymbalUser) {
+        val uid = authRepository.currentUserId ?: return
+        val isFollowed = _localFollowedIds.value.contains(user.id) || _followingIds.value.contains(user.id)
+        viewModelScope.launch {
+            if (isFollowed) {
+                _localFollowedIds.value = _localFollowedIds.value - user.id
+                _followingIds.value = _followingIds.value - user.id
+                try { userRepository.unfollowUser(uid, user.id) } catch (_: Exception) {
+                    _followingIds.value = _followingIds.value + user.id
+                }
+            } else {
+                _localFollowedIds.value = _localFollowedIds.value + user.id
+                try { userRepository.followUser(uid, user.id) } catch (_: Exception) {
+                    _localFollowedIds.value = _localFollowedIds.value - user.id
+                }
+            }
+        }
+    }
+
+    fun isBotFollowed(userId: String): Boolean {
+        return _localFollowedIds.value.contains(userId) || _followingIds.value.contains(userId)
     }
 
     suspend fun fetchMovieDetails(movieId: Int): TMDBMovieDetails? {

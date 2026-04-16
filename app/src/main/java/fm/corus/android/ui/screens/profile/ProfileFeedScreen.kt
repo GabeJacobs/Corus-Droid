@@ -209,7 +209,7 @@ fun ProfileFeedScreen(
 
     // ── Share Post Bottom Sheet ──
     sharePost?.let { post ->
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         val shareSearchResults by viewModel.shareSearchResults.collectAsState()
         val recentShareContacts by viewModel.recentShareContacts.collectAsState()
         val isShareSearching by viewModel.isShareSearching.collectAsState()
@@ -233,6 +233,7 @@ fun ProfileFeedScreen(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 instagramShareEnabled = false,
+                sheetState = shareSheetState,
                 onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
                 onSendToUser = { targetUserId, message ->
                     viewModel.sendPostToUser(targetUserId, post, message)

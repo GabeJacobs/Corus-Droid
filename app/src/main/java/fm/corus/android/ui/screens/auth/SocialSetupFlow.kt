@@ -43,12 +43,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.ui.components.SkeletonSectionHeader
 import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -119,7 +121,7 @@ private fun SyncContactsScreen(
             .padding(horizontal = CorusSpacing.xxl),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(modifier = Modifier.height(60.dp))
+        Spacer(modifier = Modifier.height(80.dp))
 
         Text(
             "Find Your Friends",
@@ -135,19 +137,22 @@ private fun SyncContactsScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Animated radar illustration — matches iOS: expanding ring + sequential avatar highlights
-        RadarAnimation()
+        // Animated radar illustration + description — matches iOS layout
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            RadarAnimation()
+
+            Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+
+            Text(
+                "Sync your contacts to discover\nfriends who might be on Corus.",
+                style = CorusFont.bodyMedium,
+                color = CorusColors.Secondary,
+                textAlign = TextAlign.Center,
+                lineHeight = 22.sp,
+            )
+        }
 
         Spacer(modifier = Modifier.weight(1f))
-
-        Text(
-            "Sync your contacts to discover friends who might be on Corus.",
-            style = CorusFont.bodyMedium,
-            color = CorusColors.Secondary,
-            textAlign = TextAlign.Center,
-        )
-
-        Spacer(modifier = Modifier.height(CorusSpacing.xxl))
 
         // Sync button with icon — matches iOS: person.crop.circle.badge.plus
         Button(
@@ -193,28 +198,47 @@ private fun SyncContactsScreen(
  */
 @Composable
 private fun RadarAnimation() {
-    val infiniteTransition = rememberInfiniteTransition(label = "radar")
+    val avatarCount = 5
+    val radarDuration = 2400L   // ms — ring expansion
+    val pauseDuration = 800L    // ms — hold after last avatar
 
-    // Radar ring expansion: 0f → 1f over 2.4s
-    val radarProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2400, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
+    // Phase state drives the sequential highlight: 0 = reset, 1 = ring expanding,
+    // 2..6 = avatars 0..4 highlighted one-by-one (matching iOS radarPhase logic).
+    var radarPhase by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            radarPhase = 0
+            kotlinx.coroutines.delay(100)
+
+            radarPhase = 1  // start ring expansion
+
+            // Highlight each avatar sequentially as ring passes it
+            for (i in 0 until avatarCount) {
+                val delayMs = (580 + i * 50).toLong()
+                kotlinx.coroutines.delay(delayMs)
+                radarPhase = 2 + i
+            }
+
+            kotlinx.coroutines.delay(pauseDuration)
+        }
+    }
+
+    // Ring expansion driven by radarPhase > 0
+    val ringSize by animateFloatAsState(
+        targetValue = if (radarPhase > 0) 220f else 20f,
+        animationSpec = tween(
+            durationMillis = if (radarPhase > 0) radarDuration.toInt() else 0,
+            easing = FastOutSlowInEasing,
         ),
-        label = "radar-ring",
+        label = "ring-size",
     )
-
-    // Radar ring opacity: fades out as it expands
-    val radarAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2400, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
+    val ringAlpha by animateFloatAsState(
+        targetValue = if (radarPhase > 0) 0f else 0.25f,
+        animationSpec = tween(
+            durationMillis = if (radarPhase > 0) radarDuration.toInt() else 0,
         ),
-        label = "radar-alpha",
+        label = "ring-alpha",
     )
 
     Box(
@@ -239,59 +263,48 @@ private fun RadarAnimation() {
         // Animated expanding radar ring
         Box(
             modifier = Modifier
-                .size((60 + 180 * radarProgress).dp)
+                .size(ringSize.dp)
                 .clip(CircleShape)
-                .border(2.dp, CorusColors.Accent.copy(alpha = radarAlpha), CircleShape),
+                .border(2.dp, CorusColors.Accent.copy(alpha = ringAlpha), CircleShape),
         )
 
-        // Avatar placeholders at 72° intervals — highlight as radar passes
-        val angles = listOf(0f, 72f, 144f, 216f, 288f)
-        angles.forEachIndexed { index, angle ->
-            val radians = Math.toRadians(angle.toDouble())
-            val radius = 72.dp
-
-            // Each avatar highlights when the radar ring reaches its position
-            val avatarDistance = 72f / 105f // normalized position (radius / max radar radius)
-            val isHighlighted = radarProgress > avatarDistance &&
-                    radarProgress < avatarDistance + 0.3f
+        // Avatar placeholders at 72° intervals — highlight sequentially (matching iOS)
+        for (i in 0 until avatarCount) {
+            val angle = i * (2.0 * Math.PI / avatarCount) - Math.PI / 2
+            val isHighlighted = radarPhase >= 2 + i
 
             val avatarScale by animateFloatAsState(
                 targetValue = if (isHighlighted) 1.15f else 1f,
-                animationSpec = tween(200),
-                label = "avatar-scale-$index",
-            )
-            val avatarAlpha by animateFloatAsState(
-                targetValue = if (isHighlighted) 1f else 0.5f,
-                animationSpec = tween(200),
-                label = "avatar-alpha-$index",
+                animationSpec = tween(300),
+                label = "avatar-scale-$i",
             )
 
             Box(
                 modifier = Modifier
                     .offset(
-                        x = (radius.value * kotlin.math.cos(radians)).dp,
-                        y = (radius.value * kotlin.math.sin(radians)).dp,
+                        x = (72 * kotlin.math.cos(angle)).dp,
+                        y = (72 * kotlin.math.sin(angle)).dp,
                     )
                     .scale(avatarScale)
-                    .graphicsLayer { alpha = avatarAlpha }
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(CorusColors.Accent.copy(alpha = 0.15f)),
+                    .background(CorusColors.Accent.copy(alpha = if (isHighlighted) 0.5f else 0.2f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Filled.Person,
                     contentDescription = null,
-                    tint = CorusColors.Accent,
+                    tint = CorusColors.Accent.copy(alpha = if (isHighlighted) 1f else 0.6f),
                     modifier = Modifier.size(18.dp),
                 )
             }
         }
-        // Center logo
-        Text(
-            "c",
-            style = CorusFont.appTitle,
-            color = CorusColors.Accent,
+
+        // Center logo — matches iOS: actual logo image
+        Image(
+            painter = painterResource(R.drawable.logo_no_background),
+            contentDescription = "Corus",
+            modifier = Modifier.size(64.dp),
         )
     }
 }
@@ -410,64 +423,67 @@ private fun FollowFriendsScreen(
             } else {
                 // Suggestion sections
 
-                // Friends on Corus — with emoji matching iOS
-                if (contactMatches.isNotEmpty()) {
-                    item {
-                        OnboardingSectionHeader(
-                            title = "\uD83D\uDC65 Friends on Corus",
-                            showSeeAll = contactMatches.size > 5,
-                            onSeeAll = { showSeeAll = SeeAllDestination.FRIENDS },
-                        )
-                    }
-                    items(contactMatches.take(5), key = { "contact-${it.id}" }) { user ->
-                        OnboardingUserRow(
-                            user = user,
-                            subtitle = "From your contacts",
-                            isFollowed = followedIds.contains(user.id),
-                            onFollow = { viewModel.toggleFollow(user.id) },
-                            onTap = { viewModel.playUserPreview(user.id) },
-                        )
-                    }
-                } else {
-                    // Friends empty state — matches iOS
-                    item {
-                        OnboardingSectionHeader(
-                            title = "\uD83D\uDC65 Friends on Corus",
-                        )
-                    }
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.lg),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                "None of your contacts are on Corus yet",
-                                style = CorusFont.bodyMedium,
-                                color = CorusColors.Secondary,
+                // Friends on Corus — only show after loading completes (matching iOS)
+                if (!isLoading) {
+                    if (contactMatches.isNotEmpty()) {
+                        item {
+                            OnboardingSectionHeader(
+                                title = "\uD83D\uDC65 Friends on Corus",
+                                showSeeAll = contactMatches.size > 5,
+                                onSeeAll = { showSeeAll = SeeAllDestination.FRIENDS },
                             )
-                            Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                            Text(
-                                "We'll notify you when they join",
-                                style = CorusFont.caption,
-                                color = CorusColors.Tertiary,
+                        }
+                        items(contactMatches.take(5), key = { "contact-${it.id}" }) { user ->
+                            OnboardingUserRow(
+                                user = user,
+                                subtitle = "From your contacts",
+                                isFollowed = followedIds.contains(user.id),
+                                onFollow = { viewModel.toggleFollow(user.id) },
+                                onTap = { viewModel.playUserPreview(user.id) },
                             )
+                        }
+                    } else {
+                        // Friends empty state — matches iOS
+                        item {
+                            OnboardingSectionHeader(
+                                title = "\uD83D\uDC65 Friends on Corus",
+                            )
+                        }
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.lg),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    "None of your contacts are on Corus yet",
+                                    style = CorusFont.bodyMedium,
+                                    color = CorusColors.Secondary,
+                                )
+                                Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                                Text(
+                                    "We'll notify you when they join",
+                                    style = CorusFont.caption,
+                                    color = CorusColors.Tertiary,
+                                )
+                            }
                         }
                     }
                 }
 
-                // Popular on Corus — with emoji, show 4 (matching iOS)
-                item {
-                    OnboardingSectionHeader(
-                        title = "\uD83D\uDD25 Popular on Corus",
-                        showSeeAll = popularUsers.size > 4,
-                        onSeeAll = { showSeeAll = SeeAllDestination.POPULAR },
-                    )
-                }
+                // Popular on Corus — with skeleton header + rows matching iOS
                 if (isLoading) {
+                    item { SkeletonSectionHeader() }
                     items(4) { SkeletonUserRow() }
-                } else {
+                } else if (popularUsers.isNotEmpty()) {
+                    item {
+                        OnboardingSectionHeader(
+                            title = "\uD83D\uDD25 Popular on Corus",
+                            showSeeAll = popularUsers.size > 4,
+                            onSeeAll = { showSeeAll = SeeAllDestination.POPULAR },
+                        )
+                    }
                     items(popularUsers.take(4), key = { "popular-${it.id}" }) { user ->
                         OnboardingUserRow(
                             user = user,

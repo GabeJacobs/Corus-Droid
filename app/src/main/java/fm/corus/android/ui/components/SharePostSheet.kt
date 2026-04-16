@@ -36,6 +36,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,6 +48,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SharePostSheet(
     post: CymbalPost,
@@ -55,6 +57,7 @@ fun SharePostSheet(
     isSearching: Boolean,
     isLoadingContacts: Boolean,
     instagramShareEnabled: Boolean,
+    sheetState: SheetState,
     onSearchQueryChange: (String) -> Unit,
     onSendToUser: (userId: String, message: String) -> Unit,
     onRepost: () -> Unit,
@@ -62,6 +65,7 @@ fun SharePostSheet(
     onAnalyticsLog: ((method: String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedUser by remember { mutableStateOf<CymbalUser?>(null) }
     var messageText by remember { mutableStateOf("") }
@@ -70,6 +74,15 @@ fun SharePostSheet(
     val coroutineScope = rememberCoroutineScope()
 
     val isSearchActive = isSearchFocused || searchQuery.isNotBlank()
+
+    // Expand sheet when search is active, collapse when done
+    LaunchedEffect(isSearchActive) {
+        if (isSearchActive) {
+            sheetState.expand()
+        } else {
+            sheetState.partialExpand()
+        }
+    }
 
     // Auto-reset copied confirmation after 4 seconds
     LaunchedEffect(showCopied) {
@@ -82,7 +95,9 @@ fun SharePostSheet(
     val shareableLink = "https://corus.fm/post/${post.id}"
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (isSearchActive) Modifier.fillMaxHeight() else Modifier),
     ) {
         // Drag indicator
         Box(
@@ -155,7 +170,7 @@ fun SharePostSheet(
             val usersToShow = if (hasQuery) searchResults else recentContacts
 
             LazyColumn(
-                modifier = Modifier.heightIn(max = 300.dp),
+                modifier = Modifier.weight(1f),
             ) {
                 if (isSearching) {
                     item {
@@ -190,6 +205,7 @@ fun SharePostSheet(
                             searchQuery = ""
                             onSearchQueryChange("")
                             isSearchFocused = false
+                            focusManager.clearFocus()
                         }
                     }
                 }
@@ -437,7 +453,15 @@ private fun ShareUserRow(
         UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            Text(user.username, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            UsernameWithFlair(
+                username = user.username,
+                isVerified = user.isVerified,
+                isClubMember = user.isClubMember,
+                flairStyle = user.flairStyle,
+                isBot = user.isBot,
+                style = CorusFont.username,
+                color = CorusColors.Text,
+            )
             Text(user.displayName, style = CorusFont.caption, color = CorusColors.Secondary)
         }
         if (isSelected) {

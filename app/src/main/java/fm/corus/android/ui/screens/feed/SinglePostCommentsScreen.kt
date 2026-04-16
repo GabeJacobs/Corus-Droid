@@ -156,7 +156,9 @@ fun SinglePostCommentsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color.White)
-                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        .navigationBarsPadding()
+                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+                        .imePadding(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextField(

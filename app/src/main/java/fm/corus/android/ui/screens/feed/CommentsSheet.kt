@@ -17,30 +17,27 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -68,8 +65,10 @@ fun CommentsBottomSheet(
     onNavigateToUser: (String) -> Unit = {},
 ) {
     val viewModel: CommentsViewModel = hiltViewModel()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-    val scope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Explicitly handle system back to dismiss the sheet
+    BackHandler(enabled = true) { onDismiss() }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -77,16 +76,21 @@ fun CommentsBottomSheet(
         containerColor = Color.White,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
-        val isSheetExpanded = sheetState.targetValue == SheetValue.Expanded
+        // Cap content height so the drag handle stays below the status bar / camera cutout
+        val screenHeightDp = LocalConfiguration.current.screenHeightDp.dp
+        val density = LocalDensity.current
+        val statusBarTop = WindowInsets.statusBars.getTop(density)
+        val statusBarDp = with(density) { statusBarTop.toDp() }
+        // Leave room for status bar + a small visual gap
+        val sheetHeightDp = screenHeightDp - statusBarDp - 16.dp
+
         CommentsSheetContent(
             postId = postId,
             viewModel = viewModel,
             onDismiss = onDismiss,
             onNavigateToUser = onNavigateToUser,
-            isSheetExpanded = isSheetExpanded,
-            onExpandSheet = {
-                scope.launch { sheetState.expand() }
-            },
+            autoFocusInput = true,
+            maxHeight = sheetHeightDp,
         )
     }
 }
@@ -123,15 +127,14 @@ fun CommentsSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ColumnScope.CommentsSheetContent(
+private fun CommentsSheetContent(
     postId: String,
     viewModel: CommentsViewModel = hiltViewModel(),
     onDismiss: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
-    isSheetExpanded: Boolean = true,
-    onExpandSheet: () -> Unit = {},
+    autoFocusInput: Boolean = false,
+    maxHeight: Dp = Dp.Unspecified,
 ) {
     val comments by viewModel.comments.collectAsState()
     val repliesByParent by viewModel.repliesByParent.collectAsState()
@@ -146,11 +149,10 @@ private fun ColumnScope.CommentsSheetContent(
     var commentText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     var showGifPicker by remember { mutableStateOf(false) }
-
     val maxChars = 700
     val showCounter = commentText.length >= 650
-    val coroutineScope = rememberCoroutineScope()
 
+    val coroutineScope = rememberCoroutineScope()
     val handleMentionTap: (String) -> Unit = { username ->
         coroutineScope.launch {
             val userId = viewModel.resolveUsernameToId(username)
@@ -173,18 +175,15 @@ private fun ColumnScope.CommentsSheetContent(
     LaunchedEffect(replyingTo) {
         if (replyingTo != null) {
             focusRequester.requestFocus()
-            onExpandSheet()
         }
     }
 
-    // Expand sheet when keyboard appears
-    val density = LocalDensity.current
-    val imeBottom = WindowInsets.ime.getBottom(density)
-    LaunchedEffect(imeBottom) {
-        if (imeBottom > 0) onExpandSheet()
+    // Auto-focus input to open keyboard immediately (Instagram-style)
+    if (autoFocusInput) {
+        LaunchedEffect(Unit) {
+            focusRequester.requestFocus()
+        }
     }
-
-    val latestOnExpand by rememberUpdatedState(onExpandSheet)
 
     if (viewModel.giphySupport && showGifPicker) {
         GifPickerSheet(
@@ -196,82 +195,46 @@ private fun ColumnScope.CommentsSheetContent(
         )
     }
 
-    // Header row with title and close button
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Spacer(modifier = Modifier.weight(1f))
-        Text(
-            "Comments",
-            style = CorusFont.screenTitle,
-            color = CorusColors.Text,
-        )
-        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(32.dp),
-            ) {
-                Icon(
-                    Icons.Filled.Close,
-                    contentDescription = "Close",
-                    tint = CorusColors.Secondary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
+    val heightModifier = if (maxHeight != Dp.Unspecified) {
+        Modifier.height(maxHeight)
+    } else {
+        Modifier
     }
 
-    val configuration = LocalConfiguration.current
-    val commentsPartialMaxHeight = (configuration.screenHeightDp * 0.25).dp
-
-    Box(
-        modifier = (if (isSheetExpanded) Modifier.weight(1f) else Modifier
-            .heightIn(min = 100.dp, max = commentsPartialMaxHeight)
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    var dragY = 0f
-                    while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                        val change = event.changes.firstOrNull() ?: return@awaitEachGesture
-                        if (!change.pressed) return@awaitEachGesture
-                        dragY += change.positionChange().y
-                        if (dragY < -viewConfiguration.touchSlop) {
-                            event.changes.forEach { it.consume() }
-                            latestOnExpand()
-                            return@awaitEachGesture
-                        }
-                        if (dragY > viewConfiguration.touchSlop) {
-                            return@awaitEachGesture // downward drag — let sheet handle dismiss
-                        }
-                    }
-                }
-            })
+    Column(
+        modifier = Modifier
             .fillMaxWidth()
+            .then(heightModifier)
+            .imePadding(),
     ) {
-            when {
-                isLoading && comments.isEmpty() -> {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        val skeletonCount = post?.let { maxOf(minOf(it.commentCount, 5), 2) } ?: 3
-                        repeat(skeletonCount) { index ->
-                            SkeletonCommentRow()
-                            if (index < skeletonCount - 1) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(
-                                        start = CorusSpacing.lg + CorusSpacing.avatarMedium + CorusSpacing.sm,
-                                    ),
-                                    color = CorusColors.Divider,
-                                )
-                            }
-                        }
-                    }
-                }
-                comments.isEmpty() && !isLoading && (post?.caption.isNullOrEmpty()) -> {
+        // Centered title (Instagram-style)
+        Text(
+            text = "Comments",
+            style = CorusFont.screenTitle,
+            color = CorusColors.Text,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = CorusSpacing.sm),
+            textAlign = TextAlign.Center,
+        )
+
+        HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+
+        // Single LazyColumn for all states. weight(1f) so the input bar pins below.
+        // The bottom spacer guarantees content always overflows (needed for drag-to-expand).
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            contentPadding = PaddingValues(vertical = CorusSpacing.sm),
+        ) {
+            if (isLoading && comments.isEmpty()) {
+                val skeletonCount = post?.let { maxOf(minOf(it.commentCount, 5), 2) } ?: 3
+                items(skeletonCount) { SkeletonCommentRow() }
+            } else if (comments.isEmpty() && !isLoading && (post?.caption.isNullOrEmpty())) {
+                item(key = "empty") {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 200.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -281,75 +244,59 @@ private fun ColumnScope.CommentsSheetContent(
                         }
                     }
                 }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = CorusSpacing.sm),
-                    ) {
-                        // Caption row (matching iOS — show post author + caption at top)
-                        val captionText = post?.caption
-                        if (!captionText.isNullOrEmpty()) {
-                            item(key = "caption") {
-                                CaptionRow(
-                                    user = post?.user,
-                                    caption = captionText,
-                                    timestamp = post?.timestamp,
-                                    onUserTap = {
-                                        post?.user?.id?.let { onNavigateToUser(it) }
-                                    },
-                                    onMentionTap = handleMentionTap,
-                                )
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = CorusSpacing.lg),
-                                    color = CorusColors.Divider,
-                                )
-                            }
-                        }
+            } else {
+                val captionText = post?.caption
+                if (!captionText.isNullOrEmpty()) {
+                    item(key = "caption") {
+                        CaptionRow(
+                            user = post?.user,
+                            caption = captionText,
+                            timestamp = post?.timestamp,
+                            onUserTap = { post?.user?.id?.let { onNavigateToUser(it) } },
+                            onMentionTap = handleMentionTap,
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                            color = CorusColors.Divider,
+                        )
+                    }
+                }
 
-                        comments.forEach { comment ->
-                            item(key = comment.id) {
-                                CommentRow(
-                                    comment = comment,
-                                    isOwnComment = comment.user.id == viewModel.currentUserId,
-                                    isLiked = likedCommentIds.contains(comment.id),
-                                    onUserTap = { onNavigateToUser(comment.user.id) },
-                                    onReplyTap = { viewModel.setReplyingTo(comment) },
-                                    onLikeTap = { viewModel.toggleCommentLike(comment.id) },
-                                    onDeleteTap = { viewModel.deleteComment(comment.id) },
-                                    onEditTap = {
-                                        viewModel.startEditing(comment)
-                                        commentText = comment.text
-                                    },
-                                    onMentionTap = handleMentionTap,
-                                )
-                            }
-                            // Replies
-                            val replies = repliesByParent[comment.id] ?: emptyList()
-                            replies.forEach { reply ->
-                                item(key = reply.id) {
-                                    CommentRow(
-                                        comment = reply,
-                                        isOwnComment = reply.user.id == viewModel.currentUserId,
-                                        isReply = true,
-                                        isLiked = likedCommentIds.contains(reply.id),
-                                        onUserTap = { onNavigateToUser(reply.user.id) },
-                                        onReplyTap = { viewModel.setReplyingTo(reply) },
-                                        onLikeTap = { viewModel.toggleCommentLike(reply.id) },
-                                        onDeleteTap = { viewModel.deleteComment(reply.id) },
-                                        onEditTap = {
-                                            viewModel.startEditing(reply)
-                                            commentText = reply.text
-                                        },
-                                    )
-                                }
-                            }
+                comments.forEach { comment ->
+                    item(key = comment.id) {
+                        CommentRow(
+                            comment = comment,
+                            isOwnComment = comment.user.id == viewModel.currentUserId,
+                            isLiked = likedCommentIds.contains(comment.id),
+                            onUserTap = { onNavigateToUser(comment.user.id) },
+                            onReplyTap = { viewModel.setReplyingTo(comment) },
+                            onLikeTap = { viewModel.toggleCommentLike(comment.id) },
+                            onDeleteTap = { viewModel.deleteComment(comment.id) },
+                            onMentionTap = handleMentionTap,
+                        )
+                    }
+                    val replies = repliesByParent[comment.id] ?: emptyList()
+                    replies.forEach { reply ->
+                        item(key = reply.id) {
+                            CommentRow(
+                                comment = reply,
+                                isOwnComment = reply.user.id == viewModel.currentUserId,
+                                isReply = true,
+                                isLiked = likedCommentIds.contains(reply.id),
+                                onUserTap = { onNavigateToUser(reply.user.id) },
+                                onReplyTap = { viewModel.setReplyingTo(reply) },
+                                onLikeTap = { viewModel.toggleCommentLike(reply.id) },
+                                onDeleteTap = { viewModel.deleteComment(reply.id) },
+                            )
                         }
                     }
                 }
             }
+
         }
 
-        // Error banner
+        // ── Input bar pinned at the bottom ──
+
         if (sendError != null) {
             Text(
                 text = sendError ?: "",
@@ -362,7 +309,6 @@ private fun ColumnScope.CommentsSheetContent(
             )
         }
 
-        // Editing banner
         if (editingComment != null) {
             Row(
                 modifier = Modifier
@@ -371,28 +317,10 @@ private fun ColumnScope.CommentsSheetContent(
                     .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "Editing comment",
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    Icons.Filled.Close,
-                    contentDescription = "Cancel edit",
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clickable {
-                            viewModel.cancelEditing()
-                            commentText = ""
-                        },
-                    tint = CorusColors.Secondary,
-                )
+                Text("Editing comment", style = CorusFont.caption, color = CorusColors.Secondary, modifier = Modifier.weight(1f))
+                Icon(Icons.Filled.Close, contentDescription = "Cancel edit", modifier = Modifier.size(16.dp).clickable { viewModel.cancelEditing(); commentText = "" }, tint = CorusColors.Secondary)
             }
-        }
-
-        // Reply-to banner
-        if (replyingTo != null && editingComment == null) {
+        } else if (replyingTo != null) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -400,58 +328,33 @@ private fun ColumnScope.CommentsSheetContent(
                     .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "Replying to @${replyingTo?.user?.username}",
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    Icons.Filled.Close,
-                    contentDescription = "Cancel reply",
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clickable { viewModel.setReplyingTo(null) },
-                    tint = CorusColors.Secondary,
-                )
+                Text("Replying to @${replyingTo?.user?.username}", style = CorusFont.caption, color = CorusColors.Secondary, modifier = Modifier.weight(1f))
+                Icon(Icons.Filled.Close, contentDescription = "Cancel reply", modifier = Modifier.size(16.dp).clickable { viewModel.setReplyingTo(null) }, tint = CorusColors.Secondary)
             }
         }
 
-        // Comment input
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
                 .background(Color.White)
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
-                .imePadding(),
+                .navigationBarsPadding()
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextField(
                 value = commentText,
-                onValueChange = {
-                    if (it.length <= maxChars) commentText = it
-                },
+                onValueChange = { if (it.length <= maxChars) commentText = it },
                 modifier = Modifier
                     .weight(1f)
-                    .focusRequester(focusRequester)
-                    .onFocusChanged { state ->
-                        if (state.isFocused) onExpandSheet()
-                    },
-                placeholder = {
-                    Text("Add a comment...", style = CorusFont.body, color = CorusColors.Tertiary)
-                },
+                    .focusRequester(focusRequester),
+                placeholder = { Text("Add a comment...", style = CorusFont.body, color = CorusColors.Tertiary) },
                 singleLine = false,
                 maxLines = 4,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(
                     onSend = {
                         if (commentText.isNotBlank() && !isSending) {
-                            if (editingComment != null) {
-                                viewModel.editComment(editingComment!!.id, commentText)
-                            } else {
-                                viewModel.sendComment(commentText)
-                            }
+                            if (editingComment != null) viewModel.editComment(editingComment!!.id, commentText) else viewModel.sendComment(commentText)
                             commentText = ""
                         }
                     },
@@ -467,55 +370,35 @@ private fun ColumnScope.CommentsSheetContent(
                 textStyle = CorusFont.body.copy(color = CorusColors.Text),
                 trailingIcon = {
                     if (showCounter) {
-                        Text(
-                            text = "${maxChars - commentText.length}",
-                            style = CorusFont.caption,
-                            color = if (commentText.length >= maxChars) CorusColors.Error else CorusColors.Secondary,
-                        )
+                        Text("${maxChars - commentText.length}", style = CorusFont.caption, color = if (commentText.length >= maxChars) CorusColors.Error else CorusColors.Secondary)
                     }
                 },
             )
 
             if (viewModel.giphySupport) {
                 IconButton(onClick = { showGifPicker = true }) {
-                    Icon(
-                        Icons.Filled.Gif,
-                        contentDescription = "Send GIF",
-                        tint = CorusColors.Accent,
-                        modifier = Modifier.size(28.dp),
-                    )
+                    Icon(Icons.Filled.Gif, contentDescription = "Send GIF", tint = CorusColors.Accent, modifier = Modifier.size(28.dp))
                 }
             }
 
             IconButton(
                 onClick = {
                     if (commentText.isNotBlank() && !isSending) {
-                        if (editingComment != null) {
-                            viewModel.editComment(editingComment!!.id, commentText)
-                        } else {
-                            viewModel.sendComment(commentText)
-                        }
+                        if (editingComment != null) viewModel.editComment(editingComment!!.id, commentText) else viewModel.sendComment(commentText)
                         commentText = ""
                     }
                 },
                 enabled = commentText.isNotBlank() && !isSending,
             ) {
                 if (isSending) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = CorusColors.Accent,
-                        strokeWidth = 2.dp,
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = CorusColors.Accent, strokeWidth = 2.dp)
                 } else {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
-                        tint = if (commentText.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary,
-                    )
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = if (commentText.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary)
                 }
             }
         }
     }
+}
 
 @Composable
 private fun CaptionRow(

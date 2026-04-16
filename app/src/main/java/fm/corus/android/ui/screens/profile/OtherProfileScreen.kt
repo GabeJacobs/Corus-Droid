@@ -581,7 +581,7 @@ fun OtherProfileScreen(
                                             else Modifier.background(CorusColors.Accent)
                                         )
                                         .clickable(enabled = !isFollowLoading) { viewModel.toggleFollow(userId) }
-                                        .padding(vertical = 6.dp, horizontal = 36.dp),
+                                        .padding(vertical = 6.dp, horizontal = 20.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     if (isFollowLoading) {
@@ -594,6 +594,7 @@ fun OtherProfileScreen(
                                             text = if (isFollowing) "FOLLOWING" else "FOLLOW",
                                             style = CorusFont.button,
                                             color = if (isFollowing) CorusColors.Secondary else Color.White,
+                                            maxLines = 1,
                                         )
                                     }
                                 }
@@ -645,6 +646,7 @@ fun OtherProfileScreen(
                                                 text = "PLAYLIST",
                                                 style = CorusFont.button,
                                                 color = CorusColors.Secondary,
+                                                maxLines = 1,
                                             )
                                         }
                                     }

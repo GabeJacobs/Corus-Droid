@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import fm.corus.android.ui.components.UsernameWithFlair
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -88,6 +90,8 @@ fun ExploreScreen(
     val filmSearchResults by viewModel.filmSearchResults.collectAsState()
     val followedIds by viewModel.followedIds.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val nowPlayingState by viewModel.nowPlayingState.collectAsState()
+    val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
 
     var selectedTab by remember { mutableStateOf(ExploreTab.Users) }
     var searchQuery by remember { mutableStateOf("") }
@@ -186,6 +190,9 @@ fun ExploreScreen(
                             tracks = songSearchResults,
                             isSearching = isSearching,
                             onSongTap = onNavigateToSong,
+                            nowPlayingTrackId = if (nowPlayingState.isPlaying) nowPlayingState.trackId else null,
+                            previewLoadingTrackId = previewLoadingTrackId,
+                            onPreviewTap = { viewModel.togglePreview(it) },
                         )
                     } else {
                         PullToRefreshBox(
@@ -443,6 +450,9 @@ private fun SongSearchResultsList(
     tracks: List<CymbalTrack>,
     isSearching: Boolean,
     onSongTap: (CymbalTrack) -> Unit,
+    nowPlayingTrackId: String? = null,
+    previewLoadingTrackId: String? = null,
+    onPreviewTap: (CymbalTrack) -> Unit = {},
 ) {
     if (isSearching) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -458,7 +468,13 @@ private fun SongSearchResultsList(
             contentPadding = PaddingValues(vertical = CorusSpacing.sm),
         ) {
             items(tracks, key = { it.id }) { track ->
-                SongSearchRow(track = track, onClick = { onSongTap(track) })
+                SongSearchRow(
+                    track = track,
+                    isPlaying = nowPlayingTrackId == track.id,
+                    isLoading = previewLoadingTrackId == track.id,
+                    onAlbumArtTap = { onPreviewTap(track) },
+                    onClick = { onSongTap(track) },
+                )
                 HorizontalDivider(
                     modifier = Modifier.padding(start = 72.dp),
                     color = CorusColors.Divider,
@@ -470,7 +486,13 @@ private fun SongSearchResultsList(
 }
 
 @Composable
-private fun SongSearchRow(track: CymbalTrack, onClick: () -> Unit) {
+private fun SongSearchRow(
+    track: CymbalTrack,
+    isPlaying: Boolean = false,
+    isLoading: Boolean = false,
+    onAlbumArtTap: () -> Unit = {},
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -479,29 +501,80 @@ private fun SongSearchRow(track: CymbalTrack, onClick: () -> Unit) {
             .heightIn(min = CorusSpacing.touchTarget),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = track.albumArtURL,
-            contentDescription = track.name,
+        Box(
             modifier = Modifier
                 .size(CorusSpacing.albumArtSearch)
-                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
-            contentScale = ContentScale.Crop,
-        )
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                .clickable { onAlbumArtTap() },
+            contentAlignment = Alignment.Center,
+        ) {
+            AsyncImage(
+                model = track.albumArtURL,
+                contentDescription = track.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+            if (isPlaying || isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.Pause,
+                            contentDescription = "Pause",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = "Play preview",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = track.name,
-                style = CorusFont.songTitle,
+                style = CorusFont.body,
                 color = CorusColors.Text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = track.artistName,
-                style = CorusFont.artistName,
+                style = CorusFont.caption,
                 color = CorusColors.Secondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (track.durationMs > 0) {
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            Text(
+                text = track.formattedDuration,
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
             )
         }
     }
@@ -560,26 +633,24 @@ private fun FilmSearchRow(movie: CymbalMovie, onClick: () -> Unit) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = movie.title,
-                style = CorusFont.songTitle,
+                style = CorusFont.body,
                 color = CorusColors.Text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs)) {
-                if (!movie.directorName.isNullOrBlank()) {
-                    Text(
-                        text = movie.directorName,
-                        style = CorusFont.artistName,
-                        color = CorusColors.Secondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                }
+                Text(
+                    text = movie.directorName.ifBlank { "Unknown" },
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
                 if (movie.year.isNotBlank()) {
                     Text(
-                        text = "(${movie.year})",
-                        style = CorusFont.artistName,
+                        text = movie.year,
+                        style = CorusFont.caption,
                         color = CorusColors.Tertiary,
                     )
                 }

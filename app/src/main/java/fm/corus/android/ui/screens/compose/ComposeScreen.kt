@@ -197,6 +197,11 @@ fun ComposeScreen(
                         onResultClick = { result ->
                             viewModel.selectResult(result, mediaType)
                         },
+                        onPreviewTap = { trackId ->
+                            viewModel.toggleSearchResultPreview(trackId)
+                        },
+                        nowPlayingTrackId = if (nowPlayingState.isPlaying) nowPlayingState.trackId else null,
+                        previewLoadingTrackId = previewLoadingTrackId,
                         trendingSongs = trendingSongs,
                         trendingMovies = trendingMovies,
                         isLoadingTrending = isLoadingTrending,
@@ -290,8 +295,11 @@ private fun SearchModeContent(
     mediaType: MediaType,
     onMediaTypeChange: (MediaType) -> Unit,
     isSearching: Boolean,
-    searchResults: List<Triple<String?, String, String>>,
-    onResultClick: (Triple<String?, String, String>) -> Unit,
+    searchResults: List<SearchResultItem>,
+    onResultClick: (SearchResultItem) -> Unit,
+    onPreviewTap: (String) -> Unit,
+    nowPlayingTrackId: String?,
+    previewLoadingTrackId: String?,
     trendingSongs: List<TrendingSong>,
     trendingMovies: List<TrendingMovie>,
     isLoadingTrending: Boolean,
@@ -383,13 +391,24 @@ private fun SearchModeContent(
             }
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(searchResults) { result ->
+                itemsIndexed(searchResults) { index, result ->
                     SearchResultRow(
-                        imageURL = result.first,
-                        title = result.second,
-                        subtitle = result.third,
+                        imageURL = result.imageURL,
+                        title = result.title,
+                        subtitle = result.subtitle,
+                        trailingText = result.trailingText,
+                        showPlayOverlay = result.showPlayOverlay,
+                        isPlaying = result.showPlayOverlay && nowPlayingTrackId == result.id,
+                        isLoading = result.showPlayOverlay && previewLoadingTrackId == result.id,
+                        onAlbumArtTap = if (result.showPlayOverlay) {{ onPreviewTap(result.id) }} else null,
                         onClick = { onResultClick(result) },
                     )
+                    if (index < searchResults.lastIndex) {
+                        HorizontalDivider(
+                            color = CorusColors.Divider,
+                            modifier = Modifier.padding(start = 72.dp),
+                        )
+                    }
                 }
             }
         } else {
@@ -680,6 +699,11 @@ private fun SearchResultRow(
     imageURL: String?,
     title: String,
     subtitle: String,
+    trailingText: String? = null,
+    showPlayOverlay: Boolean = false,
+    isPlaying: Boolean = false,
+    isLoading: Boolean = false,
+    onAlbumArtTap: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Row(
@@ -689,29 +713,83 @@ private fun SearchResultRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = imageURL,
-            contentDescription = title,
+        // Album art with optional play overlay
+        Box(
             modifier = Modifier
                 .size(CorusSpacing.albumArtSearch) // 48dp
-                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)), // 6dp
-            contentScale = ContentScale.Crop,
-        )
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                .then(if (onAlbumArtTap != null) Modifier.clickable { onAlbumArtTap() } else Modifier),
+            contentAlignment = Alignment.Center,
+        ) {
+            AsyncImage(
+                model = imageURL,
+                contentDescription = title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+            if (showPlayOverlay) {
+                if (isPlaying || isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.Pause,
+                                contentDescription = "Pause",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.3f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Play preview",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            }
+        }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = CorusFont.songTitle, // ExtraBold 16sp
+                style = CorusFont.body,
                 color = CorusColors.Text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = subtitle,
-                style = CorusFont.artistName, // Medium 14sp
+                style = CorusFont.caption,
                 color = CorusColors.Secondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (trailingText != null) {
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            Text(
+                text = trailingText,
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
             )
         }
     }
@@ -745,12 +823,10 @@ private fun ComposeModeContent(
         selectedTrack?.artistName.orEmpty()
     } else {
         buildString {
-            append(selectedMovie?.directorName.orEmpty())
+            val director = selectedMovie?.directorName?.ifEmpty { "Unknown" } ?: "Unknown"
+            append(director)
             val year = selectedMovie?.year.orEmpty()
-            if (year.isNotEmpty()) {
-                if (isNotEmpty()) append("  ")
-                append(year)
-            }
+            if (year.isNotEmpty()) append("  $year")
         }
     }
 

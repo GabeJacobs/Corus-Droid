@@ -15,6 +15,7 @@ import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.SpotifyRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -32,6 +33,7 @@ class ExploreViewModel @Inject constructor(
     private val tmdbRepository: TMDBRepository,
     private val remoteConfigService: RemoteConfigService,
     private val firebaseAuth: FirebaseAuth,
+    private val nowPlayingManager: NowPlayingManager,
 ) : ViewModel() {
 
     private val _trendingHashtags = MutableStateFlow<List<CymbalHashtag>>(emptyList())
@@ -217,5 +219,27 @@ class ExploreViewModel @Inject constructor(
                 _followedIds.value = _followedIds.value - targetUserId
             } catch (_: Exception) { }
         }
+    }
+
+    // ── Preview playback ──
+
+    val nowPlayingState = nowPlayingManager.state
+    val previewLoadingTrackId = nowPlayingManager.loadingTrackId
+
+    fun togglePreview(track: CymbalTrack) {
+        viewModelScope.launch {
+            nowPlayingManager.play(
+                trackId = track.id,
+                trackName = track.name,
+                artistName = track.artistName,
+                albumArtURL = track.albumArtURL,
+                previewUrl = track.previewUrl,
+                isrc = track.isrc,
+            )
+        }
+    }
+
+    fun stopPreview() {
+        nowPlayingManager.stop()
     }
 }

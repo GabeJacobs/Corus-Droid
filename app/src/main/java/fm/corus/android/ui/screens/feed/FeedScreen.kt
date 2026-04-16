@@ -28,10 +28,12 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.ui.components.PostActionMenu
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.SharePostSheet
 import fm.corus.android.ui.components.SkeletonPostCard
+import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -50,6 +52,7 @@ fun FeedScreen(
     onNavigateToHashtag: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
+    onNavigateToBotList: (String?) -> Unit = {},
 ) {
     val posts by viewModel.filteredPosts.collectAsState()
     val allPosts by viewModel.posts.collectAsState()
@@ -69,6 +72,9 @@ fun FeedScreen(
     val engagementStates by viewModel.engagementStates.collectAsState()
     val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     val feedMediaFilter by viewModel.feedMediaFilter.collectAsState()
+    val curatedMusicBots by viewModel.curatedMusicBots.collectAsState()
+    val curatedFilmBots by viewModel.curatedFilmBots.collectAsState()
+    val isBotsLoading by viewModel.isBotsLoading.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val context = LocalContext.current
@@ -355,7 +361,7 @@ fun FeedScreen(
 
     // ── Share Post Bottom Sheet ──
     sharePost?.let { post ->
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         val shareSearchResults by viewModel.shareSearchResults.collectAsState()
         val recentShareContacts by viewModel.recentShareContacts.collectAsState()
         val isShareSearching by viewModel.isShareSearching.collectAsState()
@@ -379,6 +385,7 @@ fun FeedScreen(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 instagramShareEnabled = viewModel.remoteConfig.instagramShareEnabled,
+                sheetState = shareSheetState,
                 onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
                 onSendToUser = { userId, message ->
                     viewModel.sendPostToUser(userId, post, message)

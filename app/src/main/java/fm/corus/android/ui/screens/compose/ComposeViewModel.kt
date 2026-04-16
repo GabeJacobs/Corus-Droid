@@ -27,6 +27,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class SearchResultItem(
+    val id: String,
+    val imageURL: String?,
+    val title: String,
+    val subtitle: String,
+    val trailingText: String? = null,
+    val showPlayOverlay: Boolean = false,
+)
+
 @HiltViewModel
 class ComposeViewModel @Inject constructor(
     private val postRepository: PostRepository,
@@ -101,9 +110,9 @@ class ComposeViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    // Search results as Triple(imageURL, title, subtitle)
-    private val _searchResults = MutableStateFlow<List<Triple<String?, String, String>>>(emptyList())
-    val searchResults: StateFlow<List<Triple<String?, String, String>>> = _searchResults.asStateFlow()
+    // Search results
+    private val _searchResults = MutableStateFlow<List<SearchResultItem>>(emptyList())
+    val searchResults: StateFlow<List<SearchResultItem>> = _searchResults.asStateFlow()
 
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
@@ -145,18 +154,29 @@ class ComposeViewModel @Inject constructor(
             try {
                 if (mediaType == MediaType.TRACK) {
                     cachedTracks = spotifyRepository.search(query)
-                    _searchResults.value = cachedTracks.map { Triple(it.albumArtURL, it.name, it.artistName) }
+                    _searchResults.value = cachedTracks.map { track ->
+                        SearchResultItem(
+                            id = track.id,
+                            imageURL = track.albumArtURL,
+                            title = track.name,
+                            subtitle = track.artistName,
+                            trailingText = track.formattedDuration,
+                            showPlayOverlay = true,
+                        )
+                    }
                 } else {
                     cachedMovies = tmdbRepository.searchMovies(query)
                     _searchResults.value = cachedMovies.map { movie ->
-                        val subtitle = buildString {
-                            append(movie.directorName)
-                            if (movie.year.isNotEmpty()) {
-                                if (isNotEmpty()) append("  ")
-                                append(movie.year)
-                            }
-                        }
-                        Triple(movie.posterURL, movie.title, subtitle)
+                        val director = movie.directorName.ifEmpty { "Unknown" }
+                        SearchResultItem(
+                            id = movie.id,
+                            imageURL = movie.posterURL,
+                            title = movie.title,
+                            subtitle = buildString {
+                                append(director)
+                                if (movie.year.isNotEmpty()) append("  ${movie.year}")
+                            },
+                        )
                     }
                 }
             } catch (_: Exception) {
@@ -166,13 +186,18 @@ class ComposeViewModel @Inject constructor(
         }
     }
 
-    fun selectResult(result: Triple<String?, String, String>, mediaType: MediaType) {
+    fun selectResult(result: SearchResultItem, mediaType: MediaType) {
         if (mediaType == MediaType.TRACK) {
-            _selectedTrack.value = cachedTracks.firstOrNull { it.name == result.second && it.artistName == result.third }
+            _selectedTrack.value = cachedTracks.firstOrNull { it.id == result.id }
         } else {
-            _selectedMovie.value = cachedMovies.firstOrNull { it.title == result.second }
+            _selectedMovie.value = cachedMovies.firstOrNull { it.id == result.id }
         }
         _searchResults.value = emptyList()
+    }
+
+    fun toggleSearchResultPreview(trackId: String) {
+        val track = cachedTracks.firstOrNull { it.id == trackId } ?: return
+        togglePreview(track)
     }
 
     fun clearSelection() {

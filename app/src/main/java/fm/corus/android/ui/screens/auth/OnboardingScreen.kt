@@ -20,13 +20,18 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,10 +55,11 @@ fun OnboardingScreen(
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
     var avatarData by remember { mutableStateOf<ByteArray?>(null) }
 
-    // Pre-fill display name from OAuth provider (matching iOS behavior)
+    // Pre-fill display name from OAuth provider (matching iOS behavior).
+    // Always show the Full Name field so the user can edit it — iOS only hides
+    // it for Apple sign-in, and Android doesn't support Apple sign-in.
     val oauthDisplayName = viewModel.oauthDisplayName
     var displayName by remember { mutableStateOf(oauthDisplayName ?: "") }
-    val showDisplayNameField = oauthDisplayName.isNullOrBlank()
 
     var username by remember { mutableStateOf("") }
     var usernameAvailable by remember { mutableStateOf<Boolean?>(null) }
@@ -122,6 +128,20 @@ fun OnboardingScreen(
 
     val scrollState = rememberScrollState()
 
+    // Detect keyboard visibility via IME insets
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    val keyboardVisible = imeBottom > 0
+
+    // Scroll to bottom when keyboard appears so Continue button is visible.
+    // Wait for layout to recompose with imePadding before reading maxValue.
+    LaunchedEffect(keyboardVisible) {
+        if (keyboardVisible) {
+            delay(100)
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Back button — matches iOS: top-left arrow that calls signOut()
         IconButton(
@@ -142,12 +162,13 @@ fun OnboardingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Title section — matches iOS: "Welcome" + "set up your profile"
             Column(
-                modifier = Modifier.padding(top = 60.dp),
+                modifier = Modifier.padding(top = 80.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
@@ -229,54 +250,52 @@ fun OnboardingScreen(
             // Name field — only shown if OAuth didn't provide a name (matching iOS)
             Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
 
-            if (showDisplayNameField) {
-                Column(
-                    modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                CorusColors.CardBackground,
-                                RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-                            )
-                            .border(
-                                1.dp,
-                                CorusColors.Divider,
-                                RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-                            )
-                            .padding(CorusSpacing.md),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Filled.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = CorusColors.Tertiary,
+            Column(
+                modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            CorusColors.CardBackground,
+                            RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                         )
-                        Spacer(modifier = Modifier.width(CorusSpacing.md))
-                        Box(modifier = Modifier.weight(1f)) {
-                            if (displayName.isEmpty()) {
-                                Text(
-                                    "Full Name",
-                                    style = CorusFont.body,
-                                    color = CorusColors.Tertiary,
-                                )
-                            }
-                            BasicTextField(
-                                value = displayName,
-                                onValueChange = { displayName = it.take(30) },
-                                textStyle = CorusFont.body.copy(color = CorusColors.Text),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
+                        .border(
+                            1.dp,
+                            CorusColors.Divider,
+                            RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                        )
+                        .padding(CorusSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = CorusColors.Tertiary,
+                    )
+                    Spacer(modifier = Modifier.width(CorusSpacing.md))
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (displayName.isEmpty()) {
+                            Text(
+                                "Full Name",
+                                style = CorusFont.body,
+                                color = CorusColors.Tertiary,
                             )
                         }
+                        BasicTextField(
+                            value = displayName,
+                            onValueChange = { displayName = it.take(30) },
+                            textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
-
-                // Username field spacing
-                Spacer(modifier = Modifier.height(CorusSpacing.lg))
             }
+
+            // Username field spacing
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
             // Username field — matches iOS: @ icon + text field + status indicator
             Column(
@@ -385,18 +404,27 @@ fun OnboardingScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            // Collapse spacer when keyboard is up so the button stays visible
+            if (!keyboardVisible) {
+                Spacer(modifier = Modifier.weight(1f))
+            }
 
-            // Terms of Use — matches iOS
-            Text(
-                text = "By creating an account, you agree to our Terms of Use and Privacy Policy.",
-                style = CorusFont.caption,
-                color = CorusColors.Tertiary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .padding(horizontal = CorusSpacing.xxl)
-                    .padding(bottom = CorusSpacing.sm),
-            )
+            // Terms of Use — fade out when keyboard is up (matching iOS)
+            AnimatedVisibility(
+                visible = !keyboardVisible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                Text(
+                    text = "By creating an account, you agree to our Terms of Use and Privacy Policy.",
+                    style = CorusFont.caption,
+                    color = CorusColors.Tertiary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .padding(horizontal = CorusSpacing.xxl)
+                        .padding(bottom = CorusSpacing.sm),
+                )
+            }
 
             // Continue button — matches iOS: full-width accent capsule
             Button(
@@ -410,7 +438,8 @@ fun OnboardingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = CorusSpacing.xxl)
-                    .padding(bottom = CorusSpacing.xxxl),
+                    .padding(top = CorusSpacing.lg)
+                    .padding(bottom = CorusSpacing.md),
                 enabled = canSubmit,
                 shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                 colors = ButtonDefaults.buttonColors(

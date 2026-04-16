@@ -53,7 +53,7 @@ class SocialSetupViewModel @Inject constructor(
     private val _filmBotMatches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
     val filmBotMatches: StateFlow<List<SuggestedUserMatch>> = _filmBotMatches.asStateFlow()
 
-    private val _isLoadingSuggestions = MutableStateFlow(false)
+    private val _isLoadingSuggestions = MutableStateFlow(true)
     val isLoadingSuggestions: StateFlow<Boolean> = _isLoadingSuggestions.asStateFlow()
 
     private val _followedIds = MutableStateFlow<Set<String>>(emptySet())

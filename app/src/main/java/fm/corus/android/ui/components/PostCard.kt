@@ -580,11 +580,16 @@ fun PostCard(
             )
         }
 
-        // 7. COMMENT PREVIEW (max 2)
+        // 7. COMMENT PREVIEW (max 2) — tap to open comments sheet
         if (!hideComments && post.comments.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onCommentTap,
+                    )
                     .padding(horizontal = CorusSpacing.lg)
                     .padding(bottom = CorusSpacing.xs),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
