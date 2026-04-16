@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.compose
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,6 +19,7 @@ import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -47,6 +49,7 @@ class ComposeViewModel @Inject constructor(
     private val subscriptionRepository: SubscriptionRepository,
     private val exploreRepository: ExploreRepository,
     private val nowPlayingManager: NowPlayingManager,
+    private val postCreationEvent: PostCreationEvent,
 ) : ViewModel() {
 
     // Post limit / Cymbal Club
@@ -114,6 +117,9 @@ class ComposeViewModel @Inject constructor(
     private val _searchResults = MutableStateFlow<List<SearchResultItem>>(emptyList())
     val searchResults: StateFlow<List<SearchResultItem>> = _searchResults.asStateFlow()
 
+    private val _filmResults = MutableStateFlow<List<CymbalMovie>>(emptyList())
+    val filmResults: StateFlow<List<CymbalMovie>> = _filmResults.asStateFlow()
+
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
@@ -166,33 +172,27 @@ class ComposeViewModel @Inject constructor(
                     }
                 } else {
                     cachedMovies = tmdbRepository.searchMovies(query)
-                    _searchResults.value = cachedMovies.map { movie ->
-                        val director = movie.directorName.ifEmpty { "Unknown" }
-                        SearchResultItem(
-                            id = movie.id,
-                            imageURL = movie.posterURL,
-                            title = movie.title,
-                            subtitle = buildString {
-                                append(director)
-                                if (movie.year.isNotEmpty()) append("  ${movie.year}")
-                            },
-                        )
-                    }
+                    _filmResults.value = cachedMovies
+                    val withDirectors = tmdbRepository.prefetchDirectors(cachedMovies)
+                    cachedMovies = withDirectors
+                    _filmResults.value = withDirectors
                 }
             } catch (_: Exception) {
                 _searchResults.value = emptyList()
+                _filmResults.value = emptyList()
             }
             _isSearching.value = false
         }
     }
 
     fun selectResult(result: SearchResultItem, mediaType: MediaType) {
-        if (mediaType == MediaType.TRACK) {
-            _selectedTrack.value = cachedTracks.firstOrNull { it.id == result.id }
-        } else {
-            _selectedMovie.value = cachedMovies.firstOrNull { it.id == result.id }
-        }
+        _selectedTrack.value = cachedTracks.firstOrNull { it.id == result.id }
         _searchResults.value = emptyList()
+    }
+
+    fun selectFilmResult(movie: CymbalMovie) {
+        _selectedMovie.value = movie
+        _filmResults.value = emptyList()
     }
 
     fun toggleSearchResultPreview(trackId: String) {
@@ -205,6 +205,7 @@ class ComposeViewModel @Inject constructor(
         _selectedTrack.value = null
         _selectedMovie.value = null
         _searchResults.value = emptyList()
+        _filmResults.value = emptyList()
     }
 
     fun selectTrendingSong(song: TrendingSong) {
@@ -214,7 +215,7 @@ class ComposeViewModel @Inject constructor(
 
     fun selectTrendingMovie(movie: TrendingMovie) {
         _selectedMovie.value = movie.asCymbalMovie()
-        _searchResults.value = emptyList()
+        _filmResults.value = emptyList()
     }
 
     fun loadAndSelectTrack(trackId: String) {
@@ -239,7 +240,7 @@ class ComposeViewModel @Inject constructor(
             try {
                 val movie = tmdbRepository.getMovieDetails(movieId.toInt())
                 _selectedMovie.value = movie
-                _searchResults.value = emptyList()
+                _filmResults.value = emptyList()
             } catch (_: Exception) {
                 _error.value = "Could not load movie."
             }
@@ -261,15 +262,14 @@ class ComposeViewModel @Inject constructor(
             _error.value = null
 
             try {
-                val data = mutableMapOf<String, Any?>()
-                data["caption"] = caption.ifBlank { null }
+                val data = mutableMapOf<String, Any>()
+                data["caption"] = caption.ifBlank { "" }
                 data["mediaType"] = mediaType.value
-                data["timestamp"] = com.google.firebase.firestore.FieldValue.serverTimestamp()
 
                 // Parse hashtags from caption
                 val hashtagRegex = Regex("#(\\w+)")
                 val hashtags = hashtagRegex.findAll(caption).map { it.groupValues[1] }.toList()
-                if (hashtags.isNotEmpty()) data["hashtags"] = hashtags
+                data["hashtags"] = hashtags
 
                 var isFirstPoster = false
 
@@ -286,13 +286,14 @@ class ComposeViewModel @Inject constructor(
                     data["trackName"] = track.name
                     data["artistName"] = track.artistName
                     data["albumName"] = track.albumName
-                    data["albumArtThumbnailURL"] = track.albumArtURL
-                    data["albumArtLargeURL"] = track.albumArtLargeURL
+                    data["albumArtURL"] = track.albumArtURL ?: ""
+                    data["albumArtLargeURL"] = track.albumArtLargeURL ?: ""
                     data["spotifyURI"] = track.spotifyURI
                     data["spotifyWebURL"] = track.spotifyWebURL
                     data["durationMs"] = track.durationMs
                     data["isFirstPoster"] = isFirstPoster
-                    track.previewUrl?.let { data["previewUrl"] = it }
+                    data["previewUrl"] = track.previewUrl ?: ""
+                    data["isrc"] = track.isrc ?: ""
                 } else {
                     val movie = _selectedMovie.value ?: throw Exception("No movie selected")
 
@@ -306,24 +307,22 @@ class ComposeViewModel @Inject constructor(
                     data["movieTitle"] = movie.title
                     data["directorName"] = movie.directorName
                     data["releaseYear"] = movie.year
-                    data["posterURL"] = movie.posterURL
-                    data["posterLargeURL"] = movie.posterLargeURL
+                    data["posterURL"] = movie.posterURL ?: ""
+                    data["posterLargeURL"] = movie.posterLargeURL ?: ""
                     data["tmdbWebURL"] = movie.tmdbWebURL
                     data["movieOverview"] = movie.overview
                     data["movieRating"] = movie.rating
                     data["movieCast"] = movie.cast
                     data["isFirstPoster"] = isFirstPoster
-                    movie.trailerURL?.let { data["trailerURL"] = it }
-                    // Empty track fields for movie posts
-                    data["trackId"] = ""
-                    data["trackName"] = ""
-                    data["artistName"] = ""
-                    data["albumName"] = ""
+                    data["trailerURL"] = movie.trailerURL ?: ""
+                    // Also set albumArtURL to posterURL for backwards compat (notifications use this field)
+                    data["albumArtURL"] = movie.posterURL ?: ""
                 }
 
                 postRepository.createPost(userId, data, voiceNoteData)
                 analyticsService.logPostCreated(mediaType.value)
                 subscriptionRepository.incrementPostCount()
+                postCreationEvent.notifyPostCreated()
 
                 if (isFirstPoster) {
                     // Build a lightweight CymbalPost for the trophy celebration
@@ -346,6 +345,7 @@ class ComposeViewModel @Inject constructor(
                     _postSuccess.value = true
                 }
             } catch (e: Exception) {
+                Log.e("ComposeViewModel", "createPost failed", e)
                 _error.value = "Something went wrong. Please try again."
             }
             _isPosting.value = false
@@ -418,6 +418,7 @@ class ComposeViewModel @Inject constructor(
         _selectedTrack.value = null
         _selectedMovie.value = null
         _searchResults.value = emptyList()
+        _filmResults.value = emptyList()
         _isSearching.value = false
         _isPosting.value = false
         _postSuccess.value = false

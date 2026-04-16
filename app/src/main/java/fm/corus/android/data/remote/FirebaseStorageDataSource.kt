@@ -2,8 +2,11 @@ package fm.corus.android.data.remote
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import androidx.exifinterface.media.ExifInterface
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,11 +27,22 @@ class FirebaseStorageDataSource @Inject constructor(
         return ref.downloadUrl.await().toString()
     }
 
-    /** Downscale image to max 512px so the full avatar stays small (~30-50 KB). */
+    /** Normalize EXIF orientation and downscale to max 512px. */
     private fun downscaleIfNeeded(imageData: ByteArray): ByteArray {
-        val original = BitmapFactory.decodeByteArray(imageData, 0, imageData.size) ?: return imageData
+        val decoded = BitmapFactory.decodeByteArray(imageData, 0, imageData.size) ?: return imageData
+
+        // Apply EXIF orientation so pixels are right-side-up
+        val original = applyExifOrientation(decoded, imageData)
+
         val maxDim = maxOf(original.width, original.height)
-        if (maxDim <= AVATAR_MAX_DIMENSION) return imageData
+        if (maxDim <= AVATAR_MAX_DIMENSION) {
+            // Still re-encode to strip any leftover EXIF metadata
+            val out = ByteArrayOutputStream()
+            original.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            if (original !== decoded) original.recycle()
+            decoded.recycle()
+            return out.toByteArray()
+        }
 
         val scale = AVATAR_MAX_DIMENSION.toFloat() / maxDim
         val newWidth = (original.width * scale).toInt()
@@ -37,8 +51,30 @@ class FirebaseStorageDataSource @Inject constructor(
         val out = ByteArrayOutputStream()
         resized.compress(Bitmap.CompressFormat.JPEG, 80, out)
         if (resized !== original) resized.recycle()
-        original.recycle()
+        if (original !== decoded) original.recycle()
+        decoded.recycle()
         return out.toByteArray()
+    }
+
+    /** Read EXIF orientation from raw JPEG bytes and rotate the bitmap if needed. */
+    private fun applyExifOrientation(bitmap: Bitmap, imageData: ByteArray): Bitmap {
+        val exif = try {
+            ExifInterface(ByteArrayInputStream(imageData))
+        } catch (_: Exception) {
+            return bitmap
+        }
+        val orientation = exif.getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_NORMAL,
+        )
+        val rotation = when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+            ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+            else -> return bitmap
+        }
+        val matrix = Matrix().apply { postRotate(rotation) }
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
     suspend fun uploadMessageImage(threadId: String, messageId: String, imageData: ByteArray): String {

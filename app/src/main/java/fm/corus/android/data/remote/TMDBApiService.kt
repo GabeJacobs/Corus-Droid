@@ -41,6 +41,12 @@ class TMDBApiService @Inject constructor(
             parameter("append_to_response", "credits,videos")
         }.body()
     }
+
+    suspend fun getMovieCredits(movieId: Int): TMDBCredits {
+        return client.get("$BASE_URL/movie/$movieId/credits") {
+            parameter("api_key", API_KEY)
+        }.body()
+    }
 }
 
 // ── TMDB Response Models ──

@@ -78,9 +78,16 @@ data class CymbalPost(
                 albumArtBackURL = data["albumArtBackURL"] as? String,
             )
 
-            val commentsList = (data["comments"] as? List<Map<String, Any?>>)?.map {
-                CymbalComment.fromMap(it)
-            } ?: emptyList()
+            // Preview comments from cloud functions use a flat structure
+            val previewCommentsList = (data["previewComments"] as? List<Map<String, Any?>>)
+                ?.mapNotNull { CymbalComment.fromPreviewMap(it) }
+                ?: emptyList()
+            // Fall back to nested "comments" format (e.g. from getComments endpoint)
+            val commentsList = previewCommentsList.ifEmpty {
+                (data["comments"] as? List<Map<String, Any?>>)?.map {
+                    CymbalComment.fromMap(it)
+                } ?: emptyList()
+            }
 
             val likersRaw = (data["likers"] as? List<Map<String, Any?>>)
                 ?: (data["recentLikers"] as? List<Map<String, Any?>>)

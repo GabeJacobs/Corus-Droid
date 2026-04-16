@@ -22,8 +22,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
 import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.*
@@ -52,8 +56,11 @@ import coil3.size.Size
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import android.graphics.Bitmap
+import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.ShimmerAsyncImage
+import fm.corus.android.ui.components.uriToBitmap
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -67,11 +74,14 @@ import java.io.File
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
+    openStylePicker: Boolean = false,
+    onStylePickerConsumed: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToEditProfile: (String) -> Unit = {},
     onNavigateToFollowList: (String, Boolean) -> Unit = { _, _ -> },
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
     onNavigateToClub: () -> Unit = {},
+    onOpenCompose: (String) -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboardManager = LocalClipboardManager.current
@@ -90,12 +100,23 @@ fun ProfileScreen(
     var isFeaturedArtReady by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
+    var clubOfferSource by remember { mutableStateOf(fm.corus.android.ui.screens.subscription.PaywallSource.DEFAULT) }
+    var showPlaylistPaywall by remember { mutableStateOf(false) }
+
+    // Open style picker when navigating back from EditProfile with the action
+    LaunchedEffect(openStylePicker) {
+        if (openStylePicker) {
+            showStylePicker = true
+            onStylePickerConsumed()
+        }
+    }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val clubSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // Avatar context menu state
     var showAvatarMenu by remember { mutableStateOf(false) }
     var showFullScreenAvatar by remember { mutableStateOf(false) }
+    var cropBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     // Camera photo URI
     val cameraPhotoUri = remember {
@@ -103,37 +124,21 @@ fun ProfileScreen(
         FileProvider.getUriForFile(context, "${context.packageName}.provider", photoFile)
     }
 
-    // Camera launcher
+    // Camera launcher — opens crop screen before uploading
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success) {
-            try {
-                val inputStream = context.contentResolver.openInputStream(cameraPhotoUri)
-                val bytes = inputStream?.readBytes()
-                inputStream?.close()
-                if (bytes != null) {
-                    viewModel.uploadAvatar(bytes)
-                    ToastManager.show("Avatar updated!")
-                }
-            } catch (_: Exception) { }
+            cropBitmap = uriToBitmap(context, cameraPhotoUri)
         }
     }
 
-    // Photo picker launcher
+    // Photo picker launcher — opens crop screen before uploading
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            try {
-                val inputStream = context.contentResolver.openInputStream(uri)
-                val bytes = inputStream?.readBytes()
-                inputStream?.close()
-                if (bytes != null) {
-                    viewModel.uploadAvatar(bytes)
-                    ToastManager.show("Avatar updated!")
-                }
-            } catch (_: Exception) { }
+            cropBitmap = uriToBitmap(context, uri)
         }
     }
 
@@ -379,10 +384,12 @@ fun ProfileScreen(
                                         )
                                     )
                                     .clickable(enabled = !isGeneratingPlaylist) {
-                                        if (hasSongs) {
-                                            viewModel.generatePlaylist()
-                                        } else {
+                                        if (!hasSongs) {
                                             ToastManager.show("No songs to make a playlist")
+                                        } else if (!hasFullAccess) {
+                                            showPlaylistPaywall = true
+                                        } else {
+                                            viewModel.generatePlaylist()
                                         }
                                     }
                                     .padding(horizontal = CorusSpacing.md),
@@ -591,27 +598,29 @@ fun ProfileScreen(
                     && !(selectedSegment == 3 && isLoadingSaved)
                 ) {
                     // Empty state per segment (matching iOS)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        val (icon, message, subtitle) = when (selectedSegment) {
-                            0 -> Triple("🎵", "What are you listening to?", "Post your first song")
-                            1 -> Triple("🎬", "Watch anything good lately?", "Post your first film")
-                            2 -> Triple("❤️", "No liked posts yet", null)
-                            else -> Triple("🔖", "No saved posts yet", null)
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(icon, fontSize = 32.sp)
-                            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                            Text(message, style = CorusFont.bodyMedium, color = CorusColors.Secondary)
-                            if (subtitle != null) {
-                                Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                                Text(subtitle, style = CorusFont.caption, color = CorusColors.Tertiary)
-                            }
-                        }
+                    when (selectedSegment) {
+                        0 -> ProfileEmptyPrompt(
+                            icon = Icons.Filled.Headphones,
+                            title = "What are you listening to?",
+                            subtitle = "Share your first song and let\neveryone know what's on repeat.",
+                            buttonText = "Post your first song",
+                            onButtonClick = { onOpenCompose("track") },
+                        )
+                        1 -> ProfileEmptyPrompt(
+                            icon = Icons.Filled.Movie,
+                            title = "Watch anything good lately?",
+                            subtitle = "Share your first film and let\neveryone know what you're watching.",
+                            buttonText = "Post your first film",
+                            onButtonClick = { onOpenCompose("movie") },
+                        )
+                        2 -> ProfileEmptyPlaceholder(
+                            icon = Icons.Filled.Favorite,
+                            message = "No liked posts yet",
+                        )
+                        else -> ProfileEmptyPlaceholder(
+                            icon = Icons.Filled.Bookmark,
+                            message = "No saved posts yet",
+                        )
                     }
                 }
             }
@@ -734,6 +743,7 @@ fun ProfileScreen(
                 },
                 onNavigateToClub = {
                     showStylePicker = false
+                    clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.STYLE_PICKER
                     showClubOffer = true
                 },
                 onDismiss = { showStylePicker = false },
@@ -750,9 +760,22 @@ fun ProfileScreen(
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
+                source = clubOfferSource,
                 onDismiss = { showClubOffer = false },
             )
         }
+    }
+
+    // ── Playlist Paywall Sheet ──
+    if (showPlaylistPaywall) {
+        fm.corus.android.ui.screens.subscription.PlaylistPaywallSheet(
+            onDismiss = { showPlaylistPaywall = false },
+            onNavigateToClub = {
+                showPlaylistPaywall = false
+                clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
+                showClubOffer = true
+            },
+        )
     }
 
     // ── Full Screen Avatar Overlay ──
@@ -761,6 +784,19 @@ fun ProfileScreen(
         visible = showFullScreenAvatar,
         onDismiss = { showFullScreenAvatar = false },
     )
+
+    // ── Avatar Crop Overlay ──
+    cropBitmap?.let { bitmap ->
+        AvatarCropView(
+            bitmap = bitmap,
+            onConfirm = { croppedBytes ->
+                cropBitmap = null
+                viewModel.uploadAvatar(croppedBytes)
+                ToastManager.show("Avatar updated!")
+            },
+            onCancel = { cropBitmap = null },
+        )
+    }
 }
 
 @Composable
@@ -822,4 +858,79 @@ private fun PostGridItem(post: CymbalPost, onClick: () -> Unit = {}) {
             .aspectRatio(1f)
             .clickable(onClick = onClick),
     )
+}
+
+@Composable
+private fun ProfileEmptyPrompt(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    buttonText: String,
+    onButtonClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(48.dp),
+            tint = CorusColors.Accent,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        Text(
+            text = title,
+            style = CorusFont.songTitle,
+            color = CorusColors.Text,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            text = subtitle,
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        Button(
+            onClick = onButtonClick,
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+            contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm + 2.dp),
+        ) {
+            Text(
+                text = buttonText,
+                style = CorusFont.buttonSmall,
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileEmptyPlaceholder(
+    icon: ImageVector,
+    message: String,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(36.dp),
+            tint = CorusColors.Tertiary,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
+        Text(
+            text = message,
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Secondary,
+        )
+    }
 }

@@ -580,8 +580,11 @@ fun PostCard(
             )
         }
 
-        // 7. COMMENT PREVIEW (max 2) — tap to open comments sheet
-        if (!hideComments && post.comments.isNotEmpty()) {
+        // 7. COMMENT PREVIEW — tap to open comments sheet
+        // Match iOS: show up to 3 when no caption, fewer when caption is present
+        val hasCaption = !post.caption.isNullOrBlank()
+        val maxVisibleComments = if (hasCaption) 2 else minOf(3, post.comments.size)
+        if (!hideComments && post.comments.isNotEmpty() && maxVisibleComments > 0) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -594,7 +597,7 @@ fun PostCard(
                     .padding(bottom = CorusSpacing.xs),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                post.comments.take(2).forEach { comment ->
+                post.comments.take(maxVisibleComments).forEach { comment ->
                     val commentText = buildAnnotatedString {
                         withStyle(
                             SpanStyle(
@@ -618,7 +621,7 @@ fun PostCard(
                         text = commentText,
                         style = CorusFont.body,
                         color = CorusColors.Text,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }

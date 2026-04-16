@@ -14,3 +14,4 @@ google-services.json
 *.aab
 /app/release/
 keystore.properties
+.kotlin

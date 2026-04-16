@@ -46,7 +46,6 @@ import androidx.navigation.compose.rememberNavController
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
-import fm.corus.android.ui.screens.subscription.PostLimitPaywallSheet
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -61,33 +60,14 @@ fun MainTabScreen(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(CorusTab.FEED) }
     var showCompose by rememberSaveable { mutableStateOf(false) }
-    var showPostLimitPaywall by remember { mutableStateOf(false) }
+    var composeMovieMode by rememberSaveable { mutableStateOf(false) }
     val composeViewModel: ComposeViewModel = hiltViewModel()
     val showMilestonePaywall by viewModel.showMilestonePaywall.collectAsState()
+    val milestonePaywallSource by viewModel.milestonePaywallSource.collectAsState()
 
     // Observe pre-selected media IDs for compose-with-preselection flow.
     val preSelectedTrackId by viewModel.preSelectedTrackId.collectAsState()
     val preSelectedMovieId by viewModel.preSelectedMovieId.collectAsState()
-
-    // When a pre-selected media ID becomes non-null, open compose overlay.
-    // Reset then immediately start the load so isLoadingPreSelection is true
-    // before ComposeScreen enters composition (avoids a flash of the search view).
-    LaunchedEffect(preSelectedTrackId) {
-        val trackId = preSelectedTrackId ?: return@LaunchedEffect
-        if (viewModel.subscriptionRepository.canPost) {
-            composeViewModel.reset()
-            composeViewModel.loadAndSelectTrack(trackId)
-            showCompose = true
-        } else showPostLimitPaywall = true
-    }
-    LaunchedEffect(preSelectedMovieId) {
-        val movieId = preSelectedMovieId ?: return@LaunchedEffect
-        if (viewModel.subscriptionRepository.canPost) {
-            composeViewModel.reset()
-            composeViewModel.loadAndSelectMovie(movieId)
-            showCompose = true
-        } else showPostLimitPaywall = true
-    }
 
     // Each tab gets its own NavController to preserve back stack
     val feedNavController = rememberNavController()
@@ -103,6 +83,26 @@ fun MainTabScreen(
             CorusTab.NOTIFICATIONS to notificationsNavController,
             CorusTab.PROFILE to profileNavController,
         )
+    }
+
+    // When a pre-selected media ID becomes non-null, open compose overlay.
+    // Reset then immediately start the load so isLoadingPreSelection is true
+    // before ComposeScreen enters composition (avoids a flash of the search view).
+    LaunchedEffect(preSelectedTrackId) {
+        val trackId = preSelectedTrackId ?: return@LaunchedEffect
+        if (viewModel.subscriptionRepository.canPost) {
+            composeViewModel.reset()
+            composeViewModel.loadAndSelectTrack(trackId)
+            showCompose = true
+        } else navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = "POST_LIMIT"))
+    }
+    LaunchedEffect(preSelectedMovieId) {
+        val movieId = preSelectedMovieId ?: return@LaunchedEffect
+        if (viewModel.subscriptionRepository.canPost) {
+            composeViewModel.reset()
+            composeViewModel.loadAndSelectMovie(movieId)
+            showCompose = true
+        } else navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = "POST_LIMIT"))
     }
 
     // Scroll-to-top triggers: increment to signal a root screen should scroll up
@@ -164,7 +164,7 @@ fun MainTabScreen(
                         if (viewModel.subscriptionRepository.canPost) {
                             composeViewModel.reset()
                             showCompose = true
-                        } else showPostLimitPaywall = true
+                        } else navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = "POST_LIMIT"))
                     } else {
                         if (tab == selectedTab) {
                             // Re-tap: pop to root if deep, scroll to top if already at root
@@ -188,7 +188,7 @@ fun MainTabScreen(
                     if (viewModel.subscriptionRepository.canPost) {
                         composeViewModel.reset()
                         showCompose = true
-                    } else showPostLimitPaywall = true
+                    } else navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = "POST_LIMIT"))
                 },
             )
             }
@@ -212,33 +212,35 @@ fun MainTabScreen(
                 NotificationsNavGraph(navController = notificationsNavController, mainTabViewModel = viewModel, scrollToTopTrigger = notificationsScrollToTop.intValue)
             }
             TabContent(visible = selectedTab == CorusTab.PROFILE) {
-                ProfileNavGraph(navController = profileNavController, mainTabViewModel = viewModel, scrollToTopTrigger = profileScrollToTop.intValue)
+                ProfileNavGraph(
+                    navController = profileNavController,
+                    mainTabViewModel = viewModel,
+                    scrollToTopTrigger = profileScrollToTop.intValue,
+                    onOpenCompose = { mediaType ->
+                        if (viewModel.subscriptionRepository.canPost) {
+                            composeViewModel.reset()
+                            composeMovieMode = mediaType == "movie"
+                            showCompose = true
+                        } else navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = "POST_LIMIT"))
+                    },
+                )
             }
 
             // Toast overlay (inside padded Box so it renders above the bottom bar)
             fm.corus.android.ui.components.ToastHost()
         }
 
-        // Post limit paywall (shown when compose is gated)
-        if (showPostLimitPaywall) {
-            PostLimitPaywallSheet(
-                onDismiss = { showPostLimitPaywall = false },
-                onNavigateToClub = {
-                    showPostLimitPaywall = false
-                    navControllers[selectedTab]?.navigate(CymbalClubOfferRoute)
-                },
-            )
-        }
-
-        // Milestone paywall (shown after successful post milestones)
+        // Milestone paywall — navigate to full Corus Club offer screen
         if (showMilestonePaywall) {
-            PostLimitPaywallSheet(
-                onDismiss = { viewModel.dismissMilestonePaywall() },
-                onNavigateToClub = {
-                    viewModel.dismissMilestonePaywall()
-                    navControllers[selectedTab]?.navigate(CymbalClubOfferRoute)
-                },
-            )
+            LaunchedEffect(Unit) {
+                val source = when (milestonePaywallSource) {
+                    MilestonePaywallSource.FIRST_POST -> "FIRST_POST"
+                    MilestonePaywallSource.TENTH_POST -> "TENTH_POST"
+                    null -> "DEFAULT"
+                }
+                viewModel.dismissMilestonePaywall()
+                navControllers[selectedTab]?.navigate(CymbalClubOfferRoute(source = source))
+            }
         }
     }
 
@@ -251,10 +253,11 @@ fun MainTabScreen(
         ComposeScreen(
             onDismiss = {
                 showCompose = false
+                composeMovieMode = false
                 viewModel.clearPreSelectedMedia()
                 viewModel.checkPostMilestonePaywall()
             },
-            movieModeEnabled = preSelectedMovieId != null,
+            movieModeEnabled = preSelectedMovieId != null || composeMovieMode,
             preSelectedTrackId = preSelectedTrackId,
             preSelectedMovieId = preSelectedMovieId,
         )

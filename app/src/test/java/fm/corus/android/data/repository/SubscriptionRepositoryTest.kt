@@ -1,6 +1,8 @@
 package fm.corus.android.data.repository
 
+import android.content.SharedPreferences
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -13,11 +15,18 @@ class SubscriptionRepositoryTest {
 
     private lateinit var repo: SubscriptionRepository
     private val remoteConfig = mock<RemoteConfigService>()
+    private val analyticsService = mock<AnalyticsService>()
+    private val prefs = mock<SharedPreferences>()
+    private val prefsEditor = mock<SharedPreferences.Editor>()
 
     @Before
     fun setUp() {
         whenever(remoteConfig.corusClubEnabled).thenReturn(true)
-        repo = SubscriptionRepository(mock<CloudFunctionsDataSource>(), remoteConfig)
+        whenever(prefs.getBoolean("cached_isClubMember", false)).thenReturn(false)
+        whenever(prefs.getBoolean("cached_isVerified", false)).thenReturn(false)
+        whenever(prefs.edit()).thenReturn(prefsEditor)
+        whenever(prefsEditor.putBoolean(org.mockito.kotlin.any(), org.mockito.kotlin.any())).thenReturn(prefsEditor)
+        repo = SubscriptionRepository(mock<CloudFunctionsDataSource>(), remoteConfig, analyticsService, prefs)
     }
 
     // ── hasFullAccess ──
@@ -67,5 +76,28 @@ class SubscriptionRepositoryTest {
         whenever(remoteConfig.corusClubEnabled).thenReturn(false)
         repeat(SubscriptionRepository.DAILY_POST_LIMIT + 5) { repo.incrementPostCount() }
         assertTrue(repo.canPost)
+    }
+
+    // ── PurchaseOutcome ──
+
+    @Test
+    fun `PurchaseOutcome Success is distinct from Cancelled and Failed`() {
+        val success = PurchaseOutcome.Success
+        val cancelled = PurchaseOutcome.Cancelled
+        val failed = PurchaseOutcome.Failed("test error")
+
+        assertTrue(success is PurchaseOutcome.Success)
+        assertTrue(cancelled is PurchaseOutcome.Cancelled)
+        assertTrue(failed is PurchaseOutcome.Failed)
+        assertTrue((failed as PurchaseOutcome.Failed).error == "test error")
+    }
+
+    // ── SharedPreferences caching ──
+
+    @Test
+    fun `updateVerifiedStatus caches to SharedPreferences`() {
+        repo.updateVerifiedStatus(true)
+        org.mockito.kotlin.verify(prefsEditor).putBoolean("cached_isVerified", true)
+        org.mockito.kotlin.verify(prefsEditor).apply()
     }
 }

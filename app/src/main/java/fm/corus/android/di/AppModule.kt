@@ -1,6 +1,7 @@
 package fm.corus.android.di
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
@@ -52,6 +53,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideRemoteConfig(): FirebaseRemoteConfig = FirebaseRemoteConfig.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideSharedPreferences(@ApplicationContext context: Context): SharedPreferences =
+        context.getSharedPreferences("corus_prefs", Context.MODE_PRIVATE)
 
     @Provides
     @Singleton

@@ -32,11 +32,40 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.revenuecat.purchases.Package
+import com.revenuecat.purchases.models.Period
 import fm.corus.android.R
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+
+// --- Trial detection helpers ---
+
+private fun trialDurationText(pkg: Package?): String? {
+    val freeTrialOption = pkg?.product?.subscriptionOptions?.freeTrial ?: return null
+    val freePhase = freeTrialOption.freePhase ?: return null
+    return formatPeriod(freePhase.billingPeriod)
+}
+
+private fun formatPeriod(period: Period): String? {
+    val v = period.value
+    if (v <= 0) return null
+    return when (period.unit) {
+        Period.Unit.YEAR -> if (v == 1) "1 year" else "$v years"
+        Period.Unit.MONTH -> if (v == 1) "1 month" else "$v months"
+        Period.Unit.WEEK -> if (v == 1) "1 week" else "$v weeks"
+        Period.Unit.DAY -> if (v == 1) "1 day" else "$v days"
+        Period.Unit.UNKNOWN -> null
+    }
+}
+
+private fun ctaText(selectedPackage: Package?, isClubMember: Boolean): String {
+    if (isClubMember) return "You're a member!"
+    val trial = trialDurationText(selectedPackage)
+    return if (trial != null) "Try Free for $trial" else "Join the Club"
+}
+
+// --- Full-screen paywall ---
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,14 +77,20 @@ fun CymbalClubOfferScreen(
     val isPurchasing by viewModel.isPurchasing.collectAsState()
     val purchaseResult by viewModel.purchaseResult.collectAsState()
     val isClubMember by viewModel.isClubMember.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
     val context = LocalContext.current
     val activity = context as? Activity
 
-    var selectedPlan by remember { mutableStateOf("monthly") }
+    var selectedPlan by remember { mutableStateOf(viewModel.defaultPlan) }
 
     val monthlyPackage = packages.firstOrNull { it.identifier == "\$rc_monthly" }
     val yearlyPackage = packages.firstOrNull { it.identifier == "\$rc_annual" }
     val selectedPackage = if (selectedPlan == "yearly") yearlyPackage else monthlyPackage
+
+    // Log paywall shown on first composition
+    LaunchedEffect(Unit) {
+        viewModel.logPaywallShown()
+    }
 
     // Handle purchase result
     LaunchedEffect(purchaseResult) {
@@ -69,12 +104,14 @@ fun CymbalClubOfferScreen(
                 ToastManager.show("Purchases restored!")
                 viewModel.clearResult()
             }
+            CymbalClubViewModel.PurchaseResult.Cancelled -> {
+                // Silent dismiss — no toast, no error (matches iOS)
+                viewModel.clearResult()
+            }
             CymbalClubViewModel.PurchaseResult.NothingToRestore -> {
-                ToastManager.show("No purchases to restore")
                 viewModel.clearResult()
             }
             CymbalClubViewModel.PurchaseResult.Failed -> {
-                ToastManager.show("Purchase failed")
                 viewModel.clearResult()
             }
             null -> {}
@@ -86,7 +123,10 @@ fun CymbalClubOfferScreen(
             TopAppBar(
                 title = {},
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        viewModel.logPaywallDismissed()
+                        onBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
                     }
                 },
@@ -123,7 +163,7 @@ fun CymbalClubOfferScreen(
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
             Text(
-                text = "Support Corus. Get Perks.",
+                text = viewModel.source.subtitle,
                 style = CorusFont.body,
                 color = CorusColors.Secondary,
                 textAlign = TextAlign.Center,
@@ -187,11 +227,23 @@ fun CymbalClubOfferScreen(
 
             Spacer(modifier = Modifier.height(CorusSpacing.xxl))
 
+            // Inline error message (matches iOS red text)
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage!!,
+                    style = CorusFont.caption,
+                    color = Color.Red,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            }
+
             // CTA button
             Button(
                 onClick = {
                     if (activity != null && selectedPackage != null) {
-                        viewModel.purchase(activity, selectedPackage!!)
+                        viewModel.purchase(activity, selectedPackage!!, selectedPlan)
                     }
                 },
                 enabled = !isPurchasing && selectedPackage != null && !isClubMember,
@@ -213,7 +265,7 @@ fun CymbalClubOfferScreen(
                     )
                 } else {
                     Text(
-                        text = if (isClubMember) "You're a member!" else "Join the Club",
+                        text = ctaText(selectedPackage, isClubMember),
                         style = CorusFont.button,
                     )
                 }
@@ -253,20 +305,27 @@ fun CymbalClubOfferScreen(
 @Composable
 fun CymbalClubOfferSheet(
     viewModel: CymbalClubViewModel = hiltViewModel(),
+    source: PaywallSource = PaywallSource.DEFAULT,
     onDismiss: () -> Unit = {},
 ) {
     val packages by viewModel.packages.collectAsState()
     val isPurchasing by viewModel.isPurchasing.collectAsState()
     val purchaseResult by viewModel.purchaseResult.collectAsState()
     val isClubMember by viewModel.isClubMember.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
     val context = LocalContext.current
     val activity = context as? Activity
 
-    var selectedPlan by remember { mutableStateOf("monthly") }
+    var selectedPlan by remember { mutableStateOf(viewModel.defaultPlan) }
 
     val monthlyPackage = packages.firstOrNull { it.identifier == "\$rc_monthly" }
     val yearlyPackage = packages.firstOrNull { it.identifier == "\$rc_annual" }
     val selectedPackage = if (selectedPlan == "yearly") yearlyPackage else monthlyPackage
+
+    // Log paywall shown on first composition
+    LaunchedEffect(Unit) {
+        viewModel.logPaywallShown()
+    }
 
     LaunchedEffect(purchaseResult) {
         when (purchaseResult) {
@@ -279,12 +338,14 @@ fun CymbalClubOfferSheet(
                 ToastManager.show("Purchases restored!")
                 viewModel.clearResult()
             }
+            CymbalClubViewModel.PurchaseResult.Cancelled -> {
+                // Silent dismiss — no toast, no error (matches iOS)
+                viewModel.clearResult()
+            }
             CymbalClubViewModel.PurchaseResult.NothingToRestore -> {
-                ToastManager.show("No purchases to restore")
                 viewModel.clearResult()
             }
             CymbalClubViewModel.PurchaseResult.Failed -> {
-                ToastManager.show("Purchase failed")
                 viewModel.clearResult()
             }
             null -> {}
@@ -304,7 +365,10 @@ fun CymbalClubOfferSheet(
                 .padding(end = CorusSpacing.md, top = CorusSpacing.md),
             contentAlignment = Alignment.TopEnd,
         ) {
-            IconButton(onClick = onDismiss) {
+            IconButton(onClick = {
+                viewModel.logPaywallDismissed()
+                onDismiss()
+            }) {
                 Icon(
                     Icons.Filled.Close,
                     contentDescription = "Close",
@@ -329,7 +393,7 @@ fun CymbalClubOfferSheet(
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
         Text(
-            text = "Support Corus. Get Perks.",
+            text = source.subtitle,
             style = CorusFont.body,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -391,10 +455,22 @@ fun CymbalClubOfferSheet(
 
         Spacer(modifier = Modifier.height(CorusSpacing.xxl))
 
+        // Inline error message (matches iOS red text)
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage!!,
+                style = CorusFont.caption,
+                color = Color.Red,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        }
+
         Button(
             onClick = {
                 if (activity != null && selectedPackage != null) {
-                    viewModel.purchase(activity, selectedPackage!!)
+                    viewModel.purchase(activity, selectedPackage!!, selectedPlan)
                 }
             },
             enabled = !isPurchasing && selectedPackage != null && !isClubMember,
@@ -416,7 +492,7 @@ fun CymbalClubOfferSheet(
                 )
             } else {
                 Text(
-                    text = if (isClubMember) "You're a member!" else "Join the Club",
+                    text = ctaText(selectedPackage, isClubMember),
                     style = CorusFont.button,
                 )
             }

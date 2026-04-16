@@ -48,5 +48,38 @@ data class CymbalComment(
                 editedAt = editedAt,
             )
         }
+
+        /**
+         * Parse a denormalized preview comment from the cloud function response.
+         * These have a flat structure with userId/username at top level
+         * instead of a nested "user" object.
+         */
+        fun fromPreviewMap(data: Map<String, Any?>): CymbalComment? {
+            val commentId = data["commentId"] as? String ?: return null
+            val userId = data["userId"] as? String ?: return null
+            val text = data["text"] as? String ?: return null
+
+            val user = CymbalUser(
+                id = userId,
+                username = data["username"] as? String ?: "",
+                displayName = data["displayName"] as? String ?: "",
+                avatarURL = data["avatarURL"] as? String,
+                bio = "",
+                isVerified = data["isVerified"] as? Boolean ?: false,
+                isClubMember = data["isClubMember"] as? Boolean ?: false,
+                isBot = data["isBot"] as? Boolean ?: false,
+                botType = data["botType"] as? String,
+            )
+
+            val timestampMs = data["createdAt"] as? Number
+            val timestamp = if (timestampMs != null) Date(timestampMs.toLong()) else Date()
+
+            return CymbalComment(
+                id = commentId,
+                user = user,
+                text = text,
+                timestamp = timestamp,
+            )
+        }
     }
 }

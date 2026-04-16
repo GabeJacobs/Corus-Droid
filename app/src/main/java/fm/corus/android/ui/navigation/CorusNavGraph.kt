@@ -92,6 +92,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
+                onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
             )
         }
         sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
@@ -221,7 +222,7 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
 }
 
 @Composable
-fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
+fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0, onOpenCompose: (String) -> Unit = {}) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
 
@@ -233,9 +234,15 @@ fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
         popEnterTransition = { slideInHorizontally(tween(400), initialOffsetX = { -it / 3 }) },
         popExitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { it }) },
     ) {
-        composable<ProfileTabRoute> {
+        composable<ProfileTabRoute> { backStackEntry ->
+            val openStylePicker = backStackEntry.savedStateHandle
+                .get<Boolean>("open_style_picker") == true
             ProfileScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
+                openStylePicker = openStylePicker,
+                onStylePickerConsumed = {
+                    backStackEntry.savedStateHandle.remove<Boolean>("open_style_picker")
+                },
                 onNavigateToSettings = { navController.navigate(SettingsRoute) },
                 onNavigateToEditProfile = { navController.navigate(EditProfileRoute(it)) },
                 onNavigateToFollowList = { userId, isFollowers ->
@@ -244,7 +251,8 @@ fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
                 onNavigateToProfileFeed = { userId, username, postId, segment ->
                     navController.navigate(ProfileFeedRoute(userId, username, segment, postId))
                 },
-                onNavigateToClub = { navController.navigate(CymbalClubOfferRoute) },
+                onNavigateToClub = { navController.navigate(CymbalClubOfferRoute()) },
+                onOpenCompose = onOpenCompose,
             )
         }
         sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
@@ -434,7 +442,12 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<EditProfileRoute>()
         EditProfileScreen(
             onBack = { navController.popBackStack() },
-            onNavigateToClub = { navController.navigate(CymbalClubOfferRoute) },
+            onCustomizeProfile = {
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("open_style_picker", true)
+                navController.popBackStack()
+            },
         )
     }
 
@@ -464,6 +477,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onMutedUsers = { navController.navigate(MutedUsersRoute) },
             onSendFeedback = { navController.navigate(FeedbackFormRoute) },
             onNotificationSettings = { navController.navigate(NotificationSettingsRoute) },
+            onNavigateToClub = { navController.navigate(CymbalClubOfferRoute(source = "settings")) },
         )
     }
 

@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -88,6 +90,7 @@ fun FeedScreen(
     LaunchedEffect(Unit) {
         if (allPosts.isEmpty()) {
             viewModel.loadFeed()
+            viewModel.loadBotSuggestions()
         }
     }
 
@@ -203,53 +206,101 @@ fun FeedScreen(
 
                 // Empty state — only after first load completes with no posts
                 posts.isEmpty() && hasLoaded && !isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
+                        Spacer(modifier = Modifier.height(40.dp))
+
+                        // Invite friends section
+                        Text(
+                            text = "corus is fun with\njust a few friends.",
+                            style = CorusFont.songTitleLarge,
+                            color = CorusColors.Text,
+                            textAlign = TextAlign.Center,
+                        )
+
+                        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
+                        Text(
+                            text = "know someone with good taste?",
+                            style = CorusFont.body,
+                            color = CorusColors.Secondary,
+                            textAlign = TextAlign.Center,
+                        )
+
+                        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+
+                        Button(
+                            onClick = {
+                                val sendIntent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(Intent.EXTRA_TEXT, "Check out Corus — share your music & movie taste! https://corus.fm")
+                                    type = "text/plain"
+                                }
+                                context.startActivity(Intent.createChooser(sendIntent, "Invite Friends"))
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = CorusColors.Accent,
+                            ),
+                            shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                         ) {
                             Text(
-                                text = "corus is fun with\njust a few friends",
-                                style = CorusFont.songTitleLarge,
-                                color = CorusColors.Text,
-                                textAlign = TextAlign.Center,
+                                text = "invite friends",
+                                style = CorusFont.button,
+                                color = CorusColors.Background,
                             )
-
-                            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-
-                            Text(
-                                text = "know someone with good taste?",
-                                style = CorusFont.body,
-                                color = CorusColors.Secondary,
-                                textAlign = TextAlign.Center,
-                            )
-
-                            Spacer(modifier = Modifier.height(CorusSpacing.lg))
-
-                            Button(
-                                onClick = {
-                                    val sendIntent = Intent().apply {
-                                        action = Intent.ACTION_SEND
-                                        putExtra(Intent.EXTRA_TEXT, "Check out Corus — share your music & movie taste! https://corus.fm")
-                                        type = "text/plain"
-                                    }
-                                    context.startActivity(Intent.createChooser(sendIntent, "Invite Friends"))
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = CorusColors.Accent,
-                                ),
-                                shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
-                            ) {
-                                Text(
-                                    text = "invite friends",
-                                    style = CorusFont.button,
-                                    color = CorusColors.Background,
-                                )
-                            }
                         }
+
+                        Spacer(modifier = Modifier.height(CorusSpacing.xl))
+
+                        // Curated music bots section
+                        if (curatedMusicBots.isNotEmpty()) {
+                            DividerSectionHeader(text = "or follow some curated music bots")
+                            Spacer(modifier = Modifier.height(CorusSpacing.md))
+                            FeedBotGrid(
+                                bots = curatedMusicBots.take(2),
+                                viewModel = viewModel,
+                                onNavigateToUser = onNavigateToUser,
+                            )
+                            if (curatedMusicBots.size > 2) {
+                                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                                TextButton(onClick = { onNavigateToBotList("music") }) {
+                                    Text(
+                                        text = "See all",
+                                        style = CorusFont.buttonSmall,
+                                        color = CorusColors.Accent,
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                        }
+
+                        // Curated film bots section
+                        if (curatedFilmBots.isNotEmpty()) {
+                            DividerSectionHeader(text = "or some curated film bots")
+                            Spacer(modifier = Modifier.height(CorusSpacing.md))
+                            FeedBotGrid(
+                                bots = curatedFilmBots.take(2),
+                                viewModel = viewModel,
+                                onNavigateToUser = onNavigateToUser,
+                            )
+                            if (curatedFilmBots.size > 2) {
+                                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                                TextButton(onClick = { onNavigateToBotList("film") }) {
+                                    Text(
+                                        text = "See all",
+                                        style = CorusFont.buttonSmall,
+                                        color = CorusColors.Accent,
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                        }
+
+                        Spacer(modifier = Modifier.height(CorusSpacing.xxl))
                     }
                 }
 
@@ -503,5 +554,64 @@ fun FeedScreen(
             onDismiss = { filmInfoPost = null },
             fetchMovieDetails = { movieId -> viewModel.fetchMovieDetails(movieId) },
         )
+    }
+}
+
+/**
+ * Divider — text — divider header used in the empty feed bot sections.
+ * Matches the iOS "or follow some curated music bots" style.
+ */
+@Composable
+private fun DividerSectionHeader(text: String) {
+    Row(
+        modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f), color = CorusColors.Divider)
+        Text(
+            text = text,
+            style = CorusFont.caption,
+            color = CorusColors.Tertiary,
+            modifier = Modifier.padding(horizontal = CorusSpacing.sm),
+        )
+        HorizontalDivider(modifier = Modifier.weight(1f), color = CorusColors.Divider)
+    }
+}
+
+/**
+ * 2-column grid of bot cards for the empty feed state.
+ */
+@Composable
+private fun FeedBotGrid(
+    bots: List<SuggestedUserMatch>,
+    viewModel: FeedViewModel,
+    onNavigateToUser: (CymbalUser) -> Unit,
+) {
+    val rows = bots.chunked(2)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.xxl),
+        verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+    ) {
+        rows.forEach { rowBots ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+            ) {
+                rowBots.forEach { match ->
+                    TasteMatchCard(
+                        match = match,
+                        isFollowing = viewModel.isBotFollowed(match.user.id),
+                        onUserTap = { onNavigateToUser(match.user) },
+                        onFollowTap = { viewModel.toggleBotFollow(match.user) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (rowBots.size < 2) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
     }
 }

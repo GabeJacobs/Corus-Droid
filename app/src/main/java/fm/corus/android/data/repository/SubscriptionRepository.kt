@@ -9,7 +9,9 @@ import com.revenuecat.purchases.interfaces.UpdatedCustomerInfoListener
 import com.revenuecat.purchases.models.StoreTransaction
 import com.revenuecat.purchases.purchaseWith
 import com.revenuecat.purchases.restorePurchasesWith
+import android.content.SharedPreferences
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,22 +29,32 @@ import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+sealed class PurchaseOutcome {
+    data object Success : PurchaseOutcome()
+    data object Cancelled : PurchaseOutcome()
+    data class Failed(val error: String) : PurchaseOutcome()
+}
+
 @Singleton
 class SubscriptionRepository @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val remoteConfig: RemoteConfigService,
+    private val analyticsService: AnalyticsService,
+    private val prefs: SharedPreferences,
 ) : UpdatedCustomerInfoListener {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
         const val CLUB_ENTITLEMENT_ID = "corus_club"
         const val DAILY_POST_LIMIT = 3
+        private const val PREF_IS_CLUB_MEMBER = "cached_isClubMember"
+        private const val PREF_IS_VERIFIED = "cached_isVerified"
     }
 
-    private val _isClubMember = MutableStateFlow(false)
+    private val _isClubMember = MutableStateFlow(prefs.getBoolean(PREF_IS_CLUB_MEMBER, false))
     val isClubMember: StateFlow<Boolean> = _isClubMember.asStateFlow()
 
-    private val _isVerified = MutableStateFlow(false)
+    private val _isVerified = MutableStateFlow(prefs.getBoolean(PREF_IS_VERIFIED, false))
     val isVerified: StateFlow<Boolean> = _isVerified.asStateFlow()
 
     private val _packages = MutableStateFlow<List<Package>>(emptyList())
@@ -67,6 +79,7 @@ class SubscriptionRepository @Inject constructor(
 
     fun updateVerifiedStatus(isVerified: Boolean) {
         _isVerified.value = isVerified
+        prefs.edit().putBoolean(PREF_IS_VERIFIED, isVerified).apply()
     }
 
     fun incrementPostCount() {
@@ -114,7 +127,7 @@ class SubscriptionRepository @Inject constructor(
         updateClubStatus(customerInfo)
         syncClubStatusToFirestore()
         if (wasClubMember && !_isClubMember.value) {
-            // Subscription expired — could log analytics here
+            analyticsService.logSubscriptionExpired()
         }
     }
 
@@ -134,11 +147,15 @@ class SubscriptionRepository @Inject constructor(
         )
     }
 
-    fun purchase(activity: android.app.Activity, pkg: Package, onResult: (Boolean) -> Unit) {
+    fun purchase(activity: android.app.Activity, pkg: Package, onResult: (PurchaseOutcome) -> Unit) {
         Purchases.sharedInstance.purchaseWith(
             purchaseParams = com.revenuecat.purchases.PurchaseParams.Builder(activity, pkg).build(),
             onError = { error, userCancelled ->
-                onResult(false)
+                if (userCancelled) {
+                    onResult(PurchaseOutcome.Cancelled)
+                } else {
+                    onResult(PurchaseOutcome.Failed(error.message))
+                }
             },
             onSuccess = { storeTransaction, customerInfo ->
                 updateClubStatus(customerInfo)
@@ -150,7 +167,7 @@ class SubscriptionRepository @Inject constructor(
                         } catch (_: Exception) { }
                     }
                 }
-                onResult(true)
+                onResult(PurchaseOutcome.Success)
             },
         )
     }
@@ -196,7 +213,9 @@ class SubscriptionRepository @Inject constructor(
     }
 
     private fun updateClubStatus(customerInfo: CustomerInfo) {
-        _isClubMember.value = customerInfo.entitlements[CLUB_ENTITLEMENT_ID]?.isActive == true
+        val isActive = customerInfo.entitlements[CLUB_ENTITLEMENT_ID]?.isActive == true
+        _isClubMember.value = isActive
+        prefs.edit().putBoolean(PREF_IS_CLUB_MEMBER, isActive).apply()
     }
 
     private fun syncClubStatusToFirestore() {

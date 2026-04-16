@@ -1,5 +1,7 @@
 package fm.corus.android.data.model
 
+import java.util.Date
+
 data class CymbalUser(
     val id: String,
     val username: String,
@@ -26,6 +28,7 @@ data class CymbalUser(
     val discoEffect: String = "off",
     val artistsInCommonCount: Int? = null,
     val deletionStatus: String? = null,
+    val lastPostedAt: Date? = null,
 ) {
     val vinylStyle: VinylStyle get() = VinylStyle.from(vinylColor)
     val frameStyle: FrameStyle get() = FrameStyle.from(frameColor)
@@ -66,6 +69,7 @@ data class CymbalUser(
             discoEffect = data["discoEffect"] as? String ?: "off",
             artistsInCommonCount = (data["artistsInCommonCount"] as? Number)?.toInt(),
             deletionStatus = data["deletionStatus"] as? String,
+            lastPostedAt = (data["lastPostedAt"] as? com.google.firebase.Timestamp)?.toDate(),
         )
     }
 }

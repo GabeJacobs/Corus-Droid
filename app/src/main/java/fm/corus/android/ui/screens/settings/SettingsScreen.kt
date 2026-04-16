@@ -35,6 +35,8 @@ import fm.corus.android.R
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.ui.components.CymbalClubVinyl
+import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.auth.AuthViewModel
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -49,10 +51,33 @@ fun SettingsScreen(
     onMutedUsers: () -> Unit = {},
     onSendFeedback: () -> Unit = {},
     onNotificationSettings: () -> Unit = {},
+    onNavigateToClub: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    val isDeletingAccount by authViewModel.isDeletingAccount.collectAsState()
+    val deleteError by authViewModel.error.collectAsState()
+
+    // Show toast on successful deletion
+    LaunchedEffect(Unit) {
+        authViewModel.accountDeleted.collect {
+            ToastManager.show("Your account has been deleted.")
+        }
+    }
+
+    // Show toast on delete error
+    LaunchedEffect(deleteError) {
+        deleteError?.let {
+            ToastManager.show(it)
+            authViewModel.clearError()
+        }
+    }
+
+    // Club status
+    val isClubMember by settingsViewModel.isClubMember.collectAsState()
+    val isVerified by settingsViewModel.isVerified.collectAsState()
+    val showJoinClub = !isClubMember && !isVerified
 
     // General toggles
     var hapticsEnabled by remember { mutableStateOf(true) }
@@ -82,6 +107,47 @@ fun SettingsScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState()),
         ) {
+            // ── Section: Corus Club ──
+            if (showJoinClub) {
+                SectionHeader("CORUS CLUB")
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onNavigateToClub)
+                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CymbalClubVinyl(size = 44.dp)
+
+                    Spacer(modifier = Modifier.width(CorusSpacing.md))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Join Corus Club",
+                            style = CorusFont.body,
+                            color = CorusColors.Text,
+                        )
+                        Text(
+                            text = "Verified badge, unlimited posts & more",
+                            style = CorusFont.caption,
+                            color = CorusColors.Secondary,
+                        )
+                    }
+
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = CorusColors.Tertiary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                HorizontalDivider(
+                    color = CorusColors.Divider,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                )
+            }
+
             // ── Section: General ──
             SectionHeader("GENERAL")
 
@@ -104,7 +170,10 @@ fun SettingsScreen(
             )
 
             // "Who Can Message Me" menu row
-            Box {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.TopEnd,
+            ) {
                 SettingsNavRow(
                     icon = Icons.Outlined.Group,
                     title = "Who Can Message Me",
@@ -320,10 +389,12 @@ fun SettingsScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    // authViewModel.deleteAccount()
-                    showDeleteConfirm = false
-                }) {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        authViewModel.deleteAccount()
+                    },
+                ) {
                     Text("Delete", color = CorusColors.Error)
                 }
             },

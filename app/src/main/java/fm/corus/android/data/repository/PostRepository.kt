@@ -88,16 +88,11 @@ class PostRepository @Inject constructor(
 
     // ── Create Post ──
 
-    suspend fun createPost(userId: String, data: Map<String, Any?>, voiceNoteData: ByteArray? = null): String {
+    suspend fun createPost(userId: String, data: Map<String, Any>, voiceNoteData: ByteArray? = null): String {
         val postId = firestoreDataSource.createPost(userId, data)
         if (voiceNoteData != null) {
             val url = storageDataSource.uploadVoiceNote(postId, voiceNoteData)
-            firestoreDataSource.updateUserProfile(userId, mapOf()) // voice note URL is on post doc
-            // Update the post with the voice note URL
-            val postFields = mapOf<String, Any?>("voiceNoteURL" to url)
-            com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                .collection("posts").document(postId)
-                .update(postFields)
+            firestoreDataSource.updatePostVoiceNoteURL(postId, url)
         }
         return postId
     }

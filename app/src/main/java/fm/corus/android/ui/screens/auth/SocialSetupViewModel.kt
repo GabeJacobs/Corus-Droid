@@ -16,6 +16,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.NowPlayingState
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +39,9 @@ class SocialSetupViewModel @Inject constructor(
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    private val _contactsSynced = MutableStateFlow(false)
+    val contactsSynced: StateFlow<Boolean> = _contactsSynced.asStateFlow()
 
     private val _contactMatches = MutableStateFlow<List<CymbalUser>>(emptyList())
     val contactMatches: StateFlow<List<CymbalUser>> = _contactMatches.asStateFlow()
@@ -79,6 +83,18 @@ class SocialSetupViewModel @Inject constructor(
     private val _isLoadingFilmBotPosts = MutableStateFlow(false)
     val isLoadingFilmBotPosts: StateFlow<Boolean> = _isLoadingFilmBotPosts.asStateFlow()
 
+    // ── Preview Playback ──
+
+    /** The user ID whose preview is currently loading or playing. */
+    private val _previewingUserId = MutableStateFlow<String?>(null)
+    val previewingUserId: StateFlow<String?> = _previewingUserId.asStateFlow()
+
+    /** True while the preview track is being resolved (fetching posts / looking up URL). */
+    private val _isPreviewLoading = MutableStateFlow(false)
+    val isPreviewLoading: StateFlow<Boolean> = _isPreviewLoading.asStateFlow()
+
+    val nowPlayingState: StateFlow<NowPlayingState> = nowPlayingManager.state
+
     val currentUserId: String? get() = authRepository.currentUserId
 
     fun syncContacts(contentResolver: ContentResolver) {
@@ -100,6 +116,7 @@ class SocialSetupViewModel @Inject constructor(
                     notifyJob.await()
                 }
             } catch (_: Exception) { }
+            _contactsSynced.value = true
             _isSyncing.value = false
         }
     }
@@ -128,13 +145,15 @@ class SocialSetupViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingSuggestions.value = true
             try {
-                val suggestionsDeferred = async { cloudFunctions.getSuggestedUsers(userId) }
+                // Match iOS: fetch popular users from Firestore directly (not cloud function)
+                // so new users with no taste data still see popular accounts.
+                val popularDeferred = async {
+                    userRepository.fetchPopularUsers(limit = 15, excludeIds = setOf(userId))
+                }
                 val musicBotsDeferred = async { cloudFunctions.getBotSuggestions(userId, botType = "music") }
                 val filmBotsDeferred = async { cloudFunctions.getBotSuggestions(userId, botType = "film") }
 
-                val suggestions = suggestionsDeferred.await()
-                // Popular users are the ones without high similarity data (fallback)
-                _popularUsers.value = suggestions.map { it.user }.take(10)
+                _popularUsers.value = popularDeferred.await()
                 _musicBotMatches.value = musicBotsDeferred.await()
                 _filmBotMatches.value = filmBotsDeferred.await()
             } catch (_: Exception) { }
@@ -201,10 +220,28 @@ class SocialSetupViewModel @Inject constructor(
 
     fun playUserPreview(userId: String) {
         val viewerId = authRepository.currentUserId ?: return
+
+        // If same user is already playing, toggle pause
+        if (_previewingUserId.value == userId && nowPlayingManager.isPlaying) {
+            nowPlayingManager.togglePlayPause()
+            return
+        }
+        // If same user is paused, resume
+        if (_previewingUserId.value == userId && nowPlayingManager.currentTrackId != null) {
+            nowPlayingManager.togglePlayPause()
+            return
+        }
+
+        _previewingUserId.value = userId
+        _isPreviewLoading.value = true
         viewModelScope.launch {
             try {
                 val posts = postRepository.getProfilePosts(userId, viewerId, limit = 5)
-                val post = posts.firstOrNull { it.isTrack } ?: return@launch
+                val post = posts.firstOrNull { it.isTrack } ?: run {
+                    _isPreviewLoading.value = false
+                    _previewingUserId.value = null
+                    return@launch
+                }
                 val track = post.track
                 nowPlayingManager.play(
                     trackId = track.id,
@@ -213,7 +250,15 @@ class SocialSetupViewModel @Inject constructor(
                     albumArtURL = track.albumArtURL,
                     previewUrl = track.previewUrl,
                 )
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                _previewingUserId.value = null
+            }
+            _isPreviewLoading.value = false
         }
+    }
+
+    fun stopPreview() {
+        nowPlayingManager.stop()
+        _previewingUserId.value = null
     }
 }

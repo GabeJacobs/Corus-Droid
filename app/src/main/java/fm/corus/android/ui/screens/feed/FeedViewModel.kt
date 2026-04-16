@@ -16,6 +16,7 @@ import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -43,6 +44,7 @@ class FeedViewModel @Inject constructor(
     val nowPlayingManager: NowPlayingManager,
     val remoteConfig: RemoteConfigService,
     val analyticsService: AnalyticsService,
+    private val postCreationEvent: PostCreationEvent,
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
@@ -107,6 +109,16 @@ class FeedViewModel @Inject constructor(
 
     // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
     private val activeListenerPostIds = mutableSetOf<String>()
+
+    init {
+        // Auto-refresh feed when a new post is created
+        viewModelScope.launch {
+            postCreationEvent.events.collect {
+                delay(500) // brief delay for Firestore propagation
+                loadFeed(refresh = true)
+            }
+        }
+    }
 
     fun loadFeed(refresh: Boolean = false) {
         val userId = authRepository.currentUserId ?: return

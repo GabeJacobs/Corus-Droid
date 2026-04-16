@@ -1,7 +1,6 @@
 package fm.corus.android.ui.screens.auth
 
 import android.Manifest
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -21,10 +20,12 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
@@ -34,10 +35,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -48,7 +54,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
-import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.ui.components.SkeletonSectionHeader
 import fm.corus.android.ui.components.TasteMatchCard
@@ -58,7 +63,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
-private enum class SetupStep { SYNC_CONTACTS, FOLLOW_FRIENDS, MUSIC_SERVICE }
+private enum class SetupStep { SYNC_CONTACTS, FOLLOW_FRIENDS }
 
 @Composable
 fun SocialSetupFlow(
@@ -81,10 +86,6 @@ fun SocialSetupFlow(
                 },
             )
             SetupStep.FOLLOW_FRIENDS -> FollowFriendsScreen(
-                viewModel = viewModel,
-                onFinished = { step = SetupStep.MUSIC_SERVICE },
-            )
-            SetupStep.MUSIC_SERVICE -> MusicServiceScreen(
                 viewModel = viewModel,
                 onFinished = onFinished,
             )
@@ -199,24 +200,24 @@ private fun SyncContactsScreen(
 @Composable
 private fun RadarAnimation() {
     val avatarCount = 5
-    val radarDuration = 2400L   // ms — ring expansion
-    val pauseDuration = 800L    // ms — hold after last avatar
+    val radarDuration = 2400L     // ms — ring expansion
+    val pauseDuration = 800L      // ms — hold after last avatar
 
-    // Phase state drives the sequential highlight: 0 = reset, 1 = ring expanding,
-    // 2..6 = avatars 0..4 highlighted one-by-one (matching iOS radarPhase logic).
+    // Phase-based state matching iOS: 0 = reset, 1 = ring expanding,
+    // 2..6 = avatars 0..4 highlighted (stay highlighted until reset).
     var radarPhase by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         while (true) {
+            // Snap to reset — ring is already invisible so this is seamless
             radarPhase = 0
             kotlinx.coroutines.delay(100)
 
             radarPhase = 1  // start ring expansion
 
-            // Highlight each avatar sequentially as ring passes it
+            // Highlight each avatar sequentially as ring passes
             for (i in 0 until avatarCount) {
-                val delayMs = (580 + i * 50).toLong()
-                kotlinx.coroutines.delay(delayMs)
+                kotlinx.coroutines.delay((580 + i * 50).toLong())
                 radarPhase = 2 + i
             }
 
@@ -224,20 +225,23 @@ private fun RadarAnimation() {
         }
     }
 
-    // Ring expansion driven by radarPhase > 0
+    // Ring expansion: animate outward with easeOut, snap back instantly on reset
     val ringSize by animateFloatAsState(
         targetValue = if (radarPhase > 0) 220f else 20f,
-        animationSpec = tween(
-            durationMillis = if (radarPhase > 0) radarDuration.toInt() else 0,
-            easing = FastOutSlowInEasing,
-        ),
+        animationSpec = if (radarPhase > 0) {
+            tween(durationMillis = radarDuration.toInt(), easing = FastOutSlowInEasing)
+        } else {
+            snap()  // instant reset — ring is already transparent so no visible jump
+        },
         label = "ring-size",
     )
     val ringAlpha by animateFloatAsState(
         targetValue = if (radarPhase > 0) 0f else 0.25f,
-        animationSpec = tween(
-            durationMillis = if (radarPhase > 0) radarDuration.toInt() else 0,
-        ),
+        animationSpec = if (radarPhase > 0) {
+            tween(durationMillis = radarDuration.toInt())
+        } else {
+            snap()  // instant reset
+        },
         label = "ring-alpha",
     )
 
@@ -268,15 +272,25 @@ private fun RadarAnimation() {
                 .border(2.dp, CorusColors.Accent.copy(alpha = ringAlpha), CircleShape),
         )
 
-        // Avatar placeholders at 72° intervals — highlight sequentially (matching iOS)
+        // Avatar placeholders at 72° intervals — highlight when radar passes, stay lit
         for (i in 0 until avatarCount) {
             val angle = i * (2.0 * Math.PI / avatarCount) - Math.PI / 2
             val isHighlighted = radarPhase >= 2 + i
 
             val avatarScale by animateFloatAsState(
                 targetValue = if (isHighlighted) 1.15f else 1f,
-                animationSpec = tween(300),
+                animationSpec = tween(300, easing = FastOutSlowInEasing),
                 label = "avatar-scale-$i",
+            )
+            val bgAlpha by animateFloatAsState(
+                targetValue = if (isHighlighted) 0.5f else 0.2f,
+                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                label = "avatar-bg-$i",
+            )
+            val iconAlpha by animateFloatAsState(
+                targetValue = if (isHighlighted) 1f else 0.6f,
+                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                label = "avatar-icon-$i",
             )
 
             Box(
@@ -288,13 +302,13 @@ private fun RadarAnimation() {
                     .scale(avatarScale)
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(CorusColors.Accent.copy(alpha = if (isHighlighted) 0.5f else 0.2f)),
+                    .background(CorusColors.Accent.copy(alpha = bgAlpha)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Filled.Person,
                     contentDescription = null,
-                    tint = CorusColors.Accent.copy(alpha = if (isHighlighted) 1f else 0.6f),
+                    tint = CorusColors.Accent.copy(alpha = iconAlpha),
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -319,6 +333,7 @@ private fun FollowFriendsScreen(
     onFinished: () -> Unit,
 ) {
     val contactMatches by viewModel.contactMatches.collectAsState()
+    val contactsSynced by viewModel.contactsSynced.collectAsState()
     val popularUsers by viewModel.popularUsers.collectAsState()
     val musicBots by viewModel.musicBotMatches.collectAsState()
     val filmBots by viewModel.filmBotMatches.collectAsState()
@@ -328,6 +343,20 @@ private fun FollowFriendsScreen(
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val isFinishing by viewModel.isFinishing.collectAsState()
+    val previewingUserId by viewModel.previewingUserId.collectAsState()
+    val isPreviewLoading by viewModel.isPreviewLoading.collectAsState()
+    val nowPlayingState by viewModel.nowPlayingState.collectAsState()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val scrollDismissConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y != 0f) {
+                    keyboardController?.hide()
+                }
+                return Offset.Zero
+            }
+        }
+    }
 
     var showSeeAll by remember { mutableStateOf<SeeAllDestination?>(null) }
     var filmBotPreviewMatch by remember { mutableStateOf<SuggestedUserMatch?>(null) }
@@ -356,7 +385,7 @@ private fun FollowFriendsScreen(
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
+    Column(modifier = Modifier.fillMaxSize().navigationBarsPadding().nestedScroll(scrollDismissConnection)) {
         Spacer(modifier = Modifier.height(60.dp))
 
         // Header
@@ -387,6 +416,7 @@ private fun FollowFriendsScreen(
         OnboardingSearchBar(
             query = searchQuery,
             onQueryChange = { viewModel.searchUsers(it) },
+            onSearch = { keyboardController?.hide() },
             modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
         )
 
@@ -415,6 +445,8 @@ private fun FollowFriendsScreen(
                         OnboardingUserRow(
                             user = user,
                             isFollowed = followedIds.contains(user.id),
+                            isPreviewLoading = previewingUserId == user.id && isPreviewLoading,
+                            isPreviewPlaying = previewingUserId == user.id && nowPlayingState.isPlaying,
                             onFollow = { viewModel.toggleFollow(user.id) },
                             onTap = { viewModel.playUserPreview(user.id) },
                         )
@@ -438,12 +470,14 @@ private fun FollowFriendsScreen(
                                 user = user,
                                 subtitle = "From your contacts",
                                 isFollowed = followedIds.contains(user.id),
+                                isPreviewLoading = previewingUserId == user.id && isPreviewLoading,
+                                isPreviewPlaying = previewingUserId == user.id && nowPlayingState.isPlaying,
                                 onFollow = { viewModel.toggleFollow(user.id) },
                                 onTap = { viewModel.playUserPreview(user.id) },
                             )
                         }
-                    } else {
-                        // Friends empty state — matches iOS
+                    } else if (contactsSynced) {
+                        // Friends empty state — only show if user chose to sync contacts
                         item {
                             OnboardingSectionHeader(
                                 title = "\uD83D\uDC65 Friends on Corus",
@@ -489,6 +523,8 @@ private fun FollowFriendsScreen(
                             user = user,
                             subtitle = "${user.followerCount} followers",
                             isFollowed = followedIds.contains(user.id),
+                            isPreviewLoading = previewingUserId == user.id && isPreviewLoading,
+                            isPreviewPlaying = previewingUserId == user.id && nowPlayingState.isPlaying,
                             onFollow = { viewModel.toggleFollow(user.id) },
                             onTap = { viewModel.playUserPreview(user.id) },
                         )
@@ -589,195 +625,6 @@ private fun FollowFriendsScreen(
     }
 }
 
-// ═══════════════════════════════════════════════
-// MUSIC SERVICE SELECTION SCREEN
-// ═══════════════════════════════════════════════
-
-@Composable
-private fun MusicServiceScreen(
-    viewModel: SocialSetupViewModel,
-    onFinished: () -> Unit,
-) {
-    var selectedService by remember { mutableStateOf(MusicService.SPOTIFY) }
-    var isFinishing by remember { mutableStateOf(false) }
-
-    // Request notification permission on this screen (matching iOS flow)
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { _ ->
-        // Proceed regardless of permission result
-        isFinishing = false
-        onFinished()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .navigationBarsPadding()
-            .padding(horizontal = CorusSpacing.xxl),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(modifier = Modifier.height(60.dp))
-
-        // Header — matches iOS
-        Text(
-            "Choose Your Player",
-            style = CorusFont.appTitle,
-            color = CorusColors.Text,
-        )
-        Spacer(modifier = Modifier.height(CorusSpacing.sm))
-        Text(
-            "pick your preferred music service",
-            style = CorusFont.bodyMedium,
-            color = CorusColors.Secondary,
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Service selection cards — matches iOS: 2 cards side by side
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
-        ) {
-            // Spotify card
-            MusicServiceCard(
-                label = "Spotify",
-                logoResId = R.drawable.spotify_logo,
-                isSelected = selectedService == MusicService.SPOTIFY,
-                selectedColor = CorusColors.SpotifyGreen,
-                onClick = { selectedService = MusicService.SPOTIFY },
-                modifier = Modifier.weight(1f),
-            )
-
-            // Apple Music card
-            MusicServiceCard(
-                label = "Apple Music",
-                logoResId = R.drawable.apple_music_logo,
-                isSelected = selectedService == MusicService.APPLE_MUSIC,
-                selectedColor = CorusColors.AppleMusicPink,
-                onClick = { selectedService = MusicService.APPLE_MUSIC },
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.xxl))
-
-        Text(
-            "Stay tuned for support for more streaming services.",
-            style = CorusFont.caption,
-            color = CorusColors.Secondary,
-            textAlign = TextAlign.Center,
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Skip — defaults to Spotify (matching iOS)
-        TextButton(onClick = {
-            viewModel.saveMusicService(MusicService.SPOTIFY)
-            finishWithNotification(
-                notificationPermissionLauncher,
-                onFinished,
-                setFinishing = { isFinishing = it },
-            )
-        }) {
-            Text("Skip", style = CorusFont.captionMedium, color = CorusColors.Secondary)
-        }
-
-        // GET STARTED button
-        Button(
-            onClick = {
-                viewModel.saveMusicService(selectedService)
-                finishWithNotification(
-                    notificationPermissionLauncher,
-                    onFinished,
-                    setFinishing = { isFinishing = it },
-                )
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = CorusSpacing.xxxl),
-            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
-            enabled = !isFinishing,
-            contentPadding = PaddingValues(vertical = CorusSpacing.lg),
-            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-        ) {
-            if (isFinishing) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-            } else {
-                Text("GET STARTED", style = CorusFont.button, color = Color.White)
-            }
-        }
-    }
-}
-
-private fun finishWithNotification(
-    launcher: androidx.activity.result.ActivityResultLauncher<String>,
-    onFinished: () -> Unit,
-    setFinishing: (Boolean) -> Unit,
-) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        setFinishing(true)
-        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-    } else {
-        onFinished()
-    }
-}
-
-@Composable
-private fun MusicServiceCard(
-    label: String,
-    logoResId: Int,
-    isSelected: Boolean,
-    selectedColor: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val bgColor = if (isSelected) selectedColor.copy(alpha = 0.08f) else CorusColors.CardBackground
-    val borderColor = if (isSelected) selectedColor else CorusColors.Divider
-    val borderWidth = if (isSelected) 2.dp else 1.dp
-
-    Surface(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(CorusSpacing.cornerRadiusLarge),
-        color = bgColor,
-        border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor),
-    ) {
-        Box {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = CorusSpacing.xxl),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Image(
-                    painter = painterResource(id = logoResId),
-                    contentDescription = label,
-                    modifier = Modifier.size(48.dp),
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.md))
-                Text(
-                    label,
-                    style = CorusFont.bodyMedium,
-                    color = CorusColors.Text,
-                )
-            }
-
-            // Checkmark overlay — top-right when selected
-            if (isSelected) {
-                Icon(
-                    Icons.Filled.CheckCircle,
-                    contentDescription = "Selected",
-                    tint = selectedColor,
-                    modifier = Modifier
-                        .size(22.dp)
-                        .align(Alignment.TopEnd)
-                        .offset(x = (-8).dp, y = 8.dp),
-                )
-            }
-        }
-    }
-}
 
 // ═══════════════════════════════════════════════
 // SEE ALL SCREEN
@@ -872,6 +719,7 @@ private fun OnboardingSeeAllScreen(
 private fun OnboardingSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     TextField(
@@ -902,6 +750,7 @@ private fun OnboardingSearchBar(
             unfocusedIndicatorColor = Color.Transparent,
         ),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { onSearch() }),
     )
 }
 
@@ -934,9 +783,17 @@ private fun OnboardingUserRow(
     user: CymbalUser,
     subtitle: String? = null,
     isFollowed: Boolean,
+    isPreviewLoading: Boolean = false,
+    isPreviewPlaying: Boolean = false,
     onFollow: () -> Unit,
     onTap: (() -> Unit)? = null,
 ) {
+    val overlayAlpha by animateFloatAsState(
+        targetValue = if (isPreviewLoading || isPreviewPlaying) 0.4f else 0f,
+        animationSpec = tween(200),
+        label = "overlay-alpha",
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -944,7 +801,32 @@ private fun OnboardingUserRow(
             .padding(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium)
+        // Avatar with play/loading overlay (matching iOS)
+        Box(contentAlignment = Alignment.Center) {
+            UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium)
+            // Dark scrim
+            Box(
+                modifier = Modifier
+                    .size(CorusSpacing.avatarMedium)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = overlayAlpha)),
+            )
+            // Loading spinner or pause icon
+            if (isPreviewLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                )
+            } else if (isPreviewPlaying) {
+                Icon(
+                    imageVector = Icons.Filled.Pause,
+                    contentDescription = "Pause",
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(

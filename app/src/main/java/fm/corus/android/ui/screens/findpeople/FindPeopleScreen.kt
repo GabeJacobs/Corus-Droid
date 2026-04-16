@@ -215,7 +215,7 @@ fun FindPeopleScreen(
             },
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
         // Tab bar
         FindPeopleTabBar(
@@ -530,7 +530,7 @@ private fun SuggestedUsersContent(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = CorusSpacing.xs),
+        contentPadding = PaddingValues(top = CorusSpacing.xxs),
     ) {
         // ── Find Friends from Contacts ──
         item {
@@ -561,7 +561,7 @@ private fun SuggestedUsersContent(
             items(3) {
                 SkeletonUserRow()
             }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         } else if (contactMatches.isNotEmpty()) {
             item {
                 SectionHeader(
@@ -580,12 +580,12 @@ private fun SuggestedUsersContent(
                     onFollow = { viewModel.toggleFollow(user) },
                 )
             }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         } else if (showNoContactMatches) {
             item {
                 NoContactMatchesCard()
             }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         }
 
         // ── Taste Matches section ──
@@ -603,7 +603,7 @@ private fun SuggestedUsersContent(
                     SkeletonTasteMatchCard(modifier = Modifier.weight(1f))
                     SkeletonTasteMatchCard(modifier = Modifier.weight(1f))
                 }
-                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
         }
         if (musicMatchUsers.isNotEmpty()) {
@@ -635,7 +635,7 @@ private fun SuggestedUsersContent(
                         Spacer(modifier = Modifier.weight(1f))
                     }
                 }
-                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
         }
 
@@ -658,13 +658,18 @@ private fun SuggestedUsersContent(
                     onFollow = { viewModel.toggleFollow(match.user) },
                 )
             }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         }
 
         // ── Popular on Corus ──
         if (popularUsers.isNotEmpty()) {
             item {
-                SectionHeader(icon = "trending", title = "POPULAR ON CORUS")
+                SectionHeader(
+                    icon = "trending",
+                    title = "POPULAR ON CORUS",
+                    showSeeAll = popularUsers.size > 3,
+                    onSeeAll = { onNavigateToSuggestedUsers("Popular on Corus", true) },
+                )
             }
             items(popularUsers.take(3), key = { "popular-${it.id}" }) { user ->
                 SuggestedUserRow(
@@ -675,13 +680,13 @@ private fun SuggestedUsersContent(
                     onFollow = { viewModel.toggleFollow(user) },
                 )
             }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         } else if (isPopularLoading) {
             item {
                 SectionHeader(icon = "trending", title = "POPULAR ON CORUS")
             }
             items(3) { SkeletonUserRow() }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         }
 
         // ── Curated Music Bots ──
@@ -696,7 +701,7 @@ private fun SuggestedUsersContent(
             }
             item {
                 BotGrid(bots = curatedMusicBots.take(4), viewModel = viewModel, onNavigateToUser = onNavigateToUser)
-                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
         }
 
@@ -712,7 +717,7 @@ private fun SuggestedUsersContent(
             }
             item {
                 BotGrid(bots = curatedFilmBots.take(4), viewModel = viewModel, onNavigateToUser = onNavigateToUser)
-                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
         }
 
@@ -844,7 +849,7 @@ private fun SectionHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val iconVector = when (icon) {

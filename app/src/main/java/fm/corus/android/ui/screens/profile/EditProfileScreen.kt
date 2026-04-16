@@ -3,21 +3,30 @@ package fm.corus.android.ui.screens.profile
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -27,7 +36,7 @@ import fm.corus.android.ui.theme.CorusSpacing
 fun EditProfileScreen(
     viewModel: EditProfileViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
-    onNavigateToClub: () -> Unit = {},
+    onCustomizeProfile: () -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -39,17 +48,25 @@ fun EditProfileScreen(
     val isSaving by viewModel.isSaving.collectAsState()
     val saveError by viewModel.saveError.collectAsState()
 
-    // Style picker state
-    val styleSelections by viewModel.styleSelections.collectAsState()
-    val latestTrackPost by viewModel.latestTrackPost.collectAsState()
-    val latestMoviePost by viewModel.latestMoviePost.collectAsState()
-    val hasTrackPosts by viewModel.hasTrackPosts.collectAsState()
-    val hasMoviePosts by viewModel.hasMoviePosts.collectAsState()
-    val isStyleSaving by viewModel.isStyleSaving.collectAsState()
-    val hasFullAccess by viewModel.subscriptionRepository.hasFullAccessFlow.collectAsState()
+    val profile by viewModel.profile.collectAsState()
 
-    var showStylePicker by remember { mutableStateOf(false) }
+    // Derive canSave reactively from collected states so Compose can observe changes
+    val canSave = remember(displayName, username, bio, website, profile, usernameState, isSaving) {
+        val p = profile ?: return@remember false
+        val hasChanges = displayName != p.displayName ||
+                username != p.username ||
+                bio != p.bio ||
+                website != (p.website ?: "")
+        if (!hasChanges) return@remember false
+        if (displayName.isBlank()) return@remember false
+        if (username != p.username && usernameState != EditProfileViewModel.UsernameState.AVAILABLE) return@remember false
+        if (isSaving) return@remember false
+        true
+    }
+
     var showDiscardDialog by remember { mutableStateOf(false) }
+    // Track pending action when user has unsaved changes and taps Customize or Share
+    var pendingAction by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadProfile()
@@ -75,56 +92,46 @@ fun EditProfileScreen(
         )
     }
 
-    // Discard changes dialog
+    // Unsaved changes dialog (for back, customize, or share actions)
     if (showDiscardDialog) {
         AlertDialog(
-            onDismissRequest = { showDiscardDialog = false },
-            title = { Text("Discard Changes?", style = CorusFont.songTitle, color = CorusColors.Text) },
-            text = { Text("You have unsaved changes that will be lost.", style = CorusFont.body, color = CorusColors.Text) },
+            onDismissRequest = {
+                showDiscardDialog = false
+                pendingAction = null
+            },
+            title = { Text("Unsaved Changes", style = CorusFont.songTitle, color = CorusColors.Text) },
+            text = { Text("You have unsaved changes to your profile.", style = CorusFont.body, color = CorusColors.Text) },
             confirmButton = {
                 TextButton(onClick = {
                     showDiscardDialog = false
-                    onBack()
+                    val action = pendingAction
+                    pendingAction = null
+                    when (action) {
+                        "customize" -> onCustomizeProfile()
+                        "share" -> {
+                            val shareText = "Check out my profile on Corus: https://corus.fm/user/$username"
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, shareText)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Share Profile"))
+                        }
+                        else -> onBack()
+                    }
                 }) {
                     Text("Discard", style = CorusFont.button, color = CorusColors.Error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDiscardDialog = false }) {
+                TextButton(onClick = {
+                    showDiscardDialog = false
+                    pendingAction = null
+                }) {
                     Text("Keep Editing", style = CorusFont.button, color = CorusColors.Accent)
                 }
             },
             containerColor = CorusColors.Background,
         )
-    }
-
-    // Style picker bottom sheet
-    if (showStylePicker) {
-        ModalBottomSheet(
-            onDismissRequest = { showStylePicker = false },
-            containerColor = CorusColors.Background,
-        ) {
-            StylePickerSheet(
-                currentSelections = styleSelections,
-                username = username,
-                latestTrackPost = latestTrackPost,
-                latestMoviePost = latestMoviePost,
-                hasTrackPosts = hasTrackPosts,
-                hasMoviePosts = hasMoviePosts,
-                isClubMember = hasFullAccess,
-                isSaving = isStyleSaving,
-                onSave = { selections ->
-                    viewModel.saveStyleSelections(selections) {
-                        showStylePicker = false
-                    }
-                },
-                onNavigateToClub = {
-                    showStylePicker = false
-                    onNavigateToClub()
-                },
-                onDismiss = { showStylePicker = false },
-            )
-        }
     }
 
     Scaffold(
@@ -139,7 +146,7 @@ fun EditProfileScreen(
                 actions = {
                     TextButton(
                         onClick = { viewModel.save(onSuccess = onBack) },
-                        enabled = viewModel.canSave,
+                        enabled = canSave,
                     ) {
                         if (isSaving) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CorusColors.Accent)
@@ -147,7 +154,7 @@ fun EditProfileScreen(
                             Text(
                                 "Save",
                                 style = CorusFont.button,
-                                color = if (viewModel.canSave) CorusColors.Accent else CorusColors.Tertiary,
+                                color = if (canSave) CorusColors.Accent else CorusColors.Tertiary,
                             )
                         }
                     }
@@ -157,10 +164,24 @@ fun EditProfileScreen(
             )
         },
     ) { padding ->
+        val keyboardController = LocalSoftwareKeyboardController.current
+        val dismissKeyboardOnScroll = remember {
+            object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    if (available.y > 4f && source == NestedScrollSource.UserInput) {
+                        keyboardController?.hide()
+                    }
+                    return Offset.Zero
+                }
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .nestedScroll(dismissKeyboardOnScroll)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.md),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
@@ -252,43 +273,79 @@ fun EditProfileScreen(
                 singleLine = true,
             )
 
-            // Customize Profile button
-            Button(
-                onClick = { showStylePicker = true },
+            // Divider before action rows
+            HorizontalDivider(color = CorusColors.Divider)
+
+            // Customize Profile Style row
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CorusColors.CardBackground,
-                    contentColor = CorusColors.Text,
-                ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, CorusColors.Divider),
+                    .clickable {
+                        if (viewModel.hasUnsavedChanges) {
+                            pendingAction = "customize"
+                            showDiscardDialog = true
+                        } else {
+                            onCustomizeProfile()
+                        }
+                    }
+                    .padding(vertical = CorusSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                Text("Customize Profile", style = CorusFont.button, color = CorusColors.Text)
+                Icon(
+                    painter = painterResource(R.drawable.ic_paintbrush),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = CorusColors.Accent,
+                )
+                Text(
+                    "Customize Profile Style",
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = CorusColors.Tertiary,
+                    modifier = Modifier.size(20.dp),
+                )
             }
 
-            // Share Profile Link button
-            Button(
-                onClick = {
-                    val shareText = "Check out my profile on Corus: https://corus.fm/user/$username"
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, shareText)
-                    }
-                    context.startActivity(Intent.createChooser(intent, "Share Profile"))
-                },
+            // Share Profile Link row
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CorusColors.CardBackground,
-                    contentColor = CorusColors.Text,
-                ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, CorusColors.Divider),
+                    .clickable {
+                        val shareText = "Check out my profile on Corus: https://corus.fm/user/$username"
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, shareText)
+                        }
+                        context.startActivity(Intent.createChooser(intent, "Share Profile"))
+                    }
+                    .padding(vertical = CorusSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                Text("Share Profile Link", style = CorusFont.button, color = CorusColors.Text)
+                Icon(
+                    painter = painterResource(R.drawable.ic_link),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = CorusColors.Accent,
+                )
+                Text(
+                    "Share Profile Link",
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = CorusColors.Tertiary,
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
     }

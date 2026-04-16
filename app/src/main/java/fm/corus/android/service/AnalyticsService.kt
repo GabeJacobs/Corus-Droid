@@ -159,6 +159,11 @@ class AnalyticsService @Inject constructor(
     fun logPurchaseStarted(plan: String) = logEvent("purchase_started", mapOf("plan" to plan))
     fun logPurchaseCompleted(plan: String) = logEvent("purchase_completed", mapOf("plan" to plan))
     fun logPurchaseFailed(plan: String, error: String) = logEvent("purchase_failed", mapOf("plan" to plan, "error" to error.take(100)))
+    fun logPurchaseRestored() = logEvent("purchase_restored")
+    fun logPurchaseRestoreFailed(error: String) = logEvent("purchase_restore_failed", mapOf("error" to error.take(100)))
+    fun logSubscriptionExpired() = logEvent("subscription_expired")
+    fun logManageSubscriptionTapped() = logEvent("manage_subscription_tapped")
+    fun logPostLimitReached(todayCount: Int) = logEvent("post_limit_reached", mapOf("today_count" to todayCount))
 
     // MARK: - Error Events
 

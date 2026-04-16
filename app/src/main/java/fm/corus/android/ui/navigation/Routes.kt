@@ -72,7 +72,7 @@ import kotlinx.serialization.Serializable
 @Serializable object ChangeUsernameRoute
 @Serializable object ChangePhoneNumberRoute
 @Serializable object FeedbackFormRoute
-@Serializable object CymbalClubOfferRoute
+@Serializable data class CymbalClubOfferRoute(val source: String = "DEFAULT")
 @Serializable object ThreadListRoute
 @Serializable data class MessageThreadRoute(val threadId: String, val otherUserId: String)
 @Serializable data class BotListRoute(val botType: String? = null)

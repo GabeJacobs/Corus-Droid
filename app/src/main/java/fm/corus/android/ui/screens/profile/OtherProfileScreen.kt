@@ -102,8 +102,11 @@ fun OtherProfileScreen(
     val engagementStates by viewModel.engagementStates.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
     var isFeaturedArtReady by remember { mutableStateOf(false) }
+    val hasFullAccess by viewModel.hasFullAccess.collectAsState()
     var showMenu by remember { mutableStateOf(false) }
     var showAvatarFullScreen by remember { mutableStateOf(false) }
+    var showPlaylistPaywall by remember { mutableStateOf(false) }
+    var showClubOffer by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
 
     // Infinite scroll: load more when near the bottom
@@ -189,7 +192,11 @@ fun OtherProfileScreen(
                                     enabled = hasSongs && !isGeneratingPlaylist,
                                     onClick = {
                                         showMenu = false
-                                        viewModel.generatePlaylist(userId)
+                                        if (!hasFullAccess) {
+                                            showPlaylistPaywall = true
+                                        } else {
+                                            viewModel.generatePlaylist(userId)
+                                        }
                                     },
                                 )
                             }
@@ -616,10 +623,12 @@ fun OtherProfileScreen(
                                         .clip(RoundedCornerShape(50))
                                         .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
                                         .clickable(enabled = hasSongs && !isGeneratingPlaylist) {
-                                            if (hasSongs) {
-                                                viewModel.generatePlaylist(userId)
-                                            } else {
+                                            if (!hasSongs) {
                                                 ToastManager.show("No songs to make a playlist")
+                                            } else if (!hasFullAccess) {
+                                                showPlaylistPaywall = true
+                                            } else {
+                                                viewModel.generatePlaylist(userId)
                                             }
                                         }
                                         .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
@@ -916,6 +925,31 @@ fun OtherProfileScreen(
         visible = showAvatarFullScreen,
         onDismiss = { showAvatarFullScreen = false },
     )
+
+    // Playlist paywall
+    if (showPlaylistPaywall) {
+        fm.corus.android.ui.screens.subscription.PlaylistPaywallSheet(
+            onDismiss = { showPlaylistPaywall = false },
+            onNavigateToClub = {
+                showPlaylistPaywall = false
+                showClubOffer = true
+            },
+        )
+    }
+
+    // Club offer sheet
+    if (showClubOffer) {
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { showClubOffer = false },
+            containerColor = CorusColors.Background,
+            dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
+        ) {
+            fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
+                source = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT,
+                onDismiss = { showClubOffer = false },
+            )
+        }
+    }
 }
 
 @Composable

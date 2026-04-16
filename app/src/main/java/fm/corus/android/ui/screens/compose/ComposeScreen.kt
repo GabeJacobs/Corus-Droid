@@ -48,10 +48,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
+import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.TrophyCelebrationView
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.VoiceNoteRecorderView
@@ -74,6 +76,7 @@ fun ComposeScreen(
     val postSuccess by viewModel.postSuccess.collectAsState()
     val error by viewModel.error.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+    val filmResults by viewModel.filmResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
     val showTrophy by viewModel.showTrophy.collectAsState()
@@ -194,8 +197,12 @@ fun ComposeScreen(
                         },
                         isSearching = isSearching,
                         searchResults = searchResults,
+                        filmResults = filmResults,
                         onResultClick = { result ->
                             viewModel.selectResult(result, mediaType)
+                        },
+                        onFilmClick = { movie ->
+                            viewModel.selectFilmResult(movie)
                         },
                         onPreviewTap = { trackId ->
                             viewModel.toggleSearchResultPreview(trackId)
@@ -271,15 +278,13 @@ fun ComposeScreen(
         )
     }
 
-    // Post limit paywall
+    // Post limit reached inside compose — dismiss back to main screen
+    // (MainTabScreen gates compose behind canPost, so this is a safety net)
     if (showPostLimitPaywall) {
-        fm.corus.android.ui.screens.subscription.PostLimitPaywallSheet(
-            onDismiss = { viewModel.dismissPostLimitPaywall() },
-            onNavigateToClub = {
-                viewModel.dismissPostLimitPaywall()
-                onDismiss()
-            },
-        )
+        LaunchedEffect(Unit) {
+            viewModel.dismissPostLimitPaywall()
+            onDismiss()
+        }
     }
     } // end Box
 }
@@ -296,7 +301,9 @@ private fun SearchModeContent(
     onMediaTypeChange: (MediaType) -> Unit,
     isSearching: Boolean,
     searchResults: List<SearchResultItem>,
+    filmResults: List<CymbalMovie>,
     onResultClick: (SearchResultItem) -> Unit,
+    onFilmClick: (CymbalMovie) -> Unit,
     onPreviewTap: (String) -> Unit,
     nowPlayingTrackId: String?,
     previewLoadingTrackId: String?,
@@ -391,23 +398,38 @@ private fun SearchModeContent(
             }
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(searchResults) { index, result ->
-                    SearchResultRow(
-                        imageURL = result.imageURL,
-                        title = result.title,
-                        subtitle = result.subtitle,
-                        trailingText = result.trailingText,
-                        showPlayOverlay = result.showPlayOverlay,
-                        isPlaying = result.showPlayOverlay && nowPlayingTrackId == result.id,
-                        isLoading = result.showPlayOverlay && previewLoadingTrackId == result.id,
-                        onAlbumArtTap = if (result.showPlayOverlay) {{ onPreviewTap(result.id) }} else null,
-                        onClick = { onResultClick(result) },
-                    )
-                    if (index < searchResults.lastIndex) {
-                        HorizontalDivider(
-                            color = CorusColors.Divider,
-                            modifier = Modifier.padding(start = 72.dp),
+                if (mediaType == MediaType.MOVIE) {
+                    itemsIndexed(filmResults) { index, movie ->
+                        FilmSearchResultRow(
+                            movie = movie,
+                            onClick = { onFilmClick(movie) },
                         )
+                        if (index < filmResults.lastIndex) {
+                            HorizontalDivider(
+                                color = CorusColors.Divider,
+                                modifier = Modifier.padding(start = 72.dp),
+                            )
+                        }
+                    }
+                } else {
+                    itemsIndexed(searchResults) { index, result ->
+                        SearchResultRow(
+                            imageURL = result.imageURL,
+                            title = result.title,
+                            subtitle = result.subtitle,
+                            trailingText = result.trailingText,
+                            showPlayOverlay = result.showPlayOverlay,
+                            isPlaying = result.showPlayOverlay && nowPlayingTrackId == result.id,
+                            isLoading = result.showPlayOverlay && previewLoadingTrackId == result.id,
+                            onAlbumArtTap = if (result.showPlayOverlay) {{ onPreviewTap(result.id) }} else null,
+                            onClick = { onResultClick(result) },
+                        )
+                        if (index < searchResults.lastIndex) {
+                            HorizontalDivider(
+                                color = CorusColors.Divider,
+                                modifier = Modifier.padding(start = 72.dp),
+                            )
+                        }
                     }
                 }
             }

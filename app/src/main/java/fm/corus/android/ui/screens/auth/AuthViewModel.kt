@@ -16,8 +16,11 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -66,6 +69,9 @@ class AuthViewModel @Inject constructor(
     fun observeAuthState() {
         val listener = AuthStateListener { auth ->
             viewModelScope.launch {
+                // Suppress auth-state changes while account deletion is in progress
+                if (_isDeletingAccount.value) return@launch
+
                 val user = auth.currentUser
                 if (user == null) {
                     _authState.value = AuthState.SignedOut
@@ -238,7 +244,7 @@ class AuthViewModel @Inject constructor(
         _error.value = null
     }
 
-    // ── Sign Out ──
+    // ── Sign Out / Delete ──
 
     fun signOut() {
         viewModelScope.launch {
@@ -249,6 +255,33 @@ class AuthViewModel @Inject constructor(
             exploreRepository.clearCaches()
             engagementManager.clearAll()
             didSignInThisSession = false
+        }
+    }
+
+    private val _isDeletingAccount = MutableStateFlow(false)
+    val isDeletingAccount: StateFlow<Boolean> = _isDeletingAccount.asStateFlow()
+
+    private val _accountDeleted = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val accountDeleted: SharedFlow<Unit> = _accountDeleted.asSharedFlow()
+
+    fun deleteAccount() {
+        viewModelScope.launch {
+            _isDeletingAccount.value = true
+            try {
+                analyticsService.logDeleteAccount()
+                subscriptionRepository.logoutUser()
+                authRepository.deleteAccount()
+                userRepository.clearCaches()
+                exploreRepository.clearCaches()
+                engagementManager.clearAll()
+                didSignInThisSession = false
+                _isDeletingAccount.value = false
+                _authState.value = AuthState.SignedOut
+                _accountDeleted.tryEmit(Unit)
+            } catch (e: Exception) {
+                _isDeletingAccount.value = false
+                _error.value = "Couldn't delete your account. Please try again."
+            }
         }
     }
 

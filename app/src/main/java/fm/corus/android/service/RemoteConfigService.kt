@@ -45,6 +45,9 @@ class RemoteConfigService @Inject constructor(
     val giphySupport: Boolean
         get() = remoteConfig.getBoolean("giphy_support")
 
+    val serverNotificationsEnabled: Boolean
+        get() = remoteConfig.getBoolean("server_notifications_enabled")
+
     suspend fun fetchAndActivate() {
         try {
             val settings = FirebaseRemoteConfigSettings.Builder()
@@ -64,6 +67,7 @@ class RemoteConfigService @Inject constructor(
                     "filter_for_club_members_only" to false,
                     "paywall_default_yearly" to false,
                     "giphy_support" to false,
+                    "server_notifications_enabled" to false,
                 )
             ).await()
             remoteConfig.fetchAndActivate().await()

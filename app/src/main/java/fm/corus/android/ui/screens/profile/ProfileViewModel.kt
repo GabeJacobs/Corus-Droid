@@ -10,8 +10,10 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostEngagementManager
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,12 +28,23 @@ class ProfileViewModel @Inject constructor(
     private val subscriptionRepository: SubscriptionRepository,
     val nowPlayingManager: NowPlayingManager,
     private val engagementManager: PostEngagementManager,
+    private val postCreationEvent: PostCreationEvent,
 ) : ViewModel() {
 
     val isClubMember = subscriptionRepository.isClubMember
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
 
     val engagementStates = engagementManager.states
+
+    init {
+        // Auto-refresh profile when a new post is created
+        viewModelScope.launch {
+            postCreationEvent.events.collect {
+                delay(500) // brief delay for Firestore propagation
+                refreshProfile()
+            }
+        }
+    }
 
     fun toggleLike(postId: String) {
         val userId = authRepository.currentUserId ?: return

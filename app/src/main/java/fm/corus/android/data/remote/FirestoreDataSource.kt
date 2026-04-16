@@ -8,6 +8,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import fm.corus.android.data.model.*
+import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.awaitClose
@@ -22,6 +23,7 @@ import javax.inject.Singleton
 @Singleton
 class FirestoreDataSource @Inject constructor(
     private val firestore: FirebaseFirestore,
+    private val remoteConfigService: RemoteConfigService,
 ) {
     // ── Ban Check ──
 
@@ -358,15 +360,16 @@ class FirestoreDataSource @Inject constructor(
         return botIds
     }
 
-    suspend fun createPost(userId: String, data: Map<String, Any?>): String {
+    suspend fun createPost(userId: String, data: Map<String, Any>): String {
         val docRef = firestore.collection("posts").document()
         val postData = data.toMutableMap()
         postData["id"] = docRef.id
         postData["userId"] = userId
-        postData["timestamp"] = FieldValue.serverTimestamp()
+        postData["createdAt"] = FieldValue.serverTimestamp()
         postData["likeCount"] = 0
         postData["commentCount"] = 0
         postData["repostCount"] = 0
+        postData["voiceNoteURL"] = data["voiceNoteURL"] ?: ""
         docRef.set(postData).await()
 
         // Increment user's cymbal count
@@ -375,6 +378,12 @@ class FirestoreDataSource @Inject constructor(
             .await()
 
         return docRef.id
+    }
+
+    suspend fun updatePostVoiceNoteURL(postId: String, url: String) {
+        firestore.collection("posts").document(postId)
+            .update("voiceNoteURL", url)
+            .await()
     }
 
     suspend fun createRepost(
@@ -445,6 +454,7 @@ class FirestoreDataSource @Inject constructor(
         postId: String? = null,
         postAlbumArtURL: String? = null,
     ) {
+        if (remoteConfigService.serverNotificationsEnabled) return
         if (fromUserId == toUserId) return
         val data = mutableMapOf<String, Any>(
             "type" to type,
@@ -702,15 +712,26 @@ class FirestoreDataSource @Inject constructor(
     }
 
     suspend fun fetchPopularUsers(limit: Int = 10, excludeIds: Set<String> = emptySet()): List<CymbalUser> {
+        // Match iOS fetchPopularUsersBlended: only orderBy in the query,
+        // filter bots/inactive users client-side to avoid composite index requirement.
+        val fetchCount = 40 + excludeIds.size
         val snapshot = firestore.collection("users_v2")
-            .whereEqualTo("isBot", false)
             .orderBy("followerCount", com.google.firebase.firestore.Query.Direction.DESCENDING)
-            .limit((limit + excludeIds.size).toLong())
+            .limit(fetchCount.toLong())
             .get().await()
+        val twoWeeksAgo = System.currentTimeMillis() - (14L * 24 * 60 * 60 * 1000)
         return snapshot.documents.mapNotNull { doc ->
             if (excludeIds.contains(doc.id)) return@mapNotNull null
             val data = doc.data ?: return@mapNotNull null
-            CymbalUser.fromMap(doc.id, data)
+            val user = CymbalUser.fromMap(doc.id, data)
+            // Client-side filtering matching iOS: no bots, active users only
+            if (user.isBot) return@mapNotNull null
+            if (user.cymbalCount <= 0) return@mapNotNull null
+            if (user.followerCount < 5) return@mapNotNull null
+            // If lastPostedAt exists, require it to be within 2 weeks
+            val lastPosted = user.lastPostedAt
+            if (lastPosted != null && lastPosted.time < twoWeeksAgo) return@mapNotNull null
+            user
         }.take(limit)
     }
 

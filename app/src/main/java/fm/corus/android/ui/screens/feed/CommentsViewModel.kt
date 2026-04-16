@@ -133,6 +133,7 @@ class CommentsViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 val allComments = postRepository.getComments(postId)
+                android.util.Log.d("CorusComments", "loadComments returned ${allComments.size} comments: ${allComments.map { "${it.id} '${it.text}'" }}")
                 // Separate top-level comments from replies
                 val topLevel = allComments.filter { it.parentCommentId == null }
                 val replies = allComments.filter { it.parentCommentId != null }
@@ -140,7 +141,9 @@ class CommentsViewModel @Inject constructor(
 
                 _comments.value = topLevel
                 _repliesByParent.value = replies
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("CorusComments", "loadComments failed", e)
+            }
             _isLoading.value = false
         }
     }
@@ -189,15 +192,19 @@ class CommentsViewModel @Inject constructor(
 
             // Send to server, reload on success, rollback on failure
             try {
-                postRepository.addComment(
+                val newId = postRepository.addComment(
                     postId = postId,
                     userId = userId,
                     text = text,
                     parentCommentId = parentId,
                     replyToUserId = replyToUserId,
                 )
+                android.util.Log.d("CorusComments", "addComment succeeded, newId=$newId, now reloading")
+                // Small delay to allow Firestore write to propagate before Cloud Function reads it
+                kotlinx.coroutines.delay(500)
                 loadComments(postId)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                android.util.Log.e("CorusComments", "Failed to send comment", e)
                 // Rollback optimistic insert
                 if (parentId != null) {
                     _repliesByParent.value = _repliesByParent.value.toMutableMap().apply {

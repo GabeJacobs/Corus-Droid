@@ -7,6 +7,7 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
@@ -23,7 +24,10 @@ class OtherProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     val nowPlayingManager: NowPlayingManager,
     private val engagementManager: PostEngagementManager,
+    private val subscriptionRepository: SubscriptionRepository,
 ) : ViewModel() {
+
+    val hasFullAccess = subscriptionRepository.hasFullAccessFlow
 
     fun generatePlaylist(userId: String) {
         viewModelScope.launch {

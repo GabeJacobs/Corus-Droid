@@ -150,6 +150,7 @@ dependencies {
 
     // Utilities
     implementation(libs.accompanist.permissions)
+    implementation(libs.exifinterface)
     implementation(libs.shimmer)
     implementation(libs.play.review)
 

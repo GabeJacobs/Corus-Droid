@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.UsernameWithFlair
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MusicNote
@@ -600,7 +601,7 @@ private fun FilmSearchResultsList(
             contentPadding = PaddingValues(vertical = CorusSpacing.sm),
         ) {
             items(movies, key = { it.id }) { movie ->
-                FilmSearchRow(movie = movie, onClick = { onFilmTap(movie.id) })
+                FilmSearchResultRow(movie = movie, onClick = { onFilmTap(movie.id) })
                 HorizontalDivider(
                     modifier = Modifier.padding(start = 72.dp),
                     color = CorusColors.Divider,
@@ -611,53 +612,6 @@ private fun FilmSearchResultsList(
     }
 }
 
-@Composable
-private fun FilmSearchRow(movie: CymbalMovie, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
-            .heightIn(min = CorusSpacing.touchTarget),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AsyncImage(
-            model = movie.posterURL,
-            contentDescription = movie.title,
-            modifier = Modifier
-                .size(width = CorusSpacing.albumArtSearch, height = 72.dp)
-                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
-            contentScale = ContentScale.Crop,
-        )
-        Spacer(modifier = Modifier.width(CorusSpacing.md))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = movie.title,
-                style = CorusFont.body,
-                color = CorusColors.Text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs)) {
-                Text(
-                    text = movie.directorName.ifBlank { "Unknown" },
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (movie.year.isNotBlank()) {
-                    Text(
-                        text = movie.year,
-                        style = CorusFont.caption,
-                        color = CorusColors.Tertiary,
-                    )
-                }
-            }
-        }
-    }
-}
 
 // ── Users Tab ──
 

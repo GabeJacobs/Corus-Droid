@@ -38,6 +38,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import android.graphics.Bitmap
+import fm.corus.android.ui.components.AvatarCropView
+import fm.corus.android.ui.components.uriToBitmap
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -54,6 +57,7 @@ fun OnboardingScreen(
 
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
     var avatarData by remember { mutableStateOf<ByteArray?>(null) }
+    var cropBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     // Pre-fill display name from OAuth provider (matching iOS behavior).
     // Always show the Full Name field so the user can edit it — iOS only hides
@@ -67,17 +71,12 @@ fun OnboardingScreen(
     var showAvatarNudge by remember { mutableStateOf(false) }
     var showPhotoDialog by remember { mutableStateOf(false) }
 
-    // Gallery picker
+    // Gallery picker — opens crop screen before storing
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            avatarUri = uri
-            try {
-                val inputStream = context.contentResolver.openInputStream(uri)
-                avatarData = inputStream?.readBytes()
-                inputStream?.close()
-            } catch (_: Exception) { }
+            cropBitmap = uriToBitmap(context, uri)
         }
     }
 
@@ -87,16 +86,12 @@ fun OnboardingScreen(
         FileProvider.getUriForFile(context, "${context.packageName}.provider", photoFile)
     }
 
+    // Camera launcher — opens crop screen before storing
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success) {
-            avatarUri = cameraPhotoUri
-            try {
-                val inputStream = context.contentResolver.openInputStream(cameraPhotoUri)
-                avatarData = inputStream?.readBytes()
-                inputStream?.close()
-            } catch (_: Exception) { }
+            cropBitmap = uriToBitmap(context, cameraPhotoUri)
         }
     }
 
@@ -532,6 +527,24 @@ fun OnboardingScreen(
                     Text("Skip", color = CorusColors.Secondary)
                 }
             },
+        )
+    }
+
+    // ── Avatar Crop Overlay ──
+    cropBitmap?.let { bitmap ->
+        AvatarCropView(
+            bitmap = bitmap,
+            onConfirm = { croppedBytes ->
+                cropBitmap = null
+                avatarData = croppedBytes
+                // Write cropped image to temp file so AsyncImage preview works
+                val tempFile = File(context.cacheDir, "cropped_avatar.jpg")
+                tempFile.writeBytes(croppedBytes)
+                avatarUri = FileProvider.getUriForFile(
+                    context, "${context.packageName}.provider", tempFile
+                )
+            },
+            onCancel = { cropBitmap = null },
         )
     }
 }

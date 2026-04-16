@@ -161,6 +161,8 @@ class ExploreViewModel @Inject constructor(
                     2 -> { // Films
                         val results = tmdbRepository.searchMovies(query)
                         _filmSearchResults.value = results
+                        val withDirectors = tmdbRepository.prefetchDirectors(results)
+                        _filmSearchResults.value = withDirectors
                     }
                 }
             } catch (_: Exception) { }

@@ -34,10 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -74,23 +71,19 @@ fun CommentsBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = Color.White,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
+        dragHandle = {
+            // Add status bar padding so the drag handle stays below the camera cutout
+            Column(modifier = Modifier.statusBarsPadding()) {
+                BottomSheetDefaults.DragHandle()
+            }
+        },
     ) {
-        // Cap content height so the drag handle stays below the status bar / camera cutout
-        val screenHeightDp = LocalConfiguration.current.screenHeightDp.dp
-        val density = LocalDensity.current
-        val statusBarTop = WindowInsets.statusBars.getTop(density)
-        val statusBarDp = with(density) { statusBarTop.toDp() }
-        // Leave room for status bar + a small visual gap
-        val sheetHeightDp = screenHeightDp - statusBarDp - 16.dp
-
         CommentsSheetContent(
             postId = postId,
             viewModel = viewModel,
             onDismiss = onDismiss,
             onNavigateToUser = onNavigateToUser,
             autoFocusInput = true,
-            maxHeight = sheetHeightDp,
         )
     }
 }
@@ -134,7 +127,6 @@ private fun CommentsSheetContent(
     onDismiss: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
     autoFocusInput: Boolean = false,
-    maxHeight: Dp = Dp.Unspecified,
 ) {
     val comments by viewModel.comments.collectAsState()
     val repliesByParent by viewModel.repliesByParent.collectAsState()
@@ -195,16 +187,9 @@ private fun CommentsSheetContent(
         )
     }
 
-    val heightModifier = if (maxHeight != Dp.Unspecified) {
-        Modifier.height(maxHeight)
-    } else {
-        Modifier
-    }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .then(heightModifier)
             .imePadding(),
     ) {
         // Centered title (Instagram-style)
