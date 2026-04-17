@@ -61,6 +61,7 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
+import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.SkeletonFilmRow
 import fm.corus.android.ui.components.SkeletonTrendingFilmRow
@@ -1211,7 +1212,7 @@ private fun FilmSearchResultsList(
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
             itemsIndexed(movies) { index, movie ->
-                FilmSearchRow(movie = movie, onClick = {
+                FilmSearchResultRow(movie = movie, onClick = {
                     onFilmTap(FilmDetailRoute(
                         movieId = movie.id,
                         movieTitle = movie.title,
@@ -1224,39 +1225,6 @@ private fun FilmSearchResultsList(
                 })
                 if (index < movies.lastIndex) {
                     HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FilmSearchRow(movie: CymbalMovie, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
-            .heightIn(min = CorusSpacing.touchTarget),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AsyncImage(
-            model = movie.posterURL,
-            contentDescription = movie.title,
-            modifier = Modifier
-                .size(width = CorusSpacing.albumArtSearch, height = 72.dp)
-                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
-            contentScale = ContentScale.Crop,
-        )
-        Spacer(modifier = Modifier.width(CorusSpacing.md))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(movie.title, style = CorusFont.songTitle, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs)) {
-                if (movie.directorName.isNotBlank()) {
-                    Text(movie.directorName, style = CorusFont.artistName, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                }
-                if (movie.year.isNotBlank()) {
-                    Text("(${movie.year})", style = CorusFont.artistName, color = CorusColors.Tertiary)
                 }
             }
         }

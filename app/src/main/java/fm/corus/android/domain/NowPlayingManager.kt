@@ -50,6 +50,9 @@ class NowPlayingManager @Inject constructor(
     private val _loadingTrackId = MutableStateFlow<String?>(null)
     val loadingTrackId: StateFlow<String?> = _loadingTrackId.asStateFlow()
 
+    /** Incremented on each cancel; play() checks this to bail out after URL resolution. */
+    private var playGeneration = 0
+
     // Preview URL cache — avoids redundant iTunes API calls
     private val previewCache = mutableMapOf<String, String>()
     private val noMatchCache = mutableSetOf<String>()
@@ -143,19 +146,32 @@ class NowPlayingManager @Inject constructor(
         isrc: String? = null,
         sourcePostId: String? = null,
     ) {
-        // If same track, toggle pause/play
+        // If same track is already playing, toggle pause/play
         if (_state.value.trackId == trackId && player != null) {
             togglePlayPause()
             return
         }
 
+        // If same track is loading, cancel the request
+        if (_loadingTrackId.value == trackId) {
+            cancelLoading()
+            return
+        }
+
+        // Cancel any in-flight load for a different track
+        cancelLoading()
+
         // Signal loading state
         _loadingTrackId.value = trackId
+        val generation = ++playGeneration
 
         // Resolve preview URL — use stored URL or look it up
         val resolvedUrl = previewUrl?.takeIf { it.isNotBlank() }
             ?: previewCache[trackId]
             ?: lookupPreviewUrl(trackId, trackName, artistName, isrc)
+
+        // If cancelled while resolving, bail out
+        if (generation != playGeneration) return
 
         _loadingTrackId.value = null
 
@@ -252,6 +268,11 @@ class NowPlayingManager @Inject constructor(
             }
             null
         } catch (_: Exception) { null }
+    }
+
+    fun cancelLoading() {
+        playGeneration++
+        _loadingTrackId.value = null
     }
 
     fun togglePlayPause() {

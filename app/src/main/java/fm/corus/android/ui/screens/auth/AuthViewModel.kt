@@ -1,11 +1,14 @@
 package fm.corus.android.ui.screens.auth
 
 import android.app.Activity
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuth.AuthStateListener
+import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -264,6 +267,10 @@ class AuthViewModel @Inject constructor(
     private val _accountDeleted = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val accountDeleted: SharedFlow<Unit> = _accountDeleted.asSharedFlow()
 
+    /** Emits the provider ID (e.g. "google.com", "phone") when re-auth is needed before deletion. */
+    private val _needsReauth = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val needsReauth: SharedFlow<String> = _needsReauth.asSharedFlow()
+
     fun deleteAccount() {
         viewModelScope.launch {
             _isDeletingAccount.value = true
@@ -271,18 +278,48 @@ class AuthViewModel @Inject constructor(
                 analyticsService.logDeleteAccount()
                 subscriptionRepository.logoutUser()
                 authRepository.deleteAccount()
-                userRepository.clearCaches()
-                exploreRepository.clearCaches()
-                engagementManager.clearAll()
-                didSignInThisSession = false
+                completeAccountDeletion()
+            } catch (e: FirebaseAuthRecentLoginRequiredException) {
+                Log.w("AuthViewModel", "deleteAccount needs re-auth", e)
                 _isDeletingAccount.value = false
-                _authState.value = AuthState.SignedOut
-                _accountDeleted.tryEmit(Unit)
+                val providerId = firebaseAuth.currentUser?.providerData
+                    ?.firstOrNull { it.providerId != "firebase" }?.providerId
+                if (providerId != null) {
+                    _needsReauth.tryEmit(providerId)
+                } else {
+                    _error.value = "Please sign out and sign back in, then try again."
+                }
             } catch (e: Exception) {
+                Log.e("AuthViewModel", "deleteAccount failed", e)
                 _isDeletingAccount.value = false
                 _error.value = "Couldn't delete your account. Please try again."
             }
         }
+    }
+
+    fun reauthenticateAndDelete(googleIdToken: String) {
+        viewModelScope.launch {
+            _isDeletingAccount.value = true
+            try {
+                authRepository.reauthenticateWithGoogle(googleIdToken)
+                authRepository.deleteAccount()
+                completeAccountDeletion()
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "reauthenticateAndDelete failed", e)
+                _isDeletingAccount.value = false
+                _error.value = "Couldn't delete your account. Please try again."
+            }
+        }
+    }
+
+    private fun completeAccountDeletion() {
+        userRepository.clearCaches()
+        exploreRepository.clearCaches()
+        engagementManager.clearAll()
+        didSignInThisSession = false
+        _isDeletingAccount.value = false
+        _authState.value = AuthState.SignedOut
+        _accountDeleted.tryEmit(Unit)
     }
 
     fun setError(message: String) {

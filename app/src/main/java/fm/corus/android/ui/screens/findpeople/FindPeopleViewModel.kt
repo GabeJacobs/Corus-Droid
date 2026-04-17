@@ -309,7 +309,13 @@ class FindPeopleViewModel @Inject constructor(
                 when (tab) {
                     0 -> _userSearchResults.value = userRepository.searchUsers(query.lowercase().trim())
                     1 -> _songSearchResults.value = spotifyRepository.search(query)
-                    2 -> _filmSearchResults.value = tmdbRepository.searchMovies(query)
+                    2 -> {
+                        val results = tmdbRepository.searchMovies(query)
+                        val withDirectors = try {
+                            tmdbRepository.prefetchDirectors(results)
+                        } catch (_: Exception) { results }
+                        _filmSearchResults.value = withDirectors
+                    }
                 }
             } catch (_: Exception) { }
             _isSearching.value = false

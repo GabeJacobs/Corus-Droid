@@ -40,6 +40,11 @@ import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.auth.AuthViewModel
 import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
 import fm.corus.android.ui.screens.subscription.PaywallSource
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -57,10 +62,45 @@ fun SettingsScreen(
     authViewModel: AuthViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     var showClubOffer by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val isDeletingAccount by authViewModel.isDeletingAccount.collectAsState()
     val deleteError by authViewModel.error.collectAsState()
+
+    // Google re-auth launcher for account deletion
+    val googleReauthLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        try {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            val account = task.getResult(ApiException::class.java)
+            val idToken = account.idToken
+            if (idToken != null) {
+                authViewModel.reauthenticateAndDelete(idToken)
+            } else {
+                ToastManager.show("Re-authentication failed. Please try again.")
+            }
+        } catch (e: ApiException) {
+            ToastManager.show("Re-authentication failed. Please try again.")
+        }
+    }
+
+    // Handle re-auth requests from the ViewModel
+    LaunchedEffect(Unit) {
+        authViewModel.needsReauth.collect { providerId ->
+            if (providerId == "google.com") {
+                val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                    .requestIdToken(context.getString(R.string.default_web_client_id))
+                    .requestEmail()
+                    .build()
+                val client = GoogleSignIn.getClient(context, gso)
+                googleReauthLauncher.launch(client.signInIntent)
+            } else {
+                ToastManager.show("Please sign out and sign back in, then try again.")
+            }
+        }
+    }
 
     // Show toast on successful deletion
     LaunchedEffect(Unit) {

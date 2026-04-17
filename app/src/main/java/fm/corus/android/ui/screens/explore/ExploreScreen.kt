@@ -629,7 +629,7 @@ private fun UsersTabContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = CorusSpacing.lg, bottom = CorusSpacing.xxxl),
+        contentPadding = PaddingValues(top = CorusSpacing.sm, bottom = CorusSpacing.xxxl),
     ) {
         // 1. Music Matches section (horizontal scroll of TasteMatchCards)
         if (musicMatches.isNotEmpty()) {
@@ -651,7 +651,7 @@ private fun UsersTabContent(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
             }
         }
 
@@ -673,7 +673,7 @@ private fun UsersTabContent(
                     onFollowTap = { onFollowTap(match.user.id, followedIds.contains(match.user.id)) },
                 )
             }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.md)) }
         }
 
         // 3. Popular on Corus (show if no music matches)
@@ -691,7 +691,7 @@ private fun UsersTabContent(
                     onFollowTap = { onFollowTap(match.user.id, followedIds.contains(match.user.id)) },
                 )
             }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.md)) }
         }
 
         // 4. Curated Bots section

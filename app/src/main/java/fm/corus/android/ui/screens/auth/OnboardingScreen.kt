@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.auth
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,11 +41,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import android.graphics.Bitmap
 import fm.corus.android.ui.components.AvatarCropView
+import fm.corus.android.ui.components.TakeSelfiePicture
 import fm.corus.android.ui.components.uriToBitmap
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
@@ -58,6 +63,7 @@ fun OnboardingScreen(
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
     var avatarData by remember { mutableStateOf<ByteArray?>(null) }
     var cropBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val decodeScope = rememberCoroutineScope()
 
     // Pre-fill display name from OAuth provider (matching iOS behavior).
     // Always show the Full Name field so the user can edit it — iOS only hides
@@ -71,12 +77,17 @@ fun OnboardingScreen(
     var showAvatarNudge by remember { mutableStateOf(false) }
     var showPhotoDialog by remember { mutableStateOf(false) }
 
-    // Gallery picker — opens crop screen before storing
+    // Gallery picker — opens crop screen before storing.
+    // Bitmap decode + EXIF rotation runs on IO dispatcher to keep the UI responsive
+    // (decoding a multi-megapixel JPEG on the main thread causes visible lag).
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            cropBitmap = uriToBitmap(context, uri)
+            decodeScope.launch {
+                val bmp = withContext(Dispatchers.IO) { uriToBitmap(context, uri) }
+                cropBitmap = bmp
+            }
         }
     }
 
@@ -86,12 +97,17 @@ fun OnboardingScreen(
         FileProvider.getUriForFile(context, "${context.packageName}.provider", photoFile)
     }
 
-    // Camera launcher — opens crop screen before storing
+    // Camera launcher — opens crop screen before storing.
+    // Decode off the main thread; camera JPEGs are large and EXIF rotation copies
+    // the full bitmap, which can block the UI for seconds otherwise.
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
+        contract = TakeSelfiePicture()
     ) { success ->
         if (success) {
-            cropBitmap = uriToBitmap(context, cameraPhotoUri)
+            decodeScope.launch {
+                val bmp = withContext(Dispatchers.IO) { uriToBitmap(context, cameraPhotoUri) }
+                cropBitmap = bmp
+            }
         }
     }
 
@@ -136,6 +152,10 @@ fun OnboardingScreen(
             scrollState.animateScrollTo(scrollState.maxValue)
         }
     }
+
+    // System back button / gesture mirrors the on-screen back arrow.
+    // Without this, back is a no-op on this screen since it's the root of the auth graph.
+    BackHandler { viewModel.signOut() }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Back button — matches iOS: top-left arrow that calls signOut()

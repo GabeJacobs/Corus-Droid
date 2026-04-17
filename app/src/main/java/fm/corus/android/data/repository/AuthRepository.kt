@@ -1,6 +1,7 @@
 package fm.corus.android.data.repository
 
 import android.content.Context
+import android.util.Log
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
@@ -177,16 +178,31 @@ class AuthRepository @Inject constructor(
         _isClubMember.value = false
     }
 
+    // ── Re-authentication ──
+
+    suspend fun reauthenticateWithGoogle(idToken: String) {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        auth.currentUser?.reauthenticate(credential)?.await()
+    }
+
     // ── Delete Account ──
 
     suspend fun deleteAccount() {
-        try { cloudFunctions.deleteAllUserData() } catch (_: Exception) { }
+        try {
+            cloudFunctions.deleteAllUserData()
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "deleteAllUserData failed", e)
+        }
         auth.currentUser?.delete()?.await()
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(context.getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
-        try { GoogleSignIn.getClient(context, gso).revokeAccess().await() } catch (_: Exception) { }
+        try {
+            GoogleSignIn.getClient(context, gso).revokeAccess().await()
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Google revokeAccess failed", e)
+        }
         _currentUser.value = null
         _userProfile.value = null
         _isClubMember.value = false

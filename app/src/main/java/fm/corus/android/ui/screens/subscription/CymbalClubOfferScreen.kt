@@ -360,7 +360,7 @@ fun CymbalClubOfferSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.95f)
+            .fillMaxHeight(0.96f)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

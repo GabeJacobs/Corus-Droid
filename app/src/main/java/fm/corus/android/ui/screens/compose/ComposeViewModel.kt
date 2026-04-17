@@ -173,8 +173,9 @@ class ComposeViewModel @Inject constructor(
                     }
                 } else {
                     cachedMovies = tmdbRepository.searchMovies(query)
-                    _filmResults.value = cachedMovies
-                    val withDirectors = tmdbRepository.prefetchDirectors(cachedMovies)
+                    val withDirectors = try {
+                        tmdbRepository.prefetchDirectors(cachedMovies)
+                    } catch (_: Exception) { cachedMovies }
                     cachedMovies = withDirectors
                     _filmResults.value = withDirectors
                 }

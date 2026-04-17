@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -90,9 +91,9 @@ fun VoiceNotePlayerView(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+            .padding(vertical = CorusSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
     ) {
         // Username
         Text(
@@ -107,13 +108,15 @@ fun VoiceNotePlayerView(
             Icons.Filled.Mic,
             contentDescription = null,
             tint = CorusColors.Accent,
-            modifier = Modifier.size(10.dp),
+            modifier = Modifier.padding(horizontal = 1.dp).size(14.dp),
         )
 
-        // Play/Pause
+        // Play/Pause — blue circle with white icon (matching iOS)
         Box(
             modifier = Modifier
-                .size(24.dp)
+                .size(22.dp)
+                .clip(RoundedCornerShape(50))
+                .background(CorusColors.Accent)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -177,14 +180,14 @@ fun VoiceNotePlayerView(
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
-                    color = CorusColors.Accent,
+                    color = Color.White,
                 )
             } else {
                 Icon(
                     imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = CorusColors.Accent,
-                    modifier = Modifier.size(24.dp),
+                    tint = Color.White,
+                    modifier = Modifier.size(15.dp),
                 )
             }
         }

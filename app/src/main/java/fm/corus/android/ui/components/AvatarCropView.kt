@@ -1,11 +1,13 @@
 package fm.corus.android.ui.components
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -17,7 +19,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -25,6 +29,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +46,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.exifinterface.media.ExifInterface
@@ -61,6 +67,11 @@ fun AvatarCropView(
 ) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
+    var cropSizePx by remember { mutableFloatStateOf(0f) }
+
+    // Dismiss keyboard when crop view appears
+    val keyboardController = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) { keyboardController?.hide() }
 
     BackHandler { onCancel() }
 
@@ -70,7 +81,9 @@ fun AvatarCropView(
             .background(Color.Black)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
         ) {
             // Cancel button
             TextButton(
@@ -89,21 +102,18 @@ fun AvatarCropView(
             ) {
                 val cropSizeDp = maxWidth
                 val density = LocalDensity.current
-                val cropSizePx = with(density) { cropSizeDp.toPx() }
+                cropSizePx = with(density) { cropSizeDp.toPx() }
                 val aspect = bitmap.width.toFloat() / bitmap.height.toFloat()
 
-                fun displaySize(): Pair<Float, Float> {
-                    return if (aspect >= 1f) {
-                        cropSizePx * aspect to cropSizePx
-                    } else {
-                        cropSizePx to cropSizePx / aspect
-                    }
-                }
+                // Display dimensions: aspect-fill the square (matches iOS displaySize)
+                val displayW = if (aspect >= 1f) cropSizePx * aspect else cropSizePx
+                val displayH = if (aspect >= 1f) cropSizePx else cropSizePx / aspect
+                val displayWidthDp = with(density) { displayW.toDp() }
+                val displayHeightDp = with(density) { displayH.toDp() }
 
                 fun clampedOffset(off: Offset, s: Float): Offset {
-                    val (dw, dh) = displaySize()
-                    val maxX = max(0f, (dw * s - cropSizePx) / 2f)
-                    val maxY = max(0f, (dh * s - cropSizePx) / 2f)
+                    val maxX = max(0f, (displayW * s - cropSizePx) / 2f)
+                    val maxY = max(0f, (displayH * s - cropSizePx) / 2f)
                     return Offset(
                         off.x.coerceIn(-maxX, maxX),
                         off.y.coerceIn(-maxY, maxY),
@@ -120,14 +130,19 @@ fun AvatarCropView(
                                 val newOffset = offset + pan
                                 offset = clampedOffset(newOffset, scale)
                             }
-                        }
+                        },
+                    contentAlignment = Alignment.Center,
                 ) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),
                         contentDescription = null,
-                        contentScale = ContentScale.Crop,
+                        contentScale = ContentScale.FillBounds,
                         modifier = Modifier
-                            .matchParentSize()
+                            // requiredSize escapes the parent's square constraints so the
+                            // image renders at its true aspect-fill dimensions (taller than
+                            // the crop square for portrait photos). Without this, the parent
+                            // clamps height to cropSizeDp and FillBounds squishes the image.
+                            .requiredSize(displayWidthDp, displayHeightDp)
                             .graphicsLayer {
                                 scaleX = scale
                                 scaleY = scale
@@ -151,7 +166,7 @@ fun AvatarCropView(
             // Use Photo button
             Button(
                 onClick = {
-                    val cropped = cropBitmap(bitmap, scale, offset)
+                    val cropped = cropBitmap(bitmap, scale, offset, cropSizePx)
                     onConfirm(cropped)
                 },
                 modifier = Modifier
@@ -223,6 +238,29 @@ internal fun cropBitmap(
     val out = ByteArrayOutputStream()
     cropped.compress(Bitmap.CompressFormat.JPEG, 90, out)
     return out.toByteArray()
+}
+
+/**
+ * TakePicture contract that requests the front (selfie) camera.
+ *
+ * There is no universal Android API to force front-camera mode via intent — different
+ * OEMs respect different extras. We set all of the commonly-honored keys so the
+ * request works on as many devices as possible. Camera apps that ignore every key
+ * fall back to whichever camera the user had selected last, which matches the
+ * default `TakePicture` behavior.
+ */
+class TakeSelfiePicture : ActivityResultContracts.TakePicture() {
+    override fun createIntent(context: Context, input: Uri): Intent {
+        return super.createIntent(context, input).apply {
+            // Keys honored by different camera apps / OEMs (Samsung, LG, HTC, stock).
+            // Value 1 == front on legacy keys; 0 == front on the MediaStore key
+            // (matches CameraCharacteristics.LENS_FACING_FRONT).
+            putExtra("android.intent.extras.CAMERA_FACING", 1)
+            putExtra("android.intent.extras.LENS_FACING_FRONT", 1)
+            putExtra("android.intent.extra.USE_FRONT_CAMERA", true)
+            putExtra("com.google.assistant.extra.USE_FRONT_CAMERA", true)
+        }
+    }
 }
 
 /**
