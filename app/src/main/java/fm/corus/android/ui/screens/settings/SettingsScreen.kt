@@ -40,8 +40,11 @@ import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.auth.AuthViewModel
 import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
 import fm.corus.android.ui.screens.subscription.PaywallSource
+import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -63,10 +66,13 @@ fun SettingsScreen(
     settingsViewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val activity = context as? Activity
     var showClubOffer by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val isDeletingAccount by authViewModel.isDeletingAccount.collectAsState()
     val deleteError by authViewModel.error.collectAsState()
+    val phoneReauthCodeSent by authViewModel.phoneReauthCodeSent.collectAsState()
+    var phoneReauthCode by remember { mutableStateOf("") }
 
     // Google re-auth launcher for account deletion
     val googleReauthLauncher = rememberLauncherForActivityResult(
@@ -89,15 +95,22 @@ fun SettingsScreen(
     // Handle re-auth requests from the ViewModel
     LaunchedEffect(Unit) {
         authViewModel.needsReauth.collect { providerId ->
-            if (providerId == "google.com") {
-                val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestIdToken(context.getString(R.string.default_web_client_id))
-                    .requestEmail()
-                    .build()
-                val client = GoogleSignIn.getClient(context, gso)
-                googleReauthLauncher.launch(client.signInIntent)
-            } else {
-                ToastManager.show("Please sign out and sign back in, then try again.")
+            when (providerId) {
+                "google.com" -> {
+                    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                        .requestIdToken(context.getString(R.string.default_web_client_id))
+                        .requestEmail()
+                        .build()
+                    val client = GoogleSignIn.getClient(context, gso)
+                    googleReauthLauncher.launch(client.signInIntent)
+                }
+                "phone" -> {
+                    activity?.let {
+                        phoneReauthCode = ""
+                        authViewModel.startPhoneReauth(it)
+                    } ?: ToastManager.show("Could not start re-authentication.")
+                }
+                else -> ToastManager.show("Please sign out and sign back in, then try again.")
             }
         }
     }
@@ -401,7 +414,7 @@ fun SettingsScreen(
                 SocialLinkButton(
                     drawableRes = R.drawable.discord_logo,
                     label = "Discord",
-                    url = "https://discord.gg/4CJJ89YB",
+                    url = "https://discord.gg/mXzt8NDCWD",
                     context = context,
                 )
             }
@@ -459,6 +472,84 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    // Account deletion progress overlay — shown during the initial delete,
+    // Google re-auth+delete, and phone re-auth+delete. Hidden while the phone
+    // code-entry dialog is visible (so the user can still see and type in it).
+    if (isDeletingAccount && !phoneReauthCodeSent) {
+        AlertDialog(
+            onDismissRequest = { /* non-dismissable */ },
+            title = { Text("Deleting your account…", style = CorusFont.songTitleLarge) },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = CorusColors.Error,
+                    )
+                    Spacer(modifier = Modifier.width(CorusSpacing.md))
+                    Text("This may take a moment.", style = CorusFont.body)
+                }
+            },
+            confirmButton = {},
+        )
+    }
+
+    // Phone re-auth code entry dialog
+    if (phoneReauthCodeSent) {
+        AlertDialog(
+            onDismissRequest = {
+                authViewModel.cancelPhoneReauth()
+                phoneReauthCode = ""
+            },
+            title = { Text("Verify your number", style = CorusFont.songTitleLarge) },
+            text = {
+                Column {
+                    Text(
+                        "We sent a code to your phone. Enter it to confirm account deletion.",
+                        style = CorusFont.body,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    OutlinedTextField(
+                        value = phoneReauthCode,
+                        onValueChange = {
+                            phoneReauthCode = it.filter { c -> c.isDigit() }.take(6)
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        label = { Text("Code") },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = phoneReauthCode.length == 6 && !isDeletingAccount,
+                    onClick = {
+                        authViewModel.verifyPhoneReauthAndDelete(phoneReauthCode)
+                    },
+                ) {
+                    if (isDeletingAccount) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = CorusColors.Error,
+                        )
+                    } else {
+                        Text("Confirm", color = CorusColors.Error)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !isDeletingAccount,
+                    onClick = {
+                        authViewModel.cancelPhoneReauth()
+                        phoneReauthCode = ""
+                    },
+                ) {
                     Text("Cancel")
                 }
             },

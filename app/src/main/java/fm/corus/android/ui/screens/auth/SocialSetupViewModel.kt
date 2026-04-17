@@ -5,6 +5,7 @@ import android.provider.ContactsContract
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.remote.CloudFunctionsDataSource
@@ -33,6 +34,7 @@ class SocialSetupViewModel @Inject constructor(
     private val firestoreDataSource: FirestoreDataSource,
     private val nowPlayingManager: NowPlayingManager,
     private val musicServicePreference: MusicServicePreference,
+    private val preferencesDataStore: PreferencesDataStore,
 ) : ViewModel() {
 
     // ── Contact Sync ──
@@ -116,6 +118,7 @@ class SocialSetupViewModel @Inject constructor(
                     notifyJob.await()
                 }
             } catch (_: Exception) { }
+            preferencesDataStore.setContactsSyncStatus("synced")
             _contactsSynced.value = true
             _isSyncing.value = false
         }

@@ -3,13 +3,21 @@ package fm.corus.android.ui.screens.auth
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -73,31 +81,54 @@ fun AuthScreen(
         }
     }
 
-    if (showPhoneInput || verificationSent) {
-        // Phone auth flow
-        PhoneAuthContent(
-            phoneNumber = phoneNumber,
-            onPhoneNumberChange = { phoneNumber = it.filter { c -> c.isDigit() }.take(15) },
-            selectedCountry = selectedCountry,
-            onCountrySelected = { selectedCountry = it },
-            verificationCode = verificationCode,
-            onVerificationCodeChange = { verificationCode = it.filter { c -> c.isDigit() }.take(6) },
-            verificationSent = verificationSent,
-            isLoading = isLoading,
-            error = error,
-            onSendCode = { viewModel.sendVerificationCode(phoneNumber, selectedCountry.dialCode, activity) },
-            onVerifyCode = { viewModel.verifyCode(verificationCode) },
-            onBack = { showPhoneInput = false },
-            onUseDifferentNumber = {
-                verificationCode = ""
-                viewModel.resetVerification()
-            },
-        )
-    } else {
-        // Main auth screen — matches iOS AuthView layout exactly
-        Column(
+    val showPhoneFlow = showPhoneInput || verificationSent
+
+    BackHandler(enabled = showPhoneFlow) {
+        if (verificationSent) {
+            verificationCode = ""
+            viewModel.resetVerification()
+        }
+        showPhoneInput = false
+    }
+
+    AnimatedContent(
+        targetState = showPhoneFlow,
+        transitionSpec = {
+            if (targetState) {
+                slideInHorizontally(tween(400), initialOffsetX = { it }) togetherWith
+                    slideOutHorizontally(tween(400), targetOffsetX = { -it / 3 })
+            } else {
+                slideInHorizontally(tween(400), initialOffsetX = { -it / 3 }) togetherWith
+                    slideOutHorizontally(tween(400), targetOffsetX = { it })
+            }
+        },
+        label = "AuthScreenTransition",
+    ) { isPhoneFlow ->
+        if (isPhoneFlow) {
+            PhoneAuthContent(
+                phoneNumber = phoneNumber,
+                onPhoneNumberChange = { phoneNumber = it.filter { c -> c.isDigit() }.take(15) },
+                selectedCountry = selectedCountry,
+                onCountrySelected = { selectedCountry = it },
+                verificationCode = verificationCode,
+                onVerificationCodeChange = { verificationCode = it.filter { c -> c.isDigit() }.take(6) },
+                verificationSent = verificationSent,
+                isLoading = isLoading,
+                error = error,
+                onSendCode = { viewModel.sendVerificationCode(phoneNumber, selectedCountry.dialCode, activity) },
+                onVerifyCode = { viewModel.verifyCode(verificationCode) },
+                onBack = { showPhoneInput = false },
+                onUseDifferentNumber = {
+                    verificationCode = ""
+                    viewModel.resetVerification()
+                },
+            )
+        } else {
+            // Main auth screen — matches iOS AuthView layout exactly
+            Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(CorusColors.Background)
                 .padding(horizontal = CorusSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -192,6 +223,7 @@ fun AuthScreen(
             }
 
             Spacer(modifier = Modifier.weight(1f))
+            }
         }
     }
 }
@@ -276,27 +308,20 @@ private fun PhoneAuthContent(
             }
         }
     }
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .imePadding()
-            .padding(CorusSpacing.xxl)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+            .background(CorusColors.Background)
+            .imePadding(),
     ) {
-        // Back button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(CorusSpacing.xxl)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            TextButton(onClick = onBack) {
-                Text("← Back", style = CorusFont.button, color = CorusColors.Accent)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
-
         Text(
             text = "corus",
             style = CorusFont.logoLarge,
@@ -490,6 +515,21 @@ private fun PhoneAuthContent(
                     }
                 },
                 confirmButton = {},
+            )
+        }
+        }
+
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(CorusSpacing.xs),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = CorusColors.Text,
             )
         }
     }

@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -119,7 +120,7 @@ class AuthViewModel @Inject constructor(
                         launch { userRepository.prefetchSuggestedMatches(user.uid) }
                         launch { authRepository.registerFCMToken() }
                         launch { remoteConfigService.fetchAndActivate() }
-                        launch { subscriptionRepository.refreshTodayPostCount(user.uid) }
+                        launch { subscriptionRepository.refreshPostLimit() }
                         subscriptionRepository.loginUser(user.uid)
                         analyticsService.setUserId(user.uid)
                         _authState.value = AuthState.SignedIn
@@ -164,6 +165,7 @@ class AuthViewModel @Inject constructor(
                 }
 
                 override fun onVerificationFailed(e: FirebaseException) {
+                    Log.e("AuthViewModel", "phone verification failed", e)
                     _error.value = "Could not send verification code. Please try again."
                     _isLoading.value = false
                 }
@@ -310,6 +312,84 @@ class AuthViewModel @Inject constructor(
                 _error.value = "Couldn't delete your account. Please try again."
             }
         }
+    }
+
+    // ── Phone re-auth for account deletion ──
+
+    private var reauthVerificationId: String? = null
+
+    private val _phoneReauthCodeSent = MutableStateFlow(false)
+    val phoneReauthCodeSent: StateFlow<Boolean> = _phoneReauthCodeSent.asStateFlow()
+
+    /** Sends an SMS code to the user's current phone number and shows the re-auth dialog. */
+    fun startPhoneReauth(activity: Activity) {
+        _isDeletingAccount.value = true
+        try {
+            authRepository.sendReauthCodeToCurrentUser(
+                activity = activity,
+                callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                    override fun onCodeSent(
+                        verificationId: String,
+                        token: PhoneAuthProvider.ForceResendingToken,
+                    ) {
+                        reauthVerificationId = verificationId
+                        _isDeletingAccount.value = false
+                        _phoneReauthCodeSent.value = true
+                    }
+
+                    override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                        // Some devices auto-verify — reauth + delete immediately.
+                        viewModelScope.launch {
+                            try {
+                                firebaseAuth.currentUser?.reauthenticate(credential)?.await()
+                                authRepository.deleteAccount()
+                                _phoneReauthCodeSent.value = false
+                                reauthVerificationId = null
+                                completeAccountDeletion()
+                            } catch (e: Exception) {
+                                Log.e("AuthViewModel", "auto phone reauth+delete failed", e)
+                                _isDeletingAccount.value = false
+                                _error.value = "Couldn't delete your account. Please try again."
+                            }
+                        }
+                    }
+
+                    override fun onVerificationFailed(e: FirebaseException) {
+                        Log.e("AuthViewModel", "phone reauth verification failed", e)
+                        _isDeletingAccount.value = false
+                        _error.value = "Could not send verification code. Please try again."
+                    }
+                },
+            )
+        } catch (e: Exception) {
+            Log.e("AuthViewModel", "startPhoneReauth failed", e)
+            _isDeletingAccount.value = false
+            _error.value = "Couldn't delete your account. Please try again."
+        }
+    }
+
+    fun verifyPhoneReauthAndDelete(code: String) {
+        val vid = reauthVerificationId ?: return
+        viewModelScope.launch {
+            _isDeletingAccount.value = true
+            try {
+                authRepository.reauthenticateWithPhone(vid, code)
+                authRepository.deleteAccount()
+                _phoneReauthCodeSent.value = false
+                reauthVerificationId = null
+                completeAccountDeletion()
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "verifyPhoneReauthAndDelete failed", e)
+                _isDeletingAccount.value = false
+                _error.value = "Invalid code. Please try again."
+            }
+        }
+    }
+
+    fun cancelPhoneReauth() {
+        reauthVerificationId = null
+        _phoneReauthCodeSent.value = false
+        _isDeletingAccount.value = false
     }
 
     private fun completeAccountDeletion() {

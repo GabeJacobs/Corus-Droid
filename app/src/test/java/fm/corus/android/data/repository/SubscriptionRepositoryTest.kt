@@ -4,16 +4,23 @@ import android.content.SharedPreferences
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SubscriptionRepositoryTest {
 
     private lateinit var repo: SubscriptionRepository
+    private val cloudFunctions = mock<CloudFunctionsDataSource>()
     private val remoteConfig = mock<RemoteConfigService>()
     private val analyticsService = mock<AnalyticsService>()
     private val prefs = mock<SharedPreferences>()
@@ -25,8 +32,8 @@ class SubscriptionRepositoryTest {
         whenever(prefs.getBoolean("cached_isClubMember", false)).thenReturn(false)
         whenever(prefs.getBoolean("cached_isVerified", false)).thenReturn(false)
         whenever(prefs.edit()).thenReturn(prefsEditor)
-        whenever(prefsEditor.putBoolean(org.mockito.kotlin.any(), org.mockito.kotlin.any())).thenReturn(prefsEditor)
-        repo = SubscriptionRepository(mock<CloudFunctionsDataSource>(), remoteConfig, analyticsService, prefs)
+        whenever(prefsEditor.putBoolean(any(), any())).thenReturn(prefsEditor)
+        repo = SubscriptionRepository(cloudFunctions, remoteConfig, analyticsService, prefs)
     }
 
     // ── hasFullAccess ──
@@ -78,6 +85,71 @@ class SubscriptionRepositoryTest {
         assertTrue(repo.canPost)
     }
 
+    @Test
+    fun `canPost is false for verified users at the hard cap`() {
+        repo.updateVerifiedStatus(true)
+        repeat(SubscriptionRepository.DAILY_POST_LIMIT_HARD) { repo.incrementPostCount() }
+        assertFalse(repo.canPost)
+        assertTrue(repo.isHardCapped)
+    }
+
+    @Test
+    fun `isHardCapped is false below the hard cap`() {
+        repeat(SubscriptionRepository.DAILY_POST_LIMIT_HARD - 1) { repo.incrementPostCount() }
+        assertFalse(repo.isHardCapped)
+    }
+
+    // ── postCountLoaded / server refresh ──
+
+    @Test
+    fun `postCountLoaded is false before refresh`() {
+        assertFalse(repo.postCountLoaded.value)
+    }
+
+    @Test
+    fun `refreshPostLimit populates recentPostCount and marks loaded`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenReturn(
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = false, recentCount = 3, dailyLimit = 3)
+        )
+
+        repo.refreshPostLimit()
+
+        assertEquals(3, repo.recentPostCount.value)
+        assertTrue(repo.postCountLoaded.value)
+        assertFalse(repo.canPost)
+    }
+
+    @Test
+    fun `refreshPostLimit silently swallows errors and leaves postCountLoaded false`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenThrow(RuntimeException("network down"))
+
+        repo.refreshPostLimit()
+
+        assertFalse(repo.postCountLoaded.value)
+    }
+
+    @Test
+    fun `checkCanPostFromServer returns server value and caches count`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenReturn(
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = false, recentCount = 4, dailyLimit = 3)
+        )
+
+        val allowed = repo.checkCanPostFromServer()
+
+        assertFalse(allowed)
+        assertEquals(4, repo.recentPostCount.value)
+        assertTrue(repo.postCountLoaded.value)
+    }
+
+    @Test
+    fun `checkCanPostFromServer fails open when the callable throws`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenThrow(RuntimeException("boom"))
+
+        // Fail-open so a flaky network can't block posting — the server-side trigger is the safety net.
+        assertTrue(repo.checkCanPostFromServer())
+        assertFalse(repo.postCountLoaded.value)
+    }
+
     // ── PurchaseOutcome ──
 
     @Test
@@ -97,7 +169,7 @@ class SubscriptionRepositoryTest {
     @Test
     fun `updateVerifiedStatus caches to SharedPreferences`() {
         repo.updateVerifiedStatus(true)
-        org.mockito.kotlin.verify(prefsEditor).putBoolean("cached_isVerified", true)
-        org.mockito.kotlin.verify(prefsEditor).apply()
+        verify(prefsEditor).putBoolean("cached_isVerified", true)
+        verify(prefsEditor).apply()
     }
 }

@@ -65,8 +65,8 @@ class ComposeViewModel @Inject constructor(
         val userId = authRepository.currentUserId
         if (userId != null) {
             viewModelScope.launch {
-                // Refresh today's post count
-                subscriptionRepository.refreshTodayPostCount(userId)
+                // Refresh the rolling 24h post count from the server
+                subscriptionRepository.refreshPostLimit()
 
                 // Load user profile to update verified status and total post count
                 try {
@@ -253,13 +253,21 @@ class ComposeViewModel @Inject constructor(
     fun createPost(caption: String, mediaType: MediaType, voiceNoteData: ByteArray? = null) {
         val userId = authRepository.currentUserId ?: return
 
-        // Check post limit before allowing post
-        if (!subscriptionRepository.canPost) {
-            _showPostLimitPaywall.value = true
-            return
-        }
-
         viewModelScope.launch {
+            // Safety net: verify post limit with the server before submitting.
+            // Mirrors iOS ComposeView.postCymbal — if the count hasn't been loaded yet,
+            // ask the server now; otherwise trust the cached count.
+            if (!subscriptionRepository.postCountLoaded.value) {
+                val allowed = subscriptionRepository.checkCanPostFromServer()
+                if (!allowed) {
+                    _showPostLimitPaywall.value = true
+                    return@launch
+                }
+            } else if (!subscriptionRepository.canPost) {
+                _showPostLimitPaywall.value = true
+                return@launch
+            }
+
             _isPosting.value = true
             _error.value = null
 
@@ -275,10 +283,12 @@ class ComposeViewModel @Inject constructor(
 
                 var isFirstPoster = false
 
+                // The stored isFirstPoster is also recomputed authoritatively by the
+                // assignFirstPosterOnPostCreate Firestore trigger (see backend/functions/index.js)
+                // so a racy client-side count here is self-correcting within seconds.
                 if (mediaType == MediaType.TRACK) {
                     val track = _selectedTrack.value ?: throw Exception("No track selected")
 
-                    // Check first poster BEFORE creating the post
                     val priorPostCount = try {
                         postRepository.fetchUniquePosterCountByTrack(track)
                     } catch (_: Exception) { 0 }
@@ -299,7 +309,6 @@ class ComposeViewModel @Inject constructor(
                 } else {
                     val movie = _selectedMovie.value ?: throw Exception("No movie selected")
 
-                    // Check first poster BEFORE creating the post
                     val priorMoviePostCount = try {
                         postRepository.fetchUniquePosterCountByMovie(movie.id)
                     } catch (_: Exception) { 0 }

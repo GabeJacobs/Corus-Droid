@@ -4,10 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,6 +20,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -38,6 +42,9 @@ fun TasteMatchCard(
     onUserTap: () -> Unit = {},
     onFollowTap: () -> Unit = {},
     modifier: Modifier = Modifier,
+    showPreviewButton: Boolean = false,
+    isPreviewLoading: Boolean = false,
+    isPreviewing: Boolean = false,
 ) {
     val user = match.user
     val matchData = match.matchData
@@ -92,6 +99,16 @@ fun TasteMatchCard(
                         GridTile(url = previewImages.getOrNull(2), modifier = Modifier.weight(1f).fillMaxHeight())
                         GridTile(url = previewImages.getOrNull(3), modifier = Modifier.weight(1f).fillMaxHeight())
                     }
+                }
+
+                if (showPreviewButton) {
+                    PreviewButton(
+                        isLoading = isPreviewLoading,
+                        isPlaying = isPreviewing,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(CorusSpacing.sm),
+                    )
                 }
             }
         }
@@ -166,6 +183,41 @@ fun TasteMatchCard(
             Text(
                 if (isFollowing) "Following" else "Follow",
                 style = CorusFont.buttonSmall,
+            )
+        }
+    }
+}
+
+/**
+ * Small white circle with play/pause icon (or loading spinner). Matches the iOS overlay
+ * shown on the bottom-right of music-bot album-art grids.
+ */
+@Composable
+private fun PreviewButton(
+    isLoading: Boolean,
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(28.dp)
+            .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = Color.Black.copy(alpha = 0.3f))
+            .clip(CircleShape)
+            .background(Color.White),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
+                color = CorusColors.Accent,
+                strokeWidth = 2.dp,
+            )
+        } else {
+            Icon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (isPlaying) "Pause preview" else "Play preview",
+                tint = CorusColors.Accent,
+                modifier = Modifier.size(16.dp),
             )
         }
     }

@@ -8,6 +8,19 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * Overwrite each post's isFirstPoster from the server-resolved firstPosterId.
+ * Both sets true on the match and clears stale true flags on non-matches, so
+ * a post with isFirstPoster=true stored in Firestore (e.g. from an older client
+ * that wrote the flag locally and raced another user) can never display two trophies.
+ */
+internal fun applyFirstPoster(
+    posts: List<CymbalPost>,
+    firstPosterId: String?,
+): List<CymbalPost> = posts.map { post ->
+    post.copy(isFirstPoster = firstPosterId != null && post.user.id == firstPosterId)
+}
+
+/**
  * Wraps all Firebase callable Cloud Functions.
  * Mirrors the iOS DatabaseService's cloud function calls.
  */
@@ -163,12 +176,7 @@ class CloudFunctionsDataSource @Inject constructor(
         val uniquePosterCount = (data["uniquePosterCount"] as? Number)?.toInt()
         val firstPosterId = data["firstPosterId"] as? String
 
-        var posts = postsData.map { CymbalPost.fromCloudData(it) }
-        if (firstPosterId != null) {
-            posts = posts.map { post ->
-                if (post.user.id == firstPosterId) post.copy(isFirstPoster = true) else post
-            }
-        }
+        val posts = applyFirstPoster(postsData.map { CymbalPost.fromCloudData(it) }, firstPosterId)
 
         return SongPostsPage(posts, uniquePosterCount, firstPosterId)
     }
@@ -191,12 +199,7 @@ class CloudFunctionsDataSource @Inject constructor(
         val uniquePosterCount = (data["uniquePosterCount"] as? Number)?.toInt()
         val firstPosterId = data["firstPosterId"] as? String
 
-        var posts = postsData.map { CymbalPost.fromCloudData(it) }
-        if (firstPosterId != null) {
-            posts = posts.map { post ->
-                if (post.user.id == firstPosterId) post.copy(isFirstPoster = true) else post
-            }
-        }
+        val posts = applyFirstPoster(postsData.map { CymbalPost.fromCloudData(it) }, firstPosterId)
 
         return MoviePostsPage(posts, uniquePosterCount, firstPosterId)
     }
@@ -540,12 +543,21 @@ class CloudFunctionsDataSource @Inject constructor(
 
     // ── Post Limit ──
 
+    data class CheckCanPostResult(
+        val canPost: Boolean,
+        val recentCount: Int,
+        val dailyLimit: Int?,
+    )
+
     @Suppress("UNCHECKED_CAST")
-    suspend fun getTodayPostCount(userId: String): Int {
-        val result = functions.getHttpsCallable("getTodayPostCount").call(
-            mapOf("userId" to userId)
-        ).await()
-        val data = result.getData() as? Map<String, Any?> ?: return 0
-        return (data["count"] as? Number)?.toInt() ?: 0
+    suspend fun checkCanPost(): CheckCanPostResult {
+        val result = functions.getHttpsCallable("checkCanPost").call().await()
+        val data = result.getData() as? Map<String, Any?>
+            ?: return CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = null)
+        return CheckCanPostResult(
+            canPost = data["canPost"] as? Boolean ?: true,
+            recentCount = (data["recentCount"] as? Number)?.toInt() ?: 0,
+            dailyLimit = (data["dailyLimit"] as? Number)?.toInt(),
+        )
     }
 }

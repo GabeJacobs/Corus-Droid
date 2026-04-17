@@ -52,7 +52,7 @@ class MessageRepository @Inject constructor(
 
     suspend fun sendImageMessage(threadId: String, fromUserId: String, imageData: ByteArray, clientMessageId: String? = null): String {
         val messageId = clientMessageId ?: "${System.currentTimeMillis()}"
-        val url = storageDataSource.uploadMessageImage(threadId, messageId, imageData)
+        val url = storageDataSource.uploadMessageImage(fromUserId, threadId, messageId, imageData)
         cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = "", type = "image", mediaURL = url, clientMessageId = clientMessageId)
         return url
     }

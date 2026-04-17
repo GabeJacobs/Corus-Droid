@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -59,6 +60,7 @@ import fm.corus.android.data.model.MediaType
 import android.graphics.Bitmap
 import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
+import fm.corus.android.ui.components.SelfieCaptureScreen
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.uriToBitmap
 import fm.corus.android.ui.components.ToastManager
@@ -67,6 +69,9 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
@@ -90,6 +95,7 @@ fun ProfileScreen(
     val likedPosts by viewModel.likedPosts.collectAsState()
     val savedPosts by viewModel.savedPosts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingLiked by viewModel.isLoadingLiked.collectAsState()
     val isLoadingSaved by viewModel.isLoadingSaved.collectAsState()
     val isClubMember by viewModel.isClubMember.collectAsState()
@@ -117,28 +123,26 @@ fun ProfileScreen(
     var showAvatarMenu by remember { mutableStateOf(false) }
     var showFullScreenAvatar by remember { mutableStateOf(false) }
     var cropBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var showSelfieCapture by remember { mutableStateOf(false) }
+    val decodeScope = rememberCoroutineScope()
 
-    // Camera photo URI
+    // In-app selfie camera — Samsung One UI ignores the front-camera intent extras,
+    // so we capture in-app via CameraX with LENS_FACING_FRONT forced (matches onboarding).
+    val cameraPhotoFile = remember { File(context.cacheDir, "profile_camera_avatar.jpg") }
     val cameraPhotoUri = remember {
-        val photoFile = File(context.cacheDir, "camera_avatar.jpg")
-        FileProvider.getUriForFile(context, "${context.packageName}.provider", photoFile)
+        FileProvider.getUriForFile(context, "${context.packageName}.provider", cameraPhotoFile)
     }
 
-    // Camera launcher — opens crop screen before uploading
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success ->
-        if (success) {
-            cropBitmap = uriToBitmap(context, cameraPhotoUri)
-        }
-    }
-
-    // Photo picker launcher — opens crop screen before uploading
+    // Photo picker launcher — opens crop screen before uploading.
+    // Bitmap decode + EXIF rotation runs on IO dispatcher to keep the UI responsive.
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            cropBitmap = uriToBitmap(context, uri)
+            decodeScope.launch {
+                val bmp = withContext(Dispatchers.IO) { uriToBitmap(context, uri) }
+                cropBitmap = bmp
+            }
         }
     }
 
@@ -203,6 +207,11 @@ fun ProfileScreen(
         )
     }
 
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { viewModel.refreshProfile() },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Fixed(3),
@@ -263,7 +272,7 @@ fun ProfileScreen(
                             displayName = currentProfile.displayName,
                             size = CorusSpacing.avatarLarge,
                             modifier = Modifier.combinedClickable(
-                                onClick = { },
+                                onClick = { showAvatarMenu = true },
                                 onLongClick = { showAvatarMenu = true },
                             ),
                         )
@@ -277,7 +286,7 @@ fun ProfileScreen(
                                 text = { Text("Take Photo", style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showAvatarMenu = false
-                                    cameraLauncher.launch(cameraPhotoUri)
+                                    showSelfieCapture = true
                                 },
                             )
                             DropdownMenuItem(
@@ -689,6 +698,7 @@ fun ProfileScreen(
             }
         }
     }
+    }
 
     // ── Style Picker Bottom Sheet ──
     if (showStylePicker) {
@@ -788,6 +798,21 @@ fun ProfileScreen(
         visible = showFullScreenAvatar,
         onDismiss = { showFullScreenAvatar = false },
     )
+
+    // ── In-app Selfie Capture (CameraX, front-camera forced) ──
+    if (showSelfieCapture) {
+        SelfieCaptureScreen(
+            outputFile = cameraPhotoFile,
+            onCaptured = {
+                showSelfieCapture = false
+                decodeScope.launch {
+                    val bmp = withContext(Dispatchers.IO) { uriToBitmap(context, cameraPhotoUri) }
+                    cropBitmap = bmp
+                }
+            },
+            onCancel = { showSelfieCapture = false },
+        )
+    }
 
     // ── Avatar Crop Overlay ──
     cropBitmap?.let { bitmap ->

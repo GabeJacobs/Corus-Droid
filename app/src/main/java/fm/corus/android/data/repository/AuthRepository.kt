@@ -185,6 +185,31 @@ class AuthRepository @Inject constructor(
         auth.currentUser?.reauthenticate(credential)?.await()
     }
 
+    suspend fun reauthenticateWithPhone(verificationId: String, code: String) {
+        val credential = PhoneAuthProvider.getCredential(verificationId, code)
+        auth.currentUser?.reauthenticate(credential)?.await()
+    }
+
+    /**
+     * Sends an SMS verification code to the currently signed-in user's phone number
+     * for re-authentication (e.g. before account deletion). Uses [auth.currentUser.phoneNumber],
+     * which is stored in E.164 format.
+     */
+    fun sendReauthCodeToCurrentUser(
+        activity: android.app.Activity,
+        callbacks: PhoneAuthProvider.OnVerificationStateChangedCallbacks,
+    ) {
+        val number = auth.currentUser?.phoneNumber
+            ?: throw IllegalStateException("No phone number on current user")
+        val options = PhoneAuthOptions.newBuilder(auth)
+            .setPhoneNumber(number)
+            .setTimeout(60L, java.util.concurrent.TimeUnit.SECONDS)
+            .setActivity(activity)
+            .setCallbacks(callbacks)
+            .build()
+        PhoneAuthProvider.verifyPhoneNumber(options)
+    }
+
     // ── Delete Account ──
 
     suspend fun deleteAccount() {

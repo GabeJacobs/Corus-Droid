@@ -66,7 +66,7 @@ class MainTabViewModel @Inject constructor(
         if (subscriptionRepository.hasFullAccess) return
 
         viewModelScope.launch {
-            val todayCount = subscriptionRepository.todayPostCount.value
+            val todayCount = subscriptionRepository.recentPostCount.value
             val totalCount = subscriptionRepository.totalPostCount.value
 
             // 1st post today — show first-post paywall if not seen

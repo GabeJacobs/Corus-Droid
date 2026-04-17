@@ -91,7 +91,7 @@ class PostRepository @Inject constructor(
     suspend fun createPost(userId: String, data: Map<String, Any>, voiceNoteData: ByteArray? = null): String {
         val postId = firestoreDataSource.createPost(userId, data)
         if (voiceNoteData != null) {
-            val url = storageDataSource.uploadVoiceNote(postId, voiceNoteData)
+            val url = storageDataSource.uploadVoiceNote(userId, postId, voiceNoteData)
             firestoreDataSource.updatePostVoiceNoteURL(postId, url)
         }
         return postId

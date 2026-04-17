@@ -151,7 +151,7 @@ class UserRepository @Inject constructor(
      * by 30, matching iOS's `fetchUsers(byIds:)`). Results are returned in
      * the same order as [ids], with unknown IDs omitted.
      */
-    private suspend fun fetchUsersByIdsBatched(ids: List<String>): List<CymbalUser> {
+    suspend fun fetchUsersByIdsBatched(ids: List<String>): List<CymbalUser> {
         if (ids.isEmpty()) return emptyList()
 
         val cached = mutableMapOf<String, CymbalUser>()

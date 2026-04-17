@@ -47,6 +47,7 @@ class SubscriptionRepository @Inject constructor(
     companion object {
         const val CLUB_ENTITLEMENT_ID = "corus_club"
         const val DAILY_POST_LIMIT = 3
+        const val DAILY_POST_LIMIT_HARD = 400
         private const val PREF_IS_CLUB_MEMBER = "cached_isClubMember"
         private const val PREF_IS_VERIFIED = "cached_isVerified"
     }
@@ -60,11 +61,17 @@ class SubscriptionRepository @Inject constructor(
     private val _packages = MutableStateFlow<List<Package>>(emptyList())
     val packages: StateFlow<List<Package>> = _packages.asStateFlow()
 
-    private val _todayPostCount = MutableStateFlow(0)
-    val todayPostCount: StateFlow<Int> = _todayPostCount.asStateFlow()
+    // Posts created in the rolling 24h window (mirrors iOS SubscriptionService).
+    private val _recentPostCount = MutableStateFlow(0)
+    val recentPostCount: StateFlow<Int> = _recentPostCount.asStateFlow()
 
     private val _totalPostCount = MutableStateFlow(0)
     val totalPostCount: StateFlow<Int> = _totalPostCount.asStateFlow()
+
+    // True once we've successfully fetched recentPostCount from the server.
+    // While false, callers should treat canPost as unverified and ask the server before posting.
+    private val _postCountLoaded = MutableStateFlow(false)
+    val postCountLoaded: StateFlow<Boolean> = _postCountLoaded.asStateFlow()
 
     val hasFullAccessFlow: StateFlow<Boolean> = combine(_isClubMember, _isVerified) { club, verified ->
         club || verified
@@ -74,8 +81,14 @@ class SubscriptionRepository @Inject constructor(
         get() = _isClubMember.value || _isVerified.value
 
     val canPost: Boolean
-        get() = if (!remoteConfig.corusClubEnabled) true
-                else hasFullAccess || _todayPostCount.value < DAILY_POST_LIMIT
+        get() {
+            if (!remoteConfig.corusClubEnabled) return true
+            if (_recentPostCount.value >= DAILY_POST_LIMIT_HARD) return false
+            return hasFullAccess || _recentPostCount.value < DAILY_POST_LIMIT
+        }
+
+    val isHardCapped: Boolean
+        get() = _recentPostCount.value >= DAILY_POST_LIMIT_HARD
 
     fun updateVerifiedStatus(isVerified: Boolean) {
         _isVerified.value = isVerified
@@ -83,14 +96,33 @@ class SubscriptionRepository @Inject constructor(
     }
 
     fun incrementPostCount() {
-        _todayPostCount.value++
+        _recentPostCount.value++
         _totalPostCount.value++
     }
 
-    suspend fun refreshTodayPostCount(userId: String) {
+    /** Ask the server for the rolling 24h post count and cache the result. */
+    suspend fun refreshPostLimit() {
         try {
-            _todayPostCount.value = cloudFunctions.getTodayPostCount(userId)
+            val result = cloudFunctions.checkCanPost()
+            _recentPostCount.value = result.recentCount
+            _postCountLoaded.value = true
         } catch (_: Exception) { }
+    }
+
+    /**
+     * Ask the server right now whether the user can post. Called at submit time when
+     * [postCountLoaded] is false. Fails open — the server-side trigger in
+     * backend/functions/index.js is the final safety net.
+     */
+    suspend fun checkCanPostFromServer(): Boolean {
+        return try {
+            val result = cloudFunctions.checkCanPost()
+            _recentPostCount.value = result.recentCount
+            _postCountLoaded.value = true
+            result.canPost
+        } catch (_: Exception) {
+            true
+        }
     }
 
     fun setTotalPostCount(count: Int) {
@@ -134,6 +166,9 @@ class SubscriptionRepository @Inject constructor(
     fun logoutUser() {
         _isClubMember.value = false
         _isVerified.value = false
+        _recentPostCount.value = 0
+        _totalPostCount.value = 0
+        _postCountLoaded.value = false
         Purchases.sharedInstance.updatedCustomerInfoListener = null
         try { Purchases.sharedInstance.logOut() } catch (_: Exception) { }
     }

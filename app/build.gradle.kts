@@ -157,4 +157,10 @@ dependencies {
     // Subscriptions
     implementation(libs.revenuecat)
     implementation(libs.revenuecat.ui)
+
+    // CameraX (in-app selfie camera, since Samsung One UI ignores front-camera intent extras)
+    implementation(libs.camerax.core)
+    implementation(libs.camerax.camera2)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.camerax.view)
 }

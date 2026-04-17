@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -62,6 +63,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeScreen(
     onDismiss: () -> Unit = {},
@@ -95,10 +97,19 @@ fun ComposeScreen(
     val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
 
     val hasSelection = selectedTrack != null || selectedMovie != null || isLoadingPreSelection
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(postSuccess) {
         if (postSuccess) {
             onDismiss()
+        }
+    }
+
+    // Hide the soft keyboard when the post-limit paywall opens so the sheet isn't
+    // covered by it (mirrors iOS, which clears caption focus before showing the offer).
+    LaunchedEffect(showPostLimitPaywall) {
+        if (showPostLimitPaywall) {
+            keyboardController?.hide()
         }
     }
 
@@ -278,12 +289,26 @@ fun ComposeScreen(
         )
     }
 
-    // Post limit reached inside compose — dismiss back to main screen
-    // (MainTabScreen gates compose behind canPost, so this is a safety net)
+    // Post limit reached inside compose — show the Cymbal Club offer sheet.
+    // Triggered when the server confirms the user has hit the rolling 24h limit at submit time.
     if (showPostLimitPaywall) {
-        LaunchedEffect(Unit) {
-            viewModel.dismissPostLimitPaywall()
-            onDismiss()
+        val paywallSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = {
+                viewModel.dismissPostLimitPaywall()
+                onDismiss()
+            },
+            sheetState = paywallSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
+                source = fm.corus.android.ui.screens.subscription.PaywallSource.POST_LIMIT,
+                onDismiss = {
+                    viewModel.dismissPostLimitPaywall()
+                    onDismiss()
+                },
+            )
         }
     }
     } // end Box
@@ -364,6 +389,7 @@ private fun SearchModeContent(
                 textStyle = CorusFont.body.copy(color = CorusColors.Text),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
                 cursorBrush = SolidColor(CorusColors.Accent),
                 decorationBox = { innerTextField ->
                     if (searchQuery.isEmpty()) {
@@ -1045,7 +1071,10 @@ private fun ComposeModeContent(
 
         // ── Post button — "SET YOUR CORUS →" like iOS ──
         Button(
-            onClick = onPost,
+            onClick = {
+                keyboardController?.hide()
+                onPost()
+            },
             enabled = !isPosting,
             modifier = Modifier
                 .fillMaxWidth()

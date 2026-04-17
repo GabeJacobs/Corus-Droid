@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import androidx.exifinterface.media.ExifInterface
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.tasks.await
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -77,15 +78,17 @@ class FirebaseStorageDataSource @Inject constructor(
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
-    suspend fun uploadMessageImage(threadId: String, messageId: String, imageData: ByteArray): String {
-        val ref = storage.reference.child("messages/$threadId/$messageId.jpg")
-        ref.putBytes(imageData).await()
+    suspend fun uploadMessageImage(userId: String, threadId: String, messageId: String, imageData: ByteArray): String {
+        val ref = storage.reference.child("messageMedia/$userId/$threadId/$messageId.jpg")
+        val metadata = StorageMetadata.Builder().setContentType("image/jpeg").build()
+        ref.putBytes(imageData, metadata).await()
         return ref.downloadUrl.await().toString()
     }
 
-    suspend fun uploadVoiceNote(postId: String, audioData: ByteArray): String {
-        val ref = storage.reference.child("voiceNotes/$postId.m4a")
-        ref.putBytes(audioData).await()
+    suspend fun uploadVoiceNote(userId: String, postId: String, audioData: ByteArray): String {
+        val ref = storage.reference.child("voiceNotes/$userId/$postId.m4a")
+        val metadata = StorageMetadata.Builder().setContentType("audio/mp4").build()
+        ref.putBytes(audioData, metadata).await()
         return ref.downloadUrl.await().toString()
     }
 }

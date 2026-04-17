@@ -88,6 +88,9 @@ class ProfileViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
@@ -153,6 +156,7 @@ class ProfileViewModel @Inject constructor(
     fun refreshProfile() {
         viewModelScope.launch {
             _isLoading.value = true
+            _isRefreshing.value = true
             try {
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
@@ -191,6 +195,7 @@ class ProfileViewModel @Inject constructor(
                 android.util.Log.e("ProfileViewModel", "refreshProfile failed", e)
             }
             _isLoading.value = false
+            _isRefreshing.value = false
         }
     }
 

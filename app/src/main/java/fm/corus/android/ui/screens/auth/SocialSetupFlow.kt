@@ -550,6 +550,10 @@ private fun FollowFriendsScreen(
                             followedIds = followedIds,
                             onFollow = { viewModel.toggleFollow(it) },
                             onUserTap = { userId -> viewModel.playUserPreview(userId) },
+                            showPreviewButton = true,
+                            previewingUserId = previewingUserId,
+                            isPreviewLoading = isPreviewLoading,
+                            isPreviewPlaying = nowPlayingState.isPlaying,
                         )
                         if (musicBots.size > 6) {
                             TextButton(
@@ -847,12 +851,13 @@ private fun OnboardingUserRow(
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
         Button(
             onClick = onFollow,
+            shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isFollowed) CorusColors.CardBackground else CorusColors.Accent,
-                contentColor = if (isFollowed) CorusColors.Text else Color.White,
+                contentColor = if (isFollowed) CorusColors.Secondary else Color.White,
             ),
+            border = if (isFollowed) androidx.compose.foundation.BorderStroke(1.dp, CorusColors.Divider) else null,
             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
-            shape = RoundedCornerShape(50),
         ) {
             Text(
                 if (isFollowed) "Following" else "Follow",
@@ -873,6 +878,10 @@ private fun OnboardingBotGrid(
     followedIds: Set<String>,
     onFollow: (String) -> Unit,
     onUserTap: (String) -> Unit,
+    showPreviewButton: Boolean = false,
+    previewingUserId: String? = null,
+    isPreviewLoading: Boolean = false,
+    isPreviewPlaying: Boolean = false,
 ) {
     val columns = 2
     val rows = if (isLoading) 2 else (bots.size + columns - 1) / columns
@@ -894,11 +903,16 @@ private fun OnboardingBotGrid(
                         )
                     } else if (idx < bots.size) {
                         Box(modifier = Modifier.weight(1f)) {
+                            val botUserId = bots[idx].user.id
+                            val isThisPreviewing = previewingUserId == botUserId
                             TasteMatchCard(
                                 match = bots[idx],
-                                isFollowing = followedIds.contains(bots[idx].user.id),
-                                onFollowTap = { onFollow(bots[idx].user.id) },
-                                onUserTap = { onUserTap(bots[idx].user.id) },
+                                isFollowing = followedIds.contains(botUserId),
+                                onFollowTap = { onFollow(botUserId) },
+                                onUserTap = { onUserTap(botUserId) },
+                                showPreviewButton = showPreviewButton,
+                                isPreviewLoading = isThisPreviewing && isPreviewLoading,
+                                isPreviewing = isThisPreviewing && isPreviewPlaying && !isPreviewLoading,
                             )
                         }
                     } else {

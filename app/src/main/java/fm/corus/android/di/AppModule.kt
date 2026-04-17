@@ -32,7 +32,9 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance().apply {
+        setCustomAuthDomain("auth.corus.fm")
+    }
 
     @Provides
     @Singleton

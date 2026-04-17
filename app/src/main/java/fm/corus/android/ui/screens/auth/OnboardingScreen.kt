@@ -41,7 +41,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import android.graphics.Bitmap
 import fm.corus.android.ui.components.AvatarCropView
-import fm.corus.android.ui.components.TakeSelfiePicture
+import fm.corus.android.ui.components.SelfieCaptureScreen
 import fm.corus.android.ui.components.uriToBitmap
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -91,25 +91,13 @@ fun OnboardingScreen(
         }
     }
 
-    // Camera — matches ProfileScreen pattern using FileProvider + TakePicture
+    // In-app selfie camera — Samsung One UI ignores the front-camera intent extras,
+    // so we capture in-app via CameraX with LENS_FACING_FRONT forced.
+    val cameraPhotoFile = remember { File(context.cacheDir, "onboarding_avatar.jpg") }
     val cameraPhotoUri = remember {
-        val photoFile = File(context.cacheDir, "onboarding_avatar.jpg")
-        FileProvider.getUriForFile(context, "${context.packageName}.provider", photoFile)
+        FileProvider.getUriForFile(context, "${context.packageName}.provider", cameraPhotoFile)
     }
-
-    // Camera launcher — opens crop screen before storing.
-    // Decode off the main thread; camera JPEGs are large and EXIF rotation copies
-    // the full bitmap, which can block the UI for seconds otherwise.
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = TakeSelfiePicture()
-    ) { success ->
-        if (success) {
-            decodeScope.launch {
-                val bmp = withContext(Dispatchers.IO) { uriToBitmap(context, cameraPhotoUri) }
-                cropBitmap = bmp
-            }
-        }
-    }
+    var showSelfieCapture by remember { mutableStateOf(false) }
 
     // Username availability check with debounce (min 1 char, matching iOS)
     LaunchedEffect(username) {
@@ -158,21 +146,6 @@ fun OnboardingScreen(
     BackHandler { viewModel.signOut() }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Back button — matches iOS: top-left arrow that calls signOut()
-        IconButton(
-            onClick = { viewModel.signOut() },
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(start = CorusSpacing.sm, top = CorusSpacing.sm)
-                .align(Alignment.TopStart),
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = CorusColors.Text,
-            )
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -474,6 +447,35 @@ fun OnboardingScreen(
                 }
             }
         }
+
+        // Back button rendered last so it sits on top of the scrollable Column and receives taps.
+        IconButton(
+            onClick = { viewModel.signOut() },
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(start = CorusSpacing.sm, top = CorusSpacing.sm)
+                .align(Alignment.TopStart),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = CorusColors.Text,
+            )
+        }
+    }
+
+    if (showSelfieCapture) {
+        SelfieCaptureScreen(
+            outputFile = cameraPhotoFile,
+            onCaptured = {
+                showSelfieCapture = false
+                decodeScope.launch {
+                    val bmp = withContext(Dispatchers.IO) { uriToBitmap(context, cameraPhotoUri) }
+                    cropBitmap = bmp
+                }
+            },
+            onCancel = { showSelfieCapture = false },
+        )
     }
 
     // Photo source dialog — matches iOS action sheet: Take Photo / Choose from Library / Remove Photo
@@ -486,7 +488,7 @@ fun OnboardingScreen(
                     TextButton(
                         onClick = {
                             showPhotoDialog = false
-                            cameraLauncher.launch(cameraPhotoUri)
+                            showSelfieCapture = true
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
