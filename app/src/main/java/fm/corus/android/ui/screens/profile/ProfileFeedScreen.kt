@@ -173,7 +173,10 @@ fun ProfileFeedScreen(
                         }
                     },
                     onMentionTap = { mentionUsername -> onNavigateToUserByUsername(mentionUsername) },
-                    onHashtagTap = { hashtag -> onNavigateToHashtag(hashtag) },
+                    onHashtagTap = { hashtag ->
+                        viewModel.analyticsService.logTrendingHashtagTapped(hashtag)
+                        onNavigateToHashtag(hashtag)
+                    },
                     onSongCountTap = {
                         if (post.isMovie) {
                             onNavigateToFilm(post.movieId ?: "")
@@ -181,6 +184,7 @@ fun ProfileFeedScreen(
                             onNavigateToSong(post.track)
                         }
                     },
+                    onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                 )
                 HorizontalDivider(
                     color = CorusColors.Divider,

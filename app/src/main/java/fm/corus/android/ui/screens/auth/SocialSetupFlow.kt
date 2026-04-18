@@ -113,6 +113,8 @@ private fun SyncContactsScreen(
     ) { granted ->
         if (granted) {
             viewModel.syncContacts(context.contentResolver)
+        } else {
+            viewModel.analyticsService.logContactsSyncSkipped()
         }
         // Navigate forward regardless
         onContinue()
@@ -161,6 +163,7 @@ private fun SyncContactsScreen(
         // Sync button with icon — matches iOS: person.crop.circle.badge.plus
         Button(
             onClick = {
+                viewModel.analyticsService.logSyncContactsTapped()
                 permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
             },
             modifier = Modifier
@@ -187,7 +190,10 @@ private fun SyncContactsScreen(
             }
         }
 
-        TextButton(onClick = onContinue) {
+        TextButton(onClick = {
+            viewModel.analyticsService.logContactsSyncSkipped()
+            onContinue()
+        }) {
             Text("sync later", style = CorusFont.caption, color = CorusColors.Tertiary)
         }
 
@@ -338,13 +344,15 @@ private fun FollowFriendsScreen(
     val context = LocalContext.current
     val pushPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-    ) { _ ->
+    ) { granted ->
+        viewModel.analyticsService.logNotificationPermissionResult(granted)
         // Finish regardless — the permission prompt is best-effort.
         viewModel.markPushPermissionRequested()
         onFinished()
     }
 
     val finishWithPushPrompt: () -> Unit = {
+        viewModel.logFollowFriendsOnboardingCompleted()
         if (PushNotificationPermission.shouldRequestPushPermission(context)) {
             pushPermissionLauncher.launch(PushNotificationPermission.permission)
         } else {
@@ -430,7 +438,10 @@ private fun FollowFriendsScreen(
                 nowPlayingState = nowPlayingState,
                 keyboardController = keyboardController,
                 scrollDismissConnection = scrollDismissConnection,
-                onSeeAll = { showSeeAll = it },
+                onSeeAll = { destination ->
+                    viewModel.analyticsService.logOnboardingSeeAllTapped(destination.analyticsName)
+                    showSeeAll = destination
+                },
                 onFilmBotTap = { userId -> filmBotPreviewMatch = filmBots.find { it.user.id == userId } },
                 onFinished = finishWithPushPrompt,
             )
@@ -718,11 +729,11 @@ private fun FollowFriendsMainContent(
 // SEE ALL SCREEN
 // ═══════════════════════════════════════════════
 
-enum class SeeAllDestination(val title: String) {
-    FRIENDS("Friends on Corus"),
-    POPULAR("Popular on Corus"),
-    MUSIC_BOTS("Curated Music Bots"),
-    FILM_BOTS("Curated Film Bots"),
+enum class SeeAllDestination(val title: String, val analyticsName: String) {
+    FRIENDS("Friends on Corus", "friends"),
+    POPULAR("Popular on Corus", "popular"),
+    MUSIC_BOTS("Curated Music Bots", "musicBots"),
+    FILM_BOTS("Curated Film Bots", "filmBots"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

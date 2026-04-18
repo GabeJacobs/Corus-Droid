@@ -12,6 +12,7 @@ import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
 import fm.corus.android.data.repository.SubscriptionRepository
 import kotlinx.coroutines.launch
+import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.CorusFirebaseMessagingService
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.service.DeepLinkHandler
@@ -25,6 +26,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var subscriptionRepository: SubscriptionRepository
+    @Inject lateinit var analyticsService: AnalyticsService
 
     private val _pendingNotificationDestination = MutableStateFlow<DeepLinkDestination?>(null)
     val pendingNotificationDestination: StateFlow<DeepLinkDestination?> = _pendingNotificationDestination.asStateFlow()
@@ -84,6 +86,7 @@ class MainActivity : ComponentActivity() {
 
         val destination = DeepLinkHandler.parseNotificationData(data)
         if (destination != null) {
+            analyticsService.logDeepLinkOpened(destination.analyticsType())
             _pendingNotificationDestination.value = destination
         }
 

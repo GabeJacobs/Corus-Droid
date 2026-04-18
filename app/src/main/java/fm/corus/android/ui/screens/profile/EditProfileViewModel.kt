@@ -9,6 +9,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ class EditProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val postRepository: PostRepository,
     val subscriptionRepository: SubscriptionRepository,
+    private val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
     private val _profile = MutableStateFlow<CymbalUser?>(null)
@@ -225,9 +227,11 @@ class EditProfileViewModel @Inject constructor(
                 if (_website.value != (p.website ?: "")) fields["website"] = _website.value
 
                 userRepository.updateUserProfile(userId, fields)
+                analyticsService.logEditProfileSaved()
                 onSuccess()
             } catch (e: Exception) {
                 _saveError.value = "Couldn't save changes. Please try again."
+                analyticsService.logProfileUpdateError(e.message ?: "unknown")
             }
             _isSaving.value = false
         }

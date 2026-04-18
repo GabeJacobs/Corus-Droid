@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.service.AnalyticsService
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -44,6 +45,7 @@ fun ReportSheet(
     contentId: String,
     authRepository: AuthRepository,
     userRepository: UserRepository,
+    analyticsService: AnalyticsService,
     onDismiss: () -> Unit,
 ) {
     var selectedReason by remember { mutableStateOf<String?>(null) }
@@ -81,6 +83,12 @@ fun ReportSheet(
                                     reason = reason,
                                     details = details.ifBlank { "" },
                                 )
+                                when (contentType) {
+                                    ReportContentType.POST -> analyticsService.logReportPost(contentId, reason)
+                                    ReportContentType.COMMENT -> analyticsService.logReportComment(contentId, reason)
+                                    ReportContentType.MESSAGE -> analyticsService.logReportMessage(contentId, reason)
+                                    ReportContentType.USER -> analyticsService.logReportUser(contentId)
+                                }
                                 showSuccess = true
                                 delay(1500)
                                 onDismiss()

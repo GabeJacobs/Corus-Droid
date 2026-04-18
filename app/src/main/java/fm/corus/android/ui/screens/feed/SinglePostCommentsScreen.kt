@@ -295,7 +295,10 @@ fun SinglePostCommentsScreen(
                                 if (userId != null) onNavigateToUser(userId)
                             }
                         },
-                        onHashtagTap = { hashtag -> onNavigateToHashtag(hashtag.removePrefix("#")) },
+                        onHashtagTap = { hashtag ->
+                            viewModel.analyticsService.logTrendingHashtagTapped(hashtag.removePrefix("#"))
+                            onNavigateToHashtag(hashtag.removePrefix("#"))
+                        },
                         onSongCountTap = {
                             if (p.isMovie) {
                                 p.movieId?.let { onNavigateToFilm(it) }
@@ -304,6 +307,7 @@ fun SinglePostCommentsScreen(
                             }
                         },
                         onFilmPageTap = { p.movieId?.let { onNavigateToFilm(it) } },
+                        onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                     )
                     HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
                 }

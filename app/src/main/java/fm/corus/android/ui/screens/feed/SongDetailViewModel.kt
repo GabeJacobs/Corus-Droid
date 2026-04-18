@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +17,7 @@ import javax.inject.Inject
 class SongDetailViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val nowPlayingManager: NowPlayingManager,
+    val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())

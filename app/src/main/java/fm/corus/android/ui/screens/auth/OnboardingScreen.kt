@@ -419,6 +419,7 @@ fun OnboardingScreen(
             // Continue button — matches iOS: full-width accent capsule
             Button(
                 onClick = {
+                    viewModel.analyticsService.logOnboardingProfileSubmitted()
                     if (avatarUri == null && !showAvatarNudge) {
                         showAvatarNudge = true
                     } else {
@@ -537,6 +538,7 @@ fun OnboardingScreen(
             text = { Text("A photo helps friends find you on Corus", style = CorusFont.body) },
             confirmButton = {
                 TextButton(onClick = {
+                    viewModel.analyticsService.logOnboardingAvatarNudge("add_photo")
                     showAvatarNudge = false
                     showPhotoDialog = true
                 }) {
@@ -545,6 +547,7 @@ fun OnboardingScreen(
             },
             dismissButton = {
                 TextButton(onClick = {
+                    viewModel.analyticsService.logOnboardingAvatarNudge("skip")
                     showAvatarNudge = false
                     viewModel.completeOnboarding(username, displayName, avatarData)
                 }) {

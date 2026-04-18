@@ -173,7 +173,10 @@ fun SongDetailScreen(
                 ) {
                     // Post Song capsule
                     Button(
-                        onClick = { onNavigateToCompose(trackId) },
+                        onClick = {
+                            viewModel.analyticsService.logPostThisSongTapped(trackId)
+                            onNavigateToCompose(trackId)
+                        },
                         shape = RoundedCornerShape(50),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = CorusColors.Accent,

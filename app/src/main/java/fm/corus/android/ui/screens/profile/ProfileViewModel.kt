@@ -12,6 +12,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,7 @@ class ProfileViewModel @Inject constructor(
     val nowPlayingManager: NowPlayingManager,
     private val engagementManager: PostEngagementManager,
     private val postCreationEvent: PostCreationEvent,
+    private val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
     val isClubMember = subscriptionRepository.isClubMember
@@ -59,6 +61,7 @@ class ProfileViewModel @Inject constructor(
                 userRepository.uploadAvatar(uid, imageData)
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
+                analyticsService.logAvatarChanged()
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "uploadAvatar failed", e)
             } finally {
@@ -69,6 +72,7 @@ class ProfileViewModel @Inject constructor(
 
     fun generatePlaylist() {
         val userId = authRepository.currentUserId ?: return
+        analyticsService.logProfilePlaylistTapped(userId)
         viewModelScope.launch {
             nowPlayingManager.generateProfilePlaylist(userId)
         }
@@ -230,11 +234,20 @@ class ProfileViewModel @Inject constructor(
      */
     fun loadSegment(index: Int) {
         _currentSegment.value = index
+        analyticsService.logProfileSegmentChanged(segmentAnalyticsName(index))
         when (index) {
             0, 1 -> { /* Posts already loaded in loadProfile */ }
             2 -> if (!likedLoaded) loadLikedPosts()
             3 -> if (!savedLoaded) loadSavedPosts()
         }
+    }
+
+    private fun segmentAnalyticsName(index: Int): String = when (index) {
+        0 -> "music"
+        1 -> "film"
+        2 -> "likes"
+        3 -> "saves"
+        else -> "unknown"
     }
 
     private fun loadLikedPosts() {

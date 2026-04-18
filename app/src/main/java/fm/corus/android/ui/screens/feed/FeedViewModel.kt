@@ -210,6 +210,7 @@ class FeedViewModel @Inject constructor(
     )
 
     fun generateFeedPlaylist() {
+        analyticsService.logFeedPlaylistTapped()
         viewModelScope.launch {
             nowPlayingManager.generateFeedPlaylist()
         }
@@ -315,6 +316,7 @@ class FeedViewModel @Inject constructor(
 
     fun reportPost(postId: String, postUserId: String) {
         val currentUserId = authRepository.currentUserId ?: return
+        analyticsService.logReportPost(postId, "reported_from_feed")
         viewModelScope.launch {
             try {
                 userRepository.submitReport(

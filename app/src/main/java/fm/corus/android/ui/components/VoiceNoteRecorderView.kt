@@ -174,8 +174,14 @@ fun rememberVoiceNoteRecorderState(): VoiceNoteRecorderState {
 fun VoiceNoteRecorderView(
     recorderState: VoiceNoteRecorderState,
     modifier: Modifier = Modifier,
+    onRecorded: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+
+    // Fire onRecorded once per completed recording (edge: hasRecording false → true)
+    LaunchedEffect(recorderState.hasRecording) {
+        if (recorderState.hasRecording) onRecorded?.invoke()
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()

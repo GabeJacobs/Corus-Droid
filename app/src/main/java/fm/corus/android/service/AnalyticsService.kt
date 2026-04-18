@@ -74,7 +74,12 @@ class AnalyticsService @Inject constructor(
     fun logOnboardingCompleted() = logEvent("onboarding_completed")
     fun logContactsSynced(matchCount: Int) = logEvent("contacts_synced", mapOf("match_count" to matchCount))
     fun logContactsSyncSkipped() = logEvent("contacts_sync_skipped")
+    fun logSyncContactsTapped() = logEvent("sync_contacts_tapped")
     fun logFollowFriendsOnboardingCompleted(followedCount: Int) = logEvent("follow_friends_onboarding_completed", mapOf("followed_count" to followedCount))
+    fun logOnboardingSeeAllTapped(section: String) = logEvent("onboarding_see_all_tapped", mapOf("section" to section))
+    fun logOnboardingProfileSubmitted() = logEvent("onboarding_profile_submitted")
+    fun logOnboardingAvatarNudge(action: String) = logEvent("onboarding_avatar_nudge", mapOf("action" to action))
+    fun logNotificationPermissionResult(granted: Boolean) = logEvent("notification_permission_result", mapOf("granted" to granted))
     fun logBotPreviewPlayed(botUserId: String) = logEvent("bot_preview_played", mapOf("bot_user_id" to botUserId))
 
     // MARK: - Post Events
@@ -104,6 +109,9 @@ class AnalyticsService @Inject constructor(
     fun logPostDeleted(postId: String, mediaType: String) = logEvent("post_deleted", mapOf("post_id" to postId, "media_type" to mediaType))
     fun logPostShared(postId: String, mediaType: String, method: String) = logEvent("post_shared", mapOf("post_id" to postId, "media_type" to mediaType, "share_method" to method))
     fun logCaptionEdited(postId: String) = logEvent("caption_edited", mapOf("post_id" to postId))
+    fun logLikesListViewed(postId: String) = logEvent("likes_list_viewed", mapOf("post_id" to postId))
+    fun logVoiceNoteRecorded() = logEvent("voice_note_recorded")
+    fun logVoiceNotePlayed() = logEvent("voice_note_played")
     fun logReposted(postId: String, mediaType: String) = logEvent("post_created", mapOf("post_id" to postId, "media_type" to mediaType, "is_repost" to true))
     fun logPostCreateError(error: String) = logEvent("post_create_error", mapOf("error" to error.take(100)))
 
@@ -119,7 +127,9 @@ class AnalyticsService @Inject constructor(
     fun logUserSearched(query: String) = logEvent("user_searched", mapOf("query" to query))
     fun logMusicMatchTapped(userId: String, similarityScore: Double) = logEvent("music_match_tapped", mapOf("user_id" to userId, "similarity_score" to similarityScore))
     fun logTrendingSongTapped(trackId: String, rank: Int) = logEvent("trending_song_tapped", mapOf("track_id" to trackId, "rank" to rank))
+    fun logTrendingHashtagTapped(hashtagName: String) = logEvent("trending_hashtag_tapped", mapOf("hashtag_name" to hashtagName))
     fun logSearchFilterChanged(filter: String) = logEvent("search_filter_changed", mapOf("filter" to filter))
+    fun logDeepLinkOpened(linkType: String) = logEvent("deep_link_opened", mapOf("link_type" to linkType))
 
     // MARK: - Profile Events
 
@@ -131,12 +141,22 @@ class AnalyticsService @Inject constructor(
     fun logMuteUser(targetUserId: String) = logEvent("mute_user", mapOf("target_user_id" to targetUserId))
     fun logUnmuteUser(targetUserId: String) = logEvent("unmute_user", mapOf("target_user_id" to targetUserId))
     fun logReportUser(targetUserId: String) = logEvent("report_user", mapOf("target_user_id" to targetUserId))
+    fun logReportPost(postId: String, reason: String) = logEvent("report_post", mapOf("post_id" to postId, "reason" to reason))
+    fun logReportComment(commentId: String, reason: String) = logEvent("report_comment", mapOf("comment_id" to commentId, "reason" to reason))
+    fun logReportMessage(messageId: String, reason: String) = logEvent("report_message", mapOf("message_id" to messageId, "reason" to reason))
+    fun logEditProfileSaved() = logEvent("edit_profile_saved")
+    fun logAvatarChanged() = logEvent("avatar_changed")
+    fun logProfileSegmentChanged(segment: String) = logEvent("profile_segment_changed", mapOf("segment" to segment))
+    fun logFeedPlaylistTapped() = logEvent("feed_playlist_tapped")
+    fun logProfilePlaylistTapped(userId: String) = logEvent("profile_playlist_tapped", mapOf("user_id" to userId))
     fun logFollowError(targetUserId: String, error: String) = logEvent("follow_error", mapOf("target_user_id" to targetUserId, "error" to error.take(100)))
+    fun logProfileUpdateError(error: String) = logEvent("profile_update_error", mapOf("error" to error.take(100)))
 
     // MARK: - Song / Film Events
 
     fun logSongDetailViewed(trackId: String) = logEvent("song_detail_viewed", mapOf("track_id" to trackId))
     fun logFilmDetailViewed(filmId: String) = logEvent("film_detail_viewed", mapOf("film_id" to filmId))
+    fun logPostThisSongTapped(trackId: String) = logEvent("post_this_song_tapped", mapOf("track_id" to trackId))
     fun logSpotifyLinkTapped(trackId: String) = logEvent("spotify_link_tapped", mapOf("track_id" to trackId))
     fun logTrailerLinkTapped(filmId: String) = logEvent("trailer_link_tapped", mapOf("film_id" to filmId))
 

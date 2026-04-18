@@ -239,7 +239,10 @@ fun PostDetailScreen(
                             LikedBySection(
                                 likers = currentPost.likers,
                                 likeCount = likeCount,
-                                onLikesTap = { onNavigateToLikes(currentPost.id) },
+                                onLikesTap = {
+                                    viewModel.analyticsService.logLikesListViewed(currentPost.id)
+                                    onNavigateToLikes(currentPost.id)
+                                },
                                 currentUser = currentUserProfile,
                                 isLiked = isLiked,
                             )
@@ -253,6 +256,7 @@ fun PostDetailScreen(
                                 voiceNoteURL = currentPost.voiceNoteURL!!,
                                 username = currentPost.user.username,
                                 onUsernameTap = { onNavigateToUser(currentPost.user.id) },
+                                onPlaybackStarted = { viewModel.analyticsService.logVoiceNotePlayed() },
                                 modifier = Modifier
                                     .padding(horizontal = CorusSpacing.lg)
                                     .padding(bottom = CorusSpacing.xs),
@@ -263,7 +267,10 @@ fun PostDetailScreen(
                             PostDetailCaption(
                                 username = currentPost.user.username,
                                 caption = currentPost.caption,
-                                onHashtagTap = onNavigateToHashtag,
+                                onHashtagTap = { hashtag ->
+                                    viewModel.analyticsService.logTrendingHashtagTapped(hashtag)
+                                    onNavigateToHashtag(hashtag)
+                                },
                                 onMentionTap = { username ->
                                     scope.launch {
                                         val userId = viewModel.resolveUsernameToId(username.removePrefix("@"))

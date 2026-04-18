@@ -11,6 +11,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.extractMentions
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,7 @@ class CommentsViewModel @Inject constructor(
     private val engagementManager: PostEngagementManager,
     val nowPlayingManager: NowPlayingManager,
     private val remoteConfigService: RemoteConfigService,
+    val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
     val giphySupport: Boolean

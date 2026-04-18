@@ -382,7 +382,10 @@ fun FeedScreen(
                                     }
                                 },
                                 onMentionTap = { username -> onNavigateToUserByUsername(username) },
-                                onHashtagTap = { hashtag -> onNavigateToHashtag(hashtag) },
+                                onHashtagTap = { hashtag ->
+                                    viewModel.analyticsService.logTrendingHashtagTapped(hashtag)
+                                    onNavigateToHashtag(hashtag)
+                                },
                                 onSongCountTap = {
                                     if (post.isMovie) {
                                         onNavigateToFilm(post.movieId ?: "")
@@ -390,6 +393,7 @@ fun FeedScreen(
                                         onNavigateToSong(post.track)
                                     }
                                 },
+                                onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                             )
                             HorizontalDivider(
                                 color = CorusColors.Divider,

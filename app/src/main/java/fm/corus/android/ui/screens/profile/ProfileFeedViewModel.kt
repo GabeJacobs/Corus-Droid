@@ -403,6 +403,7 @@ class ProfileFeedViewModel @Inject constructor(
 
     fun reportPost(postId: String, postUserId: String) {
         val currentUserId = authRepository.currentUserId ?: return
+        analyticsService.logReportPost(postId, "reported_from_feed")
         viewModelScope.launch {
             try {
                 userRepository.submitReport(

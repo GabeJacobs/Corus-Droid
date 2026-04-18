@@ -38,7 +38,7 @@ class AuthViewModel @Inject constructor(
     private val exploreRepository: ExploreRepository,
     private val engagementManager: PostEngagementManager,
     private val remoteConfigService: RemoteConfigService,
-    private val analyticsService: AnalyticsService,
+    val analyticsService: AnalyticsService,
     private val firebaseAuth: FirebaseAuth,
     private val unreadCountsRepository: UnreadCountsRepository,
 ) : ViewModel() {

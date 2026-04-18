@@ -88,6 +88,7 @@ fun PostCard(
     trackPostCount: Int = post.trackPostCount ?: 0,
     onSongCountTap: () -> Unit = {},
     onFilmPageTap: () -> Unit = {},
+    onVoiceNotePlayed: () -> Unit = {},
     hideComments: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
@@ -562,6 +563,7 @@ fun PostCard(
                 voiceNoteURL = post.voiceNoteURL!!,
                 username = post.user.username,
                 onUsernameTap = onUserTap,
+                onPlaybackStarted = onVoiceNotePlayed,
                 modifier = Modifier
                     .padding(horizontal = CorusSpacing.lg)
                     .padding(bottom = CorusSpacing.xs),

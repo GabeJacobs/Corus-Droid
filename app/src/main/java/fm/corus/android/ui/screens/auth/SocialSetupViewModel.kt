@@ -18,6 +18,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.NowPlayingState
+import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +36,7 @@ class SocialSetupViewModel @Inject constructor(
     private val nowPlayingManager: NowPlayingManager,
     private val musicServicePreference: MusicServicePreference,
     private val preferencesDataStore: PreferencesDataStore,
+    val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
     // ── Contact Sync ──
@@ -121,6 +123,7 @@ class SocialSetupViewModel @Inject constructor(
             preferencesDataStore.setContactsSyncStatus("synced")
             _contactsSynced.value = true
             _isSyncing.value = false
+            analyticsService.logContactsSynced(_contactMatches.value.size)
         }
     }
 
@@ -271,5 +274,9 @@ class SocialSetupViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesDataStore.setHasRequestedPushPermission()
         }
+    }
+
+    fun logFollowFriendsOnboardingCompleted() {
+        analyticsService.logFollowFriendsOnboardingCompleted(_followedIds.value.size)
     }
 }

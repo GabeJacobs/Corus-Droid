@@ -10,6 +10,15 @@ sealed class DeepLinkDestination {
     data class PostComment(val postId: String, val commentId: String) : DeepLinkDestination()
     data class Thread(val threadId: String, val otherUserId: String = "") : DeepLinkDestination()
     data class Hashtag(val tag: String) : DeepLinkDestination()
+
+    fun analyticsType(): String = when (this) {
+        is Profile -> "profile"
+        is ProfileByUsername -> "profile"
+        is Post -> "post"
+        is PostComment -> "post_comment"
+        is Thread -> "thread"
+        is Hashtag -> "hashtag"
+    }
 }
 
 object DeepLinkHandler {

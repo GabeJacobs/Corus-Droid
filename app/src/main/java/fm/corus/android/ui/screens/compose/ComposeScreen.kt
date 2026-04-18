@@ -980,6 +980,7 @@ private fun ComposeModeContent(
             VoiceNoteRecorderView(
                 recorderState = voiceRecorderState,
                 modifier = Modifier.fillMaxWidth(),
+                onRecorded = { viewModel.analyticsService.logVoiceNoteRecorded() },
             )
             Spacer(modifier = Modifier.weight(1f))
         } else {

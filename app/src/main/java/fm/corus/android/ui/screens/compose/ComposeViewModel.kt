@@ -45,7 +45,7 @@ class ComposeViewModel @Inject constructor(
     private val spotifyRepository: SpotifyRepository,
     private val tmdbRepository: TMDBRepository,
     private val authRepository: AuthRepository,
-    private val analyticsService: AnalyticsService,
+    val analyticsService: AnalyticsService,
     private val userRepository: UserRepository,
     private val subscriptionRepository: SubscriptionRepository,
     private val exploreRepository: ExploreRepository,
