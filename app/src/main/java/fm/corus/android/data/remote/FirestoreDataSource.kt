@@ -1,10 +1,13 @@
 package fm.corus.android.data.remote
 
 import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import fm.corus.android.data.model.*
@@ -24,7 +27,38 @@ import javax.inject.Singleton
 class FirestoreDataSource @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val remoteConfigService: RemoteConfigService,
+    private val firebaseAuth: FirebaseAuth,
 ) {
+    /**
+     * Runs a Firestore operation and, if it fails due to a stale auth token,
+     * forces an ID-token refresh and retries once. Only retries for the
+     * narrow set of errors Firestore emits when the server rejected the
+     * request *before* any write committed, which keeps non-idempotent
+     * operations (e.g. `FieldValue.increment`) safe to re-run.
+     */
+    private suspend fun <T> withAuthRetry(operation: suspend () -> T): T {
+        return try {
+            operation()
+        } catch (e: Exception) {
+            val user = firebaseAuth.currentUser
+            if (!isAuthTokenError(e) || user == null) throw e
+            user.getIdToken(true).await()
+            operation()
+        }
+    }
+
+    private fun isAuthTokenError(error: Throwable): Boolean {
+        if (error is FirebaseFirestoreException) {
+            return error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
+                || error.code == FirebaseFirestoreException.Code.UNAUTHENTICATED
+        }
+        if (error is FirebaseAuthException) {
+            return error.errorCode == "ERROR_USER_TOKEN_EXPIRED"
+                || error.errorCode == "ERROR_INVALID_USER_TOKEN"
+        }
+        return false
+    }
+
     // ── Ban Check ──
 
     suspend fun checkIfUserIsBanned(uid: String): Boolean {
@@ -217,7 +251,7 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Likes ──
 
-    suspend fun likePost(userId: String, postId: String) {
+    suspend fun likePost(userId: String, postId: String) = withAuthRetry {
         val batch = firestore.batch()
         batch.set(
             firestore.collection("posts").document(postId)
@@ -236,7 +270,7 @@ class FirestoreDataSource @Inject constructor(
         batch.commit().await()
     }
 
-    suspend fun unlikePost(userId: String, postId: String) {
+    suspend fun unlikePost(userId: String, postId: String) = withAuthRetry {
         val batch = firestore.batch()
         batch.delete(
             firestore.collection("posts").document(postId)

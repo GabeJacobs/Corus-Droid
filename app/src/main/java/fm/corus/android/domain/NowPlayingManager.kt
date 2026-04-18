@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import androidx.annotation.VisibleForTesting
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -21,9 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.net.SocketTimeoutException
-import java.net.URL
 import java.net.UnknownHostException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -87,9 +86,10 @@ class NowPlayingManager @Inject constructor(
     /** Incremented on each cancel; play() checks this to bail out after URL resolution. */
     private var playGeneration = 0
 
-    // Preview URL cache — avoids redundant iTunes API calls
+    // Preview URL cache — avoids redundant Cloud Function calls in-session.
     private val previewCache = mutableMapOf<String, String>()
-    private val noMatchCache = mutableSetOf<String>()
+    @VisibleForTesting
+    internal val noMatchCache = mutableSetOf<String>()
 
     private val _isGeneratingPlaylist = MutableStateFlow(false)
     val isGeneratingPlaylist: StateFlow<Boolean> = _isGeneratingPlaylist.asStateFlow()
@@ -308,12 +308,22 @@ class NowPlayingManager @Inject constructor(
         player = null
     }
 
-    /** 3-tier iTunes lookup matching iOS AppleMusicPreviewService:
-     *  1. ISRC direct lookup
-     *  2. Text search (name + artist)
-     *  3. Cloud Function appleMusicLookup fallback
+    /**
+     * Resolve an Apple Music preview URL for a Spotify track. The Cloud Function
+     * `appleMusicLookup` is the sole source of truth: it runs Apple's authed
+     * catalog ISRC lookup, then a suffix-stripped text search, with our full
+     * matching ranker (artist tokens, variant stripping, duration/album
+     * tie-breakers, distinctive-token filters). It also caches resolutions
+     * globally in Firestore so repeat lookups of any track ever posted are
+     * fast.
+     *
+     * We used to fall back to the iTunes Search API on-device. That produced
+     * wrong matches (e.g. "Tomorrow Never Knows - Remastered 2009" → the Take 1
+     * outtake) because iTunes ranks keyword hits and has no variant filtering.
+     * All matching now lives server-side for parity with iOS.
      */
-    private suspend fun lookupPreviewUrl(
+    @VisibleForTesting
+    internal suspend fun lookupPreviewUrl(
         trackId: String,
         name: String,
         artist: String,
@@ -321,54 +331,21 @@ class NowPlayingManager @Inject constructor(
     ): String? {
         if (noMatchCache.contains(trackId)) return null
 
-        return try {
-            // 1. ISRC lookup
-            if (!isrc.isNullOrBlank()) {
-                val url = itunesIsrcLookup(isrc)
-                if (url != null) return url
+        val url = try {
+            withContext(Dispatchers.IO) {
+                cloudFunctions.appleMusicLookup(name, artist, isrc, trackId)
             }
-
-            // 2. Text search
-            val url = itunesTextSearch(name, artist)
-            if (url != null) return url
-
-            // 3. Cloud Function fallback
-            val cfUrl = cloudFunctions.appleMusicLookup(name, artist, isrc, trackId)
-            if (cfUrl != null) return cfUrl
-
-            noMatchCache.add(trackId)
-            null
         } catch (_: Exception) {
-            null
+            // Network/transient error — surface as "no preview" same as today.
+            // Don't poison `noMatchCache` so the next tap gets a fresh attempt.
+            return null
         }
-    }
 
-    private suspend fun itunesIsrcLookup(isrc: String): String? = withContext(Dispatchers.IO) {
-        try {
-            val encoded = java.net.URLEncoder.encode(isrc, "UTF-8")
-            val json = URL("https://itunes.apple.com/lookup?isrc=$encoded&entity=song").readText()
-            parseItunesPreviewUrl(json)
-        } catch (_: Exception) { null }
-    }
-
-    private suspend fun itunesTextSearch(name: String, artist: String): String? = withContext(Dispatchers.IO) {
-        try {
-            val term = java.net.URLEncoder.encode("$name $artist", "UTF-8")
-            val json = URL("https://itunes.apple.com/search?term=$term&media=music&entity=song&limit=10").readText()
-            parseItunesPreviewUrl(json)
-        } catch (_: Exception) { null }
-    }
-
-    private fun parseItunesPreviewUrl(json: String): String? {
-        return try {
-            val results = JSONObject(json).getJSONArray("results")
-            for (i in 0 until results.length()) {
-                val item = results.getJSONObject(i)
-                val preview = item.optString("previewUrl")
-                if (preview.isNotBlank()) return preview
-            }
-            null
-        } catch (_: Exception) { null }
+        if (url == null) {
+            noMatchCache.add(trackId)
+            return null
+        }
+        return url
     }
 
     fun cancelLoading() {

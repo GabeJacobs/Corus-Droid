@@ -4,20 +4,24 @@ import android.os.Bundle
 import com.google.firebase.analytics.FirebaseAnalytics
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Verifies that each high-level log method emits the expected Firebase event name.
  * These are parity contracts with the iOS AnalyticsEvents enum — renaming an event
  * key is a breaking change to dashboards.
  *
- * Bundle contents aren't inspected here (android.os.Bundle is an Android framework
- * class with no JVM implementation) — we only assert the event name and that the
- * call happened. Bundle-level verification would require Robolectric.
+ * Uses Robolectric so android.os.Bundle resolves to a real implementation at
+ * test time.
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(application = android.app.Application::class)
 class AnalyticsServiceTest {
 
     private val firebase: FirebaseAnalytics = mock()

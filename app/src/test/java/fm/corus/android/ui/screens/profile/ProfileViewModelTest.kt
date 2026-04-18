@@ -8,6 +8,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -39,6 +40,7 @@ class ProfileViewModelTest {
     private lateinit var nowPlayingManager: NowPlayingManager
     private lateinit var engagementManager: PostEngagementManager
     private lateinit var postCreationEvent: PostCreationEvent
+    private lateinit var analyticsService: AnalyticsService
 
     @Before
     fun setUp() {
@@ -58,6 +60,7 @@ class ProfileViewModelTest {
         postCreationEvent = mock {
             on { events } doReturn MutableSharedFlow()
         }
+        analyticsService = mock()
     }
 
     @After
@@ -73,6 +76,7 @@ class ProfileViewModelTest {
         nowPlayingManager = nowPlayingManager,
         engagementManager = engagementManager,
         postCreationEvent = postCreationEvent,
+        analyticsService = analyticsService,
     )
 
     @Test

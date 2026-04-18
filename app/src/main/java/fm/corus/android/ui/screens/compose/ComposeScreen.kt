@@ -256,6 +256,7 @@ fun ComposeScreen(
                         captionMode = captionMode,
                         onCaptionModeChange = { captionMode = it },
                         voiceRecorderState = voiceRecorderState,
+                        onVoiceNoteRecorded = { viewModel.analyticsService.logVoiceNoteRecorded() },
                         isPreviewPlaying = selectedTrack != null && nowPlayingState.trackId == selectedTrack?.id && nowPlayingState.isPlaying,
                         isPreviewLoading = selectedTrack != null && previewLoadingTrackId == selectedTrack?.id,
                         onAlbumArtTap = {
@@ -861,6 +862,7 @@ private fun ComposeModeContent(
     captionMode: String = "text",
     onCaptionModeChange: (String) -> Unit = {},
     voiceRecorderState: fm.corus.android.ui.components.VoiceNoteRecorderState? = null,
+    onVoiceNoteRecorded: () -> Unit = {},
     isPreviewPlaying: Boolean = false,
     isPreviewLoading: Boolean = false,
     onAlbumArtTap: () -> Unit = {},
@@ -980,7 +982,7 @@ private fun ComposeModeContent(
             VoiceNoteRecorderView(
                 recorderState = voiceRecorderState,
                 modifier = Modifier.fillMaxWidth(),
-                onRecorded = { viewModel.analyticsService.logVoiceNoteRecorded() },
+                onRecorded = onVoiceNoteRecorded,
             )
             Spacer(modifier = Modifier.weight(1f))
         } else {
