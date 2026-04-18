@@ -9,13 +9,17 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.qualifiers.ApplicationContext
+import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.ui.components.ToastManager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.SocketTimeoutException
@@ -23,6 +27,18 @@ import java.net.URL
 import java.net.UnknownHostException
 import javax.inject.Inject
 import javax.inject.Singleton
+
+data class QueuedTrack(
+    val trackId: String,
+    val trackName: String,
+    val artistName: String,
+    val albumArtURL: String?,
+    val previewUrl: String?,
+    val spotifyURI: String?,
+    val spotifyWebURL: String?,
+    val isrc: String?,
+    val sourcePostId: String?,
+)
 
 data class NowPlayingState(
     val trackId: String? = null,
@@ -33,6 +49,7 @@ data class NowPlayingState(
     val spotifyWebURL: String? = null,
     val isPlaying: Boolean = false,
     val sourcePostId: String? = null,
+    val hasNext: Boolean = false,
 ) {
     val hasActiveTrack: Boolean get() = trackId != null
 }
@@ -41,7 +58,24 @@ data class NowPlayingState(
 class NowPlayingManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val cloudFunctions: CloudFunctionsDataSource,
+    private val preferencesDataStore: PreferencesDataStore,
 ) {
+    private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    @Volatile
+    private var autoplayEnabled: Boolean = true
+
+    init {
+        managerScope.launch {
+            preferencesDataStore.autoplayNextSong.collect { autoplayEnabled = it }
+        }
+    }
+
+    private var queue: List<QueuedTrack> = emptyList()
+    private var currentQueueIndex: Int? = null
+
+    private fun computeHasNext(): Boolean =
+        currentQueueIndex?.let { it + 1 < queue.size } ?: false
     private var player: ExoPlayer? = null
 
     private val _state = MutableStateFlow(NowPlayingState())
@@ -65,6 +99,13 @@ class NowPlayingManager @Inject constructor(
 
     fun clearPlaylistError() {
         _playlistError.value = null
+    }
+
+    private val _paywallRequested = MutableStateFlow(false)
+    val paywallRequested: StateFlow<Boolean> = _paywallRequested.asStateFlow()
+
+    fun clearPaywallRequested() {
+        _paywallRequested.value = false
     }
 
     private fun isNetworkAvailable(): Boolean {
@@ -93,6 +134,8 @@ class NowPlayingManager @Inject constructor(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
+        } catch (e: CloudFunctionsDataSource.PaywallRequiredException) {
+            _paywallRequested.value = true
         } catch (e: UnknownHostException) {
             _playlistError.value = "Couldn't connect. Check your connection."
         } catch (e: SocketTimeoutException) {
@@ -122,6 +165,8 @@ class NowPlayingManager @Inject constructor(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
+        } catch (e: CloudFunctionsDataSource.PaywallRequiredException) {
+            _paywallRequested.value = true
         } catch (e: UnknownHostException) {
             _playlistError.value = "Couldn't connect. Check your connection."
         } catch (e: SocketTimeoutException) {
@@ -135,6 +180,13 @@ class NowPlayingManager @Inject constructor(
     val isPlaying: Boolean get() = _state.value.isPlaying
     val currentTrackId: String? get() = _state.value.trackId
 
+    /** Play a track that's part of a queue — enables autoplay and the mini-player next button. */
+    suspend fun play(track: QueuedTrack, queue: List<QueuedTrack>) {
+        this.queue = queue
+        this.currentQueueIndex = queue.indexOfFirst { it.trackId == track.trackId }.takeIf { it >= 0 }
+        playInternal(track)
+    }
+
     suspend fun play(
         trackId: String,
         trackName: String,
@@ -146,6 +198,27 @@ class NowPlayingManager @Inject constructor(
         isrc: String? = null,
         sourcePostId: String? = null,
     ) {
+        // Single-track path: clear any queued context so hasNext is false.
+        queue = emptyList()
+        currentQueueIndex = null
+        playInternal(
+            QueuedTrack(
+                trackId = trackId,
+                trackName = trackName,
+                artistName = artistName,
+                albumArtURL = albumArtURL,
+                previewUrl = previewUrl,
+                spotifyURI = spotifyURI,
+                spotifyWebURL = spotifyWebURL,
+                isrc = isrc,
+                sourcePostId = sourcePostId,
+            ),
+        )
+    }
+
+    private suspend fun playInternal(track: QueuedTrack) {
+        val trackId = track.trackId
+
         // If same track is already playing, toggle pause/play
         if (_state.value.trackId == trackId && player != null) {
             togglePlayPause()
@@ -166,9 +239,9 @@ class NowPlayingManager @Inject constructor(
         val generation = ++playGeneration
 
         // Resolve preview URL — use stored URL or look it up
-        val resolvedUrl = previewUrl?.takeIf { it.isNotBlank() }
+        val resolvedUrl = track.previewUrl?.takeIf { it.isNotBlank() }
             ?: previewCache[trackId]
-            ?: lookupPreviewUrl(trackId, trackName, artistName, isrc)
+            ?: lookupPreviewUrl(trackId, track.trackName, track.artistName, track.isrc)
 
         // If cancelled while resolving, bail out
         if (generation != playGeneration) return
@@ -181,12 +254,13 @@ class NowPlayingManager @Inject constructor(
         previewCache[trackId] = resolvedUrl
 
         // New track — start playback
-        stop()
+        stopPlayerOnly()
         player = ExoPlayer.Builder(context).build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
                         _state.value = _state.value.copy(isPlaying = false)
+                        handlePlaybackEnded()
                     }
                 }
             })
@@ -197,14 +271,41 @@ class NowPlayingManager @Inject constructor(
 
         _state.value = NowPlayingState(
             trackId = trackId,
-            trackName = trackName,
-            artistName = artistName,
-            albumArtURL = albumArtURL,
-            spotifyURI = spotifyURI,
-            spotifyWebURL = spotifyWebURL,
+            trackName = track.trackName,
+            artistName = track.artistName,
+            albumArtURL = track.albumArtURL,
+            spotifyURI = track.spotifyURI,
+            spotifyWebURL = track.spotifyWebURL,
             isPlaying = true,
-            sourcePostId = sourcePostId,
+            sourcePostId = track.sourcePostId,
+            hasNext = computeHasNext(),
         )
+    }
+
+    /** Auto-advance to the next queued preview when enabled by user setting. */
+    private fun handlePlaybackEnded() {
+        if (!autoplayEnabled) return
+        val idx = currentQueueIndex ?: return
+        val next = queue.getOrNull(idx + 1) ?: return
+        managerScope.launch {
+            currentQueueIndex = idx + 1
+            playInternal(next)
+        }
+    }
+
+    fun skipToNext() {
+        val idx = currentQueueIndex ?: return
+        val next = queue.getOrNull(idx + 1) ?: return
+        managerScope.launch {
+            currentQueueIndex = idx + 1
+            playInternal(next)
+        }
+    }
+
+    /** Stops the player without clearing the queue — used between queued tracks. */
+    private fun stopPlayerOnly() {
+        player?.release()
+        player = null
     }
 
     /** 3-tier iTunes lookup matching iOS AppleMusicPreviewService:
@@ -292,6 +393,8 @@ class NowPlayingManager @Inject constructor(
     fun stop() {
         player?.release()
         player = null
+        queue = emptyList()
+        currentQueueIndex = null
         _state.value = NowPlayingState()
     }
 

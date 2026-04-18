@@ -903,6 +903,7 @@ private fun SuggestedUserCard(
                 isClubMember = user.isClubMember,
                 flairStyle = user.flairStyle,
                 isBot = isBot,
+                modifier = Modifier.weight(1f, fill = false),
             )
             if (isBot) {
                 Spacer(modifier = Modifier.width(CorusSpacing.xs))

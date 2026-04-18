@@ -21,10 +21,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +51,8 @@ import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
 import fm.corus.android.ui.components.FullScreenImageView
 import fm.corus.android.ui.components.GifPickerSheet
+import fm.corus.android.ui.components.PickerMode
+import fm.corus.android.ui.components.SongFilmPickerSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -95,6 +101,8 @@ fun MessageThreadScreen(
     val listState = rememberLazyListState()
     var reactionTarget by remember { mutableStateOf<CymbalMessage?>(null) }
     var showGifPicker by remember { mutableStateOf(false) }
+    var showAttachmentMenu by remember { mutableStateOf(false) }
+    var mediaPickerMode by remember { mutableStateOf<PickerMode?>(null) }
     var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
@@ -203,19 +211,47 @@ fun MessageThreadScreen(
                 .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Photo button
-            IconButton(
-                onClick = {
-                    photoPickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            // Attachment plus button (Photo / Song / Film)
+            Box {
+                IconButton(onClick = { showAttachmentMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.AddCircle,
+                        contentDescription = "Add attachment",
+                        tint = CorusColors.Accent,
+                        modifier = Modifier.size(28.dp),
                     )
-                },
-            ) {
-                Icon(
-                    Icons.Filled.Image,
-                    contentDescription = "Send photo",
-                    tint = CorusColors.Secondary,
-                )
+                }
+                DropdownMenu(
+                    expanded = showAttachmentMenu,
+                    onDismissRequest = { showAttachmentMenu = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Photo") },
+                        leadingIcon = { Icon(Icons.Filled.Photo, contentDescription = null) },
+                        onClick = {
+                            showAttachmentMenu = false
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Song") },
+                        leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
+                        onClick = {
+                            showAttachmentMenu = false
+                            mediaPickerMode = PickerMode.SONG
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Film") },
+                        leadingIcon = { Icon(Icons.Filled.Movie, contentDescription = null) },
+                        onClick = {
+                            showAttachmentMenu = false
+                            mediaPickerMode = PickerMode.FILM
+                        },
+                    )
+                }
             }
 
             if (viewModel.giphySupport) {
@@ -264,6 +300,21 @@ fun MessageThreadScreen(
                 showGifPicker = false
             },
             onDismiss = { showGifPicker = false },
+        )
+    }
+
+    mediaPickerMode?.let { mode ->
+        SongFilmPickerSheet(
+            initialMode = mode,
+            onSongSelected = { track ->
+                viewModel.sendSongMessage(threadId, track)
+                mediaPickerMode = null
+            },
+            onFilmSelected = { movie ->
+                viewModel.sendFilmMessage(threadId, movie)
+                mediaPickerMode = null
+            },
+            onDismiss = { mediaPickerMode = null },
         )
     }
 
@@ -491,6 +542,34 @@ private fun MessageBubble(
                     )
                 }
 
+                // Shared track content
+                if (message.type == MessageType.SHARED_TRACK) {
+                    SharedTrackContent(
+                        trackName = message.trackName.orEmpty(),
+                        artistName = message.artistName.orEmpty(),
+                        albumArtURL = message.albumArtURL,
+                        spotifyURL = message.spotifyURL,
+                        isFromCurrentUser = isFromCurrentUser,
+                    )
+                    if (!message.text.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    }
+                }
+
+                // Shared film content
+                if (message.type == MessageType.SHARED_FILM) {
+                    SharedFilmContent(
+                        movieTitle = message.movieTitle.orEmpty(),
+                        directorName = message.directorName.orEmpty(),
+                        posterURL = message.posterURL,
+                        tmdbWebURL = message.tmdbWebURL,
+                        isFromCurrentUser = isFromCurrentUser,
+                    )
+                    if (!message.text.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    }
+                }
+
                 // Text content
                 if (!message.text.isNullOrBlank()) {
                     if (emojiOnly) {
@@ -633,5 +712,122 @@ private fun buildLinkifiedText(
         if (lastIndex < text.length) {
             append(text.substring(lastIndex))
         }
+    }
+}
+
+@Composable
+private fun SharedTrackContent(
+    trackName: String,
+    artistName: String,
+    albumArtURL: String?,
+    spotifyURL: String?,
+    isFromCurrentUser: Boolean,
+) {
+    val context = LocalContext.current
+    val textColor = if (isFromCurrentUser) Color.White else CorusColors.Text
+    val subtitleColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f) else CorusColors.Secondary
+    Row(
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .then(
+                if (!spotifyURL.isNullOrBlank()) Modifier.clickable {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(spotifyURL))
+                    context.startActivity(intent)
+                } else Modifier
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ShimmerAsyncImage(
+            model = albumArtURL,
+            contentDescription = trackName,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = trackName,
+                style = CorusFont.body,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = artistName,
+                style = CorusFont.caption,
+                color = subtitleColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.xs))
+        Icon(
+            imageVector = Icons.Filled.MusicNote,
+            contentDescription = null,
+            tint = subtitleColor,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+@Composable
+private fun SharedFilmContent(
+    movieTitle: String,
+    directorName: String,
+    posterURL: String?,
+    tmdbWebURL: String?,
+    isFromCurrentUser: Boolean,
+) {
+    val context = LocalContext.current
+    val textColor = if (isFromCurrentUser) Color.White else CorusColors.Text
+    val subtitleColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f) else CorusColors.Secondary
+    Row(
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .then(
+                if (!tmdbWebURL.isNullOrBlank()) Modifier.clickable {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(tmdbWebURL))
+                    context.startActivity(intent)
+                } else Modifier
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ShimmerAsyncImage(
+            model = posterURL,
+            contentDescription = movieTitle,
+            modifier = Modifier
+                .width(50.dp)
+                .height(75.dp)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = movieTitle,
+                style = CorusFont.body,
+                color = textColor,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (directorName.isNotBlank()) {
+                Text(
+                    text = directorName,
+                    style = CorusFont.caption,
+                    color = subtitleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.xs))
+        Icon(
+            imageVector = Icons.Filled.Movie,
+            contentDescription = null,
+            tint = subtitleColor,
+            modifier = Modifier.size(14.dp),
+        )
     }
 }

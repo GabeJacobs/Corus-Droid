@@ -24,11 +24,13 @@ fun UserAvatarView(
     username: String? = null,
     size: Dp = CorusSpacing.avatarMedium,
     modifier: Modifier = Modifier,
+    localAvatarOverride: Any? = null,
 ) {
     // Use thumbnail for small avatars (feed circles, likes, comments), full res for larger displays
     val resolvedURL = if (size <= 36.dp && !avatarThumbURL.isNullOrBlank()) avatarThumbURL else avatarURL
+    val resolvedModel: Any? = localAvatarOverride ?: resolvedURL
 
-    if (resolvedURL.isNullOrBlank()) {
+    if (localAvatarOverride == null && resolvedURL.isNullOrBlank()) {
         val initial = (displayName?.firstOrNull() ?: username?.firstOrNull())
             ?.uppercaseChar()?.toString() ?: ""
         Box(
@@ -48,7 +50,7 @@ fun UserAvatarView(
         }
     } else {
         ShimmerAsyncImage(
-            model = resolvedURL,
+            model = resolvedModel,
             contentDescription = "User avatar",
             modifier = modifier.size(size),
             shape = CircleShape,

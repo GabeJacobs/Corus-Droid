@@ -77,5 +77,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class MessageThreadRoute(val threadId: String, val otherUserId: String)
 @Serializable data class BotListRoute(val botType: String? = null)
 @Serializable data class SinglePostCommentsRoute(val postId: String, val commentId: String? = null)
-@Serializable data class SuggestedUsersListRoute(val title: String = "Taste Matches", val useRowLayout: Boolean = false)
+@Serializable data class SuggestedUsersListRoute(
+    val title: String = "Taste Matches",
+    val useRowLayout: Boolean = false,
+    val source: String = "tasteMatches",
+)
 @Serializable data object ContactFriendsListRoute

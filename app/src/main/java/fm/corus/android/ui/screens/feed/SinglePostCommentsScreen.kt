@@ -10,12 +10,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Gif
@@ -195,19 +196,24 @@ fun SinglePostCommentsScreen(
                             )
                         }
                     }
-                    IconButton(
-                        onClick = {
-                            if (commentText.isNotBlank() && !isSending) {
+                    val canSend = commentText.isNotBlank() && !isSending
+                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(if (canSend) CorusColors.Accent else CorusColors.Divider)
+                            .clickable(enabled = canSend) {
                                 viewModel.addComment(postId, commentText.trim())
                                 commentText = ""
-                            }
-                        },
-                        enabled = commentText.isNotBlank() && !isSending,
+                            },
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Filled.Send,
+                            imageVector = Icons.Filled.ArrowUpward,
                             contentDescription = "Send",
-                            tint = if (commentText.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary,
+                            modifier = Modifier.size(18.dp),
+                            tint = if (canSend) Color.White else CorusColors.Tertiary,
                         )
                     }
                 }
@@ -332,10 +338,16 @@ fun SinglePostCommentsScreen(
                         likedCommentIds = likedCommentIds,
                         highlightedCommentId = activeHighlightId,
                         onLike = { viewModel.toggleCommentLike(postId, comment.id) },
-                        onReply = { viewModel.setReplyTo(comment) },
+                        onReply = {
+                            viewModel.setReplyTo(comment)
+                            focusRequester.requestFocus()
+                        },
                         onUserTap = { onNavigateToUser(comment.user.id) },
                         onReplyUserTap = { userId -> onNavigateToUser(userId) },
-                        onReplyReply = { reply -> viewModel.setReplyTo(reply) },
+                        onReplyReply = { reply ->
+                            viewModel.setReplyTo(reply)
+                            focusRequester.requestFocus()
+                        },
                         onReplyLike = { replyId -> viewModel.toggleCommentLike(postId, replyId) },
                     )
                 }

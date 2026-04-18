@@ -12,6 +12,24 @@ if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
 
+val versionPropsFile = rootProject.file("version.properties")
+val versionProps = Properties()
+if (versionPropsFile.exists()) {
+    versionProps.load(versionPropsFile.inputStream())
+}
+
+val isReleaseBuild = gradle.startParameter.taskNames.any {
+    val lower = it.lowercase()
+    lower.contains("bundlerelease") || lower.contains("assemblerelease")
+}
+
+var resolvedVersionCode = (versionProps["VERSION_CODE"] as? String)?.toInt() ?: 1
+if (isReleaseBuild) {
+    resolvedVersionCode += 1
+    versionProps["VERSION_CODE"] = resolvedVersionCode.toString()
+    versionPropsFile.outputStream().use { versionProps.store(it, null) }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -40,7 +58,7 @@ android {
         applicationId = "fm.corus.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        versionCode = resolvedVersionCode
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -58,6 +76,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
+            buildConfigField("String", "APP_CHECK_DEBUG_TOKEN", "\"\"")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

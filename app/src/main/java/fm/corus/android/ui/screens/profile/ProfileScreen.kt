@@ -91,6 +91,7 @@ fun ProfileScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val profile by viewModel.profile.collectAsState()
+    val pendingAvatarBytes by viewModel.pendingAvatarBytes.collectAsState()
     val posts by viewModel.posts.collectAsState()
     val likedPosts by viewModel.likedPosts.collectAsState()
     val savedPosts by viewModel.savedPosts.collectAsState()
@@ -107,7 +108,15 @@ fun ProfileScreen(
     var showStylePicker by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
     var clubOfferSource by remember { mutableStateOf(fm.corus.android.ui.screens.subscription.PaywallSource.DEFAULT) }
-    var showPlaylistPaywall by remember { mutableStateOf(false) }
+
+    val paywallRequested by viewModel.nowPlayingManager.paywallRequested.collectAsState()
+    LaunchedEffect(paywallRequested) {
+        if (paywallRequested) {
+            clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
+            showClubOffer = true
+            viewModel.nowPlayingManager.clearPaywallRequested()
+        }
+    }
 
     // Open style picker when navigating back from EditProfile with the action
     LaunchedEffect(openStylePicker) {
@@ -275,6 +284,7 @@ fun ProfileScreen(
                                 onClick = { showAvatarMenu = true },
                                 onLongClick = { showAvatarMenu = true },
                             ),
+                            localAvatarOverride = pendingAvatarBytes,
                         )
 
                         DropdownMenu(
@@ -395,8 +405,6 @@ fun ProfileScreen(
                                     .clickable(enabled = !isGeneratingPlaylist) {
                                         if (!hasSongs) {
                                             ToastManager.show("No songs to make a playlist")
-                                        } else if (!hasFullAccess) {
-                                            showPlaylistPaywall = true
                                         } else {
                                             viewModel.generatePlaylist()
                                         }
@@ -778,18 +786,6 @@ fun ProfileScreen(
                 onDismiss = { showClubOffer = false },
             )
         }
-    }
-
-    // ── Playlist Paywall Sheet ──
-    if (showPlaylistPaywall) {
-        fm.corus.android.ui.screens.subscription.PlaylistPaywallSheet(
-            onDismiss = { showPlaylistPaywall = false },
-            onNavigateToClub = {
-                showPlaylistPaywall = false
-                clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
-                showClubOffer = true
-            },
-        )
     }
 
     // ── Full Screen Avatar Overlay ──

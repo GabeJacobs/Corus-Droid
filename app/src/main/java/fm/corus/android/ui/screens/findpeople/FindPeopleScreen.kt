@@ -90,7 +90,7 @@ fun FindPeopleScreen(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
     onNavigateToBotList: (String?) -> Unit = {},
-    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean) -> Unit = { _, _ -> },
+    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit = { _, _, _ -> },
     onNavigateToContactFriends: () -> Unit = {},
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -515,7 +515,7 @@ private fun SuggestedUsersContent(
     viewModel: FindPeopleViewModel,
     onNavigateToUser: (String) -> Unit,
     onNavigateToBotList: (String?) -> Unit,
-    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean) -> Unit,
+    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
     onNavigateToContactFriends: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -613,7 +613,7 @@ private fun SuggestedUsersContent(
                     icon = "sparkles",
                     title = "TASTE MATCHES",
                     showSeeAll = musicMatchUsers.size > 2,
-                    onSeeAll = { onNavigateToSuggestedUsers("Taste Matches", false) },
+                    onSeeAll = { onNavigateToSuggestedUsers("Taste Matches", false, "tasteMatches") },
                 )
             }
             item {
@@ -647,7 +647,7 @@ private fun SuggestedUsersContent(
                     icon = "people",
                     title = "MUTUAL CONNECTIONS",
                     showSeeAll = mutualConnectionUsers.size > 2,
-                    onSeeAll = { onNavigateToSuggestedUsers("Mutual Connections", true) },
+                    onSeeAll = { onNavigateToSuggestedUsers("Mutual Connections", true, "mutualConnections") },
                 )
             }
             items(mutualConnectionUsers.take(2)) { match ->
@@ -669,7 +669,7 @@ private fun SuggestedUsersContent(
                     icon = "trending",
                     title = "POPULAR ON CORUS",
                     showSeeAll = popularUsers.size > 3,
-                    onSeeAll = { onNavigateToSuggestedUsers("Popular on Corus", true) },
+                    onSeeAll = { onNavigateToSuggestedUsers("Popular on Corus", true, "popular") },
                 )
             }
             items(popularUsers.take(3), key = { "popular-${it.id}" }) { user ->

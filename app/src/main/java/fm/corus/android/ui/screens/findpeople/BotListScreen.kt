@@ -3,6 +3,7 @@ package fm.corus.android.ui.screens.findpeople
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -14,7 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.data.model.SuggestedUserMatch
-import fm.corus.android.ui.components.SkeletonUserRow
+import fm.corus.android.ui.components.SkeletonTasteMatchCard
 import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -30,6 +31,7 @@ fun BotListScreen(
 ) {
     val bots by viewModel.bots.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val followedIds by viewModel.followedIds.collectAsState()
 
     LaunchedEffect(botType) {
         viewModel.loadBots(botType)
@@ -66,7 +68,7 @@ fun BotListScreen(
                     .padding(padding),
             ) {
                 items(6) {
-                    SkeletonUserRow()
+                    SkeletonTasteMatchCard()
                 }
             }
         } else if (bots.isEmpty()) {
@@ -89,7 +91,7 @@ fun BotListScreen(
                 itemsIndexed(bots, key = { _, match -> match.id }) { _, match ->
                     TasteMatchCard(
                         match = match,
-                        isFollowing = viewModel.isFollowed(match.user.id),
+                        isFollowing = followedIds.contains(match.user.id),
                         onUserTap = { onNavigateToUser(match.user.id) },
                         onFollowTap = { viewModel.toggleFollow(match.user) },
                     )

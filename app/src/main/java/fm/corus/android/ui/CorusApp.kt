@@ -54,7 +54,6 @@ fun CorusApp(
                 SocialSetupFlow(onFinished = { viewModel.finishSocialSetup() })
             }
             AuthViewModel.AuthState.SignedIn -> {
-                // Notification permission is now requested during onboarding (music service screen)
                 MainTabScreen(
                     pendingNotificationDestination = pendingNotificationDestination,
                     onNotificationDestinationConsumed = onNotificationDestinationConsumed,

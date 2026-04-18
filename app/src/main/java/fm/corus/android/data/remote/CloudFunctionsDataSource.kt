@@ -499,13 +499,11 @@ class CloudFunctionsDataSource @Inject constructor(
         val cached: Boolean,
     )
 
-    @Suppress("UNCHECKED_CAST")
-    suspend fun generateProfilePlaylist(userId: String): PlaylistResult {
-        val result = functions.getHttpsCallable("generateProfilePlaylist").call(
-            mapOf("userId" to userId)
-        ).await()
-        val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
+    class PaywallRequiredException : Exception("Playlist generation limit reached")
+
+    internal fun parsePlaylistResponse(data: Map<String, Any?>): PlaylistResult {
         if (data["error"] != null) {
+            if ((data["code"] as? String) == "PAYWALL") throw PaywallRequiredException()
             val msg = data["message"] as? String ?: "Unknown error"
             throw Exception(msg)
         }
@@ -514,6 +512,15 @@ class CloudFunctionsDataSource @Inject constructor(
             playlistWebURL = data["playlistWebURL"] as? String ?: throw Exception("Missing playlistWebURL"),
             cached = data["cached"] as? Boolean ?: false,
         )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun generateProfilePlaylist(userId: String): PlaylistResult {
+        val result = functions.getHttpsCallable("generateProfilePlaylist").call(
+            mapOf("userId" to userId, "supportsGating" to true)
+        ).await()
+        val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
+        return parsePlaylistResponse(data)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -528,17 +535,11 @@ class CloudFunctionsDataSource @Inject constructor(
 
     @Suppress("UNCHECKED_CAST")
     suspend fun generateFeedPlaylist(): PlaylistResult {
-        val result = functions.getHttpsCallable("generateFeedPlaylist").call(emptyMap<String, Any>()).await()
+        val result = functions.getHttpsCallable("generateFeedPlaylist").call(
+            mapOf("supportsGating" to true)
+        ).await()
         val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
-        if (data["error"] != null) {
-            val msg = data["message"] as? String ?: "Unknown error"
-            throw Exception(msg)
-        }
-        return PlaylistResult(
-            playlistURI = data["playlistURI"] as? String ?: throw Exception("Missing playlistURI"),
-            playlistWebURL = data["playlistWebURL"] as? String ?: throw Exception("Missing playlistWebURL"),
-            cached = data["cached"] as? Boolean ?: false,
-        )
+        return parsePlaylistResponse(data)
     }
 
     // ── Post Limit ──

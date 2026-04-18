@@ -15,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.SubscriptionRepository
+import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
@@ -39,6 +40,7 @@ class AuthViewModel @Inject constructor(
     private val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
     private val firebaseAuth: FirebaseAuth,
+    private val unreadCountsRepository: UnreadCountsRepository,
 ) : ViewModel() {
 
     sealed class AuthState {
@@ -78,6 +80,7 @@ class AuthViewModel @Inject constructor(
 
                 val user = auth.currentUser
                 if (user == null) {
+                    unreadCountsRepository.stop()
                     _authState.value = AuthState.SignedOut
                     return@launch
                 }
@@ -123,6 +126,7 @@ class AuthViewModel @Inject constructor(
                         launch { subscriptionRepository.refreshPostLimit() }
                         subscriptionRepository.loginUser(user.uid)
                         analyticsService.setUserId(user.uid)
+                        unreadCountsRepository.start(user.uid)
                         _authState.value = AuthState.SignedIn
                     }
                 } catch (e: Exception) {
@@ -259,6 +263,7 @@ class AuthViewModel @Inject constructor(
             userRepository.clearCaches()
             exploreRepository.clearCaches()
             engagementManager.clearAll()
+            unreadCountsRepository.stop()
             didSignInThisSession = false
         }
     }
@@ -396,6 +401,7 @@ class AuthViewModel @Inject constructor(
         userRepository.clearCaches()
         exploreRepository.clearCaches()
         engagementManager.clearAll()
+        unreadCountsRepository.stop()
         didSignInThisSession = false
         _isDeletingAccount.value = false
         _authState.value = AuthState.SignedOut

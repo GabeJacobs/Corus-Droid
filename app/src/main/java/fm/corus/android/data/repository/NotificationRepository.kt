@@ -41,4 +41,11 @@ class NotificationRepository @Inject constructor(
     suspend fun markAllRead(userId: String) {
         firestoreDataSource.markAllNotificationsRead(userId)
     }
+
+    suspend fun fetchLastSeenNotificationsAt(userId: String): Long? =
+        firestoreDataSource.fetchLastSeenNotificationsAt(userId)
+
+    suspend fun updateLastSeenNotificationsAt(userId: String) {
+        firestoreDataSource.updateLastSeenNotificationsAt(userId)
+    }
 }

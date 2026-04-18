@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -112,6 +113,24 @@ fun MiniPlayerBar(
                             onClick = { nowPlayingManager.togglePlayPause() },
                         ),
                     tint = CorusColors.Text,
+                )
+
+                // Next — always visible so the mini player has a consistent layout;
+                // disabled (grayed) when the current queue has no next track.
+                Icon(
+                    imageVector = Icons.Filled.SkipNext,
+                    contentDescription = "Next",
+                    modifier = Modifier
+                        .padding(start = CorusSpacing.xs)
+                        .size(28.dp)
+                        .then(
+                            if (state.hasNext) Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { nowPlayingManager.skipToNext() },
+                            ) else Modifier
+                        ),
+                    tint = if (state.hasNext) CorusColors.Text else CorusColors.Tertiary,
                 )
 
                 // Spotify button

@@ -1,9 +1,12 @@
 package fm.corus.android.ui.navigation
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,7 +44,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -52,6 +62,7 @@ import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.util.PushNotificationPermission
 import kotlinx.coroutines.flow.StateFlow
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -67,6 +78,29 @@ fun MainTabScreen(
     val composeViewModel: ComposeViewModel = hiltViewModel()
     val showMilestonePaywall by viewModel.showMilestonePaywall.collectAsState()
     val milestonePaywallSource by viewModel.milestonePaywallSource.collectAsState()
+    val notificationCount by viewModel.notificationCount.collectAsState()
+    val unreadMessageCount by viewModel.unreadMessageCount.collectAsState()
+    val hasRequestedPushPermission by viewModel.hasRequestedPushPermission.collectAsState()
+
+    // Fallback push-permission prompt for users who signed up before the
+    // onboarding ask shipped. Matches iOS MainTabView.requestNotificationPermissionIfNeeded.
+    val context = LocalContext.current
+    val pushPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { _ ->
+        viewModel.markPushPermissionRequested()
+    }
+    LaunchedEffect(hasRequestedPushPermission) {
+        if (!hasRequestedPushPermission &&
+            PushNotificationPermission.shouldRequestPushPermission(context)
+        ) {
+            pushPermissionLauncher.launch(PushNotificationPermission.permission)
+        } else if (!hasRequestedPushPermission) {
+            // No system prompt needed (already granted or pre-Android-13);
+            // still record so we don't re-check every launch.
+            viewModel.markPushPermissionRequested()
+        }
+    }
 
     // Club offer sheet state
     var showClubOffer by remember { mutableStateOf(false) }
@@ -166,6 +200,11 @@ fun MainTabScreen(
                 )
                 CorusBottomBar(
                 selectedTab = selectedTab,
+                notificationTabBadgeCount = notificationTabBadge(
+                    selectedTab = selectedTab,
+                    notificationCount = notificationCount,
+                    unreadMessageCount = unreadMessageCount,
+                ),
                 onTabSelected = { tab ->
                     if (tab == CorusTab.COMPOSE) {
                         if (viewModel.subscriptionRepository.canPost) {
@@ -187,6 +226,9 @@ fun MainTabScreen(
                                     else -> {}
                                 }
                             }
+                        }
+                        if (tab == CorusTab.NOTIFICATIONS && selectedTab != CorusTab.NOTIFICATIONS) {
+                            viewModel.onActivityTabEntered()
                         }
                         selectedTab = tab
                     }
@@ -304,9 +346,29 @@ private fun NavHostController.popToStart(): Boolean {
     return popBackStack(startId, inclusive = false)
 }
 
+/**
+ * Combined badge count to display on the Activity tab icon.
+ *
+ * Matches iOS MainTabView:
+ *  - When the user is already on the Activity tab, only unread DMs count (notifications
+ *    were just marked read on screen entry, so surfacing them would re-appear a badge
+ *    that the user considers dismissed).
+ *  - Otherwise, sum of unread notifications + unread DMs.
+ */
+internal fun notificationTabBadge(
+    selectedTab: CorusTab,
+    notificationCount: Int,
+    unreadMessageCount: Int,
+): Int = if (selectedTab == CorusTab.NOTIFICATIONS) {
+    unreadMessageCount
+} else {
+    notificationCount + unreadMessageCount
+}
+
 @Composable
 private fun CorusBottomBar(
     selectedTab: CorusTab,
+    notificationTabBadgeCount: Int,
     onTabSelected: (CorusTab) -> Unit,
     onComposeTapped: () -> Unit,
 ) {
@@ -345,6 +407,7 @@ private fun CorusBottomBar(
                 icon = if (selectedTab == CorusTab.NOTIFICATIONS) CorusTab.NOTIFICATIONS.selectedIcon else CorusTab.NOTIFICATIONS.unselectedIcon,
                 label = CorusTab.NOTIFICATIONS.label,
                 isSelected = selectedTab == CorusTab.NOTIFICATIONS,
+                badgeCount = notificationTabBadgeCount,
                 onClick = { onTabSelected(CorusTab.NOTIFICATIONS) },
             )
             TabItem(
@@ -362,6 +425,7 @@ private fun TabItem(
     icon: ImageVector,
     label: String,
     isSelected: Boolean,
+    badgeCount: Int = 0,
     onClick: () -> Unit,
 ) {
     val color = if (isSelected) CorusColors.Accent else CorusColors.Secondary
@@ -386,6 +450,33 @@ private fun TabItem(
                 modifier = Modifier.size(24.dp),
                 tint = color,
             )
+            if (badgeCount > 0) {
+                val badgeText = if (badgeCount > 99) "99+" else "$badgeCount"
+                val isWide = badgeText.length > 1
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 8.dp, y = (-4).dp)
+                        .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
+                        .background(Color.Red, CircleShape)
+                        .border(1.5.dp, Color.White, CircleShape)
+                        .padding(horizontal = if (isWide) 5.dp else 0.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = badgeText,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        lineHeight = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
+                        style = LocalTextStyle.current.copy(
+                            platformStyle = PlatformTextStyle(includeFontPadding = false),
+                        ),
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(CorusSpacing.xxs))

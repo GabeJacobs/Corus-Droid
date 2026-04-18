@@ -261,11 +261,16 @@ class FindPeopleViewModel @Inject constructor(
             }
             _isBotsLoading.value = false
         }
+        loadPopularUsers()
+    }
+
+    private fun loadPopularUsers() {
+        val uid = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
                 val popular = userRepository.fetchPopularUsers(
                     limit = 10,
-                    excludeIds = setOf(uid),
+                    excludeIds = _followingIds.value + _localFollowedIds.value + uid,
                 )
                 Log.d("FindPeopleVM", "Popular users loaded: ${popular.size}")
                 _popularUsers.value = popular

@@ -29,6 +29,7 @@ fun SuggestedUsersListScreen(
     matches: List<SuggestedUserMatch>,
     title: String = "Taste Matches",
     useRowLayout: Boolean = false,
+    source: String = "tasteMatches",
     isLoading: Boolean = false,
     isFollowed: (String) -> Boolean = { false },
     onFollow: (CymbalUser) -> Unit = {},
@@ -84,7 +85,7 @@ fun SuggestedUsersListScreen(
                 items(matches, key = { it.id }) { match ->
                     SuggestedUserRow(
                         user = match.user,
-                        subtitle = formatMutualFollowersText(match.suggestionReason?.mutualNames),
+                        subtitle = subtitleForRow(match, source),
                         isFollowed = isFollowed(match.user.id),
                         onTap = { onNavigateToUser(match.user.id) },
                         onFollow = { onFollow(match.user) },
@@ -109,5 +110,15 @@ fun SuggestedUsersListScreen(
                 }
             }
         }
+    }
+}
+
+private fun subtitleForRow(match: SuggestedUserMatch, source: String): String? {
+    return when (source) {
+        "popular" -> {
+            val count = match.user.followerCount
+            if (count == 1) "1 follower" else "$count followers"
+        }
+        else -> formatMutualFollowersText(match.suggestionReason?.mutualNames)
     }
 }

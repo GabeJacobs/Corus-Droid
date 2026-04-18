@@ -141,7 +141,7 @@ fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
                 onNavigateToFilm = { route -> navController.navigate(route) },
                 onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
-                onNavigateToSuggestedUsers = { title, useRowLayout -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout)) },
+                onNavigateToSuggestedUsers = { title, useRowLayout, source -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout, source)) },
                 onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
             )
         }
@@ -185,8 +185,10 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
         popExitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { it }) },
     ) {
         composable<NotificationsTabRoute> {
+            val unreadMessageCount by mainTabViewModel.unreadMessageCount.collectAsState()
             NotificationsScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
+                unreadMessageCount = unreadMessageCount,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToMessages = { navController.navigate(ThreadListRoute) },
@@ -529,7 +531,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { route -> navController.navigate(route) },
             onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
-            onNavigateToSuggestedUsers = { title, useRowLayout -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout)) },
+            onNavigateToSuggestedUsers = { title, useRowLayout, source -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout, source)) },
             onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
         )
     }
@@ -580,13 +582,15 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val viewModel: SuggestedUsersListViewModel = hiltViewModel()
         val suggestions by viewModel.suggestions.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
+        val followedIds by viewModel.followedIds.collectAsState()
 
         SuggestedUsersListScreen(
             matches = suggestions,
             title = route.title,
             useRowLayout = route.useRowLayout,
+            source = route.source,
             isLoading = isLoading,
-            isFollowed = { viewModel.isFollowed(it) },
+            isFollowed = { followedIds.contains(it) },
             onFollow = { viewModel.toggleFollow(it) },
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },

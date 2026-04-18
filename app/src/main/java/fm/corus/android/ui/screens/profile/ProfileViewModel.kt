@@ -53,6 +53,7 @@ class ProfileViewModel @Inject constructor(
 
     fun uploadAvatar(imageData: ByteArray) {
         val uid = authRepository.currentUserId ?: return
+        _pendingAvatarBytes.value = imageData
         viewModelScope.launch {
             try {
                 userRepository.uploadAvatar(uid, imageData)
@@ -60,6 +61,8 @@ class ProfileViewModel @Inject constructor(
                 _profile.value = authRepository.userProfile.value
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "uploadAvatar failed", e)
+            } finally {
+                _pendingAvatarBytes.value = null
             }
         }
     }
@@ -73,6 +76,12 @@ class ProfileViewModel @Inject constructor(
 
     private val _profile = MutableStateFlow<CymbalUser?>(null)
     val profile: StateFlow<CymbalUser?> = _profile.asStateFlow()
+
+    // Optimistic avatar preview: set at the start of uploadAvatar and cleared
+    // once the server round-trip completes, so the new avatar appears immediately
+    // without waiting for Firestore + Storage + cache-busted URL reload.
+    private val _pendingAvatarBytes = MutableStateFlow<ByteArray?>(null)
+    val pendingAvatarBytes: StateFlow<ByteArray?> = _pendingAvatarBytes.asStateFlow()
 
     // Profile posts (tracks + movies together, shared by MUSIC and FILM tabs)
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())

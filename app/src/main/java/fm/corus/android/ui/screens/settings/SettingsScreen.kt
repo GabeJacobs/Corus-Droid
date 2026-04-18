@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.Notifications
@@ -137,6 +138,7 @@ fun SettingsScreen(
 
     // General toggles
     var hapticsEnabled by remember { mutableStateOf(true) }
+    val autoplayNextSong by settingsViewModel.autoplayNextSong.collectAsState()
 
     // Messaging
     var whoCanMessageMe by remember { mutableStateOf("Everyone") }
@@ -206,6 +208,14 @@ fun SettingsScreen(
 
             // ── Section: General ──
             SectionHeader("GENERAL")
+
+            SettingsToggleRow(
+                icon = Icons.Filled.AllInclusive,
+                title = "Autoplay Next Song",
+                subtitle = "Automatically play the next song when one finishes",
+                checked = autoplayNextSong,
+                onCheckedChange = { settingsViewModel.setAutoplayNextSong(it) },
+            )
 
             SettingsToggleRow(
                 icon = Icons.Outlined.Vibration,

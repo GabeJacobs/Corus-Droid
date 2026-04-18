@@ -13,7 +13,7 @@ enum class NotificationType(val value: String) {
     CONTACT_JOINED("contact_joined");
 
     val supportsCommentActions: Boolean
-        get() = this in listOf(COMMENT, REPLY, MENTION, COMMENT_LIKE)
+        get() = this in listOf(COMMENT, REPLY, MENTION)
 
     companion object {
         fun from(value: String?): NotificationType =

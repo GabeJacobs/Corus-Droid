@@ -11,6 +11,7 @@ import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,6 +48,9 @@ class OtherProfileViewModel @Inject constructor(
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private val _hasMore = MutableStateFlow(true)
     val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
 
@@ -55,8 +59,6 @@ class OtherProfileViewModel @Inject constructor(
     private val _isFollowing = MutableStateFlow(false)
     val isFollowing: StateFlow<Boolean> = _isFollowing.asStateFlow()
 
-    private val _isFollowLoading = MutableStateFlow(false)
-    val isFollowLoading: StateFlow<Boolean> = _isFollowLoading.asStateFlow()
 
     private val _isBlocked = MutableStateFlow(false)
     val isBlocked: StateFlow<Boolean> = _isBlocked.asStateFlow()
@@ -128,6 +130,49 @@ class OtherProfileViewModel @Inject constructor(
         }
     }
 
+    fun refresh(userId: String) {
+        if (_isRefreshing.value) return
+        val viewerId = authRepository.currentUserId ?: return
+        _isRefreshing.value = true
+        viewModelScope.launch {
+            try {
+                val user = userRepository.fetchUserProfile(userId)
+                _profile.value = user
+                _isFollowing.value = userRepository.isFollowing(userId)
+                _isBlocked.value = userRepository.blockedIds.value.contains(userId)
+                _isMuted.value = userRepository.isUserMuted(userId)
+                _isSubscribedToNotifications.value =
+                    userRepository.isSubscribedToUserPosts(viewerId, userId)
+
+                val page = postRepository.getProfilePosts(
+                    userId = userId,
+                    viewerId = viewerId,
+                    limit = PAGE_SIZE,
+                    lastTimestamp = null,
+                )
+                postsLastTimestamp = if (page.isNotEmpty()) page.last().timestamp.time else null
+                _hasMore.value = page.size >= PAGE_SIZE
+                _posts.value = page
+
+                page.forEach { post ->
+                    engagementManager.initState(
+                        postId = post.id,
+                        likeCount = post.likeCount,
+                        commentCount = post.commentCount,
+                        repostCount = post.repostCount,
+                        isLiked = post.isLiked,
+                        isSaved = false,
+                    )
+                    if (activeListenerPostIds.add(post.id)) {
+                        engagementManager.startListening(post.id)
+                    }
+                }
+                engagementManager.checkLikeStatuses(page.map { it.id }, viewerId)
+            } catch (_: Exception) { }
+            _isRefreshing.value = false
+        }
+    }
+
     fun loadMore(userId: String) {
         if (!_hasMore.value || _isLoadingMore.value) return
         val viewerId = authRepository.currentUserId ?: return
@@ -168,24 +213,33 @@ class OtherProfileViewModel @Inject constructor(
 
     fun toggleFollow(userId: String) {
         val currentUserId = authRepository.currentUserId ?: return
+        val wasFollowing = _isFollowing.value
+        // Optimistic UI — flip immediately, roll back on failure.
+        _isFollowing.value = !wasFollowing
+        _profile.value = _profile.value?.copy(
+            followerCount = if (wasFollowing) {
+                maxOf(0, (_profile.value?.followerCount ?: 1) - 1)
+            } else {
+                (_profile.value?.followerCount ?: 0) + 1
+            }
+        )
         viewModelScope.launch {
-            _isFollowLoading.value = true
             try {
-                if (_isFollowing.value) {
+                if (wasFollowing) {
                     userRepository.unfollowUser(currentUserId, userId)
-                    _isFollowing.value = false
-                    _profile.value = _profile.value?.copy(
-                        followerCount = maxOf(0, (_profile.value?.followerCount ?: 1) - 1)
-                    )
                 } else {
                     userRepository.followUser(currentUserId, userId)
-                    _isFollowing.value = true
-                    _profile.value = _profile.value?.copy(
-                        followerCount = (_profile.value?.followerCount ?: 0) + 1
-                    )
                 }
-            } catch (_: Exception) { }
-            _isFollowLoading.value = false
+            } catch (_: Exception) {
+                _isFollowing.value = wasFollowing
+                _profile.value = _profile.value?.copy(
+                    followerCount = if (wasFollowing) {
+                        (_profile.value?.followerCount ?: 0) + 1
+                    } else {
+                        maxOf(0, (_profile.value?.followerCount ?: 1) - 1)
+                    }
+                )
+            }
         }
     }
 
@@ -236,12 +290,19 @@ class OtherProfileViewModel @Inject constructor(
         val currentUserId = authRepository.currentUserId ?: return
         val wasMuted = _isMuted.value
         _isMuted.value = !wasMuted
+        val username = _profile.value?.username
         viewModelScope.launch {
             try {
                 if (!wasMuted) {
                     userRepository.muteUser(currentUserId, userId)
+                    if (username != null) {
+                        ToastManager.show("@$username's posts muted")
+                    }
                 } else {
                     userRepository.unmuteUser(currentUserId, userId)
+                    if (username != null) {
+                        ToastManager.show("@$username's posts unmuted")
+                    }
                 }
             } catch (_: Exception) {
                 _isMuted.value = wasMuted

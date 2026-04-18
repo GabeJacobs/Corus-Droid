@@ -264,4 +264,12 @@ class SocialSetupViewModel @Inject constructor(
         nowPlayingManager.stop()
         _previewingUserId.value = null
     }
+
+    /** Remembers that we've shown the push-permission prompt so the MainTab fallback
+     * doesn't re-prompt in the same session. */
+    fun markPushPermissionRequested() {
+        viewModelScope.launch {
+            preferencesDataStore.setHasRequestedPushPermission()
+        }
+    }
 }

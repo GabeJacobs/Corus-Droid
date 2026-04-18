@@ -7,6 +7,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -62,6 +64,7 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.util.PushNotificationPermission
 
 private enum class SetupStep { SYNC_CONTACTS, FOLLOW_FRIENDS }
 
@@ -332,6 +335,24 @@ private fun FollowFriendsScreen(
     viewModel: SocialSetupViewModel,
     onFinished: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val pushPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { _ ->
+        // Finish regardless — the permission prompt is best-effort.
+        viewModel.markPushPermissionRequested()
+        onFinished()
+    }
+
+    val finishWithPushPrompt: () -> Unit = {
+        if (PushNotificationPermission.shouldRequestPushPermission(context)) {
+            pushPermissionLauncher.launch(PushNotificationPermission.permission)
+        } else {
+            viewModel.markPushPermissionRequested()
+            onFinished()
+        }
+    }
+
     val contactMatches by viewModel.contactMatches.collectAsState()
     val contactsSynced by viewModel.contactsSynced.collectAsState()
     val popularUsers by viewModel.popularUsers.collectAsState()
@@ -361,30 +382,95 @@ private fun FollowFriendsScreen(
     var showSeeAll by remember { mutableStateOf<SeeAllDestination?>(null) }
     var filmBotPreviewMatch by remember { mutableStateOf<SuggestedUserMatch?>(null) }
 
-    if (showSeeAll != null) {
-        OnboardingSeeAllScreen(
-            destination = showSeeAll!!,
-            contactMatches = contactMatches,
-            popularUsers = popularUsers,
-            musicBots = musicBots,
-            filmBots = filmBots,
-            followedIds = followedIds,
-            onFollow = { viewModel.toggleFollow(it) },
-            onFilmBotTap = { userId -> filmBotPreviewMatch = filmBots.find { it.user.id == userId } },
-            onBack = { showSeeAll = null },
-        )
-        if (filmBotPreviewMatch != null) {
-            FilmBotPreviewSheet(
-                match = filmBotPreviewMatch!!,
-                isFollowed = followedIds.contains(filmBotPreviewMatch!!.user.id),
-                onFollow = { viewModel.toggleFollow(filmBotPreviewMatch!!.user.id) },
-                onDismiss = { filmBotPreviewMatch = null },
+    AnimatedContent(
+        targetState = showSeeAll,
+        transitionSpec = {
+            if (targetState != null) {
+                slideInHorizontally(tween(400), initialOffsetX = { it }) togetherWith
+                    slideOutHorizontally(tween(400), targetOffsetX = { -it / 3 })
+            } else {
+                slideInHorizontally(tween(400), initialOffsetX = { -it / 3 }) togetherWith
+                    slideOutHorizontally(tween(400), targetOffsetX = { it })
+            }
+        },
+        label = "seeAllTransition",
+    ) { destination ->
+        if (destination != null) {
+            OnboardingSeeAllScreen(
+                destination = destination,
+                contactMatches = contactMatches,
+                popularUsers = popularUsers,
+                musicBots = musicBots,
+                filmBots = filmBots,
+                followedIds = followedIds,
+                previewingUserId = previewingUserId,
+                isPreviewLoading = isPreviewLoading,
+                isPreviewPlaying = nowPlayingState.isPlaying,
+                onFollow = { viewModel.toggleFollow(it) },
+                onMusicBotTap = { userId -> viewModel.playUserPreview(userId) },
+                onFilmBotTap = { userId -> filmBotPreviewMatch = filmBots.find { it.user.id == userId } },
+                onBack = { showSeeAll = null },
+            )
+        } else {
+            FollowFriendsMainContent(
                 viewModel = viewModel,
+                contactMatches = contactMatches,
+                contactsSynced = contactsSynced,
+                popularUsers = popularUsers,
+                musicBots = musicBots,
+                filmBots = filmBots,
+                isLoading = isLoading,
+                followedIds = followedIds,
+                searchQuery = searchQuery,
+                searchResults = searchResults,
+                isSearching = isSearching,
+                isFinishing = isFinishing,
+                previewingUserId = previewingUserId,
+                isPreviewLoading = isPreviewLoading,
+                nowPlayingState = nowPlayingState,
+                keyboardController = keyboardController,
+                scrollDismissConnection = scrollDismissConnection,
+                onSeeAll = { showSeeAll = it },
+                onFilmBotTap = { userId -> filmBotPreviewMatch = filmBots.find { it.user.id == userId } },
+                onFinished = finishWithPushPrompt,
             )
         }
-        return
     }
 
+    if (filmBotPreviewMatch != null) {
+        FilmBotPreviewSheet(
+            match = filmBotPreviewMatch!!,
+            isFollowed = followedIds.contains(filmBotPreviewMatch!!.user.id),
+            onFollow = { viewModel.toggleFollow(filmBotPreviewMatch!!.user.id) },
+            onDismiss = { filmBotPreviewMatch = null },
+            viewModel = viewModel,
+        )
+    }
+}
+
+@Composable
+private fun FollowFriendsMainContent(
+    viewModel: SocialSetupViewModel,
+    contactMatches: List<CymbalUser>,
+    contactsSynced: Boolean,
+    popularUsers: List<CymbalUser>,
+    musicBots: List<SuggestedUserMatch>,
+    filmBots: List<SuggestedUserMatch>,
+    isLoading: Boolean,
+    followedIds: Set<String>,
+    searchQuery: String,
+    searchResults: List<CymbalUser>,
+    isSearching: Boolean,
+    isFinishing: Boolean,
+    previewingUserId: String?,
+    isPreviewLoading: Boolean,
+    nowPlayingState: fm.corus.android.domain.NowPlayingState,
+    keyboardController: androidx.compose.ui.platform.SoftwareKeyboardController?,
+    scrollDismissConnection: NestedScrollConnection,
+    onSeeAll: (SeeAllDestination) -> Unit,
+    onFilmBotTap: (String) -> Unit,
+    onFinished: () -> Unit,
+) {
     Column(modifier = Modifier.fillMaxSize().navigationBarsPadding().nestedScroll(scrollDismissConnection)) {
         Spacer(modifier = Modifier.height(60.dp))
 
@@ -462,7 +548,7 @@ private fun FollowFriendsScreen(
                             OnboardingSectionHeader(
                                 title = "\uD83D\uDC65 Friends on Corus",
                                 showSeeAll = contactMatches.size > 5,
-                                onSeeAll = { showSeeAll = SeeAllDestination.FRIENDS },
+                                onSeeAll = { onSeeAll(SeeAllDestination.FRIENDS) },
                             )
                         }
                         items(contactMatches.take(5), key = { "contact-${it.id}" }) { user ->
@@ -515,7 +601,7 @@ private fun FollowFriendsScreen(
                         OnboardingSectionHeader(
                             title = "\uD83D\uDD25 Popular on Corus",
                             showSeeAll = popularUsers.size > 4,
-                            onSeeAll = { showSeeAll = SeeAllDestination.POPULAR },
+                            onSeeAll = { onSeeAll(SeeAllDestination.POPULAR) },
                         )
                     }
                     items(popularUsers.take(4), key = { "popular-${it.id}" }) { user ->
@@ -556,11 +642,15 @@ private fun FollowFriendsScreen(
                             isPreviewPlaying = nowPlayingState.isPlaying,
                         )
                         if (musicBots.size > 6) {
-                            TextButton(
-                                onClick = { showSeeAll = SeeAllDestination.MUSIC_BOTS },
-                                modifier = Modifier.padding(start = CorusSpacing.xxl),
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center,
                             ) {
-                                Text("See all", style = CorusFont.captionMedium, color = CorusColors.Accent)
+                                TextButton(
+                                    onClick = { onSeeAll(SeeAllDestination.MUSIC_BOTS) },
+                                ) {
+                                    Text("See all", style = CorusFont.captionMedium, color = CorusColors.Accent)
+                                }
                             }
                         }
                     }
@@ -584,14 +674,18 @@ private fun FollowFriendsScreen(
                             isLoading = isLoading,
                             followedIds = followedIds,
                             onFollow = { viewModel.toggleFollow(it) },
-                            onUserTap = { userId -> filmBotPreviewMatch = filmBots.find { it.user.id == userId } },
+                            onUserTap = { userId -> onFilmBotTap(userId) },
                         )
                         if (filmBots.size > 6) {
-                            TextButton(
-                                onClick = { showSeeAll = SeeAllDestination.FILM_BOTS },
-                                modifier = Modifier.padding(start = CorusSpacing.xxl),
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center,
                             ) {
-                                Text("See all", style = CorusFont.captionMedium, color = CorusColors.Accent)
+                                TextButton(
+                                    onClick = { onSeeAll(SeeAllDestination.FILM_BOTS) },
+                                ) {
+                                    Text("See all", style = CorusFont.captionMedium, color = CorusColors.Accent)
+                                }
                             }
                         }
                     }
@@ -617,16 +711,6 @@ private fun FollowFriendsScreen(
             }
         }
     }
-
-    if (filmBotPreviewMatch != null) {
-        FilmBotPreviewSheet(
-            match = filmBotPreviewMatch!!,
-            isFollowed = followedIds.contains(filmBotPreviewMatch!!.user.id),
-            onFollow = { viewModel.toggleFollow(filmBotPreviewMatch!!.user.id) },
-            onDismiss = { filmBotPreviewMatch = null },
-            viewModel = viewModel,
-        )
-    }
 }
 
 
@@ -650,7 +734,11 @@ private fun OnboardingSeeAllScreen(
     musicBots: List<SuggestedUserMatch>,
     filmBots: List<SuggestedUserMatch>,
     followedIds: Set<String>,
+    previewingUserId: String?,
+    isPreviewLoading: Boolean,
+    isPreviewPlaying: Boolean,
     onFollow: (String) -> Unit,
+    onMusicBotTap: (String) -> Unit,
     onFilmBotTap: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -694,6 +782,7 @@ private fun OnboardingSeeAllScreen(
             }
             SeeAllDestination.MUSIC_BOTS, SeeAllDestination.FILM_BOTS -> {
                 val bots = if (destination == SeeAllDestination.MUSIC_BOTS) musicBots else filmBots
+                val isMusic = destination == SeeAllDestination.MUSIC_BOTS
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     modifier = Modifier.padding(padding),
@@ -706,7 +795,13 @@ private fun OnboardingSeeAllScreen(
                             match = match,
                             isFollowing = followedIds.contains(match.user.id),
                             onFollowTap = { onFollow(match.user.id) },
-                            onUserTap = { if (destination == SeeAllDestination.FILM_BOTS) onFilmBotTap(match.user.id) },
+                            onUserTap = {
+                                if (isMusic) onMusicBotTap(match.user.id)
+                                else onFilmBotTap(match.user.id)
+                            },
+                            showPreviewButton = isMusic,
+                            isPreviewLoading = isMusic && isPreviewLoading && previewingUserId == match.user.id,
+                            isPreviewing = isMusic && isPreviewPlaying && previewingUserId == match.user.id,
                         )
                     }
                 }

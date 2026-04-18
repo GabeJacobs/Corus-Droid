@@ -117,7 +117,13 @@ fun AuthScreen(
                 error = error,
                 onSendCode = { viewModel.sendVerificationCode(phoneNumber, selectedCountry.dialCode, activity) },
                 onVerifyCode = { viewModel.verifyCode(verificationCode) },
-                onBack = { showPhoneInput = false },
+                onBack = {
+                    if (verificationSent) {
+                        verificationCode = ""
+                        viewModel.resetVerification()
+                    }
+                    showPhoneInput = false
+                },
                 onUseDifferentNumber = {
                     verificationCode = ""
                     viewModel.resetVerification()

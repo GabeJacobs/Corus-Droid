@@ -519,10 +519,18 @@ class FirestoreDataSource @Inject constructor(
             .await()
 
         if (parentCommentId != null) {
-            firestore.collection("posts").document(postId)
-                .collection("comments").document(parentCommentId)
-                .update("replyCount", FieldValue.increment(1))
-                .await()
+            // Non-fatal: Firestore rules disallow updating another user's comment,
+            // so incrementing replyCount on someone else's comment fails with
+            // PERMISSION_DENIED. The reply itself is already written; swallow the
+            // error to match iOS behaviour (see Cymbal-Remake DatabaseService.addComment).
+            try {
+                firestore.collection("posts").document(postId)
+                    .collection("comments").document(parentCommentId)
+                    .update("replyCount", FieldValue.increment(1))
+                    .await()
+            } catch (e: Exception) {
+                android.util.Log.w("Comments", "Failed to increment replyCount on $parentCommentId", e)
+            }
         }
 
         return commentRef.id
@@ -1009,6 +1017,29 @@ class FirestoreDataSource @Inject constructor(
             batch.update(doc.reference, "isRead", true)
         }
         batch.commit().await()
+    }
+
+    /**
+     * Stamp the user's `lastSeenNotificationsAt` timestamp. Matches iOS —
+     * used on first appearance of the Activity tab to later compute which
+     * notifications are "new" for dim-styling purposes.
+     */
+    suspend fun updateLastSeenNotificationsAt(userId: String) {
+        firestore.collection("users_v2").document(userId)
+            .update("lastSeenNotificationsAt", FieldValue.serverTimestamp())
+            .await()
+    }
+
+    /**
+     * Returns the previously persisted `lastSeenNotificationsAt` in ms, or
+     * null if never set. Called before [updateLastSeenNotificationsAt] so the
+     * ViewModel can compare incoming notification timestamps against the
+     * *prior* "seen" cutoff to flag them as new.
+     */
+    suspend fun fetchLastSeenNotificationsAt(userId: String): Long? {
+        val doc = firestore.collection("users_v2").document(userId).get().await()
+        val ts = doc.get("lastSeenNotificationsAt") as? com.google.firebase.Timestamp
+        return ts?.toDate()?.time
     }
 
     // ── Post Notification Subscriptions ──

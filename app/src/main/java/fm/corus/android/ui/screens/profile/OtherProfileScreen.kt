@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,21 +94,27 @@ fun OtherProfileScreen(
     val posts by viewModel.posts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isFollowing by viewModel.isFollowing.collectAsState()
-    val isFollowLoading by viewModel.isFollowLoading.collectAsState()
     val isBlocked by viewModel.isBlocked.collectAsState()
     val isMuted by viewModel.isMuted.collectAsState()
     val isSubscribedToNotifications by viewModel.isSubscribedToNotifications.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
     var isFeaturedArtReady by remember { mutableStateOf(false) }
-    val hasFullAccess by viewModel.hasFullAccess.collectAsState()
     var showMenu by remember { mutableStateOf(false) }
     var showAvatarFullScreen by remember { mutableStateOf(false) }
-    var showPlaylistPaywall by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
+
+    val paywallRequested by viewModel.nowPlayingManager.paywallRequested.collectAsState()
+    LaunchedEffect(paywallRequested) {
+        if (paywallRequested) {
+            showClubOffer = true
+            viewModel.nowPlayingManager.clearPaywallRequested()
+        }
+    }
 
     // Infinite scroll: load more when near the bottom
     val shouldLoadMore by remember {
@@ -192,11 +199,7 @@ fun OtherProfileScreen(
                                     enabled = hasSongs && !isGeneratingPlaylist,
                                     onClick = {
                                         showMenu = false
-                                        if (!hasFullAccess) {
-                                            showPlaylistPaywall = true
-                                        } else {
-                                            viewModel.generatePlaylist(userId)
-                                        }
+                                        viewModel.generatePlaylist(userId)
                                     },
                                 )
                             }
@@ -514,12 +517,17 @@ fun OtherProfileScreen(
             )
         }
 
-        LazyVerticalGrid(
-            state = gridState,
-            columns = GridCells.Fixed(3),
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.refresh(userId) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = padding.calculateTopPadding()),
+        ) {
+        LazyVerticalGrid(
+            state = gridState,
+            columns = GridCells.Fixed(3),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
         ) {
             item(span = { GridItemSpan(3) }) {
@@ -587,23 +595,16 @@ fun OtherProfileScreen(
                                             if (isFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
                                             else Modifier.background(CorusColors.Accent)
                                         )
-                                        .clickable(enabled = !isFollowLoading) { viewModel.toggleFollow(userId) }
+                                        .clickable { viewModel.toggleFollow(userId) }
                                         .padding(vertical = 6.dp, horizontal = 20.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    if (isFollowLoading) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(16.dp),
-                                            strokeWidth = 2.dp,
-                                        )
-                                    } else {
-                                        Text(
-                                            text = if (isFollowing) "FOLLOWING" else "FOLLOW",
-                                            style = CorusFont.button,
-                                            color = if (isFollowing) CorusColors.Secondary else Color.White,
-                                            maxLines = 1,
-                                        )
-                                    }
+                                    Text(
+                                        text = if (isFollowing) "FOLLOWING" else "FOLLOW",
+                                        style = CorusFont.button,
+                                        color = if (isFollowing) CorusColors.Secondary else Color.White,
+                                        maxLines = 1,
+                                    )
                                 }
 
                                 // Playlist button
@@ -625,8 +626,6 @@ fun OtherProfileScreen(
                                         .clickable(enabled = hasSongs && !isGeneratingPlaylist) {
                                             if (!hasSongs) {
                                                 ToastManager.show("No songs to make a playlist")
-                                            } else if (!hasFullAccess) {
-                                                showPlaylistPaywall = true
                                             } else {
                                                 viewModel.generatePlaylist(userId)
                                             }
@@ -919,6 +918,7 @@ fun OtherProfileScreen(
                 }
             }
         }
+        }
 
     }
 
@@ -928,17 +928,6 @@ fun OtherProfileScreen(
         visible = showAvatarFullScreen,
         onDismiss = { showAvatarFullScreen = false },
     )
-
-    // Playlist paywall
-    if (showPlaylistPaywall) {
-        fm.corus.android.ui.screens.subscription.PlaylistPaywallSheet(
-            onDismiss = { showPlaylistPaywall = false },
-            onNavigateToClub = {
-                showPlaylistPaywall = false
-                showClubOffer = true
-            },
-        )
-    }
 
     // Club offer sheet
     if (showClubOffer) {

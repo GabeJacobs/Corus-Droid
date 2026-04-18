@@ -1,6 +1,8 @@
 package fm.corus.android.ui.screens.messaging
 
 import fm.corus.android.data.model.CymbalMessage
+import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
@@ -254,6 +256,104 @@ class MessageThreadViewModelTest {
         assertEquals(1, messages.size)
         assertEquals(MessageType.IMAGE, messages[0].type)
         assertEquals(MessageSendStatus.SENDING, messages[0].sendStatus)
+    }
+
+    // ── Song optimistic send ──
+
+    @Test
+    fun `sendSongMessage adds optimistic SHARED_TRACK message`() = runTest {
+        val neverCompletes = CompletableDeferred<Unit>()
+        whenever(messageRepository.sendSharedTrackMessage(
+            any(), any(), any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+        )).doSuspendableAnswer { neverCompletes.await() }
+
+        val track = CymbalTrack(
+            id = "t1",
+            name = "Song Name",
+            artistName = "Artist",
+            albumName = "Album",
+            albumArtURL = "https://img/art.jpg",
+            spotifyWebURL = "https://open.spotify.com/track/t1",
+        )
+        viewModel.sendSongMessage("thread1", track)
+        advanceUntilIdle()
+
+        val msg = viewModel.messages.first().single()
+        assertEquals(MessageType.SHARED_TRACK, msg.type)
+        assertEquals(MessageSendStatus.SENDING, msg.sendStatus)
+        assertEquals("Song Name", msg.trackName)
+        assertEquals("Artist", msg.artistName)
+        assertEquals("https://img/art.jpg", msg.albumArtURL)
+        assertEquals("https://open.spotify.com/track/t1", msg.spotifyURL)
+    }
+
+    @Test
+    fun `sendSongMessage removes pending on success`() = runTest {
+        whenever(messageRepository.sendSharedTrackMessage(
+            any(), any(), any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+        )).doReturn(Unit)
+
+        val track = CymbalTrack(id = "t1", name = "Song", artistName = "Artist", albumName = "Album")
+        viewModel.sendSongMessage("thread1", track)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.messages.first().isEmpty())
+    }
+
+    @Test
+    fun `sendSongMessage marks FAILED on exception`() = runTest {
+        whenever(messageRepository.sendSharedTrackMessage(
+            any(), any(), any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+        )).doSuspendableAnswer { throw RuntimeException("Network error") }
+
+        val track = CymbalTrack(id = "t1", name = "Song", artistName = "Artist", albumName = "Album")
+        viewModel.sendSongMessage("thread1", track)
+        advanceUntilIdle()
+
+        val msg = viewModel.messages.first().single()
+        assertEquals(MessageSendStatus.FAILED, msg.sendStatus)
+        assertEquals(MessageType.SHARED_TRACK, msg.type)
+    }
+
+    // ── Film optimistic send ──
+
+    @Test
+    fun `sendFilmMessage adds optimistic SHARED_FILM message`() = runTest {
+        val neverCompletes = CompletableDeferred<Unit>()
+        whenever(messageRepository.sendSharedFilmMessage(
+            any(), any(), any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+        )).doSuspendableAnswer { neverCompletes.await() }
+
+        val movie = CymbalMovie(
+            id = "m1",
+            title = "Film Title",
+            directorName = "Director",
+            posterURL = "https://img/poster.jpg",
+            tmdbWebURL = "https://themoviedb.org/movie/m1",
+        )
+        viewModel.sendFilmMessage("thread1", movie)
+        advanceUntilIdle()
+
+        val msg = viewModel.messages.first().single()
+        assertEquals(MessageType.SHARED_FILM, msg.type)
+        assertEquals(MessageSendStatus.SENDING, msg.sendStatus)
+        assertEquals("Film Title", msg.movieTitle)
+        assertEquals("Director", msg.directorName)
+        assertEquals("https://img/poster.jpg", msg.posterURL)
+        assertEquals("https://themoviedb.org/movie/m1", msg.tmdbWebURL)
+    }
+
+    @Test
+    fun `sendFilmMessage removes pending on success`() = runTest {
+        whenever(messageRepository.sendSharedFilmMessage(
+            any(), any(), any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+        )).doReturn(Unit)
+
+        val movie = CymbalMovie(id = "m1", title = "Film")
+        viewModel.sendFilmMessage("thread1", movie)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.messages.first().isEmpty())
     }
 
     // ── clientMessageId passed to repository ──

@@ -18,6 +18,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.ToastManager
@@ -185,19 +186,28 @@ class FeedViewModel @Inject constructor(
 
     fun playPreview(post: fm.corus.android.data.model.CymbalPost) {
         viewModelScope.launch {
-            nowPlayingManager.play(
-                trackId = post.track.id,
-                trackName = post.track.name,
-                artistName = post.track.artistName,
-                albumArtURL = post.track.albumArtURL,
-                previewUrl = post.track.previewUrl,
-                spotifyURI = post.track.spotifyURI,
-                spotifyWebURL = post.track.spotifyWebURL,
-                isrc = post.track.isrc,
-                sourcePostId = post.id,
-            )
+            val trackPosts = filteredPosts.value.filter { it.mediaType == MediaType.TRACK }
+            val queue = trackPosts.map { it.toQueuedTrack() }
+            val track = post.toQueuedTrack()
+            if (queue.any { it.trackId == track.trackId }) {
+                nowPlayingManager.play(track = track, queue = queue)
+            } else {
+                nowPlayingManager.play(track = track, queue = listOf(track))
+            }
         }
     }
+
+    private fun fm.corus.android.data.model.CymbalPost.toQueuedTrack() = QueuedTrack(
+        trackId = track.id,
+        trackName = track.name,
+        artistName = track.artistName,
+        albumArtURL = track.albumArtURL,
+        previewUrl = track.previewUrl,
+        spotifyURI = track.spotifyURI,
+        spotifyWebURL = track.spotifyWebURL,
+        isrc = track.isrc,
+        sourcePostId = id,
+    )
 
     fun generateFeedPlaylist() {
         viewModelScope.launch {

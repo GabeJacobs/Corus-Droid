@@ -61,12 +61,50 @@ class MessageRepository @Inject constructor(
         cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = "", type = "gif", mediaURL = gifURL, clientMessageId = clientMessageId)
     }
 
-    suspend fun sendSharedTrackMessage(threadId: String, fromUserId: String, text: String, trackName: String, artistName: String, albumArtURL: String?, spotifyURL: String?) {
-        cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = text, type = "sharedTrack", trackName = trackName, artistName = artistName, albumArtURL = albumArtURL, spotifyURL = spotifyURL)
+    suspend fun sendSharedTrackMessage(
+        threadId: String,
+        fromUserId: String,
+        text: String = "",
+        trackName: String,
+        artistName: String,
+        albumArtURL: String?,
+        spotifyURL: String?,
+        clientMessageId: String? = null,
+    ) {
+        cloudFunctions.sendMessage(
+            threadId = threadId,
+            fromUserId = fromUserId,
+            text = text,
+            type = "sharedTrack",
+            trackName = trackName,
+            artistName = artistName,
+            albumArtURL = albumArtURL,
+            spotifyURL = spotifyURL,
+            clientMessageId = clientMessageId,
+        )
     }
 
-    suspend fun sendSharedFilmMessage(threadId: String, fromUserId: String, text: String, movieTitle: String, directorName: String, posterURL: String?, tmdbWebURL: String?) {
-        cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = text, type = "sharedFilm", movieTitle = movieTitle, directorName = directorName, posterURL = posterURL, tmdbWebURL = tmdbWebURL)
+    suspend fun sendSharedFilmMessage(
+        threadId: String,
+        fromUserId: String,
+        text: String = "",
+        movieTitle: String,
+        directorName: String,
+        posterURL: String?,
+        tmdbWebURL: String?,
+        clientMessageId: String? = null,
+    ) {
+        cloudFunctions.sendMessage(
+            threadId = threadId,
+            fromUserId = fromUserId,
+            text = text,
+            type = "sharedFilm",
+            movieTitle = movieTitle,
+            directorName = directorName,
+            posterURL = posterURL,
+            tmdbWebURL = tmdbWebURL,
+            clientMessageId = clientMessageId,
+        )
     }
 
     suspend fun getOrCreateThread(userId: String, otherUserId: String): String {

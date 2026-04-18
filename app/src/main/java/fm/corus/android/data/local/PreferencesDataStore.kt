@@ -202,7 +202,17 @@ class PreferencesDataStore @Inject constructor(
         val DARK_MODE = booleanPreferencesKey("dark_mode")
         val HAS_SEEN_FIRST_POST_PAYWALL = booleanPreferencesKey("has_seen_first_post_paywall")
         val HAS_SEEN_TENTH_POST_PAYWALL = booleanPreferencesKey("has_seen_tenth_post_paywall")
+        val HAS_REQUESTED_PUSH_PERMISSION = booleanPreferencesKey("has_requested_push_permission")
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
+        val AUTOPLAY_NEXT_SONG = booleanPreferencesKey("autoplay_next_song")
+    }
+
+    val autoplayNextSong: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[AUTOPLAY_NEXT_SONG] ?: true
+    }
+
+    suspend fun setAutoplayNextSong(value: Boolean) {
+        dataStore.edit { it[AUTOPLAY_NEXT_SONG] = value }
     }
 
     val feedOnePerFollower: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -251,6 +261,14 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setHasSeenTenthPostPaywall() {
         dataStore.edit { it[HAS_SEEN_TENTH_POST_PAYWALL] = true }
+    }
+
+    val hasRequestedPushPermission: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[HAS_REQUESTED_PUSH_PERMISSION] ?: false
+    }
+
+    suspend fun setHasRequestedPushPermission() {
+        dataStore.edit { it[HAS_REQUESTED_PUSH_PERMISSION] = true }
     }
 
     // ── Recent Searches (stored as JSON array of user objects) ──

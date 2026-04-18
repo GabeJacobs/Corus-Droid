@@ -10,8 +10,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Gif
@@ -170,6 +171,16 @@ private fun CommentsSheetContent(
         }
     }
 
+    LaunchedEffect(editingComment?.id) {
+        val editing = editingComment
+        if (editing != null) {
+            commentText = editing.text
+            focusRequester.requestFocus()
+        } else {
+            commentText = ""
+        }
+    }
+
     // Auto-focus input to open keyboard immediately (Instagram-style)
     if (autoFocusInput) {
         LaunchedEffect(Unit) {
@@ -254,9 +265,13 @@ private fun CommentsSheetContent(
                             isOwnComment = comment.user.id == viewModel.currentUserId,
                             isLiked = likedCommentIds.contains(comment.id),
                             onUserTap = { onNavigateToUser(comment.user.id) },
-                            onReplyTap = { viewModel.setReplyingTo(comment) },
+                            onReplyTap = {
+                                viewModel.setReplyingTo(comment)
+                                focusRequester.requestFocus()
+                            },
                             onLikeTap = { viewModel.toggleCommentLike(comment.id) },
                             onDeleteTap = { viewModel.deleteComment(comment.id) },
+                            onEditTap = { viewModel.startEditing(comment) },
                             onMentionTap = handleMentionTap,
                         )
                     }
@@ -269,9 +284,14 @@ private fun CommentsSheetContent(
                                 isReply = true,
                                 isLiked = likedCommentIds.contains(reply.id),
                                 onUserTap = { onNavigateToUser(reply.user.id) },
-                                onReplyTap = { viewModel.setReplyingTo(reply) },
+                                onReplyTap = {
+                                    viewModel.setReplyingTo(reply)
+                                    focusRequester.requestFocus()
+                                },
                                 onLikeTap = { viewModel.toggleCommentLike(reply.id) },
                                 onDeleteTap = { viewModel.deleteComment(reply.id) },
+                                onEditTap = { viewModel.startEditing(reply) },
+                                onMentionTap = handleMentionTap,
                             )
                         }
                     }
@@ -332,7 +352,17 @@ private fun CommentsSheetContent(
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focusRequester),
-                placeholder = { Text("Add a comment...", style = CorusFont.body, color = CorusColors.Tertiary) },
+                placeholder = {
+                    Text(
+                        when {
+                            editingComment != null -> "Edit your comment..."
+                            replyingTo != null -> "Reply..."
+                            else -> "Add a comment..."
+                        },
+                        style = CorusFont.body,
+                        color = CorusColors.Tertiary,
+                    )
+                },
                 singleLine = false,
                 maxLines = 4,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -360,25 +390,34 @@ private fun CommentsSheetContent(
                 },
             )
 
-            if (viewModel.giphySupport) {
+            if (viewModel.giphySupport && editingComment == null) {
                 IconButton(onClick = { showGifPicker = true }) {
                     Icon(Icons.Filled.Gif, contentDescription = "Send GIF", tint = CorusColors.Accent, modifier = Modifier.size(28.dp))
                 }
             }
 
-            IconButton(
-                onClick = {
-                    if (commentText.isNotBlank() && !isSending) {
+            val canSend = commentText.isNotBlank() && !isSending
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(if (canSend) CorusColors.Accent else CorusColors.Divider)
+                    .clickable(enabled = canSend) {
                         if (editingComment != null) viewModel.editComment(editingComment!!.id, commentText) else viewModel.sendComment(commentText)
                         commentText = ""
-                    }
-                },
-                enabled = commentText.isNotBlank() && !isSending,
+                    },
+                contentAlignment = Alignment.Center,
             ) {
                 if (isSending) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = CorusColors.Accent, strokeWidth = 2.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                 } else {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = if (commentText.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary)
+                    Icon(
+                        imageVector = Icons.Filled.ArrowUpward,
+                        contentDescription = "Send",
+                        modifier = Modifier.size(18.dp),
+                        tint = if (canSend) Color.White else CorusColors.Tertiary,
+                    )
                 }
             }
         }

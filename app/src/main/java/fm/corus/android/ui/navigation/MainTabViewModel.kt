@@ -5,7 +5,10 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.repository.SubscriptionRepository
+import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.domain.NowPlayingManager
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +26,33 @@ class MainTabViewModel @Inject constructor(
     val nowPlayingManager: NowPlayingManager,
     val subscriptionRepository: SubscriptionRepository,
     private val preferencesDataStore: PreferencesDataStore,
+    private val unreadCountsRepository: UnreadCountsRepository,
 ) : ViewModel() {
+
+    val notificationCount: StateFlow<Int> = unreadCountsRepository.notificationCount
+    val unreadMessageCount: StateFlow<Int> = unreadCountsRepository.unreadMessageCount
+
+    /**
+     * Called when the user taps the Activity tab. Optimistically zeros the
+     * notification count so the badge doesn't re-appear when leaving to
+     * another tab if the Firestore markAllRead write is slow or fails.
+     * Mirrors iOS MainTabView behaviour.
+     */
+    fun onActivityTabEntered() {
+        unreadCountsRepository.clearNotificationCount()
+    }
+
+    /** True once we've shown the Android push-permission prompt (onboarding or
+     * MainTab fallback). Used to avoid re-prompting users who already saw it. */
+    val hasRequestedPushPermission: StateFlow<Boolean> = preferencesDataStore
+        .hasRequestedPushPermission
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun markPushPermissionRequested() {
+        viewModelScope.launch {
+            preferencesDataStore.setHasRequestedPushPermission()
+        }
+    }
 
     // Pre-selected media for compose-with-preselection flow.
     // When non-null, MainTabScreen opens ComposeScreen with this track/movie pre-selected.

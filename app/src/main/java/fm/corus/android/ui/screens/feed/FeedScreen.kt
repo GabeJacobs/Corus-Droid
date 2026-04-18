@@ -86,6 +86,15 @@ fun FeedScreen(
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<CymbalPost?>(null) }
     var filmInfoPost by remember { mutableStateOf<CymbalPost?>(null) }
+    var showClubOffer by remember { mutableStateOf(false) }
+
+    val paywallRequested by viewModel.nowPlayingManager.paywallRequested.collectAsState()
+    LaunchedEffect(paywallRequested) {
+        if (paywallRequested) {
+            showClubOffer = true
+            viewModel.nowPlayingManager.clearPaywallRequested()
+        }
+    }
 
     LaunchedEffect(Unit) {
         if (allPosts.isEmpty()) {
@@ -554,6 +563,22 @@ fun FeedScreen(
             onDismiss = { filmInfoPost = null },
             fetchMovieDetails = { movieId -> viewModel.fetchMovieDetails(movieId) },
         )
+    }
+
+    // ── Club Offer Paywall (playlist limit) ──
+    if (showClubOffer) {
+        val clubSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { showClubOffer = false },
+            sheetState = clubSheetState,
+            containerColor = fm.corus.android.ui.theme.CorusColors.Background,
+            dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
+        ) {
+            fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
+                source = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT,
+                onDismiss = { showClubOffer = false },
+            )
+        }
     }
 }
 

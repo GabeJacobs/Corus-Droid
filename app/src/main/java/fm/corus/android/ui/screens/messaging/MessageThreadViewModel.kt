@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalMessage
+import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
@@ -224,6 +226,86 @@ class MessageThreadViewModel @Inject constructor(
         }
     }
 
+    // ── Optimistic send: song ──
+
+    fun sendSongMessage(threadId: String, track: CymbalTrack) {
+        val userId = authRepository.currentUserId ?: return
+        val resolvedId = currentThreadId ?: threadId
+        val clientId = UUID.randomUUID().toString()
+
+        val optimistic = CymbalMessage(
+            id = clientId,
+            threadId = resolvedId,
+            fromUserId = userId,
+            text = null,
+            type = MessageType.SHARED_TRACK,
+            createdAt = Date(),
+            sendStatus = MessageSendStatus.SENDING,
+            trackName = track.name,
+            artistName = track.artistName,
+            albumArtURL = track.albumArtURL,
+            spotifyURL = track.spotifyWebURL.ifBlank { null },
+        )
+        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
+
+        viewModelScope.launch {
+            try {
+                messageRepository.sendSharedTrackMessage(
+                    threadId = resolvedId,
+                    fromUserId = userId,
+                    trackName = track.name,
+                    artistName = track.artistName,
+                    albumArtURL = track.albumArtURL,
+                    spotifyURL = track.spotifyWebURL.ifBlank { null },
+                    clientMessageId = clientId,
+                )
+                _pendingMessages.value = _pendingMessages.value - clientId
+            } catch (e: Exception) {
+                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+            }
+        }
+    }
+
+    // ── Optimistic send: film ──
+
+    fun sendFilmMessage(threadId: String, movie: CymbalMovie) {
+        val userId = authRepository.currentUserId ?: return
+        val resolvedId = currentThreadId ?: threadId
+        val clientId = UUID.randomUUID().toString()
+
+        val optimistic = CymbalMessage(
+            id = clientId,
+            threadId = resolvedId,
+            fromUserId = userId,
+            text = null,
+            type = MessageType.SHARED_FILM,
+            createdAt = Date(),
+            sendStatus = MessageSendStatus.SENDING,
+            movieTitle = movie.title,
+            directorName = movie.directorName,
+            posterURL = movie.posterURL,
+            tmdbWebURL = movie.tmdbWebURL.ifBlank { null },
+        )
+        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
+
+        viewModelScope.launch {
+            try {
+                messageRepository.sendSharedFilmMessage(
+                    threadId = resolvedId,
+                    fromUserId = userId,
+                    movieTitle = movie.title,
+                    directorName = movie.directorName,
+                    posterURL = movie.posterURL,
+                    tmdbWebURL = movie.tmdbWebURL.ifBlank { null },
+                    clientMessageId = clientId,
+                )
+                _pendingMessages.value = _pendingMessages.value - clientId
+            } catch (e: Exception) {
+                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+            }
+        }
+    }
+
     // ── Retry ──
 
     fun retrySendMessage(messageId: String) {
@@ -248,6 +330,24 @@ class MessageThreadViewModel @Inject constructor(
                         threadId = message.threadId,
                         fromUserId = message.fromUserId,
                         gifURL = message.mediaURL ?: "",
+                        clientMessageId = messageId,
+                    )
+                    MessageType.SHARED_TRACK -> messageRepository.sendSharedTrackMessage(
+                        threadId = message.threadId,
+                        fromUserId = message.fromUserId,
+                        trackName = message.trackName ?: "",
+                        artistName = message.artistName ?: "",
+                        albumArtURL = message.albumArtURL,
+                        spotifyURL = message.spotifyURL,
+                        clientMessageId = messageId,
+                    )
+                    MessageType.SHARED_FILM -> messageRepository.sendSharedFilmMessage(
+                        threadId = message.threadId,
+                        fromUserId = message.fromUserId,
+                        movieTitle = message.movieTitle ?: "",
+                        directorName = message.directorName ?: "",
+                        posterURL = message.posterURL,
+                        tmdbWebURL = message.tmdbWebURL,
                         clientMessageId = messageId,
                     )
                     // Image retry is not supported — the original imageData is not retained

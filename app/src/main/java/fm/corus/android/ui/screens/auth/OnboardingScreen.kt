@@ -103,11 +103,13 @@ fun OnboardingScreen(
     LaunchedEffect(username) {
         if (username.isEmpty()) {
             usernameAvailable = null
+            checkingUsername = false
             return@LaunchedEffect
         }
         val allowed = username.all { it.isLetterOrDigit() || it == '_' || it == '.' }
         if (!allowed) {
             usernameAvailable = null
+            checkingUsername = false
             return@LaunchedEffect
         }
         checkingUsername = true
@@ -559,8 +561,9 @@ fun OnboardingScreen(
             onConfirm = { croppedBytes ->
                 cropBitmap = null
                 avatarData = croppedBytes
-                // Write cropped image to temp file so AsyncImage preview works
-                val tempFile = File(context.cacheDir, "cropped_avatar.jpg")
+                // Unique filename per crop — reusing one path made Coil serve the previous
+                // image from its URI-keyed cache even after the file was overwritten.
+                val tempFile = File(context.cacheDir, "cropped_avatar_${System.currentTimeMillis()}.jpg")
                 tempFile.writeBytes(croppedBytes)
                 avatarUri = FileProvider.getUriForFile(
                     context, "${context.packageName}.provider", tempFile
