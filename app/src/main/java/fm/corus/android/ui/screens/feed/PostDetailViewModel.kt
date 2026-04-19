@@ -141,6 +141,7 @@ class PostDetailViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 postRepository.deletePost(postId, userId)
+                authRepository.bumpCymbalCount(-1)
             } catch (_: Exception) { }
         }
     }

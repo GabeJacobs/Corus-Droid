@@ -396,6 +396,7 @@ class ComposeViewModel @Inject constructor(
                 val newPostId = postRepository.createPost(userId, data, voiceNoteData)
                 analyticsService.logPostCreated(mediaType.value)
                 subscriptionRepository.incrementPostCount()
+                authRepository.bumpCymbalCount(1)
                 postCreationEvent.notifyPostCreated()
 
                 // Repost side-effects — optimistic repostCount bump on the

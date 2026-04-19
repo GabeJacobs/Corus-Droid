@@ -365,6 +365,7 @@ class FeedViewModel @Inject constructor(
             try {
                 postRepository.deletePost(postId, userId)
                 _posts.value = _posts.value.filter { it.id != postId }
+                authRepository.bumpCymbalCount(-1)
                 ToastManager.show("Post deleted")
             } catch (_: Exception) {
                 ToastManager.show("Failed to delete post")

@@ -217,7 +217,7 @@ class AuthViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 android.util.Log.e("AuthViewModel", "Google sign-in failed", e)
-                _error.value = "Google sign-in failed: ${e.message}"
+                _error.value = "Couldn't sign in with Google. Please try again."
             }
             _isLoading.value = false
         }

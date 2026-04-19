@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
 import com.google.android.gms.common.api.ApiException
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -73,11 +74,13 @@ fun AuthScreen(
             if (idToken != null) {
                 viewModel.signInWithGoogle(idToken)
             } else {
-                viewModel.setError("Google sign-in failed: no ID token received.")
+                viewModel.setError("Couldn't sign in with Google. Please try again.")
             }
         } catch (e: ApiException) {
             android.util.Log.e("AuthScreen", "Google sign-in failed: status=${e.statusCode}", e)
-            viewModel.setError("Google sign-in failed (code ${e.statusCode}). Please try again.")
+            if (e.statusCode != GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
+                viewModel.setError("Couldn't sign in with Google. Please try again.")
+            }
         }
     }
 

@@ -126,6 +126,12 @@ class AuthRepository @Inject constructor(
         }
     }
 
+    fun bumpCymbalCount(delta: Int) {
+        val current = _userProfile.value ?: return
+        val next = (current.cymbalCount + delta).coerceAtLeast(0)
+        _userProfile.value = current.copy(cymbalCount = next)
+    }
+
     // ── Onboarding ──
 
     suspend fun completeOnboarding(username: String, displayName: String, avatarData: ByteArray?) {
