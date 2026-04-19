@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,6 +59,7 @@ import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.TrophyCelebrationView
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.VoiceNoteRecorderView
+import fm.corus.android.ui.components.applyMention
 import fm.corus.android.ui.components.rememberVoiceNoteRecorderState
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -90,7 +92,7 @@ fun ComposeScreen(
     val isLoadingPreSelection by viewModel.isLoadingPreSelection.collectAsState()
     var mediaType by remember { mutableStateOf(if (movieModeEnabled) MediaType.MOVIE else MediaType.TRACK) }
     var searchQuery by remember { mutableStateOf("") }
-    var caption by remember { mutableStateOf("") }
+    var caption by remember { mutableStateOf(TextFieldValue("")) }
     var captionMode by remember { mutableStateOf("text") } // "text" or "voice"
     val voiceRecorderState = rememberVoiceNoteRecorderState()
     val nowPlayingState by viewModel.nowPlayingState.collectAsState()
@@ -233,24 +235,24 @@ fun ComposeScreen(
                         selectedMovie = selectedMovie,
                         caption = caption,
                         onCaptionChange = { newCaption ->
-                            caption = newCaption.take(700)
-                            viewModel.checkForMention(caption)
+                            val trimmed = if (newCaption.text.length > 700) {
+                                newCaption.copy(text = newCaption.text.take(700))
+                            } else newCaption
+                            val textChanged = trimmed.text != caption.text
+                            caption = trimmed
+                            if (textChanged) viewModel.checkForMention(trimmed.text)
                         },
                         isPosting = isPosting,
                         onPost = {
                             viewModel.createPost(
-                                caption = if (captionMode == "text") caption else "",
+                                caption = if (captionMode == "text") caption.text else "",
                                 mediaType = mediaType,
                                 voiceNoteData = if (captionMode == "voice") voiceRecorderState.audioData else null,
                             )
                         },
                         mentionSuggestions = mentionSuggestions,
                         onMentionSelected = { user ->
-                            val words = caption.split(" ").toMutableList()
-                            if (words.isNotEmpty() && words.last().startsWith("@")) {
-                                words[words.lastIndex] = "@${user.username} "
-                                caption = words.joinToString(" ")
-                            }
+                            caption = applyMention(caption, user.username)
                             viewModel.clearMentionSuggestions()
                         },
                         captionMode = captionMode,
@@ -853,8 +855,8 @@ private fun ComposeModeContent(
     mediaType: MediaType,
     selectedTrack: fm.corus.android.data.model.CymbalTrack?,
     selectedMovie: fm.corus.android.data.model.CymbalMovie?,
-    caption: String,
-    onCaptionChange: (String) -> Unit,
+    caption: TextFieldValue,
+    onCaptionChange: (TextFieldValue) -> Unit,
     isPosting: Boolean,
     onPost: () -> Unit,
     mentionSuggestions: List<CymbalUser> = emptyList(),
@@ -992,7 +994,7 @@ private fun ComposeModeContent(
                 .fillMaxWidth()
                 .weight(1f),
         ) {
-            if (caption.isEmpty()) {
+            if (caption.text.isEmpty()) {
                 Text(
                     text = "Write a caption...",
                     style = CorusFont.body,
@@ -1015,11 +1017,11 @@ private fun ComposeModeContent(
         }
 
         // Character counter (visible at 650+)
-        if (caption.length >= 650) {
+        if (caption.text.length >= 650) {
             Text(
-                text = "${caption.length}/700",
+                text = "${caption.text.length}/700",
                 style = CorusFont.caption,
-                color = if (caption.length >= 700) CorusColors.Error else CorusColors.Secondary,
+                color = if (caption.text.length >= 700) CorusColors.Error else CorusColors.Secondary,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = CorusSpacing.xs),

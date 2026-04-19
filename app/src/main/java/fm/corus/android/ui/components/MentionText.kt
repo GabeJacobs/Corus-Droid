@@ -14,6 +14,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,16 +35,21 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.HorizontalDivider
 import fm.corus.android.R
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.FlairStyle
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.NunitoFamily
 
 private const val MENTION_TAG = "mention"
@@ -404,4 +410,84 @@ fun extractMentions(text: String): List<String> {
 /** Extract #hashtag names from text. */
 fun extractHashtags(text: String): List<String> {
     return Regex("#(\\w+)").findAll(text).map { it.groupValues[1] }.toList()
+}
+
+/**
+ * Replace the in-progress `@query` at the end of [text] with `@username ` (trailing space).
+ * If no in-progress mention is found, returns the text unchanged.
+ */
+fun applyMention(text: String, username: String): String {
+    val lastAt = text.lastIndexOf('@')
+    if (lastAt < 0) return text
+    return text.substring(0, lastAt) + "@$username "
+}
+
+/**
+ * [applyMention] for [TextFieldValue]: also moves the cursor to the end of the
+ * inserted `@username ` so the user can keep typing.
+ */
+fun applyMention(value: TextFieldValue, username: String): TextFieldValue {
+    val newText = applyMention(value.text, username)
+    return TextFieldValue(newText, selection = TextRange(newText.length))
+}
+
+/**
+ * A list of mention suggestions rendered as tappable rows. Used above keyboard
+ * inputs in comments, captions, and compose.
+ */
+@Composable
+fun MentionSuggestionsList(
+    users: List<CymbalUser>,
+    onSelect: (CymbalUser) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (users.isEmpty()) return
+    Column(modifier = modifier) {
+        HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+        users.forEachIndexed { index, user ->
+            MentionSuggestionRow(user = user, onClick = { onSelect(user) })
+            if (index < users.lastIndex) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = CorusSpacing.lg + 28.dp + CorusSpacing.sm),
+                    color = CorusColors.Divider,
+                    thickness = 0.5.dp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MentionSuggestionRow(
+    user: CymbalUser,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = 28.dp)
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Column {
+            Text(
+                text = user.username,
+                style = CorusFont.username,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (user.displayName.isNotBlank() && user.displayName.lowercase() != user.username.lowercase()) {
+                Text(
+                    text = user.displayName,
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
 }

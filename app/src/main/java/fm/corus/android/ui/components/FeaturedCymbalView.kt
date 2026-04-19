@@ -1,5 +1,8 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.animation.core.EaseIn
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -21,6 +25,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.DiscoIntensity
@@ -47,8 +52,24 @@ fun FeaturedCymbalView(
     onSpotifyTap: () -> Unit = {},
     onPostTap: () -> Unit = {},
     onArtReady: () -> Unit = {},
+    staggerVinyl: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    // Match iOS: when staggering, album art appears first, then vinyl fades in
+    // ~5ms later with a 250ms easeIn. See FeaturedCymbalView.swift:236-247.
+    var showVinyl by remember { mutableStateOf(!staggerVinyl) }
+    val vinylAlpha by animateFloatAsState(
+        targetValue = if (showVinyl) 1f else 0f,
+        animationSpec = tween(durationMillis = 250, easing = EaseIn),
+        label = "vinylAlpha",
+    )
+    LaunchedEffect(Unit) {
+        if (staggerVinyl && !showVinyl) {
+            delay(3)
+            showVinyl = true
+        }
+    }
+
     val vinylDrawable = remember(vinylStyle) {
         when (vinylStyle) {
             VinylStyle.BLACK -> R.drawable.vinyl_black
@@ -103,7 +124,9 @@ fun FeaturedCymbalView(
             Image(
                 painter = painterResource(vinylDrawable),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(vinylAlpha),
                 contentScale = ContentScale.FillBounds,
             )
 
@@ -122,7 +145,8 @@ fun FeaturedCymbalView(
                             width = w * vinylStyle.labelWFrac,
                             height = h * vinylStyle.labelHFrac,
                         )
-                        .clip(CircleShape),
+                        .clip(CircleShape)
+                        .alpha(vinylAlpha),
                     contentScale = ContentScale.Crop,
                 )
 

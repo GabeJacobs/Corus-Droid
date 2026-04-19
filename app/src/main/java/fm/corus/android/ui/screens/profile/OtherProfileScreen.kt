@@ -103,6 +103,7 @@ fun OtherProfileScreen(
     val engagementStates by viewModel.engagementStates.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
     var isFeaturedArtReady by remember { mutableStateOf(false) }
+    var didRevealFromSkeleton by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showAvatarFullScreen by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
@@ -818,6 +819,8 @@ fun OtherProfileScreen(
                                     onPostTap = { navigateToFeed(featured.id) },
                                 )
                             } else {
+                                val shouldStagger = !didRevealFromSkeleton
+                                LaunchedEffect(Unit) { didRevealFromSkeleton = true }
                                 FeaturedCymbalView(
                                     post = featured,
                                     vinylStyle = userProfile.vinylStyle,
@@ -828,6 +831,7 @@ fun OtherProfileScreen(
                                     isLiked = featuredEngagement?.isLiked ?: featured.isLiked,
                                     onLikeTap = { viewModel.toggleLike(featured.id) },
                                     onPostTap = { navigateToFeed(featured.id) },
+                                    staggerVinyl = shouldStagger,
                                 )
                             }
                         }

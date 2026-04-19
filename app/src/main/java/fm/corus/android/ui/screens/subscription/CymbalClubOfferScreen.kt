@@ -1,6 +1,8 @@
 package fm.corus.android.ui.screens.subscription
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,6 +39,15 @@ import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+
+// Inside a ModalBottomSheet, LocalContext.current is a ContextWrapper around the
+// Activity, not the Activity itself, so a direct `as? Activity` cast returns null
+// and purchase() never fires. Walk the wrapper chain to find the host Activity.
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
 
 // --- Trial detection helpers ---
 
@@ -88,7 +99,7 @@ fun CymbalClubOfferScreen(
     val isClubMember by viewModel.isClubMember.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val context = LocalContext.current
-    val activity = context as? Activity
+    val activity = context.findActivity()
 
     var selectedPlan by remember { mutableStateOf(viewModel.defaultPlan) }
 
@@ -319,7 +330,7 @@ fun CymbalClubOfferSheet(
     val isClubMember by viewModel.isClubMember.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val context = LocalContext.current
-    val activity = context as? Activity
+    val activity = context.findActivity()
 
     var selectedPlan by remember { mutableStateOf(viewModel.defaultPlan) }
 

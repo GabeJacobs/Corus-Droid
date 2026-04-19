@@ -62,4 +62,36 @@ class MentionTextTest {
     fun `returns null for trailing whitespace after mention`() {
         assertNull(parseMentionQuery("hello @ga "))
     }
+
+    // ── applyMention ──
+
+    @Test
+    fun `applyMention replaces partial mention with full username and trailing space`() {
+        assertEquals("hello @gabejacobs ", applyMention("hello @gab", "gabejacobs"))
+    }
+
+    @Test
+    fun `applyMention handles mention at start`() {
+        assertEquals("@gabejacobs ", applyMention("@gab", "gabejacobs"))
+    }
+
+    @Test
+    fun `applyMention preserves text with no mention in progress`() {
+        assertEquals("hello world", applyMention("hello world", "gabejacobs"))
+    }
+
+    @Test
+    fun `applyMention replaces only the last at-mention`() {
+        assertEquals("hi @alice and @bob ", applyMention("hi @alice and @b", "bob"))
+    }
+
+    @Test
+    fun `applyMention handles mention after newline`() {
+        assertEquals("line one\n@gabe ", applyMention("line one\n@ga", "gabe"))
+    }
+
+    @Test
+    fun `applyMention replaces bare @ with full username`() {
+        assertEquals("@user ", applyMention("@", "user"))
+    }
 }

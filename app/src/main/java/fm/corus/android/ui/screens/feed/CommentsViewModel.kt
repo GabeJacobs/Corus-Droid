@@ -433,6 +433,10 @@ class CommentsViewModel @Inject constructor(
         }
     }
 
+    fun clearMentions() {
+        _mentionSuggestions.value = emptyList()
+    }
+
     // ── Post Engagement ──
 
     fun togglePostLike(postId: String) {

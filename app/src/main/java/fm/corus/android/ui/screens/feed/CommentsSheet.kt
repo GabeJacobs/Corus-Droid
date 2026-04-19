@@ -27,9 +27,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -44,12 +46,17 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.SkeletonCommentRow
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.TappableMentionText
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
+import fm.corus.android.ui.components.applyMention
 import fm.corus.android.ui.components.buildMentionAnnotatedString
+import fm.corus.android.ui.components.parseMentionQuery
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -139,11 +146,13 @@ private fun CommentsSheetContent(
     val sendError by viewModel.sendError.collectAsState()
     val editingComment by viewModel.editingComment.collectAsState()
 
-    var commentText by remember { mutableStateOf("") }
+    var commentText by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
     var showGifPicker by remember { mutableStateOf(false) }
     val maxChars = 700
-    val showCounter = commentText.length >= 650
+    val showCounter = commentText.text.length >= 650
+    val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
+    var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
     val handleMentionTap: (String) -> Unit = { username ->
@@ -174,10 +183,10 @@ private fun CommentsSheetContent(
     LaunchedEffect(editingComment?.id) {
         val editing = editingComment
         if (editing != null) {
-            commentText = editing.text
+            commentText = TextFieldValue(editing.text, selection = TextRange(editing.text.length))
             focusRequester.requestFocus()
         } else {
-            commentText = ""
+            commentText = TextFieldValue("")
         }
     }
 
@@ -300,6 +309,15 @@ private fun CommentsSheetContent(
 
         }
 
+        // ── Mention suggestions (above the input bar) ──
+        MentionSuggestionsList(
+            users = mentionSuggestions.take(4),
+            onSelect = { user ->
+                commentText = applyMention(commentText, user.username)
+                viewModel.clearMentions()
+            },
+        )
+
         // ── Input bar pinned at the bottom ──
 
         if (sendError != null) {
@@ -323,7 +341,7 @@ private fun CommentsSheetContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Editing comment", style = CorusFont.caption, color = CorusColors.Secondary, modifier = Modifier.weight(1f))
-                Icon(Icons.Filled.Close, contentDescription = "Cancel edit", modifier = Modifier.size(16.dp).clickable { viewModel.cancelEditing(); commentText = "" }, tint = CorusColors.Secondary)
+                Icon(Icons.Filled.Close, contentDescription = "Cancel edit", modifier = Modifier.size(16.dp).clickable { viewModel.cancelEditing(); commentText = TextFieldValue(""); viewModel.clearMentions() }, tint = CorusColors.Secondary)
             }
         } else if (replyingTo != null) {
             Row(
@@ -348,7 +366,20 @@ private fun CommentsSheetContent(
         ) {
             TextField(
                 value = commentText,
-                onValueChange = { if (it.length <= maxChars) commentText = it },
+                onValueChange = { newValue ->
+                    if (newValue.text.length <= maxChars) {
+                        val textChanged = newValue.text != commentText.text
+                        commentText = newValue
+                        if (textChanged) {
+                            mentionSearchJob?.cancel()
+                            mentionSearchJob = coroutineScope.launch {
+                                delay(200)
+                                val query = parseMentionQuery(newValue.text)
+                                if (query != null) viewModel.searchMentions(query) else viewModel.clearMentions()
+                            }
+                        }
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focusRequester),
@@ -368,9 +399,10 @@ private fun CommentsSheetContent(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(
                     onSend = {
-                        if (commentText.isNotBlank() && !isSending) {
-                            if (editingComment != null) viewModel.editComment(editingComment!!.id, commentText) else viewModel.sendComment(commentText)
-                            commentText = ""
+                        if (commentText.text.isNotBlank() && !isSending) {
+                            if (editingComment != null) viewModel.editComment(editingComment!!.id, commentText.text) else viewModel.sendComment(commentText.text)
+                            commentText = TextFieldValue("")
+                            viewModel.clearMentions()
                         }
                     },
                 ),
@@ -385,7 +417,7 @@ private fun CommentsSheetContent(
                 textStyle = CorusFont.body.copy(color = CorusColors.Text),
                 trailingIcon = {
                     if (showCounter) {
-                        Text("${maxChars - commentText.length}", style = CorusFont.caption, color = if (commentText.length >= maxChars) CorusColors.Error else CorusColors.Secondary)
+                        Text("${maxChars - commentText.text.length}", style = CorusFont.caption, color = if (commentText.text.length >= maxChars) CorusColors.Error else CorusColors.Secondary)
                     }
                 },
             )
@@ -396,7 +428,7 @@ private fun CommentsSheetContent(
                 }
             }
 
-            val canSend = commentText.isNotBlank() && !isSending
+            val canSend = commentText.text.isNotBlank() && !isSending
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Box(
                 modifier = Modifier
@@ -404,8 +436,9 @@ private fun CommentsSheetContent(
                     .clip(CircleShape)
                     .background(if (canSend) CorusColors.Accent else CorusColors.Divider)
                     .clickable(enabled = canSend) {
-                        if (editingComment != null) viewModel.editComment(editingComment!!.id, commentText) else viewModel.sendComment(commentText)
-                        commentText = ""
+                        if (editingComment != null) viewModel.editComment(editingComment!!.id, commentText.text) else viewModel.sendComment(commentText.text)
+                        commentText = TextFieldValue("")
+                        viewModel.clearMentions()
                     },
                 contentAlignment = Alignment.Center,
             ) {

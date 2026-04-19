@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -41,8 +42,12 @@ import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.ui.components.GifPickerSheet
+import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.applyMention
+import fm.corus.android.ui.components.parseMentionQuery
+import kotlinx.coroutines.Job
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -77,11 +82,13 @@ fun SinglePostCommentsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var commentText by remember { mutableStateOf("") }
+    var commentText by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
     var showGifPicker by remember { mutableStateOf(false) }
     val maxChars = 700
     val listState = rememberLazyListState()
+    val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
+    var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
 
     // Highlight flash state — matches iOS 1.5s flash then fade
     var activeHighlightId by remember { mutableStateOf<String?>(null) }
@@ -128,6 +135,14 @@ fun SinglePostCommentsScreen(
         },
         bottomBar = {
             Column {
+                // Mention suggestions
+                MentionSuggestionsList(
+                    users = mentionSuggestions.take(4),
+                    onSelect = { user ->
+                        commentText = applyMention(commentText, user.username)
+                        viewModel.clearMentions()
+                    },
+                )
                 // Reply indicator
                 if (replyingTo != null) {
                     Row(
@@ -164,7 +179,20 @@ fun SinglePostCommentsScreen(
                 ) {
                     TextField(
                         value = commentText,
-                        onValueChange = { if (it.length <= maxChars) commentText = it },
+                        onValueChange = { newValue ->
+                            if (newValue.text.length <= maxChars) {
+                                val textChanged = newValue.text != commentText.text
+                                commentText = newValue
+                                if (textChanged) {
+                                    mentionSearchJob?.cancel()
+                                    mentionSearchJob = scope.launch {
+                                        delay(200)
+                                        val query = parseMentionQuery(newValue.text)
+                                        if (query != null) viewModel.searchMentions(query) else viewModel.clearMentions()
+                                    }
+                                }
+                            }
+                        },
                         placeholder = { Text("Add a comment...", style = CorusFont.body, color = CorusColors.Tertiary) },
                         modifier = Modifier
                             .weight(1f)
@@ -180,9 +208,10 @@ fun SinglePostCommentsScreen(
                         maxLines = 4,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = {
-                            if (commentText.isNotBlank() && !isSending) {
-                                viewModel.addComment(postId, commentText.trim())
-                                commentText = ""
+                            if (commentText.text.isNotBlank() && !isSending) {
+                                viewModel.addComment(postId, commentText.text.trim())
+                                commentText = TextFieldValue("")
+                                viewModel.clearMentions()
                             }
                         }),
                     )
@@ -196,7 +225,7 @@ fun SinglePostCommentsScreen(
                             )
                         }
                     }
-                    val canSend = commentText.isNotBlank() && !isSending
+                    val canSend = commentText.text.isNotBlank() && !isSending
                     Spacer(modifier = Modifier.width(CorusSpacing.sm))
                     Box(
                         modifier = Modifier
@@ -204,8 +233,9 @@ fun SinglePostCommentsScreen(
                             .clip(CircleShape)
                             .background(if (canSend) CorusColors.Accent else CorusColors.Divider)
                             .clickable(enabled = canSend) {
-                                viewModel.addComment(postId, commentText.trim())
-                                commentText = ""
+                                viewModel.addComment(postId, commentText.text.trim())
+                                commentText = TextFieldValue("")
+                                viewModel.clearMentions()
                             },
                         contentAlignment = Alignment.Center,
                     ) {

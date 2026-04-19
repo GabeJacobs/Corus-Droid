@@ -8,6 +8,9 @@ import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -253,8 +256,87 @@ class UserRepository @Inject constructor(
 
     // ── Search ──
 
-    suspend fun searchUsers(query: String, limit: Int = 20): List<CymbalUser> {
-        return firestoreDataSource.searchUsersByUsername(query, limit)
+    /**
+     * Blended user search matching iOS DatabaseService.searchUsers:
+     *   1. Username prefix match (main query).
+     *   2. Per-word searchTokens arrayContains lookups (up to 3 unique words), so
+     *      users whose display name contains the query also surface.
+     *   3. Followed-user lookup — fetches the current user's following set by id
+     *      in chunks of 30 and client-side filters to matches, so followed users
+     *      aren't lost past the alphabetical limit.
+     * Results are deduped and sorted: followed > exact username > prefix > follower
+     * count desc > alphabetical.
+     */
+    suspend fun searchUsers(query: String, limit: Int = 20): List<CymbalUser> = coroutineScope {
+        val lowered = query.lowercase()
+        if (lowered.isEmpty()) return@coroutineScope emptyList()
+        val queryLimit = limit * 3
+        val queryWords = lowered.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val usernamePrefix = lowered.replace(" ", "")
+        val followedIds = _followingIds.value
+
+        val mainQuery = async {
+            runCatching { firestoreDataSource.searchUsersByUsername(usernamePrefix, queryLimit) }
+                .getOrDefault(emptyList())
+        }
+        val nameQueries = queryWords.distinct().take(3).map { token ->
+            async {
+                runCatching { firestoreDataSource.searchUsersByToken(token, queryLimit) }
+                    .getOrDefault(emptyList())
+            }
+        }
+        val followedQuery = async {
+            if (followedIds.isEmpty()) return@async emptyList()
+            val matched = mutableListOf<CymbalUser>()
+            followedIds.toList().chunked(30).forEach { chunk ->
+                val users = runCatching { firestoreDataSource.fetchUsersByIds(chunk) }
+                    .getOrDefault(emptyList())
+                for (user in users) {
+                    if (queryWords.size > 1) {
+                        val nameWords = user.displayName.lowercase()
+                            .split(Regex("\\s+")).filter { it.isNotEmpty() }
+                        val allMatch = queryWords.all { q -> nameWords.any { it.startsWith(q) } }
+                        if (allMatch || user.username.startsWith(usernamePrefix)) matched.add(user)
+                    } else if (
+                        user.username.startsWith(lowered) ||
+                        user.displayName.lowercase().split(" ").any { it.startsWith(lowered) }
+                    ) {
+                        matched.add(user)
+                    }
+                }
+            }
+            matched
+        }
+
+        val mainResults = mainQuery.await()
+        val allNameResults = nameQueries.awaitAll().flatten()
+        val followedMatches = followedQuery.await()
+
+        val seenIds = mutableSetOf<String>()
+        val users = mutableListOf<CymbalUser>()
+        for (user in mainResults) {
+            if (seenIds.add(user.id)) users.add(user)
+        }
+        for (user in allNameResults) {
+            if (queryWords.size > 1) {
+                val nameWords = user.displayName.lowercase()
+                    .split(Regex("\\s+")).filter { it.isNotEmpty() }
+                val allMatch = queryWords.all { q -> nameWords.any { it.startsWith(q) } }
+                if (!allMatch && !user.username.startsWith(usernamePrefix)) continue
+            }
+            if (seenIds.add(user.id)) users.add(user)
+        }
+        for (user in followedMatches) {
+            if (seenIds.add(user.id)) users.add(user)
+        }
+
+        users.sortedWith(
+            compareByDescending<CymbalUser> { followedIds.contains(it.id) }
+                .thenByDescending { it.username == usernamePrefix }
+                .thenByDescending { it.username.startsWith(usernamePrefix) }
+                .thenByDescending { it.followerCount }
+                .thenBy { it.username },
+        ).take(limit)
     }
 
     suspend fun fetchUserByUsername(username: String): CymbalUser? {

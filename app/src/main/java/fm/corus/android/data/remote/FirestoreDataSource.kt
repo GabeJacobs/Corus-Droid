@@ -748,7 +748,19 @@ class FirestoreDataSource @Inject constructor(
         val lowered = query.lowercase()
         val snapshot = firestore.collection("users_v2")
             .whereGreaterThanOrEqualTo("username", lowered)
-            .whereLessThanOrEqualTo("username", lowered + "\uf8ff")
+            .whereLessThan("username", lowered + "\uf8ff")
+            .limit(limit.toLong())
+            .get().await()
+        return snapshot.documents.mapNotNull { doc ->
+            val data = doc.data ?: return@mapNotNull null
+            CymbalUser.fromMap(doc.id, data)
+        }
+    }
+
+    /** Search users whose searchTokens array contains the given (already-lowercased) token. */
+    suspend fun searchUsersByToken(token: String, limit: Int = 20): List<CymbalUser> {
+        val snapshot = firestore.collection("users_v2")
+            .whereArrayContains("searchTokens", token)
             .limit(limit.toLong())
             .get().await()
         return snapshot.documents.mapNotNull { doc ->

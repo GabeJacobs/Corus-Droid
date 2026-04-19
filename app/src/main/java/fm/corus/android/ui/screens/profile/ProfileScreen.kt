@@ -105,6 +105,7 @@ fun ProfileScreen(
     val engagementStates by viewModel.engagementStates.collectAsState()
     var selectedSegment by remember { mutableIntStateOf(0) }
     var isFeaturedArtReady by remember { mutableStateOf(false) }
+    var didRevealFromSkeleton by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
     var clubOfferSource by remember { mutableStateOf(fm.corus.android.ui.screens.subscription.PaywallSource.DEFAULT) }
@@ -597,6 +598,8 @@ fun ProfileScreen(
                                 onPostTap = { navigateToFeed(featuredPost.id) },
                             )
                         } else {
+                            val shouldStagger = !didRevealFromSkeleton
+                            LaunchedEffect(Unit) { didRevealFromSkeleton = true }
                             fm.corus.android.ui.components.FeaturedCymbalView(
                                 post = featuredPost,
                                 vinylStyle = currentProfile.vinylStyle,
@@ -607,6 +610,7 @@ fun ProfileScreen(
                                 isLiked = featuredEngagement?.isLiked ?: featuredPost.isLiked,
                                 onLikeTap = { viewModel.toggleLike(featuredPost.id) },
                                 onPostTap = { navigateToFeed(featuredPost.id) },
+                                staggerVinyl = shouldStagger,
                             )
                         }
                     }
