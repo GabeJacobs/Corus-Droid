@@ -160,12 +160,12 @@ private fun createSnowflake(
 
     when (layer) {
         SnowLayer.FOREGROUND -> {
-            speed = if (isBlizzard) Random.nextFloat() * 80f + 120f else Random.nextFloat() * 40f + 40f  // 40-80 or 120-200
+            speed = if (isBlizzard) Random.nextFloat() * 40f + 70f else Random.nextFloat() * 40f + 40f  // 40-80 or 70-110
             radius = Random.nextFloat() * 2.5f + 2.0f  // 2.0-4.5
             opacity = Random.nextFloat() * 0.35f + 0.5f // 0.5-0.85
         }
         SnowLayer.BACKGROUND -> {
-            speed = if (isBlizzard) Random.nextFloat() * 60f + 80f else Random.nextFloat() * 25f + 20f  // 20-45 or 80-140
+            speed = if (isBlizzard) Random.nextFloat() * 30f + 40f else Random.nextFloat() * 25f + 20f  // 20-45 or 40-70
             radius = Random.nextFloat() * 1.3f + 1.2f  // 1.2-2.5
             opacity = Random.nextFloat() * 0.25f + 0.25f // 0.25-0.5
         }
@@ -178,7 +178,7 @@ private fun createSnowflake(
         Random.nextFloat() * -35f - 5f
     }
 
-    val driftX = if (isBlizzard) Random.nextFloat() * 40f + 40f else Random.nextFloat() * 12f - 6f  // -6..6 or 40-80
+    val driftX = if (isBlizzard) Random.nextFloat() * 20f + 20f else Random.nextFloat() * 12f - 6f  // -6..6 or 20-40
     val swayAmount = if (isBlizzard) Random.nextFloat() * 15f + 15f else Random.nextFloat() * 12f + 8f // 8-20 or 15-30
     val swaySpeed = if (isBlizzard) Random.nextFloat() * 2f + 2f else Random.nextFloat() * 1.2f + 0.8f // 0.8-2.0 or 2.0-4.0
 

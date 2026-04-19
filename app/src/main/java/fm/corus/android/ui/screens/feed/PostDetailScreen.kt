@@ -160,15 +160,23 @@ fun PostDetailScreen(
                             post = currentPost,
                             isOwnPost = currentPost.user.id == viewModel.currentUserId,
                             showBackCoverOption = viewModel.remoteConfig.vinylFlipEnabled && !currentPost.isMovie,
+                            isBackCoverFlipped = backCoverFlipState.isFlipped,
                             onViewBackCover = {
-                                scope.launchBackCoverFlip(
-                                    state = backCoverFlipState,
-                                    postId = currentPost.id,
-                                    onFetch = { viewModel.fetchBackCover(it) },
-                                )
+                                if (backCoverFlipState.isFlipped) {
+                                    backCoverFlipState.flipBack()
+                                } else {
+                                    scope.launchBackCoverFlip(
+                                        state = backCoverFlipState,
+                                        postId = currentPost.id,
+                                        onFetch = { viewModel.fetchBackCover(it) },
+                                    )
+                                }
                             },
                             onUserTap = { onNavigateToUser(currentPost.user.id) },
-                            onRepostedFromUserTap = { username -> onNavigateToUserByUsername(username) },
+                            onRepostedFromUserTap = { userId, username ->
+                                if (userId != null) onNavigateToUser(userId)
+                                else onNavigateToUserByUsername(username)
+                            },
                             onEditCaption = { showEditCaption = true },
                             onDelete = { showDeleteConfirm = true },
                         )
@@ -388,9 +396,10 @@ private fun PostDetailHeader(
     post: CymbalPost,
     isOwnPost: Boolean,
     showBackCoverOption: Boolean = false,
+    isBackCoverFlipped: Boolean = false,
     onViewBackCover: () -> Unit = {},
     onUserTap: () -> Unit,
-    onRepostedFromUserTap: (String) -> Unit = {},
+    onRepostedFromUserTap: (userId: String?, username: String) -> Unit = { _, _ -> },
     onEditCaption: () -> Unit = {},
     onDelete: () -> Unit = {},
 ) {
@@ -435,7 +444,12 @@ private fun PostDetailHeader(
                     modifier = Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = { onRepostedFromUserTap(repostedFromUsername) },
+                        onClick = {
+                            onRepostedFromUserTap(
+                                post.repostedFromUserId?.takeIf { it.isNotEmpty() },
+                                repostedFromUsername,
+                            )
+                        },
                     ),
                 ) {
                     Icon(
@@ -480,7 +494,12 @@ private fun PostDetailHeader(
                 ) {
                     if (showBackCoverOption) {
                         DropdownMenuItem(
-                            text = { Text("View Back Cover", style = CorusFont.body) },
+                            text = {
+                                Text(
+                                    if (isBackCoverFlipped) "View Front Cover" else "View Back Cover",
+                                    style = CorusFont.body,
+                                )
+                            },
                             onClick = {
                                 showMenu = false
                                 onViewBackCover()

@@ -163,7 +163,7 @@ fun NotificationsScreen(
                                 onClick = {
                                     viewModel.markNotificationTapped(notification.id)
                                     val postId = notification.postId
-                                    if (notification.supportsCommentActions && postId != null && notification.commentId != null) {
+                                    if (postId != null && notification.commentId != null) {
                                         onNavigateToPostComments(postId, notification.commentId)
                                     } else if (postId != null) {
                                         onNavigateToPost(postId)

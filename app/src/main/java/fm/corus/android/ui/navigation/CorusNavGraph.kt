@@ -85,6 +85,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                         initialIsFollowing = true,
                     ))
                 },
+                onNavigateToUserById = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToUserByUsername = { username -> navController.navigate(ProfileByUsernameRoute(username)) },
                 onNavigateToComments = { postId -> commentPostId = postId },
                 onNavigateToLikes = { postId -> likesPostId = postId },

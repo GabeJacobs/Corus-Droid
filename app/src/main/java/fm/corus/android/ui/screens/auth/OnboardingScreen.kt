@@ -40,6 +40,7 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import android.graphics.Bitmap
+import fm.corus.android.domain.UsernameValidator
 import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.SelfieCaptureScreen
 import fm.corus.android.ui.components.uriToBitmap
@@ -74,6 +75,7 @@ fun OnboardingScreen(
     var username by remember { mutableStateOf("") }
     var usernameAvailable by remember { mutableStateOf<Boolean?>(null) }
     var checkingUsername by remember { mutableStateOf(false) }
+    var usernameError by remember { mutableStateOf<String?>(null) }
     var showAvatarNudge by remember { mutableStateOf(false) }
     var showPhotoDialog by remember { mutableStateOf(false) }
 
@@ -101,16 +103,22 @@ fun OnboardingScreen(
 
     // Username availability check with debounce (min 1 char, matching iOS)
     LaunchedEffect(username) {
-        if (username.isEmpty()) {
-            usernameAvailable = null
-            checkingUsername = false
-            return@LaunchedEffect
-        }
-        val allowed = username.all { it.isLetterOrDigit() || it == '_' || it == '.' }
-        if (!allowed) {
-            usernameAvailable = null
-            checkingUsername = false
-            return@LaunchedEffect
+        when (val result = UsernameValidator.validate(username)) {
+            is UsernameValidator.Result.Empty -> {
+                usernameAvailable = null
+                usernameError = null
+                checkingUsername = false
+                return@LaunchedEffect
+            }
+            is UsernameValidator.Result.Invalid -> {
+                usernameAvailable = false
+                usernameError = result.message
+                checkingUsername = false
+                return@LaunchedEffect
+            }
+            UsernameValidator.Result.Valid -> {
+                usernameError = null
+            }
         }
         checkingUsername = true
         delay(400)
@@ -330,7 +338,7 @@ fun OnboardingScreen(
                         BasicTextField(
                             value = username,
                             onValueChange = { value ->
-                                username = value.lowercase().filter { it.isLetterOrDigit() || it == '_' || it == '.' }.take(20)
+                                username = UsernameValidator.clean(value)
                             },
                             textStyle = CorusFont.body.copy(color = CorusColors.Text),
                             singleLine = true,
@@ -365,16 +373,16 @@ fun OnboardingScreen(
                 // Validation messages — matches iOS
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
                 when {
-                    usernameAvailable == false -> {
+                    usernameError != null -> {
                         Text(
-                            "Username is already taken",
+                            usernameError!!,
                             style = CorusFont.caption,
                             color = CorusColors.Error,
                         )
                     }
-                    username.isNotEmpty() && !username.all { it.isLetterOrDigit() || it == '_' || it == '.' } -> {
+                    usernameAvailable == false -> {
                         Text(
-                            "Only letters, numbers, underscores and periods",
+                            "Username is already taken",
                             style = CorusFont.caption,
                             color = CorusColors.Error,
                         )

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.UsernameValidator
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,9 @@ class ChangeUsernameViewModel @Inject constructor(
     private val _validationState = MutableStateFlow(ValidationState.Idle)
     val validationState: StateFlow<ValidationState> = _validationState.asStateFlow()
 
+    private val _invalidReason = MutableStateFlow<String?>(null)
+    val invalidReason: StateFlow<String?> = _invalidReason.asStateFlow()
+
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
@@ -37,23 +41,29 @@ class ChangeUsernameViewModel @Inject constructor(
     }
 
     fun onUsernameChanged(value: String) {
-        val cleaned = value.lowercase().filter { it.isLetterOrDigit() || it == '_' || it == '.' }
+        val cleaned = UsernameValidator.clean(value)
         _username.value = cleaned
 
         if (cleaned == originalUsername) {
             _validationState.value = ValidationState.Idle
+            _invalidReason.value = null
             return
         }
 
-        if (cleaned.length < 3) {
-            _validationState.value = ValidationState.Invalid
-            return
-        }
-
-        val validPattern = Regex("^[a-z0-9_.]+$")
-        if (!validPattern.matches(cleaned)) {
-            _validationState.value = ValidationState.Invalid
-            return
+        when (val result = UsernameValidator.validate(cleaned)) {
+            is UsernameValidator.Result.Empty -> {
+                _validationState.value = ValidationState.Idle
+                _invalidReason.value = null
+                return
+            }
+            is UsernameValidator.Result.Invalid -> {
+                _validationState.value = ValidationState.Invalid
+                _invalidReason.value = result.message
+                return
+            }
+            UsernameValidator.Result.Valid -> {
+                _invalidReason.value = null
+            }
         }
 
         _validationState.value = ValidationState.Checking

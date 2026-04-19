@@ -25,6 +25,7 @@ fun ChangeUsernameScreen(
 ) {
     val username by viewModel.username.collectAsState()
     val validationState by viewModel.validationState.collectAsState()
+    val invalidReason by viewModel.invalidReason.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
@@ -103,9 +104,10 @@ fun ChangeUsernameScreen(
                 text = when (validationState) {
                     ChangeUsernameViewModel.ValidationState.Available -> "Username is available"
                     ChangeUsernameViewModel.ValidationState.Taken -> "Username is already taken"
-                    ChangeUsernameViewModel.ValidationState.Invalid -> "Letters, numbers, underscores, and periods only"
+                    ChangeUsernameViewModel.ValidationState.Invalid ->
+                        invalidReason ?: "Only letters, numbers, underscores, and periods"
                     ChangeUsernameViewModel.ValidationState.Checking -> "Checking availability..."
-                    else -> "Letters, numbers, underscores, and periods only"
+                    else -> "Only letters, numbers, underscores, and periods"
                 },
                 style = CorusFont.caption,
                 color = when (validationState) {

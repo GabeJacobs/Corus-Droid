@@ -6,8 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -44,6 +44,7 @@ fun PostActionMenu(
     onViewFilmPage: () -> Unit = {},
     onViewBackCover: () -> Unit = {},
     showBackCoverOption: Boolean = false,
+    isBackCoverFlipped: Boolean = false,
     onRepost: () -> Unit = {},
     onSharePost: () -> Unit = {},
     onCopyLink: () -> Unit = {},
@@ -106,11 +107,11 @@ fun PostActionMenu(
             )
         }
 
-        // View Back Cover (tracks only, when enabled via remote config)
+        // View Back / Front Cover (tracks only, when enabled via remote config)
         if (!isMovie && showBackCoverOption) {
             MenuRow(
-                icon = Icons.Filled.Album,
-                label = "View Back Cover",
+                icon = Icons.Outlined.Style,
+                label = if (isBackCoverFlipped) "View Front Cover" else "View Back Cover",
                 onClick = { onViewBackCover(); onDismiss() },
             )
         }

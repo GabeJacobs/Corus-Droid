@@ -88,11 +88,10 @@ fun PostCard(
     onHashtagTap: (String) -> Unit = {},
     trackPostCount: Int = post.trackPostCount ?: 0,
     onSongCountTap: () -> Unit = {},
-    viewBackCoverRequestKey: Int = 0,
-    onFetchBackCover: suspend (String) -> String? = { null },
+    backCoverFlipState: BackCoverFlipState = rememberBackCoverFlipState(),
     onFilmPageTap: () -> Unit = {},
     onVoiceNotePlayed: () -> Unit = {},
-    onRepostedFromUserTap: (String) -> Unit = {},
+    onRepostedFromUserTap: (userId: String?, username: String) -> Unit = { _, _ -> },
     hideComments: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
@@ -100,13 +99,7 @@ fun PostCard(
     val heartAlpha = remember { Animatable(0f) }
     var showDoubleTapHeart by remember { mutableStateOf(false) }
     var showFilmOverlay by remember { mutableStateOf(false) }
-    val flipState = rememberBackCoverFlipState()
-
-    LaunchedEffect(viewBackCoverRequestKey) {
-        if (viewBackCoverRequestKey > 0) {
-            scope.launchBackCoverFlip(flipState, post.id, onFetchBackCover)
-        }
-    }
+    val flipState = backCoverFlipState
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -153,7 +146,12 @@ fun PostCard(
                         modifier = Modifier.clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = { onRepostedFromUserTap(repostedFromUsername) },
+                            onClick = {
+                                onRepostedFromUserTap(
+                                    post.repostedFromUserId?.takeIf { it.isNotEmpty() },
+                                    repostedFromUsername,
+                                )
+                            },
                         ),
                     ) {
                         Icon(

@@ -89,6 +89,15 @@ data class StyleSelections(
                 rainEffect != RainIntensity.OFF ||
                 snowEffect != SnowIntensity.OFF ||
                 discoEffect != DiscoIntensity.OFF
+
+    fun introducesPremiumValue(from: StyleSelections): Boolean =
+        (vinylColor != from.vinylColor && vinylColor != VinylStyle.BLACK) ||
+                (vinylSpinning != from.vinylSpinning && vinylSpinning) ||
+                (frameColor != from.frameColor && frameColor != FrameStyle.BLACK) ||
+                (profileFlair != from.profileFlair && profileFlair != FlairStyle.CHECKMARK) ||
+                (rainEffect != from.rainEffect && rainEffect != RainIntensity.OFF) ||
+                (snowEffect != from.snowEffect && snowEffect != SnowIntensity.OFF) ||
+                (discoEffect != from.discoEffect && discoEffect != DiscoIntensity.OFF)
 }
 
 private enum class StylePage { VINYL, VINYL_SPIN, FRAME, FLAIR, RAIN, SNOW, DISCO }
@@ -262,7 +271,7 @@ fun StylePickerSheet(
                     onDismiss()
                     return@Button
                 }
-                if (!isClubMember && draft.hasNonDefaultValues) {
+                if (!isClubMember && draft.introducesPremiumValue(currentSelections)) {
                     onNavigateToClub()
                     return@Button
                 }

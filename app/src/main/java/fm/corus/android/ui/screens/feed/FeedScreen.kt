@@ -33,6 +33,7 @@ import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.ui.components.PostActionMenu
 import fm.corus.android.ui.components.PostCard
+import fm.corus.android.ui.components.launchBackCoverFlip
 import fm.corus.android.ui.components.SharePostSheet
 import fm.corus.android.ui.components.SkeletonPostCard
 import fm.corus.android.ui.components.TasteMatchCard
@@ -48,6 +49,7 @@ fun FeedScreen(
     scrollToTopTrigger: Int = 0,
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToUser: (CymbalUser) -> Unit = {},
+    onNavigateToUserById: (String) -> Unit = {},
     onNavigateToUserByUsername: (String) -> Unit = {},
     onNavigateToComments: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
@@ -87,7 +89,10 @@ fun FeedScreen(
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<CymbalPost?>(null) }
-    var backCoverRequests by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    val backCoverStates = remember { mutableMapOf<String, fm.corus.android.ui.components.BackCoverFlipState>() }
+    val scope = rememberCoroutineScope()
+    fun backCoverStateFor(postId: String) =
+        backCoverStates.getOrPut(postId) { fm.corus.android.ui.components.BackCoverFlipState() }
     var filmInfoPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showClubOffer by remember { mutableStateOf(false) }
 
@@ -323,7 +328,10 @@ fun FeedScreen(
                                 }
                             },
                             onMentionTap = { username -> onNavigateToUserByUsername(username) },
-                            onRepostedFromUserTap = { username -> onNavigateToUserByUsername(username) },
+                            onRepostedFromUserTap = { userId, username ->
+                                if (userId != null) onNavigateToUserById(userId)
+                                else onNavigateToUserByUsername(username)
+                            },
                             onHashtagTap = { hashtag ->
                                 viewModel.analyticsService.logTrendingHashtagTapped(hashtag)
                                 onNavigateToHashtag(hashtag)
@@ -336,8 +344,7 @@ fun FeedScreen(
                                 }
                             },
                             onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
-                            viewBackCoverRequestKey = backCoverRequests[post.id] ?: 0,
-                            onFetchBackCover = { viewModel.fetchBackCover(it) },
+                            backCoverFlipState = backCoverStateFor(post.id),
                         )
                         HorizontalDivider(
                             color = CorusColors.Divider,
@@ -434,8 +441,14 @@ fun FeedScreen(
                 onViewSongPage = { onNavigateToSong(post.track) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
                 showBackCoverOption = viewModel.remoteConfig.vinylFlipEnabled,
+                isBackCoverFlipped = backCoverStateFor(post.id).isFlipped,
                 onViewBackCover = {
-                    backCoverRequests = backCoverRequests + (post.id to ((backCoverRequests[post.id] ?: 0) + 1))
+                    val state = backCoverStateFor(post.id)
+                    if (state.isFlipped) {
+                        state.flipBack()
+                    } else {
+                        scope.launchBackCoverFlip(state, post.id) { viewModel.fetchBackCover(it) }
+                    }
                 },
                 onRepost = { onRepost(post) },
                 onSharePost = { sharePost = post },
