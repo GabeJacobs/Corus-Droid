@@ -21,6 +21,15 @@ internal fun applyFirstPoster(
 }
 
 /**
+ * Parses a `fetchBackCover` Cloud Function response into a non-blank URL string.
+ * Kept top-level so it can be unit-tested without instantiating the data source.
+ */
+internal fun parseBackCoverResponse(data: Map<String, Any?>?): String? {
+    val url = data?.get("backCoverURL") as? String
+    return url?.takeIf { it.isNotBlank() }
+}
+
+/**
  * Wraps all Firebase callable Cloud Functions.
  * Mirrors the iOS DatabaseService's cloud function calls.
  */
@@ -72,6 +81,20 @@ class CloudFunctionsDataSource @Inject constructor(
         val outerData = result.getData() as? Map<String, Any?> ?: return null
         val postData = outerData["post"] as? Map<String, Any?> ?: return null
         return CymbalPost.fromCloudData(postData)
+    }
+
+    // ── Back Cover (Discogs / MusicBrainz) ──
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchBackCover(postId: String): String? {
+        return try {
+            val result = functions.getHttpsCallable("fetchBackCover").call(
+                mapOf("postId" to postId)
+            ).await()
+            parseBackCoverResponse(result.getData() as? Map<String, Any?>)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     // ── Comments ──

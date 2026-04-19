@@ -175,6 +175,165 @@ fun SkeletonUserRow() {
     }
 }
 
+// SkeletonSearchUserRow — matches SuggestedUserRow in SearchScreen:
+// 44dp avatar · display name / @username / subtitle column · 30dp pill follow button
+@Composable
+fun SkeletonSearchUserRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shimmer()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Avatar (44dp matches SuggestedUserRow)
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(CorusColors.Skeleton)
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+
+        // Display name + @username
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(130.dp)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Box(
+                modifier = Modifier
+                    .width(90.dp)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+
+        // Follow pill (matches Button height=30dp, pillCornerRadius)
+        Box(
+            modifier = Modifier
+                .width(80.dp)
+                .height(30.dp)
+                .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
+                .background(CorusColors.Skeleton)
+        )
+    }
+}
+
+// SkeletonSearchSongRow — matches SongSearchRow in SearchScreen:
+// 56dp thumbnail · title/artist column · optional duration
+@Composable
+fun SkeletonSearchSongRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shimmer()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .heightIn(min = CorusSpacing.touchTarget),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+    ) {
+        // Album art (56dp matches CorusSpacing.albumArtThumbnail)
+        Box(
+            modifier = Modifier
+                .size(CorusSpacing.albumArtThumbnail)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                .background(CorusColors.Skeleton)
+        )
+
+        // Title + artist
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(140.dp)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Box(
+                modifier = Modifier
+                    .width(90.dp)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+        }
+
+        // Duration
+        Box(
+            modifier = Modifier
+                .width(32.dp)
+                .height(11.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(CorusColors.Skeleton)
+        )
+    }
+}
+
+// SkeletonSuggestedUserRow — matches SuggestedUserRow in ExploreScreen exactly:
+// 36dp avatar · username/subtitle column · trailing pill follow button
+@Composable
+fun SkeletonSuggestedUserRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shimmer()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Avatar
+        Box(
+            modifier = Modifier
+                .size(CorusSpacing.avatarMedium)
+                .clip(CircleShape)
+                .background(CorusColors.Skeleton)
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+
+        // Username + subtitle
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(120.dp)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Box(
+                modifier = Modifier
+                    .width(160.dp)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+
+        // Follow pill (matches Button height=32dp, pillCornerRadius)
+        Box(
+            modifier = Modifier
+                .width(80.dp)
+                .height(32.dp)
+                .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
+                .background(CorusColors.Skeleton)
+        )
+    }
+}
+
 // 1. SkeletonProfileView — Full profile header
 @Composable
 fun SkeletonProfileView() {
@@ -498,7 +657,8 @@ fun SkeletonCommentRow() {
     }
 }
 
-// 4. SkeletonTrendingSongRow — Rank + album art + title/artist + duration
+// 4. SkeletonTrendingSongRow — matches TrendingSongRow in ExploreScreen exactly:
+// rank 28dp width · 48dp album art · title/artist column · trailing count
 @Composable
 fun SkeletonTrendingSongRow() {
     Row(
@@ -508,25 +668,30 @@ fun SkeletonTrendingSongRow() {
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
             .heightIn(min = CorusSpacing.touchTarget),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
-        // Rank number
+        // Rank placeholder: 14dp bar centered inside a 28dp-wide cell (matches Text width)
         Box(
-            modifier = Modifier
-                .width(24.dp)
-                .height(13.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.Skeleton),
+            modifier = Modifier.width(28.dp),
             contentAlignment = Alignment.Center,
-        ) {}
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(14.dp)
+                    .height(13.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
 
-        // Square album art (50dp)
+        // Square album art
         Box(
             modifier = Modifier
                 .size(CorusSpacing.albumArtSearch)
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
                 .background(CorusColors.Skeleton)
         )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
 
         // Title + artist
         Column(
@@ -549,7 +714,7 @@ fun SkeletonTrendingSongRow() {
             )
         }
 
-        // Duration
+        // Cymbal count
         Box(
             modifier = Modifier
                 .width(20.dp)
@@ -622,21 +787,23 @@ fun SkeletonAlbumGridCell(
     )
 }
 
-// 7. SkeletonSongRow — Album art + title + artist (search result layout)
+// 7. SkeletonSongRow — matches SongSearchRow / compose SearchResultRow:
+// 48dp album art · title/artist column · trailing duration
 @Composable
 fun SkeletonSongRow() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .shimmer()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .heightIn(min = CorusSpacing.touchTarget),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
-        // Square album art (50dp)
+        // Square album art (matches CorusSpacing.albumArtSearch = 48dp)
         Box(
             modifier = Modifier
-                .size(CorusSpacing.albumArtThumbnail)
+                .size(CorusSpacing.albumArtSearch)
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
                 .background(CorusColors.Skeleton)
         )
@@ -673,14 +840,16 @@ fun SkeletonSongRow() {
     }
 }
 
-// 8. SkeletonFilmRow — Poster + title + year
+// 8. SkeletonFilmRow — matches FilmSearchResultRow:
+// 40×60 poster · title/director column
 @Composable
 fun SkeletonFilmRow() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .shimmer()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .heightIn(min = CorusSpacing.touchTarget),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
@@ -716,36 +885,41 @@ fun SkeletonFilmRow() {
     }
 }
 
-// 8b. SkeletonTrendingFilmRow — Rank + Poster + title + year + count
+// 8b. SkeletonTrendingFilmRow — matches TrendingMovieRow in ExploreScreen exactly:
+// rank 28dp cell · 48×72 poster · title/director column · trailing count
 @Composable
 fun SkeletonTrendingFilmRow() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .shimmer()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .heightIn(min = CorusSpacing.touchTarget),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
-        // Rank number placeholder
+        // Rank placeholder: 14dp bar centered inside a 28dp-wide cell (matches Text width)
         Box(
-            modifier = Modifier
-                .width(14.dp)
-                .height(13.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.Skeleton),
+            modifier = Modifier.width(28.dp),
             contentAlignment = Alignment.Center,
-        ) {}
-        Spacer(modifier = Modifier.width(10.dp - CorusSpacing.md))
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(14.dp)
+                    .height(13.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
 
-        // Poster rectangle
+        // Poster (48 × 72 matches real AsyncImage size)
         Box(
             modifier = Modifier
-                .width(33.dp)
-                .height(44.dp)
+                .size(width = CorusSpacing.albumArtSearch, height = 72.dp)
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
                 .background(CorusColors.Skeleton)
         )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
 
         // Title + director
         Column(
@@ -768,7 +942,7 @@ fun SkeletonTrendingFilmRow() {
             )
         }
 
-        // Cymbal count placeholder
+        // Cymbal count
         Box(
             modifier = Modifier
                 .width(20.dp)

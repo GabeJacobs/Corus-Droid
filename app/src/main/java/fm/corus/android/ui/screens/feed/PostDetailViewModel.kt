@@ -11,6 +11,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,8 +25,13 @@ class PostDetailViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val engagementManager: PostEngagementManager,
     val nowPlayingManager: NowPlayingManager,
+    val remoteConfig: RemoteConfigService,
     val analyticsService: AnalyticsService,
 ) : ViewModel() {
+
+    suspend fun fetchBackCover(postId: String): String? {
+        return postRepository.fetchBackCover(postId)
+    }
 
     private val _post = MutableStateFlow<CymbalPost?>(null)
     val post: StateFlow<CymbalPost?> = _post.asStateFlow()
@@ -112,11 +118,6 @@ class PostDetailViewModel @Inject constructor(
     fun toggleSave(postId: String) {
         val userId = authRepository.currentUserId ?: return
         engagementManager.toggleSave(postId, userId)
-    }
-
-    fun repost(post: CymbalPost) {
-        val userId = authRepository.currentUserId ?: return
-        engagementManager.repostPost(post, userId)
     }
 
     fun playPreview(post: CymbalPost) {

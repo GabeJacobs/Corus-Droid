@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
 // ── Tab Routes ──
 
 @Serializable object FeedTabRoute
-@Serializable object ExploreTabRoute
+@Serializable object SearchTabRoute
 @Serializable object NotificationsTabRoute
 @Serializable object ProfileTabRoute
 
@@ -62,7 +62,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class FollowListRoute(val userId: String, val isFollowers: Boolean)
 @Serializable data class HashtagFeedRoute(val hashtag: String)
 @Serializable data class EditProfileRoute(val userId: String)
-@Serializable object FindPeopleRoute
+@Serializable object SearchRoute
 @Serializable data class EditCaptionRoute(val postId: String, val initialCaption: String, val albumArtURL: String? = null)
 @Serializable object SettingsRoute
 @Serializable data object AppearanceSettingsRoute

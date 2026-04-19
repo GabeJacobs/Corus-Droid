@@ -291,21 +291,27 @@ class OtherProfileViewModel @Inject constructor(
         val wasMuted = _isMuted.value
         _isMuted.value = !wasMuted
         val username = _profile.value?.username
+        val handle = username?.let { "@$it" }
+        val loadingMessage = if (!wasMuted) {
+            if (handle != null) "Muting $handle\u2026" else "Muting\u2026"
+        } else {
+            if (handle != null) "Unmuting $handle\u2026" else "Unmuting\u2026"
+        }
+        val toastId = ToastManager.showLoading(loadingMessage)
         viewModelScope.launch {
             try {
                 if (!wasMuted) {
                     userRepository.muteUser(currentUserId, userId)
-                    if (username != null) {
-                        ToastManager.show("@$username's posts muted")
-                    }
+                    val message = if (handle != null) "$handle's posts muted" else "Muted"
+                    ToastManager.update(toastId, message)
                 } else {
                     userRepository.unmuteUser(currentUserId, userId)
-                    if (username != null) {
-                        ToastManager.show("@$username's posts unmuted")
-                    }
+                    val message = if (handle != null) "$handle's posts unmuted" else "Unmuted"
+                    ToastManager.update(toastId, message)
                 }
             } catch (_: Exception) {
                 _isMuted.value = wasMuted
+                ToastManager.dismiss(toastId)
             }
         }
     }

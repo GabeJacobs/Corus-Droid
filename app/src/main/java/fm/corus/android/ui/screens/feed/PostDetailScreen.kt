@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -49,6 +50,8 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.R
 import fm.corus.android.ui.components.LikedBySection
+import fm.corus.android.ui.components.launchBackCoverFlip
+import fm.corus.android.ui.components.rememberBackCoverFlipState
 import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -66,6 +69,7 @@ fun PostDetailScreen(
     viewModel: PostDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
+    onNavigateToUserByUsername: (String) -> Unit = {},
     onNavigateToComments: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
@@ -84,6 +88,7 @@ fun PostDetailScreen(
     val scope = rememberCoroutineScope()
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showEditCaption by remember { mutableStateOf(false) }
+    val backCoverFlipState = rememberBackCoverFlipState()
 
     LaunchedEffect(postId) {
         viewModel.loadPost(postId)
@@ -154,7 +159,16 @@ fun PostDetailScreen(
                         PostDetailHeader(
                             post = currentPost,
                             isOwnPost = currentPost.user.id == viewModel.currentUserId,
+                            showBackCoverOption = viewModel.remoteConfig.vinylFlipEnabled && !currentPost.isMovie,
+                            onViewBackCover = {
+                                scope.launchBackCoverFlip(
+                                    state = backCoverFlipState,
+                                    postId = currentPost.id,
+                                    onFetch = { viewModel.fetchBackCover(it) },
+                                )
+                            },
                             onUserTap = { onNavigateToUser(currentPost.user.id) },
+                            onRepostedFromUserTap = { username -> onNavigateToUserByUsername(username) },
                             onEditCaption = { showEditCaption = true },
                             onDelete = { showDeleteConfirm = true },
                         )
@@ -166,6 +180,7 @@ fun PostDetailScreen(
                             post = currentPost,
                             isPreviewLoading = currentPost.isTrack && loadingTrackId == currentPost.track.id,
                             isPreviewPlaying = currentPost.isTrack && nowPlayingState.trackId == currentPost.track.id && nowPlayingState.isPlaying,
+                            flipState = backCoverFlipState,
                             onDoubleTap = { viewModel.toggleLike(currentPost.id) },
                             onSongTap = {
                                 if (currentPost.isMovie) {
@@ -365,13 +380,17 @@ fun PostDetailScreen(
             },
         )
     }
+
 }
 
 @Composable
 private fun PostDetailHeader(
     post: CymbalPost,
     isOwnPost: Boolean,
+    showBackCoverOption: Boolean = false,
+    onViewBackCover: () -> Unit = {},
     onUserTap: () -> Unit,
+    onRepostedFromUserTap: (String) -> Unit = {},
     onEditCaption: () -> Unit = {},
     onDelete: () -> Unit = {},
 ) {
@@ -407,11 +426,17 @@ private fun PostDetailHeader(
                 color = CorusColors.Text,
             )
 
-            // Repost indicator
-            if (!post.repostedFromUsername.isNullOrEmpty()) {
+            // Repost indicator — tappable row that jumps to the original poster's profile
+            val repostedFromUsername = post.repostedFromUsername
+            if (!repostedFromUsername.isNullOrEmpty()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { onRepostedFromUserTap(repostedFromUsername) },
+                    ),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Repeat,
@@ -420,16 +445,22 @@ private fun PostDetailHeader(
                         tint = CorusColors.Secondary,
                     )
                     Text(
-                        text = "reposted from @${post.repostedFromUsername}",
+                        text = "reposted from",
                         style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                    )
+                    Text(
+                        text = "@$repostedFromUsername",
+                        style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
                         color = CorusColors.Secondary,
                     )
                 }
             }
         }
 
-        // Menu for own posts
-        if (isOwnPost) {
+        // Menu — shown if any action is available
+        val hasMenuActions = isOwnPost || showBackCoverOption
+        if (hasMenuActions) {
             Box {
                 Icon(
                     Icons.Filled.MoreHoriz,
@@ -447,20 +478,31 @@ private fun PostDetailHeader(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Edit Caption", style = CorusFont.body) },
-                        onClick = {
-                            showMenu = false
-                            onEditCaption()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete", style = CorusFont.body, color = CorusColors.Error) },
-                        onClick = {
-                            showMenu = false
-                            onDelete()
-                        },
-                    )
+                    if (showBackCoverOption) {
+                        DropdownMenuItem(
+                            text = { Text("View Back Cover", style = CorusFont.body) },
+                            onClick = {
+                                showMenu = false
+                                onViewBackCover()
+                            },
+                        )
+                    }
+                    if (isOwnPost) {
+                        DropdownMenuItem(
+                            text = { Text("Edit Caption", style = CorusFont.body) },
+                            onClick = {
+                                showMenu = false
+                                onEditCaption()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", style = CorusFont.body, color = CorusColors.Error) },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -472,6 +514,8 @@ private fun PostDetailAlbumArt(
     post: CymbalPost,
     isPreviewLoading: Boolean = false,
     isPreviewPlaying: Boolean = false,
+    flipState: fm.corus.android.ui.components.BackCoverFlipState =
+        fm.corus.android.ui.components.rememberBackCoverFlipState(),
     onDoubleTap: () -> Unit,
     onSongTap: () -> Unit,
 ) {
@@ -490,63 +534,145 @@ private fun PostDetailAlbumArt(
     }
 
     val aspectRatio = if (post.isMovie) 2f / 3f else 1f
+    val flipRotation by animateFloatAsState(
+        targetValue = if (flipState.isFlipped) 180f else 0f,
+        animationSpec = tween(durationMillis = 700),
+        label = "detailAlbumFlip",
+    )
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val cameraDistancePx = with(density) { 12.dp.toPx() } * 100f
+    val showFront = flipRotation <= 90f
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(aspectRatio)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onDoubleTap = {
-                        onDoubleTap()
-                        showHeart = true
-                    },
-                    onTap = { onSongTap() },
-                )
+            .graphicsLayer {
+                rotationY = flipRotation
+                cameraDistance = cameraDistancePx
             },
         contentAlignment = Alignment.Center,
     ) {
-        AsyncImage(
-            model = post.displayImageLargeURL ?: post.displayImageURL,
-            contentDescription = post.displayTitle,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-        )
-
-        // Preview loading/playing overlay (track posts only)
-        if (post.isTrack && (isPreviewLoading || isPreviewPlaying)) {
+        if (showFront) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.4f)),
+                    .pointerInput(flipState.isLoading) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                if (flipState.isLoading) return@detectTapGestures
+                                onDoubleTap()
+                                showHeart = true
+                            },
+                            onTap = {
+                                if (flipState.isLoading) return@detectTapGestures
+                                onSongTap()
+                            },
+                        )
+                    },
                 contentAlignment = Alignment.Center,
             ) {
-                if (isPreviewLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(40.dp),
-                        strokeWidth = 3.dp,
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Filled.Pause,
-                        contentDescription = "Pause",
-                        tint = Color.White,
-                        modifier = Modifier.size(52.dp),
-                    )
+                AsyncImage(
+                    model = post.displayImageLargeURL ?: post.displayImageURL,
+                    contentDescription = post.displayTitle,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+
+                // Back-cover loading overlay
+                if (flipState.isLoading) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.35f))
+                            .padding(CorusSpacing.lg),
+                        verticalArrangement = Arrangement.Bottom,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = "Finding back cover…",
+                            color = Color.White,
+                            style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
+                            modifier = Modifier.padding(bottom = CorusSpacing.xs),
+                        )
+                        LinearProgressIndicator(
+                            progress = { flipState.progress.value.coerceIn(0f, 1f) },
+                            color = Color.White,
+                            trackColor = Color.White.copy(alpha = 0.25f),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
+
+                // "No back cover available" banner
+                if (flipState.showNotFound) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "No back cover available",
+                            color = Color.White,
+                            style = CorusFont.body.copy(fontWeight = FontWeight.Medium),
+                        )
+                    }
+                }
+
+                // Preview loading/playing overlay (track posts only)
+                if (post.isTrack && (isPreviewLoading || isPreviewPlaying) && !flipState.isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (isPreviewLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(40.dp),
+                                strokeWidth = 3.dp,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.Pause,
+                                contentDescription = "Pause",
+                                tint = Color.White,
+                                modifier = Modifier.size(52.dp),
+                            )
+                        }
+                    }
+                }
+
+                // Heart animation overlay
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(80.dp)
+                        .alpha(heartAlpha),
+                    tint = Color.White,
+                )
+            }
+        } else {
+            // BACK FACE
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { rotationY = 180f }
+                    .pointerInput(post.id) {
+                        detectTapGestures(onTap = { flipState.flipBack() })
+                    },
+            ) {
+                AsyncImage(
+                    model = flipState.backCoverURL,
+                    contentDescription = "Album back cover",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
             }
         }
-
-        // Heart animation overlay
-        Icon(
-            imageVector = Icons.Filled.Favorite,
-            contentDescription = null,
-            modifier = Modifier
-                .size(80.dp)
-                .alpha(heartAlpha),
-            tint = Color.White,
-        )
     }
 }
 

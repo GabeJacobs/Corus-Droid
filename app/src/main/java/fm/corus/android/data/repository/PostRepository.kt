@@ -43,6 +43,12 @@ class PostRepository @Inject constructor(
             ?.also { postCache[it.id] = it }
     }
 
+    // ── Back Cover ──
+
+    suspend fun fetchBackCover(postId: String): String? {
+        return cloudFunctions.fetchBackCover(postId)
+    }
+
     // ── Profile posts ──
 
     suspend fun getProfilePosts(userId: String, viewerId: String, limit: Int = 30, lastTimestamp: Long? = null): List<CymbalPost> {
@@ -95,10 +101,6 @@ class PostRepository @Inject constructor(
             firestoreDataSource.updatePostVoiceNoteURL(postId, url)
         }
         return postId
-    }
-
-    suspend fun repostPost(userId: String, post: CymbalPost): String {
-        return firestoreDataSource.createRepost(userId, post)
     }
 
     suspend fun updateCaption(postId: String, caption: String) {

@@ -389,20 +389,4 @@ class NowPlayingManager @Inject constructor(
         _state.value = _state.value.copy(isPlaying = true)
     }
 
-    // Preview playback (separate from main player)
-    private var previewPlayer: ExoPlayer? = null
-
-    fun playPreview(url: String) {
-        stopPreview()
-        previewPlayer = ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(url))
-            prepare()
-            play()
-        }
-    }
-
-    fun stopPreview() {
-        previewPlayer?.release()
-        previewPlayer = null
-    }
 }

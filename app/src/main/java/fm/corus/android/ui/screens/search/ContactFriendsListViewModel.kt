@@ -1,38 +1,27 @@
-package fm.corus.android.ui.screens.findpeople
+package fm.corus.android.ui.screens.search
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalUser
-import fm.corus.android.data.model.SuggestedUserMatch
-import fm.corus.android.data.model.SuggestionReason
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.UserRepository
-import fm.corus.android.ui.navigation.SuggestedUsersListRoute
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class SuggestedUsersListViewModel @Inject constructor(
+class ContactFriendsListViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val authRepository: AuthRepository,
     private val firestoreDataSource: FirestoreDataSource,
-    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    val source: String = savedStateHandle.toRoute<SuggestedUsersListRoute>().source
-
-    private val _suggestions = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
-    val suggestions: StateFlow<List<SuggestedUserMatch>> = _suggestions.asStateFlow()
+    private val _contacts = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val contacts: StateFlow<List<CymbalUser>> = _contacts.asStateFlow()
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -40,9 +29,6 @@ class SuggestedUsersListViewModel @Inject constructor(
     // Follow state
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     private val _localFollowedIds = MutableStateFlow<Set<String>>(emptySet())
-
-    val followedIds: StateFlow<Set<String>> = combine(_followingIds, _localFollowedIds) { a, b -> a + b }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     init {
         val uid = authRepository.currentUserId
@@ -54,37 +40,16 @@ class SuggestedUsersListViewModel @Inject constructor(
             }
             viewModelScope.launch {
                 try {
-                    _suggestions.value = when (source) {
-                        "mutualConnections" -> loadMutualConnections(uid)
-                        "popular" -> loadPopularUsers(uid)
-                        else -> userRepository.getSuggestedUsers(uid)
+                    val phoneNumbers = firestoreDataSource.fetchSyncedContacts(uid)
+                    if (phoneNumbers.isNotEmpty()) {
+                        _contacts.value = firestoreDataSource.fetchUsersByPhoneNumbers(
+                            phoneNumbers,
+                            excludeIds = setOf(uid),
+                        )
                     }
                 } catch (_: Exception) { }
                 _isLoading.value = false
             }
-        }
-    }
-
-    private suspend fun loadMutualConnections(uid: String): List<SuggestedUserMatch> {
-        var mutuals = firestoreDataSource.fetchPrecomputedMutualConnections(uid, limit = 50)
-        if (mutuals.isEmpty()) {
-            val followingIds = firestoreDataSource.fetchFollowingIds(uid)
-            val excludeIds = followingIds + uid
-            mutuals = firestoreDataSource.fetchFriendsOfFriends(uid, excludeIds, limit = 50)
-        }
-        return mutuals.map { (user, names) ->
-            SuggestedUserMatch(
-                user = user,
-                matchData = null,
-                suggestionReason = SuggestionReason(mutualNames = names),
-            )
-        }
-    }
-
-    private suspend fun loadPopularUsers(uid: String): List<SuggestedUserMatch> {
-        val users = userRepository.fetchPopularUsers(limit = 50, excludeIds = setOf(uid))
-        return users.map { user ->
-            SuggestedUserMatch(user = user, matchData = null, suggestionReason = null)
         }
     }
 

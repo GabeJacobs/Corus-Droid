@@ -23,8 +23,8 @@ import javax.inject.Inject
 @HiltViewModel
 class CommentsViewModel @Inject constructor(
     private val postRepository: PostRepository,
-    private val authRepository: AuthRepository,
-    private val userRepository: UserRepository,
+    val authRepository: AuthRepository,
+    val userRepository: UserRepository,
     private val engagementManager: PostEngagementManager,
     val nowPlayingManager: NowPlayingManager,
     private val remoteConfigService: RemoteConfigService,

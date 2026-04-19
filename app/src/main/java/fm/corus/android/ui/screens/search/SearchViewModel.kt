@@ -1,4 +1,4 @@
-package fm.corus.android.ui.screens.findpeople
+package fm.corus.android.ui.screens.search
 
 import android.content.ContentResolver
 import android.provider.ContactsContract
@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class FindPeopleViewModel @Inject constructor(
+class SearchViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val authRepository: AuthRepository,
     private val exploreRepository: ExploreRepository,
@@ -169,7 +169,7 @@ class FindPeopleViewModel @Inject constructor(
                 try {
                     cloudFunctions.getSuggestedUsers(uid)
                 } catch (e: Exception) {
-                    Log.e("FindPeopleVM", "Failed to load suggested users", e)
+                    Log.e("SearchVM", "Failed to load suggested users", e)
                     emptyList()
                 }
             }
@@ -183,7 +183,7 @@ class FindPeopleViewModel @Inject constructor(
                         val excludeIds = followingIds + uid
                         mutuals = firestoreDataSource.fetchFriendsOfFriends(uid, excludeIds, limit = 20)
                     }
-                    Log.d("FindPeopleVM", "Mutual connections loaded: ${mutuals.size}")
+                    Log.d("SearchVM", "Mutual connections loaded: ${mutuals.size}")
                     mutuals.map { (user, names) ->
                         SuggestedUserMatch(
                             user = user,
@@ -192,16 +192,16 @@ class FindPeopleViewModel @Inject constructor(
                         )
                     }
                 } catch (e: Exception) {
-                    Log.e("FindPeopleVM", "Failed to load mutual connections", e)
+                    Log.e("SearchVM", "Failed to load mutual connections", e)
                     emptyList()
                 }
             }
 
             val musicMatches = musicMatchesDeferred.await()
             val socialMatches = mutualConnectionsDeferred.await()
-            Log.d("FindPeopleVM", "Music matches: ${musicMatches.size}, Social matches: ${socialMatches.size}")
+            Log.d("SearchVM", "Music matches: ${musicMatches.size}, Social matches: ${socialMatches.size}")
             for (m in musicMatches) {
-                Log.d("FindPeopleVM", "  CF user: ${m.user.username} cymbal=${m.user.cymbalCount} hasSim=${m.matchData?.hasSimilarityData} mutualNames=${m.suggestionReason?.mutualNames} artistsInCommon=${m.user.artistsInCommonCount}")
+                Log.d("SearchVM", "  CF user: ${m.user.username} cymbal=${m.user.cymbalCount} hasSim=${m.matchData?.hasSimilarityData} mutualNames=${m.suggestionReason?.mutualNames} artistsInCommon=${m.user.artistsInCommonCount}")
             }
 
             // Merge: music matches first, then social suggestions (dedup by user ID).
@@ -232,7 +232,7 @@ class FindPeopleViewModel @Inject constructor(
             try {
                 _trendingSongs.value = exploreRepository.fetchTrendingSongs()
             } catch (e: Exception) {
-                Log.e("FindPeopleVM", "Failed to load trending songs", e)
+                Log.e("SearchVM", "Failed to load trending songs", e)
             }
             _isTrendingLoading.value = false
         }
@@ -240,24 +240,24 @@ class FindPeopleViewModel @Inject constructor(
             try {
                 _trendingMovies.value = exploreRepository.fetchTrendingMovies()
             } catch (e: Exception) {
-                Log.e("FindPeopleVM", "Failed to load trending movies", e)
+                Log.e("SearchVM", "Failed to load trending movies", e)
             }
             _isTrendingMoviesLoading.value = false
         }
         viewModelScope.launch {
             try {
                 val musicBots = cloudFunctions.getBotSuggestions(uid, botType = "music")
-                Log.d("FindPeopleVM", "Music bots loaded: ${musicBots.size}")
+                Log.d("SearchVM", "Music bots loaded: ${musicBots.size}")
                 _curatedMusicBots.value = musicBots
             } catch (e: Exception) {
-                Log.e("FindPeopleVM", "Failed to load music bots", e)
+                Log.e("SearchVM", "Failed to load music bots", e)
             }
             try {
                 val filmBots = cloudFunctions.getBotSuggestions(uid, botType = "film")
-                Log.d("FindPeopleVM", "Film bots loaded: ${filmBots.size}")
+                Log.d("SearchVM", "Film bots loaded: ${filmBots.size}")
                 _curatedFilmBots.value = filmBots
             } catch (e: Exception) {
-                Log.e("FindPeopleVM", "Failed to load film bots", e)
+                Log.e("SearchVM", "Failed to load film bots", e)
             }
             _isBotsLoading.value = false
         }
@@ -272,10 +272,10 @@ class FindPeopleViewModel @Inject constructor(
                     limit = 10,
                     excludeIds = _followingIds.value + _localFollowedIds.value + uid,
                 )
-                Log.d("FindPeopleVM", "Popular users loaded: ${popular.size}")
+                Log.d("SearchVM", "Popular users loaded: ${popular.size}")
                 _popularUsers.value = popular
             } catch (e: Exception) {
-                Log.e("FindPeopleVM", "Failed to load popular users", e)
+                Log.e("SearchVM", "Failed to load popular users", e)
             }
             _isPopularLoading.value = false
         }
@@ -377,18 +377,18 @@ class FindPeopleViewModel @Inject constructor(
                     // Fire-and-forget: store contacts and notify (non-fatal if they fail)
                     launch {
                         try { firestoreDataSource.storeSyncedContacts(userId, phoneNumbers) }
-                        catch (e: Exception) { Log.w("FindPeopleVM", "storeSyncedContacts failed", e) }
+                        catch (e: Exception) { Log.w("SearchVM", "storeSyncedContacts failed", e) }
                     }
                     launch {
                         try { cloudFunctions.notifyContactsOnSync() }
-                        catch (e: Exception) { Log.w("FindPeopleVM", "notifyContactsOnSync failed", e) }
+                        catch (e: Exception) { Log.w("SearchVM", "notifyContactsOnSync failed", e) }
                     }
                     // Only the match lookup is essential for the UI
                     try {
                         _contactMatches.value =
                             firestoreDataSource.fetchUsersByPhoneNumbers(phoneNumbers, setOf(userId))
                     } catch (e: Exception) {
-                        Log.e("FindPeopleVM", "fetchUsersByPhoneNumbers failed", e)
+                        Log.e("SearchVM", "fetchUsersByPhoneNumbers failed", e)
                     }
                 }
             } catch (_: Exception) { }

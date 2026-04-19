@@ -38,8 +38,8 @@ class SongDetailViewModel @Inject constructor(
     private val _uniquePosterCount = MutableStateFlow<Int?>(null)
     val uniquePosterCount: StateFlow<Int?> = _uniquePosterCount.asStateFlow()
 
-    private val _isPlayingPreview = MutableStateFlow(false)
-    val isPlayingPreview: StateFlow<Boolean> = _isPlayingPreview.asStateFlow()
+    val nowPlayingState = nowPlayingManager.state
+    val previewLoadingTrackId = nowPlayingManager.loadingTrackId
 
     private var firstPosterId: String? = null
     private var paginationCursor: Long? = null
@@ -111,25 +111,28 @@ class SongDetailViewModel @Inject constructor(
         }
     }
 
-    fun togglePreview(previewUrl: String?) {
-        if (previewUrl == null) return
-        if (_isPlayingPreview.value) {
-            nowPlayingManager.stopPreview()
-            _isPlayingPreview.value = false
-        } else {
-            nowPlayingManager.playPreview(previewUrl)
-            _isPlayingPreview.value = true
+    fun togglePreview(
+        trackId: String,
+        trackName: String,
+        artistName: String,
+        albumArtURL: String?,
+        previewUrl: String?,
+        spotifyURI: String?,
+        spotifyWebURL: String?,
+        isrc: String?,
+    ) {
+        viewModelScope.launch {
+            nowPlayingManager.play(
+                trackId = trackId,
+                trackName = trackName,
+                artistName = artistName,
+                albumArtURL = albumArtURL,
+                previewUrl = previewUrl,
+                spotifyURI = spotifyURI,
+                spotifyWebURL = spotifyWebURL,
+                isrc = isrc,
+            )
         }
-    }
-
-    fun stopPreview() {
-        nowPlayingManager.stopPreview()
-        _isPlayingPreview.value = false
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        stopPreview()
     }
 
     private fun deduplicateByUser(posts: List<CymbalPost>): List<CymbalPost> {

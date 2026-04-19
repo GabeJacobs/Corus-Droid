@@ -1,4 +1,4 @@
-package fm.corus.android.ui.screens.findpeople
+package fm.corus.android.ui.screens.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

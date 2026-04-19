@@ -242,33 +242,35 @@ fun OtherProfileScreen(
                                     showMenu = false
                                 },
                             )
-                            HorizontalDivider()
-                            // Report
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Report",
-                                        style = CorusFont.body,
-                                        color = CorusColors.Error,
-                                    )
-                                },
-                                onClick = { showMenu = false },
-                            )
-                            // Block/Unblock
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (isBlocked) "Unblock" else "Block",
-                                        style = CorusFont.body,
-                                        color = CorusColors.Error,
-                                    )
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    if (isBlocked) viewModel.unblockUser(userId)
-                                    else viewModel.blockUser(userId)
-                                },
-                            )
+                            if (profile?.isBot != true) {
+                                HorizontalDivider()
+                                // Report
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            "Report",
+                                            style = CorusFont.body,
+                                            color = CorusColors.Error,
+                                        )
+                                    },
+                                    onClick = { showMenu = false },
+                                )
+                                // Block/Unblock
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (isBlocked) "Unblock" else "Block",
+                                            style = CorusFont.body,
+                                            color = CorusColors.Error,
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        if (isBlocked) viewModel.unblockUser(userId)
+                                        else viewModel.blockUser(userId)
+                                    },
+                                )
+                            }
                         }
                     }
                 },
@@ -634,30 +636,35 @@ fun OtherProfileScreen(
                                         .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
                                     contentAlignment = Alignment.Center,
                                 ) {
+                                    // Always render label to preserve button width
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+                                        modifier = Modifier.alpha(
+                                            if (!hasSongs) 0.35f
+                                            else if (isGeneratingPlaylist) 0f
+                                            else 1f
+                                        ),
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                            contentDescription = "Playlist",
+                                            modifier = Modifier.size(14.dp),
+                                            tint = CorusColors.Secondary,
+                                        )
+                                        Text(
+                                            text = "PLAYLIST",
+                                            style = CorusFont.button,
+                                            color = CorusColors.Secondary,
+                                            maxLines = 1,
+                                        )
+                                    }
                                     if (isGeneratingPlaylist) {
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(14.dp),
                                             strokeWidth = 2.dp,
                                             color = CorusColors.Secondary,
                                         )
-                                    } else {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
-                                                contentDescription = "Playlist",
-                                                modifier = Modifier.size(14.dp),
-                                                tint = CorusColors.Secondary,
-                                            )
-                                            Text(
-                                                text = "PLAYLIST",
-                                                style = CorusFont.button,
-                                                color = CorusColors.Secondary,
-                                                maxLines = 1,
-                                            )
-                                        }
                                     }
                                 }
                             }

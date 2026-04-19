@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
@@ -56,6 +57,8 @@ import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.ui.components.FilmSearchResultRow
+import fm.corus.android.ui.components.SkeletonFilmRow
+import fm.corus.android.ui.components.SkeletonSongRow
 import fm.corus.android.ui.components.TrophyCelebrationView
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.VoiceNoteRecorderView
@@ -90,6 +93,8 @@ fun ComposeScreen(
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val isLoadingTrending by viewModel.isLoadingTrending.collectAsState()
     val isLoadingPreSelection by viewModel.isLoadingPreSelection.collectAsState()
+    val repostedFromUsername by viewModel.repostedFromUsername.collectAsState()
+    val showRepostAttribution by viewModel.showRepostAttribution.collectAsState()
     var mediaType by remember { mutableStateOf(if (movieModeEnabled) MediaType.MOVIE else MediaType.TRACK) }
     var searchQuery by remember { mutableStateOf("") }
     var caption by remember { mutableStateOf(TextFieldValue("")) }
@@ -132,8 +137,8 @@ fun ComposeScreen(
                     .fillMaxWidth()
                     .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
             ) {
-                // Left: back chevron (only in compose mode, not when pre-selected)
-                if (hasSelection && preSelectedTrackId == null && preSelectedMovieId == null) {
+                // Left: back chevron (only in compose mode, not when pre-selected or reposting)
+                if (hasSelection && preSelectedTrackId == null && preSelectedMovieId == null && repostedFromUsername == null) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
@@ -264,6 +269,9 @@ fun ComposeScreen(
                         onAlbumArtTap = {
                             selectedTrack?.let { viewModel.togglePreview(it) }
                         },
+                        repostedFromUsername = repostedFromUsername,
+                        showRepostAttribution = showRepostAttribution,
+                        onShowRepostAttributionChange = { viewModel.setShowRepostAttribution(it) },
                     )
                 } else {
                     // Pre-selected track/movie is loading — show empty placeholder
@@ -412,20 +420,22 @@ private fun SearchModeContent(
         if (searchQuery.isNotEmpty()) {
             // ── Search results ──
             if (isSearching) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = CorusSpacing.lg),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = CorusColors.Accent,
-                        strokeWidth = 2.dp,
-                    )
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(8) { index ->
+                        if (mediaType == MediaType.MOVIE) {
+                            SkeletonFilmRow()
+                        } else {
+                            SkeletonSongRow()
+                        }
+                        if (index < 7) {
+                            HorizontalDivider(
+                                color = CorusColors.Divider,
+                                modifier = Modifier.padding(start = 72.dp),
+                            )
+                        }
+                    }
                 }
-            }
-
+            } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (mediaType == MediaType.MOVIE) {
                     itemsIndexed(filmResults) { index, movie ->
@@ -461,6 +471,7 @@ private fun SearchModeContent(
                         }
                     }
                 }
+            }
             }
         } else {
             // ── Trending content (when no search query) ──
@@ -868,6 +879,9 @@ private fun ComposeModeContent(
     isPreviewPlaying: Boolean = false,
     isPreviewLoading: Boolean = false,
     onAlbumArtTap: () -> Unit = {},
+    repostedFromUsername: String? = null,
+    showRepostAttribution: Boolean = true,
+    onShowRepostAttributionChange: (Boolean) -> Unit = {},
 ) {
     val imageURL = if (mediaType == MediaType.TRACK) (selectedTrack?.albumArtLargeURL ?: selectedTrack?.albumArtURL) else selectedMovie?.posterURL
     val title = if (mediaType == MediaType.TRACK) selectedTrack?.name.orEmpty() else selectedMovie?.title.orEmpty()
@@ -964,6 +978,40 @@ private fun ComposeModeContent(
                     color = CorusColors.Secondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        // ── Repost attribution toggle (only visible when reposting) ──
+        if (repostedFromUsername != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = CorusSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Repeat,
+                    contentDescription = null,
+                    tint = CorusColors.Text,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                Text(
+                    text = "Reposted from @${repostedFromUsername}",
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Switch(
+                    checked = showRepostAttribution,
+                    onCheckedChange = onShowRepostAttributionChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = CorusColors.Accent,
+                    ),
                 )
             }
         }

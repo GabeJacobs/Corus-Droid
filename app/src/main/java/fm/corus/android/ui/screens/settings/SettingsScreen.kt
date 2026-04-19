@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import fm.corus.android.BuildConfig
 import fm.corus.android.R
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.ui.unit.dp
@@ -236,34 +237,33 @@ fun SettingsScreen(
             )
 
             // "Who Can Message Me" menu row
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.TopEnd,
-            ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 SettingsNavRow(
                     icon = Icons.Outlined.Group,
                     title = "Who Can Message Me",
                     trailingText = whoCanMessageMe,
                     onClick = { showMessageMenu = true },
                 )
-                DropdownMenu(
-                    expanded = showMessageMenu,
-                    onDismissRequest = { showMessageMenu = false },
-                ) {
-                    listOf("Everyone", "My Followers", "People I Follow", "Nobody").forEach { option ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = option,
-                                    style = CorusFont.body,
-                                    color = if (option == whoCanMessageMe) CorusColors.Accent else CorusColors.Text,
-                                )
-                            },
-                            onClick = {
-                                whoCanMessageMe = option
-                                showMessageMenu = false
-                            },
-                        )
+                Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                    DropdownMenu(
+                        expanded = showMessageMenu,
+                        onDismissRequest = { showMessageMenu = false },
+                    ) {
+                        listOf("Everyone", "My Followers", "People I Follow", "Nobody").forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = option,
+                                        style = CorusFont.body,
+                                        color = if (option == whoCanMessageMe) CorusColors.Accent else CorusColors.Text,
+                                    )
+                                },
+                                onClick = {
+                                    whoCanMessageMe = option
+                                    showMessageMenu = false
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -433,7 +433,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
             Text(
-                text = "Corus v1.0.0",
+                text = "Corus v${BuildConfig.VERSION_NAME}",
                 style = CorusFont.caption,
                 color = CorusColors.Tertiary,
                 textAlign = TextAlign.Center,

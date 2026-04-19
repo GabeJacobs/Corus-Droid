@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -41,6 +42,8 @@ fun PostActionMenu(
     onDismiss: () -> Unit,
     onViewSongPage: () -> Unit = {},
     onViewFilmPage: () -> Unit = {},
+    onViewBackCover: () -> Unit = {},
+    showBackCoverOption: Boolean = false,
     onRepost: () -> Unit = {},
     onSharePost: () -> Unit = {},
     onCopyLink: () -> Unit = {},
@@ -103,6 +106,15 @@ fun PostActionMenu(
             )
         }
 
+        // View Back Cover (tracks only, when enabled via remote config)
+        if (!isMovie && showBackCoverOption) {
+            MenuRow(
+                icon = Icons.Filled.Album,
+                label = "View Back Cover",
+                onClick = { onViewBackCover(); onDismiss() },
+            )
+        }
+
         // Repost
         MenuRow(
             icon = Icons.Filled.Repeat,
@@ -124,9 +136,14 @@ fun PostActionMenu(
             onClick = { onCopyLink(); onDismiss() },
         )
 
-        HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(horizontal = CorusSpacing.lg))
+        val showOwnerActions = isMine
+        val showReportBlockActions = showPostReportBlockActions(isMine = isMine, authorIsBot = post.user.isBot)
 
-        if (isMine) {
+        if (showOwnerActions || showReportBlockActions) {
+            HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(horizontal = CorusSpacing.lg))
+        }
+
+        if (showOwnerActions) {
             // Edit Caption
             MenuRow(
                 icon = Icons.Filled.Edit,
@@ -141,7 +158,7 @@ fun PostActionMenu(
                 tint = CorusColors.Error,
                 onClick = { onDeletePost(); onDismiss() },
             )
-        } else {
+        } else if (showReportBlockActions) {
             // Report
             MenuRow(
                 icon = Icons.Filled.Flag,
@@ -159,6 +176,13 @@ fun PostActionMenu(
         }
     }
 }
+
+/**
+ * Whether the report/block actions should be shown in the post action menu.
+ * Bot-authored posts suppress these actions — there's no one to moderate.
+ */
+internal fun showPostReportBlockActions(isMine: Boolean, authorIsBot: Boolean): Boolean =
+    !isMine && !authorIsBot
 
 @Composable
 private fun MenuRow(

@@ -344,12 +344,12 @@ fun ProfileScreen(
                             StatItem(
                                 count = currentProfile.followerCount,
                                 label = "followers",
-                                onClick = { onNavigateToFollowList(currentProfile.id, false) },
+                                onClick = { onNavigateToFollowList(currentProfile.id, true) },
                             )
                             StatItem(
                                 count = currentProfile.followingCount,
                                 label = "following",
-                                onClick = { onNavigateToFollowList(currentProfile.id, true) },
+                                onClick = { onNavigateToFollowList(currentProfile.id, false) },
                             )
                         }
 

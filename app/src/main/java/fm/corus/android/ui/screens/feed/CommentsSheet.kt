@@ -1,7 +1,9 @@
 package fm.corus.android.ui.screens.feed
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
@@ -47,9 +51,12 @@ import coil3.request.ImageRequest
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.components.MentionSuggestionsList
+import fm.corus.android.ui.components.ReportContentType
+import fm.corus.android.ui.components.ReportSheet
 import fm.corus.android.ui.components.SkeletonCommentRow
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.TappableMentionText
+import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.components.applyMention
@@ -128,6 +135,7 @@ fun CommentsSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CommentsSheetContent(
     postId: String,
@@ -149,6 +157,7 @@ private fun CommentsSheetContent(
     var commentText by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
     var showGifPicker by remember { mutableStateOf(false) }
+    var reportingComment by remember { mutableStateOf<CymbalComment?>(null) }
     val maxChars = 700
     val showCounter = commentText.text.length >= 650
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
@@ -205,6 +214,24 @@ private fun CommentsSheetContent(
             },
             onDismiss = { showGifPicker = false },
         )
+    }
+
+    reportingComment?.let { comment ->
+        val reportSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { reportingComment = null },
+            sheetState = reportSheetState,
+            containerColor = CorusColors.Background,
+        ) {
+            ReportSheet(
+                contentType = ReportContentType.COMMENT,
+                contentId = comment.id,
+                authRepository = viewModel.authRepository,
+                userRepository = viewModel.userRepository,
+                analyticsService = viewModel.analyticsService,
+                onDismiss = { reportingComment = null },
+            )
+        }
     }
 
     Column(
@@ -281,6 +308,7 @@ private fun CommentsSheetContent(
                             onLikeTap = { viewModel.toggleCommentLike(comment.id) },
                             onDeleteTap = { viewModel.deleteComment(comment.id) },
                             onEditTap = { viewModel.startEditing(comment) },
+                            onReportTap = { reportingComment = comment },
                             onMentionTap = handleMentionTap,
                         )
                     }
@@ -300,6 +328,7 @@ private fun CommentsSheetContent(
                                 onLikeTap = { viewModel.toggleCommentLike(reply.id) },
                                 onDeleteTap = { viewModel.deleteComment(reply.id) },
                                 onEditTap = { viewModel.startEditing(reply) },
+                                onReportTap = { reportingComment = reply },
                                 onMentionTap = handleMentionTap,
                             )
                         }
@@ -524,6 +553,7 @@ private fun CaptionRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CommentRow(
     comment: CymbalComment,
@@ -535,9 +565,14 @@ private fun CommentRow(
     onLikeTap: () -> Unit = {},
     onDeleteTap: () -> Unit = {},
     onEditTap: () -> Unit = {},
+    onReportTap: () -> Unit = {},
     onMentionTap: (String) -> Unit = {},
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showContextMenu by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+    val canCopy = comment.text.isNotEmpty()
+    val canLongPress = canCopy || !isOwnComment
 
     if (showDeleteConfirm) {
         AlertDialog(
@@ -562,6 +597,14 @@ private fun CommentRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (canLongPress) Modifier.combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                    onLongClick = { showContextMenu = true },
+                ) else Modifier
+            )
             .padding(
                 start = if (isReply) CorusSpacing.xxxl + CorusSpacing.lg else CorusSpacing.lg,
                 end = CorusSpacing.lg,
@@ -569,6 +612,31 @@ private fun CommentRow(
                 bottom = CorusSpacing.sm,
             ),
     ) {
+        DropdownMenu(
+            expanded = showContextMenu,
+            onDismissRequest = { showContextMenu = false },
+        ) {
+            if (canCopy) {
+                DropdownMenuItem(
+                    text = { Text("Copy", style = CorusFont.body, color = CorusColors.Text) },
+                    onClick = {
+                        showContextMenu = false
+                        clipboardManager.setText(AnnotatedString(comment.text))
+                        ToastManager.show("Copied")
+                    },
+                )
+            }
+            if (!isOwnComment) {
+                DropdownMenuItem(
+                    text = { Text("Report", style = CorusFont.body, color = CorusColors.Error) },
+                    onClick = {
+                        showContextMenu = false
+                        onReportTap()
+                    },
+                )
+            }
+        }
+
         UserAvatarView(
             avatarURL = comment.user.avatarURL,
             displayName = comment.user.displayName,

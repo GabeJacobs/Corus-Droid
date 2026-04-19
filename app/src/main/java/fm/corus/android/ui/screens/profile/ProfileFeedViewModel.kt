@@ -15,6 +15,7 @@ import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.ToastManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -45,8 +46,13 @@ class ProfileFeedViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val engagementManager: PostEngagementManager,
     val nowPlayingManager: NowPlayingManager,
+    val remoteConfig: RemoteConfigService,
     val analyticsService: AnalyticsService,
 ) : ViewModel() {
+
+    suspend fun fetchBackCover(postId: String): String? {
+        return postRepository.fetchBackCover(postId)
+    }
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
@@ -290,11 +296,6 @@ class ProfileFeedViewModel @Inject constructor(
     fun toggleSave(postId: String) {
         val userId = authRepository.currentUserId ?: return
         engagementManager.toggleSave(postId, userId)
-    }
-
-    fun repostPost(post: CymbalPost) {
-        val userId = authRepository.currentUserId ?: return
-        engagementManager.repostPost(post, userId)
     }
 
     fun deletePost(postId: String) {

@@ -1,4 +1,4 @@
-package fm.corus.android.ui.screens.findpeople
+package fm.corus.android.ui.screens.search
 
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -64,6 +64,8 @@ import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.SkeletonFilmRow
+import fm.corus.android.ui.components.SkeletonSearchSongRow
+import fm.corus.android.ui.components.SkeletonSearchUserRow
 import fm.corus.android.ui.components.SkeletonTrendingFilmRow
 import fm.corus.android.ui.components.SkeletonTrendingSongRow
 import fm.corus.android.ui.components.SkeletonTasteMatchCard
@@ -83,8 +85,8 @@ enum class SearchTab(val label: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FindPeopleScreen(
-    viewModel: FindPeopleViewModel = hiltViewModel(),
+fun SearchScreen(
+    viewModel: SearchViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
@@ -219,7 +221,7 @@ fun FindPeopleScreen(
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
         // Tab bar
-        FindPeopleTabBar(
+        SearchTabBar(
             selectedTab = activeTab,
             onTabSelected = { viewModel.setActiveTab(it.ordinal) },
         )
@@ -368,7 +370,7 @@ private fun SearchBarSection(
 }
 
 @Composable
-private fun FindPeopleTabBar(
+private fun SearchTabBar(
     selectedTab: SearchTab,
     onTabSelected: (SearchTab) -> Unit,
 ) {
@@ -512,7 +514,7 @@ private fun SuggestedUsersContent(
     isPopularLoading: Boolean,
     isSuggestedLoading: Boolean,
     isBotsLoading: Boolean,
-    viewModel: FindPeopleViewModel,
+    viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
     onNavigateToBotList: (String?) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
@@ -885,19 +887,12 @@ private fun UserSearchResults(
     listState: LazyListState = rememberLazyListState(),
     results: List<CymbalUser>,
     isSearching: Boolean,
-    viewModel: FindPeopleViewModel,
+    viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
 ) {
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
         if (isSearching && results.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(CorusSpacing.xxl),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(color = CorusColors.Accent)
-                }
-            }
+            items(6) { SkeletonSearchUserRow() }
         } else if (results.isEmpty()) {
             item {
                 Text(
@@ -1149,8 +1144,13 @@ private fun SongSearchResultsList(
     onSongTap: (CymbalTrack) -> Unit,
 ) {
     if (isSearching && tracks.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = CorusColors.Accent)
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
+            items(8) { index ->
+                SkeletonSearchSongRow()
+                if (index < 7) {
+                    HorizontalDivider(modifier = Modifier.padding(start = 84.dp), color = CorusColors.Divider, thickness = 0.5.dp)
+                }
+            }
         }
     } else if (tracks.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1161,7 +1161,7 @@ private fun SongSearchResultsList(
             itemsIndexed(tracks) { index, track ->
                 SongSearchRow(track = track, onClick = { onSongTap(track) })
                 if (index < tracks.lastIndex) {
-                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
+                    HorizontalDivider(modifier = Modifier.padding(start = 84.dp), color = CorusColors.Divider, thickness = 0.5.dp)
                 }
             }
         }
@@ -1176,18 +1176,28 @@ private fun SongSearchRow(track: CymbalTrack, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
             .heightIn(min = CorusSpacing.touchTarget),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
             model = track.albumArtURL,
             contentDescription = track.name,
-            modifier = Modifier.size(CorusSpacing.albumArtSearch).clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+            modifier = Modifier.size(CorusSpacing.albumArtThumbnail).clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
             contentScale = ContentScale.Crop,
         )
-        Spacer(modifier = Modifier.width(CorusSpacing.md))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(track.name, style = CorusFont.songTitle, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(track.artistName, style = CorusFont.artistName, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+        ) {
+            Text(track.name, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(track.artistName, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (track.durationMs > 0) {
+            Text(
+                track.formattedDuration,
+                style = CorusFont.caption.copy(fontFeatureSettings = "tnum"),
+                color = CorusColors.Tertiary,
+            )
         }
     }
 }
@@ -1202,8 +1212,13 @@ private fun FilmSearchResultsList(
     onFilmTap: (FilmDetailRoute) -> Unit,
 ) {
     if (isSearching && movies.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = CorusColors.Accent)
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
+            items(8) { index ->
+                SkeletonFilmRow()
+                if (index < 7) {
+                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
+                }
+            }
         }
     } else if (movies.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1250,7 +1265,7 @@ internal fun formatMutualFollowersText(names: List<String>?): String? {
 @Composable
 private fun BotGrid(
     bots: List<SuggestedUserMatch>,
-    viewModel: FindPeopleViewModel,
+    viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
 ) {
     val rows = bots.chunked(2)

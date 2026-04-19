@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -87,8 +88,11 @@ fun PostCard(
     onHashtagTap: (String) -> Unit = {},
     trackPostCount: Int = post.trackPostCount ?: 0,
     onSongCountTap: () -> Unit = {},
+    viewBackCoverRequestKey: Int = 0,
+    onFetchBackCover: suspend (String) -> String? = { null },
     onFilmPageTap: () -> Unit = {},
     onVoiceNotePlayed: () -> Unit = {},
+    onRepostedFromUserTap: (String) -> Unit = {},
     hideComments: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
@@ -96,6 +100,13 @@ fun PostCard(
     val heartAlpha = remember { Animatable(0f) }
     var showDoubleTapHeart by remember { mutableStateOf(false) }
     var showFilmOverlay by remember { mutableStateOf(false) }
+    val flipState = rememberBackCoverFlipState()
+
+    LaunchedEffect(viewBackCoverRequestKey) {
+        if (viewBackCoverRequestKey > 0) {
+            scope.launchBackCoverFlip(flipState, post.id, onFetchBackCover)
+        }
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -133,11 +144,17 @@ fun PostCard(
                     color = CorusColors.Text,
                 )
 
-                // Repost indicator
-                if (!post.repostedFromUsername.isNullOrEmpty()) {
+                // Repost indicator — tappable row that jumps to the original poster's profile
+                val repostedFromUsername = post.repostedFromUsername
+                if (!repostedFromUsername.isNullOrEmpty()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { onRepostedFromUserTap(repostedFromUsername) },
+                        ),
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Repeat,
@@ -151,8 +168,8 @@ fun PostCard(
                             color = CorusColors.Secondary,
                         )
                         Text(
-                            text = "@${post.repostedFromUsername}",
-                            style = CorusFont.captionMedium,
+                            text = "@$repostedFromUsername",
+                            style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
                             color = CorusColors.Secondary,
                         )
                     }
@@ -175,70 +192,132 @@ fun PostCard(
 
         // 2. ALBUM ART / MOVIE POSTER: full-bleed, no corner radius, double-tap to like
         val aspectRatio = if (post.isMovie) 2f / 3f else 1f
+        val flipRotation by androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (flipState.isFlipped) 180f else 0f,
+            animationSpec = tween(durationMillis = 700),
+            label = "albumFlip",
+        )
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val cameraDistancePx = with(density) { 12.dp.toPx() } * 100f
+        val showFront = flipRotation <= 90f
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(aspectRatio)
-                .pointerInput(post.id, post.isTrack, post.isMovie) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            if (!isLiked) onLikeTap()
-                            showDoubleTapHeart = true
-                            scope.launch {
-                                heartScale.snapTo(0f)
-                                heartAlpha.snapTo(1f)
-                                heartScale.animateTo(1f, animationSpec = tween(300))
-                                kotlinx.coroutines.delay(400)
-                                heartAlpha.animateTo(0f, animationSpec = tween(300))
-                                showDoubleTapHeart = false
-                            }
-                        },
-                        onTap = {
-                            when {
-                                post.isTrack -> onPreviewTap()
-                                post.isMovie -> showFilmOverlay = !showFilmOverlay
-                                else -> onPostTap()
-                            }
-                        },
-                    )
+                .graphicsLayer {
+                    rotationY = flipRotation
+                    cameraDistance = cameraDistancePx
                 },
             contentAlignment = Alignment.Center,
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(post.displayImageLargeURL ?: post.displayImageURL)
-                    .crossfade(true)
-                    .size(if (post.isMovie) Size(780, 1170) else Size(640, 640))
-                    .build(),
-                contentDescription = post.displayTitle,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-
-            // Preview loading/playing overlay (track posts only)
-            if (post.isTrack && (isPreviewLoading || isPreviewPlaying)) {
+            if (showFront) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.4f)),
+                        .pointerInput(post.id, post.isTrack, post.isMovie, flipState.isLoading) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    if (flipState.isLoading) return@detectTapGestures
+                                    if (!isLiked) onLikeTap()
+                                    showDoubleTapHeart = true
+                                    scope.launch {
+                                        heartScale.snapTo(0f)
+                                        heartAlpha.snapTo(1f)
+                                        heartScale.animateTo(1f, animationSpec = tween(300))
+                                        kotlinx.coroutines.delay(400)
+                                        heartAlpha.animateTo(0f, animationSpec = tween(300))
+                                        showDoubleTapHeart = false
+                                    }
+                                },
+                                onTap = {
+                                    if (flipState.isLoading) return@detectTapGestures
+                                    when {
+                                        post.isTrack -> onPreviewTap()
+                                        post.isMovie -> showFilmOverlay = !showFilmOverlay
+                                        else -> onPostTap()
+                                    }
+                                },
+                            )
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (isPreviewLoading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(40.dp),
-                            strokeWidth = 3.dp,
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Filled.Pause,
-                            contentDescription = "Pause",
-                            tint = Color.White,
-                            modifier = Modifier.size(52.dp),
-                        )
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(post.displayImageLargeURL ?: post.displayImageURL)
+                            .crossfade(true)
+                            .size(if (post.isMovie) Size(780, 1170) else Size(640, 640))
+                            .build(),
+                        contentDescription = post.displayTitle,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+
+                    // Back-cover loading overlay
+                    if (flipState.isLoading) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.35f))
+                                .padding(CorusSpacing.lg),
+                            verticalArrangement = Arrangement.Bottom,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                text = "Finding back cover…",
+                                color = Color.White,
+                                style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
+                                modifier = Modifier.padding(bottom = CorusSpacing.xs),
+                            )
+                            androidx.compose.material3.LinearProgressIndicator(
+                                progress = { flipState.progress.value.coerceIn(0f, 1f) },
+                                color = Color.White,
+                                trackColor = Color.White.copy(alpha = 0.25f),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
-                }
-            }
+
+                    // "No back cover available" banner
+                    if (flipState.showNotFound) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.5f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "No back cover available",
+                                color = Color.White,
+                                style = CorusFont.body.copy(fontWeight = FontWeight.Medium),
+                            )
+                        }
+                    }
+
+                    // Preview loading/playing overlay (track posts only)
+                    if (post.isTrack && (isPreviewLoading || isPreviewPlaying) && !flipState.isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.4f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (isPreviewLoading) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(40.dp),
+                                    strokeWidth = 3.dp,
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Pause,
+                                    contentDescription = "Pause",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(52.dp),
+                                )
+                            }
+                        }
+                    }
 
             // Film overlay with action buttons
             androidx.compose.animation.AnimatedVisibility(
@@ -339,6 +418,29 @@ fun PostCard(
                         .scale(heartScale.value)
                         .alpha(heartAlpha.value),
                 )
+            }
+                }
+            } else {
+                // BACK FACE: counter-rotate so the image isn't mirrored; tap to flip back
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { rotationY = 180f }
+                        .pointerInput(post.id) {
+                            detectTapGestures(onTap = { flipState.flipBack() })
+                        },
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(flipState.backCoverURL)
+                            .crossfade(true)
+                            .size(Size(640, 640))
+                            .build(),
+                        contentDescription = "Album back cover",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
             }
         }
 

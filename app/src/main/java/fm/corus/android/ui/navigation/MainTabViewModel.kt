@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
+import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.domain.NowPlayingManager
@@ -70,10 +71,20 @@ class MainTabViewModel @Inject constructor(
         _preSelectedMovieId.value = movieId
     }
 
+    // Repost context — when non-null, MainTabScreen opens ComposeScreen with this
+    // post's media pre-selected and the attribution toggle visible.
+    private val _repostOriginalPost = MutableStateFlow<CymbalPost?>(null)
+    val repostOriginalPost: StateFlow<CymbalPost?> = _repostOriginalPost.asStateFlow()
+
+    fun setRepostOriginalPost(post: CymbalPost?) {
+        _repostOriginalPost.value = post
+    }
+
     /** Called after compose overlay closes to clear any pre-selection. */
     fun clearPreSelectedMedia() {
         _preSelectedTrackId.value = null
         _preSelectedMovieId.value = null
+        _repostOriginalPost.value = null
     }
 
     private val _showMilestonePaywall = MutableStateFlow(false)

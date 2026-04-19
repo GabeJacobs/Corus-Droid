@@ -55,6 +55,7 @@ fun FeedScreen(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToBotList: (String?) -> Unit = {},
+    onRepost: (CymbalPost) -> Unit = {},
 ) {
     val posts by viewModel.filteredPosts.collectAsState()
     val allPosts by viewModel.posts.collectAsState()
@@ -76,6 +77,7 @@ fun FeedScreen(
     val feedMediaFilter by viewModel.feedMediaFilter.collectAsState()
     val curatedMusicBots by viewModel.curatedMusicBots.collectAsState()
     val curatedFilmBots by viewModel.curatedFilmBots.collectAsState()
+    val followedBotIds by viewModel.followedBotIds.collectAsState()
     val isBotsLoading by viewModel.isBotsLoading.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
@@ -85,6 +87,7 @@ fun FeedScreen(
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<CymbalPost?>(null) }
+    var backCoverRequests by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var filmInfoPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showClubOffer by remember { mutableStateOf(false) }
 
@@ -271,6 +274,7 @@ fun FeedScreen(
                             Spacer(modifier = Modifier.height(CorusSpacing.md))
                             FeedBotGrid(
                                 bots = curatedMusicBots.take(2),
+                                followedIds = followedBotIds,
                                 viewModel = viewModel,
                                 onNavigateToUser = onNavigateToUser,
                             )
@@ -293,6 +297,7 @@ fun FeedScreen(
                             Spacer(modifier = Modifier.height(CorusSpacing.md))
                             FeedBotGrid(
                                 bots = curatedFilmBots.take(2),
+                                followedIds = followedBotIds,
                                 viewModel = viewModel,
                                 onNavigateToUser = onNavigateToUser,
                             )
@@ -382,6 +387,7 @@ fun FeedScreen(
                                     }
                                 },
                                 onMentionTap = { username -> onNavigateToUserByUsername(username) },
+                                onRepostedFromUserTap = { username -> onNavigateToUserByUsername(username) },
                                 onHashtagTap = { hashtag ->
                                     viewModel.analyticsService.logTrendingHashtagTapped(hashtag)
                                     onNavigateToHashtag(hashtag)
@@ -394,6 +400,8 @@ fun FeedScreen(
                                     }
                                 },
                                 onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
+                                viewBackCoverRequestKey = backCoverRequests[post.id] ?: 0,
+                                onFetchBackCover = { viewModel.fetchBackCover(it) },
                             )
                             HorizontalDivider(
                                 color = CorusColors.Divider,
@@ -457,9 +465,8 @@ fun FeedScreen(
                     sharePost = null
                 },
                 onRepost = {
-                    viewModel.repostPost(post)
-                    ToastManager.show("Reposted!")
                     sharePost = null
+                    onRepost(post)
                 },
                 onDismiss = { sharePost = null },
                 onAnalyticsLog = { method ->
@@ -491,9 +498,11 @@ fun FeedScreen(
                 onDismiss = { menuPost = null },
                 onViewSongPage = { onNavigateToSong(post.track) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
-                onRepost = {
-                    viewModel.repostPost(post)
+                showBackCoverOption = viewModel.remoteConfig.vinylFlipEnabled,
+                onViewBackCover = {
+                    backCoverRequests = backCoverRequests + (post.id to ((backCoverRequests[post.id] ?: 0) + 1))
                 },
+                onRepost = { onRepost(post) },
                 onSharePost = { sharePost = post },
                 onCopyLink = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -613,6 +622,7 @@ private fun DividerSectionHeader(text: String) {
 @Composable
 private fun FeedBotGrid(
     bots: List<SuggestedUserMatch>,
+    followedIds: Set<String>,
     viewModel: FeedViewModel,
     onNavigateToUser: (CymbalUser) -> Unit,
 ) {
@@ -631,7 +641,7 @@ private fun FeedBotGrid(
                 rowBots.forEach { match ->
                     TasteMatchCard(
                         match = match,
-                        isFollowing = viewModel.isBotFollowed(match.user.id),
+                        isFollowing = followedIds.contains(match.user.id),
                         onUserTap = { onNavigateToUser(match.user) },
                         onFollowTap = { viewModel.toggleBotFollow(match.user) },
                         modifier = Modifier.weight(1f),

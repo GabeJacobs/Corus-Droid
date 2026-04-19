@@ -2,18 +2,18 @@ package fm.corus.android.ui.screens.feed
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -61,7 +61,8 @@ fun SongDetailScreen(
     val hasMore by viewModel.hasMore.collectAsState()
     val loadError by viewModel.loadError.collectAsState()
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
-    val isPlayingPreview by viewModel.isPlayingPreview.collectAsState()
+    val nowPlayingState by viewModel.nowPlayingState.collectAsState()
+    val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
     val context = LocalContext.current
 
     // Use route metadata immediately, upgrade to post data when available
@@ -72,13 +73,14 @@ fun SongDetailScreen(
     val effectiveSpotifyURI = songInfo?.track?.spotifyURI ?: spotifyURI ?: ""
     val effectiveSpotifyWebURL = songInfo?.track?.spotifyWebURL ?: spotifyWebURL ?: ""
     val effectivePreviewUrl = songInfo?.track?.previewUrl ?: previewUrl
+    val effectiveIsrc = songInfo?.track?.isrc
+
+    val isPlayingThisTrack = nowPlayingState.trackId == trackId && nowPlayingState.isPlaying
+    val isLoadingThisTrack = previewLoadingTrackId == trackId
+    val showScrim = isPlayingThisTrack || isLoadingThisTrack
 
     LaunchedEffect(trackId) {
         viewModel.loadSongPosts(trackId)
-    }
-
-    DisposableEffect(Unit) {
-        onDispose { viewModel.stopPreview() }
     }
 
     Scaffold(
@@ -106,8 +108,28 @@ fun SongDetailScreen(
                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
                 if (artUrl != null) {
-                    // Album art with preview play button overlay
+                    val scrimAlpha by animateFloatAsState(
+                        targetValue = if (showScrim) 1f else 0f,
+                        animationSpec = tween(durationMillis = 200),
+                        label = "previewScrim",
+                    )
                     Box(
+                        modifier = Modifier
+                            .size(200.dp)
+                            .shadow(4.dp, RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                viewModel.togglePreview(
+                                    trackId = trackId,
+                                    trackName = displayName ?: "",
+                                    artistName = displayArtist ?: "",
+                                    albumArtURL = artUrl,
+                                    previewUrl = effectivePreviewUrl,
+                                    spotifyURI = effectiveSpotifyURI.ifBlank { null },
+                                    spotifyWebURL = effectiveSpotifyWebURL.ifBlank { null },
+                                    isrc = effectiveIsrc,
+                                )
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
                         AsyncImage(
@@ -116,28 +138,28 @@ fun SongDetailScreen(
                                 .crossfade(true)
                                 .build(),
                             contentDescription = displayName,
-                            modifier = Modifier
-                                .size(200.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .shadow(4.dp, RoundedCornerShape(8.dp)),
+                            modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop,
                         )
 
-                        if (effectivePreviewUrl != null) {
-                            IconButton(
-                                onClick = { viewModel.togglePreview(effectivePreviewUrl) },
+                        if (scrimAlpha > 0f) {
+                            Box(
                                 modifier = Modifier
-                                    .size(56.dp)
-                                    .background(
-                                        Color.Black.copy(alpha = 0.5f),
-                                        CircleShape,
-                                    ),
-                            ) {
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.4f * scrimAlpha)),
+                            )
+                            if (isLoadingThisTrack) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    strokeWidth = 3.dp,
+                                    modifier = Modifier.size(40.dp),
+                                )
+                            } else if (isPlayingThisTrack) {
                                 Icon(
-                                    imageVector = if (isPlayingPreview) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                    contentDescription = if (isPlayingPreview) "Pause preview" else "Play preview",
+                                    imageVector = Icons.Filled.Pause,
+                                    contentDescription = "Pause preview",
                                     tint = Color.White,
-                                    modifier = Modifier.size(32.dp),
+                                    modifier = Modifier.size(40.dp),
                                 )
                             }
                         }

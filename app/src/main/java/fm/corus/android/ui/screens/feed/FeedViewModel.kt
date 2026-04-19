@@ -108,6 +108,11 @@ class FeedViewModel @Inject constructor(
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     private val _localFollowedIds = MutableStateFlow<Set<String>>(emptySet())
 
+    // Union of remote-observed + local-optimistic follow IDs, observable from Compose.
+    val followedBotIds: StateFlow<Set<String>> =
+        combine(_followingIds, _localFollowedIds) { remote, local -> remote + local }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
     // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
     private val activeListenerPostIds = mutableSetOf<String>()
 
@@ -224,11 +229,6 @@ class FeedViewModel @Inject constructor(
     fun toggleSave(postId: String) {
         val userId = authRepository.currentUserId ?: return
         engagementManager.toggleSave(postId, userId)
-    }
-
-    fun repostPost(post: CymbalPost) {
-        val userId = authRepository.currentUserId ?: return
-        engagementManager.repostPost(post, userId)
     }
 
     // ── Share contacts & search ──
@@ -376,6 +376,10 @@ class FeedViewModel @Inject constructor(
         return post.user.id == authRepository.currentUserId
     }
 
+    suspend fun fetchBackCover(postId: String): String? {
+        return postRepository.fetchBackCover(postId)
+    }
+
     fun isPostSaved(postId: String): Boolean {
         return engagementManager.getState(postId)?.isSaved ?: false
     }
@@ -423,10 +427,6 @@ class FeedViewModel @Inject constructor(
                 }
             }
         }
-    }
-
-    fun isBotFollowed(userId: String): Boolean {
-        return _localFollowedIds.value.contains(userId) || _followingIds.value.contains(userId)
     }
 
     suspend fun fetchMovieDetails(movieId: Int): TMDBMovieDetails? {

@@ -109,18 +109,19 @@ fun MainTabScreen(
     // Observe pre-selected media IDs for compose-with-preselection flow.
     val preSelectedTrackId by viewModel.preSelectedTrackId.collectAsState()
     val preSelectedMovieId by viewModel.preSelectedMovieId.collectAsState()
+    val repostOriginalPost by viewModel.repostOriginalPost.collectAsState()
 
     // Each tab gets its own NavController to preserve back stack
     val feedNavController = rememberNavController()
-    val exploreNavController = rememberNavController()
+    val searchNavController = rememberNavController()
     val notificationsNavController = rememberNavController()
     val profileNavController = rememberNavController()
 
     // Map for tab-based navigation from overlay sheets
-    val navControllers = remember(feedNavController, exploreNavController, notificationsNavController, profileNavController) {
+    val navControllers = remember(feedNavController, searchNavController, notificationsNavController, profileNavController) {
         mapOf(
             CorusTab.FEED to feedNavController,
-            CorusTab.EXPLORE to exploreNavController,
+            CorusTab.EXPLORE to searchNavController,
             CorusTab.NOTIFICATIONS to notificationsNavController,
             CorusTab.PROFILE to profileNavController,
         )
@@ -145,10 +146,19 @@ fun MainTabScreen(
             showCompose = true
         } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
     }
+    LaunchedEffect(repostOriginalPost) {
+        val original = repostOriginalPost ?: return@LaunchedEffect
+        if (viewModel.subscriptionRepository.canPost) {
+            composeViewModel.reset()
+            composeViewModel.setRepostContext(original)
+            composeMovieMode = original.isMovie
+            showCompose = true
+        } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
+    }
 
     // Scroll-to-top triggers: increment to signal a root screen should scroll up
     val feedScrollToTop = remember { mutableIntStateOf(0) }
-    val exploreScrollToTop = remember { mutableIntStateOf(0) }
+    val searchScrollToTop = remember { mutableIntStateOf(0) }
     val notificationsScrollToTop = remember { mutableIntStateOf(0) }
     val profileScrollToTop = remember { mutableIntStateOf(0) }
 
@@ -220,7 +230,7 @@ fun MainTabScreen(
                                 // Already at root — scroll to top
                                 when (tab) {
                                     CorusTab.FEED -> feedScrollToTop.intValue++
-                                    CorusTab.EXPLORE -> exploreScrollToTop.intValue++
+                                    CorusTab.EXPLORE -> searchScrollToTop.intValue++
                                     CorusTab.NOTIFICATIONS -> notificationsScrollToTop.intValue++
                                     CorusTab.PROFILE -> profileScrollToTop.intValue++
                                     else -> {}
@@ -255,7 +265,7 @@ fun MainTabScreen(
                 FeedNavGraph(navController = feedNavController, mainTabViewModel = viewModel, scrollToTopTrigger = feedScrollToTop.intValue)
             }
             TabContent(visible = selectedTab == CorusTab.EXPLORE) {
-                ExploreNavGraph(navController = exploreNavController, mainTabViewModel = viewModel, scrollToTopTrigger = exploreScrollToTop.intValue)
+                SearchNavGraph(navController = searchNavController, mainTabViewModel = viewModel, scrollToTopTrigger = searchScrollToTop.intValue)
             }
             TabContent(visible = selectedTab == CorusTab.NOTIFICATIONS) {
                 NotificationsNavGraph(navController = notificationsNavController, mainTabViewModel = viewModel, scrollToTopTrigger = notificationsScrollToTop.intValue)

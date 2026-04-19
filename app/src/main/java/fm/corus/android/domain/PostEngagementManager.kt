@@ -212,33 +212,12 @@ class PostEngagementManager @Inject constructor(
         }
     }
 
-    fun repostPost(post: CymbalPost, userId: String) {
-        // Optimistic UI: increment repost count on the original post
+    /** Optimistically bumps the repost count on the original post. Called
+     *  by ComposeViewModel after a successful repost-with-caption post. */
+    fun incrementRepostCount(postId: String) {
         _states.update { map ->
-            val current = map[post.id] ?: return@update map
-            map + (post.id to current.copy(repostCount = current.repostCount + 1))
-        }
-
-        scope.launch {
-            try {
-                postRepository.repostPost(userId, post)
-                // Send repost notification (matches iOS)
-                try {
-                    postRepository.createNotification(
-                        type = "repost",
-                        fromUserId = userId,
-                        toUserId = post.user.id,
-                        postId = post.id,
-                        postAlbumArtURL = post.displayImageURL,
-                    )
-                } catch (_: Exception) { }
-            } catch (e: Exception) {
-                // Rollback on failure
-                _states.update { map ->
-                    val current = map[post.id] ?: return@update map
-                    map + (post.id to current.copy(repostCount = (current.repostCount - 1).coerceAtLeast(0)))
-                }
-            }
+            val current = map[postId] ?: return@update map
+            map + (postId to current.copy(repostCount = current.repostCount + 1))
         }
     }
 

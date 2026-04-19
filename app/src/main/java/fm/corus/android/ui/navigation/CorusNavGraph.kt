@@ -8,7 +8,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
-import fm.corus.android.ui.screens.explore.ExploreScreen
 import fm.corus.android.ui.screens.explore.HashtagFeedScreen
 import fm.corus.android.ui.screens.feed.CommentsBottomSheet
 import fm.corus.android.ui.screens.feed.CommentsSheet
@@ -32,18 +31,18 @@ import fm.corus.android.ui.screens.settings.MutedUsersScreen
 import fm.corus.android.ui.screens.settings.ChangePhoneNumberScreen
 import fm.corus.android.ui.screens.settings.ChangeUsernameScreen
 import fm.corus.android.ui.screens.settings.FeedbackFormScreen
-import fm.corus.android.ui.screens.findpeople.BotListScreen
-import fm.corus.android.ui.screens.findpeople.FindPeopleScreen
+import fm.corus.android.ui.screens.search.BotListScreen
+import fm.corus.android.ui.screens.search.SearchScreen
 import fm.corus.android.ui.screens.messaging.MessageThreadScreen
 import fm.corus.android.ui.screens.messaging.ThreadListScreen
 import fm.corus.android.ui.screens.settings.AppearanceSettingsScreen
 import fm.corus.android.ui.screens.settings.NotificationSettingsScreen
 import fm.corus.android.ui.screens.settings.SettingsScreen
-import fm.corus.android.ui.screens.findpeople.SuggestedUsersListScreen
-import fm.corus.android.ui.screens.findpeople.SuggestedUsersListViewModel
-import fm.corus.android.ui.screens.findpeople.ContactFriendsListScreen
+import fm.corus.android.ui.screens.search.SuggestedUsersListScreen
+import fm.corus.android.ui.screens.search.SuggestedUsersListViewModel
+import fm.corus.android.ui.screens.search.ContactFriendsListScreen
 import fm.corus.android.ui.components.ToastManager
-import fm.corus.android.ui.screens.findpeople.ContactFriendsListViewModel
+import fm.corus.android.ui.screens.search.ContactFriendsListViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
@@ -93,6 +92,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
                 onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
+                onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
             )
         }
         sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
@@ -122,20 +122,20 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
 }
 
 @Composable
-fun ExploreNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
+fun SearchNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
 
     NavHost(
         navController = navController,
-        startDestination = ExploreTabRoute,
+        startDestination = SearchTabRoute,
         enterTransition = { slideInHorizontally(tween(400), initialOffsetX = { it }) },
         exitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { -it / 3 }) },
         popEnterTransition = { slideInHorizontally(tween(400), initialOffsetX = { -it / 3 }) },
         popExitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { it }) },
     ) {
-        composable<ExploreTabRoute> {
-            FindPeopleScreen(
+        composable<SearchTabRoute> {
+            SearchScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
@@ -298,6 +298,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             postId = route.postId,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToUserByUsername = { username -> navController.navigate(ProfileByUsernameRoute(username)) },
             onNavigateToComments = onShowComments,
             onNavigateToLikes = onShowLikes,
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
@@ -321,6 +322,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
+            onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
         )
     }
 
@@ -525,8 +527,8 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         )
     }
 
-    composable<FindPeopleRoute> {
-        FindPeopleScreen(
+    composable<SearchRoute> {
+        SearchScreen(
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { route -> navController.navigate(route) },

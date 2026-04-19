@@ -411,6 +411,18 @@ class FirestoreDataSource @Inject constructor(
             .update("cymbalCount", FieldValue.increment(1))
             .await()
 
+        // If this is a repost (attribution toggle on), bump the original post's
+        // repostCount so the original poster's engagement row updates. Matches
+        // iOS DatabaseService.createPost.
+        val originalPostId = data["repostedFromPostId"] as? String
+        if (!originalPostId.isNullOrEmpty()) {
+            try {
+                firestore.collection("posts").document(originalPostId)
+                    .update("repostCount", FieldValue.increment(1))
+                    .await()
+            } catch (_: Exception) { }
+        }
+
         return docRef.id
     }
 
@@ -418,61 +430,6 @@ class FirestoreDataSource @Inject constructor(
         firestore.collection("posts").document(postId)
             .update("voiceNoteURL", url)
             .await()
-    }
-
-    suspend fun createRepost(
-        currentUserId: String,
-        originalPost: CymbalPost,
-    ): String {
-        val repostData = hashMapOf<String, Any>(
-            "userId" to currentUserId,
-            "type" to originalPost.mediaType.value,
-            "repostedFromPostId" to originalPost.id,
-            "repostedFromUserId" to originalPost.user.id,
-            "repostedFromUsername" to originalPost.user.username,
-            "createdAt" to FieldValue.serverTimestamp(),
-            "likeCount" to 0,
-            "commentCount" to 0,
-            "repostCount" to 0,
-        )
-
-        if (originalPost.isTrack) {
-            repostData.putAll(mapOf(
-                "trackId" to originalPost.track.id,
-                "trackName" to originalPost.track.name,
-                "artistName" to originalPost.track.artistName,
-                "albumName" to originalPost.track.albumName,
-                "albumArtURL" to (originalPost.track.albumArtURL ?: ""),
-                "albumArtLargeURL" to (originalPost.track.albumArtLargeURL ?: ""),
-                "spotifyURI" to originalPost.track.spotifyURI,
-                "spotifyWebURL" to originalPost.track.spotifyWebURL,
-            ))
-        } else if (originalPost.isMovie) {
-            repostData.putAll(mapOf(
-                "movieId" to (originalPost.movieId ?: ""),
-                "movieTitle" to (originalPost.movieTitle ?: ""),
-                "directorName" to (originalPost.directorName ?: ""),
-                "year" to (originalPost.releaseYear ?: ""),
-                "posterURL" to (originalPost.posterURL ?: ""),
-                "posterLargeURL" to (originalPost.posterLargeURL ?: ""),
-            ))
-        }
-
-        val docRef = firestore.collection("posts").document()
-        repostData["id"] = docRef.id
-        docRef.set(repostData).await()
-
-        // Increment repost count on the original post
-        firestore.collection("posts").document(originalPost.id)
-            .update("repostCount", FieldValue.increment(1))
-            .await()
-
-        // Increment user's cymbal count
-        firestore.collection("users_v2").document(currentUserId)
-            .update("cymbalCount", FieldValue.increment(1))
-            .await()
-
-        return docRef.id
     }
 
     suspend fun updateCaption(postId: String, caption: String) {

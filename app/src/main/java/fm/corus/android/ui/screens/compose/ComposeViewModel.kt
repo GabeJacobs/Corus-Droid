@@ -20,6 +20,7 @@ import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
+import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.ui.components.extractMentions
 import kotlinx.coroutines.Job
@@ -51,6 +52,7 @@ class ComposeViewModel @Inject constructor(
     private val exploreRepository: ExploreRepository,
     private val nowPlayingManager: NowPlayingManager,
     private val postCreationEvent: PostCreationEvent,
+    private val engagementManager: PostEngagementManager,
 ) : ViewModel() {
 
     // Post limit / Cymbal Club
@@ -140,6 +142,21 @@ class ComposeViewModel @Inject constructor(
     // Pre-selection loading (hides search mode while fetching track/movie by ID)
     private val _isLoadingPreSelection = MutableStateFlow(false)
     val isLoadingPreSelection: StateFlow<Boolean> = _isLoadingPreSelection.asStateFlow()
+
+    // Repost context — set when the user taps "Repost" on an existing post.
+    // When repostedFromUsername != null, ComposeScreen shows an attribution
+    // toggle and locks the track/movie to the original post's media.
+    private val _repostedFromPostId = MutableStateFlow<String?>(null)
+    val repostedFromPostId: StateFlow<String?> = _repostedFromPostId.asStateFlow()
+
+    private val _repostedFromUserId = MutableStateFlow<String?>(null)
+    val repostedFromUserId: StateFlow<String?> = _repostedFromUserId.asStateFlow()
+
+    private val _repostedFromUsername = MutableStateFlow<String?>(null)
+    val repostedFromUsername: StateFlow<String?> = _repostedFromUsername.asStateFlow()
+
+    private val _showRepostAttribution = MutableStateFlow(true)
+    val showRepostAttribution: StateFlow<Boolean> = _showRepostAttribution.asStateFlow()
 
     // Trophy celebration state
     private val _showTrophy = MutableStateFlow(false)
@@ -236,6 +253,39 @@ class ComposeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Seeds the compose screen with a post that's being reposted.
+     * Locks the selected track/movie to the original's media so the user
+     * can't change it, and shows the attribution toggle.
+     */
+    fun setRepostContext(original: CymbalPost) {
+        _repostedFromPostId.value = original.id
+        _repostedFromUserId.value = original.user.id
+        _repostedFromUsername.value = original.user.username
+        _showRepostAttribution.value = true
+        if (original.isMovie) {
+            _selectedMovie.value = CymbalMovie(
+                id = original.movieId ?: "",
+                title = original.movieTitle ?: "",
+                directorName = original.directorName ?: "",
+                year = original.releaseYear ?: "",
+                posterURL = original.posterURL,
+                posterLargeURL = original.posterLargeURL,
+                tmdbWebURL = original.tmdbWebURL ?: "",
+                overview = original.movieOverview ?: "",
+                rating = original.movieRating ?: 0.0,
+                cast = original.movieCast ?: emptyList(),
+                trailerURL = original.trailerURL,
+            )
+        } else {
+            _selectedTrack.value = original.track
+        }
+    }
+
+    fun setShowRepostAttribution(show: Boolean) {
+        _showRepostAttribution.value = show
+    }
+
     fun loadAndSelectMovie(movieId: String) {
         _isLoadingPreSelection.value = true
         viewModelScope.launch {
@@ -280,6 +330,19 @@ class ComposeViewModel @Inject constructor(
                 val hashtagRegex = Regex("#(\\w+)")
                 val hashtags = hashtagRegex.findAll(caption).map { it.groupValues[1] }.toList()
                 data["hashtags"] = hashtags
+
+                // Repost metadata — only included when the attribution toggle is on.
+                // Mirrors iOS ComposeView: toggling attribution off drops the repost
+                // relationship entirely, creating an independent post.
+                val includeRepost = _showRepostAttribution.value
+                val originalPostId = _repostedFromPostId.value
+                val originalUserId = _repostedFromUserId.value
+                val originalUsername = _repostedFromUsername.value
+                if (includeRepost && originalPostId != null) {
+                    data["repostedFromPostId"] = originalPostId
+                    data["repostedFromUserId"] = originalUserId ?: ""
+                    data["repostedFromUsername"] = originalUsername ?: ""
+                }
 
                 var isFirstPoster = false
 
@@ -334,6 +397,23 @@ class ComposeViewModel @Inject constructor(
                 analyticsService.logPostCreated(mediaType.value)
                 subscriptionRepository.incrementPostCount()
                 postCreationEvent.notifyPostCreated()
+
+                // Repost side-effects — optimistic repostCount bump on the
+                // original post card + notification to the original poster.
+                if (includeRepost && originalPostId != null) {
+                    engagementManager.incrementRepostCount(originalPostId)
+                    if (!originalUserId.isNullOrEmpty() && originalUserId != userId) {
+                        try {
+                            postRepository.createNotification(
+                                type = "repost",
+                                fromUserId = userId,
+                                toUserId = originalUserId,
+                                postId = newPostId,
+                                postAlbumArtURL = data["albumArtURL"] as? String,
+                            )
+                        } catch (_: Exception) { }
+                    }
+                }
 
                 // Send tag notifications for @mentions in caption (matches iOS)
                 val albumArtURL = data["albumArtURL"] as? String
@@ -457,6 +537,10 @@ class ComposeViewModel @Inject constructor(
         _showTrophy.value = false
         _trophyPost.value = null
         _showPostLimitPaywall.value = false
+        _repostedFromPostId.value = null
+        _repostedFromUserId.value = null
+        _repostedFromUsername.value = null
+        _showRepostAttribution.value = true
         cachedTracks = emptyList()
         cachedMovies = emptyList()
     }

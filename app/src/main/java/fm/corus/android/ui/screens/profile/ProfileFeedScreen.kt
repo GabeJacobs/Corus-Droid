@@ -47,6 +47,7 @@ fun ProfileFeedScreen(
     onNavigateToHashtag: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
+    onRepost: (CymbalPost) -> Unit = {},
 ) {
     val posts by viewModel.posts.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
@@ -62,6 +63,7 @@ fun ProfileFeedScreen(
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<CymbalPost?>(null) }
+    var backCoverRequests by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
 
     val listState = rememberLazyListState()
 
@@ -173,6 +175,7 @@ fun ProfileFeedScreen(
                         }
                     },
                     onMentionTap = { mentionUsername -> onNavigateToUserByUsername(mentionUsername) },
+                    onRepostedFromUserTap = { repostedUsername -> onNavigateToUserByUsername(repostedUsername) },
                     onHashtagTap = { hashtag ->
                         viewModel.analyticsService.logTrendingHashtagTapped(hashtag)
                         onNavigateToHashtag(hashtag)
@@ -185,6 +188,8 @@ fun ProfileFeedScreen(
                         }
                     },
                     onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
+                    viewBackCoverRequestKey = backCoverRequests[post.id] ?: 0,
+                    onFetchBackCover = { viewModel.fetchBackCover(it) },
                 )
                 HorizontalDivider(
                     color = CorusColors.Divider,
@@ -245,9 +250,8 @@ fun ProfileFeedScreen(
                     sharePost = null
                 },
                 onRepost = {
-                    viewModel.repostPost(post)
-                    ToastManager.show("Reposted!")
                     sharePost = null
+                    onRepost(post)
                 },
                 onDismiss = { sharePost = null },
                 onAnalyticsLog = { method ->
@@ -279,7 +283,11 @@ fun ProfileFeedScreen(
                 onDismiss = { menuPost = null },
                 onViewSongPage = { onNavigateToSong(post.track) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
-                onRepost = { viewModel.repostPost(post) },
+                showBackCoverOption = viewModel.remoteConfig.vinylFlipEnabled,
+                onViewBackCover = {
+                    backCoverRequests = backCoverRequests + (post.id to ((backCoverRequests[post.id] ?: 0) + 1))
+                },
+                onRepost = { onRepost(post) },
                 onSharePost = { sharePost = post },
                 onCopyLink = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -342,4 +350,5 @@ fun ProfileFeedScreen(
             )
         }
     }
+
 }
