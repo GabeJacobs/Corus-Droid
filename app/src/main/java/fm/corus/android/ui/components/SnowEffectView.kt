@@ -41,8 +41,8 @@ fun SnowEffectView(
             List(intensity.flakeCount) { createSnowflake(1f, 1f, isBlizzard) }
         )
     }
-    var tick by remember { mutableIntStateOf(0) }
-    var time by remember { mutableFloatStateOf(0f) }
+    var tick by remember(intensity) { mutableIntStateOf(0) }
+    var time by remember(intensity) { mutableFloatStateOf(0f) }
 
     LaunchedEffect(intensity) {
         while (true) {

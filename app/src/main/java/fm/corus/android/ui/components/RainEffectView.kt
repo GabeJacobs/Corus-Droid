@@ -68,8 +68,8 @@ private fun RainCanvas(
             List(intensity.dropCount) { createRaindrop(1f, 1f, intensity) }
         )
     }
-    var splashes by remember { mutableStateOf(listOf<Splash>()) }
-    var tick by remember { mutableIntStateOf(0) }
+    var splashes by remember(intensity) { mutableStateOf(listOf<Splash>()) }
+    var tick by remember(intensity) { mutableIntStateOf(0) }
 
     LaunchedEffect(intensity) {
         while (true) {
