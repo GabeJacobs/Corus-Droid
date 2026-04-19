@@ -121,6 +121,7 @@ class MessageThreadViewModel @Inject constructor(
         val userId = authRepository.currentUserId ?: return
         val resolvedId = currentThreadId ?: threadId
         val reply = _replyToMessage.value
+        val replySnippet = reply?.let { replyPreviewText(it) }
         val clientId = UUID.randomUUID().toString()
 
         // Optimistic insert
@@ -133,7 +134,7 @@ class MessageThreadViewModel @Inject constructor(
             createdAt = Date(),
             sendStatus = MessageSendStatus.SENDING,
             replyToMessageId = reply?.id,
-            replyToText = reply?.text,
+            replyToText = replySnippet,
             replyToUserId = reply?.fromUserId,
         )
         _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
@@ -146,7 +147,7 @@ class MessageThreadViewModel @Inject constructor(
                     fromUserId = userId,
                     text = text,
                     replyToMessageId = reply?.id,
-                    replyToText = reply?.text,
+                    replyToText = replySnippet,
                     replyToUserId = reply?.fromUserId,
                     clientMessageId = clientId,
                 )

@@ -5,10 +5,9 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
@@ -18,23 +17,34 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Photo
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -61,6 +71,19 @@ private val REACTION_EMOJIS = listOf("❤️", "😂", "👍", "😮", "😢", "
 private val REACTION_KEYS = listOf("heart", "laugh", "thumbsup", "wow", "cry", "fire")
 
 private val URL_REGEX = Regex("""https?://\S+""", RegexOption.IGNORE_CASE)
+
+/** Short preview text for the message being replied to. Mirrors iOS replySnippet. */
+internal fun replyPreviewText(msg: CymbalMessage): String {
+    val text = msg.text
+    if (!text.isNullOrBlank()) return text.take(100)
+    return when (msg.type) {
+        MessageType.IMAGE -> "Photo"
+        MessageType.GIF -> "GIF"
+        MessageType.SHARED_TRACK -> msg.trackName?.takeIf { it.isNotBlank() } ?: "Song"
+        MessageType.SHARED_FILM -> msg.movieTitle?.takeIf { it.isNotBlank() } ?: "Film"
+        else -> "Message"
+    }
+}
 
 /** Returns true when [text] contains only 1-3 emoji (with optional modifiers/ZWJ). */
 private fun isEmojiOnly(text: String): Boolean {
@@ -105,6 +128,12 @@ fun MessageThreadScreen(
     var mediaPickerMode by remember { mutableStateOf<PickerMode?>(null) }
     var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Dismiss the keyboard while the long-press menu is shown so it doesn't occlude the action card
+    LaunchedEffect(reactionTarget) {
+        if (reactionTarget != null) keyboardController?.hide()
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -162,8 +191,11 @@ fun MessageThreadScreen(
                     message = message,
                     isFromCurrentUser = message.fromUserId == viewModel.currentUserId,
                     currentUserId = viewModel.currentUserId ?: "",
+                    otherUsername = otherUsername,
                     onLongPress = { reactionTarget = message },
-                    onReply = { viewModel.setReplyTo(message) },
+                    onDoubleTap = {
+                        viewModel.toggleReaction(threadId, message.id, "heart")
+                    },
                     onReactionTap = { emoji ->
                         viewModel.toggleReaction(threadId, message.id, emoji)
                     },
@@ -173,24 +205,32 @@ fun MessageThreadScreen(
             }
         }
 
-        // Reply-to bar
+        // Reply-to bar (iOS parity: thin accent bar + "Replying to [username]" + preview + X)
         if (replyToMessage != null) {
-            HorizontalDivider(color = CorusColors.Divider)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(CorusColors.CardBackground)
-                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                    .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .height(36.dp)
+                        .background(CorusColors.Accent),
+                )
+                Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Column(modifier = Modifier.weight(1f)) {
+                    val replyAuthorLabel =
+                        if (replyToMessage?.fromUserId == viewModel.currentUserId) "yourself"
+                        else otherUsername.ifBlank { "message" }
                     Text(
-                        text = "Replying to message",
+                        text = "Replying to $replyAuthorLabel",
                         style = CorusFont.caption,
-                        color = CorusColors.Accent,
+                        color = CorusColors.Text,
                     )
                     Text(
-                        text = replyToMessage?.text ?: "",
+                        text = replyPreviewText(replyToMessage!!),
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
                         maxLines = 1,
@@ -198,7 +238,7 @@ fun MessageThreadScreen(
                     )
                 }
                 IconButton(onClick = { viewModel.setReplyTo(null) }) {
-                    Icon(Icons.Filled.Close, contentDescription = "Cancel reply", modifier = Modifier.size(16.dp), tint = CorusColors.Secondary)
+                    Icon(Icons.Filled.Close, contentDescription = "Cancel reply", modifier = Modifier.size(18.dp), tint = CorusColors.Secondary)
                 }
             }
         }
@@ -371,72 +411,78 @@ private fun ReactionOverlay(
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = CorusColors.Background,
-            shadowElevation = 8.dp,
+        Column(
+            modifier = Modifier
+                .padding(horizontal = CorusSpacing.lg)
+                .widthIn(max = 300.dp)
+                // Prevent taps on the floating content from dismissing the overlay
+                .clickable(enabled = false, onClick = {}),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
         ) {
-            Column(
-                modifier = Modifier.padding(CorusSpacing.lg),
-                horizontalAlignment = Alignment.CenterHorizontally,
+            // Floating emoji reaction pill
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = CorusColors.Background,
+                shadowElevation = 6.dp,
             ) {
-                // Emoji row
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                    modifier = Modifier.padding(horizontal = CorusSpacing.sm, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     REACTION_EMOJIS.forEachIndexed { index, emoji ->
-                        Text(
-                            text = emoji,
-                            fontSize = 28.sp,
-                            modifier = Modifier.clickable { onReaction(REACTION_KEYS[index]) },
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(CorusSpacing.md))
-
-                // Message preview
-                if (!message.text.isNullOrBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = CorusColors.CardBackground,
-                                shape = RoundedCornerShape(CorusSpacing.md),
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .clickable { onReaction(REACTION_EMOJIS[index]) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = emoji,
+                                fontSize = 26.sp,
                             )
-                            .padding(CorusSpacing.md),
-                    ) {
-                        Text(
-                            text = message.text ?: "",
-                            style = CorusFont.caption,
-                            color = CorusColors.Text,
-                            maxLines = 2,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(CorusSpacing.md))
-                }
-
-                // Action buttons
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    TextButton(onClick = onReply) {
-                        Text("Reply", style = CorusFont.body, color = CorusColors.Text)
-                    }
-                    if (!message.text.isNullOrBlank()) {
-                        TextButton(onClick = onCopy) {
-                            Text("Copy", style = CorusFont.body, color = CorusColors.Text)
                         }
+                    }
+                }
+            }
+
+            // Floating action card
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = CorusColors.Background,
+                shadowElevation = 6.dp,
+                modifier = Modifier.widthIn(min = 220.dp),
+            ) {
+                Column {
+                    ActionMenuItem(
+                        icon = Icons.AutoMirrored.Filled.Reply,
+                        label = "Reply",
+                        onClick = onReply,
+                    )
+                    if (!message.text.isNullOrBlank()) {
+                        HorizontalDivider(color = CorusColors.Divider)
+                        ActionMenuItem(
+                            icon = Icons.Filled.ContentCopy,
+                            label = "Copy",
+                            onClick = onCopy,
+                        )
                     }
                     if (!isFromCurrentUser) {
-                        TextButton(onClick = onReport) {
-                            Text("Report", style = CorusFont.body, color = CorusColors.Text)
-                        }
-                        TextButton(onClick = onBlock) {
-                            Text("Block", style = CorusFont.body, color = CorusColors.Text)
-                        }
+                        HorizontalDivider(color = CorusColors.Divider)
+                        ActionMenuItem(
+                            icon = Icons.Filled.Flag,
+                            label = "Report",
+                            tint = CorusColors.Error,
+                            onClick = onReport,
+                        )
+                        HorizontalDivider(color = CorusColors.Divider)
+                        ActionMenuItem(
+                            icon = Icons.Filled.Block,
+                            label = "Block",
+                            tint = CorusColors.Error,
+                            onClick = onBlock,
+                        )
                     }
                 }
             }
@@ -444,14 +490,39 @@ private fun ReactionOverlay(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ActionMenuItem(
+    icon: ImageVector,
+    label: String,
+    tint: Color = CorusColors.Text,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(20.dp),
+        )
+        Text(text = label, style = CorusFont.body, color = tint)
+    }
+}
+
 @Composable
 private fun MessageBubble(
     message: CymbalMessage,
     isFromCurrentUser: Boolean,
     currentUserId: String,
+    otherUsername: String,
     onLongPress: () -> Unit,
-    onReply: () -> Unit,
+    onDoubleTap: () -> Unit,
     onReactionTap: (String) -> Unit,
     onImageTap: (String) -> Unit = {},
     onRetry: () -> Unit = {},
@@ -463,43 +534,55 @@ private fun MessageBubble(
     val emojiOnly = !hasMedia && message.replyToText == null &&
         !message.text.isNullOrBlank() && isEmojiOnly(message.text!!)
 
+    val annotatedText = remember(message.text, isFromCurrentUser, emojiOnly) {
+        if (!message.text.isNullOrBlank() && !emojiOnly)
+            buildLinkifiedText(message.text!!, isFromCurrentUser)
+        else null
+    }
+    var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var bubbleCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var textCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.xxs),
         horizontalAlignment = if (isFromCurrentUser) Alignment.End else Alignment.Start,
     ) {
-        // Reply context
-        if (message.replyToText != null) {
-            Box(
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .padding(bottom = 2.dp)
-                    .background(
-                        color = CorusColors.CardBackground,
-                        shape = RoundedCornerShape(CorusSpacing.cornerRadius),
-                    )
-                    .padding(horizontal = CorusSpacing.sm, vertical = CorusSpacing.xs),
-            ) {
-                Text(
-                    text = message.replyToText ?: "",
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-
-        // Message bubble
+        // Message bubble — quoted reply context is rendered inside
         Box(
             modifier = Modifier
                 .widthIn(max = 280.dp)
                 .then(if (isSending) Modifier.alpha(0.7f) else Modifier)
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = onLongPress,
-                )
+                .onGloballyPositioned { bubbleCoords = it }
+                .pointerInput(message.id, annotatedText) {
+                    detectTapGestures(
+                        onLongPress = { onLongPress() },
+                        onDoubleTap = { onDoubleTap() },
+                        onTap = { offset ->
+                            val at = annotatedText
+                            val layout = textLayout
+                            val bubble = bubbleCoords
+                            val textLC = textCoords
+                            if (at != null && layout != null && bubble != null && textLC != null) {
+                                try {
+                                    val textOrigin = bubble.localPositionOf(textLC, Offset.Zero)
+                                    val relative = offset - textOrigin
+                                    if (relative.x >= 0 && relative.y >= 0 &&
+                                        relative.x <= layout.size.width &&
+                                        relative.y <= layout.size.height) {
+                                        val charOffset = layout.getOffsetForPosition(relative)
+                                        at.getStringAnnotations("URL", charOffset, charOffset)
+                                            .firstOrNull()?.let { ann ->
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ann.item))
+                                                context.startActivity(intent)
+                                            }
+                                    }
+                                } catch (_: Exception) {}
+                            }
+                        },
+                    )
+                }
                 .background(
                     color = if (emojiOnly) Color.Transparent
                             else if (isFromCurrentUser) CorusColors.Accent
@@ -512,6 +595,45 @@ private fun MessageBubble(
                 ),
         ) {
             Column {
+                // Quoted reply context, inside the bubble
+                if (message.replyToText != null) {
+                    val isOwnQuote = message.replyToUserId == currentUserId
+                    val authorName = if (isOwnQuote) "You" else otherUsername
+                    val accentBarColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.6f)
+                                         else CorusColors.Accent.copy(alpha = 0.6f)
+                    val quotedAuthorColor = if (isFromCurrentUser) Color.White else CorusColors.Accent
+                    val quotedTextColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f)
+                                          else CorusColors.Secondary
+                    Row(
+                        modifier = Modifier.padding(bottom = CorusSpacing.xs),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(2.dp)
+                                .heightIn(min = 24.dp)
+                                .background(accentBarColor, shape = RoundedCornerShape(1.dp)),
+                        )
+                        Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                        Column {
+                            if (authorName.isNotBlank()) {
+                                Text(
+                                    text = authorName,
+                                    style = CorusFont.caption,
+                                    color = quotedAuthorColor,
+                                )
+                            }
+                            Text(
+                                text = message.replyToText ?: "",
+                                style = CorusFont.caption,
+                                color = quotedTextColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+
                 // Image content
                 if (message.type == MessageType.IMAGE && message.mediaURL != null) {
                     ShimmerAsyncImage(
@@ -577,22 +699,14 @@ private fun MessageBubble(
                             text = message.text ?: "",
                             fontSize = 40.sp,
                         )
-                    } else {
-                        val annotatedText = buildLinkifiedText(
-                            message.text ?: "",
-                            isFromCurrentUser,
-                        )
-                        androidx.compose.foundation.text.ClickableText(
+                    } else if (annotatedText != null) {
+                        Text(
                             text = annotatedText,
                             style = CorusFont.body.copy(
                                 color = if (isFromCurrentUser) Color.White else CorusColors.Text,
                             ),
-                            onClick = { offset ->
-                                annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { annotation ->
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(annotation.item))
-                                    context.startActivity(intent)
-                                }
-                            },
+                            onTextLayout = { textLayout = it },
+                            modifier = Modifier.onGloballyPositioned { textCoords = it },
                         )
                     }
                 }
@@ -685,7 +799,6 @@ private fun MessageBubble(
     }
 }
 
-@Composable
 private fun buildLinkifiedText(
     text: String,
     isFromCurrentUser: Boolean,

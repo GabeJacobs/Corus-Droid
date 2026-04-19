@@ -203,7 +203,7 @@ fun NotificationsScreen(
                                     color = CorusColors.Secondary,
                                     strokeWidth = 2.dp,
                                 )
-                                LaunchedEffect(Unit) {
+                                LaunchedEffect(notifications.size) {
                                     viewModel.loadMoreNotifications()
                                 }
                             }

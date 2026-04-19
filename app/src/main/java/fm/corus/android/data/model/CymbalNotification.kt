@@ -37,8 +37,14 @@ data class CymbalNotification(
             val fromUserId = fromUserData["id"] as? String ?: data["fromUserId"] as? String ?: ""
             val fromUser = CymbalUser.fromMap(fromUserId, fromUserData)
 
-            val timestampMs = data["createdAt"] as? Number ?: data["timestamp"] as? Number
-            val timestamp = if (timestampMs != null) Date(timestampMs.toLong()) else Date()
+            // Direct Firestore listener path returns createdAt as a Timestamp object;
+            // the cloud function path serializes it to millis (Number). Handle both.
+            val createdAt = data["createdAt"] ?: data["timestamp"]
+            val timestamp = when (createdAt) {
+                is com.google.firebase.Timestamp -> Date(createdAt.toDate().time)
+                is Number -> Date(createdAt.toLong())
+                else -> Date()
+            }
 
             return CymbalNotification(
                 id = id,
