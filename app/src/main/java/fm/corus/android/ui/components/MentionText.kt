@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -440,20 +441,47 @@ fun MentionSuggestionsList(
     users: List<CymbalUser>,
     onSelect: (CymbalUser) -> Unit,
     modifier: Modifier = Modifier,
+    isSearching: Boolean = false,
 ) {
-    if (users.isEmpty()) return
+    if (users.isEmpty() && !isSearching) return
     Column(modifier = modifier) {
         HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
-        users.forEachIndexed { index, user ->
-            MentionSuggestionRow(user = user, onClick = { onSelect(user) })
-            if (index < users.lastIndex) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(start = CorusSpacing.lg + 28.dp + CorusSpacing.sm),
-                    color = CorusColors.Divider,
-                    thickness = 0.5.dp,
-                )
+        if (users.isEmpty() && isSearching) {
+            MentionSearchingRow()
+        } else {
+            users.forEachIndexed { index, user ->
+                MentionSuggestionRow(user = user, onClick = { onSelect(user) })
+                if (index < users.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = CorusSpacing.lg + 28.dp + CorusSpacing.sm),
+                        color = CorusColors.Divider,
+                        thickness = 0.5.dp,
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun MentionSearchingRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(16.dp),
+            color = CorusColors.Accent,
+            strokeWidth = 2.dp,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Text(
+            text = "Searching…",
+            style = CorusFont.caption,
+            color = CorusColors.Secondary,
+        )
     }
 }
 

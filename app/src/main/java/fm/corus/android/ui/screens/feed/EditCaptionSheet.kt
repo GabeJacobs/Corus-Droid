@@ -35,6 +35,7 @@ fun EditCaptionSheet(
     }
     val isSaving by viewModel.isSaving.collectAsState()
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
+    val isSearchingMentions by viewModel.isSearchingMentions.collectAsState()
     val focusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
     var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
@@ -123,6 +124,7 @@ fun EditCaptionSheet(
                     caption = applyMention(caption, user.username)
                     viewModel.clearMentions()
                 },
+                isSearching = isSearchingMentions,
             )
         }
     }

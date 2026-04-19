@@ -4,8 +4,11 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +23,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Gif
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,7 +34,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,6 +51,9 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.PostCard
+import fm.corus.android.ui.components.ReportContentType
+import fm.corus.android.ui.components.ReportSheet
+import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.applyMention
 import fm.corus.android.ui.components.parseMentionQuery
@@ -88,7 +98,20 @@ fun SinglePostCommentsScreen(
     val maxChars = 700
     val listState = rememberLazyListState()
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
+    val isSearchingMentions by viewModel.isSearchingMentions.collectAsState()
+    val editingComment by viewModel.editingComment.collectAsState()
+    var reportingComment by remember { mutableStateOf<CymbalComment?>(null) }
     var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
+
+    LaunchedEffect(editingComment?.id) {
+        val editing = editingComment
+        if (editing != null) {
+            commentText = TextFieldValue(editing.text, selection = TextRange(editing.text.length))
+            focusRequester.requestFocus()
+        } else {
+            commentText = TextFieldValue("")
+        }
+    }
 
     // Highlight flash state — matches iOS 1.5s flash then fade
     var activeHighlightId by remember { mutableStateOf<String?>(null) }
@@ -142,9 +165,37 @@ fun SinglePostCommentsScreen(
                         commentText = applyMention(commentText, user.username)
                         viewModel.clearMentions()
                     },
+                    isSearching = isSearchingMentions,
                 )
+                // Editing indicator
+                if (editingComment != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(CorusColors.CardBackground)
+                            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Editing your comment",
+                            style = CorusFont.caption,
+                            color = CorusColors.Secondary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(
+                            onClick = {
+                                viewModel.cancelEditing()
+                                commentText = TextFieldValue("")
+                                viewModel.clearMentions()
+                            },
+                            modifier = Modifier.size(20.dp),
+                        ) {
+                            Icon(Icons.Filled.Close, contentDescription = "Cancel edit", tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
+                        }
+                    }
+                }
                 // Reply indicator
-                if (replyingTo != null) {
+                if (replyingTo != null && editingComment == null) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -193,7 +244,17 @@ fun SinglePostCommentsScreen(
                                 }
                             }
                         },
-                        placeholder = { Text("Add a comment...", style = CorusFont.body, color = CorusColors.Tertiary) },
+                        placeholder = {
+                            Text(
+                                when {
+                                    editingComment != null -> "Edit your comment..."
+                                    replyingTo != null -> "Reply..."
+                                    else -> "Add a comment..."
+                                },
+                                style = CorusFont.body,
+                                color = CorusColors.Tertiary,
+                            )
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .focusRequester(focusRequester),
@@ -209,13 +270,18 @@ fun SinglePostCommentsScreen(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = {
                             if (commentText.text.isNotBlank() && !isSending) {
-                                viewModel.addComment(postId, commentText.text.trim())
+                                val editing = editingComment
+                                if (editing != null) {
+                                    viewModel.editComment(editing.id, commentText.text.trim())
+                                } else {
+                                    viewModel.addComment(postId, commentText.text.trim())
+                                }
                                 commentText = TextFieldValue("")
                                 viewModel.clearMentions()
                             }
                         }),
                     )
-                    if (viewModel.giphySupport) {
+                    if (viewModel.giphySupport && editingComment == null) {
                         IconButton(onClick = { showGifPicker = true }) {
                             Icon(
                                 Icons.Filled.Gif,
@@ -233,7 +299,12 @@ fun SinglePostCommentsScreen(
                             .clip(CircleShape)
                             .background(if (canSend) CorusColors.Accent else CorusColors.Divider)
                             .clickable(enabled = canSend) {
-                                viewModel.addComment(postId, commentText.text.trim())
+                                val editing = editingComment
+                                if (editing != null) {
+                                    viewModel.editComment(editing.id, commentText.text.trim())
+                                } else {
+                                    viewModel.addComment(postId, commentText.text.trim())
+                                }
                                 commentText = TextFieldValue("")
                                 viewModel.clearMentions()
                             },
@@ -258,6 +329,24 @@ fun SinglePostCommentsScreen(
                 },
                 onDismiss = { showGifPicker = false },
             )
+        }
+
+        reportingComment?.let { comment ->
+            val reportSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ModalBottomSheet(
+                onDismissRequest = { reportingComment = null },
+                sheetState = reportSheetState,
+                containerColor = CorusColors.Background,
+            ) {
+                ReportSheet(
+                    contentType = ReportContentType.COMMENT,
+                    contentId = comment.id,
+                    authRepository = viewModel.authRepository,
+                    userRepository = viewModel.userRepository,
+                    analyticsService = viewModel.analyticsService,
+                    onDismiss = { reportingComment = null },
+                )
+            }
         }
 
         LazyColumn(
@@ -367,9 +456,11 @@ fun SinglePostCommentsScreen(
                 items(comments, key = { it.id }) { comment ->
                     SingleCommentRow(
                         comment = comment,
+                        isOwnComment = comment.user.id == viewModel.currentUserId,
                         isLiked = likedCommentIds.contains(comment.id),
                         replies = repliesByParent[comment.id] ?: emptyList(),
                         likedCommentIds = likedCommentIds,
+                        currentUserId = viewModel.currentUserId,
                         highlightedCommentId = activeHighlightId,
                         onLike = { viewModel.toggleCommentLike(postId, comment.id) },
                         onReply = {
@@ -383,6 +474,12 @@ fun SinglePostCommentsScreen(
                             focusRequester.requestFocus()
                         },
                         onReplyLike = { replyId -> viewModel.toggleCommentLike(postId, replyId) },
+                        onEdit = { viewModel.startEditing(comment) },
+                        onDelete = { viewModel.deleteComment(comment.id) },
+                        onReport = { reportingComment = comment },
+                        onReplyEdit = { reply -> viewModel.startEditing(reply) },
+                        onReplyDelete = { replyId -> viewModel.deleteComment(replyId) },
+                        onReplyReport = { reply -> reportingComment = reply },
                     )
                 }
             }
@@ -390,12 +487,15 @@ fun SinglePostCommentsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SingleCommentRow(
     comment: CymbalComment,
+    isOwnComment: Boolean,
     isLiked: Boolean,
     replies: List<CymbalComment>,
     likedCommentIds: Set<String>,
+    currentUserId: String?,
     highlightedCommentId: String? = null,
     onLike: () -> Unit,
     onReply: () -> Unit,
@@ -403,6 +503,12 @@ private fun SingleCommentRow(
     onReplyUserTap: (String) -> Unit,
     onReplyReply: (CymbalComment) -> Unit,
     onReplyLike: (String) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onReport: () -> Unit,
+    onReplyEdit: (CymbalComment) -> Unit,
+    onReplyDelete: (String) -> Unit,
+    onReplyReport: (CymbalComment) -> Unit,
 ) {
     val commentHighlightColor by animateColorAsState(
         targetValue = if (highlightedCommentId == comment.id) CorusColors.Accent.copy(alpha = 0.1f) else Color.Transparent,
@@ -410,64 +516,19 @@ private fun SingleCommentRow(
         label = "commentHighlight",
     )
     Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(commentHighlightColor)
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-        ) {
-            UserAvatarView(
-                avatarURL = comment.user.avatarURL,
-                displayName = comment.user.displayName,
-                size = 32.dp,
-                modifier = Modifier.clickable(onClick = onUserTap),
-            )
-            Spacer(modifier = Modifier.width(CorusSpacing.sm))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        comment.user.username,
-                        style = CorusFont.captionMedium,
-                        color = CorusColors.Text,
-                        modifier = Modifier.clickable(onClick = onUserTap),
-                    )
-                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                    Text(DateUtils.relativeTime(comment.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
-                }
-                Spacer(modifier = Modifier.height(CorusSpacing.xxs))
-                if (comment.gifURL != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                            .data(comment.gifURL).build(),
-                        contentDescription = "GIF",
-                        modifier = Modifier
-                            .widthIn(max = 200.dp)
-                            .heightIn(max = 150.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Fit,
-                    )
-                } else {
-                    Text(comment.text, style = CorusFont.body, color = CorusColors.Text)
-                }
-                Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg)) {
-                    Text(
-                        "Reply",
-                        style = CorusFont.captionMedium,
-                        color = CorusColors.Secondary,
-                        modifier = Modifier.clickable(onClick = onReply),
-                    )
-                }
-            }
-            IconButton(onClick = onLike, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Like",
-                    tint = if (isLiked) CorusColors.Like else CorusColors.Tertiary,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
+        CommentContentRow(
+            comment = comment,
+            isOwnComment = isOwnComment,
+            isLiked = isLiked,
+            isReply = false,
+            highlightColor = commentHighlightColor,
+            onUserTap = onUserTap,
+            onLike = onLike,
+            onReply = onReply,
+            onEdit = onEdit,
+            onDelete = onDelete,
+            onReport = onReport,
+        )
 
         // Replies
         replies.forEach { reply ->
@@ -476,62 +537,201 @@ private fun SingleCommentRow(
                 animationSpec = tween(durationMillis = if (highlightedCommentId == reply.id) 200 else 500),
                 label = "replyHighlight",
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(replyHighlightColor)
-                    .padding(start = 56.dp, end = CorusSpacing.lg, top = CorusSpacing.xxs, bottom = CorusSpacing.xxs),
-            ) {
-                UserAvatarView(
-                    avatarURL = reply.user.avatarURL,
-                    displayName = reply.user.displayName,
-                    size = 24.dp,
-                    modifier = Modifier.clickable { onReplyUserTap(reply.user.id) },
+            CommentContentRow(
+                comment = reply,
+                isOwnComment = reply.user.id == currentUserId,
+                isLiked = likedCommentIds.contains(reply.id),
+                isReply = true,
+                highlightColor = replyHighlightColor,
+                onUserTap = { onReplyUserTap(reply.user.id) },
+                onLike = { onReplyLike(reply.id) },
+                onReply = { onReplyReply(reply) },
+                onEdit = { onReplyEdit(reply) },
+                onDelete = { onReplyDelete(reply.id) },
+                onReport = { onReplyReport(reply) },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CommentContentRow(
+    comment: CymbalComment,
+    isOwnComment: Boolean,
+    isLiked: Boolean,
+    isReply: Boolean,
+    highlightColor: Color,
+    onUserTap: () -> Unit,
+    onLike: () -> Unit,
+    onReply: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onReport: () -> Unit,
+) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showContextMenu by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+    val canCopy = comment.text.isNotEmpty()
+    val canLongPress = canCopy || !isOwnComment
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Comment?", style = CorusFont.songTitleLarge) },
+            text = { Text("This comment will be permanently deleted.", style = CorusFont.body) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    onDelete()
+                }) {
+                    Text("Delete", color = CorusColors.Error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    val rowModifier = Modifier
+        .fillMaxWidth()
+        .background(highlightColor)
+        .then(
+            if (canLongPress) Modifier.combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+                onLongClick = { showContextMenu = true },
+            ) else Modifier
+        )
+        .then(
+            if (isReply) Modifier.padding(start = 56.dp, end = CorusSpacing.lg, top = CorusSpacing.xxs, bottom = CorusSpacing.xxs)
+            else Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+        )
+
+    Row(modifier = rowModifier) {
+        DropdownMenu(
+            expanded = showContextMenu,
+            onDismissRequest = { showContextMenu = false },
+        ) {
+            if (canCopy) {
+                DropdownMenuItem(
+                    text = { Text("Copy", style = CorusFont.body, color = CorusColors.Text) },
+                    onClick = {
+                        showContextMenu = false
+                        clipboardManager.setText(AnnotatedString(comment.text))
+                        ToastManager.show("Copied")
+                    },
+                )
+            }
+            if (!isOwnComment) {
+                DropdownMenuItem(
+                    text = { Text("Report", style = CorusFont.body, color = CorusColors.Error) },
+                    onClick = {
+                        showContextMenu = false
+                        onReport()
+                    },
+                )
+            }
+        }
+
+        UserAvatarView(
+            avatarURL = comment.user.avatarURL,
+            displayName = comment.user.displayName,
+            size = if (isReply) 24.dp else 32.dp,
+            modifier = Modifier.clickable(onClick = onUserTap),
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    comment.user.username,
+                    style = CorusFont.captionMedium,
+                    color = CorusColors.Text,
+                    modifier = Modifier.clickable(onClick = onUserTap),
                 )
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            reply.user.username,
-                            style = CorusFont.captionMedium,
-                            color = CorusColors.Text,
-                            modifier = Modifier.clickable { onReplyUserTap(reply.user.id) },
-                        )
-                        Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                        Text(DateUtils.relativeTime(reply.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
-                    }
-                    Spacer(modifier = Modifier.height(CorusSpacing.xxs))
-                    if (reply.gifURL != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                                .data(reply.gifURL).build(),
-                            contentDescription = "GIF",
-                            modifier = Modifier
-                                .widthIn(max = 160.dp)
-                                .heightIn(max = 120.dp)
-                                .clip(RoundedCornerShape(8.dp)),
-                            contentScale = ContentScale.Fit,
-                        )
-                    } else {
-                        Text(reply.text, style = CorusFont.body, color = CorusColors.Text)
-                    }
-                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                    Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg)) {
-                        Text(
-                            "Reply",
-                            style = CorusFont.captionMedium,
-                            color = CorusColors.Secondary,
-                            modifier = Modifier.clickable { onReplyReply(reply) },
-                        )
-                    }
+                Text(DateUtils.relativeTime(comment.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
+                if (comment.isEdited) {
+                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                    Text("edited", style = CorusFont.caption, color = CorusColors.Tertiary)
                 }
-                IconButton(onClick = { onReplyLike(reply.id) }, modifier = Modifier.size(24.dp)) {
+            }
+            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+            if (comment.gifURL != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(comment.gifURL).build(),
+                    contentDescription = "GIF",
+                    modifier = Modifier
+                        .widthIn(max = if (isReply) 160.dp else 200.dp)
+                        .heightIn(max = if (isReply) 120.dp else 150.dp)
+                        .clip(RoundedCornerShape(if (isReply) 8.dp else 12.dp)),
+                    contentScale = ContentScale.Fit,
+                )
+            } else {
+                Text(comment.text, style = CorusFont.body, color = CorusColors.Text)
+            }
+            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+            Text(
+                "Reply",
+                style = CorusFont.captionMedium,
+                color = CorusColors.Secondary,
+                modifier = Modifier.clickable(onClick = onReply),
+            )
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.align(Alignment.CenterVertically),
+        ) {
+            IconButton(onClick = onLike, modifier = Modifier.size(if (isReply) 24.dp else 32.dp)) {
+                Icon(
+                    if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    contentDescription = "Like",
+                    tint = if (isLiked) CorusColors.Like else CorusColors.Tertiary,
+                    modifier = Modifier.size(if (isReply) 12.dp else 16.dp),
+                )
+            }
+            if (isOwnComment) {
+                var showMenu by remember { mutableStateOf(false) }
+                Box {
                     Icon(
-                        if (likedCommentIds.contains(reply.id)) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = "Like",
-                        tint = if (likedCommentIds.contains(reply.id)) CorusColors.Like else CorusColors.Tertiary,
-                        modifier = Modifier.size(12.dp),
+                        imageVector = Icons.Filled.MoreHoriz,
+                        contentDescription = "Comment options",
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { showMenu = true },
+                            ),
+                        tint = CorusColors.Secondary,
                     )
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                    ) {
+                        if (comment.gifURL == null) {
+                            DropdownMenuItem(
+                                text = { Text("Edit", style = CorusFont.body, color = CorusColors.Text) },
+                                onClick = {
+                                    showMenu = false
+                                    onEdit()
+                                },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Delete", style = CorusFont.body, color = CorusColors.Error) },
+                            onClick = {
+                                showMenu = false
+                                showDeleteConfirm = true
+                            },
+                        )
+                    }
                 }
             }
         }

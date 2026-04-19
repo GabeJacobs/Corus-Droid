@@ -161,6 +161,7 @@ private fun CommentsSheetContent(
     val maxChars = 700
     val showCounter = commentText.text.length >= 650
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
+    val isSearchingMentions by viewModel.isSearchingMentions.collectAsState()
     var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
@@ -345,6 +346,7 @@ private fun CommentsSheetContent(
                 commentText = applyMention(commentText, user.username)
                 viewModel.clearMentions()
             },
+            isSearching = isSearchingMentions,
         )
 
         // ── Input bar pinned at the bottom ──

@@ -14,6 +14,7 @@ import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.extractMentions
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,6 +52,11 @@ class CommentsViewModel @Inject constructor(
 
     private val _mentionSuggestions = MutableStateFlow<List<CymbalUser>>(emptyList())
     val mentionSuggestions: StateFlow<List<CymbalUser>> = _mentionSuggestions.asStateFlow()
+
+    private val _isSearchingMentions = MutableStateFlow(false)
+    val isSearchingMentions: StateFlow<Boolean> = _isSearchingMentions.asStateFlow()
+
+    private var mentionSearchJob: Job? = null
 
     private val _post = MutableStateFlow<CymbalPost?>(null)
     val post: StateFlow<CymbalPost?> = _post.asStateFlow()
@@ -419,22 +425,30 @@ class CommentsViewModel @Inject constructor(
     // ── Mention Search ──
 
     fun searchMentions(query: String) {
+        mentionSearchJob?.cancel()
         if (query.length < 2) {
             _mentionSuggestions.value = emptyList()
+            _isSearchingMentions.value = false
             return
         }
-        viewModelScope.launch {
+        _isSearchingMentions.value = true
+        mentionSearchJob = viewModelScope.launch {
             try {
                 val results = userRepository.searchUsers(query, limit = 4)
                 _mentionSuggestions.value = results
             } catch (_: Exception) {
                 _mentionSuggestions.value = emptyList()
+            } finally {
+                _isSearchingMentions.value = false
             }
         }
     }
 
     fun clearMentions() {
+        mentionSearchJob?.cancel()
+        mentionSearchJob = null
         _mentionSuggestions.value = emptyList()
+        _isSearchingMentions.value = false
     }
 
     // ── Post Engagement ──
