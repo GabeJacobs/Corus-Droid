@@ -1,5 +1,6 @@
 package fm.corus.android.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -330,6 +331,7 @@ fun MainTabScreen(
             containerColor = CorusColors.Background,
             dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
         ) {
+            BackHandler { showClubOffer = false }
             CymbalClubOfferSheet(
                 source = clubOfferSource,
                 onDismiss = { showClubOffer = false },

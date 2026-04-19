@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.compose
 
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -77,6 +78,8 @@ fun ComposeScreen(
     preSelectedMovieId: String? = null,
     viewModel: ComposeViewModel = hiltViewModel(),
 ) {
+    BackHandler { onDismiss() }
+
     val selectedTrack by viewModel.selectedTrack.collectAsState()
     val selectedMovie by viewModel.selectedMovie.collectAsState()
     val isPosting by viewModel.isPosting.collectAsState()

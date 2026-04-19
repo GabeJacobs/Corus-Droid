@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.profile
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import com.valentinilk.shimmer.shimmer
@@ -949,6 +950,7 @@ fun OtherProfileScreen(
             containerColor = CorusColors.Background,
             dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
         ) {
+            BackHandler { showClubOffer = false }
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT,
                 onDismiss = { showClubOffer = false },

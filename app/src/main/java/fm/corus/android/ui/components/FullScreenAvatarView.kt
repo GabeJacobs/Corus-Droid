@@ -1,5 +1,6 @@
 package fm.corus.android.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -25,6 +26,8 @@ fun FullScreenAvatarOverlay(
     visible: Boolean,
     onDismiss: () -> Unit,
 ) {
+    BackHandler(enabled = visible) { onDismiss() }
+
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(),

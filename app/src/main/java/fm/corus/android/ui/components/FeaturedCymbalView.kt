@@ -1,11 +1,13 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseIn
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -18,14 +20,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.DiscoIntensity
@@ -70,6 +75,12 @@ fun FeaturedCymbalView(
         }
     }
 
+    // Double-tap-to-like heart animation state (matches PostCard & iOS FeaturedCymbalView)
+    val scope = rememberCoroutineScope()
+    val heartScale = remember { Animatable(0f) }
+    val heartAlpha = remember { Animatable(0f) }
+    var showDoubleTapHeart by remember { mutableStateOf(false) }
+
     val vinylDrawable = remember(vinylStyle) {
         when (vinylStyle) {
             VinylStyle.BLACK -> R.drawable.vinyl_black
@@ -101,7 +112,23 @@ fun FeaturedCymbalView(
                     ),
                 ),
             )
-            .clickable(onClick = onPostTap),
+            .pointerInput(post.id, isLiked) {
+                detectTapGestures(
+                    onTap = { onPostTap() },
+                    onDoubleTap = {
+                        if (!isLiked) onLikeTap()
+                        showDoubleTapHeart = true
+                        scope.launch {
+                            heartScale.snapTo(0f)
+                            heartAlpha.snapTo(1f)
+                            heartScale.animateTo(1f, animationSpec = tween(300))
+                            delay(400)
+                            heartAlpha.animateTo(0f, animationSpec = tween(300))
+                            showDoubleTapHeart = false
+                        }
+                    },
+                )
+            },
     ) {
         val w = maxWidth
         val h = w * vinylStyle.canvasRatio
@@ -177,6 +204,20 @@ fun FeaturedCymbalView(
             }
             if (discoIntensity != DiscoIntensity.OFF) {
                 DiscoEffectView(intensity = discoIntensity, modifier = Modifier.matchParentSize())
+            }
+
+            // Double-tap-to-like heart overlay
+            if (showDoubleTapHeart) {
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(80.dp)
+                        .scale(heartScale.value)
+                        .alpha(heartAlpha.value),
+                )
             }
         }
 

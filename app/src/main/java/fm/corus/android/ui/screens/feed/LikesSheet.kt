@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.feed
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -44,6 +45,7 @@ fun LikesBottomSheet(
         containerColor = Color.White,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
+        BackHandler { onDismiss() }
         LikesSheetContent(
             postId = postId,
             onDismiss = onDismiss,

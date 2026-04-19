@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -240,6 +241,7 @@ fun ProfileFeedScreen(
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {
+            BackHandler { sharePost = null }
             SharePostSheet(
                 post = post,
                 recentContacts = recentShareContacts,
@@ -282,6 +284,7 @@ fun ProfileFeedScreen(
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {
+            BackHandler { menuPost = null }
             PostActionMenu(
                 post = post,
                 isMine = isOwn,
