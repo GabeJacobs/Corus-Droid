@@ -81,11 +81,19 @@ class OtherProfileViewModel @Inject constructor(
     // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
     private val activeListenerPostIds = mutableSetOf<String>()
 
-    fun setInitialFollowing(value: Boolean) {
-        _isFollowing.value = value
+    // Tracks the userId this ViewModel has loaded data for. Used to skip
+    // redundant fetches when the composable re-enters composition after
+    // forward-then-back navigation (e.g. profile → profile feed → back).
+    private var loadedUserId: String? = null
+
+    fun start(userId: String, initialIsFollowing: Boolean?) {
+        if (loadedUserId == userId) return
+        if (initialIsFollowing != null) _isFollowing.value = initialIsFollowing
+        loadProfile(userId)
     }
 
     fun loadProfile(userId: String) {
+        loadedUserId = userId
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -133,6 +141,7 @@ class OtherProfileViewModel @Inject constructor(
     fun refresh(userId: String) {
         if (_isRefreshing.value) return
         val viewerId = authRepository.currentUserId ?: return
+        loadedUserId = userId
         _isRefreshing.value = true
         viewModelScope.launch {
             try {

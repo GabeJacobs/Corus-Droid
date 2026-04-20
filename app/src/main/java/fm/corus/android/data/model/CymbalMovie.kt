@@ -12,6 +12,7 @@ data class CymbalMovie(
     val rating: Double = 0.0,
     val cast: List<String> = emptyList(),
     val trailerURL: String? = null,
+    val releaseDate: String? = null,
 )
 
 data class TrendingSong(

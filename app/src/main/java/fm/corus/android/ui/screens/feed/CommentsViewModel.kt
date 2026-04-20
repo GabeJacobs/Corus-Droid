@@ -137,12 +137,16 @@ class CommentsViewModel @Inject constructor(
     }
 
     fun loadComments(postId: String) {
+        val postChanged = this.postId != postId
         this.postId = postId
+        if (postChanged) {
+            _comments.value = emptyList()
+            _repliesByParent.value = emptyMap()
+        }
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 val allComments = postRepository.getComments(postId)
-                // Separate top-level comments from replies
                 val topLevel = allComments.filter { it.parentCommentId == null }
                 val replies = allComments.filter { it.parentCommentId != null }
                     .groupBy { it.parentCommentId!! }

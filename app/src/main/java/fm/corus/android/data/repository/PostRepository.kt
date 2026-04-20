@@ -2,6 +2,7 @@ package fm.corus.android.data.repository
 
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
@@ -31,8 +32,9 @@ class PostRepository @Inject constructor(
         pageSize: Int = 7,
         lastTimestamp: Long? = null,
         onePerFollower: Boolean = false,
+        mediaType: MediaType? = null,
     ): CloudFunctionsDataSource.FeedPage {
-        return cloudFunctions.getFeedPage(userId, pageSize, lastTimestamp, onePerFollower)
+        return cloudFunctions.getFeedPage(userId, pageSize, lastTimestamp, onePerFollower, mediaType)
             .also { cachePosts(it.posts) }
     }
 

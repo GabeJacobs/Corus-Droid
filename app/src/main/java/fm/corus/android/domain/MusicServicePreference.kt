@@ -21,9 +21,10 @@ import javax.inject.Singleton
 @Singleton
 class MusicServicePreference @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val firestore: FirebaseFirestore,
+    private val firebaseAuth: FirebaseAuth,
 ) {
     private val prefs = context.getSharedPreferences("corus_prefs", Context.MODE_PRIVATE)
-    private val firestore = FirebaseFirestore.getInstance()
 
     private val _current = MutableStateFlow(loadLocal())
     val current: StateFlow<MusicService> = _current.asStateFlow()
@@ -43,7 +44,7 @@ class MusicServicePreference @Inject constructor(
      * Called on app launch / settings screen open.
      */
     suspend fun syncFromFirestore() {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val uid = firebaseAuth.currentUser?.uid ?: return
         try {
             val doc = firestore.collection("users_v2").document(uid).get().await()
             val settings = doc.get("settings") as? Map<*, *>
@@ -60,7 +61,7 @@ class MusicServicePreference @Inject constructor(
      */
     suspend fun syncToFirestore(service: MusicService) {
         set(service)
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val uid = firebaseAuth.currentUser?.uid ?: return
         try {
             firestore.collection("users_v2").document(uid)
                 .set(mapOf("settings" to mapOf("musicService" to service.value)), SetOptions.merge())

@@ -254,6 +254,10 @@ class UserRepository @Inject constructor(
         return firestoreDataSource.fetchPopularUsers(limit, excludeIds)
     }
 
+    suspend fun fetchNewUsers(limit: Int = 10, excludeIds: Set<String> = emptySet()): List<CymbalUser> {
+        return firestoreDataSource.fetchNewUsers(limit, excludeIds)
+    }
+
     // ── Search ──
 
     /**

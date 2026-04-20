@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -55,6 +56,7 @@ import fm.corus.android.ui.theme.NunitoFamily
 
 private const val MENTION_TAG = "mention"
 private const val HASHTAG_TAG = "hashtag"
+private const val USERNAME_TAG = "username"
 
 /**
  * Builds an AnnotatedString with tappable @mentions and #hashtags.
@@ -117,8 +119,8 @@ fun buildCaptionAnnotatedString(
         fontSize = 15.sp,
     )
     return buildAnnotatedString {
-        // Bold username
-        pushStringAnnotation(tag = MENTION_TAG, annotation = username)
+        // Bold username — tagged distinctly so taps route to profile, not to mention lookup
+        pushStringAnnotation(tag = USERNAME_TAG, annotation = username)
         withStyle(
             baseStyle.copy(
                 fontWeight = FontWeight.ExtraBold,
@@ -210,6 +212,8 @@ fun ExpandableCaptionText(
     maxCollapsedLines: Int = 3,
     onMentionTap: (String) -> Unit = {},
     onHashtagTap: (String) -> Unit = {},
+    onUsernameTap: () -> Unit = {},
+    onCommentTap: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -274,11 +278,17 @@ fun ExpandableCaptionText(
                 style = CorusFont.body.copy(color = CorusColors.Text),
                 maxLines = displayMaxLines,
                 onClick = { offset ->
+                    displayText.getStringAnnotations(tag = USERNAME_TAG, start = offset, end = offset)
+                        .firstOrNull()?.let { onUsernameTap(); return@ClickableText }
                     displayText.getStringAnnotations(tag = MENTION_TAG, start = offset, end = offset)
                         .firstOrNull()?.let { onMentionTap(it.item); return@ClickableText }
                     displayText.getStringAnnotations(tag = HASHTAG_TAG, start = offset, end = offset)
                         .firstOrNull()?.let { onHashtagTap(it.item); return@ClickableText }
-                    if (canExpand) isExpanded = true
+                    if (canExpand) {
+                        isExpanded = true
+                    } else {
+                        onCommentTap()
+                    }
                 },
             )
         }
@@ -296,6 +306,7 @@ fun UsernameWithFlair(
     flairStyle: FlairStyle = FlairStyle.CHECKMARK,
     isBot: Boolean = false,
     isFirstPoster: Boolean = false,
+    isNewRelease: Boolean = false,
     botType: String? = null,
     showAtPrefix: Boolean = false,
     style: TextStyle = CorusFont.username,
@@ -312,6 +323,7 @@ fun UsernameWithFlair(
             color = color,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
 
         // Flair badge — club members and verified users see their selected flair (matching iOS hasClubAccess)
@@ -365,6 +377,37 @@ fun UsernameWithFlair(
                         letterSpacing = 0.3.sp,
                     ),
                     color = gold,
+                )
+            }
+        }
+
+        // New release — purple capsule pill with flame icon
+        if (isNewRelease) {
+            Spacer(modifier = Modifier.width(5.dp))
+            val newReleasePurple = Color(0.62f, 0.35f, 0.95f)
+            val capsule = RoundedCornerShape(50)
+            Row(
+                modifier = Modifier
+                    .background(newReleasePurple.copy(alpha = 0.14f), shape = capsule)
+                    .border(0.8.dp, newReleasePurple.copy(alpha = 0.4f), shape = capsule)
+                    .padding(horizontal = 6.dp, vertical = 2.5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.LocalFireDepartment,
+                    contentDescription = null,
+                    tint = newReleasePurple,
+                    modifier = Modifier.size(9.dp),
+                )
+                Text(
+                    text = "NEW RELEASE",
+                    style = CorusFont.caption.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.sp,
+                        letterSpacing = 0.3.sp,
+                    ),
+                    color = newReleasePurple,
                 )
             }
         }

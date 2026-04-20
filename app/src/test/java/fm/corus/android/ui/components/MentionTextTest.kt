@@ -94,4 +94,53 @@ class MentionTextTest {
     fun `applyMention replaces bare @ with full username`() {
         assertEquals("@user ", applyMention("@", "user"))
     }
+
+    // ── buildMentionAnnotatedString ──
+    // Regression coverage: comment bodies in SinglePostCommentsScreen and the inline
+    // comment row in PostDetailScreen render through this builder. @mentions and
+    // #hashtags must end up with tappable annotations or those screens go back to
+    // plain text.
+
+    @Test
+    fun `buildMentionAnnotatedString tags @mention with mention annotation and strips the @`() {
+        val result = buildMentionAnnotatedString("hey @gideon")
+        val annotations = result.getStringAnnotations("mention", 0, result.length)
+        assertEquals(1, annotations.size)
+        assertEquals("gideon", annotations[0].item)
+    }
+
+    @Test
+    fun `buildMentionAnnotatedString tags #hashtag with hashtag annotation and strips the hash`() {
+        val result = buildMentionAnnotatedString("great #music today")
+        val annotations = result.getStringAnnotations("hashtag", 0, result.length)
+        assertEquals(1, annotations.size)
+        assertEquals("music", annotations[0].item)
+    }
+
+    @Test
+    fun `buildMentionAnnotatedString handles mention and hashtag in the same string`() {
+        val result = buildMentionAnnotatedString("@alice check out #jazz")
+        assertEquals("alice", result.getStringAnnotations("mention", 0, result.length).single().item)
+        assertEquals("jazz", result.getStringAnnotations("hashtag", 0, result.length).single().item)
+    }
+
+    @Test
+    fun `buildMentionAnnotatedString handles dotted usernames`() {
+        val result = buildMentionAnnotatedString("cc @john.doe")
+        assertEquals("john.doe", result.getStringAnnotations("mention", 0, result.length).single().item)
+    }
+
+    @Test
+    fun `buildMentionAnnotatedString leaves plain text with no annotations`() {
+        val result = buildMentionAnnotatedString("just a plain comment")
+        assertEquals(0, result.getStringAnnotations("mention", 0, result.length).size)
+        assertEquals(0, result.getStringAnnotations("hashtag", 0, result.length).size)
+    }
+
+    @Test
+    fun `buildMentionAnnotatedString preserves full plain text alongside annotated tokens`() {
+        val source = "hey @gideon about #music"
+        val result = buildMentionAnnotatedString(source)
+        assertEquals(source, result.text)
+    }
 }

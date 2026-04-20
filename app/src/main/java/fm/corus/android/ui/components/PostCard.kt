@@ -92,6 +92,7 @@ fun PostCard(
     onFilmPageTap: () -> Unit = {},
     onVoiceNotePlayed: () -> Unit = {},
     onRepostedFromUserTap: (userId: String?, username: String) -> Unit = { _, _ -> },
+    onCommentUserTap: (CymbalUser) -> Unit = {},
     hideComments: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
@@ -133,6 +134,7 @@ fun PostCard(
                     isClubMember = post.user.isClubMember,
                     flairStyle = post.user.flairStyle,
                     isFirstPoster = post.isFirstPoster,
+                    isNewRelease = post.isNewRelease(),
                     style = CorusFont.username,
                     color = CorusColors.Text,
                 )
@@ -675,6 +677,8 @@ fun PostCard(
                 maxCollapsedLines = 3,
                 onMentionTap = { onMentionTap(it) },
                 onHashtagTap = { onHashtagTap(it) },
+                onUsernameTap = onUserTap,
+                onCommentTap = onCommentTap,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = CorusSpacing.lg)
@@ -682,7 +686,7 @@ fun PostCard(
             )
         }
 
-        // 7. COMMENT PREVIEW — tap to open comments sheet
+        // 7. COMMENT PREVIEW — tap username → profile, tap elsewhere → open comments sheet
         // Match iOS: show up to 3 when no caption, fewer when caption is present
         val hasCaption = !post.caption.isNullOrBlank()
         val maxVisibleComments = if (hasCaption) 2 else minOf(3, post.comments.size)
@@ -701,6 +705,7 @@ fun PostCard(
             ) {
                 post.comments.take(maxVisibleComments).forEach { comment ->
                     val commentText = buildAnnotatedString {
+                        pushStringAnnotation(tag = "commentUser", annotation = comment.user.id)
                         withStyle(
                             SpanStyle(
                                 fontWeight = FontWeight.ExtraBold,
@@ -709,6 +714,7 @@ fun PostCard(
                         ) {
                             append(comment.user.username)
                         }
+                        pop()
                         append(" ")
                         withStyle(
                             SpanStyle(
@@ -719,12 +725,23 @@ fun PostCard(
                             append(comment.text)
                         }
                     }
-                    Text(
+                    androidx.compose.foundation.text.ClickableText(
                         text = commentText,
-                        style = CorusFont.body,
-                        color = CorusColors.Text,
+                        style = CorusFont.body.copy(color = CorusColors.Text),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        onClick = { offset ->
+                            val hit = commentText.getStringAnnotations(
+                                tag = "commentUser",
+                                start = offset,
+                                end = offset,
+                            ).firstOrNull()
+                            if (hit != null) {
+                                onCommentUserTap(comment.user)
+                            } else {
+                                onCommentTap()
+                            }
+                        },
                     )
                 }
             }

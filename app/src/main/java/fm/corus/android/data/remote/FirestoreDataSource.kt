@@ -767,6 +767,53 @@ class FirestoreDataSource @Inject constructor(
         }.take(limit)
     }
 
+    suspend fun fetchNewUsers(limit: Int = 10, excludeIds: Set<String> = emptySet()): List<CymbalUser> {
+        val fetchCount = limit + excludeIds.size + 20
+        val snapshot = firestore.collection("users_v2")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(fetchCount.toLong())
+            .get().await()
+        return snapshot.documents.mapNotNull { doc ->
+            if (excludeIds.contains(doc.id)) return@mapNotNull null
+            val data = doc.data ?: return@mapNotNull null
+            val user = CymbalUser.fromMap(doc.id, data)
+            if (user.isBot) return@mapNotNull null
+            if (user.createdAt == null) return@mapNotNull null
+            user
+        }.take(limit)
+    }
+
+    suspend fun fetchNewUsersPaginated(
+        limit: Int = 20,
+        excludeIds: Set<String> = emptySet(),
+        afterDocId: String? = null,
+    ): List<CymbalUser> {
+        val fetchCount = limit * 2 + excludeIds.size
+        var query = firestore.collection("users_v2")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(fetchCount.toLong())
+
+        if (afterDocId != null) {
+            val afterDoc = firestore.collection("users_v2").document(afterDocId).get().await()
+            if (afterDoc.exists()) {
+                query = query.startAfter(afterDoc)
+            }
+        }
+
+        val snapshot = query.get().await()
+        val users = mutableListOf<CymbalUser>()
+        for (doc in snapshot.documents) {
+            if (excludeIds.contains(doc.id)) continue
+            val data = doc.data ?: continue
+            val user = CymbalUser.fromMap(doc.id, data)
+            if (user.isBot) continue
+            if (user.createdAt == null) continue
+            users.add(user)
+            if (users.size >= limit) break
+        }
+        return users
+    }
+
     // ── Comment Likes ──
 
     suspend fun likeComment(userId: String, postId: String, commentId: String) {

@@ -67,8 +67,8 @@ fun SongDetailScreen(
 
     // Use route metadata immediately, upgrade to post data when available
     val songInfo = posts.firstOrNull()
-    val displayName = songInfo?.displayTitle ?: songName
-    val displayArtist = songInfo?.displaySubtitle ?: artistName
+    val displayName = songInfo?.displayTitle?.takeIf { it.isNotBlank() } ?: songName
+    val displayArtist = songInfo?.displaySubtitle?.takeIf { it.isNotBlank() } ?: artistName
     val artUrl = songInfo?.track?.albumArtLargeURL ?: songInfo?.track?.albumArtURL ?: albumArtLargeURL ?: albumArtURL
     val effectiveSpotifyURI = songInfo?.track?.spotifyURI ?: spotifyURI ?: ""
     val effectiveSpotifyWebURL = songInfo?.track?.spotifyWebURL ?: spotifyWebURL ?: ""
@@ -80,7 +80,12 @@ fun SongDetailScreen(
     val showScrim = isPlayingThisTrack || isLoadingThisTrack
 
     LaunchedEffect(trackId) {
-        viewModel.loadSongPosts(trackId)
+        viewModel.loadSongPosts(
+            trackId = trackId,
+            spotifyURI = spotifyURI,
+            trackName = songName,
+            artistName = artistName,
+        )
     }
 
     Scaffold(
@@ -372,6 +377,7 @@ private fun PostedByRow(
                 flairStyle = post.user.flairStyle,
                 isBot = post.user.isBot,
                 isFirstPoster = post.isFirstPoster,
+                isNewRelease = post.isNewRelease(),
                 showAtPrefix = true,
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,

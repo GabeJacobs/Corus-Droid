@@ -57,6 +57,7 @@ class SuggestedUsersListViewModel @Inject constructor(
                     _suggestions.value = when (source) {
                         "mutualConnections" -> loadMutualConnections(uid)
                         "popular" -> loadPopularUsers(uid)
+                        "new" -> loadNewUsers(uid)
                         else -> userRepository.getSuggestedUsers(uid)
                     }
                 } catch (_: Exception) { }
@@ -83,6 +84,13 @@ class SuggestedUsersListViewModel @Inject constructor(
 
     private suspend fun loadPopularUsers(uid: String): List<SuggestedUserMatch> {
         val users = userRepository.fetchPopularUsers(limit = 50, excludeIds = setOf(uid))
+        return users.map { user ->
+            SuggestedUserMatch(user = user, matchData = null, suggestionReason = null)
+        }
+    }
+
+    private suspend fun loadNewUsers(uid: String): List<SuggestedUserMatch> {
+        val users = userRepository.fetchNewUsers(limit = 50, excludeIds = setOf(uid))
         return users.map { user ->
             SuggestedUserMatch(user = user, matchData = null, suggestionReason = null)
         }

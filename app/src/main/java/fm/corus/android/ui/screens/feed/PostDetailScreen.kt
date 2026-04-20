@@ -56,6 +56,7 @@ import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.components.VoiceNotePlayerView
+import fm.corus.android.ui.components.buildMentionAnnotatedString
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -326,6 +327,18 @@ fun PostDetailScreen(
                             InlineCommentRow(
                                 comment = comment,
                                 onUserTap = { onNavigateToUser(comment.user.id) },
+                                onMentionTap = { username ->
+                                    scope.launch {
+                                        val userId = viewModel.resolveUsernameToId(username.removePrefix("@"))
+                                        if (userId != null) {
+                                            onNavigateToUser(userId)
+                                        }
+                                    }
+                                },
+                                onHashtagTap = { hashtag ->
+                                    viewModel.analyticsService.logTrendingHashtagTapped(hashtag)
+                                    onNavigateToHashtag(hashtag)
+                                },
                             )
                         }
                     }
@@ -965,36 +978,51 @@ private fun PostDetailCaption(
 private fun InlineCommentRow(
     comment: CymbalComment,
     onUserTap: () -> Unit,
+    onMentionTap: (String) -> Unit,
+    onHashtagTap: (String) -> Unit,
 ) {
-    val commentText = buildAnnotatedString {
-        withStyle(
-            SpanStyle(
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 14.sp,
+    val commentText = remember(comment.user.username, comment.text) {
+        buildAnnotatedString {
+            withStyle(
+                SpanStyle(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp,
+                )
+            ) {
+                append(comment.user.username)
+            }
+            append(" ")
+            append(
+                buildMentionAnnotatedString(
+                    text = comment.text,
+                    baseStyle = SpanStyle(
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 15.sp,
+                    ),
+                )
             )
-        ) {
-            append(comment.user.username)
-        }
-        append(" ")
-        withStyle(
-            SpanStyle(
-                fontWeight = FontWeight.Normal,
-                fontSize = 15.sp,
-            )
-        ) {
-            append(comment.text)
         }
     }
 
-    Text(
+    @Suppress("DEPRECATION")
+    ClickableText(
         text = commentText,
-        style = CorusFont.body,
-        color = CorusColors.Text,
+        style = CorusFont.body.copy(color = CorusColors.Text),
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xxs)
-            .clickable(onClick = onUserTap),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xxs),
+        onClick = { offset ->
+            commentText.getStringAnnotations("mention", offset, offset).firstOrNull()?.let {
+                onMentionTap(it.item)
+                return@ClickableText
+            }
+            commentText.getStringAnnotations("hashtag", offset, offset).firstOrNull()?.let {
+                onHashtagTap(it.item)
+                return@ClickableText
+            }
+            onUserTap()
+        },
     )
 }

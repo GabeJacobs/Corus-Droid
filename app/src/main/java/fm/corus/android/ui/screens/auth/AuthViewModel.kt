@@ -17,6 +17,7 @@ import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -41,6 +42,7 @@ class AuthViewModel @Inject constructor(
     val analyticsService: AnalyticsService,
     private val firebaseAuth: FirebaseAuth,
     private val unreadCountsRepository: UnreadCountsRepository,
+    private val musicServicePreference: MusicServicePreference,
 ) : ViewModel() {
 
     sealed class AuthState {
@@ -124,6 +126,7 @@ class AuthViewModel @Inject constructor(
                         launch { authRepository.registerFCMToken() }
                         launch { remoteConfigService.fetchAndActivate() }
                         launch { subscriptionRepository.refreshPostLimit() }
+                        launch { musicServicePreference.syncFromFirestore() }
                         subscriptionRepository.loginUser(user.uid)
                         analyticsService.setUserId(user.uid)
                         unreadCountsRepository.start(user.uid)

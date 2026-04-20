@@ -1,5 +1,9 @@
 package fm.corus.android.data.model
 
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.Date
 
 data class CymbalPost(
@@ -37,9 +41,47 @@ data class CymbalPost(
     val movieOverview: String? = null,
     val movieRating: Double? = null,
     val movieCast: List<String>? = null,
+    val movieReleaseDate: String? = null,
 ) {
     val isMovie: Boolean get() = mediaType == MediaType.MOVIE
     val isTrack: Boolean get() = mediaType == MediaType.TRACK
+
+    /**
+     * True iff the track or film release is "fresh enough":
+     * - Tracks with day precision: released within the last 30 days
+     * - Tracks with month precision: release year-month equals current year-month
+     * - Tracks with year precision (or missing): never
+     * - Films: full YYYY-MM-DD release date within the last 30 days (TMDB
+     *   always provides day precision when it has a date)
+     *
+     * Recomputed on each call so the pill auto-expires without a backend flip
+     * or feed refetch.
+     */
+    fun isNewRelease(today: LocalDate = LocalDate.now(ZoneOffset.UTC)): Boolean {
+        if (isTrack) {
+            val raw = track.releaseDate ?: return false
+            return when (track.releaseDatePrecision) {
+                "day" -> isWithinLast30Days(raw, today)
+                "month" -> raw == "%04d-%02d".format(today.year, today.monthValue)
+                else -> false
+            }
+        }
+        if (isMovie) {
+            val raw = movieReleaseDate ?: return false
+            return isWithinLast30Days(raw, today)
+        }
+        return false
+    }
+
+    private fun isWithinLast30Days(dayString: String, today: LocalDate): Boolean {
+        val released = try {
+            LocalDate.parse(dayString, DateTimeFormatter.ISO_LOCAL_DATE)
+        } catch (_: DateTimeParseException) {
+            return false
+        }
+        val daysSinceRelease = java.time.temporal.ChronoUnit.DAYS.between(released, today)
+        return daysSinceRelease in 0..29
+    }
 
     val displayImageURL: String?
         get() = if (isMovie) posterURL else track.albumArtURL
@@ -78,6 +120,8 @@ data class CymbalPost(
                 previewUrl = data["previewUrl"] as? String ?: data["previewURL"] as? String,
                 isrc = data["isrc"] as? String,
                 albumArtBackURL = data["albumArtBackURL"] as? String,
+                releaseDate = (data["trackReleaseDate"] as? String)?.ifEmpty { null },
+                releaseDatePrecision = (data["trackReleaseDatePrecision"] as? String)?.ifEmpty { null },
             )
 
             // Preview comments from cloud functions use a flat structure
@@ -137,6 +181,7 @@ data class CymbalPost(
                 movieOverview = data["movieOverview"] as? String,
                 movieRating = (data["movieRating"] as? Number)?.toDouble(),
                 movieCast = data["movieCast"] as? List<String>,
+                movieReleaseDate = (data["movieReleaseDate"] as? String)?.ifEmpty { null },
             )
         }
     }

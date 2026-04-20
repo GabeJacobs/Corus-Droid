@@ -138,6 +138,13 @@ class SearchViewModel @Inject constructor(
     private val _isPopularLoading = MutableStateFlow(true)
     val isPopularLoading: StateFlow<Boolean> = _isPopularLoading.asStateFlow()
 
+    // New on Corus (recently joined)
+    private val _newUsers = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val newUsers: StateFlow<List<CymbalUser>> = _newUsers.asStateFlow()
+
+    private val _isNewUsersLoading = MutableStateFlow(true)
+    val isNewUsersLoading: StateFlow<Boolean> = _isNewUsersLoading.asStateFlow()
+
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -262,6 +269,7 @@ class SearchViewModel @Inject constructor(
             _isBotsLoading.value = false
         }
         loadPopularUsers()
+        loadNewUsers()
     }
 
     private fun loadPopularUsers() {
@@ -278,6 +286,23 @@ class SearchViewModel @Inject constructor(
                 Log.e("SearchVM", "Failed to load popular users", e)
             }
             _isPopularLoading.value = false
+        }
+    }
+
+    private fun loadNewUsers() {
+        val uid = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                val newOnes = userRepository.fetchNewUsers(
+                    limit = 10,
+                    excludeIds = _followingIds.value + _localFollowedIds.value + uid,
+                )
+                Log.d("SearchVM", "New users loaded: ${newOnes.size}")
+                _newUsers.value = newOnes
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load new users", e)
+            }
+            _isNewUsersLoading.value = false
         }
     }
 

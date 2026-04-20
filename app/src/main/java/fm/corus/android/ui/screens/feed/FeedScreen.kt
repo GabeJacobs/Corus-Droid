@@ -333,6 +333,7 @@ fun FeedScreen(
                                 if (userId != null) onNavigateToUserById(userId)
                                 else onNavigateToUserByUsername(username)
                             },
+                            onCommentUserTap = { user -> onNavigateToUserById(user.id) },
                             onHashtagTap = { hashtag ->
                                 viewModel.analyticsService.logTrendingHashtagTapped(hashtag)
                                 onNavigateToHashtag(hashtag)

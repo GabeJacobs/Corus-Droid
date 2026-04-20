@@ -31,6 +31,8 @@ class SpotifyRepository @Inject constructor(
             spotifyWebURL = externalUrls["spotify"] as? String ?: "",
             durationMs = (item["duration_ms"] as? Number)?.toInt() ?: 0,
             previewUrl = item["preview_url"] as? String,
+            releaseDate = album["release_date"] as? String,
+            releaseDatePrecision = album["release_date_precision"] as? String,
         )
     }
 
@@ -60,6 +62,8 @@ class SpotifyRepository @Inject constructor(
                 spotifyWebURL = externalUrls["spotify"] as? String ?: "",
                 durationMs = (item["duration_ms"] as? Number)?.toInt() ?: 0,
                 previewUrl = item["preview_url"] as? String,
+                releaseDate = album["release_date"] as? String,
+                releaseDatePrecision = album["release_date_precision"] as? String,
             )
         }
     }

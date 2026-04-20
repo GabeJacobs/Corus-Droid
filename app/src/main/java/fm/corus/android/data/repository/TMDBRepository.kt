@@ -27,6 +27,7 @@ class TMDBRepository @Inject constructor(
                 overview = result.overview,
                 rating = result.voteAverage,
                 tmdbWebURL = "https://www.themoviedb.org/movie/${result.id}",
+                releaseDate = result.releaseDate,
             )
         }
     }
@@ -47,6 +48,7 @@ class TMDBRepository @Inject constructor(
             rating = details.voteAverage,
             cast = details.castNames,
             trailerURL = details.trailerURL,
+            releaseDate = details.releaseDate,
         )
     }
 

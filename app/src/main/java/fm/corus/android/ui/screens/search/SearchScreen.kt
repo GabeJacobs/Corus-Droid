@@ -76,6 +76,7 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.util.DateUtils
 
 enum class SearchTab(val label: String) {
     USERS("Users"),
@@ -117,6 +118,7 @@ fun SearchScreen(
     val showNoContactMatches by viewModel.showNoContactMatches.collectAsState()
     val popularUsers by viewModel.popularUsers.collectAsState()
     val isPopularLoading by viewModel.isPopularLoading.collectAsState()
+    val newUsers by viewModel.newUsers.collectAsState()
 
     val activeTabIndex by viewModel.activeTab.collectAsState()
     val activeTab = SearchTab.entries[activeTabIndex]
@@ -260,6 +262,7 @@ fun SearchScreen(
                                 showNoContactMatches = showNoContactMatches,
                                 popularUsers = popularUsers,
                                 isPopularLoading = isPopularLoading,
+                                newUsers = newUsers,
                                 isSuggestedLoading = isSuggestedLoading,
                                 isBotsLoading = isBotsLoading,
                                 viewModel = viewModel,
@@ -512,6 +515,7 @@ private fun SuggestedUsersContent(
     showNoContactMatches: Boolean,
     popularUsers: List<CymbalUser>,
     isPopularLoading: Boolean,
+    newUsers: List<CymbalUser>,
     isSuggestedLoading: Boolean,
     isBotsLoading: Boolean,
     viewModel: SearchViewModel,
@@ -670,11 +674,11 @@ private fun SuggestedUsersContent(
                 SectionHeader(
                     icon = "trending",
                     title = "POPULAR ON CORUS",
-                    showSeeAll = popularUsers.size > 3,
+                    showSeeAll = popularUsers.size > 2,
                     onSeeAll = { onNavigateToSuggestedUsers("Popular on Corus", true, "popular") },
                 )
             }
-            items(popularUsers.take(3), key = { "popular-${it.id}" }) { user ->
+            items(popularUsers.take(2), key = { "popular-${it.id}" }) { user ->
                 SuggestedUserRow(
                     user = user,
                     subtitle = "${user.followerCount} followers",
@@ -688,7 +692,36 @@ private fun SuggestedUsersContent(
             item {
                 SectionHeader(icon = "trending", title = "POPULAR ON CORUS")
             }
-            items(3) { SkeletonUserRow() }
+            items(2) { SkeletonUserRow() }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+        }
+
+        // ── New on Corus ──
+        val seenNewIds = buildSet {
+            mutualConnectionUsers.forEach { add(it.user.id) }
+            popularUsers.take(2).forEach { add(it.id) }
+        }
+        val displayNewUsers = newUsers.filter {
+            !seenNewIds.contains(it.id) && !viewModel.isFollowed(it.id)
+        }
+        if (displayNewUsers.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    icon = "new",
+                    title = "NEW ON CORUS",
+                    showSeeAll = displayNewUsers.size > 2,
+                    onSeeAll = { onNavigateToSuggestedUsers("New on Corus", true, "new") },
+                )
+            }
+            items(displayNewUsers.take(2), key = { "new-${it.id}" }) { user ->
+                SuggestedUserRow(
+                    user = user,
+                    subtitle = user.createdAt?.let { "Joined ${DateUtils.relativeTime(it)} ago" },
+                    isFollowed = viewModel.isFollowed(user.id),
+                    onTap = { onNavigateToUser(user.id) },
+                    onFollow = { viewModel.toggleFollow(user) },
+                )
+            }
             item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         }
 
@@ -859,6 +892,7 @@ private fun SectionHeader(
             "sparkles" -> Icons.Filled.AutoAwesome
             "people" -> Icons.Filled.People
             "trending" -> Icons.Filled.AutoAwesome
+            "new" -> Icons.Filled.AutoAwesome
             "contacts" -> Icons.Filled.Contacts
             "bot" -> Icons.Filled.SmartToy
             else -> null

@@ -32,6 +32,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -102,9 +103,9 @@ fun OtherProfileScreen(
     val hasMore by viewModel.hasMore.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
-    var selectedSegment by remember { mutableIntStateOf(0) }
-    var isFeaturedArtReady by remember { mutableStateOf(false) }
-    var didRevealFromSkeleton by remember { mutableStateOf(false) }
+    var selectedSegment by rememberSaveable { mutableIntStateOf(0) }
+    var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
+    var didRevealFromSkeleton by rememberSaveable { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showAvatarFullScreen by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
@@ -134,8 +135,7 @@ fun OtherProfileScreen(
     }
 
     LaunchedEffect(userId) {
-        if (initialIsFollowing != null) viewModel.setInitialFollowing(initialIsFollowing)
-        viewModel.loadProfile(userId)
+        viewModel.start(userId, initialIsFollowing)
     }
 
     Scaffold(

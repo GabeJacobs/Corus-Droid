@@ -369,6 +369,7 @@ private fun FilmPostedByRow(
                 flairStyle = post.user.flairStyle,
                 isBot = post.user.isBot,
                 isFirstPoster = post.isFirstPoster,
+                isNewRelease = post.isNewRelease(),
                 showAtPrefix = true,
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,

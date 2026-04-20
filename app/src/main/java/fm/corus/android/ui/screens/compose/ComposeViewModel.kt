@@ -369,6 +369,8 @@ class ComposeViewModel @Inject constructor(
                     data["isFirstPoster"] = isFirstPoster
                     data["previewUrl"] = track.previewUrl ?: ""
                     data["isrc"] = track.isrc ?: ""
+                    data["trackReleaseDate"] = track.releaseDate ?: ""
+                    data["trackReleaseDatePrecision"] = track.releaseDatePrecision ?: ""
                 } else {
                     val movie = _selectedMovie.value ?: throw Exception("No movie selected")
 
@@ -381,6 +383,7 @@ class ComposeViewModel @Inject constructor(
                     data["movieTitle"] = movie.title
                     data["directorName"] = movie.directorName
                     data["releaseYear"] = movie.year
+                    data["movieReleaseDate"] = movie.releaseDate ?: ""
                     data["posterURL"] = movie.posterURL ?: ""
                     data["posterLargeURL"] = movie.posterLargeURL ?: ""
                     data["tmdbWebURL"] = movie.tmdbWebURL

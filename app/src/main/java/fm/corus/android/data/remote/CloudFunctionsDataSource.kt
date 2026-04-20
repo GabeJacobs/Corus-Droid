@@ -51,6 +51,7 @@ class CloudFunctionsDataSource @Inject constructor(
         pageSize: Int = 7,
         lastTimestamp: Long? = null,
         onePerFollower: Boolean = false,
+        mediaType: MediaType? = null,
     ): FeedPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
@@ -58,6 +59,7 @@ class CloudFunctionsDataSource @Inject constructor(
             "onePerFollower" to onePerFollower,
         )
         lastTimestamp?.let { params["beforeMs"] = it }
+        mediaType?.let { params["mediaType"] = it.value }
 
         val result = functions.getHttpsCallable("getFeedPage").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return FeedPage(emptyList(), false)

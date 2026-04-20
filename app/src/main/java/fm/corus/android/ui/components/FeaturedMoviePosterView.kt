@@ -30,7 +30,10 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import fm.corus.android.R
@@ -135,8 +138,15 @@ fun FeaturedMoviePosterView(
             // Poster
             val posterUrl = post.displayImageLargeURL ?: post.displayImageURL
             if (posterUrl != null) {
+                val ctx = LocalContext.current
+                val posterRequest = remember(posterUrl) {
+                    ImageRequest.Builder(ctx)
+                        .data(posterUrl)
+                        .crossfade(false)
+                        .build()
+                }
                 AsyncImage(
-                    model = posterUrl,
+                    model = posterRequest,
                     contentDescription = null,
                     modifier = Modifier
                         .offset(x = w * posterXRatio, y = h * posterYRatio)

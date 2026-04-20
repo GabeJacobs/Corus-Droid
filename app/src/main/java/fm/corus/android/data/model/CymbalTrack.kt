@@ -15,6 +15,8 @@ data class CymbalTrack(
     val previewUrl: String? = null,
     val isrc: String? = null,
     val albumArtBackURL: String? = null,
+    val releaseDate: String? = null,
+    val releaseDatePrecision: String? = null,
 ) {
     val formattedDuration: String
         get() {
@@ -49,6 +51,8 @@ data class CymbalTrack(
             previewUrl = data["previewUrl"] as? String ?: data["previewURL"] as? String,
             isrc = data["isrc"] as? String,
             albumArtBackURL = data["albumArtBackURL"] as? String,
+            releaseDate = (data["trackReleaseDate"] as? String)?.ifEmpty { null },
+            releaseDatePrecision = (data["trackReleaseDatePrecision"] as? String)?.ifEmpty { null },
         )
     }
 }

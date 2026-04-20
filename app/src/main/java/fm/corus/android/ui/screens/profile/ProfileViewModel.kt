@@ -130,9 +130,16 @@ class ProfileViewModel @Inject constructor(
 
     private var segmentLoadJob: Job? = null
 
+    // Guards against redundant fetches when the composable re-enters composition
+    // after forward-then-back navigation (e.g. profile → profile feed → back).
+    // Reset by refreshProfile() so pull-to-refresh still fetches.
+    private var hasLoaded = false
+
     private val PAGE_SIZE = 30
     fun loadProfile() {
+        if (hasLoaded) return
         val userId = authRepository.currentUserId ?: return
+        hasLoaded = true
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -167,6 +174,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun refreshProfile() {
+        hasLoaded = true
         viewModelScope.launch {
             _isLoading.value = true
             _isRefreshing.value = true

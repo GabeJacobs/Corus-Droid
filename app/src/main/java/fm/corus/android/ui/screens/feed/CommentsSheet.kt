@@ -29,6 +29,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
@@ -156,6 +157,7 @@ private fun CommentsSheetContent(
 
     var commentText by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
     var showGifPicker by remember { mutableStateOf(false) }
     var reportingComment by remember { mutableStateOf<CymbalComment?>(null) }
     val maxChars = 700
@@ -427,15 +429,9 @@ private fun CommentsSheetContent(
                 },
                 singleLine = false,
                 maxLines = 4,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(
-                    onSend = {
-                        if (commentText.text.isNotBlank() && !isSending) {
-                            if (editingComment != null) viewModel.editComment(editingComment!!.id, commentText.text) else viewModel.sendComment(commentText.text)
-                            commentText = TextFieldValue("")
-                            viewModel.clearMentions()
-                        }
-                    },
+                    onDone = { keyboardController?.hide() },
                 ),
                 shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                 colors = TextFieldDefaults.colors(
@@ -730,7 +726,9 @@ private fun CommentRow(
         // Like button + menu — vertically centered on the row
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.align(Alignment.CenterVertically),
+            modifier = Modifier
+                .align(Alignment.CenterVertically)
+                .padding(start = CorusSpacing.sm),
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,

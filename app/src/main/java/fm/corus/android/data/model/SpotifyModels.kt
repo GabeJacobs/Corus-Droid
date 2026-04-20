@@ -44,6 +44,10 @@ data class SpotifyAlbum(
     val id: String = "",
     val name: String = "",
     val images: List<SpotifyImage> = emptyList(),
+    @SerialName("release_date")
+    val releaseDate: String? = null,
+    @SerialName("release_date_precision")
+    val releaseDatePrecision: String? = null,
 ) {
     val thumbnailURL: String?
         get() = images.minByOrNull { it.width ?: Int.MAX_VALUE }?.url

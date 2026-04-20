@@ -28,7 +28,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import fm.corus.android.R
@@ -160,8 +163,18 @@ fun FeaturedCymbalView(
             // Album art on label (circular)
             val artUrl = post.displayImageLargeURL ?: post.displayImageURL
             if (artUrl != null) {
+                // Disable crossfade so returning to the profile (back-nav)
+                // doesn't replay a fade-in when Coil serves from disk cache at
+                // a fresh size — the featured view should restore instantly.
+                val ctx = LocalContext.current
+                val artRequest = remember(artUrl) {
+                    ImageRequest.Builder(ctx)
+                        .data(artUrl)
+                        .crossfade(false)
+                        .build()
+                }
                 AsyncImage(
-                    model = artUrl,
+                    model = artRequest,
                     contentDescription = null,
                     modifier = Modifier
                         .offset(
@@ -179,7 +192,7 @@ fun FeaturedCymbalView(
 
                 // Big album art
                 AsyncImage(
-                    model = artUrl,
+                    model = artRequest,
                     contentDescription = null,
                     modifier = Modifier
                         .offset(x = w * artXFrac, y = h * artYFrac)

@@ -22,6 +22,7 @@ import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.util.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,6 +120,7 @@ private fun subtitleForRow(match: SuggestedUserMatch, source: String): String? {
             val count = match.user.followerCount
             if (count == 1) "1 follower" else "$count followers"
         }
+        "new" -> match.user.createdAt?.let { "Joined ${DateUtils.relativeTime(it)} ago" }
         else -> formatMutualFollowersText(match.suggestionReason?.mutualNames)
     }
 }

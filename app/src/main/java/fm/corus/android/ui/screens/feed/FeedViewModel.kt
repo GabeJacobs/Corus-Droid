@@ -21,6 +21,7 @@ import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
+import fm.corus.android.ui.components.PostMenuActions
 import fm.corus.android.ui.components.ToastManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -46,7 +47,7 @@ class FeedViewModel @Inject constructor(
     val remoteConfig: RemoteConfigService,
     val analyticsService: AnalyticsService,
     private val postCreationEvent: PostCreationEvent,
-) : ViewModel() {
+) : ViewModel(), PostMenuActions {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
@@ -54,14 +55,9 @@ class FeedViewModel @Inject constructor(
     private val _feedMediaFilter = MutableStateFlow<MediaType?>(null)
     val feedMediaFilter: StateFlow<MediaType?> = _feedMediaFilter.asStateFlow()
 
-    val filteredPosts: StateFlow<List<CymbalPost>> =
-        combine(_posts, _feedMediaFilter) { posts, filter ->
-            when (filter) {
-                null -> posts
-                MediaType.TRACK -> posts.filter { it.mediaType == MediaType.TRACK }
-                MediaType.MOVIE -> posts.filter { it.mediaType == MediaType.MOVIE }
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // Filtering happens server-side in getFeedPage; _posts already reflects the active filter.
+    // Kept as a StateFlow so existing UI observers don't need to change.
+    val filteredPosts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     private val _hasLoaded = MutableStateFlow(false)
@@ -143,6 +139,7 @@ class FeedViewModel @Inject constructor(
                     userId = userId,
                     pageSize = 7,
                     lastTimestamp = if (refresh) null else lastTimestamp,
+                    mediaType = _feedMediaFilter.value,
                 )
 
                 val newPosts = page.posts
@@ -186,7 +183,14 @@ class FeedViewModel @Inject constructor(
     }
 
     fun setFeedMediaFilter(filter: MediaType?) {
+        if (_feedMediaFilter.value == filter) return
         _feedMediaFilter.value = filter
+        // Server-side filter changed — reset the paginated feed and re-fetch
+        // so the returned page matches the new filter.
+        lastTimestamp = null
+        _posts.value = emptyList()
+        _hasMore.value = true
+        loadFeed(refresh = true)
     }
 
     fun playPreview(post: fm.corus.android.data.model.CymbalPost) {
@@ -233,7 +237,7 @@ class FeedViewModel @Inject constructor(
 
     // ── Share contacts & search ──
 
-    fun loadRecentShareContacts() {
+    override fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
         _isLoadingShareContacts.value = true
         viewModelScope.launch {
@@ -257,7 +261,7 @@ class FeedViewModel @Inject constructor(
         }
     }
 
-    fun searchShareUsers(query: String) {
+    override fun searchShareUsers(query: String) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
             shareSearchJob?.cancel()
@@ -279,7 +283,7 @@ class FeedViewModel @Inject constructor(
         }
     }
 
-    fun sendPostToUser(userId: String, post: CymbalPost, message: String) {
+    override fun sendPostToUser(userId: String, post: CymbalPost, message: String) {
         val currentUserId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
@@ -314,7 +318,7 @@ class FeedViewModel @Inject constructor(
 
     // ── Report / Block / Mute ──
 
-    fun reportPost(postId: String, postUserId: String) {
+    override fun reportPost(postId: String, postUserId: String) {
         val currentUserId = authRepository.currentUserId ?: return
         analyticsService.logReportPost(postId, "reported_from_feed")
         viewModelScope.launch {
@@ -333,7 +337,7 @@ class FeedViewModel @Inject constructor(
         }
     }
 
-    fun blockUser(targetUserId: String) {
+    override fun blockUser(targetUserId: String) {
         val currentUserId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
@@ -359,7 +363,7 @@ class FeedViewModel @Inject constructor(
         }
     }
 
-    fun deletePost(postId: String) {
+    override fun deletePost(postId: String) {
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
@@ -373,11 +377,11 @@ class FeedViewModel @Inject constructor(
         }
     }
 
-    fun isOwnPost(post: CymbalPost): Boolean {
+    override fun isOwnPost(post: CymbalPost): Boolean {
         return post.user.id == authRepository.currentUserId
     }
 
-    suspend fun fetchBackCover(postId: String): String? {
+    override suspend fun fetchBackCover(postId: String): String? {
         return postRepository.fetchBackCover(postId)
     }
 

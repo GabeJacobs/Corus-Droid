@@ -29,6 +29,7 @@ data class CymbalUser(
     val artistsInCommonCount: Int? = null,
     val deletionStatus: String? = null,
     val lastPostedAt: Date? = null,
+    val createdAt: Date? = null,
 ) {
     val vinylStyle: VinylStyle get() = VinylStyle.from(vinylColor)
     val frameStyle: FrameStyle get() = FrameStyle.from(frameColor)
@@ -70,6 +71,7 @@ data class CymbalUser(
             artistsInCommonCount = (data["artistsInCommonCount"] as? Number)?.toInt(),
             deletionStatus = data["deletionStatus"] as? String,
             lastPostedAt = (data["lastPostedAt"] as? com.google.firebase.Timestamp)?.toDate(),
+            createdAt = (data["createdAt"] as? com.google.firebase.Timestamp)?.toDate(),
         )
     }
 }

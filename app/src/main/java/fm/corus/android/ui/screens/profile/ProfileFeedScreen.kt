@@ -183,6 +183,7 @@ fun ProfileFeedScreen(
                         if (userId != null) onNavigateToUser(userId)
                         else onNavigateToUserByUsername(username)
                     },
+                    onCommentUserTap = { user -> onNavigateToUser(user.id) },
                     onHashtagTap = { hashtag ->
                         viewModel.analyticsService.logTrendingHashtagTapped(hashtag)
                         onNavigateToHashtag(hashtag)

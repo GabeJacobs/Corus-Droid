@@ -56,7 +56,9 @@ import fm.corus.android.ui.components.ReportSheet
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.applyMention
+import fm.corus.android.ui.components.buildMentionAnnotatedString
 import fm.corus.android.ui.components.parseMentionQuery
+import fm.corus.android.ui.components.TappableMentionText
 import kotlinx.coroutines.Job
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -469,6 +471,16 @@ fun SinglePostCommentsScreen(
                         },
                         onUserTap = { onNavigateToUser(comment.user.id) },
                         onReplyUserTap = { userId -> onNavigateToUser(userId) },
+                        onMentionTap = { username ->
+                            scope.launch {
+                                val userId = viewModel.resolveUsernameToId(username.removePrefix("@"))
+                                if (userId != null) onNavigateToUser(userId)
+                            }
+                        },
+                        onHashtagTap = { hashtag ->
+                            viewModel.analyticsService.logTrendingHashtagTapped(hashtag.removePrefix("#"))
+                            onNavigateToHashtag(hashtag.removePrefix("#"))
+                        },
                         onReplyReply = { reply ->
                             viewModel.setReplyTo(reply)
                             focusRequester.requestFocus()
@@ -501,6 +513,8 @@ private fun SingleCommentRow(
     onReply: () -> Unit,
     onUserTap: () -> Unit,
     onReplyUserTap: (String) -> Unit,
+    onMentionTap: (String) -> Unit,
+    onHashtagTap: (String) -> Unit,
     onReplyReply: (CymbalComment) -> Unit,
     onReplyLike: (String) -> Unit,
     onEdit: () -> Unit,
@@ -528,6 +542,8 @@ private fun SingleCommentRow(
             onEdit = onEdit,
             onDelete = onDelete,
             onReport = onReport,
+            onMentionTap = onMentionTap,
+            onHashtagTap = onHashtagTap,
         )
 
         // Replies
@@ -549,6 +565,8 @@ private fun SingleCommentRow(
                 onEdit = { onReplyEdit(reply) },
                 onDelete = { onReplyDelete(reply.id) },
                 onReport = { onReplyReport(reply) },
+                onMentionTap = onMentionTap,
+                onHashtagTap = onHashtagTap,
             )
         }
     }
@@ -568,6 +586,8 @@ private fun CommentContentRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onReport: () -> Unit,
+    onMentionTap: (String) -> Unit,
+    onHashtagTap: (String) -> Unit,
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
@@ -673,7 +693,20 @@ private fun CommentContentRow(
                     contentScale = ContentScale.Fit,
                 )
             } else {
-                Text(comment.text, style = CorusFont.body, color = CorusColors.Text)
+                val annotatedText = remember(comment.text) {
+                    buildMentionAnnotatedString(
+                        text = comment.text,
+                        baseStyle = androidx.compose.ui.text.SpanStyle(
+                            fontFamily = CorusFont.body.fontFamily,
+                        ),
+                    )
+                }
+                TappableMentionText(
+                    text = annotatedText,
+                    style = CorusFont.body,
+                    onMentionTap = onMentionTap,
+                    onHashtagTap = onHashtagTap,
+                )
             }
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
             Text(
@@ -688,12 +721,12 @@ private fun CommentContentRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.align(Alignment.CenterVertically),
         ) {
-            IconButton(onClick = onLike, modifier = Modifier.size(if (isReply) 24.dp else 32.dp)) {
+            IconButton(onClick = onLike, modifier = Modifier.size(if (isReply) 28.dp else 32.dp)) {
                 Icon(
                     if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     contentDescription = "Like",
                     tint = if (isLiked) CorusColors.Like else CorusColors.Tertiary,
-                    modifier = Modifier.size(if (isReply) 12.dp else 16.dp),
+                    modifier = Modifier.size(if (isReply) 14.dp else 16.dp),
                 )
             }
             if (isOwnComment) {
