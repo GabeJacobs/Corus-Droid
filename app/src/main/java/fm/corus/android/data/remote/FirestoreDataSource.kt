@@ -30,7 +30,7 @@ class FirestoreDataSource @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
 ) {
     /** Usernames that should never appear in popular users, new users, suggestions, or search results. */
-    private val hiddenUsernames: Set<String> = setOf("mario", "johnnytravolta", "xhdvdvvd", "testuser")
+    private val hiddenUsernames: Set<String> = setOf("mario", "johnnytravolta", "xhdvdvvd", "testuser", "apple")
 
     /**
      * Runs a Firestore operation and, if it fails due to a stale auth token,
