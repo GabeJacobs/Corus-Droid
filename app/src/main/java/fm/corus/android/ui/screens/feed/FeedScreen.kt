@@ -290,6 +290,7 @@ fun FeedScreen(
                             likeCount = engagement?.likeCount ?: post.likeCount,
                             commentCount = engagement?.commentCount ?: post.commentCount,
                             isLiked = engagement?.isLiked ?: post.isLiked,
+                            isSaved = engagement?.isSaved ?: false,
                             currentUser = currentUserProfile,
                             isPreviewLoading = loadingTrackId == post.track.id,
                             isPreviewPlaying = nowPlayingState.trackId == post.track.id && nowPlayingState.isPlaying,

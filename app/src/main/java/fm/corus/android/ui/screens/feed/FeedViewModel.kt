@@ -120,66 +120,83 @@ class FeedViewModel @Inject constructor(
                 loadFeed(refresh = true)
             }
         }
+        // Keep NowPlayingManager's queue in sync with the paginated feed so the
+        // mini-player next button stays enabled (and functional) past the first page.
+        viewModelScope.launch {
+            combine(_posts, _hasMore) { posts, hasMore -> posts to hasMore }.collect { (posts, hasMore) ->
+                val tracks = posts
+                    .filter { it.mediaType == MediaType.TRACK }
+                    .map { it.toQueuedTrack() }
+                if (tracks.isEmpty()) return@collect
+                nowPlayingManager.updateFeedQueue(
+                    newQueue = tracks,
+                    hasMore = hasMore,
+                    loadMore = { loadFeedSuspending(refresh = false) },
+                )
+            }
+        }
     }
 
     fun loadFeed(refresh: Boolean = false) {
+        viewModelScope.launch { loadFeedSuspending(refresh) }
+    }
+
+    private suspend fun loadFeedSuspending(refresh: Boolean) {
         val userId = authRepository.currentUserId ?: return
 
-        viewModelScope.launch {
-            if (refresh) {
-                _isRefreshing.value = true
-                lastTimestamp = null
-            } else {
-                if (_isLoading.value) return@launch
-                _isLoading.value = true
+        if (refresh) {
+            _isRefreshing.value = true
+            lastTimestamp = null
+        } else {
+            if (_isLoading.value) return
+            _isLoading.value = true
+        }
+
+        try {
+            val page = postRepository.getFeedPage(
+                userId = userId,
+                pageSize = 7,
+                lastTimestamp = if (refresh) null else lastTimestamp,
+                mediaType = _feedMediaFilter.value,
+            )
+
+            val newPosts = page.posts
+            newPosts.forEach { post ->
+                engagementManager.initState(
+                    postId = post.id,
+                    likeCount = post.likeCount,
+                    commentCount = post.commentCount,
+                    repostCount = post.repostCount,
+                    isLiked = post.isLiked,
+                    isSaved = false,
+                )
             }
 
-            try {
-                val page = postRepository.getFeedPage(
-                    userId = userId,
-                    pageSize = 7,
-                    lastTimestamp = if (refresh) null else lastTimestamp,
-                    mediaType = _feedMediaFilter.value,
-                )
+            if (refresh) {
+                _posts.value = newPosts
+            } else {
+                _posts.value = (_posts.value + newPosts).distinctBy { it.id }
+            }
 
-                val newPosts = page.posts
-                newPosts.forEach { post ->
-                    engagementManager.initState(
-                        postId = post.id,
-                        likeCount = post.likeCount,
-                        commentCount = post.commentCount,
-                        repostCount = post.repostCount,
-                        isLiked = post.isLiked,
-                        isSaved = false,
-                    )
+            _hasMore.value = page.hasMore
+            if (newPosts.isNotEmpty()) {
+                lastTimestamp = newPosts.last().timestamp.time
+            }
+
+            // Start real-time listeners for new posts (matching iOS PostEngagementStore)
+            newPosts.forEach { post ->
+                if (activeListenerPostIds.add(post.id)) {
+                    engagementManager.startListening(post.id)
                 }
+            }
 
-                if (refresh) {
-                    _posts.value = newPosts
-                } else {
-                    _posts.value = (_posts.value + newPosts).distinctBy { it.id }
-                }
+            // Check actual like status from Firestore (backend doesn't return isLiked)
+            engagementManager.checkLikeStatuses(newPosts.map { it.id }, userId)
+        } catch (_: Exception) { }
 
-                _hasMore.value = page.hasMore
-                if (newPosts.isNotEmpty()) {
-                    lastTimestamp = newPosts.last().timestamp.time
-                }
-
-                // Start real-time listeners for new posts (matching iOS PostEngagementStore)
-                newPosts.forEach { post ->
-                    if (activeListenerPostIds.add(post.id)) {
-                        engagementManager.startListening(post.id)
-                    }
-                }
-
-                // Check actual like status from Firestore (backend doesn't return isLiked)
-                engagementManager.checkLikeStatuses(newPosts.map { it.id }, userId)
-            } catch (_: Exception) { }
-
-            _isLoading.value = false
-            _isRefreshing.value = false
-            _hasLoaded.value = true
-        }
+        _isLoading.value = false
+        _isRefreshing.value = false
+        _hasLoaded.value = true
     }
 
     fun setFeedMediaFilter(filter: MediaType?) {
@@ -200,6 +217,14 @@ class FeedViewModel @Inject constructor(
             val track = post.toQueuedTrack()
             if (queue.any { it.trackId == track.trackId }) {
                 nowPlayingManager.play(track = track, queue = queue)
+                // Re-wire the paginated-feed hook that `play` resets, so the next
+                // button stays live past the first page without waiting for
+                // _posts/_hasMore to change.
+                nowPlayingManager.updateFeedQueue(
+                    newQueue = queue,
+                    hasMore = _hasMore.value,
+                    loadMore = { loadFeedSuspending(refresh = false) },
+                )
             } else {
                 nowPlayingManager.play(track = track, queue = listOf(track))
             }

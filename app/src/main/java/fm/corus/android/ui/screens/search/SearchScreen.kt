@@ -25,12 +25,15 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -184,10 +187,18 @@ fun SearchScreen(
             .sortedByDescending { it.matchData?.similarityScore ?: 0.0 }
     }
 
-    val mutualConnectionUsers = remember(suggestedMatches, followingIds, localFollowedIds) {
-        val allFollowed = followingIds + localFollowedIds
+    var filterUnfollowedMatches by rememberSaveable { mutableStateOf(false) }
+    val allFollowedIds = remember(followingIds, localFollowedIds) { followingIds + localFollowedIds }
+    val filteredMusicMatchUsers = remember(musicMatchUsers, filterUnfollowedMatches, allFollowedIds) {
+        filteredMusicMatchUsers(filterUnfollowedMatches, musicMatchUsers, allFollowedIds)
+    }
+    val showUnfollowedMatchesToggle = remember(musicMatchUsers, allFollowedIds) {
+        showUnfollowedMatchesToggle(musicMatchUsers, allFollowedIds)
+    }
+
+    val mutualConnectionUsers = remember(suggestedMatches, allFollowedIds) {
         suggestedMatches
-            .filter { !allFollowed.contains(it.user.id) }
+            .filter { !allFollowedIds.contains(it.user.id) }
             .filter { it.matchData?.hasSimilarityData != true && (it.user.artistsInCommonCount ?: 0) == 0 }
             .filter { it.user.cymbalCount > 0 }
             .filter { it.suggestionReason?.mutualNames?.isNotEmpty() == true }
@@ -261,6 +272,10 @@ fun SearchScreen(
                             SuggestedUsersContent(
                                 listState = usersListState,
                                 musicMatchUsers = musicMatchUsers,
+                                filteredMusicMatchUsers = filteredMusicMatchUsers,
+                                showUnfollowedMatchesToggle = showUnfollowedMatchesToggle,
+                                filterUnfollowedMatches = filterUnfollowedMatches,
+                                onSetFilterUnfollowed = { filterUnfollowedMatches = it },
                                 mutualConnectionUsers = mutualConnectionUsers,
                                 curatedMusicBots = curatedMusicBots,
                                 curatedFilmBots = curatedFilmBots,
@@ -514,6 +529,10 @@ private fun RecentSearchesOverlay(
 private fun SuggestedUsersContent(
     listState: LazyListState = rememberLazyListState(),
     musicMatchUsers: List<SuggestedUserMatch>,
+    filteredMusicMatchUsers: List<SuggestedUserMatch>,
+    showUnfollowedMatchesToggle: Boolean,
+    filterUnfollowedMatches: Boolean,
+    onSetFilterUnfollowed: (Boolean) -> Unit,
     mutualConnectionUsers: List<SuggestedUserMatch>,
     curatedMusicBots: List<SuggestedUserMatch>,
     curatedFilmBots: List<SuggestedUserMatch>,
@@ -626,8 +645,16 @@ private fun SuggestedUsersContent(
                 SectionHeader(
                     icon = "sparkles",
                     title = "TASTE MATCHES",
-                    showSeeAll = musicMatchUsers.size > 2,
+                    showSeeAll = filteredMusicMatchUsers.size > 2,
                     onSeeAll = { onNavigateToSuggestedUsers("Taste Matches", false, "tasteMatches") },
+                    trailingAction = if (showUnfollowedMatchesToggle) {
+                        {
+                            TasteMatchFilterMenu(
+                                filterUnfollowedMatches = filterUnfollowedMatches,
+                                onSetFilterUnfollowed = onSetFilterUnfollowed,
+                            )
+                        }
+                    } else null,
                 )
             }
             item {
@@ -637,7 +664,7 @@ private fun SuggestedUsersContent(
                         .padding(horizontal = CorusSpacing.lg),
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 ) {
-                    musicMatchUsers.take(2).forEach { match ->
+                    filteredMusicMatchUsers.take(2).forEach { match ->
                         TasteMatchCard(
                             match = match,
                             isFollowing = viewModel.isFollowed(match.user.id),
@@ -646,7 +673,7 @@ private fun SuggestedUsersContent(
                             modifier = Modifier.weight(1f),
                         )
                     }
-                    if (musicMatchUsers.size < 2) {
+                    if (filteredMusicMatchUsers.size < 2) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
                 }
@@ -889,6 +916,7 @@ private fun SectionHeader(
     title: String,
     showSeeAll: Boolean = false,
     onSeeAll: () -> Unit = {},
+    trailingAction: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -915,11 +943,65 @@ private fun SectionHeader(
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
         }
         Text(title, style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+        if (trailingAction != null) {
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            trailingAction()
+        }
         Spacer(modifier = Modifier.weight(1f))
         if (showSeeAll) {
             TextButton(onClick = onSeeAll) {
                 Text("See All", style = CorusFont.captionMedium, color = CorusColors.Accent)
             }
+        }
+    }
+}
+
+@Composable
+private fun TasteMatchFilterMenu(
+    filterUnfollowedMatches: Boolean,
+    onSetFilterUnfollowed: (Boolean) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(
+            onClick = { expanded = true },
+            modifier = Modifier.size(24.dp),
+        ) {
+            Icon(
+                imageVector = if (filterUnfollowedMatches) {
+                    Icons.Filled.FilterAlt
+                } else {
+                    Icons.Outlined.FilterAlt
+                },
+                contentDescription = "Filter taste matches",
+                tint = if (filterUnfollowedMatches) CorusColors.Accent else CorusColors.Tertiary,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text("All") },
+                onClick = {
+                    onSetFilterUnfollowed(false)
+                    expanded = false
+                },
+                leadingIcon = if (!filterUnfollowedMatches) {
+                    { Icon(Icons.Filled.Check, contentDescription = null) }
+                } else null,
+            )
+            DropdownMenuItem(
+                text = { Text("Unfollowed") },
+                onClick = {
+                    onSetFilterUnfollowed(true)
+                    expanded = false
+                },
+                leadingIcon = if (filterUnfollowedMatches) {
+                    { Icon(Icons.Filled.Check, contentDescription = null) }
+                } else null,
+            )
         }
     }
 }

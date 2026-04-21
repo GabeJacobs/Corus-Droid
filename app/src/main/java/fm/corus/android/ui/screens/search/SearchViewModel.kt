@@ -268,8 +268,21 @@ class SearchViewModel @Inject constructor(
             }
             _isBotsLoading.value = false
         }
-        loadPopularUsers()
-        loadNewUsers()
+        // Match iOS: seed following IDs before firing the popular/new fetches so their
+        // server-side excludeIds actually exclude already-followed users. Without this
+        // prefetch, those calls race the followingIds collector and return mostly
+        // already-followed users, which the UI filter then strips — leaving <=2
+        // displayable rows and hiding the NEW ON CORUS "See All" button.
+        viewModelScope.launch {
+            try {
+                userRepository.prefetchFollowingSet(uid)
+                _followingIds.value = userRepository.followingIds.value
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to prefetch following set", e)
+            }
+            loadPopularUsers()
+            loadNewUsers()
+        }
     }
 
     private fun loadPopularUsers() {

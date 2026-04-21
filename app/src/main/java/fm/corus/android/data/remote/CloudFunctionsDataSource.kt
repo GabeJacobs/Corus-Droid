@@ -406,7 +406,7 @@ class CloudFunctionsDataSource @Inject constructor(
         ).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val rows = data["users"] as? List<Map<String, Any?>> ?: return emptyList()
-        return parseUserRows(rows)
+        return parseUserRows(rows).filter { !it.user.isBot }
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -424,7 +424,7 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun parseUserRows(rows: List<Map<String, Any?>>): List<SuggestedUserMatch> {
+    internal fun parseUserRows(rows: List<Map<String, Any?>>): List<SuggestedUserMatch> {
         return rows.mapNotNull { row ->
             val uid = row["id"] as? String ?: return@mapNotNull null
             val user = CymbalUser.fromMap(uid, row)
@@ -467,9 +467,13 @@ class CloudFunctionsDataSource @Inject constructor(
                 )
             } ?: emptyList()
 
-            val hasMatchData = sharedPostedTracks + sharedLikedTracks > 0 || sharedArtists > 0 ||
-                adjacentArtists > 0 || sharedPostedMovies + sharedLikedMovies > 0 ||
-                sharedDirectors > 0 || score > 0 || trackPreviews.isNotEmpty() || moviePreviews.isNotEmpty()
+            // Gate matches iOS fetchSuggestedUserMatches: only build matchData when there's a
+            // server-computed score or a concrete taste signal (previews / adjacent artists /
+            // posted-movie or director overlap). Shared posted/liked track counts and raw
+            // sharedArtists/sharedLikedMovies alone aren't enough — those users fall into
+            // mutual/popular sections instead of the Taste Matches section.
+            val hasMatchData = score > 0 || trackPreviews.isNotEmpty() || adjacentArtists > 0 ||
+                moviePreviews.isNotEmpty() || sharedPostedMovies > 0 || sharedDirectors > 0
 
             val matchData = if (hasMatchData) {
                 MusicMatchData(

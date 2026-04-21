@@ -72,9 +72,14 @@ class NowPlayingManager @Inject constructor(
 
     private var queue: List<QueuedTrack> = emptyList()
     private var currentQueueIndex: Int? = null
+    private var queueHasMore: Boolean = false
+    private var loadMoreQueue: (suspend () -> Unit)? = null
+    private var isLoadingMoreQueue: Boolean = false
 
-    private fun computeHasNext(): Boolean =
-        currentQueueIndex?.let { it + 1 < queue.size } ?: false
+    private fun computeHasNext(): Boolean {
+        val idx = currentQueueIndex ?: return false
+        return idx + 1 < queue.size || queueHasMore
+    }
     private var player: ExoPlayer? = null
 
     private val _state = MutableStateFlow(NowPlayingState())
@@ -184,7 +189,35 @@ class NowPlayingManager @Inject constructor(
     suspend fun play(track: QueuedTrack, queue: List<QueuedTrack>) {
         this.queue = queue
         this.currentQueueIndex = queue.indexOfFirst { it.trackId == track.trackId }.takeIf { it >= 0 }
+        // New playback context — drop any previous paginated-queue hook until caller re-wires it.
+        this.queueHasMore = false
+        this.loadMoreQueue = null
         playInternal(track)
+    }
+
+    /**
+     * Sync the now-playing queue with a paginated feed.
+     *
+     * Callers (FeedViewModel, ProfileFeedViewModel) invoke this whenever the feed
+     * list or its `hasMore` flag changes, and pass a `loadMore` that fetches the
+     * next page. This keeps the mini-player's next button enabled — and functional —
+     * when the user exhausts the currently-loaded page.
+     */
+    fun updateFeedQueue(
+        newQueue: List<QueuedTrack>,
+        hasMore: Boolean,
+        loadMore: suspend () -> Unit,
+    ) {
+        val currentTrackId = _state.value.trackId
+        // Don't clobber an unrelated now-playing context (e.g. track started from search).
+        if (currentTrackId != null && newQueue.none { it.trackId == currentTrackId }) return
+        queue = newQueue
+        queueHasMore = hasMore
+        loadMoreQueue = loadMore
+        currentQueueIndex = currentTrackId?.let { id ->
+            newQueue.indexOfFirst { it.trackId == id }.takeIf { it >= 0 }
+        }
+        _state.value = _state.value.copy(hasNext = computeHasNext())
     }
 
     suspend fun play(
@@ -201,6 +234,8 @@ class NowPlayingManager @Inject constructor(
         // Single-track path: clear any queued context so hasNext is false.
         queue = emptyList()
         currentQueueIndex = null
+        queueHasMore = false
+        loadMoreQueue = null
         playInternal(
             QueuedTrack(
                 trackId = trackId,
@@ -285,19 +320,40 @@ class NowPlayingManager @Inject constructor(
     /** Auto-advance to the next queued preview when enabled by user setting. */
     private fun handlePlaybackEnded() {
         if (!autoplayEnabled) return
-        val idx = currentQueueIndex ?: return
-        val next = queue.getOrNull(idx + 1) ?: return
-        managerScope.launch {
-            currentQueueIndex = idx + 1
-            playInternal(next)
-        }
+        advanceToNext()
     }
 
     fun skipToNext() {
+        advanceToNext()
+    }
+
+    /**
+     * Shared advance logic. If the next track is already in the queue, play it.
+     * Otherwise, if the queue is backed by a paginated feed with more pages,
+     * fetch the next page and advance once it arrives.
+     */
+    private fun advanceToNext() {
         val idx = currentQueueIndex ?: return
-        val next = queue.getOrNull(idx + 1) ?: return
+        val localNext = queue.getOrNull(idx + 1)
+        if (localNext != null) {
+            managerScope.launch {
+                currentQueueIndex = idx + 1
+                playInternal(localNext)
+            }
+            return
+        }
+        if (!queueHasMore) return
+        val load = loadMoreQueue ?: return
+        if (isLoadingMoreQueue) return
         managerScope.launch {
-            currentQueueIndex = idx + 1
+            isLoadingMoreQueue = true
+            try {
+                load()
+            } catch (_: Exception) { }
+            isLoadingMoreQueue = false
+            val currentIdx = currentQueueIndex ?: return@launch
+            val next = queue.getOrNull(currentIdx + 1) ?: return@launch
+            currentQueueIndex = currentIdx + 1
             playInternal(next)
         }
     }
@@ -372,6 +428,8 @@ class NowPlayingManager @Inject constructor(
         player = null
         queue = emptyList()
         currentQueueIndex = null
+        queueHasMore = false
+        loadMoreQueue = null
         _state.value = NowPlayingState()
     }
 

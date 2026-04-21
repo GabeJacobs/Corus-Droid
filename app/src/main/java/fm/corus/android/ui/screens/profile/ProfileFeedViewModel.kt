@@ -23,6 +23,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -94,6 +95,24 @@ class ProfileFeedViewModel @Inject constructor(
     // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
     private val activeListenerPostIds = mutableSetOf<String>()
 
+    init {
+        // Keep NowPlayingManager's queue in sync with the paginated profile feed
+        // so the mini-player next button stays enabled past the first page.
+        viewModelScope.launch {
+            combine(_posts, _hasMore) { posts, hasMore -> posts to hasMore }.collect { (posts, hasMore) ->
+                val tracks = posts
+                    .filter { it.mediaType == MediaType.TRACK }
+                    .map { it.toQueuedTrack() }
+                if (tracks.isEmpty()) return@collect
+                nowPlayingManager.updateFeedQueue(
+                    newQueue = tracks,
+                    hasMore = hasMore,
+                    loadMore = { loadMoreSuspending() },
+                )
+            }
+        }
+    }
+
     fun initFeed(userId: String, segment: Int) {
         if (initialized) return
         initialized = true
@@ -159,17 +178,20 @@ class ProfileFeedViewModel @Inject constructor(
     }
 
     fun loadMore() {
+        viewModelScope.launch { loadMoreSuspending() }
+    }
+
+    private suspend fun loadMoreSuspending() {
         if (!_hasMore.value || _isLoadingMore.value) return
         val viewerId = authRepository.currentUserId ?: return
         _isLoadingMore.value = true
-        viewModelScope.launch {
-            try {
-                when (source) {
+        try {
+            when (source) {
                     ProfileFeedSource.SONGS, ProfileFeedSource.FILMS -> {
                         val lastTimestamp = _posts.value.lastOrNull()?.timestamp?.time ?: run {
                             _hasMore.value = false
                             _isLoadingMore.value = false
-                            return@launch
+                            return
                         }
                         val allNew = cloudFunctions.getProfilePosts(
                             userId = userId,
@@ -259,9 +281,8 @@ class ProfileFeedViewModel @Inject constructor(
                         }
                     }
                 }
-            } catch (_: Exception) { }
-            _isLoadingMore.value = false
-        }
+        } catch (_: Exception) { }
+        _isLoadingMore.value = false
     }
 
     fun playPreview(post: CymbalPost) {
@@ -271,6 +292,13 @@ class ProfileFeedViewModel @Inject constructor(
             val track = post.toQueuedTrack()
             if (queue.any { it.trackId == track.trackId }) {
                 nowPlayingManager.play(track = track, queue = queue)
+                // Re-wire the paginated-feed hook (play() resets it) so the next
+                // button can keep advancing as the profile feed paginates.
+                nowPlayingManager.updateFeedQueue(
+                    newQueue = queue,
+                    hasMore = _hasMore.value,
+                    loadMore = { loadMoreSuspending() },
+                )
             } else {
                 nowPlayingManager.play(track = track, queue = listOf(track))
             }
