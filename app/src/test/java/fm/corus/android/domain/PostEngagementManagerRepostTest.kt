@@ -21,6 +21,7 @@ class PostEngagementManagerRepostTest {
     private fun newManager(): PostEngagementManager = PostEngagementManager(
         postRepository = mock<PostRepository>(),
         firestoreDataSource = mock<FirestoreDataSource>(),
+        hapticManager = mock<HapticManager>(),
     )
 
     @Test

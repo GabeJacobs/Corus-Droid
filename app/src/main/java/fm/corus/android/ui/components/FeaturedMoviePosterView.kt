@@ -42,6 +42,8 @@ import fm.corus.android.data.model.DiscoIntensity
 import fm.corus.android.data.model.FrameStyle
 import fm.corus.android.data.model.RainIntensity
 import fm.corus.android.data.model.SnowIntensity
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -86,6 +88,7 @@ fun FeaturedMoviePosterView(
     val heartScale = remember { Animatable(0f) }
     val heartAlpha = remember { Animatable(0f) }
     var showDoubleTapHeart by remember { mutableStateOf(false) }
+    val haptics = LocalHapticManager.current
 
     // Gradient wraps entire featured area (frame + title row), matching iOS .background(LinearGradient)
     BoxWithConstraints(
@@ -103,6 +106,8 @@ fun FeaturedMoviePosterView(
                 detectTapGestures(
                     onTap = { onPostTap() },
                     onDoubleTap = {
+                        // Mirrors iOS FeaturedMoviePosterView.doubleTapLike haptic.
+                        haptics.impact(HapticManager.ImpactStyle.MEDIUM)
                         if (!isLiked) onLikeTap()
                         showDoubleTapHeart = true
                         scope.launch {

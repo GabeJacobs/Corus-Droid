@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
@@ -61,6 +62,8 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.SkeletonFilmRow
@@ -230,9 +233,14 @@ fun SearchScreen(
 
         // Content area – a Box so the recent-searches overlay can sit on top
         Box(modifier = Modifier.fillMaxSize()) {
+            val searchHaptics = LocalHapticManager.current
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
-                onRefresh = { viewModel.refresh() },
+                onRefresh = {
+                    // Mirrors iOS SearchView.refreshable haptic.
+                    searchHaptics.impact(HapticManager.ImpactStyle.LIGHT)
+                    viewModel.refresh()
+                },
                 modifier = Modifier.fillMaxSize(),
             ) {
                 when (activeTab) {
@@ -885,14 +893,14 @@ private fun SectionHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+            .padding(start = CorusSpacing.lg, end = CorusSpacing.lg, top = CorusSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val iconVector = when (icon) {
             "sparkles" -> Icons.Filled.AutoAwesome
             "people" -> Icons.Filled.People
             "trending" -> Icons.Filled.AutoAwesome
-            "new" -> Icons.Filled.AutoAwesome
+            "new" -> Icons.Filled.PersonAdd
             "contacts" -> Icons.Filled.Contacts
             "bot" -> Icons.Filled.SmartToy
             else -> null

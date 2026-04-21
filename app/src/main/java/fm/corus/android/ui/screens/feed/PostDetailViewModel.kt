@@ -5,13 +5,19 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
+import fm.corus.android.ui.components.PostMenuActions
+import fm.corus.android.ui.components.ToastManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,13 +29,14 @@ class PostDetailViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
+    private val messageRepository: MessageRepository,
     private val engagementManager: PostEngagementManager,
     val nowPlayingManager: NowPlayingManager,
-    val remoteConfig: RemoteConfigService,
-    val analyticsService: AnalyticsService,
-) : ViewModel() {
+    override val remoteConfig: RemoteConfigService,
+    override val analyticsService: AnalyticsService,
+) : ViewModel(), PostMenuActions {
 
-    suspend fun fetchBackCover(postId: String): String? {
+    override suspend fun fetchBackCover(postId: String): String? {
         return postRepository.fetchBackCover(postId)
     }
 
@@ -49,6 +56,21 @@ class PostDetailViewModel @Inject constructor(
     val currentUserProfile = authRepository.userProfile
 
     val currentUserId: String? get() = authRepository.currentUserId
+
+    // ── Share search state ──
+    private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
+    override val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+
+    private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
+    override val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+
+    private val _isShareSearching = MutableStateFlow(false)
+    override val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
+
+    private val _isLoadingShareContacts = MutableStateFlow(true)
+    override val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
+
+    private var shareSearchJob: Job? = null
 
     private var listeningPostId: String? = null
 
@@ -136,13 +158,130 @@ class PostDetailViewModel @Inject constructor(
         }
     }
 
-    fun deletePost(postId: String) {
+    override fun deletePost(postId: String) {
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
                 postRepository.deletePost(postId, userId)
                 authRepository.bumpCymbalCount(-1)
+                ToastManager.show("Post deleted")
+            } catch (_: Exception) {
+                ToastManager.show("Failed to delete post")
+            }
+        }
+    }
+
+    override fun isOwnPost(post: CymbalPost): Boolean {
+        return post.user.id == authRepository.currentUserId
+    }
+
+    override fun loadRecentShareContacts() {
+        val userId = authRepository.currentUserId ?: return
+        _isLoadingShareContacts.value = true
+        viewModelScope.launch {
+            try {
+                val threads = messageRepository.listThreads(userId)
+                val contacts = threads.mapNotNull { it.otherUser }
+                if (contacts.isNotEmpty()) {
+                    _recentShareContacts.value = contacts.take(20)
+                } else {
+                    val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
+                    val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
+                    val seen = mutableSetOf<String>()
+                    val combined = mutableListOf<CymbalUser>()
+                    for (user in following + followers) {
+                        if (seen.add(user.id)) combined.add(user)
+                    }
+                    _recentShareContacts.value = combined.take(20)
+                }
             } catch (_: Exception) { }
+            _isLoadingShareContacts.value = false
+        }
+    }
+
+    override fun searchShareUsers(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            shareSearchJob?.cancel()
+            _shareSearchResults.value = emptyList()
+            _isShareSearching.value = false
+            return
+        }
+
+        shareSearchJob?.cancel()
+        shareSearchJob = viewModelScope.launch {
+            _isShareSearching.value = true
+            delay(250)
+            try {
+                _shareSearchResults.value = userRepository.searchUsers(trimmed)
+            } catch (_: Exception) {
+                _shareSearchResults.value = emptyList()
+            }
+            _isShareSearching.value = false
+        }
+    }
+
+    override fun sendPostToUser(userId: String, post: CymbalPost, message: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
+                val text = message.trim()
+                if (post.isMovie) {
+                    messageRepository.sendSharedFilmMessage(
+                        threadId = threadId,
+                        fromUserId = currentUserId,
+                        text = text,
+                        movieTitle = post.movieTitle ?: post.displayTitle,
+                        directorName = post.directorName ?: post.displaySubtitle,
+                        posterURL = post.posterURL,
+                        tmdbWebURL = post.tmdbWebURL,
+                    )
+                } else {
+                    messageRepository.sendSharedTrackMessage(
+                        threadId = threadId,
+                        fromUserId = currentUserId,
+                        text = text,
+                        trackName = post.track.name,
+                        artistName = post.track.artistName,
+                        albumArtURL = post.track.albumArtURL,
+                        spotifyURL = post.track.spotifyWebURL.ifBlank { null },
+                    )
+                }
+            } catch (_: Exception) {
+                ToastManager.show("Failed to send post")
+            }
+        }
+    }
+
+    override fun reportPost(postId: String, postUserId: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        analyticsService.logReportPost(postId, "reported_from_feed")
+        viewModelScope.launch {
+            try {
+                userRepository.submitReport(
+                    reporterId = currentUserId,
+                    targetUserId = postUserId,
+                    postId = postId,
+                    reason = "reported_from_feed",
+                    details = "",
+                )
+                ToastManager.show("Post reported")
+            } catch (_: Exception) {
+                ToastManager.show("Failed to report post")
+            }
+        }
+    }
+
+    override fun blockUser(targetUserId: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                userRepository.blockUser(currentUserId, targetUserId)
+                ToastManager.show("User blocked")
+            } catch (_: Exception) {
+                ToastManager.show("Failed to block user")
+            }
         }
     }
 

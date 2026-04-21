@@ -40,6 +40,8 @@ import fm.corus.android.data.model.DiscoIntensity
 import fm.corus.android.data.model.RainIntensity
 import fm.corus.android.data.model.SnowIntensity
 import fm.corus.android.data.model.VinylStyle
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -83,6 +85,7 @@ fun FeaturedCymbalView(
     val heartScale = remember { Animatable(0f) }
     val heartAlpha = remember { Animatable(0f) }
     var showDoubleTapHeart by remember { mutableStateOf(false) }
+    val haptics = LocalHapticManager.current
 
     val vinylDrawable = remember(vinylStyle) {
         when (vinylStyle) {
@@ -119,6 +122,8 @@ fun FeaturedCymbalView(
                 detectTapGestures(
                     onTap = { onPostTap() },
                     onDoubleTap = {
+                        // Mirrors iOS FeaturedCymbalView.doubleTapLike haptic.
+                        haptics.impact(HapticManager.ImpactStyle.MEDIUM)
                         if (!isLiked) onLikeTap()
                         showDoubleTapHeart = true
                         scope.launch {

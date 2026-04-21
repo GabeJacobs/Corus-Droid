@@ -37,12 +37,21 @@ class SuggestedUsersListViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _hasMore = MutableStateFlow(false)
+    val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
+
     // Follow state
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     private val _localFollowedIds = MutableStateFlow<Set<String>>(emptySet())
 
     val followedIds: StateFlow<Set<String>> = combine(_followingIds, _localFollowedIds) { a, b -> a + b }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    private val pageSize = 20
+    private val isPaginated: Boolean get() = source == "popular" || source == "new"
 
     init {
         val uid = authRepository.currentUserId
@@ -54,15 +63,42 @@ class SuggestedUsersListViewModel @Inject constructor(
             }
             viewModelScope.launch {
                 try {
-                    _suggestions.value = when (source) {
+                    val initial = when (source) {
                         "mutualConnections" -> loadMutualConnections(uid)
-                        "popular" -> loadPopularUsers(uid)
-                        "new" -> loadNewUsers(uid)
+                        "popular" -> loadPopularUsersPage(uid, afterDocId = null)
+                        "new" -> loadNewUsersPage(uid, afterDocId = null)
                         else -> userRepository.getSuggestedUsers(uid)
                     }
+                    _suggestions.value = initial
+                    _hasMore.value = isPaginated && initial.size >= pageSize
                 } catch (_: Exception) { }
                 _isLoading.value = false
             }
+        }
+    }
+
+    fun loadMore() {
+        if (!isPaginated) return
+        if (_isLoadingMore.value || !_hasMore.value) return
+        val uid = authRepository.currentUserId ?: return
+        val lastId = _suggestions.value.lastOrNull()?.user?.id ?: return
+
+        _isLoadingMore.value = true
+        viewModelScope.launch {
+            try {
+                val page = when (source) {
+                    "popular" -> loadPopularUsersPage(uid, afterDocId = lastId)
+                    "new" -> loadNewUsersPage(uid, afterDocId = lastId)
+                    else -> emptyList()
+                }
+                val existingIds = _suggestions.value.map { it.user.id }.toSet()
+                val deduped = page.filter { it.user.id !in existingIds }
+                _suggestions.value = _suggestions.value + deduped
+                _hasMore.value = page.size >= pageSize
+            } catch (_: Exception) {
+                _hasMore.value = false
+            }
+            _isLoadingMore.value = false
         }
     }
 
@@ -82,18 +118,22 @@ class SuggestedUsersListViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadPopularUsers(uid: String): List<SuggestedUserMatch> {
-        val users = userRepository.fetchPopularUsers(limit = 50, excludeIds = setOf(uid))
-        return users.map { user ->
-            SuggestedUserMatch(user = user, matchData = null, suggestionReason = null)
-        }
+    private suspend fun loadPopularUsersPage(uid: String, afterDocId: String?): List<SuggestedUserMatch> {
+        val users = userRepository.fetchPopularUsersPaginated(
+            limit = pageSize,
+            excludeIds = setOf(uid),
+            afterDocId = afterDocId,
+        )
+        return users.map { SuggestedUserMatch(user = it, matchData = null, suggestionReason = null) }
     }
 
-    private suspend fun loadNewUsers(uid: String): List<SuggestedUserMatch> {
-        val users = userRepository.fetchNewUsers(limit = 50, excludeIds = setOf(uid))
-        return users.map { user ->
-            SuggestedUserMatch(user = user, matchData = null, suggestionReason = null)
-        }
+    private suspend fun loadNewUsersPage(uid: String, afterDocId: String?): List<SuggestedUserMatch> {
+        val users = userRepository.fetchNewUsersPaginated(
+            limit = pageSize,
+            excludeIds = setOf(uid),
+            afterDocId = afterDocId,
+        )
+        return users.map { SuggestedUserMatch(user = it, matchData = null, suggestionReason = null) }
     }
 
     fun isFollowed(userId: String): Boolean {

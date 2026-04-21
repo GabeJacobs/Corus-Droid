@@ -48,8 +48,11 @@ import kotlinx.coroutines.launch
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.domain.HapticManager
 import fm.corus.android.R
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.LikedBySection
+import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.launchBackCoverFlip
 import fm.corus.android.ui.components.rememberBackCoverFlipState
 import fm.corus.android.ui.components.VennDiagramIcon
@@ -76,6 +79,7 @@ fun PostDetailScreen(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
+    onRepost: (CymbalPost) -> Unit = {},
 ) {
     val post by viewModel.post.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -87,8 +91,10 @@ fun PostDetailScreen(
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showEditCaption by remember { mutableStateOf(false) }
+    var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
+    var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
+    var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
+    var deleteConfirmPost by remember { mutableStateOf<CymbalPost?>(null) }
     val backCoverFlipState = rememberBackCoverFlipState()
 
     LaunchedEffect(postId) {
@@ -159,38 +165,28 @@ fun PostDetailScreen(
                     item {
                         PostDetailHeader(
                             post = currentPost,
-                            isOwnPost = currentPost.user.id == viewModel.currentUserId,
-                            showBackCoverOption = viewModel.remoteConfig.vinylFlipEnabled && !currentPost.isMovie,
-                            isBackCoverFlipped = backCoverFlipState.isFlipped,
-                            onViewBackCover = {
-                                if (backCoverFlipState.isFlipped) {
-                                    backCoverFlipState.flipBack()
-                                } else {
-                                    scope.launchBackCoverFlip(
-                                        state = backCoverFlipState,
-                                        postId = currentPost.id,
-                                        onFetch = { viewModel.fetchBackCover(it) },
-                                    )
-                                }
-                            },
                             onUserTap = { onNavigateToUser(currentPost.user.id) },
                             onRepostedFromUserTap = { userId, username ->
                                 if (userId != null) onNavigateToUser(userId)
                                 else onNavigateToUserByUsername(username)
                             },
-                            onEditCaption = { showEditCaption = true },
-                            onDelete = { showDeleteConfirm = true },
+                            onMenuTap = { menuPost = currentPost },
                         )
                     }
 
                     // Album art with double-tap to like
                     item {
+                        val haptics = LocalHapticManager.current
                         PostDetailAlbumArt(
                             post = currentPost,
                             isPreviewLoading = currentPost.isTrack && loadingTrackId == currentPost.track.id,
                             isPreviewPlaying = currentPost.isTrack && nowPlayingState.trackId == currentPost.track.id && nowPlayingState.isPlaying,
                             flipState = backCoverFlipState,
-                            onDoubleTap = { viewModel.toggleLike(currentPost.id) },
+                            onDoubleTap = {
+                                // Mirrors iOS PostDetailView.doubleTapLike haptic.
+                                haptics.impact(HapticManager.ImpactStyle.MEDIUM)
+                                if (!isLiked) viewModel.toggleLike(currentPost.id)
+                            },
                             onSongTap = {
                                 if (currentPost.isMovie) {
                                     currentPost.movieId?.let { onNavigateToFilm(it) }
@@ -360,64 +356,32 @@ fun PostDetailScreen(
         }
     }
 
-    // Delete post confirmation
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Post?", style = CorusFont.songTitleLarge) },
-            text = {
-                Text(
-                    "This will permanently delete this post and all its likes and comments.",
-                    style = CorusFont.body,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteConfirm = false
-                    viewModel.deletePost(postId)
-                    onBack()
-                }) {
-                    Text("Delete", color = CorusColors.Error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
-                }
-            },
-        )
-    }
-
-    // Edit caption sheet
-    if (showEditCaption && post != null) {
-        EditCaptionSheet(
-            postId = postId,
-            initialCaption = post!!.caption ?: "",
-            albumArtURL = post!!.displayImageURL,
-            onDismiss = { showEditCaption = false },
-            onSaved = { _ ->
-                showEditCaption = false
-                viewModel.loadPost(postId)
-            },
-        )
-    }
-
+    PostMenuSheets(
+        menuPost = menuPost,
+        sharePost = sharePost,
+        editCaptionPost = editCaptionPost,
+        deleteConfirmPost = deleteConfirmPost,
+        onMenuPostChange = { menuPost = it },
+        onSharePostChange = { sharePost = it },
+        onEditCaptionPostChange = { editCaptionPost = it },
+        onDeleteConfirmPostChange = { deleteConfirmPost = it },
+        actions = viewModel,
+        backCoverStateFor = { backCoverFlipState },
+        onNavigateToSong = onNavigateToSong,
+        onNavigateToFilm = onNavigateToFilm,
+        onRepost = onRepost,
+        onPostDeleted = { onBack() },
+        onCaptionSaved = { viewModel.loadPost(postId) },
+    )
 }
 
 @Composable
 private fun PostDetailHeader(
     post: CymbalPost,
-    isOwnPost: Boolean,
-    showBackCoverOption: Boolean = false,
-    isBackCoverFlipped: Boolean = false,
-    onViewBackCover: () -> Unit = {},
     onUserTap: () -> Unit,
     onRepostedFromUserTap: (userId: String?, username: String) -> Unit = { _, _ -> },
-    onEditCaption: () -> Unit = {},
-    onDelete: () -> Unit = {},
+    onMenuTap: () -> Unit = {},
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -485,58 +449,22 @@ private fun PostDetailHeader(
             }
         }
 
-        // Menu — shown if any action is available
-        val hasMenuActions = isOwnPost || showBackCoverOption
-        if (hasMenuActions) {
-            Box {
-                Icon(
-                    Icons.Filled.MoreHoriz,
-                    contentDescription = "More options",
-                    modifier = Modifier
-                        .size(14.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { showMenu = true },
-                        ),
-                    tint = CorusColors.Secondary,
+        Box(
+            modifier = Modifier
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onMenuTap,
                 )
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                ) {
-                    if (showBackCoverOption) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    if (isBackCoverFlipped) "View Front Cover" else "View Back Cover",
-                                    style = CorusFont.body,
-                                )
-                            },
-                            onClick = {
-                                showMenu = false
-                                onViewBackCover()
-                            },
-                        )
-                    }
-                    if (isOwnPost) {
-                        DropdownMenuItem(
-                            text = { Text("Edit Caption", style = CorusFont.body) },
-                            onClick = {
-                                showMenu = false
-                                onEditCaption()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Delete", style = CorusFont.body, color = CorusColors.Error) },
-                            onClick = {
-                                showMenu = false
-                                onDelete()
-                            },
-                        )
-                    }
-                }
-            }
+                .padding(CorusSpacing.sm),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Filled.MoreHoriz,
+                contentDescription = "More options",
+                modifier = Modifier.size(14.dp),
+                tint = CorusColors.Secondary,
+            )
         }
     }
 }

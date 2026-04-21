@@ -39,6 +39,7 @@ data class EngagementState(
 class PostEngagementManager @Inject constructor(
     private val postRepository: PostRepository,
     private val firestoreDataSource: FirestoreDataSource,
+    private val hapticManager: HapticManager,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -121,6 +122,9 @@ class PostEngagementManager @Inject constructor(
         val newLiked = !current.isLiked
         val newCount = if (newLiked) current.likeCount + 1 else maxOf(0, current.likeCount - 1)
 
+        // Mirrors iOS PostCard / PostDetailView / FeaturedCymbalView / FeaturedMoviePosterView toggleLike haptic.
+        hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
+
         likeInFlightIds.add(postId)
         userModifiedPostIds.add(postId)
         _states.update { map ->
@@ -162,6 +166,9 @@ class PostEngagementManager @Inject constructor(
     fun toggleSave(postId: String, userId: String) {
         val current = _states.value[postId] ?: return
         val newSaved = !current.isSaved
+
+        // Mirrors iOS PostCard / PostDetailView / PostContextMenu toggleSave haptic.
+        hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
 
         userModifiedPostIds.add(postId)
         _states.update { map ->

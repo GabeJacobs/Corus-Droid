@@ -1,11 +1,7 @@
 package fm.corus.android.ui.screens.profile
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -23,12 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
-import fm.corus.android.ui.components.PostActionMenu
 import fm.corus.android.ui.components.PostCard
-import fm.corus.android.ui.components.launchBackCoverFlip
-import fm.corus.android.ui.components.SharePostSheet
+import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.ToastManager
-import fm.corus.android.ui.screens.feed.EditCaptionSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -223,147 +216,20 @@ fun ProfileFeedScreen(
         }
     }
 
-    // ── Share Post Bottom Sheet ──
-    sharePost?.let { post ->
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-        val shareSearchResults by viewModel.shareSearchResults.collectAsState()
-        val recentShareContacts by viewModel.recentShareContacts.collectAsState()
-        val isShareSearching by viewModel.isShareSearching.collectAsState()
-        val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
-
-        LaunchedEffect(Unit) {
-            viewModel.loadRecentShareContacts()
-        }
-
-        ModalBottomSheet(
-            onDismissRequest = { sharePost = null },
-            sheetState = shareSheetState,
-            containerColor = CorusColors.Background,
-            dragHandle = null,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        ) {
-            BackHandler { sharePost = null }
-            SharePostSheet(
-                post = post,
-                recentContacts = recentShareContacts,
-                searchResults = shareSearchResults,
-                isSearching = isShareSearching,
-                isLoadingContacts = isLoadingShareContacts,
-                instagramShareEnabled = false,
-                sheetState = shareSheetState,
-                onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
-                onSendToUser = { targetUserId, message ->
-                    viewModel.sendPostToUser(targetUserId, post, message)
-                    ToastManager.show("Post sent!")
-                    sharePost = null
-                },
-                onRepost = {
-                    sharePost = null
-                    onRepost(post)
-                },
-                onDismiss = { sharePost = null },
-                onAnalyticsLog = { method ->
-                    viewModel.analyticsService.logPostShared(
-                        postId = post.id,
-                        mediaType = if (post.isMovie) "movie" else "track",
-                        method = method,
-                    )
-                },
-            )
-        }
-    }
-
-    // ── Post Context Menu ──
-    menuPost?.let { post ->
-        val menuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        val isOwn = viewModel.isOwnPost(post)
-
-        ModalBottomSheet(
-            onDismissRequest = { menuPost = null },
-            sheetState = menuSheetState,
-            containerColor = CorusColors.Background,
-            dragHandle = null,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        ) {
-            BackHandler { menuPost = null }
-            PostActionMenu(
-                post = post,
-                isMine = isOwn,
-                onDismiss = { menuPost = null },
-                onViewSongPage = { onNavigateToSong(post.track) },
-                onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
-                showBackCoverOption = viewModel.remoteConfig.vinylFlipEnabled,
-                isBackCoverFlipped = backCoverStateFor(post.id).isFlipped,
-                onViewBackCover = {
-                    val state = backCoverStateFor(post.id)
-                    if (state.isFlipped) {
-                        state.flipBack()
-                    } else {
-                        scope.launchBackCoverFlip(state, post.id) { viewModel.fetchBackCover(it) }
-                    }
-                },
-                onRepost = { onRepost(post) },
-                onSharePost = { sharePost = post },
-                onCopyLink = {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Post Link", "https://corus.fm/post/${post.id}"))
-                    ToastManager.show("Link copied")
-                },
-                onEditCaption = { editCaptionPost = post },
-                onDeletePost = { showDeleteConfirm = post },
-                onReportPost = { viewModel.reportPost(post.id, post.user.id) },
-                onBlockUser = { viewModel.blockUser(post.user.id) },
-            )
-        }
-    }
-
-    // ── Delete Confirmation Dialog ──
-    showDeleteConfirm?.let { post ->
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = null },
-            title = { Text("Delete Post", style = CorusFont.songTitle, color = CorusColors.Text) },
-            text = { Text("Are you sure you want to delete this post? This cannot be undone.", style = CorusFont.body, color = CorusColors.Secondary) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deletePost(post.id)
-                    showDeleteConfirm = null
-                    if (posts.size <= 1) onBack()
-                }) {
-                    Text("Delete", style = CorusFont.button, color = CorusColors.Error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = null }) {
-                    Text("Cancel", style = CorusFont.button, color = CorusColors.Text)
-                }
-            },
-            containerColor = CorusColors.Background,
-            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-        )
-    }
-
-    // ── Edit Caption Sheet ──
-    editCaptionPost?.let { post ->
-        val editSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-        ModalBottomSheet(
-            onDismissRequest = { editCaptionPost = null },
-            sheetState = editSheetState,
-            containerColor = CorusColors.Background,
-            dragHandle = null,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        ) {
-            EditCaptionSheet(
-                postId = post.id,
-                initialCaption = post.caption.orEmpty(),
-                albumArtURL = post.displayImageURL,
-                onDismiss = { editCaptionPost = null },
-                onSaved = { _ ->
-                    editCaptionPost = null
-                    ToastManager.show("Caption updated")
-                },
-            )
-        }
-    }
-
+    PostMenuSheets(
+        menuPost = menuPost,
+        sharePost = sharePost,
+        editCaptionPost = editCaptionPost,
+        deleteConfirmPost = showDeleteConfirm,
+        onMenuPostChange = { menuPost = it },
+        onSharePostChange = { sharePost = it },
+        onEditCaptionPostChange = { editCaptionPost = it },
+        onDeleteConfirmPostChange = { showDeleteConfirm = it },
+        actions = viewModel,
+        backCoverStateFor = ::backCoverStateFor,
+        onNavigateToSong = onNavigateToSong,
+        onNavigateToFilm = onNavigateToFilm,
+        onRepost = onRepost,
+        onPostDeleted = { if (posts.size <= 1) onBack() },
+    )
 }

@@ -56,6 +56,8 @@ import android.content.Intent
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.FeaturedCymbalView
 import fm.corus.android.ui.components.FeaturedMoviePosterView
@@ -521,9 +523,14 @@ fun OtherProfileScreen(
             )
         }
 
+        val haptics = LocalHapticManager.current
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = { viewModel.refresh(userId) },
+            onRefresh = {
+                // Mirrors iOS OtherProfileView.refreshable haptic.
+                haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                viewModel.refresh(userId)
+            },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = padding.calculateTopPadding()),

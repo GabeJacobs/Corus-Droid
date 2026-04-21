@@ -57,6 +57,8 @@ import coil3.size.Size
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import android.graphics.Bitmap
 import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
@@ -217,9 +219,14 @@ fun ProfileScreen(
         )
     }
 
+    val haptics = LocalHapticManager.current
     PullToRefreshBox(
         isRefreshing = isRefreshing,
-        onRefresh = { viewModel.refreshProfile() },
+        onRefresh = {
+            // Mirrors iOS ProfileView.refreshable haptic.
+            haptics.impact(HapticManager.ImpactStyle.LIGHT)
+            viewModel.refreshProfile()
+        },
         modifier = Modifier.fillMaxSize(),
     ) {
     LazyVerticalGrid(

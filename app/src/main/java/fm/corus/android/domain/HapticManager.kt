@@ -10,9 +10,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,6 +26,16 @@ class HapticManager @Inject constructor(
 ) {
     companion object {
         private val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile private var cachedEnabled: Boolean = true
+
+    init {
+        scope.launch {
+            hapticsEnabled.collect { cachedEnabled = it }
+        }
     }
 
     private val vibrator: Vibrator by lazy {
@@ -71,14 +84,7 @@ class HapticManager @Inject constructor(
         vibrator.vibrate(VibrationEffect.createOneShot(10, 30))
     }
 
-    private fun isEnabled(): Boolean = runBlocking {
-        var enabled = true
-        dataStore.data.collect { prefs ->
-            enabled = prefs[HAPTICS_ENABLED] ?: true
-            return@collect
-        }
-        enabled
-    }
+    private fun isEnabled(): Boolean = cachedEnabled
 
     enum class ImpactStyle { LIGHT, MEDIUM, HEAVY }
     enum class NotificationType { SUCCESS, WARNING, ERROR }

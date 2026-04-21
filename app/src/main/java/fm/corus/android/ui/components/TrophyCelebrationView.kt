@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -61,8 +63,11 @@ fun TrophyCelebrationView(
         label = "sparkle-angle",
     )
 
+    val haptics = LocalHapticManager.current
     LaunchedEffect(visible) {
         if (visible) {
+            // Mirrors iOS TrophyCelebrationView entrance haptic.
+            haptics.notification(HapticManager.NotificationType.SUCCESS)
             delay(100)
             showTrophy = true
             delay(300)

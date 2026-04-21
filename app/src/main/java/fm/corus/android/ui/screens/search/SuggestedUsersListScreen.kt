@@ -4,8 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -32,6 +33,9 @@ fun SuggestedUsersListScreen(
     useRowLayout: Boolean = false,
     source: String = "tasteMatches",
     isLoading: Boolean = false,
+    isLoadingMore: Boolean = false,
+    hasMore: Boolean = false,
+    onLoadMore: () -> Unit = {},
     isFollowed: (String) -> Boolean = { false },
     onFollow: (CymbalUser) -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -83,7 +87,7 @@ fun SuggestedUsersListScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(top = CorusSpacing.md),
             ) {
-                items(matches, key = { it.id }) { match ->
+                itemsIndexed(matches, key = { _, m -> m.id }) { index, match ->
                     SuggestedUserRow(
                         user = match.user,
                         subtitle = subtitleForRow(match, source),
@@ -91,6 +95,12 @@ fun SuggestedUsersListScreen(
                         onTap = { onNavigateToUser(match.user.id) },
                         onFollow = { onFollow(match.user) },
                     )
+                    if (index == matches.lastIndex && hasMore && !isLoadingMore) {
+                        LaunchedEffect(index) { onLoadMore() }
+                    }
+                }
+                if (isLoadingMore) {
+                    items(3) { SkeletonUserRow() }
                 }
             }
         } else {
@@ -101,7 +111,7 @@ fun SuggestedUsersListScreen(
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 modifier = Modifier.fillMaxSize().padding(padding),
             ) {
-                itemsIndexed(matches, key = { _, m -> m.id }) { _, match ->
+                gridItemsIndexed(matches, key = { _, m -> m.id }) { _, match ->
                     TasteMatchCard(
                         match = match,
                         isFollowing = isFollowed(match.user.id),

@@ -59,6 +59,8 @@ import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FullScreenImageView
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.PickerMode
@@ -177,6 +179,7 @@ fun MessageThreadScreen(
 
         HorizontalDivider(color = CorusColors.Divider)
 
+        val bubbleHaptics = LocalHapticManager.current
         // Messages
         LazyColumn(
             state = listState,
@@ -192,11 +195,19 @@ fun MessageThreadScreen(
                     isFromCurrentUser = message.fromUserId == viewModel.currentUserId,
                     currentUserId = viewModel.currentUserId ?: "",
                     otherUsername = otherUsername,
-                    onLongPress = { reactionTarget = message },
+                    onLongPress = {
+                        // Mirrors iOS NotificationsView message long-press haptic.
+                        bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
+                        reactionTarget = message
+                    },
                     onDoubleTap = {
+                        // Mirrors iOS NotificationsView toggleReaction haptic.
+                        bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
                         viewModel.toggleReaction(threadId, message.id, "heart")
                     },
                     onReactionTap = { emoji ->
+                        // Mirrors iOS NotificationsView toggleReaction haptic.
+                        bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
                         viewModel.toggleReaction(threadId, message.id, emoji)
                     },
                     onImageTap = { url -> fullScreenImageUrl = url },
@@ -367,10 +378,13 @@ fun MessageThreadScreen(
 
     // Reaction overlay
     if (reactionTarget != null) {
+        val overlayHaptics = LocalHapticManager.current
         ReactionOverlay(
             message = reactionTarget!!,
             isFromCurrentUser = reactionTarget!!.fromUserId == viewModel.currentUserId,
             onReaction = { emojiKey ->
+                // Mirrors iOS NotificationsView toggleReaction haptic.
+                overlayHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
                 reactionTarget?.let { msg ->
                     viewModel.toggleReaction(threadId, msg.id, emojiKey)
                 }

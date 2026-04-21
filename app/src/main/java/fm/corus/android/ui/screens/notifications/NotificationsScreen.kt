@@ -52,6 +52,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalNotification
 import fm.corus.android.data.model.NotificationType
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.SkeletonNotificationRow
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
@@ -127,10 +129,15 @@ fun NotificationsScreen(
 
         HorizontalDivider(color = CorusColors.Divider)
 
+        val haptics = LocalHapticManager.current
         @OptIn(ExperimentalMaterial3Api::class)
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = { viewModel.refreshNotifications() },
+            onRefresh = {
+                // Mirrors iOS NotificationsView.refreshable haptic.
+                haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                viewModel.refreshNotifications()
+            },
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
             when {

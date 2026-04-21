@@ -18,6 +18,7 @@ import fm.corus.android.data.repository.SpotifyRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostEngagementManager
@@ -53,6 +54,7 @@ class ComposeViewModel @Inject constructor(
     private val nowPlayingManager: NowPlayingManager,
     private val postCreationEvent: PostCreationEvent,
     private val engagementManager: PostEngagementManager,
+    private val hapticManager: HapticManager,
 ) : ViewModel() {
 
     // Post limit / Cymbal Club
@@ -205,11 +207,15 @@ class ComposeViewModel @Inject constructor(
     }
 
     fun selectResult(result: SearchResultItem, mediaType: MediaType) {
+        // Mirrors iOS SongSearchView.selectSong haptic.
+        hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
         _selectedTrack.value = cachedTracks.firstOrNull { it.id == result.id }
         _searchResults.value = emptyList()
     }
 
     fun selectFilmResult(movie: CymbalMovie) {
+        // Mirrors iOS FilmSearchView.selectMovie haptic.
+        hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
         _selectedMovie.value = movie
         _filmResults.value = emptyList()
     }
@@ -228,11 +234,15 @@ class ComposeViewModel @Inject constructor(
     }
 
     fun selectTrendingSong(song: TrendingSong) {
+        // Mirrors iOS SongSearchView.selectTrendingSong haptic.
+        hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
         _selectedTrack.value = song.track
         _searchResults.value = emptyList()
     }
 
     fun selectTrendingMovie(movie: TrendingMovie) {
+        // Mirrors iOS FilmSearchView.selectTrendingMovie haptic.
+        hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
         _selectedMovie.value = movie.asCymbalMovie()
         _filmResults.value = emptyList()
     }
@@ -401,6 +411,9 @@ class ComposeViewModel @Inject constructor(
                 subscriptionRepository.incrementPostCount()
                 authRepository.bumpCymbalCount(1)
                 postCreationEvent.notifyPostCreated()
+
+                // Mirrors iOS ComposeView post-created haptic (track & film branches).
+                hapticManager.notification(HapticManager.NotificationType.SUCCESS)
 
                 // Repost side-effects — optimistic repostCount bump on the
                 // original post card + notification to the original poster.

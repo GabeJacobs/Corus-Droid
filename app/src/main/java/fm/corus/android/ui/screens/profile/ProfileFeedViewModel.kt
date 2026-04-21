@@ -16,6 +16,7 @@ import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
+import fm.corus.android.ui.components.PostMenuActions
 import fm.corus.android.ui.components.ToastManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -46,11 +47,11 @@ class ProfileFeedViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val engagementManager: PostEngagementManager,
     val nowPlayingManager: NowPlayingManager,
-    val remoteConfig: RemoteConfigService,
-    val analyticsService: AnalyticsService,
-) : ViewModel() {
+    override val remoteConfig: RemoteConfigService,
+    override val analyticsService: AnalyticsService,
+) : ViewModel(), PostMenuActions {
 
-    suspend fun fetchBackCover(postId: String): String? {
+    override suspend fun fetchBackCover(postId: String): String? {
         return postRepository.fetchBackCover(postId)
     }
 
@@ -77,16 +78,16 @@ class ProfileFeedViewModel @Inject constructor(
 
     // ── Share search state ──
     private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+    override val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
 
     private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+    override val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
 
     private val _isShareSearching = MutableStateFlow(false)
-    val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
+    override val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
 
     private val _isLoadingShareContacts = MutableStateFlow(true)
-    val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
+    override val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
 
     private var shareSearchJob: Job? = null
 
@@ -298,7 +299,7 @@ class ProfileFeedViewModel @Inject constructor(
         engagementManager.toggleSave(postId, userId)
     }
 
-    fun deletePost(postId: String) {
+    override fun deletePost(postId: String) {
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
@@ -312,7 +313,7 @@ class ProfileFeedViewModel @Inject constructor(
         }
     }
 
-    fun isOwnPost(post: CymbalPost): Boolean {
+    override fun isOwnPost(post: CymbalPost): Boolean {
         return post.user.id == authRepository.currentUserId
     }
 
@@ -324,7 +325,7 @@ class ProfileFeedViewModel @Inject constructor(
 
     // ── Share contacts & search ──
 
-    fun loadRecentShareContacts() {
+    override fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
         _isLoadingShareContacts.value = true
         viewModelScope.launch {
@@ -348,7 +349,7 @@ class ProfileFeedViewModel @Inject constructor(
         }
     }
 
-    fun searchShareUsers(query: String) {
+    override fun searchShareUsers(query: String) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
             shareSearchJob?.cancel()
@@ -370,7 +371,7 @@ class ProfileFeedViewModel @Inject constructor(
         }
     }
 
-    fun sendPostToUser(userId: String, post: CymbalPost, message: String) {
+    override fun sendPostToUser(userId: String, post: CymbalPost, message: String) {
         val currentUserId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
@@ -403,7 +404,7 @@ class ProfileFeedViewModel @Inject constructor(
         }
     }
 
-    fun reportPost(postId: String, postUserId: String) {
+    override fun reportPost(postId: String, postUserId: String) {
         val currentUserId = authRepository.currentUserId ?: return
         analyticsService.logReportPost(postId, "reported_from_feed")
         viewModelScope.launch {
@@ -422,7 +423,7 @@ class ProfileFeedViewModel @Inject constructor(
         }
     }
 
-    fun blockUser(targetUserId: String) {
+    override fun blockUser(targetUserId: String) {
         val currentUserId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {

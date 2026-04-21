@@ -305,6 +305,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
+            onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
         )
     }
 
@@ -559,6 +560,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             onNavigateToLikes = onShowLikes,
+            onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
         )
     }
 
@@ -585,6 +587,8 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val viewModel: SuggestedUsersListViewModel = hiltViewModel()
         val suggestions by viewModel.suggestions.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
+        val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+        val hasMore by viewModel.hasMore.collectAsState()
         val followedIds by viewModel.followedIds.collectAsState()
 
         SuggestedUsersListScreen(
@@ -593,6 +597,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             useRowLayout = route.useRowLayout,
             source = route.source,
             isLoading = isLoading,
+            isLoadingMore = isLoadingMore,
+            hasMore = hasMore,
+            onLoadMore = { viewModel.loadMore() },
             isFollowed = { followedIds.contains(it) },
             onFollow = { viewModel.toggleFollow(it) },
             onBack = { navController.popBackStack() },

@@ -29,6 +29,9 @@ class FirestoreDataSource @Inject constructor(
     private val remoteConfigService: RemoteConfigService,
     private val firebaseAuth: FirebaseAuth,
 ) {
+    /** Usernames that should never appear in popular users, new users, suggestions, or search results. */
+    private val hiddenUsernames: Set<String> = setOf("mario", "johnnytravolta", "xhdvdvvd", "testuser")
+
     /**
      * Runs a Firestore operation and, if it fails due to a stale auth token,
      * forces an ID-token refresh and retries once. Only retries for the
@@ -758,6 +761,7 @@ class FirestoreDataSource @Inject constructor(
             val user = CymbalUser.fromMap(doc.id, data)
             // Client-side filtering matching iOS: no bots, active users only
             if (user.isBot) return@mapNotNull null
+            if (hiddenUsernames.contains(user.username)) return@mapNotNull null
             if (user.cymbalCount <= 0) return@mapNotNull null
             if (user.followerCount < 5) return@mapNotNull null
             // If lastPostedAt exists, require it to be within 2 weeks
@@ -765,6 +769,42 @@ class FirestoreDataSource @Inject constructor(
             if (lastPosted != null && lastPosted.time < twoWeeksAgo) return@mapNotNull null
             user
         }.take(limit)
+    }
+
+    suspend fun fetchPopularUsersPaginated(
+        limit: Int = 20,
+        excludeIds: Set<String> = emptySet(),
+        afterDocId: String? = null,
+    ): List<CymbalUser> {
+        val fetchCount = limit * 3 + excludeIds.size
+        var query = firestore.collection("users_v2")
+            .orderBy("followerCount", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(fetchCount.toLong())
+
+        if (afterDocId != null) {
+            val afterDoc = firestore.collection("users_v2").document(afterDocId).get().await()
+            if (afterDoc.exists()) {
+                query = query.startAfter(afterDoc)
+            }
+        }
+
+        val snapshot = query.get().await()
+        val twoWeeksAgo = System.currentTimeMillis() - (14L * 24 * 60 * 60 * 1000)
+        val users = mutableListOf<CymbalUser>()
+        for (doc in snapshot.documents) {
+            if (excludeIds.contains(doc.id)) continue
+            val data = doc.data ?: continue
+            val user = CymbalUser.fromMap(doc.id, data)
+            if (user.isBot) continue
+            if (hiddenUsernames.contains(user.username)) continue
+            if (user.cymbalCount <= 0) continue
+            if (user.followerCount < 5) continue
+            val lastPosted = user.lastPostedAt
+            if (lastPosted != null && lastPosted.time < twoWeeksAgo) continue
+            users.add(user)
+            if (users.size >= limit) break
+        }
+        return users
     }
 
     suspend fun fetchNewUsers(limit: Int = 10, excludeIds: Set<String> = emptySet()): List<CymbalUser> {
@@ -778,6 +818,7 @@ class FirestoreDataSource @Inject constructor(
             val data = doc.data ?: return@mapNotNull null
             val user = CymbalUser.fromMap(doc.id, data)
             if (user.isBot) return@mapNotNull null
+            if (hiddenUsernames.contains(user.username)) return@mapNotNull null
             if (user.createdAt == null) return@mapNotNull null
             user
         }.take(limit)
@@ -807,6 +848,7 @@ class FirestoreDataSource @Inject constructor(
             val data = doc.data ?: continue
             val user = CymbalUser.fromMap(doc.id, data)
             if (user.isBot) continue
+            if (hiddenUsernames.contains(user.username)) continue
             if (user.createdAt == null) continue
             users.add(user)
             if (users.size >= limit) break

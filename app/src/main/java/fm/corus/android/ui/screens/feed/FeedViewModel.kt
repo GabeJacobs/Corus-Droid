@@ -44,8 +44,8 @@ class FeedViewModel @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val tmdbApiService: TMDBApiService,
     val nowPlayingManager: NowPlayingManager,
-    val remoteConfig: RemoteConfigService,
-    val analyticsService: AnalyticsService,
+    override val remoteConfig: RemoteConfigService,
+    override val analyticsService: AnalyticsService,
     private val postCreationEvent: PostCreationEvent,
 ) : ViewModel(), PostMenuActions {
 
@@ -77,16 +77,16 @@ class FeedViewModel @Inject constructor(
 
     // ── Share search state ──
     private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+    override val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
 
     private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+    override val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
 
     private val _isShareSearching = MutableStateFlow(false)
-    val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
+    override val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
 
     private val _isLoadingShareContacts = MutableStateFlow(true)
-    val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
+    override val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
 
     private var shareSearchJob: Job? = null
 

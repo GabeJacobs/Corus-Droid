@@ -49,6 +49,8 @@ import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -101,6 +103,7 @@ fun PostCard(
     var showDoubleTapHeart by remember { mutableStateOf(false) }
     var showFilmOverlay by remember { mutableStateOf(false) }
     val flipState = backCoverFlipState
+    val haptics = LocalHapticManager.current
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -219,6 +222,8 @@ fun PostCard(
                             detectTapGestures(
                                 onDoubleTap = {
                                     if (flipState.isLoading) return@detectTapGestures
+                                    // Mirrors iOS PostCard.doubleTapLike haptic.
+                                    haptics.impact(HapticManager.ImpactStyle.MEDIUM)
                                     if (!isLiked) onLikeTap()
                                     showDoubleTapHeart = true
                                     scope.launch {

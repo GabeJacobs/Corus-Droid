@@ -79,6 +79,7 @@ fun SinglePostCommentsScreen(
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
+    onRepost: (CymbalPost) -> Unit = {},
 ) {
     val comments by viewModel.comments.collectAsState()
     val repliesByParent by viewModel.repliesByParent.collectAsState()
@@ -104,6 +105,11 @@ fun SinglePostCommentsScreen(
     val editingComment by viewModel.editingComment.collectAsState()
     var reportingComment by remember { mutableStateOf<CymbalComment?>(null) }
     var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
+    var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
+    var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
+    var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
+    var deleteConfirmPost by remember { mutableStateOf<CymbalPost?>(null) }
+    val backCoverFlipState = fm.corus.android.ui.components.rememberBackCoverFlipState()
 
     LaunchedEffect(editingComment?.id) {
         val editing = editingComment
@@ -429,6 +435,8 @@ fun SinglePostCommentsScreen(
                         },
                         onFilmPageTap = { p.movieId?.let { onNavigateToFilm(it) } },
                         onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
+                        onMenuTap = { menuPost = p },
+                        backCoverFlipState = backCoverFlipState,
                     )
                     HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
                 }
@@ -497,6 +505,24 @@ fun SinglePostCommentsScreen(
             }
         }
     }
+
+    fm.corus.android.ui.components.PostMenuSheets(
+        menuPost = menuPost,
+        sharePost = sharePost,
+        editCaptionPost = editCaptionPost,
+        deleteConfirmPost = deleteConfirmPost,
+        onMenuPostChange = { menuPost = it },
+        onSharePostChange = { sharePost = it },
+        onEditCaptionPostChange = { editCaptionPost = it },
+        onDeleteConfirmPostChange = { deleteConfirmPost = it },
+        actions = viewModel,
+        backCoverStateFor = { backCoverFlipState },
+        onNavigateToSong = onNavigateToSong,
+        onNavigateToFilm = onNavigateToFilm,
+        onRepost = onRepost,
+        onPostDeleted = { onBack() },
+        onCaptionSaved = { viewModel.loadPost(postId) },
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)

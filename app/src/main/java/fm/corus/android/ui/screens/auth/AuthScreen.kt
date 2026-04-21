@@ -43,6 +43,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import kotlinx.coroutines.delay
 import fm.corus.android.R
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.screens.settings.CountryCode
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -193,6 +195,7 @@ fun AuthScreen(
             Column(
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
+                val haptics = LocalHapticManager.current
                 // Google Sign-In button
                 AuthButton(
                     text = "Continue with Google",
@@ -205,6 +208,8 @@ fun AuthScreen(
                     },
                     isLoading = isLoading,
                     onClick = {
+                        // Mirrors iOS AuthView.signInWithGoogle / signInWithApple haptic.
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
                         val webClientId = context.getString(R.string.default_web_client_id)
                         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                             .requestIdToken(webClientId)
@@ -227,7 +232,11 @@ fun AuthScreen(
                         )
                     },
                     isLoading = false,
-                    onClick = { showPhoneInput = true },
+                    onClick = {
+                        // Mirrors iOS AuthView button-tap haptic (Apple/Google).
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        showPhoneInput = true
+                    },
                 )
             }
 

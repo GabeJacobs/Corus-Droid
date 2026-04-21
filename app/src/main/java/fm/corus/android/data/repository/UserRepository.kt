@@ -258,6 +258,18 @@ class UserRepository @Inject constructor(
         return firestoreDataSource.fetchNewUsers(limit, excludeIds)
     }
 
+    suspend fun fetchPopularUsersPaginated(
+        limit: Int = 20,
+        excludeIds: Set<String> = emptySet(),
+        afterDocId: String? = null,
+    ): List<CymbalUser> = firestoreDataSource.fetchPopularUsersPaginated(limit, excludeIds, afterDocId)
+
+    suspend fun fetchNewUsersPaginated(
+        limit: Int = 20,
+        excludeIds: Set<String> = emptySet(),
+        afterDocId: String? = null,
+    ): List<CymbalUser> = firestoreDataSource.fetchNewUsersPaginated(limit, excludeIds, afterDocId)
+
     // ── Search ──
 
     /**
