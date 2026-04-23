@@ -248,7 +248,7 @@ fun ComposeScreen(
                             } else newCaption
                             val textChanged = trimmed.text != caption.text
                             caption = trimmed
-                            if (textChanged) viewModel.checkForMention(trimmed.text)
+                            if (textChanged) viewModel.checkForMention(trimmed.text, trimmed.selection.start)
                         },
                         isPosting = isPosting,
                         onPost = {

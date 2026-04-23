@@ -438,12 +438,22 @@ fun UsernameWithFlair(
 }
 
 /**
- * Parse the current mention query from text by checking the last whitespace-separated word.
- * Returns the query (without @) if the user is typing a mention, or null otherwise.
+ * Parse the current mention query from text at the given caret position.
+ * Returns the query (without @) if the word containing the caret is an active
+ * @mention, or null otherwise. Defaults to the end of the string (legacy
+ * behavior) when the caret is not supplied.
  */
-fun parseMentionQuery(text: String): String? {
-    val lastWord = text.split(Regex("\\s+")).lastOrNull() ?: return null
-    return if (lastWord.startsWith("@") && lastWord.length > 1) lastWord.drop(1) else null
+fun parseMentionQuery(text: String, caret: Int = text.length): String? {
+    val clamped = caret.coerceIn(0, text.length)
+    var wordStart = clamped
+    while (wordStart > 0) {
+        val c = text[wordStart - 1]
+        if (c == ' ' || c == '\n' || c == '\t' || c == '\r') break
+        wordStart--
+    }
+    if (wordStart >= clamped) return null
+    val word = text.substring(wordStart, clamped)
+    return if (word.startsWith("@") && word.length > 1) word.drop(1) else null
 }
 
 /** Extract @mention usernames from text. */
@@ -461,18 +471,38 @@ fun extractHashtags(text: String): List<String> {
  * If no in-progress mention is found, returns the text unchanged.
  */
 fun applyMention(text: String, username: String): String {
-    val lastAt = text.lastIndexOf('@')
-    if (lastAt < 0) return text
-    return text.substring(0, lastAt) + "@$username "
+    return applyMentionWithCaret(text, text.length, username).first
 }
 
 /**
- * [applyMention] for [TextFieldValue]: also moves the cursor to the end of the
- * inserted `@username ` so the user can keep typing.
+ * [applyMention] for [TextFieldValue]: replaces the `@partial` token
+ * containing the caret, preserves any text after it, and moves the cursor to
+ * just after the inserted `@username` (and any trailing space) so the user
+ * can keep typing.
  */
 fun applyMention(value: TextFieldValue, username: String): TextFieldValue {
-    val newText = applyMention(value.text, username)
-    return TextFieldValue(newText, selection = TextRange(newText.length))
+    val (newText, newCaret) = applyMentionWithCaret(value.text, value.selection.start, username)
+    return TextFieldValue(newText, selection = TextRange(newCaret))
+}
+
+private fun applyMentionWithCaret(text: String, caret: Int, username: String): Pair<String, Int> {
+    val clamped = caret.coerceIn(0, text.length)
+    var wordStart = clamped
+    while (wordStart > 0) {
+        val c = text[wordStart - 1]
+        if (c == ' ' || c == '\n' || c == '\t' || c == '\r') break
+        wordStart--
+    }
+    if (wordStart >= clamped || text[wordStart] != '@') {
+        return text to clamped
+    }
+    val hasTrailingSpace = clamped < text.length && text[clamped] == ' '
+    val replacement = if (hasTrailingSpace) "@$username" else "@$username "
+    val before = text.substring(0, wordStart)
+    val after = text.substring(clamped)
+    val newText = before + replacement + after
+    val newCaret = wordStart + replacement.length + if (hasTrailingSpace) 1 else 0
+    return newText to newCaret
 }
 
 /**

@@ -24,6 +24,7 @@ import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.ui.components.extractMentions
+import fm.corus.android.ui.components.parseMentionQuery
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -484,10 +485,9 @@ class ComposeViewModel @Inject constructor(
         _postSuccess.value = true
     }
 
-    fun checkForMention(caption: String) {
-        val lastWord = caption.split(" ").lastOrNull().orEmpty()
-        if (lastWord.startsWith("@") && lastWord.length > 1) {
-            val query = lastWord.drop(1)
+    fun checkForMention(caption: String, caret: Int = caption.length) {
+        val query = parseMentionQuery(caption, caret)
+        if (query != null) {
             mentionJob?.cancel()
             mentionJob = viewModelScope.launch {
                 delay(200)

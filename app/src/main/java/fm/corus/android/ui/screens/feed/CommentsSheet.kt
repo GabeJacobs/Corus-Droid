@@ -407,7 +407,7 @@ private fun CommentsSheetContent(
                             mentionSearchJob?.cancel()
                             mentionSearchJob = coroutineScope.launch {
                                 delay(200)
-                                val query = parseMentionQuery(newValue.text)
+                                val query = parseMentionQuery(newValue.text, newValue.selection.start)
                                 if (query != null) viewModel.searchMentions(query) else viewModel.clearMentions()
                             }
                         }

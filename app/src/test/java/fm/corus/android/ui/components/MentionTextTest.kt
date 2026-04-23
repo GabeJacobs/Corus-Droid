@@ -1,5 +1,7 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -63,6 +65,42 @@ class MentionTextTest {
         assertNull(parseMentionQuery("hello @ga "))
     }
 
+    // ── Caret-aware parseMentionQuery ──
+    // Regression: composers passed only the full text, so editing an @mention
+    // mid-sentence silently disabled the suggestion dropdown because the "last
+    // word" wasn't the one the caret was in.
+
+    @Test
+    fun `detects mention when caret is in middle of text`() {
+        // "hello @bry world" with caret right after "@bry" (position 10)
+        assertEquals("bry", parseMentionQuery("hello @bry world", caret = 10))
+    }
+
+    @Test
+    fun `ignores mention that does not contain the caret`() {
+        // Caret at end — last word is "world", not a mention.
+        assertNull(parseMentionQuery("hello @bry world", caret = 16))
+    }
+
+    @Test
+    fun `detects mention at caret after newline mid-text`() {
+        // "hey\n@alice\nbye" with caret right after "@alice" (position 10)
+        assertEquals("alice", parseMentionQuery("hey\n@alice\nbye", caret = 10))
+    }
+
+    @Test
+    fun `ignores mention when caret sits just past the trailing space`() {
+        // "@bry | rest" — caret sits on the space right after @bry, so the
+        // word at the caret is empty, not a mention.
+        assertNull(parseMentionQuery("@bry rest", caret = 5))
+    }
+
+    @Test
+    fun `detects partial mention during active typing mid-sentence`() {
+        // User has "@ellagos @b Corus-wise" and the caret is right after "@b".
+        assertEquals("b", parseMentionQuery("@ellagos @b Corus-wise", caret = 11))
+    }
+
     // ── applyMention ──
 
     @Test
@@ -93,6 +131,46 @@ class MentionTextTest {
     @Test
     fun `applyMention replaces bare @ with full username`() {
         assertEquals("@user ", applyMention("@", "user"))
+    }
+
+    // ── Caret-aware applyMention(TextFieldValue) ──
+    // Regression: the old version called lastIndexOf('@') and truncated
+    // everything after it, dropping user text. It also parked the cursor at
+    // the end of the (truncated) string.
+
+    @Test
+    fun `applyMention preserves text after caret when inserting mid-sentence`() {
+        // "Hey @bry whats up", caret right after "@bry" (position 8)
+        val value = TextFieldValue("Hey @bry whats up", selection = TextRange(8))
+        val result = applyMention(value, "brycef")
+        assertEquals("Hey @brycef whats up", result.text)
+        // Cursor lands after the existing space, before "whats"
+        assertEquals(12, result.selection.start)
+    }
+
+    @Test
+    fun `applyMention at end of text appends trailing space and parks cursor after it`() {
+        val value = TextFieldValue("Hey @gab", selection = TextRange(8))
+        val result = applyMention(value, "gabejacobs")
+        assertEquals("Hey @gabejacobs ", result.text)
+        assertEquals(16, result.selection.start)
+    }
+
+    @Test
+    fun `applyMention is a no-op when caret is not on a mention token`() {
+        val value = TextFieldValue("Hey world", selection = TextRange(9))
+        val result = applyMention(value, "brycef")
+        assertEquals("Hey world", result.text)
+        assertEquals(9, result.selection.start)
+    }
+
+    @Test
+    fun `applyMention does not double-space when existing trailing space is present`() {
+        // "@bry rest" with caret right after "@bry"
+        val value = TextFieldValue("@bry rest", selection = TextRange(4))
+        val result = applyMention(value, "brycef")
+        assertEquals("@brycef rest", result.text)
+        assertEquals(8, result.selection.start)
     }
 
     // ── buildMentionAnnotatedString ──

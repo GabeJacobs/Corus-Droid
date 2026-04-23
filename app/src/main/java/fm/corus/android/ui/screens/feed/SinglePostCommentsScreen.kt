@@ -246,7 +246,7 @@ fun SinglePostCommentsScreen(
                                     mentionSearchJob?.cancel()
                                     mentionSearchJob = scope.launch {
                                         delay(200)
-                                        val query = parseMentionQuery(newValue.text)
+                                        val query = parseMentionQuery(newValue.text, newValue.selection.start)
                                         if (query != null) viewModel.searchMentions(query) else viewModel.clearMentions()
                                     }
                                 }
