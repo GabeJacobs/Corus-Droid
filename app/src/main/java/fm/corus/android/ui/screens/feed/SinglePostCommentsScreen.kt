@@ -33,6 +33,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -79,6 +81,7 @@ fun SinglePostCommentsScreen(
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
+    onNavigateToCommentLikes: (commentId: String) -> Unit = {},
     onRepost: (CymbalPost) -> Unit = {},
 ) {
     val comments by viewModel.comments.collectAsState()
@@ -473,6 +476,7 @@ fun SinglePostCommentsScreen(
                         currentUserId = viewModel.currentUserId,
                         highlightedCommentId = activeHighlightId,
                         onLike = { viewModel.toggleCommentLike(postId, comment.id) },
+                        onLikeLongPress = { onNavigateToCommentLikes(comment.id) },
                         onReply = {
                             viewModel.setReplyTo(comment)
                             focusRequester.requestFocus()
@@ -494,6 +498,7 @@ fun SinglePostCommentsScreen(
                             focusRequester.requestFocus()
                         },
                         onReplyLike = { replyId -> viewModel.toggleCommentLike(postId, replyId) },
+                        onReplyLikeLongPress = { replyId -> onNavigateToCommentLikes(replyId) },
                         onEdit = { viewModel.startEditing(comment) },
                         onDelete = { viewModel.deleteComment(comment.id) },
                         onReport = { reportingComment = comment },
@@ -536,6 +541,7 @@ private fun SingleCommentRow(
     currentUserId: String?,
     highlightedCommentId: String? = null,
     onLike: () -> Unit,
+    onLikeLongPress: () -> Unit,
     onReply: () -> Unit,
     onUserTap: () -> Unit,
     onReplyUserTap: (String) -> Unit,
@@ -543,6 +549,7 @@ private fun SingleCommentRow(
     onHashtagTap: (String) -> Unit,
     onReplyReply: (CymbalComment) -> Unit,
     onReplyLike: (String) -> Unit,
+    onReplyLikeLongPress: (String) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onReport: () -> Unit,
@@ -564,6 +571,7 @@ private fun SingleCommentRow(
             highlightColor = commentHighlightColor,
             onUserTap = onUserTap,
             onLike = onLike,
+            onLikeLongPress = onLikeLongPress,
             onReply = onReply,
             onEdit = onEdit,
             onDelete = onDelete,
@@ -587,6 +595,7 @@ private fun SingleCommentRow(
                 highlightColor = replyHighlightColor,
                 onUserTap = { onReplyUserTap(reply.user.id) },
                 onLike = { onReplyLike(reply.id) },
+                onLikeLongPress = { onReplyLikeLongPress(reply.id) },
                 onReply = { onReplyReply(reply) },
                 onEdit = { onReplyEdit(reply) },
                 onDelete = { onReplyDelete(reply.id) },
@@ -608,6 +617,7 @@ private fun CommentContentRow(
     highlightColor: Color,
     onUserTap: () -> Unit,
     onLike: () -> Unit,
+    onLikeLongPress: () -> Unit,
     onReply: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -747,7 +757,23 @@ private fun CommentContentRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.align(Alignment.CenterVertically),
         ) {
-            IconButton(onClick = onLike, modifier = Modifier.size(if (isReply) 28.dp else 32.dp)) {
+            val haptic = LocalHapticFeedback.current
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(if (isReply) 28.dp else 32.dp)
+                    .combinedClickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onLike,
+                        onLongClick = {
+                            if (comment.likeCount > 0) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onLikeLongPress()
+                            }
+                        },
+                    ),
+            ) {
                 Icon(
                     if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     contentDescription = "Like",

@@ -1019,6 +1019,32 @@ class FirestoreDataSource @Inject constructor(
         )
     }
 
+    suspend fun fetchCommentLikers(
+        postId: String,
+        commentId: String,
+        limit: Int = 20,
+        lastTimestamp: Long? = null,
+    ): LikersPage {
+        var query = firestore.collection("posts").document(postId)
+            .collection("comments").document(commentId)
+            .collection("likes")
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(limit.toLong())
+        if (lastTimestamp != null) {
+            query = query.startAfter(Date(lastTimestamp))
+        }
+        val snapshot = query.get().await()
+        val docs = snapshot.documents
+        val userIds = docs.map { it.id }
+        val users = userIds.mapNotNull { fetchUserProfile(it) }
+        val nextTimestamp = docs.lastOrNull()?.getTimestamp("createdAt")?.toDate()?.time
+        return LikersPage(
+            users = users,
+            lastTimestamp = nextTimestamp,
+            hasMore = docs.size >= limit,
+        )
+    }
+
     // ── Feedback ──
 
     suspend fun submitFeedback(

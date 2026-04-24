@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.AnnotatedString
@@ -160,6 +162,7 @@ private fun CommentsSheetContent(
     val keyboardController = LocalSoftwareKeyboardController.current
     var showGifPicker by remember { mutableStateOf(false) }
     var reportingComment by remember { mutableStateOf<CymbalComment?>(null) }
+    var viewingLikesCommentId by remember { mutableStateOf<String?>(null) }
     val maxChars = 700
     val showCounter = commentText.text.length >= 650
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
@@ -237,6 +240,46 @@ private fun CommentsSheetContent(
         }
     }
 
+    val likesCommentId = viewingLikesCommentId
+    if (likesCommentId != null) {
+        BackHandler(enabled = true) { viewingLikesCommentId = null }
+        Column(modifier = Modifier.fillMaxWidth().imePadding()) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                IconButton(
+                    onClick = { viewingLikesCommentId = null },
+                    modifier = Modifier.align(Alignment.CenterStart),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back to comments",
+                        tint = CorusColors.Text,
+                    )
+                }
+                Text(
+                    text = "Likes",
+                    style = CorusFont.screenTitle,
+                    color = CorusColors.Text,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(vertical = CorusSpacing.sm),
+                    textAlign = TextAlign.Center,
+                )
+            }
+            HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+            CommentLikesContent(
+                postId = postId,
+                commentId = likesCommentId,
+                onNavigateToUser = { userId ->
+                    viewingLikesCommentId = null
+                    onNavigateToUser(userId)
+                    onDismiss()
+                },
+                fillContainer = true,
+            )
+        }
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -309,6 +352,7 @@ private fun CommentsSheetContent(
                                 focusRequester.requestFocus()
                             },
                             onLikeTap = { viewModel.toggleCommentLike(comment.id) },
+                            onLikeLongPress = { viewingLikesCommentId = comment.id },
                             onDeleteTap = { viewModel.deleteComment(comment.id) },
                             onEditTap = { viewModel.startEditing(comment) },
                             onReportTap = { reportingComment = comment },
@@ -329,6 +373,7 @@ private fun CommentsSheetContent(
                                     focusRequester.requestFocus()
                                 },
                                 onLikeTap = { viewModel.toggleCommentLike(reply.id) },
+                                onLikeLongPress = { viewingLikesCommentId = reply.id },
                                 onDeleteTap = { viewModel.deleteComment(reply.id) },
                                 onEditTap = { viewModel.startEditing(reply) },
                                 onReportTap = { reportingComment = reply },
@@ -561,6 +606,7 @@ private fun CommentRow(
     onUserTap: () -> Unit = {},
     onReplyTap: () -> Unit = {},
     onLikeTap: () -> Unit = {},
+    onLikeLongPress: () -> Unit = {},
     onDeleteTap: () -> Unit = {},
     onEditTap: () -> Unit = {},
     onReportTap: () -> Unit = {},
@@ -730,12 +776,19 @@ private fun CommentRow(
                 .align(Alignment.CenterVertically)
                 .padding(start = CorusSpacing.sm),
         ) {
+            val haptic = LocalHapticFeedback.current
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable(
+                modifier = Modifier.combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onLikeTap,
+                    onLongClick = {
+                        if (comment.likeCount > 0) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLikeLongPress()
+                        }
+                    },
                 ),
             ) {
                 Icon(

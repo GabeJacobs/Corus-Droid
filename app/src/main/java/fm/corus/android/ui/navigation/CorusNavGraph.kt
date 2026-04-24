@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import fm.corus.android.ui.screens.explore.HashtagFeedScreen
+import fm.corus.android.ui.screens.feed.CommentLikesScreen
 import fm.corus.android.ui.screens.feed.CommentsBottomSheet
 import fm.corus.android.ui.screens.feed.CommentsSheet
 import fm.corus.android.ui.screens.feed.EditCaptionSheet
@@ -560,7 +561,20 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             onNavigateToLikes = onShowLikes,
+            onNavigateToCommentLikes = { commentId ->
+                navController.navigate(CommentLikesRoute(route.postId, commentId))
+            },
             onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
+        )
+    }
+
+    composable<CommentLikesRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<CommentLikesRoute>()
+        CommentLikesScreen(
+            postId = route.postId,
+            commentId = route.commentId,
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
         )
     }
 

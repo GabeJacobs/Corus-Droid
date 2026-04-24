@@ -169,6 +169,15 @@ class PostRepository @Inject constructor(
         return firestoreDataSource.fetchPostLikers(postId, limit, lastTimestamp)
     }
 
+    suspend fun fetchCommentLikers(
+        postId: String,
+        commentId: String,
+        limit: Int = 20,
+        lastTimestamp: Long? = null,
+    ): fm.corus.android.data.remote.FirestoreDataSource.LikersPage {
+        return firestoreDataSource.fetchCommentLikers(postId, commentId, limit, lastTimestamp)
+    }
+
     // ── Comments ──
 
     suspend fun getComments(postId: String, limit: Int = 100, lastTimestamp: Long? = null): List<CymbalComment> {
