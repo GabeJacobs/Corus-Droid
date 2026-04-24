@@ -502,9 +502,11 @@ fun SinglePostCommentsScreen(
                         onEdit = { viewModel.startEditing(comment) },
                         onDelete = { viewModel.deleteComment(comment.id) },
                         onReport = { reportingComment = comment },
+                        onBlock = { viewModel.blockUser(comment.user.id) },
                         onReplyEdit = { reply -> viewModel.startEditing(reply) },
                         onReplyDelete = { replyId -> viewModel.deleteComment(replyId) },
                         onReplyReport = { reply -> reportingComment = reply },
+                        onReplyBlock = { reply -> viewModel.blockUser(reply.user.id) },
                     )
                 }
             }
@@ -553,9 +555,11 @@ private fun SingleCommentRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onReport: () -> Unit,
+    onBlock: () -> Unit,
     onReplyEdit: (CymbalComment) -> Unit,
     onReplyDelete: (String) -> Unit,
     onReplyReport: (CymbalComment) -> Unit,
+    onReplyBlock: (CymbalComment) -> Unit,
 ) {
     val commentHighlightColor by animateColorAsState(
         targetValue = if (highlightedCommentId == comment.id) CorusColors.Accent.copy(alpha = 0.1f) else Color.Transparent,
@@ -576,6 +580,7 @@ private fun SingleCommentRow(
             onEdit = onEdit,
             onDelete = onDelete,
             onReport = onReport,
+            onBlock = onBlock,
             onMentionTap = onMentionTap,
             onHashtagTap = onHashtagTap,
         )
@@ -600,6 +605,7 @@ private fun SingleCommentRow(
                 onEdit = { onReplyEdit(reply) },
                 onDelete = { onReplyDelete(reply.id) },
                 onReport = { onReplyReport(reply) },
+                onBlock = { onReplyBlock(reply) },
                 onMentionTap = onMentionTap,
                 onHashtagTap = onHashtagTap,
             )
@@ -622,13 +628,16 @@ private fun CommentContentRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onReport: () -> Unit,
+    onBlock: () -> Unit,
     onMentionTap: (String) -> Unit,
     onHashtagTap: (String) -> Unit,
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showBlockConfirm by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val canCopy = comment.text.isNotEmpty()
+    val canBlock = !isOwnComment && !comment.user.isBot
     val canLongPress = canCopy || !isOwnComment
 
     if (showDeleteConfirm) {
@@ -646,6 +655,32 @@ private fun CommentContentRow(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showBlockConfirm) {
+        AlertDialog(
+            onDismissRequest = { showBlockConfirm = false },
+            title = { Text("Block @${comment.user.username}?", style = CorusFont.songTitleLarge) },
+            text = {
+                Text(
+                    "They won't be able to see your profile or posts, and you won't see theirs.",
+                    style = CorusFont.body,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBlockConfirm = false
+                    onBlock()
+                }) {
+                    Text("Block", color = CorusColors.Error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBlockConfirm = false }) {
                     Text("Cancel")
                 }
             },
@@ -683,12 +718,21 @@ private fun CommentContentRow(
                     },
                 )
             }
-            if (!isOwnComment) {
+            if (!isOwnComment && !comment.user.isBot) {
                 DropdownMenuItem(
                     text = { Text("Report", style = CorusFont.body, color = CorusColors.Error) },
                     onClick = {
                         showContextMenu = false
                         onReport()
+                    },
+                )
+            }
+            if (canBlock) {
+                DropdownMenuItem(
+                    text = { Text("Block", style = CorusFont.body, color = CorusColors.Error) },
+                    onClick = {
+                        showContextMenu = false
+                        showBlockConfirm = true
                     },
                 )
             }

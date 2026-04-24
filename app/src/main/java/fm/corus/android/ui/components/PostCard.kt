@@ -709,25 +709,29 @@ fun PostCard(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 post.comments.take(maxVisibleComments).forEach { comment ->
-                    val commentText = buildAnnotatedString {
-                        pushStringAnnotation(tag = "commentUser", annotation = comment.user.id)
-                        withStyle(
-                            SpanStyle(
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 14.sp,
-                            )
-                        ) {
-                            append(comment.user.username)
-                        }
-                        pop()
-                        append(" ")
-                        withStyle(
-                            SpanStyle(
+                    val commentText = remember(comment.user.id, comment.user.username, comment.text) {
+                        buildAnnotatedString {
+                            pushStringAnnotation(tag = "commentUser", annotation = comment.user.id)
+                            withStyle(
+                                SpanStyle(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 14.sp,
+                                )
+                            ) {
+                                append(comment.user.username)
+                            }
+                            pop()
+                            append(" ")
+                            val bodyStyle = SpanStyle(
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 15.sp,
                             )
-                        ) {
-                            append(comment.text)
+                            append(
+                                buildMentionAnnotatedString(
+                                    text = comment.text,
+                                    baseStyle = bodyStyle,
+                                )
+                            )
                         }
                     }
                     androidx.compose.foundation.text.ClickableText(
@@ -736,16 +740,31 @@ fun PostCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         onClick = { offset ->
-                            val hit = commentText.getStringAnnotations(
+                            commentText.getStringAnnotations(
                                 tag = "commentUser",
                                 start = offset,
                                 end = offset,
-                            ).firstOrNull()
-                            if (hit != null) {
+                            ).firstOrNull()?.let {
                                 onCommentUserTap(comment.user)
-                            } else {
-                                onCommentTap()
+                                return@ClickableText
                             }
+                            commentText.getStringAnnotations(
+                                tag = "mention",
+                                start = offset,
+                                end = offset,
+                            ).firstOrNull()?.let {
+                                onMentionTap(it.item)
+                                return@ClickableText
+                            }
+                            commentText.getStringAnnotations(
+                                tag = "hashtag",
+                                start = offset,
+                                end = offset,
+                            ).firstOrNull()?.let {
+                                onHashtagTap(it.item)
+                                return@ClickableText
+                            }
+                            onCommentTap()
                         },
                     )
                 }

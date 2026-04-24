@@ -720,7 +720,8 @@ private fun PostDetailEngagementRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = CorusSpacing.lg, top = CorusSpacing.sm, bottom = CorusSpacing.sm),
+            .padding(horizontal = CorusSpacing.lg)
+            .padding(vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
     ) {
@@ -751,13 +752,11 @@ private fun PostDetailEngagementRow(
         // Track post count — only show when 2+ people posted the same song/film
         if (trackPostCount > 1) {
             Row(
-                modifier = Modifier
-                    .height(CorusSpacing.touchTarget)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onSongCountTap,
-                    ),
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onSongCountTap,
+                ),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
             ) {
@@ -777,23 +776,18 @@ private fun PostDetailEngagementRow(
         Spacer(modifier = Modifier.weight(1f))
 
         // Save
-        Box(
+        Icon(
+            imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+            contentDescription = "Save",
             modifier = Modifier
-                .size(CorusSpacing.touchTarget)
+                .size(20.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onSaveTap,
                 ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                contentDescription = "Save",
-                modifier = Modifier.size(20.dp),
-                tint = CorusColors.Text,
-            )
-        }
+            tint = CorusColors.Text,
+        )
     }
 }
 
@@ -805,13 +799,11 @@ private fun EngagementButton(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .height(CorusSpacing.touchTarget)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
+        modifier = Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = onClick,
+        ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {

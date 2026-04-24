@@ -42,12 +42,17 @@
                 <data android:scheme="corus" />
             </intent-filter>
 
-            <!-- Universal link: https://corus.fm -->
+            <!-- Universal link: https://corus.fm — only the paths the app handles
+                 (see DeepLinkHandler.parseWebUrl). Other corus.fm paths (e.g. /privacy,
+                 /terms) fall through to the browser instead of being captured here. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="corus.fm" />
+                <data android:scheme="https" />
+                <data android:host="corus.fm" />
+                <data android:pathPrefix="/post/" />
+                <data android:pathPrefix="/u/" />
             </intent-filter>
         </activity>
 

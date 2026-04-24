@@ -238,12 +238,14 @@ fun SettingsScreen(
 
             // "Who Can Message Me" menu row
             Box(modifier = Modifier.fillMaxWidth()) {
-                SettingsNavRow(
-                    icon = Icons.Outlined.Group,
-                    title = "Who Can Message Me",
-                    trailingText = whoCanMessageMe,
-                    onClick = { showMessageMenu = true },
-                )
+                Column {
+                    SettingsNavRow(
+                        icon = Icons.Outlined.Group,
+                        title = "Who Can Message Me",
+                        trailingText = whoCanMessageMe,
+                        onClick = { showMessageMenu = true },
+                    )
+                }
                 Box(modifier = Modifier.align(Alignment.TopEnd)) {
                     DropdownMenu(
                         expanded = showMessageMenu,
@@ -374,12 +376,11 @@ fun SettingsScreen(
                 icon = Icons.Outlined.Policy,
                 title = "Privacy Policy",
                 onClick = {
-                    context.startActivity(
-                        android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://corus.fm/privacy")
-                        )
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://corus.fm/privacy"),
                     )
+                    try { context.startActivity(intent) } catch (_: Exception) { }
                 },
             )
 
@@ -387,12 +388,11 @@ fun SettingsScreen(
                 icon = Icons.Outlined.Info,
                 title = "Terms of Service",
                 onClick = {
-                    context.startActivity(
-                        android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://corus.fm/terms")
-                        )
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://corus.fm/terms"),
                     )
+                    try { context.startActivity(intent) } catch (_: Exception) { }
                 },
             )
 

@@ -356,6 +356,7 @@ private fun CommentsSheetContent(
                             onDeleteTap = { viewModel.deleteComment(comment.id) },
                             onEditTap = { viewModel.startEditing(comment) },
                             onReportTap = { reportingComment = comment },
+                            onBlockTap = { viewModel.blockUser(comment.user.id) },
                             onMentionTap = handleMentionTap,
                         )
                     }
@@ -377,6 +378,7 @@ private fun CommentsSheetContent(
                                 onDeleteTap = { viewModel.deleteComment(reply.id) },
                                 onEditTap = { viewModel.startEditing(reply) },
                                 onReportTap = { reportingComment = reply },
+                                onBlockTap = { viewModel.blockUser(reply.user.id) },
                                 onMentionTap = handleMentionTap,
                             )
                         }
@@ -610,12 +612,15 @@ private fun CommentRow(
     onDeleteTap: () -> Unit = {},
     onEditTap: () -> Unit = {},
     onReportTap: () -> Unit = {},
+    onBlockTap: () -> Unit = {},
     onMentionTap: (String) -> Unit = {},
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showBlockConfirm by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val canCopy = comment.text.isNotEmpty()
+    val canBlock = !isOwnComment && !comment.user.isBot
     val canLongPress = canCopy || !isOwnComment
 
     if (showDeleteConfirm) {
@@ -633,6 +638,32 @@ private fun CommentRow(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showBlockConfirm) {
+        AlertDialog(
+            onDismissRequest = { showBlockConfirm = false },
+            title = { Text("Block @${comment.user.username}?", style = CorusFont.songTitleLarge) },
+            text = {
+                Text(
+                    "They won't be able to see your profile or posts, and you won't see theirs.",
+                    style = CorusFont.body,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBlockConfirm = false
+                    onBlockTap()
+                }) {
+                    Text("Block", color = CorusColors.Error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBlockConfirm = false }) {
                     Text("Cancel")
                 }
             },
@@ -670,12 +701,21 @@ private fun CommentRow(
                     },
                 )
             }
-            if (!isOwnComment) {
+            if (!isOwnComment && !comment.user.isBot) {
                 DropdownMenuItem(
                     text = { Text("Report", style = CorusFont.body, color = CorusColors.Error) },
                     onClick = {
                         showContextMenu = false
                         onReportTap()
+                    },
+                )
+            }
+            if (canBlock) {
+                DropdownMenuItem(
+                    text = { Text("Block", style = CorusFont.body, color = CorusColors.Error) },
+                    onClick = {
+                        showContextMenu = false
+                        showBlockConfirm = true
                     },
                 )
             }

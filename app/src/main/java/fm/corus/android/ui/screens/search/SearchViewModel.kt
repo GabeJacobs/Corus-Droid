@@ -155,6 +155,8 @@ class SearchViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true
+            // Explicit user refresh should bypass the in-memory TTL on trending.
+            exploreRepository.clearCaches()
             loadInitialData()
             // Give data a moment to load before hiding the indicator
             delay(500)
