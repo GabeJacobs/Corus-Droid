@@ -53,8 +53,14 @@ class PostRepository @Inject constructor(
 
     // ── Profile posts ──
 
-    suspend fun getProfilePosts(userId: String, viewerId: String, limit: Int = 30, lastTimestamp: Long? = null): List<CymbalPost> {
-        return cloudFunctions.getProfilePosts(userId, viewerId, limit, lastTimestamp)
+    suspend fun getProfilePosts(
+        userId: String,
+        viewerId: String,
+        limit: Int = 30,
+        lastTimestamp: Long? = null,
+        mediaType: String? = null,
+    ): List<CymbalPost> {
+        return cloudFunctions.getProfilePosts(userId, viewerId, limit, lastTimestamp, mediaType)
             .also { cachePosts(it) }
     }
 

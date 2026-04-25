@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.SubscriptionRepository
@@ -113,6 +114,12 @@ class ProfileViewModel @Inject constructor(
     private val _isLoadingSaved = MutableStateFlow(false)
     val isLoadingSaved: StateFlow<Boolean> = _isLoadingSaved.asStateFlow()
 
+    private val _isLoadingFilms = MutableStateFlow(false)
+    val isLoadingFilms: StateFlow<Boolean> = _isLoadingFilms.asStateFlow()
+
+    private val _hasFetchedFilmPage = MutableStateFlow(false)
+    val hasFetchedFilmPage: StateFlow<Boolean> = _hasFetchedFilmPage.asStateFlow()
+
     private val _isSavingStyle = MutableStateFlow(false)
     val isSavingStyle: StateFlow<Boolean> = _isSavingStyle.asStateFlow()
 
@@ -175,22 +182,39 @@ class ProfileViewModel @Inject constructor(
 
     fun refreshProfile() {
         hasLoaded = true
+        // Only reset the film-fetch flag if there's actually something to re-fetch.
+        // The counter (when available) is authoritative; fall back to the free
+        // guard for older backends without the field.
+        val knownZeroFilms = _profile.value?.movieCount == 0
+        val certainlyZeroFilms = knownZeroFilms ||
+            (!(_hasMore.value[0] ?: true) && _posts.value.none { it.mediaType == MediaType.MOVIE })
+        if (!certainlyZeroFilms) {
+            _hasFetchedFilmPage.value = false
+        }
         viewModelScope.launch {
             _isLoading.value = true
             _isRefreshing.value = true
+            val onFilmsTab = _currentSegment.value == 1
             try {
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
                 val userId = authRepository.currentUserId ?: return@launch
                 val page = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null)
-                _posts.value = page
+                val movieSupplement = if (onFilmsTab) {
+                    runCatching {
+                        cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null, mediaType = "movie")
+                    }.getOrDefault(emptyList())
+                } else emptyList()
+                val merged = page + movieSupplement.filter { m -> page.none { it.id == m.id } }
+                _posts.value = merged
                 if (page.isNotEmpty()) postsLastTimestamp = page.last().timestamp.time
+                if (onFilmsTab) _hasFetchedFilmPage.value = true
                 val serverHasMore = page.size >= PAGE_SIZE
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
                     this[0] = serverHasMore
                     this[1] = serverHasMore
                 }
-                page.forEach { post ->
+                merged.forEach { post ->
                     engagementManager.initState(
                         postId = post.id,
                         likeCount = post.likeCount,
@@ -200,7 +224,7 @@ class ProfileViewModel @Inject constructor(
                         isSaved = false,
                     )
                 }
-                engagementManager.checkLikeStatuses(page.map { it.id }, userId)
+                engagementManager.checkLikeStatuses(merged.map { it.id }, userId)
                 // Reset lazy-loaded segments so they reload on next visit
                 likedLoaded = false
                 savedLoaded = false
@@ -237,16 +261,65 @@ class ProfileViewModel @Inject constructor(
 
     /**
      * Called when the user taps a segment tab.
-     * Segments 0 (MUSIC) and 1 (FILM) share the same posts list — no re-fetch needed.
+     * Segments 0 (MUSIC) shares posts already loaded; FILM (1) may need a
+     * movie-only supplementary fetch if the recency-sorted initial page didn't
+     * include films.
      * Segments 2 (LIKES) and 3 (SAVES) lazy-load on first visit.
      */
     fun loadSegment(index: Int) {
         _currentSegment.value = index
         analyticsService.logProfileSegmentChanged(segmentAnalyticsName(index))
         when (index) {
-            0, 1 -> { /* Posts already loaded in loadProfile */ }
+            0 -> { /* Posts already loaded in loadProfile */ }
+            1 -> loadFilmPageIfNeeded()
             2 -> if (!likedLoaded) loadLikedPosts()
             3 -> if (!savedLoaded) loadSavedPosts()
+        }
+    }
+
+    fun loadFilmPageIfNeeded() {
+        if (_hasFetchedFilmPage.value) return
+        val userId = authRepository.currentUserId ?: return
+        val hasAnyMovies = _posts.value.any { it.mediaType == MediaType.MOVIE }
+        val hasMoreMixed = _hasMore.value[0] ?: true
+        // Prefer the counter (authoritative); fall back to the "all posts loaded,
+        // none are films" free guard for older backends without the field.
+        val knownZeroFilms = _profile.value?.movieCount == 0
+        if (knownZeroFilms || (!hasMoreMixed && !hasAnyMovies)) {
+            _hasFetchedFilmPage.value = true
+            return
+        }
+        _hasFetchedFilmPage.value = true
+        if (!hasAnyMovies) _isLoadingFilms.value = true
+        viewModelScope.launch {
+            try {
+                val movies = cloudFunctions.getProfilePosts(
+                    userId, userId,
+                    limit = PAGE_SIZE,
+                    lastTimestamp = null,
+                    mediaType = "movie",
+                )
+                val existing = _posts.value
+                val additions = movies.filter { m -> existing.none { it.id == m.id } }
+                if (additions.isNotEmpty()) {
+                    _posts.value = existing + additions
+                    additions.forEach { post ->
+                        engagementManager.initState(
+                            postId = post.id,
+                            likeCount = post.likeCount,
+                            commentCount = post.commentCount,
+                            repostCount = post.repostCount,
+                            isLiked = post.isLiked,
+                            isSaved = false,
+                        )
+                    }
+                    engagementManager.checkLikeStatuses(additions.map { it.id }, userId)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "loadFilmPageIfNeeded failed", e)
+                _hasFetchedFilmPage.value = false
+            }
+            _isLoadingFilms.value = false
         }
     }
 

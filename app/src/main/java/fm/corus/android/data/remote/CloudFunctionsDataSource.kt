@@ -134,11 +134,18 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun getProfilePosts(userId: String, viewerId: String, limit: Int = 30, lastTimestamp: Long? = null): List<CymbalPost> {
+    suspend fun getProfilePosts(
+        userId: String,
+        viewerId: String,
+        limit: Int = 30,
+        lastTimestamp: Long? = null,
+        mediaType: String? = null,
+    ): List<CymbalPost> {
         val params = mutableMapOf<String, Any>(
             "userId" to userId, "viewerId" to viewerId, "pageSize" to limit
         )
         lastTimestamp?.let { params["beforeMs"] = it }
+        mediaType?.let { params["mediaType"] = it }
         val result = functions.getHttpsCallable("getProfilePosts").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val posts = data["posts"] as? List<Map<String, Any?>> ?: return emptyList()

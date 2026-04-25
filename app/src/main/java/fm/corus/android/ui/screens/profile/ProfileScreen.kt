@@ -101,6 +101,8 @@ fun ProfileScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingLiked by viewModel.isLoadingLiked.collectAsState()
     val isLoadingSaved by viewModel.isLoadingSaved.collectAsState()
+    val isLoadingFilms by viewModel.isLoadingFilms.collectAsState()
+    val hasFetchedFilmPage by viewModel.hasFetchedFilmPage.collectAsState()
     val isClubMember by viewModel.isClubMember.collectAsState()
     val hasFullAccess by viewModel.hasFullAccess.collectAsState()
     val isSavingStyle by viewModel.isSavingStyle.collectAsState()
@@ -588,7 +590,9 @@ fun ProfileScreen(
                                     )
                                 }
                             }
-                            fm.corus.android.ui.components.SkeletonProfileGrid()
+                            fm.corus.android.ui.components.SkeletonProfileGrid(
+                                isFilmStyle = featuredPost.mediaType == fm.corus.android.data.model.MediaType.MOVIE,
+                            )
                         }
                     } else {
                         val featuredEngagement = engagementStates[featuredPost.id]
@@ -621,6 +625,10 @@ fun ProfileScreen(
                             )
                         }
                     }
+                } else if (filteredPosts.isEmpty() && selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)) {
+                    // Films pending — show skeleton until we've either fetched the
+                    // movie-only page or determined there are none.
+                    fm.corus.android.ui.components.SkeletonProfileGrid(isFilmStyle = true)
                 } else if (filteredPosts.isEmpty() && !isLoading
                     && !(selectedSegment == 2 && isLoadingLiked)
                     && !(selectedSegment == 3 && isLoadingSaved)

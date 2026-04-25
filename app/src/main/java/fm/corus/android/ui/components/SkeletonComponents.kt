@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -560,6 +562,7 @@ fun SkeletonProfileWithAvatar(
 @Composable
 fun SkeletonProfileGrid(
     showFeatured: Boolean = true,
+    isFilmStyle: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -567,11 +570,16 @@ fun SkeletonProfileGrid(
             .shimmer(),
     ) {
         if (showFeatured) {
-            SkeletonFeaturedCymbal()
+            if (isFilmStyle) {
+                SkeletonFeaturedMoviePoster()
+            } else {
+                SkeletonFeaturedCymbal()
+            }
         }
 
-        // 3-column grid of 6 cells (1:1 aspect)
+        // 3-column grid — cells use 2:3 posters for film, 1:1 for music
         val cellCount = if (showFeatured) 6 else 15
+        val cellAspect = if (isFilmStyle) 2f / 3f else 1f
         for (row in 0 until (cellCount + 2) / 3) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 for (col in 0 until 3) {
@@ -579,6 +587,7 @@ fun SkeletonProfileGrid(
                     if (index < cellCount) {
                         SkeletonAlbumGridCell(
                             modifier = Modifier.weight(1f),
+                            aspectRatio = cellAspect,
                         )
                     }
                 }
@@ -1433,6 +1442,68 @@ private fun SkeletonInfoRow(labelWidth: Dp, valueWidth: Dp) {
                 .clip(RoundedCornerShape(4.dp))
                 .background(CorusColors.Skeleton),
         )
+    }
+}
+
+// 13b. SkeletonFeaturedMoviePoster — Framed poster skeleton matching FeaturedMoviePosterView
+@Composable
+fun SkeletonFeaturedMoviePoster() {
+    // Match FeaturedMoviePosterView section proportions (585 × 482)
+    val sectionAspect = 585f / 482f
+    // Frame border ratios (visible dark border around the poster opening)
+    val frameWidthRatio = 245f / 585f
+    val frameHeightRatio = 345f / 482f
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.36f to Color(0xFFF3F3F3),
+                        1.0f to Color(0xFFBFBFBF),
+                    ),
+                ),
+            ),
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(sectionAspect),
+            contentAlignment = Alignment.Center,
+        ) {
+            val frameW = maxWidth * frameWidthRatio
+            val frameH = maxHeight * frameHeightRatio
+            Box(
+                modifier = Modifier
+                    .width(frameW)
+                    .height(frameH)
+                    .background(CorusColors.Skeleton),
+            )
+        }
+        // Title + subtitle bars below, matching SkeletonFeaturedCymbal layout
+        Column(
+            modifier = Modifier.padding(
+                horizontal = CorusSpacing.lg,
+                vertical = CorusSpacing.md,
+            ),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(130.dp)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Box(
+                modifier = Modifier
+                    .width(90.dp)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+        }
     }
 }
 

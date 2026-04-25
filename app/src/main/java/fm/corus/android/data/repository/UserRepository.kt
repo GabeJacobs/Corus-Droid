@@ -74,7 +74,16 @@ class UserRepository @Inject constructor(
         return user
     }
 
+    /**
+     * Seeds the user-profile cache, but only when there isn't already a fresh
+     * entry. Callers (feeds, search, notifications) often pass user snapshots
+     * that are themselves cached/stale; clobbering a valid TTL entry with that
+     * data would re-introduce stale customizations (frame, vinyl, avatar)
+     * until the entry naturally expires.
+     */
     fun cacheUser(user: CymbalUser) {
+        val existing = profileCache[user.id]
+        if (existing != null && existing.isValid(PROFILE_TTL_MS)) return
         profileCache[user.id] = CacheEntry(user)
     }
 

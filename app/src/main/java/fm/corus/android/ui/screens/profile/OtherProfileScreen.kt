@@ -104,6 +104,8 @@ fun OtherProfileScreen(
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val isLoadingFilms by viewModel.isLoadingFilms.collectAsState()
+    val hasFetchedFilmPage by viewModel.hasFetchedFilmPage.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
     var selectedSegment by rememberSaveable { mutableIntStateOf(0) }
     var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
@@ -138,6 +140,15 @@ fun OtherProfileScreen(
 
     LaunchedEffect(userId) {
         viewModel.start(userId, initialIsFollowing)
+    }
+
+    // When the user switches to the FILM tab, fetch movie-only posts so films
+    // older than the recency-sorted first page still appear without a manual refresh.
+    LaunchedEffect(selectedSegment, userId, profile?.isBot) {
+        val isFilmsTab = profile?.isBot == false && selectedSegment == 1
+        if (isFilmsTab) {
+            viewModel.loadFilmPageIfNeeded(userId)
+        }
     }
 
     Scaffold(
@@ -529,7 +540,8 @@ fun OtherProfileScreen(
             onRefresh = {
                 // Mirrors iOS OtherProfileView.refreshable haptic.
                 haptics.impact(HapticManager.ImpactStyle.LIGHT)
-                viewModel.refresh(userId)
+                val onFilmsTab = !currentProfile.isBot && selectedSegment == 1
+                viewModel.refresh(userId, includeFilms = onFilmsTab)
             },
             modifier = Modifier
                 .fillMaxSize()
@@ -817,7 +829,7 @@ fun OtherProfileScreen(
                                         )
                                     }
                                 }
-                                SkeletonProfileGrid()
+                                SkeletonProfileGrid(isFilmStyle = featured.mediaType == MediaType.MOVIE)
                             }
                         } else if (userProfile != null) {
                             val featuredEngagement = engagementStates[featured.id]
@@ -850,6 +862,12 @@ fun OtherProfileScreen(
                                 )
                             }
                         }
+                    } else if (filteredPosts.isEmpty() && !currentProfile.isBot && selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)) {
+                        // Films pending — show skeleton until we've either fetched the
+                        // movie-only page or determined (via the free guard) that there
+                        // are none. Including !hasFetchedFilmPage covers the gap between
+                        // the tab tap and LaunchedEffect firing the fetch.
+                        SkeletonProfileGrid(isFilmStyle = true)
                     } else if (filteredPosts.isEmpty() && !isLoading) {
                         // Empty state per segment (matching iOS: icon + text, no emoji)
                         Box(

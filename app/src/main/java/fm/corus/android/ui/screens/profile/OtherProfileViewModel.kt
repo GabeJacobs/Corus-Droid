@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
@@ -53,6 +54,12 @@ class OtherProfileViewModel @Inject constructor(
 
     private val _hasMore = MutableStateFlow(true)
     val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
+
+    private val _isLoadingFilms = MutableStateFlow(false)
+    val isLoadingFilms: StateFlow<Boolean> = _isLoadingFilms.asStateFlow()
+
+    private val _hasFetchedFilmPage = MutableStateFlow(false)
+    val hasFetchedFilmPage: StateFlow<Boolean> = _hasFetchedFilmPage.asStateFlow()
 
     private var postsLastTimestamp: Long? = null
     private val PAGE_SIZE = 30
@@ -138,10 +145,19 @@ class OtherProfileViewModel @Inject constructor(
         }
     }
 
-    fun refresh(userId: String) {
+    fun refresh(userId: String, includeFilms: Boolean = false) {
         if (_isRefreshing.value) return
         val viewerId = authRepository.currentUserId ?: return
         loadedUserId = userId
+        // Only reset the film-fetch flag if there's actually something to re-fetch.
+        // The counter (when available) is authoritative; fall back to the free
+        // guard for older backends without the field.
+        val knownZeroFilms = _profile.value?.movieCount == 0
+        val certainlyZeroFilms = knownZeroFilms ||
+            (!_hasMore.value && _posts.value.none { it.mediaType == MediaType.MOVIE })
+        if (!certainlyZeroFilms) {
+            _hasFetchedFilmPage.value = false
+        }
         _isRefreshing.value = true
         viewModelScope.launch {
             try {
@@ -159,11 +175,25 @@ class OtherProfileViewModel @Inject constructor(
                     limit = PAGE_SIZE,
                     lastTimestamp = null,
                 )
+                val movieSupplement = if (includeFilms) {
+                    runCatching {
+                        postRepository.getProfilePosts(
+                            userId = userId,
+                            viewerId = viewerId,
+                            limit = PAGE_SIZE,
+                            lastTimestamp = null,
+                            mediaType = "movie",
+                        )
+                    }.getOrDefault(emptyList())
+                } else emptyList()
+
                 postsLastTimestamp = if (page.isNotEmpty()) page.last().timestamp.time else null
                 _hasMore.value = page.size >= PAGE_SIZE
-                _posts.value = page
+                val merged = page + movieSupplement.filter { m -> page.none { it.id == m.id } }
+                _posts.value = merged
+                if (includeFilms) _hasFetchedFilmPage.value = true
 
-                page.forEach { post ->
+                merged.forEach { post ->
                     engagementManager.initState(
                         postId = post.id,
                         likeCount = post.likeCount,
@@ -176,9 +206,57 @@ class OtherProfileViewModel @Inject constructor(
                         engagementManager.startListening(post.id)
                     }
                 }
-                engagementManager.checkLikeStatuses(page.map { it.id }, viewerId)
+                engagementManager.checkLikeStatuses(merged.map { it.id }, viewerId)
             } catch (_: Exception) { }
             _isRefreshing.value = false
+        }
+    }
+
+    fun loadFilmPageIfNeeded(userId: String) {
+        if (_hasFetchedFilmPage.value) return
+        val viewerId = authRepository.currentUserId ?: return
+        val hasAnyMovies = _posts.value.any { it.mediaType == MediaType.MOVIE }
+        // Prefer the counter (authoritative); fall back to the "all posts loaded,
+        // none are films" free guard for older backends without the field.
+        val knownZeroFilms = _profile.value?.movieCount == 0
+        if (knownZeroFilms || (!_hasMore.value && !hasAnyMovies)) {
+            _hasFetchedFilmPage.value = true
+            return
+        }
+        _hasFetchedFilmPage.value = true
+        if (!hasAnyMovies) _isLoadingFilms.value = true
+        viewModelScope.launch {
+            try {
+                val movies = postRepository.getProfilePosts(
+                    userId = userId,
+                    viewerId = viewerId,
+                    limit = PAGE_SIZE,
+                    lastTimestamp = null,
+                    mediaType = "movie",
+                )
+                val existing = _posts.value
+                val additions = movies.filter { m -> existing.none { it.id == m.id } }
+                if (additions.isNotEmpty()) {
+                    _posts.value = existing + additions
+                    additions.forEach { post ->
+                        engagementManager.initState(
+                            postId = post.id,
+                            likeCount = post.likeCount,
+                            commentCount = post.commentCount,
+                            repostCount = post.repostCount,
+                            isLiked = post.isLiked,
+                            isSaved = false,
+                        )
+                        if (activeListenerPostIds.add(post.id)) {
+                            engagementManager.startListening(post.id)
+                        }
+                    }
+                    engagementManager.checkLikeStatuses(additions.map { it.id }, viewerId)
+                }
+            } catch (_: Exception) {
+                _hasFetchedFilmPage.value = false
+            }
+            _isLoadingFilms.value = false
         }
     }
 
