@@ -409,10 +409,9 @@ class FirestoreDataSource @Inject constructor(
         postData["voiceNoteURL"] = data["voiceNoteURL"] ?: ""
         docRef.set(postData).await()
 
-        // Increment user's cymbal count
-        firestore.collection("users_v2").document(userId)
-            .update("cymbalCount", FieldValue.increment(1))
-            .await()
+        // cymbalCount/trackCount/movieCount are bumped by the
+        // onPostCreatedFanoutFeedPointers Cloud Function via the idempotent
+        // helper. Doing it here would double-count cymbalCount.
 
         // If this is a repost (attribution toggle on), bump the original post's
         // repostCount so the original poster's engagement row updates. Matches
@@ -485,9 +484,9 @@ class FirestoreDataSource @Inject constructor(
 
     suspend fun deletePost(postId: String, userId: String) {
         firestore.collection("posts").document(postId).delete().await()
-        firestore.collection("users_v2").document(userId)
-            .update("cymbalCount", FieldValue.increment(-1))
-            .await()
+        // cymbalCount/trackCount/movieCount are decremented by the
+        // onPostDeletedCleanupFeedPointers Cloud Function. Doing it here would
+        // double-count.
     }
 
     // ── Comments ──
