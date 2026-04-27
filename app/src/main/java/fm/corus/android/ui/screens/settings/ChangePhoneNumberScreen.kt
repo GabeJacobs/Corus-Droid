@@ -14,10 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -60,9 +62,9 @@ fun ChangePhoneNumberScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
             }
-            Text("Phone Number", style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(R.string.change_phone_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
         }
 
         HorizontalDivider(color = CorusColors.Divider)
@@ -83,12 +85,12 @@ fun ChangePhoneNumberScreen(
                 modifier = Modifier.padding(CorusSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                Text("Verification Code", style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+                Text(stringResource(R.string.change_phone_section_verification), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
 
                 OutlinedTextField(
                     value = verificationCode,
                     onValueChange = { viewModel.onCodeChanged(it) },
-                    placeholder = { Text("6-digit code") },
+                    placeholder = { Text(stringResource(R.string.change_phone_code_placeholder)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
@@ -110,7 +112,7 @@ fun ChangePhoneNumberScreen(
                             color = Color.White,
                         )
                     } else {
-                        Text("Verify", style = CorusFont.button, color = Color.White)
+                        Text(stringResource(R.string.common_verify), style = CorusFont.button, color = Color.White)
                     }
                 }
 
@@ -121,7 +123,7 @@ fun ChangePhoneNumberScreen(
                     enabled = canResend,
                 ) {
                     Text(
-                        text = if (canResend) "Resend Code" else "Resend in ${resendSeconds}s",
+                        text = if (canResend) stringResource(R.string.change_phone_resend_code) else stringResource(R.string.change_phone_resend_in_format, resendSeconds),
                         style = CorusFont.body,
                         color = if (canResend) CorusColors.Accent else CorusColors.Tertiary,
                     )
@@ -130,7 +132,7 @@ fun ChangePhoneNumberScreen(
                 // Use different number
                 TextButton(onClick = { viewModel.goBack() }) {
                     Text(
-                        "Use a different number",
+                        stringResource(R.string.change_phone_use_different_number),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                     )
@@ -139,7 +141,7 @@ fun ChangePhoneNumberScreen(
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
                 Text(
-                    text = "Enter the 6-digit code sent to ${selectedCountry.dialCode} $phoneNumber",
+                    text = stringResource(R.string.change_phone_code_sent_message_format, selectedCountry.dialCode, phoneNumber),
                     style = CorusFont.caption,
                     color = CorusColors.Tertiary,
                 )
@@ -150,7 +152,7 @@ fun ChangePhoneNumberScreen(
                 modifier = Modifier.padding(CorusSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                Text("New Phone Number", style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+                Text(stringResource(R.string.change_phone_section_new_number), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
 
                 // Country code + phone input
                 Row(
@@ -178,7 +180,7 @@ fun ChangePhoneNumberScreen(
                     OutlinedTextField(
                         value = phoneNumber,
                         onValueChange = { viewModel.onPhoneChanged(it) },
-                        placeholder = { Text("Phone number") },
+                        placeholder = { Text(stringResource(R.string.change_phone_placeholder)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.weight(1f),
@@ -201,12 +203,12 @@ fun ChangePhoneNumberScreen(
                             color = Color.White,
                         )
                     } else {
-                        Text("Send Code", style = CorusFont.button, color = Color.White)
+                        Text(stringResource(R.string.change_phone_send_code), style = CorusFont.button, color = Color.White)
                     }
                 }
 
                 Text(
-                    text = "We'll send a verification code to confirm this number.",
+                    text = stringResource(R.string.change_phone_send_code_explainer),
                     style = CorusFont.caption,
                     color = CorusColors.Tertiary,
                 )
@@ -218,7 +220,7 @@ fun ChangePhoneNumberScreen(
     if (showCountryPicker) {
         AlertDialog(
             onDismissRequest = { showCountryPicker = false },
-            title = { Text("Select Country", style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(R.string.change_phone_select_country_title), style = CorusFont.songTitleLarge) },
             text = {
                 Column {
                     CountryCode.all.forEach { country ->
@@ -248,11 +250,11 @@ fun ChangePhoneNumberScreen(
     if (showSuccess) {
         AlertDialog(
             onDismissRequest = { onBack() },
-            title = { Text("Phone Number Updated", style = CorusFont.songTitleLarge) },
-            text = { Text("Your phone number has been updated.", style = CorusFont.body) },
+            title = { Text(stringResource(R.string.change_phone_updated_title), style = CorusFont.songTitleLarge) },
+            text = { Text(stringResource(R.string.change_phone_updated_message), style = CorusFont.body) },
             confirmButton = {
                 TextButton(onClick = { onBack() }) {
-                    Text("OK")
+                    Text(stringResource(R.string.common_ok))
                 }
             },
         )

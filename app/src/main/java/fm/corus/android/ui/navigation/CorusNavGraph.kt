@@ -37,6 +37,7 @@ import fm.corus.android.ui.screens.search.SearchScreen
 import fm.corus.android.ui.screens.messaging.MessageThreadScreen
 import fm.corus.android.ui.screens.messaging.ThreadListScreen
 import fm.corus.android.ui.screens.settings.AppearanceSettingsScreen
+import fm.corus.android.ui.screens.settings.LanguageSettingsScreen
 import fm.corus.android.ui.screens.settings.NotificationSettingsScreen
 import fm.corus.android.ui.screens.settings.SettingsScreen
 import fm.corus.android.ui.screens.search.SuggestedUsersListScreen
@@ -484,6 +485,13 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onMutedUsers = { navController.navigate(MutedUsersRoute) },
             onSendFeedback = { navController.navigate(FeedbackFormRoute) },
             onNotificationSettings = { navController.navigate(NotificationSettingsRoute) },
+            onLanguageSettings = { navController.navigate(LanguageSettingsRoute) },
+        )
+    }
+
+    composable<LanguageSettingsRoute> {
+        LanguageSettingsScreen(
+            onBack = { navController.popBackStack() },
         )
     }
 
@@ -602,6 +610,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val suggestions by viewModel.suggestions.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
         val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+        val isRefreshing by viewModel.isRefreshing.collectAsState()
         val hasMore by viewModel.hasMore.collectAsState()
         val followedIds by viewModel.followedIds.collectAsState()
 
@@ -613,6 +622,8 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             isLoading = isLoading,
             isLoadingMore = isLoadingMore,
             hasMore = hasMore,
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.refresh() },
             onLoadMore = { viewModel.loadMore() },
             isFollowed = { followedIds.contains(it) },
             onFollow = { viewModel.toggleFollow(it) },

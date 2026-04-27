@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import fm.corus.android.BuildConfig
 import fm.corus.android.R
@@ -64,6 +65,7 @@ fun SettingsScreen(
     onMutedUsers: () -> Unit = {},
     onSendFeedback: () -> Unit = {},
     onNotificationSettings: () -> Unit = {},
+    onLanguageSettings: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -87,10 +89,10 @@ fun SettingsScreen(
             if (idToken != null) {
                 authViewModel.reauthenticateAndDelete(idToken)
             } else {
-                ToastManager.show("Re-authentication failed. Please try again.")
+                ToastManager.show(context.getString(R.string.settings_reauth_failed))
             }
         } catch (e: ApiException) {
-            ToastManager.show("Re-authentication failed. Please try again.")
+            ToastManager.show(context.getString(R.string.settings_reauth_failed))
         }
     }
 
@@ -110,9 +112,9 @@ fun SettingsScreen(
                     activity?.let {
                         phoneReauthCode = ""
                         authViewModel.startPhoneReauth(it)
-                    } ?: ToastManager.show("Could not start re-authentication.")
+                    } ?: ToastManager.show(context.getString(R.string.settings_reauth_could_not_start))
                 }
-                else -> ToastManager.show("Please sign out and sign back in, then try again.")
+                else -> ToastManager.show(context.getString(R.string.settings_reauth_signout_prompt))
             }
         }
     }
@@ -120,7 +122,7 @@ fun SettingsScreen(
     // Show toast on successful deletion
     LaunchedEffect(Unit) {
         authViewModel.accountDeleted.collect {
-            ToastManager.show("Your account has been deleted.")
+            ToastManager.show(context.getString(R.string.settings_account_deleted_toast))
         }
     }
 
@@ -144,6 +146,12 @@ fun SettingsScreen(
     // Messaging
     var whoCanMessageMe by remember { mutableStateOf("Everyone") }
     var showMessageMenu by remember { mutableStateOf(false) }
+    val messageOptionLabels: Map<String, String> = mapOf(
+        "Everyone" to stringResource(R.string.settings_message_everyone),
+        "My Followers" to stringResource(R.string.settings_message_my_followers),
+        "People I Follow" to stringResource(R.string.settings_message_people_i_follow),
+        "Nobody" to stringResource(R.string.settings_message_nobody),
+    )
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
         // ── Header ──
@@ -154,9 +162,9 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
             }
-            Text("Settings", style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(R.string.settings_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
         }
 
         HorizontalDivider(color = CorusColors.Divider)
@@ -168,7 +176,7 @@ fun SettingsScreen(
         ) {
             // ── Section: Corus Club ──
             if (showJoinClub) {
-                SectionHeader("CORUS CLUB")
+                SectionHeader(stringResource(R.string.settings_section_corus_club))
 
                 Row(
                     modifier = Modifier
@@ -183,12 +191,12 @@ fun SettingsScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Join Corus Club",
+                            text = stringResource(R.string.settings_row_join_club),
                             style = CorusFont.body,
                             color = CorusColors.Text,
                         )
                         Text(
-                            text = "Verified badge, unlimited posts & more",
+                            text = stringResource(R.string.settings_row_join_club_subtitle),
                             style = CorusFont.caption,
                             color = CorusColors.Secondary,
                         )
@@ -208,31 +216,44 @@ fun SettingsScreen(
             }
 
             // ── Section: General ──
-            SectionHeader("GENERAL")
+            SectionHeader(stringResource(R.string.settings_section_general))
 
             SettingsToggleRow(
                 icon = Icons.Filled.AllInclusive,
-                title = "Autoplay Next Song",
-                subtitle = "Automatically play the next song when one finishes",
+                title = stringResource(R.string.settings_row_autoplay_title),
+                subtitle = stringResource(R.string.settings_row_autoplay_subtitle),
                 checked = autoplayNextSong,
                 onCheckedChange = { settingsViewModel.setAutoplayNextSong(it) },
             )
 
             SettingsToggleRow(
                 icon = Icons.Outlined.Vibration,
-                title = "Haptics",
-                subtitle = "Vibration feedback on interactions",
+                title = stringResource(R.string.settings_row_haptics),
+                subtitle = stringResource(R.string.settings_row_haptics_subtitle),
                 checked = hapticsEnabled,
                 onCheckedChange = { hapticsEnabled = it },
             )
 
+            SettingsNavRow(
+                icon = Icons.Filled.Language,
+                title = stringResource(R.string.settings_row_language),
+                trailingText = fm.corus.android.i18n.LanguageManager.current().let { lang ->
+                    when (lang) {
+                        fm.corus.android.i18n.AppLanguage.SYSTEM -> stringResource(R.string.language_option_system)
+                        fm.corus.android.i18n.AppLanguage.ENGLISH -> stringResource(R.string.language_option_english)
+                        fm.corus.android.i18n.AppLanguage.PORTUGUESE_BR -> stringResource(R.string.language_option_portuguese_br)
+                    }
+                },
+                onClick = onLanguageSettings,
+            )
+
             // ── Section: Notifications & Messaging ──
-            SectionHeader("NOTIFICATIONS & MESSAGING")
+            SectionHeader(stringResource(R.string.settings_section_notifications_messaging))
 
             SettingsNavRow(
                 icon = Icons.Filled.Notifications,
-                title = "Notifications",
-                subtitle = "Manage push notification preferences",
+                title = stringResource(R.string.settings_row_notifications),
+                subtitle = stringResource(R.string.settings_row_notifications_subtitle),
                 onClick = onNotificationSettings,
             )
 
@@ -241,8 +262,8 @@ fun SettingsScreen(
                 Column {
                     SettingsNavRow(
                         icon = Icons.Outlined.Group,
-                        title = "Who Can Message Me",
-                        trailingText = whoCanMessageMe,
+                        title = stringResource(R.string.settings_row_who_can_message),
+                        trailingText = messageOptionLabels[whoCanMessageMe] ?: whoCanMessageMe,
                         onClick = { showMessageMenu = true },
                     )
                 }
@@ -255,7 +276,7 @@ fun SettingsScreen(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        text = option,
+                                        text = messageOptionLabels[option] ?: option,
                                         style = CorusFont.body,
                                         color = if (option == whoCanMessageMe) CorusColors.Accent else CorusColors.Text,
                                     )
@@ -271,68 +292,70 @@ fun SettingsScreen(
             }
 
             // ── Section: Account ──
-            SectionHeader("ACCOUNT")
+            SectionHeader(stringResource(R.string.settings_section_account))
 
             SettingsNavRow(
                 icon = Icons.Filled.Block,
-                title = "Blocked Users",
+                title = stringResource(R.string.settings_row_blocked_users),
                 onClick = onBlockedUsers,
             )
 
             SettingsNavRow(
                 icon = Icons.Filled.VolumeOff,
-                title = "Muted Users",
+                title = stringResource(R.string.settings_row_muted_users),
                 onClick = onMutedUsers,
             )
 
             SettingsNavRow(
                 icon = Icons.Filled.Person,
-                title = "Username",
+                title = stringResource(R.string.settings_row_username),
                 onClick = onChangeUsername,
             )
 
             SettingsNavRow(
                 icon = Icons.Filled.Phone,
-                title = "Phone Number",
+                title = stringResource(R.string.settings_row_phone_number),
                 onClick = onChangePhoneNumber,
             )
 
             // Sign Out
             SettingsActionRow(
                 icon = Icons.AutoMirrored.Filled.ExitToApp,
-                title = "Sign Out",
+                title = stringResource(R.string.settings_row_sign_out),
                 onClick = { authViewModel.signOut() },
             )
 
             // Delete Account
             SettingsActionRow(
                 icon = Icons.Filled.Delete,
-                title = "Delete Account",
+                title = stringResource(R.string.settings_row_delete_account),
                 color = CorusColors.Error,
                 onClick = { showDeleteConfirm = true },
             )
 
             // ── Section: Support ──
-            SectionHeader("SUPPORT")
+            SectionHeader(stringResource(R.string.settings_section_support))
 
             val context = LocalContext.current
+            val shareAppText = stringResource(R.string.settings_share_app_text)
+            val shareAppChooser = stringResource(R.string.settings_share_app_chooser)
 
             SettingsNavRow(
                 icon = Icons.Filled.Share,
-                title = "Share App",
+                title = stringResource(R.string.settings_row_share_app),
                 onClick = {
                     val sendIntent = android.content.Intent().apply {
                         action = android.content.Intent.ACTION_SEND
-                        putExtra(android.content.Intent.EXTRA_TEXT, "Check out Corus — share your music & movie taste! https://corus.fm")
+                        putExtra(android.content.Intent.EXTRA_TEXT, shareAppText)
                         type = "text/plain"
                     }
-                    context.startActivity(android.content.Intent.createChooser(sendIntent, "Share Corus"))
+                    context.startActivity(android.content.Intent.createChooser(sendIntent, shareAppChooser))
                 },
             )
 
             SettingsNavRow(
                 icon = Icons.Outlined.Feedback,
-                title = "Send Feedback",
+                title = stringResource(R.string.settings_row_send_feedback),
                 onClick = {
                     val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
                         data = android.net.Uri.parse("mailto:help@corus.fm?subject=Feedback")
@@ -343,7 +366,7 @@ fun SettingsScreen(
 
             SettingsNavRow(
                 icon = Icons.AutoMirrored.Outlined.HelpOutline,
-                title = "Contact Us",
+                title = stringResource(R.string.settings_row_contact_us),
                 onClick = {
                     val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
                         data = android.net.Uri.parse("mailto:help@corus.fm?subject=Support%20Request")
@@ -354,7 +377,7 @@ fun SettingsScreen(
 
             SettingsNavRow(
                 icon = Icons.Filled.Star,
-                title = "Rate App",
+                title = stringResource(R.string.settings_row_rate_app),
                 onClick = {
                     try {
                         val intent = android.content.Intent(
@@ -374,7 +397,7 @@ fun SettingsScreen(
 
             SettingsNavRow(
                 icon = Icons.Outlined.Policy,
-                title = "Privacy Policy",
+                title = stringResource(R.string.settings_row_privacy_policy),
                 onClick = {
                     val intent = android.content.Intent(
                         android.content.Intent.ACTION_VIEW,
@@ -386,7 +409,7 @@ fun SettingsScreen(
 
             SettingsNavRow(
                 icon = Icons.Outlined.Info,
-                title = "Terms of Service",
+                title = stringResource(R.string.settings_row_terms_of_service),
                 onClick = {
                     val intent = android.content.Intent(
                         android.content.Intent.ACTION_VIEW,
@@ -405,25 +428,25 @@ fun SettingsScreen(
             ) {
                 SocialLinkButton(
                     icon = Icons.Filled.Language,
-                    label = "Website",
+                    label = stringResource(R.string.settings_social_website),
                     url = "https://corus.fm",
                     context = context,
                 )
                 SocialLinkButton(
                     drawableRes = R.drawable.instagram_logo,
-                    label = "Instagram",
+                    label = stringResource(R.string.settings_social_instagram),
                     url = "https://www.instagram.com/corusapp/",
                     context = context,
                 )
                 SocialLinkButton(
                     drawableRes = R.drawable.x_logo,
-                    label = "X",
+                    label = stringResource(R.string.settings_social_x),
                     url = "https://x.com/corusfm",
                     context = context,
                 )
                 SocialLinkButton(
                     drawableRes = R.drawable.discord_logo,
-                    label = "Discord",
+                    label = stringResource(R.string.settings_social_discord),
                     url = "https://discord.gg/mXzt8NDCWD",
                     context = context,
                 )
@@ -433,7 +456,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
             Text(
-                text = "Corus v${BuildConfig.VERSION_NAME}",
+                text = stringResource(R.string.settings_version_format, BuildConfig.VERSION_NAME),
                 style = CorusFont.caption,
                 color = CorusColors.Tertiary,
                 textAlign = TextAlign.Center,
@@ -463,10 +486,10 @@ fun SettingsScreen(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Account?", style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(R.string.settings_dialog_delete_title), style = CorusFont.songTitleLarge) },
             text = {
                 Text(
-                    "This will permanently delete your account, all your coruses, likes, comments, and followers. This action cannot be undone.",
+                    stringResource(R.string.settings_dialog_delete_message),
                     style = CorusFont.body,
                 )
             },
@@ -477,12 +500,12 @@ fun SettingsScreen(
                         authViewModel.deleteAccount()
                     },
                 ) {
-                    Text("Delete", color = CorusColors.Error)
+                    Text(stringResource(R.string.common_delete), color = CorusColors.Error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
         )
@@ -494,7 +517,7 @@ fun SettingsScreen(
     if (isDeletingAccount && !phoneReauthCodeSent) {
         AlertDialog(
             onDismissRequest = { /* non-dismissable */ },
-            title = { Text("Deleting your account…", style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(R.string.settings_dialog_deleting_title), style = CorusFont.songTitleLarge) },
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(
@@ -502,7 +525,7 @@ fun SettingsScreen(
                         color = CorusColors.Error,
                     )
                     Spacer(modifier = Modifier.width(CorusSpacing.md))
-                    Text("This may take a moment.", style = CorusFont.body)
+                    Text(stringResource(R.string.settings_dialog_deleting_message), style = CorusFont.body)
                 }
             },
             confirmButton = {},
@@ -516,11 +539,11 @@ fun SettingsScreen(
                 authViewModel.cancelPhoneReauth()
                 phoneReauthCode = ""
             },
-            title = { Text("Verify your number", style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(R.string.settings_dialog_verify_title), style = CorusFont.songTitleLarge) },
             text = {
                 Column {
                     Text(
-                        "We sent a code to your phone. Enter it to confirm account deletion.",
+                        stringResource(R.string.settings_dialog_verify_message),
                         style = CorusFont.body,
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
@@ -531,7 +554,7 @@ fun SettingsScreen(
                         },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        label = { Text("Code") },
+                        label = { Text(stringResource(R.string.settings_dialog_verify_code_label)) },
                     )
                 }
             },
@@ -548,7 +571,7 @@ fun SettingsScreen(
                             color = CorusColors.Error,
                         )
                     } else {
-                        Text("Confirm", color = CorusColors.Error)
+                        Text(stringResource(R.string.common_confirm), color = CorusColors.Error)
                     }
                 }
             },
@@ -560,7 +583,7 @@ fun SettingsScreen(
                         phoneReauthCode = ""
                     },
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
         )

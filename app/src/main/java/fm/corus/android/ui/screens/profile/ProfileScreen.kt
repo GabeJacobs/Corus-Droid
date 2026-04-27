@@ -519,6 +519,8 @@ fun ProfileScreen(
 
                 // ── Segment Control ──
                 val tabs = listOf("MUSIC", "FILM", "LIKES", "SAVES")
+                val tabSelectedColor = CorusColors.Text
+                val tabUnselectedColor = CorusColors.Divider
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -534,7 +536,7 @@ fun ProfileScreen(
                                 }
                                 .drawBehind {
                                     val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
-                                    val lineColor = if (isSelected) CorusColors.Text else CorusColors.Divider
+                                    val lineColor = if (isSelected) tabSelectedColor else tabUnselectedColor
                                     drawLine(
                                         color = lineColor,
                                         start = Offset(0f, size.height),

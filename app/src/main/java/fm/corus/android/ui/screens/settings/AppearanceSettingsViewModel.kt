@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
+import fm.corus.android.ui.theme.AppearanceMode
+import fm.corus.android.ui.theme.toAppearanceMode
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -15,12 +18,13 @@ class AppearanceSettingsViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
 ) : ViewModel() {
 
-    val isDarkMode: StateFlow<Boolean> = preferencesDataStore.darkMode
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val appearanceMode: StateFlow<AppearanceMode> = preferencesDataStore.appearanceMode
+        .map { it.toAppearanceMode() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppearanceMode.LIGHT)
 
-    fun toggleDarkMode() {
+    fun setAppearanceMode(mode: AppearanceMode) {
         viewModelScope.launch {
-            preferencesDataStore.setDarkMode(!isDarkMode.value)
+            preferencesDataStore.setAppearanceMode(mode.storageValue)
         }
     }
 }

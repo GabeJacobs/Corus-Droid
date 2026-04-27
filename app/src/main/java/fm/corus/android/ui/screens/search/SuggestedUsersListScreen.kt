@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +36,8 @@ fun SuggestedUsersListScreen(
     isLoading: Boolean = false,
     isLoadingMore: Boolean = false,
     hasMore: Boolean = false,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
     onLoadMore: () -> Unit = {},
     isFollowed: (String) -> Boolean = { false },
     onFollow: (CymbalUser) -> Unit = {},
@@ -56,10 +59,15 @@ fun SuggestedUsersListScreen(
             )
         },
     ) { padding ->
+      PullToRefreshBox(
+          isRefreshing = isRefreshing,
+          onRefresh = onRefresh,
+          modifier = Modifier.fillMaxSize().padding(padding),
+      ) {
         if (isLoading) {
             if (useRowLayout) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = CorusSpacing.md),
                 ) {
                     items(12) { SkeletonUserRow() }
@@ -70,21 +78,21 @@ fun SuggestedUsersListScreen(
                     contentPadding = PaddingValues(CorusSpacing.lg),
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-                    modifier = Modifier.fillMaxSize().padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                 ) {
                     items(12) { SkeletonTasteMatchCard() }
                 }
             }
         } else if (matches.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("No suggestions available", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
             }
         } else if (useRowLayout) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = CorusSpacing.md),
             ) {
                 itemsIndexed(matches, key = { _, m -> m.id }) { index, match ->
@@ -109,7 +117,7 @@ fun SuggestedUsersListScreen(
                 contentPadding = PaddingValues(CorusSpacing.lg),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize(),
             ) {
                 gridItemsIndexed(matches, key = { _, m -> m.id }) { _, match ->
                     TasteMatchCard(
@@ -121,6 +129,7 @@ fun SuggestedUsersListScreen(
                 }
             }
         }
+      }
     }
 }
 

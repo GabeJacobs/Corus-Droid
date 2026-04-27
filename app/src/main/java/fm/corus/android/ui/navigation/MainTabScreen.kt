@@ -396,7 +396,7 @@ private fun CorusBottomBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(CorusColors.Background)
                 .padding(top = CorusSpacing.sm)
                 .navigationBarsPadding(),
             horizontalArrangement = Arrangement.SpaceEvenly,

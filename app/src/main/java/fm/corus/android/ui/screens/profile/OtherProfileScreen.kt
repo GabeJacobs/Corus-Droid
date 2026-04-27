@@ -429,6 +429,8 @@ fun OtherProfileScreen(
                             Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
                             // Segment tabs
+                            val selectedLineColor = CorusColors.Text
+                            val unselectedLineColor = CorusColors.Divider
                             Row(modifier = Modifier.fillMaxWidth()) {
                                 listOf("MUSIC", "FILM", "LIKES").forEachIndexed { index, title ->
                                     val isSelected = index == 0
@@ -437,7 +439,7 @@ fun OtherProfileScreen(
                                             .weight(1f)
                                             .drawBehind {
                                                 val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
-                                                val lineColor = if (isSelected) CorusColors.Text else CorusColors.Divider
+                                                val lineColor = if (isSelected) selectedLineColor else unselectedLineColor
                                                 drawLine(
                                                     color = lineColor,
                                                     start = Offset(0f, size.height),
@@ -753,6 +755,8 @@ fun OtherProfileScreen(
                         else -> listOf("MUSIC", "FILM", "LIKES")
                     }
                     if (!currentProfile.isBot) {
+                        val tabSelectedColor = CorusColors.Text
+                        val tabUnselectedColor = CorusColors.Divider
                         Row(modifier = Modifier.fillMaxWidth()) {
                             tabs.forEachIndexed { index, title ->
                                 val isSelected = selectedSegment == index
@@ -765,7 +769,7 @@ fun OtherProfileScreen(
                                         }
                                         .drawBehind {
                                             val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
-                                            val lineColor = if (isSelected) CorusColors.Text else CorusColors.Divider
+                                            val lineColor = if (isSelected) tabSelectedColor else tabUnselectedColor
                                             drawLine(
                                                 color = lineColor,
                                                 start = Offset(0f, size.height),

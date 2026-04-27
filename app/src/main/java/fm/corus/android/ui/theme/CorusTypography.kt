@@ -139,7 +139,6 @@ object CorusFont {
         fontFamily = NunitoFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
-        color = CorusColors.Secondary,
     )
 
     // Button tokens

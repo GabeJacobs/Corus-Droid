@@ -335,6 +335,7 @@ private fun ThreadRow(thread: CymbalThread, onClick: () -> Unit) {
                 Text(
                     text = DateUtils.relativeTime(thread.lastMessageAt),
                     style = CorusFont.timestamp,
+                    color = CorusColors.Secondary,
                 )
             }
             Text(

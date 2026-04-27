@@ -14,12 +14,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.isSystemInDarkTheme
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.navigation.MainTabScreen
 import fm.corus.android.ui.screens.auth.AuthScreen
 import fm.corus.android.ui.screens.auth.AuthViewModel
 import fm.corus.android.ui.screens.auth.OnboardingScreen
 import fm.corus.android.ui.screens.auth.SocialSetupFlow
+import fm.corus.android.ui.screens.settings.AppearanceSettingsViewModel
+import fm.corus.android.ui.theme.AppearanceMode
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusTheme
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +33,16 @@ fun CorusApp(
     pendingNotificationDestination: StateFlow<DeepLinkDestination?>? = null,
     onNotificationDestinationConsumed: () -> Unit = {},
 ) {
-    CorusTheme {
+    val appearanceViewModel: AppearanceSettingsViewModel = hiltViewModel()
+    val mode by appearanceViewModel.appearanceMode.collectAsState()
+    val systemDark = isSystemInDarkTheme()
+    val darkTheme = when (mode) {
+        AppearanceMode.SYSTEM -> systemDark
+        AppearanceMode.LIGHT -> false
+        AppearanceMode.DARK -> true
+    }
+
+    CorusTheme(darkTheme = darkTheme) {
         val viewModel: AuthViewModel = hiltViewModel()
         val authState by viewModel.authState.collectAsState()
 

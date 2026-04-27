@@ -4,4 +4,135 @@
     <string name="post_noun">corus</string>
     <string name="post_noun_plural">coruses</string>
     <string name="club_name">Corus Club</string>
+
+    <!-- Common -->
+    <string name="common_back">Back</string>
+    <string name="common_selected">Selected</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_save">Save</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_ok">OK</string>
+    <string name="common_submit">Submit</string>
+    <string name="common_verify">Verify</string>
+    <string name="common_confirm">Confirm</string>
+    <string name="common_error">Error</string>
+    <string name="common_unblock">Unblock</string>
+    <string name="common_unmute">Unmute</string>
+
+    <!-- Settings: Language -->
+    <string name="settings_row_language">Language</string>
+    <string name="language_screen_title">Language</string>
+    <string name="language_section_title">App Language</string>
+    <string name="language_section_subtitle">Choose the language Corus uses, or follow your device</string>
+    <string name="language_option_system">System Default</string>
+    <string name="language_option_english">English</string>
+    <string name="language_option_portuguese_br">Português (Brasil)</string>
+
+    <!-- Settings: Main -->
+    <string name="settings_screen_title">Settings</string>
+    <string name="settings_reauth_failed">Re-authentication failed. Please try again.</string>
+    <string name="settings_reauth_could_not_start">Could not start re-authentication.</string>
+    <string name="settings_reauth_signout_prompt">Please sign out and sign back in, then try again.</string>
+    <string name="settings_account_deleted_toast">Your account has been deleted.</string>
+    <string name="settings_section_corus_club">CORUS CLUB</string>
+    <string name="settings_row_join_club">Join Corus Club</string>
+    <string name="settings_row_join_club_subtitle">Verified badge, unlimited posts &amp; more</string>
+    <string name="settings_section_general">GENERAL</string>
+    <string name="settings_row_autoplay_title">Autoplay Next Song</string>
+    <string name="settings_row_autoplay_subtitle">Automatically play the next song when one finishes</string>
+    <string name="settings_row_haptics">Haptics</string>
+    <string name="settings_row_haptics_subtitle">Vibration feedback on interactions</string>
+    <string name="settings_section_notifications_messaging">NOTIFICATIONS &amp; MESSAGING</string>
+    <string name="settings_row_notifications">Notifications</string>
+    <string name="settings_row_notifications_subtitle">Manage push notification preferences</string>
+    <string name="settings_row_who_can_message">Who Can Message Me</string>
+    <string name="settings_message_everyone">Everyone</string>
+    <string name="settings_message_my_followers">My Followers</string>
+    <string name="settings_message_people_i_follow">People I Follow</string>
+    <string name="settings_message_nobody">Nobody</string>
+    <string name="settings_section_account">ACCOUNT</string>
+    <string name="settings_row_blocked_users">Blocked Users</string>
+    <string name="settings_row_muted_users">Muted Users</string>
+    <string name="settings_row_username">Username</string>
+    <string name="settings_row_phone_number">Phone Number</string>
+    <string name="settings_row_sign_out">Sign Out</string>
+    <string name="settings_row_delete_account">Delete Account</string>
+    <string name="settings_section_support">SUPPORT</string>
+    <string name="settings_row_share_app">Share App</string>
+    <string name="settings_share_app_text">Check out Corus — share your music &amp; movie taste! https://corus.fm</string>
+    <string name="settings_share_app_chooser">Share Corus</string>
+    <string name="settings_row_send_feedback">Send Feedback</string>
+    <string name="settings_row_contact_us">Contact Us</string>
+    <string name="settings_row_rate_app">Rate App</string>
+    <string name="settings_row_privacy_policy">Privacy Policy</string>
+    <string name="settings_row_terms_of_service">Terms of Service</string>
+    <string name="settings_social_website">Website</string>
+    <string name="settings_social_instagram">Instagram</string>
+    <string name="settings_social_x">X</string>
+    <string name="settings_social_discord">Discord</string>
+    <string name="settings_version_format">Corus v%s</string>
+    <string name="settings_dialog_delete_title">Delete Account?</string>
+    <string name="settings_dialog_delete_message">This will permanently delete your account, all your coruses, likes, comments, and followers. This action cannot be undone.</string>
+    <string name="settings_dialog_deleting_title">Deleting your account…</string>
+    <string name="settings_dialog_deleting_message">This may take a moment.</string>
+    <string name="settings_dialog_verify_title">Verify your number</string>
+    <string name="settings_dialog_verify_message">We sent a code to your phone. Enter it to confirm account deletion.</string>
+    <string name="settings_dialog_verify_code_label">Code</string>
+
+    <!-- Settings: Notifications screen -->
+    <string name="notifications_screen_title">Notifications</string>
+    <string name="notifications_row_likes">Likes</string>
+    <string name="notifications_row_comments_replies">Comments &amp; Replies</string>
+    <string name="notifications_row_new_followers">New Followers</string>
+    <string name="notifications_row_follow_requests">Follow Requests</string>
+    <string name="notifications_row_contact_joined">Contact Joined</string>
+    <string name="notifications_row_messages">Messages</string>
+
+    <!-- Settings: Appearance -->
+    <string name="appearance_screen_title">Appearance</string>
+    <string name="appearance_row_theme">Theme</string>
+    <string name="appearance_row_theme_subtitle">Use light, dark, or match your device</string>
+
+    <!-- Settings: Blocked Users -->
+    <string name="blocked_users_screen_title">Blocked Users</string>
+    <string name="blocked_users_empty">No blocked users</string>
+
+    <!-- Settings: Muted Users -->
+    <string name="muted_users_screen_title">Muted Users</string>
+    <string name="muted_users_empty">No muted users</string>
+
+    <!-- Settings: Change Username -->
+    <string name="change_username_screen_title">Change Username</string>
+    <string name="change_username_username_updated_toast">Username updated!</string>
+    <string name="change_username_field_label">Username</string>
+    <string name="change_username_status_available">Username is available</string>
+    <string name="change_username_status_taken">Username is already taken</string>
+    <string name="change_username_status_invalid_default">Only letters, numbers, underscores, and periods</string>
+    <string name="change_username_status_checking">Checking availability...</string>
+
+    <!-- Settings: Change Phone Number -->
+    <string name="change_phone_screen_title">Phone Number</string>
+    <string name="change_phone_section_verification">Verification Code</string>
+    <string name="change_phone_code_placeholder">6-digit code</string>
+    <string name="change_phone_resend_code">Resend Code</string>
+    <string name="change_phone_resend_in_format">Resend in %ds</string>
+    <string name="change_phone_use_different_number">Use a different number</string>
+    <string name="change_phone_code_sent_message_format">Enter the 6-digit code sent to %1$s %2$s</string>
+    <string name="change_phone_section_new_number">New Phone Number</string>
+    <string name="change_phone_placeholder">Phone number</string>
+    <string name="change_phone_send_code">Send Code</string>
+    <string name="change_phone_send_code_explainer">We\'ll send a verification code to confirm this number.</string>
+    <string name="change_phone_select_country_title">Select Country</string>
+    <string name="change_phone_updated_title">Phone Number Updated</string>
+    <string name="change_phone_updated_message">Your phone number has been updated.</string>
+
+    <!-- Settings: Feedback -->
+    <string name="feedback_screen_title">Send Feedback</string>
+    <string name="feedback_subject_label">Subject</string>
+    <string name="feedback_subject_placeholder">Brief summary</string>
+    <string name="feedback_description_label">Description</string>
+    <string name="feedback_description_placeholder">Tell us more...</string>
+    <string name="feedback_device_info_note">Device info is automatically included.</string>
+    <string name="feedback_submitting">Submitting...</string>
+    <string name="feedback_success">Thanks for your feedback!</string>
 </resources>

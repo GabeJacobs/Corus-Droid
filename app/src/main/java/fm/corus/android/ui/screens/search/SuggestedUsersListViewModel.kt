@@ -40,6 +40,9 @@ class SuggestedUsersListViewModel @Inject constructor(
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private val _hasMore = MutableStateFlow(false)
     val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
 
@@ -74,6 +77,25 @@ class SuggestedUsersListViewModel @Inject constructor(
                 } catch (_: Exception) { }
                 _isLoading.value = false
             }
+        }
+    }
+
+    fun refresh() {
+        val uid = authRepository.currentUserId ?: return
+        if (_isRefreshing.value) return
+        _isRefreshing.value = true
+        viewModelScope.launch {
+            try {
+                val initial = when (source) {
+                    "mutualConnections" -> loadMutualConnections(uid)
+                    "popular" -> loadPopularUsersPage(uid, afterDocId = null)
+                    "new" -> loadNewUsersPage(uid, afterDocId = null)
+                    else -> userRepository.getSuggestedUsers(uid)
+                }
+                _suggestions.value = initial
+                _hasMore.value = isPaginated && initial.size >= pageSize
+            } catch (_: Exception) { }
+            _isRefreshing.value = false
         }
     }
 

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Corus</string>
+    <string name="post_noun">corus</string>
+    <string name="post_noun_plural">coruses</string>
+    <string name="club_name">Corus Club</string>
+
+    <!-- Common -->
+    <string name="common_back">Voltar</string>
+    <string name="common_selected">Selecionado</string>
+    <string name="common_cancel">Cancelar</string>
+    <string name="common_save">Salvar</string>
+    <string name="common_delete">Excluir</string>
+    <string name="common_ok">OK</string>
+    <string name="common_submit">Enviar</string>
+    <string name="common_verify">Verificar</string>
+    <string name="common_confirm">Confirmar</string>
+    <string name="common_error">Erro</string>
+    <string name="common_unblock">Desbloquear</string>
+    <string name="common_unmute">Reativar som</string>
+
+    <!-- Settings: Language -->
+    <string name="settings_row_language">Idioma</string>
+    <string name="language_screen_title">Idioma</string>
+    <string name="language_section_title">Idioma de exibição do app</string>
+    <string name="language_section_subtitle">Escolha o idioma que o Corus usa, ou siga seu dispositivo</string>
+    <string name="language_option_system">Padrão do Sistema</string>
+    <string name="language_option_english">English</string>
+    <string name="language_option_portuguese_br">Português (Brasil)</string>
+
+    <!-- Settings: Main -->
+    <string name="settings_screen_title">Configurações</string>
+    <string name="settings_reauth_failed">Falha na reautenticação. Tente novamente.</string>
+    <string name="settings_reauth_could_not_start">Não foi possível iniciar a reautenticação.</string>
+    <string name="settings_reauth_signout_prompt">Saia e entre novamente, depois tente outra vez.</string>
+    <string name="settings_account_deleted_toast">Sua conta foi excluída.</string>
+    <string name="settings_section_corus_club">CORUS CLUB</string>
+    <string name="settings_row_join_club">Entrar no Corus Club</string>
+    <string name="settings_row_join_club_subtitle">Selo verificado, publicações ilimitadas e mais</string>
+    <string name="settings_section_general">GERAL</string>
+    <string name="settings_row_autoplay_title">Reproduzir Próxima Música Automaticamente</string>
+    <string name="settings_row_autoplay_subtitle">Tocar a próxima música automaticamente quando uma terminar</string>
+    <string name="settings_row_haptics">Hápticos</string>
+    <string name="settings_row_haptics_subtitle">Vibração nas interações</string>
+    <string name="settings_section_notifications_messaging">NOTIFICAÇÕES E MENSAGENS</string>
+    <string name="settings_row_notifications">Notificações</string>
+    <string name="settings_row_notifications_subtitle">Gerencie as preferências de notificações push</string>
+    <string name="settings_row_who_can_message">Quem Pode Me Enviar Mensagens</string>
+    <string name="settings_message_everyone">Todos</string>
+    <string name="settings_message_my_followers">Meus Seguidores</string>
+    <string name="settings_message_people_i_follow">Pessoas Que Sigo</string>
+    <string name="settings_message_nobody">Ninguém</string>
+    <string name="settings_section_account">CONTA</string>
+    <string name="settings_row_blocked_users">Usuários Bloqueados</string>
+    <string name="settings_row_muted_users">Usuários Silenciados</string>
+    <string name="settings_row_username">Nome de Usuário</string>
+    <string name="settings_row_phone_number">Número de Telefone</string>
+    <string name="settings_row_sign_out">Sair</string>
+    <string name="settings_row_delete_account">Excluir Conta</string>
+    <string name="settings_section_support">SUPORTE</string>
+    <string name="settings_row_share_app">Compartilhar App</string>
+    <string name="settings_share_app_text">Confira o Corus — compartilhe seu gosto musical e cinematográfico! https://corus.fm</string>
+    <string name="settings_share_app_chooser">Compartilhar Corus</string>
+    <string name="settings_row_send_feedback">Enviar Feedback</string>
+    <string name="settings_row_contact_us">Fale Conosco</string>
+    <string name="settings_row_rate_app">Avaliar App</string>
+    <string name="settings_row_privacy_policy">Política de Privacidade</string>
+    <string name="settings_row_terms_of_service">Termos de Serviço</string>
+    <string name="settings_social_website">Website</string>
+    <string name="settings_social_instagram">Instagram</string>
+    <string name="settings_social_x">X</string>
+    <string name="settings_social_discord">Discord</string>
+    <string name="settings_version_format">Corus v%s</string>
+    <string name="settings_dialog_delete_title">Excluir Conta?</string>
+    <string name="settings_dialog_delete_message">Isso excluirá permanentemente sua conta, todos os seus coruses, curtidas, comentários e seguidores. Esta ação não pode ser desfeita.</string>
+    <string name="settings_dialog_deleting_title">Excluindo sua conta…</string>
+    <string name="settings_dialog_deleting_message">Isso pode levar um momento.</string>
+    <string name="settings_dialog_verify_title">Verifique seu número</string>
+    <string name="settings_dialog_verify_message">Enviamos um código para seu telefone. Digite-o para confirmar a exclusão da conta.</string>
+    <string name="settings_dialog_verify_code_label">Código</string>
+
+    <!-- Settings: Notifications screen -->
+    <string name="notifications_screen_title">Notificações</string>
+    <string name="notifications_row_likes">Curtidas</string>
+    <string name="notifications_row_comments_replies">Comentários e Respostas</string>
+    <string name="notifications_row_new_followers">Novos Seguidores</string>
+    <string name="notifications_row_follow_requests">Solicitações de Seguir</string>
+    <string name="notifications_row_contact_joined">Contato Entrou</string>
+    <string name="notifications_row_messages">Mensagens</string>
+
+    <!-- Settings: Appearance -->
+    <string name="appearance_screen_title">Aparência</string>
+    <string name="appearance_row_theme">Tema</string>
+    <string name="appearance_row_theme_subtitle">Use claro, escuro, ou siga seu dispositivo</string>
+
+    <!-- Settings: Blocked Users -->
+    <string name="blocked_users_screen_title">Usuários Bloqueados</string>
+    <string name="blocked_users_empty">Nenhum usuário bloqueado</string>
+
+    <!-- Settings: Muted Users -->
+    <string name="muted_users_screen_title">Usuários Silenciados</string>
+    <string name="muted_users_empty">Nenhum usuário silenciado</string>
+
+    <!-- Settings: Change Username -->
+    <string name="change_username_screen_title">Alterar Nome de Usuário</string>
+    <string name="change_username_username_updated_toast">Nome de usuário atualizado!</string>
+    <string name="change_username_field_label">Nome de Usuário</string>
+    <string name="change_username_status_available">Nome de usuário disponível</string>
+    <string name="change_username_status_taken">Nome de usuário já está em uso</string>
+    <string name="change_username_status_invalid_default">Apenas letras, números, sublinhados e pontos</string>
+    <string name="change_username_status_checking">Verificando disponibilidade...</string>
+
+    <!-- Settings: Change Phone Number -->
+    <string name="change_phone_screen_title">Número de Telefone</string>
+    <string name="change_phone_section_verification">Código de Verificação</string>
+    <string name="change_phone_code_placeholder">Código de 6 dígitos</string>
+    <string name="change_phone_resend_code">Reenviar Código</string>
+    <string name="change_phone_resend_in_format">Reenviar em %ds</string>
+    <string name="change_phone_use_different_number">Usar outro número</string>
+    <string name="change_phone_code_sent_message_format">Digite o código de 6 dígitos enviado para %1$s %2$s</string>
+    <string name="change_phone_section_new_number">Novo Número de Telefone</string>
+    <string name="change_phone_placeholder">Número de telefone</string>
+    <string name="change_phone_send_code">Enviar Código</string>
+    <string name="change_phone_send_code_explainer">Enviaremos um código de verificação para confirmar este número.</string>
+    <string name="change_phone_select_country_title">Selecionar País</string>
+    <string name="change_phone_updated_title">Número de Telefone Atualizado</string>
+    <string name="change_phone_updated_message">Seu número de telefone foi atualizado.</string>
+
+    <!-- Settings: Feedback -->
+    <string name="feedback_screen_title">Enviar Feedback</string>
+    <string name="feedback_subject_label">Assunto</string>
+    <string name="feedback_subject_placeholder">Resumo breve</string>
+    <string name="feedback_description_label">Descrição</string>
+    <string name="feedback_description_placeholder">Conte-nos mais...</string>
+    <string name="feedback_device_info_note">Informações do dispositivo são incluídas automaticamente.</string>
+    <string name="feedback_submitting">Enviando...</string>
+    <string name="feedback_success">Obrigado pelo seu feedback!</string>
+</resources>

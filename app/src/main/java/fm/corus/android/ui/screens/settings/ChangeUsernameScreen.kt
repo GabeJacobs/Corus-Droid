@@ -11,8 +11,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.R
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -27,6 +29,7 @@ fun ChangeUsernameScreen(
     val validationState by viewModel.validationState.collectAsState()
     val invalidReason by viewModel.invalidReason.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
+    val usernameUpdatedMsg = stringResource(R.string.change_username_username_updated_toast)
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
         // Header
@@ -37,16 +40,16 @@ fun ChangeUsernameScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
             }
-            Text("Change Username", style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(R.string.change_username_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
 
             Spacer(modifier = Modifier.weight(1f))
 
             TextButton(
                 onClick = {
                     viewModel.save {
-                        ToastManager.show("Username updated!")
+                        ToastManager.show(usernameUpdatedMsg)
                         onBack()
                     }
                 },
@@ -59,7 +62,7 @@ fun ChangeUsernameScreen(
                         color = CorusColors.Accent,
                     )
                 } else {
-                    Text("Save", style = CorusFont.button, color = CorusColors.Accent)
+                    Text(stringResource(R.string.common_save), style = CorusFont.button, color = CorusColors.Accent)
                 }
             }
         }
@@ -72,7 +75,7 @@ fun ChangeUsernameScreen(
             OutlinedTextField(
                 value = username,
                 onValueChange = { viewModel.onUsernameChanged(it) },
-                label = { Text("Username") },
+                label = { Text(stringResource(R.string.change_username_field_label)) },
                 prefix = { Text("@", style = CorusFont.body, color = CorusColors.Secondary) },
                 trailingIcon = {
                     when (validationState) {
@@ -102,12 +105,12 @@ fun ChangeUsernameScreen(
 
             Text(
                 text = when (validationState) {
-                    ChangeUsernameViewModel.ValidationState.Available -> "Username is available"
-                    ChangeUsernameViewModel.ValidationState.Taken -> "Username is already taken"
+                    ChangeUsernameViewModel.ValidationState.Available -> stringResource(R.string.change_username_status_available)
+                    ChangeUsernameViewModel.ValidationState.Taken -> stringResource(R.string.change_username_status_taken)
                     ChangeUsernameViewModel.ValidationState.Invalid ->
-                        invalidReason ?: "Only letters, numbers, underscores, and periods"
-                    ChangeUsernameViewModel.ValidationState.Checking -> "Checking availability..."
-                    else -> "Only letters, numbers, underscores, and periods"
+                        invalidReason ?: stringResource(R.string.change_username_status_invalid_default)
+                    ChangeUsernameViewModel.ValidationState.Checking -> stringResource(R.string.change_username_status_checking)
+                    else -> stringResource(R.string.change_username_status_invalid_default)
                 },
                 style = CorusFont.caption,
                 color = when (validationState) {

@@ -125,6 +125,7 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.datastore.preferences)
     implementation(libs.work.runtime)
+    implementation(libs.appcompat)
 
     // Hilt
     implementation(libs.hilt.android)

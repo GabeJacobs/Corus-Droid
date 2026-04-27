@@ -25,6 +25,7 @@ playReview = "2.0.2"
 revenueCat = "8.10.5"
 playIntegrity = "1.4.0"
 cameraX = "1.4.1"
+appcompat = "1.7.0"
 
 [libraries]
 # Compose BOM
@@ -105,6 +106,9 @@ camerax-core = { group = "androidx.camera", name = "camera-core", version.ref = 
 camerax-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraX" }
 camerax-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraX" }
 camerax-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraX" }
+
+# AppCompat (for per-app locale: AppCompatDelegate.setApplicationLocales)
+appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

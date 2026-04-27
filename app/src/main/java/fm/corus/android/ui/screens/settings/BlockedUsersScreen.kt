@@ -12,9 +12,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.UserAvatarView
@@ -55,9 +57,9 @@ fun BlockedUsersScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                 }
-                Text("Blocked Users", style = CorusFont.screenTitle, color = CorusColors.Text)
+                Text(stringResource(R.string.blocked_users_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
             }
 
             HorizontalDivider(color = CorusColors.Divider)
@@ -86,7 +88,7 @@ fun BlockedUsersScreen(
                             )
                             Spacer(modifier = Modifier.height(CorusSpacing.md))
                             Text(
-                                text = "No blocked users",
+                                text = stringResource(R.string.blocked_users_empty),
                                 style = CorusFont.bodyMedium,
                                 color = CorusColors.Secondary,
                             )
@@ -180,7 +182,7 @@ private fun BlockedUserRow(
                     color = CorusColors.Secondary,
                 )
             } else {
-                Text("Unblock", style = CorusFont.buttonSmall)
+                Text(stringResource(R.string.common_unblock), style = CorusFont.buttonSmall)
             }
         }
     }

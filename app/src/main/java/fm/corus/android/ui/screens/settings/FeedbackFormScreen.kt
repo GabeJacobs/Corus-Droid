@@ -13,8 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -41,9 +43,9 @@ fun FeedbackFormScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                 }
-                Text("Send Feedback", style = CorusFont.screenTitle, color = CorusColors.Text)
+                Text(stringResource(R.string.feedback_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
 
                 Spacer(modifier = Modifier.weight(1f))
 
@@ -51,7 +53,7 @@ fun FeedbackFormScreen(
                     onClick = { viewModel.submit(onDismiss = onBack) },
                     enabled = viewModel.canSubmit,
                 ) {
-                    Text("Submit", style = CorusFont.button, color = CorusColors.Accent)
+                    Text(stringResource(R.string.common_submit), style = CorusFont.button, color = CorusColors.Accent)
                 }
             }
 
@@ -90,8 +92,8 @@ fun FeedbackFormScreen(
                 OutlinedTextField(
                     value = subject,
                     onValueChange = { viewModel.onSubjectChanged(it) },
-                    label = { Text("Subject") },
-                    placeholder = { Text("Brief summary", color = CorusColors.Tertiary) },
+                    label = { Text(stringResource(R.string.feedback_subject_label)) },
+                    placeholder = { Text(stringResource(R.string.feedback_subject_placeholder), color = CorusColors.Tertiary) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
@@ -101,8 +103,8 @@ fun FeedbackFormScreen(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { viewModel.onDescriptionChanged(it) },
-                    label = { Text("Description") },
-                    placeholder = { Text("Tell us more...", color = CorusColors.Tertiary) },
+                    label = { Text(stringResource(R.string.feedback_description_label)) },
+                    placeholder = { Text(stringResource(R.string.feedback_description_placeholder), color = CorusColors.Tertiary) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 150.dp),
@@ -112,7 +114,7 @@ fun FeedbackFormScreen(
 
                 // Device info note
                 Text(
-                    text = "Device info is automatically included.",
+                    text = stringResource(R.string.feedback_device_info_note),
                     style = CorusFont.caption,
                     color = CorusColors.Tertiary,
                     modifier = Modifier.fillMaxWidth(),
@@ -138,7 +140,7 @@ fun FeedbackFormScreen(
                         verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     ) {
                         CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp)
-                        Text("Submitting...", style = CorusFont.bodyMedium, color = Color.White)
+                        Text(stringResource(R.string.feedback_submitting), style = CorusFont.bodyMedium, color = Color.White)
                     }
                 }
             }
@@ -167,7 +169,7 @@ fun FeedbackFormScreen(
                             tint = CorusColors.Verified,
                             modifier = Modifier.size(48.dp),
                         )
-                        Text("Thanks for your feedback!", style = CorusFont.bodyMedium, color = Color.White)
+                        Text(stringResource(R.string.feedback_success), style = CorusFont.bodyMedium, color = Color.White)
                     }
                 }
             }
@@ -177,11 +179,11 @@ fun FeedbackFormScreen(
         if (errorMessage != null) {
             AlertDialog(
                 onDismissRequest = { viewModel.clearError() },
-                title = { Text("Error", style = CorusFont.songTitleLarge) },
+                title = { Text(stringResource(R.string.common_error), style = CorusFont.songTitleLarge) },
                 text = { Text(errorMessage ?: "", style = CorusFont.body) },
                 confirmButton = {
                     TextButton(onClick = { viewModel.clearError() }) {
-                        Text("OK")
+                        Text(stringResource(R.string.common_ok))
                     }
                 },
             )

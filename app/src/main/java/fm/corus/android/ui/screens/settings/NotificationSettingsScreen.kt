@@ -18,7 +18,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -44,9 +46,9 @@ fun NotificationSettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
             }
-            Text("Notifications", style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(R.string.notifications_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
         }
 
         HorizontalDivider(color = CorusColors.Divider)
@@ -58,42 +60,42 @@ fun NotificationSettingsScreen(
         ) {
             NotifToggleRow(
                 icon = Icons.Filled.Favorite,
-                title = "Likes",
+                title = stringResource(R.string.notifications_row_likes),
                 checked = notifyLikes,
                 onCheckedChange = { notifyLikes = it },
             )
 
             NotifToggleRow(
                 icon = Icons.Outlined.ChatBubbleOutline,
-                title = "Comments & Replies",
+                title = stringResource(R.string.notifications_row_comments_replies),
                 checked = notifyComments,
                 onCheckedChange = { notifyComments = it },
             )
 
             NotifToggleRow(
                 icon = Icons.Outlined.PersonAdd,
-                title = "New Followers",
+                title = stringResource(R.string.notifications_row_new_followers),
                 checked = notifyNewFollowers,
                 onCheckedChange = { notifyNewFollowers = it },
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.PersonSearch,
-                title = "Follow Requests",
+                title = stringResource(R.string.notifications_row_follow_requests),
                 checked = notifyFollowRequests,
                 onCheckedChange = { notifyFollowRequests = it },
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.HowToReg,
-                title = "Contact Joined",
+                title = stringResource(R.string.notifications_row_contact_joined),
                 checked = notifyContactJoined,
                 onCheckedChange = { notifyContactJoined = it },
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.Notifications,
-                title = "Messages",
+                title = stringResource(R.string.notifications_row_messages),
                 checked = messagePushNotifications,
                 onCheckedChange = { messagePushNotifications = it },
             )

@@ -385,6 +385,7 @@ private fun NotificationRow(
         // trimmed so that "... {timestamp}" always appears at the end.
         var displayText by remember(notification.id) { mutableStateOf(fullAnnotatedText) }
         var didOverflow by remember(notification.id) { mutableStateOf(false) }
+        val secondaryColor = CorusColors.Secondary
 
         Column(modifier = Modifier.weight(1f)) {
             ClickableText(
@@ -410,7 +411,7 @@ private fun NotificationRow(
                                 SpanStyle(
                                     fontWeight = FontWeight.Normal,
                                     fontSize = 12.sp,
-                                    color = CorusColors.Secondary,
+                                    color = secondaryColor,
                                 )
                             ) {
                                 append(timeSuffix)

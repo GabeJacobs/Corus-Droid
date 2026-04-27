@@ -199,7 +199,7 @@ class PreferencesDataStore @Inject constructor(
         val FEED_ONE_PER_FOLLOWER = booleanPreferencesKey("feed_one_per_follower")
         val LAST_COMPOSE_MEDIA_TYPE = stringPreferencesKey("last_compose_media_type")
         val CONTACTS_SYNC_STATUS = stringPreferencesKey("contacts_sync_status")
-        val DARK_MODE = booleanPreferencesKey("dark_mode")
+        val APPEARANCE_MODE = stringPreferencesKey("appearance_mode")
         val HAS_SEEN_FIRST_POST_PAYWALL = booleanPreferencesKey("has_seen_first_post_paywall")
         val HAS_SEEN_TENTH_POST_PAYWALL = booleanPreferencesKey("has_seen_tenth_post_paywall")
         val HAS_REQUESTED_PUSH_PERMISSION = booleanPreferencesKey("has_requested_push_permission")
@@ -239,12 +239,12 @@ class PreferencesDataStore @Inject constructor(
         dataStore.edit { it[CONTACTS_SYNC_STATUS] = value }
     }
 
-    val darkMode: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[DARK_MODE] ?: false
+    val appearanceMode: Flow<String> = dataStore.data.map { prefs ->
+        prefs[APPEARANCE_MODE] ?: "light"
     }
 
-    suspend fun setDarkMode(value: Boolean) {
-        dataStore.edit { it[DARK_MODE] = value }
+    suspend fun setAppearanceMode(value: String) {
+        dataStore.edit { it[APPEARANCE_MODE] = value }
     }
 
     val hasSeenFirstPostPaywall: Flow<Boolean> = dataStore.data.map { prefs ->

@@ -232,6 +232,7 @@ fun ExpandableCaptionText(
     }
     val displayMaxLines = if (isExpanded) Int.MAX_VALUE else maxCollapsedLines
     val canExpand = !isExpanded && overflowState == true
+    val secondaryColor = CorusColors.Secondary
 
     Column(
         modifier = modifier.animateContentSize(
@@ -266,7 +267,7 @@ fun ExpandableCaptionText(
                         trimmedText = buildAnnotatedString {
                             append(fullText, 0, cutoff)
                             withStyle(baseStyle) { append("... ") }
-                            withStyle(baseStyle.copy(color = CorusColors.Secondary)) { append("more") }
+                            withStyle(baseStyle.copy(color = secondaryColor)) { append("more") }
                         }
                         overflowState = true
                     }

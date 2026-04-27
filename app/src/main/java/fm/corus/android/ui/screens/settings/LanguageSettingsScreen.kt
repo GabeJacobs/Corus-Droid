@@ -8,29 +8,34 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
-import fm.corus.android.ui.theme.AppearanceMode
+import fm.corus.android.i18n.AppLanguage
+import fm.corus.android.i18n.LanguageManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
 @Composable
-fun AppearanceSettingsScreen(
+fun LanguageSettingsScreen(
     onBack: () -> Unit = {},
-    viewModel: AppearanceSettingsViewModel = hiltViewModel(),
 ) {
-    val mode by viewModel.appearanceMode.collectAsState()
+    var selected by remember { mutableStateOf(LanguageManager.current()) }
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
-        // ── Header ──
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -38,9 +43,17 @@ fun AppearanceSettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back), tint = CorusColors.Text)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.common_back),
+                    tint = CorusColors.Text,
+                )
             }
-            Text(stringResource(R.string.appearance_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(
+                stringResource(R.string.language_screen_title),
+                style = CorusFont.screenTitle,
+                color = CorusColors.Text,
+            )
         }
 
         HorizontalDivider(color = CorusColors.Divider)
@@ -60,16 +73,20 @@ fun AppearanceSettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = Icons.Filled.DarkMode,
+                    imageVector = Icons.Filled.Language,
                     contentDescription = null,
                     tint = CorusColors.Secondary,
                     modifier = Modifier.size(20.dp),
                 )
                 Spacer(modifier = Modifier.width(CorusSpacing.md))
                 Column {
-                    Text(text = stringResource(R.string.appearance_row_theme), style = CorusFont.body, color = CorusColors.Text)
                     Text(
-                        text = stringResource(R.string.appearance_row_theme_subtitle),
+                        text = stringResource(R.string.language_section_title),
+                        style = CorusFont.body,
+                        color = CorusColors.Text,
+                    )
+                    Text(
+                        text = stringResource(R.string.language_section_subtitle),
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
                     )
@@ -81,11 +98,19 @@ fun AppearanceSettingsScreen(
                 modifier = Modifier.padding(horizontal = CorusSpacing.lg),
             )
 
-            AppearanceMode.values().forEach { option ->
-                AppearanceOptionRow(
-                    label = option.displayLabel,
-                    isSelected = mode == option,
-                    onClick = { viewModel.setAppearanceMode(option) },
+            AppLanguage.values().forEach { option ->
+                val labelRes = when (option) {
+                    AppLanguage.SYSTEM -> R.string.language_option_system
+                    AppLanguage.ENGLISH -> R.string.language_option_english
+                    AppLanguage.PORTUGUESE_BR -> R.string.language_option_portuguese_br
+                }
+                LanguageOptionRow(
+                    label = stringResource(labelRes),
+                    isSelected = selected == option,
+                    onClick = {
+                        selected = option
+                        LanguageManager.set(option)
+                    },
                 )
                 HorizontalDivider(
                     color = CorusColors.Divider,
@@ -97,7 +122,7 @@ fun AppearanceSettingsScreen(
 }
 
 @Composable
-private fun AppearanceOptionRow(
+private fun LanguageOptionRow(
     label: String,
     isSelected: Boolean,
     onClick: () -> Unit,
