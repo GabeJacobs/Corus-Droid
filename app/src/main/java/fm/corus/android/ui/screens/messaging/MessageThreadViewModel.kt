@@ -1,8 +1,10 @@
 package fm.corus.android.ui.screens.messaging
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalTrack
@@ -31,6 +33,7 @@ class MessageThreadViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val remoteConfigService: RemoteConfigService,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     val giphySupport: Boolean
@@ -121,7 +124,7 @@ class MessageThreadViewModel @Inject constructor(
         val userId = authRepository.currentUserId ?: return
         val resolvedId = currentThreadId ?: threadId
         val reply = _replyToMessage.value
-        val replySnippet = reply?.let { replyPreviewText(it) }
+        val replySnippet = reply?.let { replyPreviewText(it, context) }
         val clientId = UUID.randomUUID().toString()
 
         // Optimistic insert

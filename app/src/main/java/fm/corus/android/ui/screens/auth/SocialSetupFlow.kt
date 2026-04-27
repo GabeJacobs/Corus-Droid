@@ -47,6 +47,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -130,13 +131,13 @@ private fun SyncContactsScreen(
         Spacer(modifier = Modifier.height(80.dp))
 
         Text(
-            "Find Your Friends",
+            stringResource(id = R.string.social_setup_find_friends_title),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            "see who's already on Corus",
+            stringResource(id = R.string.social_setup_find_friends_subtitle),
             style = CorusFont.body,
             color = CorusColors.Secondary,
         )
@@ -150,7 +151,7 @@ private fun SyncContactsScreen(
             Spacer(modifier = Modifier.height(CorusSpacing.xxl))
 
             Text(
-                "Sync your contacts to discover\nfriends who might be on Corus.",
+                stringResource(id = R.string.social_setup_sync_explainer),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Secondary,
                 textAlign = TextAlign.Center,
@@ -186,7 +187,7 @@ private fun SyncContactsScreen(
                     tint = Color.White,
                 )
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                Text("SYNC CONTACTS", style = CorusFont.button, color = Color.White)
+                Text(stringResource(id = R.string.social_setup_sync_button), style = CorusFont.button, color = Color.White)
             }
         }
 
@@ -194,7 +195,7 @@ private fun SyncContactsScreen(
             viewModel.analyticsService.logContactsSyncSkipped()
             onContinue()
         }) {
-            Text("sync later", style = CorusFont.caption, color = CorusColors.Tertiary)
+            Text(stringResource(id = R.string.social_setup_sync_later), style = CorusFont.caption, color = CorusColors.Tertiary)
         }
 
         Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
@@ -326,7 +327,7 @@ private fun RadarAnimation() {
         // Center logo — matches iOS: actual logo image
         Image(
             painter = painterResource(R.drawable.logo_no_background),
-            contentDescription = "Corus",
+            contentDescription = stringResource(id = R.string.social_setup_cd_corus_logo),
             modifier = Modifier.size(64.dp),
         )
     }
@@ -491,7 +492,7 @@ private fun FollowFriendsMainContent(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                "Curate Your Feed",
+                stringResource(id = R.string.social_setup_curate_title),
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
                 modifier = Modifier.fillMaxWidth(),
@@ -499,7 +500,7 @@ private fun FollowFriendsMainContent(
             )
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
             Text(
-                "follow users to build your feed",
+                stringResource(id = R.string.social_setup_curate_subtitle),
                 style = CorusFont.body,
                 color = CorusColors.Secondary,
                 modifier = Modifier.fillMaxWidth(),
@@ -534,7 +535,7 @@ private fun FollowFriendsMainContent(
                             modifier = Modifier.fillMaxWidth().padding(CorusSpacing.xxl),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Text("No users found", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                            Text(stringResource(id = R.string.search_no_users_found), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                         }
                     }
                 } else {
@@ -557,7 +558,7 @@ private fun FollowFriendsMainContent(
                     if (contactMatches.isNotEmpty()) {
                         item {
                             OnboardingSectionHeader(
-                                title = "\uD83D\uDC65 Friends on Corus",
+                                title = stringResource(id = R.string.social_setup_section_friends),
                                 showSeeAll = contactMatches.size > 5,
                                 onSeeAll = { onSeeAll(SeeAllDestination.FRIENDS) },
                             )
@@ -565,7 +566,7 @@ private fun FollowFriendsMainContent(
                         items(contactMatches.take(5), key = { "contact-${it.id}" }) { user ->
                             OnboardingUserRow(
                                 user = user,
-                                subtitle = "From your contacts",
+                                subtitle = stringResource(id = R.string.search_subtitle_from_contacts),
                                 isFollowed = followedIds.contains(user.id),
                                 isPreviewLoading = previewingUserId == user.id && isPreviewLoading,
                                 isPreviewPlaying = previewingUserId == user.id && nowPlayingState.isPlaying,
@@ -577,7 +578,7 @@ private fun FollowFriendsMainContent(
                         // Friends empty state — only show if user chose to sync contacts
                         item {
                             OnboardingSectionHeader(
-                                title = "\uD83D\uDC65 Friends on Corus",
+                                title = stringResource(id = R.string.social_setup_section_friends),
                             )
                         }
                         item {
@@ -588,13 +589,13 @@ private fun FollowFriendsMainContent(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 Text(
-                                    "None of your contacts are on Corus yet",
+                                    stringResource(id = R.string.search_no_contact_matches_title),
                                     style = CorusFont.bodyMedium,
                                     color = CorusColors.Secondary,
                                 )
                                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
                                 Text(
-                                    "We'll notify you when they join",
+                                    stringResource(id = R.string.social_setup_will_notify),
                                     style = CorusFont.caption,
                                     color = CorusColors.Tertiary,
                                 )
@@ -610,7 +611,7 @@ private fun FollowFriendsMainContent(
                 } else if (popularUsers.isNotEmpty()) {
                     item {
                         OnboardingSectionHeader(
-                            title = "\uD83D\uDD25 Popular on Corus",
+                            title = stringResource(id = R.string.social_setup_section_popular),
                             showSeeAll = popularUsers.size > 4,
                             onSeeAll = { onSeeAll(SeeAllDestination.POPULAR) },
                         )
@@ -618,7 +619,7 @@ private fun FollowFriendsMainContent(
                     items(popularUsers.take(4), key = { "popular-${it.id}" }) { user ->
                         OnboardingUserRow(
                             user = user,
-                            subtitle = "${user.followerCount} followers",
+                            subtitle = stringResource(id = R.string.search_followers_count_format, user.followerCount),
                             isFollowed = followedIds.contains(user.id),
                             isPreviewLoading = previewingUserId == user.id && isPreviewLoading,
                             isPreviewPlaying = previewingUserId == user.id && nowPlayingState.isPlaying,
@@ -633,7 +634,7 @@ private fun FollowFriendsMainContent(
                     item {
                         Spacer(modifier = Modifier.height(CorusSpacing.lg))
                         Text(
-                            "or follow some curated music bots",
+                            stringResource(id = R.string.feed_empty_curated_music),
                             style = CorusFont.caption,
                             color = CorusColors.Tertiary,
                             textAlign = TextAlign.Center,
@@ -660,7 +661,7 @@ private fun FollowFriendsMainContent(
                                 TextButton(
                                     onClick = { onSeeAll(SeeAllDestination.MUSIC_BOTS) },
                                 ) {
-                                    Text("See all", style = CorusFont.captionMedium, color = CorusColors.Accent)
+                                    Text(stringResource(id = R.string.feed_empty_see_all), style = CorusFont.captionMedium, color = CorusColors.Accent)
                                 }
                             }
                         }
@@ -672,7 +673,7 @@ private fun FollowFriendsMainContent(
                     item {
                         Spacer(modifier = Modifier.height(CorusSpacing.lg))
                         Text(
-                            "or some curated film bots",
+                            stringResource(id = R.string.feed_empty_curated_film),
                             style = CorusFont.caption,
                             color = CorusColors.Tertiary,
                             textAlign = TextAlign.Center,
@@ -695,7 +696,7 @@ private fun FollowFriendsMainContent(
                                 TextButton(
                                     onClick = { onSeeAll(SeeAllDestination.FILM_BOTS) },
                                 ) {
-                                    Text("See all", style = CorusFont.captionMedium, color = CorusColors.Accent)
+                                    Text(stringResource(id = R.string.feed_empty_see_all), style = CorusFont.captionMedium, color = CorusColors.Accent)
                                 }
                             }
                         }
@@ -718,7 +719,7 @@ private fun FollowFriendsMainContent(
             if (isFinishing) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
             } else {
-                Text("CONTINUE", style = CorusFont.button, color = Color.White)
+                Text(stringResource(id = R.string.onboarding_button_continue), style = CorusFont.button, color = Color.White)
             }
         }
     }
@@ -729,11 +730,11 @@ private fun FollowFriendsMainContent(
 // SEE ALL SCREEN
 // ═══════════════════════════════════════════════
 
-enum class SeeAllDestination(val title: String, val analyticsName: String) {
-    FRIENDS("Friends on Corus", "friends"),
-    POPULAR("Popular on Corus", "popular"),
-    MUSIC_BOTS("Curated Music Bots", "musicBots"),
-    FILM_BOTS("Curated Film Bots", "filmBots"),
+enum class SeeAllDestination(val titleRes: Int, val analyticsName: String) {
+    FRIENDS(R.string.social_setup_seeall_friends, "friends"),
+    POPULAR(R.string.social_setup_seeall_popular, "popular"),
+    MUSIC_BOTS(R.string.social_setup_seeall_music_bots, "musicBots"),
+    FILM_BOTS(R.string.social_setup_seeall_film_bots, "filmBots"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -756,10 +757,10 @@ private fun OnboardingSeeAllScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(destination.title, style = CorusFont.screenTitle, color = CorusColors.Text) },
+                title = { Text(stringResource(id = destination.titleRes), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.Close, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(id = R.string.common_back), tint = CorusColors.Text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
@@ -772,7 +773,7 @@ private fun OnboardingSeeAllScreen(
                     items(contactMatches, key = { it.id }) { user ->
                         OnboardingUserRow(
                             user = user,
-                            subtitle = "From your contacts",
+                            subtitle = stringResource(id = R.string.search_subtitle_from_contacts),
                             isFollowed = followedIds.contains(user.id),
                             onFollow = { onFollow(user.id) },
                         )
@@ -784,7 +785,7 @@ private fun OnboardingSeeAllScreen(
                     items(popularUsers, key = { it.id }) { user ->
                         OnboardingUserRow(
                             user = user,
-                            subtitle = "${user.followerCount} followers",
+                            subtitle = stringResource(id = R.string.search_followers_count_format, user.followerCount),
                             isFollowed = followedIds.contains(user.id),
                             onFollow = { onFollow(user.id) },
                         )
@@ -840,14 +841,14 @@ private fun OnboardingSearchBar(
             .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
             .background(CorusColors.CardBackground)
             .border(1.dp, CorusColors.Divider, RoundedCornerShape(CorusSpacing.cornerRadiusMedium)),
-        placeholder = { Text("Search by username", style = CorusFont.body, color = CorusColors.Tertiary) },
+        placeholder = { Text(stringResource(id = R.string.search_placeholder_users), style = CorusFont.body, color = CorusColors.Tertiary) },
         leadingIcon = {
             Icon(Icons.Filled.Search, contentDescription = null, tint = CorusColors.Tertiary)
         },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Filled.Close, contentDescription = "Clear", tint = CorusColors.Tertiary)
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(id = R.string.search_cd_clear), tint = CorusColors.Tertiary)
                 }
             }
         },
@@ -931,7 +932,7 @@ private fun OnboardingUserRow(
             } else if (isPreviewPlaying) {
                 Icon(
                     imageVector = Icons.Filled.Pause,
-                    contentDescription = "Pause",
+                    contentDescription = stringResource(id = R.string.post_detail_cd_pause),
                     tint = Color.White,
                     modifier = Modifier.size(14.dp),
                 )
@@ -966,7 +967,7 @@ private fun OnboardingUserRow(
             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
         ) {
             Text(
-                if (isFollowed) "Following" else "Follow",
+                if (isFollowed) stringResource(id = R.string.search_button_following) else stringResource(id = R.string.search_button_follow),
                 style = CorusFont.buttonSmall,
             )
         }
@@ -1144,7 +1145,7 @@ private fun FilmBotPreviewSheet(
                 shape = RoundedCornerShape(50),
                 contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
             ) {
-                Text(if (isFollowed) "Following" else "Follow", style = CorusFont.buttonSmall)
+                Text(if (isFollowed) stringResource(id = R.string.search_button_following) else stringResource(id = R.string.search_button_follow), style = CorusFont.buttonSmall)
             }
 
             Spacer(modifier = Modifier.height(CorusSpacing.xxl))
@@ -1171,7 +1172,7 @@ private fun FilmBotPreviewSheet(
                 }
             } else if (posts.isEmpty()) {
                 Text(
-                    "No films yet",
+                    stringResource(id = R.string.other_profile_empty_no_films),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     modifier = Modifier.padding(CorusSpacing.xxl),

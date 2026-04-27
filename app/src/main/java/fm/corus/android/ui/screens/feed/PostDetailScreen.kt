@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -105,13 +106,13 @@ fun PostDetailScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("corus", style = CorusFont.screenTitle, color = CorusColors.Text)
+                    Text(stringResource(R.string.feed_screen_title_corus), style = CorusFont.screenTitle, color = CorusColors.Text)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.feed_cd_back),
                             tint = CorusColors.Text,
                         )
                     }
@@ -139,7 +140,7 @@ fun PostDetailScreen(
                         .padding(padding),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("Post not found", style = CorusFont.body, color = CorusColors.Secondary)
+                    Text(stringResource(R.string.post_detail_not_found), style = CorusFont.body, color = CorusColors.Secondary)
                 }
             }
             else -> {
@@ -240,7 +241,7 @@ fun PostDetailScreen(
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_TEXT, "https://corus.fm/post/${currentPost.id}")
                                 }
-                                try { context.startActivity(Intent.createChooser(shareIntent, "Share")) } catch (_: Exception) { }
+                                try { context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.post_detail_share_chooser))) } catch (_: Exception) { }
                             },
                             onSaveTap = { viewModel.toggleSave(currentPost.id) },
                             onSongCountTap = {
@@ -309,7 +310,7 @@ fun PostDetailScreen(
                         item {
                             if (commentCount > previewComments.size) {
                                 Text(
-                                    text = "View all $commentCount comments",
+                                    text = stringResource(R.string.post_detail_view_all_comments_format, commentCount),
                                     style = CorusFont.body,
                                     color = CorusColors.Secondary,
                                     modifier = Modifier
@@ -342,7 +343,7 @@ fun PostDetailScreen(
                     // Timestamp
                     item {
                         Text(
-                            text = DateUtils.relativeTime(currentPost.timestamp),
+                            text = DateUtils.relativeTime(context, currentPost.timestamp),
                             style = CorusFont.caption,
                             color = CorusColors.Secondary,
                             modifier = Modifier
@@ -436,12 +437,12 @@ private fun PostDetailHeader(
                         tint = CorusColors.Secondary,
                     )
                     Text(
-                        text = "reposted from",
+                        text = stringResource(R.string.post_detail_reposted_from),
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
                     )
                     Text(
-                        text = "@$repostedFromUsername",
+                        text = stringResource(R.string.post_detail_reposted_from_username_format, repostedFromUsername),
                         style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
                         color = CorusColors.Secondary,
                     )
@@ -461,7 +462,7 @@ private fun PostDetailHeader(
         ) {
             Icon(
                 Icons.Filled.MoreHoriz,
-                contentDescription = "More options",
+                contentDescription = stringResource(R.string.feed_cd_more_options),
                 modifier = Modifier.size(14.dp),
                 tint = CorusColors.Secondary,
             )
@@ -550,7 +551,7 @@ private fun PostDetailAlbumArt(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = "Finding back cover…",
+                            text = stringResource(R.string.post_detail_finding_back_cover),
                             color = Color.White,
                             style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
                             modifier = Modifier.padding(bottom = CorusSpacing.xs),
@@ -573,7 +574,7 @@ private fun PostDetailAlbumArt(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "No back cover available",
+                            text = stringResource(R.string.post_detail_no_back_cover),
                             color = Color.White,
                             style = CorusFont.body.copy(fontWeight = FontWeight.Medium),
                         )
@@ -597,7 +598,7 @@ private fun PostDetailAlbumArt(
                         } else {
                             Icon(
                                 imageVector = Icons.Filled.Pause,
-                                contentDescription = "Pause",
+                                contentDescription = stringResource(R.string.post_detail_cd_pause),
                                 tint = Color.White,
                                 modifier = Modifier.size(52.dp),
                             )
@@ -627,7 +628,7 @@ private fun PostDetailAlbumArt(
             ) {
                 AsyncImage(
                     model = flipState.backCoverURL,
-                    contentDescription = "Album back cover",
+                    contentDescription = stringResource(R.string.post_detail_cd_album_back_cover),
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
@@ -677,7 +678,7 @@ private fun PostDetailSongInfo(
         if (post.isMovie) {
             Image(
                 painter = painterResource(R.drawable.ic_play_rectangle_fill),
-                contentDescription = "Watch Trailer",
+                contentDescription = stringResource(R.string.post_detail_cd_watch_trailer),
                 modifier = Modifier
                     .size(22.dp)
                     .clickable(
@@ -689,7 +690,7 @@ private fun PostDetailSongInfo(
         } else {
             Image(
                 painter = painterResource(R.drawable.spotify_logo),
-                contentDescription = "Play on Spotify",
+                contentDescription = stringResource(R.string.post_detail_cd_play_spotify),
                 modifier = Modifier
                     .size(28.dp)
                     .clickable(
@@ -778,7 +779,7 @@ private fun PostDetailEngagementRow(
         // Save
         Icon(
             imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-            contentDescription = "Save",
+            contentDescription = stringResource(R.string.post_detail_cd_save),
             modifier = Modifier
                 .size(20.dp)
                 .clickable(

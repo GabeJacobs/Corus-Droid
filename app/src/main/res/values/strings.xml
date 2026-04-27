@@ -135,4 +135,645 @@
     <string name="feedback_device_info_note">Device info is automatically included.</string>
     <string name="feedback_submitting">Submitting...</string>
     <string name="feedback_success">Thanks for your feedback!</string>
+
+    <!-- Feed: shared -->
+    <string name="feed_app_title">corus</string>
+    <string name="feed_screen_title_corus">corus</string>
+    <string name="feed_screen_title_Corus">Corus</string>
+    <string name="feed_cd_filter">Filter</string>
+    <string name="feed_cd_generate_playlist">Generate feed playlist</string>
+    <string name="feed_cd_more_options">More options</string>
+    <string name="feed_cd_back">Back</string>
+    <string name="feed_filter_all">All</string>
+    <string name="feed_filter_music">Music</string>
+    <string name="feed_filter_film">Film</string>
+    <string name="feed_empty_invite_title">corus is fun with\njust a few friends.</string>
+    <string name="feed_empty_invite_subtitle">know someone with good taste?</string>
+    <string name="feed_empty_invite_button">invite friends</string>
+    <string name="feed_empty_invite_share_text">Check out Corus — share your music &amp; movie taste! https://corus.fm</string>
+    <string name="feed_empty_invite_chooser">Invite Friends</string>
+    <string name="feed_empty_curated_music">or follow some curated music bots</string>
+    <string name="feed_empty_curated_film">or some curated film bots</string>
+    <string name="feed_empty_see_all">See all</string>
+    <string name="feed_toast_failed_send_post">Failed to send post</string>
+    <string name="feed_toast_post_reported">Post reported</string>
+    <string name="feed_toast_failed_report">Failed to report post</string>
+    <string name="feed_toast_user_blocked">User blocked</string>
+    <string name="feed_toast_failed_block">Failed to block user</string>
+    <string name="feed_toast_user_muted">User muted</string>
+    <string name="feed_toast_failed_mute">Failed to mute user</string>
+    <string name="feed_toast_post_deleted">Post deleted</string>
+    <string name="feed_toast_failed_delete">Failed to delete post</string>
+
+    <!-- Feed: post detail -->
+    <string name="post_detail_not_found">Post not found</string>
+    <string name="post_detail_reposted_from">reposted from</string>
+    <string name="post_detail_reposted_from_username_format">@%1$s</string>
+    <string name="post_detail_finding_back_cover">Finding back cover…</string>
+    <string name="post_detail_no_back_cover">No back cover available</string>
+    <string name="post_detail_cd_album_back_cover">Album back cover</string>
+    <string name="post_detail_cd_pause">Pause</string>
+    <string name="post_detail_cd_watch_trailer">Watch Trailer</string>
+    <string name="post_detail_cd_play_spotify">Play on Spotify</string>
+    <string name="post_detail_cd_save">Save</string>
+    <string name="post_detail_share_chooser">Share</string>
+    <string name="post_detail_view_all_comments_format">View all %1$d comments</string>
+
+    <!-- Feed: comments -->
+    <string name="comments_screen_title">Comments</string>
+    <string name="comments_input_placeholder_add">Add a comment...</string>
+    <string name="comments_input_placeholder_reply">Reply...</string>
+    <string name="comments_input_placeholder_edit">Edit your comment...</string>
+    <string name="comments_editing_your_comment">Editing your comment</string>
+    <string name="comments_editing_comment">Editing comment</string>
+    <string name="comments_replying_to_format">Replying to @%1$s</string>
+    <string name="comments_cd_cancel_edit">Cancel edit</string>
+    <string name="comments_cd_cancel_reply">Cancel reply</string>
+    <string name="comments_cd_send">Send</string>
+    <string name="comments_cd_send_gif">Send GIF</string>
+    <string name="comments_cd_gif">GIF</string>
+    <string name="comments_cd_like_comment">Like comment</string>
+    <string name="comments_cd_like">Like</string>
+    <string name="comments_cd_options">Comment options</string>
+    <string name="comments_cd_back_to_comments">Back to comments</string>
+    <string name="comments_reply">Reply</string>
+    <string name="comments_edited">edited</string>
+    <string name="comments_no_comments">No comments yet</string>
+    <string name="comments_be_the_first">Be the first to comment!</string>
+    <string name="comments_start_conversation">Start the conversation</string>
+    <string name="comments_dialog_delete_title">Delete Comment?</string>
+    <string name="comments_dialog_delete_message">This comment will be permanently deleted.</string>
+    <string name="comments_dialog_delete_confirm">Delete</string>
+    <string name="comments_dialog_block_title_format">Block @%1$s?</string>
+    <string name="comments_dialog_block_message">They won\'t be able to see your profile or posts, and you won\'t see theirs.</string>
+    <string name="comments_dialog_block_confirm">Block</string>
+    <string name="comments_menu_copy">Copy</string>
+    <string name="comments_menu_report">Report</string>
+    <string name="comments_menu_block">Block</string>
+    <string name="comments_menu_edit">Edit</string>
+    <string name="comments_menu_delete">Delete</string>
+    <string name="comments_toast_copied">Copied</string>
+    <string name="comments_send_error_send">Failed to send comment</string>
+    <string name="comments_send_error_gif">Failed to send GIF</string>
+    <string name="comments_edit_error">Couldn\'t save changes. Please try again.</string>
+
+    <!-- Feed: likes / comment likes -->
+    <string name="likes_title">Likes</string>
+    <string name="likes_search_placeholder">Search</string>
+    <string name="likes_cd_search">Search</string>
+    <string name="likes_cd_clear">Clear</string>
+    <string name="likes_empty_no_likes">No likes yet</string>
+    <string name="likes_empty_no_results">No results</string>
+    <string name="likes_button_following">Following</string>
+    <string name="likes_button_follow_back">Follow back</string>
+    <string name="likes_button_follow">Follow</string>
+
+    <!-- Feed: edit caption -->
+    <string name="edit_caption_screen_title">Edit Caption</string>
+    <string name="edit_caption_placeholder">Write a caption...</string>
+
+    <!-- Feed: film detail -->
+    <string name="film_detail_post_film">Post Film</string>
+    <string name="film_detail_watch_trailer">Watch Trailer</string>
+    <string name="film_detail_where_to_watch">Where to Watch</string>
+    <string name="film_detail_year_format">(%1$s)</string>
+    <string name="film_detail_posted_by">Posted by</string>
+    <string name="film_detail_load_error">Couldn\'t load posts</string>
+    <string name="film_detail_try_again">Try Again</string>
+    <string name="film_detail_empty">No one has posted this film yet</string>
+    <string name="film_detail_be_the_first">Be the first!</string>
+
+    <!-- Feed: song detail -->
+    <string name="song_detail_post_song">+ Post Song</string>
+    <string name="song_detail_play_spotify">Play in Spotify</string>
+    <string name="song_detail_cd_pause_preview">Pause preview</string>
+    <string name="song_detail_posted_by">Posted by</string>
+    <string name="song_detail_load_error">Couldn\'t load posts</string>
+    <string name="song_detail_try_again">Try Again</string>
+    <string name="song_detail_empty">No one has posted this song yet</string>
+    <string name="song_detail_be_the_first">Be the first!</string>
+
+    <!-- Feed: detail counts (plurals) -->
+    <plurals name="film_detail_posted_by_count">
+        <item quantity="one">Posted by %1$s user</item>
+        <item quantity="other">Posted by %1$s users</item>
+    </plurals>
+    <plurals name="song_detail_posted_by_count">
+        <item quantity="one">Posted by %1$s user</item>
+        <item quantity="other">Posted by %1$s users</item>
+    </plurals>
+
+    <!-- Profile -->
+    <string name="profile_cd_customize">Customize Profile</string>
+    <string name="profile_cd_settings">Settings</string>
+    <string name="profile_cd_playlist">Playlist</string>
+    <string name="profile_avatar_take_photo">Take Photo</string>
+    <string name="profile_avatar_choose_library">Choose from Library</string>
+    <string name="profile_avatar_view_photo">View Photo</string>
+    <string name="profile_avatar_share_link">Share Profile Link</string>
+    <string name="profile_toast_link_copied">Profile link copied!</string>
+    <string name="profile_toast_avatar_updated">Avatar updated!</string>
+    <string name="profile_toast_style_updated">Style updated!</string>
+    <string name="profile_toast_no_songs_for_playlist">No songs to make a playlist</string>
+    <string name="profile_button_edit">EDIT PROFILE</string>
+    <string name="profile_button_playlist">PLAYLIST</string>
+    <string name="profile_stat_coruses">coruses</string>
+    <string name="profile_stat_followers">followers</string>
+    <string name="profile_stat_following">following</string>
+    <string name="profile_tab_music">MUSIC</string>
+    <string name="profile_tab_film">FILM</string>
+    <string name="profile_tab_likes">LIKES</string>
+    <string name="profile_tab_saves">SAVES</string>
+    <string name="profile_empty_music_title">What are you listening to?</string>
+    <string name="profile_empty_music_subtitle">Share your first song and let\neveryone know what\'s on repeat.</string>
+    <string name="profile_empty_music_button">Post your first song</string>
+    <string name="profile_empty_film_title">Watch anything good lately?</string>
+    <string name="profile_empty_film_subtitle">Share your first film and let\neveryone know what you\'re watching.</string>
+    <string name="profile_empty_film_button">Post your first film</string>
+    <string name="profile_empty_likes">No liked posts yet</string>
+    <string name="profile_empty_saves">No saved posts yet</string>
+
+    <!-- Other Profile -->
+    <string name="other_profile_cd_message">Message</string>
+    <string name="other_profile_cd_menu">Menu</string>
+    <string name="other_profile_cd_post_notifications">Post Notifications</string>
+    <string name="other_profile_cd_stop_notifying">Stop Notifying</string>
+    <string name="other_profile_toast_will_notify_format">You\'ll be notified when @%1$s posts</string>
+    <string name="other_profile_toast_notifications_off_format">Notifications off for @%1$s</string>
+    <string name="other_profile_menu_view_playlist">View Spotify Playlist</string>
+    <string name="other_profile_menu_share_profile">Share Profile</string>
+    <string name="other_profile_menu_mute">Mute</string>
+    <string name="other_profile_menu_unmute">Unmute</string>
+    <string name="other_profile_menu_report">Report</string>
+    <string name="other_profile_menu_block">Block</string>
+    <string name="other_profile_menu_unblock">Unblock</string>
+    <string name="other_profile_blocked_message">You blocked this user</string>
+    <string name="other_profile_button_follow">FOLLOW</string>
+    <string name="other_profile_button_following">FOLLOWING</string>
+    <string name="other_profile_tab_likes">LIKES</string>
+    <string name="other_profile_empty_no_songs">No songs yet</string>
+    <string name="other_profile_empty_no_films">No films yet</string>
+    <string name="other_profile_empty_no_liked">No liked posts yet</string>
+    <string name="other_profile_muting_format">Muting @%1$s…</string>
+    <string name="other_profile_muting">Muting…</string>
+    <string name="other_profile_unmuting_format">Unmuting @%1$s…</string>
+    <string name="other_profile_unmuting">Unmuting…</string>
+    <string name="other_profile_muted_format">@%1$s\'s posts muted</string>
+    <string name="other_profile_muted">Muted</string>
+    <string name="other_profile_unmuted_format">@%1$s\'s posts unmuted</string>
+    <string name="other_profile_unmuted">Unmuted</string>
+
+    <!-- Edit Profile -->
+    <string name="edit_profile_screen_title">Edit Profile</string>
+    <string name="edit_profile_cd_cancel">Cancel</string>
+    <string name="edit_profile_save">Save</string>
+    <string name="edit_profile_dialog_unsaved_title">Unsaved Changes</string>
+    <string name="edit_profile_dialog_unsaved_message">You have unsaved changes to your profile.</string>
+    <string name="edit_profile_dialog_discard">Discard</string>
+    <string name="edit_profile_dialog_keep_editing">Keep Editing</string>
+    <string name="edit_profile_share_text_format">Check out my profile on Corus: https://corus.fm/user/%1$s</string>
+    <string name="edit_profile_share_chooser">Share Profile</string>
+    <string name="edit_profile_field_name">NAME</string>
+    <string name="edit_profile_field_username">USERNAME</string>
+    <string name="edit_profile_field_bio">BIO</string>
+    <string name="edit_profile_field_website">WEBSITE</string>
+    <string name="edit_profile_username_taken">Username is taken</string>
+    <string name="edit_profile_username_invalid">Letters, numbers, underscores, periods only</string>
+    <string name="edit_profile_cd_available">Available</string>
+    <string name="edit_profile_cd_taken">Taken</string>
+    <string name="edit_profile_cd_invalid">Invalid</string>
+    <string name="edit_profile_row_customize">Customize Profile Style</string>
+    <string name="edit_profile_row_share_link">Share Profile Link</string>
+    <string name="edit_profile_save_error">Couldn\'t save changes. Please try again.</string>
+    <string name="edit_profile_save_style_error">Couldn\'t save style changes. Please try again.</string>
+
+    <!-- Follow List -->
+    <string name="follow_list_followers">Followers</string>
+    <string name="follow_list_following">Following</string>
+    <string name="follow_list_search_placeholder">Search</string>
+    <string name="follow_list_cd_clear">Clear</string>
+    <string name="follow_list_no_results">No results</string>
+    <string name="follow_list_no_followers">No followers yet</string>
+    <string name="follow_list_not_following">Not following anyone yet</string>
+    <string name="follow_list_follows_you">Follows you</string>
+    <string name="follow_list_button_following">Following</string>
+    <string name="follow_list_button_follow_back">Follow back</string>
+    <string name="follow_list_button_follow">Follow</string>
+
+    <!-- Style Picker -->
+    <string name="style_picker_cd_close">Close</string>
+    <string name="style_picker_save_changes">Save Changes</string>
+    <string name="style_picker_choose_vinyl">Choose Vinyl Color</string>
+    <string name="style_picker_choose_frame">Choose Frame Color</string>
+    <string name="style_picker_choose_flair">Choose Badge Flair</string>
+    <string name="style_picker_vinyl_spin">Vinyl Spin</string>
+    <string name="style_picker_off">Off</string>
+    <string name="style_picker_on">On</string>
+    <string name="style_picker_username_placeholder">username</string>
+    <string name="style_picker_rain_effect">Rain Effect</string>
+    <string name="style_picker_snow_effect">Snow Effect</string>
+    <string name="style_picker_disco_effect">Disco Effect</string>
+
+    <!-- Search -->
+    <string name="search_screen_title">Search</string>
+    <string name="search_cd_search">Search</string>
+    <string name="search_cd_clear">Clear</string>
+    <string name="search_cd_remove">Remove</string>
+    <string name="search_cd_filter_taste_matches">Filter taste matches</string>
+    <string name="search_placeholder_users">Search by username</string>
+    <string name="search_placeholder_songs">Search for a song</string>
+    <string name="search_placeholder_films">Search for a film</string>
+    <string name="search_tab_users">Users</string>
+    <string name="search_tab_songs">Songs</string>
+    <string name="search_tab_films">Films</string>
+    <string name="search_recent">Recent</string>
+    <string name="search_clear_all">Clear all</string>
+    <string name="search_section_friends_on_corus">FRIENDS ON CORUS</string>
+    <string name="search_section_taste_matches">TASTE MATCHES</string>
+    <string name="search_section_mutual_connections">MUTUAL CONNECTIONS</string>
+    <string name="search_section_popular">POPULAR ON CORUS</string>
+    <string name="search_section_new">NEW ON CORUS</string>
+    <string name="search_section_curated_music_bots">CURATED MUSIC BOTS</string>
+    <string name="search_section_curated_film_bots">CURATED FILM BOTS</string>
+    <string name="search_section_trending_this_month">TRENDING THIS MONTH</string>
+    <string name="search_see_all">See All</string>
+    <string name="search_taste_matches_title">Taste Matches</string>
+    <string name="search_mutual_connections_title">Mutual Connections</string>
+    <string name="search_popular_title">Popular on Corus</string>
+    <string name="search_new_title">New on Corus</string>
+    <string name="search_filter_all">All</string>
+    <string name="search_filter_unfollowed">Unfollowed</string>
+    <string name="search_subtitle_from_contacts">From your contacts</string>
+    <string name="search_invite_title">know someone with good taste?</string>
+    <string name="search_invite_button">invite friends</string>
+    <string name="search_contacts_card_title">Find your friends on Corus</string>
+    <string name="search_contacts_card_subtitle">See which of your contacts are already here</string>
+    <string name="search_contacts_card_sync">Sync Contacts</string>
+    <string name="search_contacts_card_not_now">Not now</string>
+    <string name="search_no_contact_matches_title">None of your contacts are on Corus yet</string>
+    <string name="search_no_contact_matches_subtitle">We’ll let you know when they join</string>
+    <string name="search_no_users_found">No users found</string>
+    <string name="search_no_songs_found">No songs found</string>
+    <string name="search_no_films_found">No films found</string>
+    <string name="search_nothing_trending">Nothing trending yet</string>
+    <string name="search_post_some_songs">Post some songs to get things going</string>
+    <string name="search_no_trending_films">No trending films yet</string>
+    <string name="search_post_some_films">Post some films to get things going</string>
+    <string name="search_button_following">Following</string>
+    <string name="search_button_follow">Follow</string>
+    <string name="search_followed_by_one_format">Followed by @%1$s</string>
+    <string name="search_followed_by_two_format">Followed by @%1$s and @%2$s</string>
+    <string name="search_followed_by_many_format">Followed by @%1$s, @%2$s, and %3$s</string>
+    <string name="search_followers_count_format">%1$d followers</string>
+    <plurals name="search_others_count">
+        <item quantity="one">%d other</item>
+        <item quantity="other">%d others</item>
+    </plurals>
+    <plurals name="search_followers_count">
+        <item quantity="one">%d follower</item>
+        <item quantity="other">%d followers</item>
+    </plurals>
+
+    <!-- Bot List -->
+    <string name="bot_list_title_film">Curated Film Bots</string>
+    <string name="bot_list_title_music">Curated Music Bots</string>
+    <string name="bot_list_empty">No bots available</string>
+
+    <!-- Contact Friends List -->
+    <string name="contacts_list_title">Friends on Corus</string>
+    <string name="contacts_list_empty">No contacts found on Corus</string>
+
+    <!-- Suggested Users List -->
+    <string name="suggested_users_default_title">Taste Matches</string>
+    <string name="suggested_users_empty">No suggestions available</string>
+    <string name="suggested_users_joined_format">Joined %1$s ago</string>
+
+    <!-- Time / relative -->
+    <string name="relative_time_just_now">just now</string>
+
+    <!-- Auth -->
+    <string name="auth_cd_corus_logo">Corus Logo</string>
+    <string name="auth_tagline">Share what you love</string>
+    <string name="auth_button_google">Continue with Google</string>
+    <string name="auth_button_phone">Continue with Phone</string>
+    <string name="auth_phone_prompt">Enter your phone number</string>
+    <string name="auth_button_send_code">SEND CODE</string>
+    <string name="auth_button_verify">VERIFY</string>
+    <string name="auth_phone_code_sent_format">Enter the 6-digit code sent to\n%1$s %2$s</string>
+    <string name="auth_code_placeholder">123456</string>
+    <string name="auth_google_signin_error">Couldn\'t sign in with Google. Please try again.</string>
+    <string name="auth_error_account_suspended">Your account has been suspended. Please contact support if you believe this is a mistake.</string>
+    <string name="auth_error_verification_failed">Verification failed. Please try again.</string>
+    <string name="auth_error_could_not_send_code">Could not send verification code. Please try again.</string>
+    <string name="auth_error_invalid_code">Invalid verification code. Please try again.</string>
+    <string name="auth_error_generic">Something went wrong. Please try again.</string>
+    <string name="auth_error_delete_account">Couldn\'t delete your account. Please try again.</string>
+    <string name="auth_error_invalid_phone_reauth_code">Invalid code. Please try again.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">Welcome</string>
+    <string name="onboarding_subtitle">set up your profile</string>
+    <string name="onboarding_cd_avatar">Avatar</string>
+    <string name="onboarding_add_photo">Add photo</string>
+    <string name="onboarding_full_name">Full Name</string>
+    <string name="onboarding_terms">By creating an account, you agree to our Terms of Use and Privacy Policy.</string>
+    <string name="onboarding_button_continue">CONTINUE</string>
+    <string name="onboarding_dialog_photo_title">Profile Photo</string>
+    <string name="onboarding_remove_photo">Remove Photo</string>
+    <string name="onboarding_avatar_nudge_title">Add a profile photo?</string>
+    <string name="onboarding_avatar_nudge_message">A photo helps friends find you on Corus</string>
+    <string name="onboarding_add_photo_button">Add Photo</string>
+    <string name="onboarding_skip">Skip</string>
+
+    <!-- Social Setup -->
+    <string name="social_setup_cd_corus_logo">Corus</string>
+    <string name="social_setup_find_friends_title">Find Your Friends</string>
+    <string name="social_setup_find_friends_subtitle">see who\'s already on Corus</string>
+    <string name="social_setup_sync_explainer">Sync your contacts to discover\nfriends who might be on Corus.</string>
+    <string name="social_setup_sync_button">SYNC CONTACTS</string>
+    <string name="social_setup_sync_later">sync later</string>
+    <string name="social_setup_curate_title">Curate Your Feed</string>
+    <string name="social_setup_curate_subtitle">follow users to build your feed</string>
+    <string name="social_setup_section_friends">👥 Friends on Corus</string>
+    <string name="social_setup_section_popular">🔥 Popular on Corus</string>
+    <string name="social_setup_will_notify">We\'ll notify you when they join</string>
+    <string name="social_setup_seeall_friends">Friends on Corus</string>
+    <string name="social_setup_seeall_popular">Popular on Corus</string>
+    <string name="social_setup_seeall_music_bots">Curated Music Bots</string>
+    <string name="social_setup_seeall_film_bots">Curated Film Bots</string>
+
+    <!-- Messaging: thread -->
+    <string name="messaging_thread_replying_to_format">Replying to %1$s</string>
+    <string name="messaging_thread_yourself">yourself</string>
+    <string name="messaging_thread_message_fallback">Message</string>
+    <string name="messaging_thread_you">You</string>
+    <string name="messaging_thread_cd_add_attachment">Add attachment</string>
+    <string name="messaging_thread_attachment_photo">Photo</string>
+    <string name="messaging_thread_attachment_song">Song</string>
+    <string name="messaging_thread_attachment_film">Film</string>
+    <string name="messaging_thread_placeholder">Message...</string>
+    <string name="messaging_thread_cd_shared_image">Shared image</string>
+    <string name="messaging_thread_sending">Sending...</string>
+    <string name="messaging_thread_user_messaging_disabled">This user has messaging disabled</string>
+    <string name="messaging_thread_failed_to_deliver">Failed to deliver</string>
+    <string name="messaging_thread_tap_to_retry">· Tap to retry</string>
+
+    <!-- Messaging: list -->
+    <string name="messaging_list_title">Messages</string>
+    <string name="messaging_list_cd_new_message">New message</string>
+    <string name="messaging_list_empty">No messages yet</string>
+    <string name="messaging_list_new_message_title">New Message</string>
+    <string name="messaging_list_search_placeholder">Search username</string>
+    <string name="messaging_list_no_suggestions">No suggestions</string>
+
+    <!-- Notifications (activity feed) -->
+    <string name="notifications_activity_title">Activity</string>
+    <string name="notifications_cd_messages">Messages</string>
+    <string name="notifications_cd_unlike">Unlike</string>
+    <string name="notifications_cd_like">Like</string>
+    <string name="notifications_empty_title">No activity yet</string>
+    <string name="notifications_empty_subtitle">When people like, comment, or save your cymbals, you’ll see it here</string>
+    <string name="notifications_replying_to_format">Replying to %1$s</string>
+    <string name="notifications_reply_placeholder">Reply…</string>
+    <string name="notifications_cd_send_reply">Send reply</string>
+    <string name="notifications_toast_reply_sent">Reply sent</string>
+    <string name="notifications_toast_reply_failed">Failed to send reply</string>
+
+    <!-- PostCard -->
+    <string name="post_card_reposted_from">reposted from</string>
+    <string name="post_card_cd_more_options">More options</string>
+    <string name="post_card_finding_back_cover">Finding back cover…</string>
+    <string name="post_card_no_back_cover">No back cover available</string>
+    <string name="post_card_cd_pause">Pause</string>
+    <string name="post_card_view_film_page">View Film Page</string>
+    <string name="post_card_watch_trailer">Watch Trailer</string>
+    <string name="post_card_cd_album_back_cover">Album back cover</string>
+    <string name="post_card_cd_play_spotify">Play on Spotify</string>
+    <string name="post_card_cd_like">Like</string>
+    <string name="post_card_cd_comment">Comment</string>
+    <string name="post_card_cd_share">Share</string>
+    <string name="post_card_cd_save">Save</string>
+    <string name="post_card_cd_watch_trailer">Watch Trailer</string>
+    <string name="post_card_liked_by_prefix">Liked by </string>
+    <string name="post_card_liked_by_and"> and </string>
+    <plurals name="post_card_others_count">
+        <item quantity="one">%d other</item>
+        <item quantity="other">%d others</item>
+    </plurals>
+
+    <!-- Featured cards -->
+    <string name="featured_cd_like">Like</string>
+    <string name="featured_cd_play_spotify">Play on Spotify</string>
+    <string name="featured_cd_watch_trailer">Watch Trailer</string>
+
+    <!-- Full screen image / avatar -->
+    <string name="full_screen_cd_avatar">Full screen avatar</string>
+    <string name="full_screen_cd_image">Full screen image</string>
+    <string name="full_screen_cd_close">Close</string>
+
+    <!-- GIF picker -->
+    <string name="gif_picker_search_placeholder">Search GIFs</string>
+    <string name="gif_picker_cd_search">Search</string>
+    <string name="gif_picker_cd_clear">Clear</string>
+    <string name="gif_picker_cd_gif">GIF</string>
+    <string name="gif_picker_powered_by">Powered by GIPHY</string>
+
+    <!-- Mention text / flair badges -->
+    <string name="mention_cd_corus">Corus</string>
+    <string name="mention_badge_first">1ST</string>
+    <string name="mention_badge_new_release">NEW RELEASE</string>
+    <string name="mention_badge_bot">BOT</string>
+    <string name="mention_searching">Searching…</string>
+
+    <!-- Mini player -->
+    <string name="mini_player_cd_pause">Pause</string>
+    <string name="mini_player_cd_play">Play</string>
+    <string name="mini_player_cd_next">Next</string>
+    <string name="mini_player_cd_open_spotify">Open in Spotify</string>
+
+    <!-- Post action menu -->
+    <string name="post_menu_play_spotify">Play in Spotify</string>
+    <string name="post_menu_view_film_page">View Film Page</string>
+    <string name="post_menu_view_song_page">View Song Page</string>
+    <string name="post_menu_view_front_cover">View Front Cover</string>
+    <string name="post_menu_view_back_cover">View Back Cover</string>
+    <string name="post_menu_repost">Repost</string>
+    <string name="post_menu_share">Share</string>
+    <string name="post_menu_copy_link">Copy Link</string>
+    <string name="post_menu_edit_caption">Edit Caption</string>
+    <string name="post_menu_delete_post">Delete Post</string>
+    <string name="post_menu_report">Report</string>
+    <string name="post_menu_block_user">Block User</string>
+    <string name="post_menu_clip_label_post_link">Post Link</string>
+
+    <!-- Post menu sheets (dialogs / toasts) -->
+    <string name="post_menu_toast_post_sent">Post sent!</string>
+    <string name="post_menu_toast_link_copied">Link copied</string>
+    <string name="post_menu_toast_caption_updated">Caption updated</string>
+    <string name="post_menu_dialog_delete_title">Delete Post</string>
+    <string name="post_menu_dialog_delete_message">Are you sure you want to delete this post? This cannot be undone.</string>
+    <string name="post_menu_dialog_delete_confirm">Delete</string>
+    <string name="post_menu_dialog_delete_cancel">Cancel</string>
+
+    <!-- Report sheet -->
+    <string name="report_cancel">Cancel</string>
+    <string name="report_title">Report</string>
+    <string name="report_submit">Submit</string>
+    <string name="report_why_post">Why are you reporting this post?</string>
+    <string name="report_why_comment">Why are you reporting this comment?</string>
+    <string name="report_why_user">Why are you reporting this user?</string>
+    <string name="report_why_message">Why are you reporting this message?</string>
+    <string name="report_reason_spam">Spam or scam</string>
+    <string name="report_reason_harassment">Harassment or bullying</string>
+    <string name="report_reason_hate">Hate speech</string>
+    <string name="report_reason_nudity">Nudity or sexual content</string>
+    <string name="report_reason_violence">Violence or threats</string>
+    <string name="report_reason_false_info">False information</string>
+    <string name="report_reason_ip_violation">Intellectual property violation</string>
+    <string name="report_reason_other">Other</string>
+    <string name="report_details_placeholder">Additional details (optional)</string>
+    <string name="report_thanks_title">Thanks for reporting</string>
+    <string name="report_thanks_message">We\'ll review this and take action if needed.</string>
+
+    <!-- Review prompt -->
+    <string name="review_prompt_title">Enjoying Corus?</string>
+    <string name="review_prompt_message">If you enjoy using Corus, would you mind taking a moment to rate it? It really helps!</string>
+    <string name="review_prompt_button">Leave a review</string>
+    <string name="review_prompt_not_now">Not now</string>
+
+    <!-- Selfie capture -->
+    <string name="selfie_cd_cancel">Cancel</string>
+    <string name="selfie_permission_title">Camera access needed</string>
+    <string name="selfie_permission_message">Allow camera access to take a profile photo.</string>
+    <string name="selfie_permission_cancel">Cancel</string>
+    <string name="selfie_permission_allow">Allow</string>
+
+    <!-- Share post sheet -->
+    <string name="share_post_search_placeholder">Search</string>
+    <string name="share_post_cd_clear">Clear</string>
+    <string name="share_post_cancel">Cancel</string>
+    <string name="share_post_no_results">No results found</string>
+    <string name="share_post_no_recent">No recent contacts</string>
+    <string name="share_post_message_placeholder">Write a message...</string>
+    <string name="share_post_send">Send</string>
+    <string name="share_post_repost">Repost</string>
+    <string name="share_post_whatsapp">WhatsApp</string>
+    <string name="share_post_share_link">Share Link</string>
+    <string name="share_post_share_chooser">Share via</string>
+    <string name="share_post_copy_link">Copy Link</string>
+    <string name="share_post_copied">Copied</string>
+    <string name="share_post_clip_label">Corus Link</string>
+    <string name="share_post_cd_selected">Selected</string>
+    <string name="share_post_cd_instagram">Instagram</string>
+    <string name="share_post_instagram">Instagram</string>
+
+    <!-- Song/Film picker sheet -->
+    <string name="song_film_picker_songs">Songs</string>
+    <string name="song_film_picker_films">Films</string>
+    <string name="song_film_picker_search_song">Search for a song</string>
+    <string name="song_film_picker_search_film">Search for a film</string>
+    <string name="song_film_picker_cd_clear">Clear</string>
+
+    <!-- Trophy celebration -->
+    <string name="trophy_cd_trophy">Trophy</string>
+    <string name="trophy_title">FIRST TO SHARE!</string>
+    <string name="trophy_subtitle">You\'re the first on Corus to post this</string>
+    <string name="trophy_button">NICE!</string>
+
+    <!-- User avatar -->
+    <string name="user_avatar_cd">User avatar</string>
+
+    <!-- Voice note recorder -->
+    <string name="voice_note_record">Record Voice Note</string>
+    <string name="voice_note_cd_stop">Stop recording</string>
+    <string name="voice_note_cd_pause">Pause</string>
+    <string name="voice_note_cd_play">Play</string>
+    <string name="voice_note_cd_delete">Delete recording</string>
+    <string name="voice_note_max_duration_format">/ %1$s</string>
+
+    <!-- Compose screen -->
+    <string name="compose_cd_back">Back</string>
+    <string name="compose_title">Set Corus</string>
+    <string name="compose_cancel">Cancel</string>
+    <string name="compose_search_song">Search for a song</string>
+    <string name="compose_search_film">Search for a film</string>
+    <string name="compose_cd_pause">Pause</string>
+    <string name="compose_cd_play_preview">Play preview</string>
+    <string name="compose_cd_pause_preview">Pause preview</string>
+    <string name="compose_segment_songs">Songs</string>
+    <string name="compose_segment_films">Films</string>
+    <string name="compose_segment_text">Text</string>
+    <string name="compose_segment_voice">Voice</string>
+    <string name="compose_caption_placeholder">Write a caption...</string>
+    <string name="compose_char_count_format">%1$d/700</string>
+    <string name="compose_post_button">SET YOUR CORUS →</string>
+    <string name="compose_reposted_from_format">Reposted from @%1$s</string>
+    <string name="compose_director_unknown">Unknown</string>
+    <string name="compose_trending_songs">TRENDING SONGS</string>
+    <string name="compose_trending_films">TRENDING FILMS</string>
+
+    <!-- Cymbal Club / Subscription -->
+    <string name="club_cd_close">Close</string>
+    <string name="club_title">Join the Corus Club</string>
+    <string name="club_subtitle_default">Support Corus. Get Perks.</string>
+    <string name="club_subtitle_vinyl_picker">Customize your vinyl and more.</string>
+    <string name="club_subtitle_frame_picker">Customize your frame and more.</string>
+    <string name="club_subtitle_flair_picker">Customize your badge flair and more.</string>
+    <string name="club_subtitle_spin_picker">Make your vinyl spin and more.</string>
+    <string name="club_subtitle_style_picker">Customize your profile style and more.</string>
+    <string name="club_subtitle_post_limit">Unlock unlimited posts.</string>
+    <string name="club_subtitle_first_post">Support Corus. Get Perks.</string>
+    <string name="club_subtitle_tenth_post">Support Corus. Get Perks.</string>
+    <string name="club_subtitle_playlist_limit">Unlock playlist generation.</string>
+    <string name="club_subtitle_settings">Support Corus. Get Perks.</string>
+    <string name="club_feature_unlimited">Unlimited posts</string>
+    <string name="club_feature_verified">Verified badge</string>
+    <string name="club_feature_customization">Profile customization</string>
+    <string name="club_feature_playlists">Generate Spotify playlists</string>
+    <string name="club_feature_support">Help keep Corus running</string>
+    <string name="club_disclaimer">Corus is built by a small team. Club members help keep Corus ad-free, independent, and growing.</string>
+    <string name="club_plan_monthly">Monthly</string>
+    <string name="club_plan_yearly">Yearly</string>
+    <string name="club_plan_monthly_price_format">%1$s/mo</string>
+    <string name="club_plan_yearly_price_format">%1$s/yr</string>
+    <string name="club_plan_save_badge">SAVE 58%</string>
+    <string name="club_plan_monthly_default_price">$2.99</string>
+    <string name="club_plan_yearly_default_price">$19.99</string>
+    <string name="club_cta_member">You\'re a member!</string>
+    <string name="club_cta_try_free_format">Try Free for %1$s</string>
+    <string name="club_cta_join">Join the Club</string>
+    <string name="club_monthly_detail_trial_format">%1$s free, then %2$s/mo</string>
+    <string name="club_monthly_detail_billed_format">Billed at %1$s/mo.</string>
+    <string name="club_yearly_detail_trial_format">%1$s free, then %2$s/yr</string>
+    <string name="club_yearly_detail_only_format">Only %1$s/mo</string>
+    <string name="club_period_year_one">1 year</string>
+    <string name="club_period_year_format">%1$d years</string>
+    <string name="club_period_month_one">1 month</string>
+    <string name="club_period_month_format">%1$d months</string>
+    <string name="club_period_week_one">1 week</string>
+    <string name="club_period_week_format">%1$d weeks</string>
+    <string name="club_period_day_one">1 day</string>
+    <string name="club_period_day_format">%1$d days</string>
+    <string name="club_toast_welcome">Welcome to the Club!</string>
+    <string name="club_toast_restored">Purchases restored!</string>
+    <string name="club_restore_purchases">Restore Purchases</string>
+    <string name="club_terms">Terms</string>
+    <string name="club_privacy">Privacy</string>
+    <string name="club_error_purchase_failed">Something went wrong. Please try again.</string>
+    <string name="club_error_no_subscription">No active subscription found.</string>
+    <string name="club_error_no_subscription_log">No active subscription found</string>
+
+    <!-- Hashtag feed -->
+    <string name="hashtag_feed_cd_back">Back</string>
+    <string name="hashtag_feed_count_format">%1$s coruses</string>
+    <string name="hashtag_feed_load_error">Couldn\'t load posts</string>
+    <string name="hashtag_feed_try_again">Try Again</string>
+    <string name="hashtag_feed_empty">No posts for this hashtag yet</string>
+
+    <!-- Navigation / tabs -->
+    <string name="nav_toast_caption_updated">Caption updated</string>
+    <string name="tab_cd_compose">Compose</string>
+
+    <!-- NowPlayingManager -->
+    <string name="now_playing_generating_playlist">Generating playlist…</string>
 </resources>

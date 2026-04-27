@@ -28,6 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
@@ -240,7 +241,7 @@ fun FeaturedMoviePosterView(
             ) {
                 Icon(
                     imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Like",
+                    contentDescription = stringResource(R.string.featured_cd_like),
                     tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
                     modifier = Modifier.size(20.dp),
                 )
@@ -259,7 +260,7 @@ fun FeaturedMoviePosterView(
                 Spacer(modifier = Modifier.width(CorusSpacing.md))
                 Image(
                     painter = painterResource(R.drawable.ic_play_rectangle_fill),
-                    contentDescription = "Watch Trailer",
+                    contentDescription = stringResource(R.string.featured_cd_watch_trailer),
                     modifier = Modifier
                         .height(22.dp)
                         .clickable(onClick = onTrailerTap),

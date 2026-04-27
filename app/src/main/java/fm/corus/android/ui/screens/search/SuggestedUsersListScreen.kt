@@ -12,6 +12,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,7 +32,7 @@ import fm.corus.android.ui.util.DateUtils
 @Composable
 fun SuggestedUsersListScreen(
     matches: List<SuggestedUserMatch>,
-    title: String = "Taste Matches",
+    title: String? = null,
     useRowLayout: Boolean = false,
     source: String = "tasteMatches",
     isLoading: Boolean = false,
@@ -44,14 +46,16 @@ fun SuggestedUsersListScreen(
     onNavigateToUser: (String) -> Unit = {},
     onBack: () -> Unit = {},
 ) {
+    val resolvedTitle = title ?: stringResource(fm.corus.android.R.string.suggested_users_default_title)
+    val context = LocalContext.current
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text(title, style = CorusFont.screenTitle, color = CorusColors.Text) },
+                title = { Text(resolvedTitle, style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
                     }
                 },
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -88,7 +92,7 @@ fun SuggestedUsersListScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("No suggestions available", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.R.string.suggested_users_empty), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
             }
         } else if (useRowLayout) {
             LazyColumn(
@@ -98,7 +102,7 @@ fun SuggestedUsersListScreen(
                 itemsIndexed(matches, key = { _, m -> m.id }) { index, match ->
                     SuggestedUserRow(
                         user = match.user,
-                        subtitle = subtitleForRow(match, source),
+                        subtitle = subtitleForRow(context, match, source),
                         isFollowed = isFollowed(match.user.id),
                         onTap = { onNavigateToUser(match.user.id) },
                         onFollow = { onFollow(match.user) },
@@ -133,13 +137,13 @@ fun SuggestedUsersListScreen(
     }
 }
 
-private fun subtitleForRow(match: SuggestedUserMatch, source: String): String? {
+private fun subtitleForRow(context: android.content.Context, match: SuggestedUserMatch, source: String): String? {
     return when (source) {
         "popular" -> {
             val count = match.user.followerCount
-            if (count == 1) "1 follower" else "$count followers"
+            context.resources.getQuantityString(fm.corus.android.R.plurals.search_followers_count, count, count)
         }
-        "new" -> match.user.createdAt?.let { "Joined ${DateUtils.relativeTime(it)} ago" }
-        else -> formatMutualFollowersText(match.suggestionReason?.mutualNames)
+        "new" -> match.user.createdAt?.let { context.getString(fm.corus.android.R.string.suggested_users_joined_format, DateUtils.relativeTime(context, it)) }
+        else -> formatMutualFollowersText(context, match.suggestionReason?.mutualNames)
     }
 }

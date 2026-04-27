@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,10 +28,10 @@ fun ContactFriendsListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Friends on Corus", style = CorusFont.screenTitle, color = CorusColors.Text) },
+                title = { Text(stringResource(fm.corus.android.R.string.contacts_list_title), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
@@ -43,7 +44,7 @@ fun ContactFriendsListScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("No contacts found on Corus", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.R.string.contacts_list_empty), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
             }
         } else {
             LazyColumn(
@@ -53,7 +54,7 @@ fun ContactFriendsListScreen(
                 items(users, key = { it.id }) { user ->
                     SuggestedUserRow(
                         user = user,
-                        subtitle = "From your contacts",
+                        subtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts),
                         isFollowed = isFollowed(user.id),
                         onTap = { onNavigateToUser(user.id) },
                         onFollow = { onFollow(user) },

@@ -24,6 +24,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
@@ -81,11 +82,11 @@ fun EditProfileScreen(
     if (saveError != null) {
         AlertDialog(
             onDismissRequest = { viewModel.clearSaveError() },
-            title = { Text("Error", style = CorusFont.songTitle, color = CorusColors.Text) },
+            title = { Text(stringResource(R.string.common_error), style = CorusFont.songTitle, color = CorusColors.Text) },
             text = { Text(saveError!!, style = CorusFont.body, color = CorusColors.Text) },
             confirmButton = {
                 TextButton(onClick = { viewModel.clearSaveError() }) {
-                    Text("OK", style = CorusFont.button, color = CorusColors.Accent)
+                    Text(stringResource(R.string.common_ok), style = CorusFont.button, color = CorusColors.Accent)
                 }
             },
             containerColor = CorusColors.Background,
@@ -99,8 +100,8 @@ fun EditProfileScreen(
                 showDiscardDialog = false
                 pendingAction = null
             },
-            title = { Text("Unsaved Changes", style = CorusFont.songTitle, color = CorusColors.Text) },
-            text = { Text("You have unsaved changes to your profile.", style = CorusFont.body, color = CorusColors.Text) },
+            title = { Text(stringResource(R.string.edit_profile_dialog_unsaved_title), style = CorusFont.songTitle, color = CorusColors.Text) },
+            text = { Text(stringResource(R.string.edit_profile_dialog_unsaved_message), style = CorusFont.body, color = CorusColors.Text) },
             confirmButton = {
                 TextButton(onClick = {
                     showDiscardDialog = false
@@ -109,17 +110,17 @@ fun EditProfileScreen(
                     when (action) {
                         "customize" -> onCustomizeProfile()
                         "share" -> {
-                            val shareText = "Check out my profile on Corus: https://corus.fm/user/$username"
+                            val shareText = context.getString(R.string.edit_profile_share_text_format, username)
                             val intent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, shareText)
                             }
-                            context.startActivity(Intent.createChooser(intent, "Share Profile"))
+                            context.startActivity(Intent.createChooser(intent, context.getString(R.string.edit_profile_share_chooser)))
                         }
                         else -> onBack()
                     }
                 }) {
-                    Text("Discard", style = CorusFont.button, color = CorusColors.Error)
+                    Text(stringResource(R.string.edit_profile_dialog_discard), style = CorusFont.button, color = CorusColors.Error)
                 }
             },
             dismissButton = {
@@ -127,7 +128,7 @@ fun EditProfileScreen(
                     showDiscardDialog = false
                     pendingAction = null
                 }) {
-                    Text("Keep Editing", style = CorusFont.button, color = CorusColors.Accent)
+                    Text(stringResource(R.string.edit_profile_dialog_keep_editing), style = CorusFont.button, color = CorusColors.Accent)
                 }
             },
             containerColor = CorusColors.Background,
@@ -137,10 +138,10 @@ fun EditProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit Profile", style = CorusFont.screenTitle, color = CorusColors.Text) },
+                title = { Text(stringResource(R.string.edit_profile_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.Close, contentDescription = "Cancel", tint = CorusColors.Text)
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.edit_profile_cd_cancel), tint = CorusColors.Text)
                     }
                 },
                 actions = {
@@ -152,7 +153,7 @@ fun EditProfileScreen(
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CorusColors.Accent)
                         } else {
                             Text(
-                                "Save",
+                                stringResource(R.string.edit_profile_save),
                                 style = CorusFont.button,
                                 color = if (canSave) CorusColors.Accent else CorusColors.Tertiary,
                             )
@@ -188,7 +189,7 @@ fun EditProfileScreen(
         ) {
             // Name field
             EditField(
-                label = "NAME",
+                label = stringResource(R.string.edit_profile_field_name),
                 value = displayName,
                 onValueChange = { viewModel.updateDisplayName(it) },
                 singleLine = true,
@@ -196,7 +197,7 @@ fun EditProfileScreen(
 
             // Username field
             Column {
-                Text("USERNAME", style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+                Text(stringResource(R.string.edit_profile_field_username), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
                 val borderColor = when (usernameState) {
@@ -229,13 +230,13 @@ fun EditProfileScreen(
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CorusColors.Accent)
                             }
                             EditProfileViewModel.UsernameState.AVAILABLE -> {
-                                Icon(Icons.Filled.Check, contentDescription = "Available", tint = CorusColors.Verified)
+                                Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.edit_profile_cd_available), tint = CorusColors.Verified)
                             }
                             EditProfileViewModel.UsernameState.TAKEN -> {
-                                Icon(Icons.Filled.Close, contentDescription = "Taken", tint = CorusColors.Error)
+                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.edit_profile_cd_taken), tint = CorusColors.Error)
                             }
                             EditProfileViewModel.UsernameState.INVALID -> {
-                                Icon(Icons.Filled.Close, contentDescription = "Invalid", tint = CorusColors.Error)
+                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.edit_profile_cd_invalid), tint = CorusColors.Error)
                             }
                             else -> {}
                         }
@@ -245,11 +246,11 @@ fun EditProfileScreen(
                 when (usernameState) {
                     EditProfileViewModel.UsernameState.TAKEN -> {
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                        Text("Username is taken", style = CorusFont.caption, color = CorusColors.Error)
+                        Text(stringResource(R.string.edit_profile_username_taken), style = CorusFont.caption, color = CorusColors.Error)
                     }
                     EditProfileViewModel.UsernameState.INVALID -> {
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                        Text("Letters, numbers, underscores, periods only", style = CorusFont.caption, color = CorusColors.Error)
+                        Text(stringResource(R.string.edit_profile_username_invalid), style = CorusFont.caption, color = CorusColors.Error)
                     }
                     else -> {}
                 }
@@ -257,7 +258,7 @@ fun EditProfileScreen(
 
             // Bio field
             EditField(
-                label = "BIO",
+                label = stringResource(R.string.edit_profile_field_bio),
                 value = bio,
                 onValueChange = { viewModel.updateBio(it) },
                 singleLine = false,
@@ -267,7 +268,7 @@ fun EditProfileScreen(
 
             // Website field
             EditField(
-                label = "WEBSITE",
+                label = stringResource(R.string.edit_profile_field_website),
                 value = website,
                 onValueChange = { viewModel.updateWebsite(it) },
                 singleLine = true,
@@ -299,7 +300,7 @@ fun EditProfileScreen(
                     tint = CorusColors.Accent,
                 )
                 Text(
-                    "Customize Profile Style",
+                    stringResource(R.string.edit_profile_row_customize),
                     style = CorusFont.bodyMedium,
                     color = CorusColors.Text,
                     modifier = Modifier.weight(1f),
@@ -317,12 +318,12 @@ fun EditProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
-                        val shareText = "Check out my profile on Corus: https://corus.fm/user/$username"
+                        val shareText = context.getString(R.string.edit_profile_share_text_format, username)
                         val intent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, shareText)
                         }
-                        context.startActivity(Intent.createChooser(intent, "Share Profile"))
+                        context.startActivity(Intent.createChooser(intent, context.getString(R.string.edit_profile_share_chooser)))
                     }
                     .padding(vertical = CorusSpacing.md),
                 verticalAlignment = Alignment.CenterVertically,
@@ -335,7 +336,7 @@ fun EditProfileScreen(
                     tint = CorusColors.Accent,
                 )
                 Text(
-                    "Share Profile Link",
+                    stringResource(R.string.edit_profile_row_share_link),
                     style = CorusFont.bodyMedium,
                     color = CorusColors.Text,
                     modifier = Modifier.weight(1f),

@@ -42,6 +42,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -158,17 +159,18 @@ fun OtherProfileScreen(
                 title = { },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
                     }
                 },
                 actions = {
                     // Post notifications bell button (matching iOS)
+                    val notifContext = LocalContext.current
                     IconButton(onClick = {
                         val username = profile?.username ?: ""
                         if (!isSubscribedToNotifications) {
-                            ToastManager.show("You'll be notified when @$username posts")
+                            ToastManager.show(notifContext.getString(fm.corus.android.R.string.other_profile_toast_will_notify_format, username))
                         } else {
-                            ToastManager.show("Notifications off for @$username")
+                            ToastManager.show(notifContext.getString(fm.corus.android.R.string.other_profile_toast_notifications_off_format, username))
                         }
                         viewModel.togglePostNotifications(userId)
                     }) {
@@ -177,7 +179,7 @@ fun OtherProfileScreen(
                                 Icons.Filled.Notifications
                             else
                                 Icons.Outlined.NotificationsNone,
-                            contentDescription = if (isSubscribedToNotifications) "Stop Notifying" else "Post Notifications",
+                            contentDescription = if (isSubscribedToNotifications) stringResource(fm.corus.android.R.string.other_profile_cd_stop_notifying) else stringResource(fm.corus.android.R.string.other_profile_cd_post_notifications),
                             tint = if (isSubscribedToNotifications) CorusColors.Accent else CorusColors.Text,
                             modifier = Modifier.size(22.dp),
                         )
@@ -185,7 +187,7 @@ fun OtherProfileScreen(
 
                     // Dedicated message button (matching iOS outlined envelope icon)
                     IconButton(onClick = { onNavigateToMessages("", userId) }) {
-                        Icon(Icons.Outlined.Email, contentDescription = "Message", tint = CorusColors.Text, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Outlined.Email, contentDescription = stringResource(fm.corus.android.R.string.other_profile_cd_message), tint = CorusColors.Text, modifier = Modifier.size(20.dp))
                     }
 
                     Box {
@@ -194,7 +196,7 @@ fun OtherProfileScreen(
                         val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
 
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = CorusColors.Text)
+                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(fm.corus.android.R.string.other_profile_cd_menu), tint = CorusColors.Text)
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -203,7 +205,7 @@ fun OtherProfileScreen(
                             // View Spotify Playlist (only for non-film-bot profiles)
                             if (profile?.isFilmBot != true) {
                                 DropdownMenuItem(
-                                    text = { Text("View Spotify Playlist", style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.R.string.other_profile_menu_view_playlist), style = CorusFont.body) },
                                     leadingIcon = {
                                         Icon(
                                             painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
@@ -220,7 +222,7 @@ fun OtherProfileScreen(
                             }
                             // Share Profile
                             DropdownMenuItem(
-                                text = { Text("Share Profile", style = CorusFont.body) },
+                                text = { Text(stringResource(fm.corus.android.R.string.other_profile_menu_share_profile), style = CorusFont.body) },
                                 leadingIcon = {
                                     Icon(
                                         Icons.Filled.Share,
@@ -241,7 +243,7 @@ fun OtherProfileScreen(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        if (isMuted) "Unmute" else "Mute",
+                                        if (isMuted) stringResource(fm.corus.android.R.string.other_profile_menu_unmute) else stringResource(fm.corus.android.R.string.other_profile_menu_mute),
                                         style = CorusFont.body,
                                     )
                                 },
@@ -262,7 +264,7 @@ fun OtherProfileScreen(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            "Report",
+                                            stringResource(fm.corus.android.R.string.other_profile_menu_report),
                                             style = CorusFont.body,
                                             color = CorusColors.Error,
                                         )
@@ -273,7 +275,7 @@ fun OtherProfileScreen(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            if (isBlocked) "Unblock" else "Block",
+                                            if (isBlocked) stringResource(fm.corus.android.R.string.other_profile_menu_unblock) else stringResource(fm.corus.android.R.string.other_profile_menu_block),
                                             style = CorusFont.body,
                                             color = CorusColors.Error,
                                         )
@@ -339,9 +341,9 @@ fun OtherProfileScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
                                     ) {
-                                        StatItem(count = initialCymbalCount ?: 0, label = "coruses")
-                                        StatItem(count = initialFollowerCount ?: 0, label = "followers")
-                                        StatItem(count = initialFollowingCount ?: 0, label = "following")
+                                        StatItem(count = initialCymbalCount ?: 0, label = stringResource(fm.corus.android.R.string.profile_stat_coruses))
+                                        StatItem(count = initialFollowerCount ?: 0, label = stringResource(fm.corus.android.R.string.profile_stat_followers))
+                                        StatItem(count = initialFollowingCount ?: 0, label = stringResource(fm.corus.android.R.string.profile_stat_following))
                                     }
 
                                     Spacer(modifier = Modifier.height(CorusSpacing.sm))
@@ -364,7 +366,7 @@ fun OtherProfileScreen(
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Text(
-                                                text = if (hintFollowing) "FOLLOWING" else "FOLLOW",
+                                                text = if (hintFollowing) stringResource(fm.corus.android.R.string.other_profile_button_following) else stringResource(fm.corus.android.R.string.other_profile_button_follow),
                                                 style = CorusFont.button,
                                                 color = if (hintFollowing) CorusColors.Secondary else Color.White,
                                             )
@@ -383,12 +385,12 @@ fun OtherProfileScreen(
                                             ) {
                                                 Icon(
                                                     painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
-                                                    contentDescription = "Playlist",
+                                                    contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
                                                     modifier = Modifier.size(14.dp),
                                                     tint = CorusColors.Secondary,
                                                 )
                                                 Text(
-                                                    text = "PLAYLIST",
+                                                    text = stringResource(fm.corus.android.R.string.profile_button_playlist),
                                                     style = CorusFont.button,
                                                     color = CorusColors.Secondary,
                                                 )
@@ -432,7 +434,11 @@ fun OtherProfileScreen(
                             val selectedLineColor = CorusColors.Text
                             val unselectedLineColor = CorusColors.Divider
                             Row(modifier = Modifier.fillMaxWidth()) {
-                                listOf("MUSIC", "FILM", "LIKES").forEachIndexed { index, title ->
+                                listOf(
+                                    stringResource(fm.corus.android.R.string.profile_tab_music),
+                                    stringResource(fm.corus.android.R.string.profile_tab_film),
+                                    stringResource(fm.corus.android.R.string.other_profile_tab_likes),
+                                ).forEachIndexed { index, title ->
                                     val isSelected = index == 0
                                     Column(
                                         modifier = Modifier
@@ -503,10 +509,10 @@ fun OtherProfileScreen(
                         tint = CorusColors.Tertiary,
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
-                    Text("You blocked this user", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                    Text(stringResource(fm.corus.android.R.string.other_profile_blocked_message), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                     Spacer(modifier = Modifier.height(CorusSpacing.sm))
                     TextButton(onClick = { viewModel.unblockUser(userId) }) {
-                        Text("Unblock", style = CorusFont.button, color = CorusColors.Accent)
+                        Text(stringResource(fm.corus.android.R.string.common_unblock), style = CorusFont.button, color = CorusColors.Accent)
                     }
                 }
             }
@@ -591,15 +597,15 @@ fun OtherProfileScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
                             ) {
-                                StatItem(count = currentProfile.cymbalCount, label = "coruses")
+                                StatItem(count = currentProfile.cymbalCount, label = stringResource(fm.corus.android.R.string.profile_stat_coruses))
                                 StatItem(
                                     count = currentProfile.followerCount,
-                                    label = "followers",
+                                    label = stringResource(fm.corus.android.R.string.profile_stat_followers),
                                     modifier = Modifier.clickable { onNavigateToFollowList(userId, true) },
                                 )
                                 StatItem(
                                     count = currentProfile.followingCount,
-                                    label = "following",
+                                    label = stringResource(fm.corus.android.R.string.profile_stat_following),
                                     modifier = Modifier.clickable { onNavigateToFollowList(userId, false) },
                                 )
                             }
@@ -625,7 +631,7 @@ fun OtherProfileScreen(
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(
-                                        text = if (isFollowing) "FOLLOWING" else "FOLLOW",
+                                        text = if (isFollowing) stringResource(fm.corus.android.R.string.other_profile_button_following) else stringResource(fm.corus.android.R.string.other_profile_button_follow),
                                         style = CorusFont.button,
                                         color = if (isFollowing) CorusColors.Secondary else Color.White,
                                         maxLines = 1,
@@ -633,6 +639,7 @@ fun OtherProfileScreen(
                                 }
 
                                 // Playlist button
+                                val playlistContext = LocalContext.current
                                 val hasSongs = posts.any { it.mediaType == MediaType.TRACK }
                                 val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
                                 val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
@@ -650,7 +657,7 @@ fun OtherProfileScreen(
                                         .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
                                         .clickable(enabled = hasSongs && !isGeneratingPlaylist) {
                                             if (!hasSongs) {
-                                                ToastManager.show("No songs to make a playlist")
+                                                ToastManager.show(playlistContext.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
                                             } else {
                                                 viewModel.generatePlaylist(userId)
                                             }
@@ -675,7 +682,7 @@ fun OtherProfileScreen(
                                             tint = CorusColors.Secondary,
                                         )
                                         Text(
-                                            text = "PLAYLIST",
+                                            text = stringResource(fm.corus.android.R.string.profile_button_playlist),
                                             style = CorusFont.button,
                                             color = CorusColors.Secondary,
                                             maxLines = 1,
@@ -749,10 +756,13 @@ fun OtherProfileScreen(
                     Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
                     // Segment control — bots only show their content type (no tabs)
+                    val tabMusic = stringResource(fm.corus.android.R.string.profile_tab_music)
+                    val tabFilm = stringResource(fm.corus.android.R.string.profile_tab_film)
+                    val tabLikes = stringResource(fm.corus.android.R.string.other_profile_tab_likes)
                     val tabs = when {
-                        currentProfile.isMusicBot -> listOf("MUSIC")
-                        currentProfile.isFilmBot -> listOf("FILM")
-                        else -> listOf("MUSIC", "FILM", "LIKES")
+                        currentProfile.isMusicBot -> listOf(tabMusic)
+                        currentProfile.isFilmBot -> listOf(tabFilm)
+                        else -> listOf(tabMusic, tabFilm, tabLikes)
                     }
                     if (!currentProfile.isBot) {
                         val tabSelectedColor = CorusColors.Text
@@ -880,12 +890,15 @@ fun OtherProfileScreen(
                                 .height(200.dp),
                             contentAlignment = Alignment.Center,
                         ) {
+                            val noSongsMsg = stringResource(fm.corus.android.R.string.other_profile_empty_no_songs)
+                            val noFilmsMsg = stringResource(fm.corus.android.R.string.other_profile_empty_no_films)
+                            val noLikedMsg = stringResource(fm.corus.android.R.string.other_profile_empty_no_liked)
                             val (icon, message) = when {
                                 currentProfile.isMusicBot || (!currentProfile.isBot && selectedSegment == 0) ->
-                                    Icons.Filled.MusicNote to "No songs yet"
+                                    Icons.Filled.MusicNote to noSongsMsg
                                 currentProfile.isFilmBot || (!currentProfile.isBot && selectedSegment == 1) ->
-                                    Icons.Filled.Movie to "No films yet"
-                                else -> Icons.Outlined.FavoriteBorder to "No liked posts yet"
+                                    Icons.Filled.Movie to noFilmsMsg
+                                else -> Icons.Outlined.FavoriteBorder to noLikedMsg
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(

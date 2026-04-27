@@ -20,9 +20,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
@@ -171,7 +173,7 @@ fun FeedScreen(
 
                     // Invite friends section
                     Text(
-                        text = "corus is fun with\njust a few friends.",
+                        text = stringResource(R.string.feed_empty_invite_title),
                         style = CorusFont.songTitleLarge,
                         color = CorusColors.Text,
                         textAlign = TextAlign.Center,
@@ -180,7 +182,7 @@ fun FeedScreen(
                     Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
                     Text(
-                        text = "know someone with good taste?",
+                        text = stringResource(R.string.feed_empty_invite_subtitle),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,
@@ -188,14 +190,16 @@ fun FeedScreen(
 
                     Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
+                    val inviteShareText = stringResource(R.string.feed_empty_invite_share_text)
+                    val inviteChooser = stringResource(R.string.feed_empty_invite_chooser)
                     Button(
                         onClick = {
                             val sendIntent = Intent().apply {
                                 action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, "Check out Corus — share your music & movie taste! https://corus.fm")
+                                putExtra(Intent.EXTRA_TEXT, inviteShareText)
                                 type = "text/plain"
                             }
-                            context.startActivity(Intent.createChooser(sendIntent, "Invite Friends"))
+                            context.startActivity(Intent.createChooser(sendIntent, inviteChooser))
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = CorusColors.Accent,
@@ -203,7 +207,7 @@ fun FeedScreen(
                         shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                     ) {
                         Text(
-                            text = "invite friends",
+                            text = stringResource(R.string.feed_empty_invite_button),
                             style = CorusFont.button,
                             color = CorusColors.Background,
                         )
@@ -213,7 +217,7 @@ fun FeedScreen(
 
                     // Curated music bots section
                     if (curatedMusicBots.isNotEmpty()) {
-                        DividerSectionHeader(text = "or follow some curated music bots")
+                        DividerSectionHeader(text = stringResource(R.string.feed_empty_curated_music))
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         FeedBotGrid(
                             bots = curatedMusicBots.take(2),
@@ -225,7 +229,7 @@ fun FeedScreen(
                             Spacer(modifier = Modifier.height(CorusSpacing.sm))
                             TextButton(onClick = { onNavigateToBotList("music") }) {
                                 Text(
-                                    text = "See all",
+                                    text = stringResource(R.string.feed_empty_see_all),
                                     style = CorusFont.buttonSmall,
                                     color = CorusColors.Accent,
                                 )
@@ -236,7 +240,7 @@ fun FeedScreen(
 
                     // Curated film bots section
                     if (curatedFilmBots.isNotEmpty()) {
-                        DividerSectionHeader(text = "or some curated film bots")
+                        DividerSectionHeader(text = stringResource(R.string.feed_empty_curated_film))
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         FeedBotGrid(
                             bots = curatedFilmBots.take(2),
@@ -248,7 +252,7 @@ fun FeedScreen(
                             Spacer(modifier = Modifier.height(CorusSpacing.sm))
                             TextButton(onClick = { onNavigateToBotList("film") }) {
                                 Text(
-                                    text = "See all",
+                                    text = stringResource(R.string.feed_empty_see_all),
                                     style = CorusFont.buttonSmall,
                                     color = CorusColors.Accent,
                                 )
@@ -502,7 +506,7 @@ private fun FeedHeader(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "corus",
+            text = stringResource(R.string.feed_app_title),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
         )
@@ -522,7 +526,7 @@ private fun FeedHeader(
                 } else {
                     Icon(
                         imageVector = Icons.Filled.QueueMusic,
-                        contentDescription = "Generate feed playlist",
+                        contentDescription = stringResource(R.string.feed_cd_generate_playlist),
                         tint = CorusColors.Secondary,
                         modifier = Modifier.size(22.dp),
                     )
@@ -534,7 +538,7 @@ private fun FeedHeader(
             IconButton(onClick = { onFilterMenuExpandedChange(true) }) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.List,
-                    contentDescription = "Filter",
+                    contentDescription = stringResource(R.string.feed_cd_filter),
                     tint = if (feedMediaFilter != null) CorusColors.Accent else CorusColors.Secondary,
                 )
             }
@@ -543,21 +547,21 @@ private fun FeedHeader(
                 onDismissRequest = { onFilterMenuExpandedChange(false) },
             ) {
                 DropdownMenuItem(
-                    text = { Text("All") },
+                    text = { Text(stringResource(R.string.feed_filter_all)) },
                     onClick = {
                         onSetFilter(null)
                         onFilterMenuExpandedChange(false)
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Music") },
+                    text = { Text(stringResource(R.string.feed_filter_music)) },
                     onClick = {
                         onSetFilter(MediaType.TRACK)
                         onFilterMenuExpandedChange(false)
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Film") },
+                    text = { Text(stringResource(R.string.feed_filter_film)) },
                     onClick = {
                         onSetFilter(MediaType.MOVIE)
                         onFilterMenuExpandedChange(false)

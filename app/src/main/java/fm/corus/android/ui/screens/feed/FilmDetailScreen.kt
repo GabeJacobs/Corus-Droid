@@ -22,11 +22,14 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.ui.components.SkeletonFilmDetailHeader
 import fm.corus.android.ui.components.SkeletonUserRow
@@ -83,7 +86,7 @@ fun FilmDetailScreen(
                 title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.feed_cd_back), tint = CorusColors.Text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
@@ -137,7 +140,7 @@ fun FilmDetailScreen(
                         )
                         if (!header.releaseYear.isNullOrBlank()) {
                             Text(
-                                text = "(${header.releaseYear})",
+                                text = stringResource(R.string.film_detail_year_format, header.releaseYear),
                                 style = CorusFont.artistName,
                                 color = CorusColors.Tertiary,
                             )
@@ -180,7 +183,7 @@ fun FilmDetailScreen(
                                     modifier = Modifier.size(14.dp),
                                 )
                                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                                Text("Post Film", style = CorusFont.buttonSmall)
+                                Text(stringResource(R.string.film_detail_post_film), style = CorusFont.buttonSmall)
                             }
 
                             // Watch Trailer capsule
@@ -202,7 +205,7 @@ fun FilmDetailScreen(
                                         modifier = Modifier.size(14.dp),
                                     )
                                     Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                                    Text("Watch Trailer", style = CorusFont.buttonSmall)
+                                    Text(stringResource(R.string.film_detail_watch_trailer), style = CorusFont.buttonSmall)
                                 }
                             }
                         }
@@ -227,7 +230,7 @@ fun FilmDetailScreen(
                                     tint = CorusColors.Accent,
                                 )
                                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                                Text("Where to Watch", style = CorusFont.buttonSmall, color = CorusColors.Accent)
+                                Text(stringResource(R.string.film_detail_where_to_watch), style = CorusFont.buttonSmall, color = CorusColors.Accent)
                             }
                         }
                     }
@@ -242,7 +245,7 @@ fun FilmDetailScreen(
             if (isLoading) {
                 item {
                     Text(
-                        text = "Posted by",
+                        text = stringResource(R.string.film_detail_posted_by),
                         style = CorusFont.sectionHeader,
                         color = CorusColors.Secondary,
                         modifier = Modifier
@@ -267,10 +270,10 @@ fun FilmDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text("Couldn't load posts", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(R.string.film_detail_load_error), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         TextButton(onClick = { viewModel.loadMoviePosts(movieId) }) {
-                            Text("Try Again", style = CorusFont.buttonSmall, color = CorusColors.Accent)
+                            Text(stringResource(R.string.film_detail_try_again), style = CorusFont.buttonSmall, color = CorusColors.Accent)
                         }
                     }
                 }
@@ -280,7 +283,7 @@ fun FilmDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text("No one has posted this film yet", style = CorusFont.body, color = CorusColors.Secondary)
+                        Text(stringResource(R.string.film_detail_empty), style = CorusFont.body, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Button(
                             onClick = { onNavigateToCompose(movieId) },
@@ -291,7 +294,7 @@ fun FilmDetailScreen(
                             ),
                             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                         ) {
-                            Text("Be the first!", style = CorusFont.buttonSmall)
+                            Text(stringResource(R.string.film_detail_be_the_first), style = CorusFont.buttonSmall)
                         }
                     }
                 }
@@ -299,7 +302,7 @@ fun FilmDetailScreen(
                 item {
                     val count = uniquePosterCount ?: posts.map { it.user.id }.toSet().size
                     Text(
-                        text = "Posted by ${formatFilmUserCount(count)} user${if (count != 1) "s" else ""}",
+                        text = pluralStringResource(R.plurals.film_detail_posted_by_count, count, formatFilmUserCount(count)),
                         style = CorusFont.sectionHeader,
                         color = CorusColors.Secondary,
                         modifier = Modifier
@@ -376,7 +379,7 @@ private fun FilmPostedByRow(
             )
         }
         Text(
-            text = DateUtils.relativeTime(post.timestamp),
+            text = DateUtils.relativeTime(LocalContext.current, post.timestamp),
             style = CorusFont.caption,
             color = CorusColors.Tertiary,
         )

@@ -7,10 +7,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.R
 import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.applyMention
 import fm.corus.android.ui.components.parseMentionQuery
@@ -47,10 +49,10 @@ fun EditCaptionSheet(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit Caption", style = CorusFont.screenTitle, color = CorusColors.Text) },
+                title = { Text(stringResource(R.string.edit_caption_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", style = CorusFont.body, color = CorusColors.Secondary)
+                        Text(stringResource(R.string.common_cancel), style = CorusFont.body, color = CorusColors.Secondary)
                     }
                 },
                 actions = {
@@ -75,7 +77,7 @@ fun EditCaptionSheet(
                                 color = CorusColors.Accent,
                             )
                         } else {
-                            Text("Save", style = CorusFont.button, color = CorusColors.Accent)
+                            Text(stringResource(R.string.common_save), style = CorusFont.button, color = CorusColors.Accent)
                         }
                     }
                 },
@@ -105,7 +107,7 @@ fun EditCaptionSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
-                placeholder = { Text("Write a caption...", style = CorusFont.body, color = CorusColors.Tertiary) },
+                placeholder = { Text(stringResource(R.string.edit_caption_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
                 textStyle = CorusFont.body.copy(color = CorusColors.Text),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,

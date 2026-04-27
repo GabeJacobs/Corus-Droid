@@ -1,8 +1,11 @@
 package fm.corus.android.ui.screens.feed
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
@@ -34,6 +37,7 @@ class PostDetailViewModel @Inject constructor(
     val nowPlayingManager: NowPlayingManager,
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
+    @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
 
     override suspend fun fetchBackCover(postId: String): String? {
@@ -164,9 +168,9 @@ class PostDetailViewModel @Inject constructor(
             try {
                 postRepository.deletePost(postId, userId)
                 authRepository.bumpCymbalCount(-1)
-                ToastManager.show("Post deleted")
+                ToastManager.show(context.getString(R.string.feed_toast_post_deleted))
             } catch (_: Exception) {
-                ToastManager.show("Failed to delete post")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_delete))
             }
         }
     }
@@ -249,7 +253,7 @@ class PostDetailViewModel @Inject constructor(
                     )
                 }
             } catch (_: Exception) {
-                ToastManager.show("Failed to send post")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_send_post))
             }
         }
     }
@@ -266,9 +270,9 @@ class PostDetailViewModel @Inject constructor(
                     reason = "reported_from_feed",
                     details = "",
                 )
-                ToastManager.show("Post reported")
+                ToastManager.show(context.getString(R.string.feed_toast_post_reported))
             } catch (_: Exception) {
-                ToastManager.show("Failed to report post")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_report))
             }
         }
     }
@@ -278,9 +282,9 @@ class PostDetailViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 userRepository.blockUser(currentUserId, targetUserId)
-                ToastManager.show("User blocked")
+                ToastManager.show(context.getString(R.string.feed_toast_user_blocked))
             } catch (_: Exception) {
-                ToastManager.show("Failed to block user")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_block))
             }
         }
     }

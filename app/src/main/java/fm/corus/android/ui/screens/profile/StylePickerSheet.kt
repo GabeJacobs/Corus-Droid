@@ -32,6 +32,7 @@ import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -151,7 +152,7 @@ fun StylePickerSheet(
             IconButton(onClick = onDismiss) {
                 Icon(
                     Icons.Filled.Close,
-                    contentDescription = "Close",
+                    contentDescription = stringResource(R.string.style_picker_cd_close),
                     tint = CorusColors.Secondary,
                 )
             }
@@ -208,7 +209,7 @@ fun StylePickerSheet(
                     username = username,
                 )
                 StylePage.RAIN -> EffectTogglePage(
-                    title = "Rain Effect",
+                    title = stringResource(R.string.style_picker_rain_effect),
                     entries = RainIntensity.entries,
                     selected = draft.rainEffect,
                     onSelect = { newValue ->
@@ -228,7 +229,7 @@ fun StylePickerSheet(
                     },
                 )
                 StylePage.SNOW -> EffectTogglePage(
-                    title = "Snow Effect",
+                    title = stringResource(R.string.style_picker_snow_effect),
                     entries = SnowIntensity.entries,
                     selected = draft.snowEffect,
                     onSelect = { newValue ->
@@ -248,7 +249,7 @@ fun StylePickerSheet(
                     },
                 )
                 StylePage.DISCO -> EffectTogglePage(
-                    title = "Disco Effect",
+                    title = stringResource(R.string.style_picker_disco_effect),
                     entries = DiscoIntensity.entries,
                     selected = draft.discoEffect,
                     onSelect = { draft = draft.copy(discoEffect = it) },
@@ -296,7 +297,7 @@ fun StylePickerSheet(
                     color = Color.White,
                 )
             } else {
-                Text("Save Changes", style = CorusFont.bodyMedium)
+                Text(stringResource(R.string.style_picker_save_changes), style = CorusFont.bodyMedium)
             }
         }
     }
@@ -319,7 +320,7 @@ private fun VinylColorPickerPage(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Choose Vinyl Color",
+            text = stringResource(R.string.style_picker_choose_vinyl),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
             modifier = Modifier.padding(top = CorusSpacing.xl),
@@ -457,7 +458,7 @@ private fun VinylSpinTogglePage(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Vinyl Spin",
+            text = stringResource(R.string.style_picker_vinyl_spin),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
             modifier = Modifier.padding(top = CorusSpacing.xl),
@@ -479,10 +480,10 @@ private fun VinylSpinTogglePage(
             modifier = Modifier.padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
-            SpinOptionCard(label = "Off", isSelected = !spinning) {
+            SpinOptionCard(label = stringResource(R.string.style_picker_off), isSelected = !spinning) {
                 onSpinningChange(false)
             }
-            SpinOptionCard(label = "On", isSelected = spinning) {
+            SpinOptionCard(label = stringResource(R.string.style_picker_on), isSelected = spinning) {
                 onSpinningChange(true)
             }
         }
@@ -545,7 +546,7 @@ private fun FrameColorPickerPage(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Choose Frame Color",
+            text = stringResource(R.string.style_picker_choose_frame),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
             modifier = Modifier.padding(top = CorusSpacing.xl),
@@ -670,7 +671,7 @@ private fun FlairPickerPage(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Choose Badge Flair",
+            text = stringResource(R.string.style_picker_choose_flair),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
             modifier = Modifier.padding(top = CorusSpacing.xl),
@@ -724,7 +725,7 @@ private fun FlairPreview(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = username.ifEmpty { "username" },
+                text = username.ifEmpty { stringResource(R.string.style_picker_username_placeholder) },
                 style = CorusFont.username,
                 color = CorusColors.Text,
             )

@@ -14,10 +14,13 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.components.UserAvatarView
@@ -53,10 +56,10 @@ fun ThreadListScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.common_back), tint = CorusColors.Text)
             }
             Text(
-                "Messages",
+                stringResource(id = R.string.messaging_list_title),
                 style = CorusFont.screenTitle,
                 color = CorusColors.Text,
                 modifier = Modifier.weight(1f),
@@ -64,7 +67,7 @@ fun ThreadListScreen(
             IconButton(onClick = { showNewMessagePicker = true }) {
                 Icon(
                     Icons.Filled.Edit,
-                    contentDescription = "New message",
+                    contentDescription = stringResource(id = R.string.messaging_list_cd_new_message),
                     tint = CorusColors.Text,
                 )
             }
@@ -78,7 +81,7 @@ fun ThreadListScreen(
             }
         } else if (threads.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No messages yet", style = CorusFont.body, color = CorusColors.Secondary)
+                Text(stringResource(id = R.string.messaging_list_empty), style = CorusFont.body, color = CorusColors.Secondary)
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -162,10 +165,10 @@ private fun NewMessagePickerContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = onCancel) {
-                Text("Cancel", style = CorusFont.body, color = CorusColors.Accent)
+                Text(stringResource(id = R.string.common_cancel), style = CorusFont.body, color = CorusColors.Accent)
             }
             Spacer(modifier = Modifier.weight(1f))
-            Text("New Message", style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(id = R.string.messaging_list_new_message_title), style = CorusFont.screenTitle, color = CorusColors.Text)
             Spacer(modifier = Modifier.weight(1f))
             // Invisible spacer to balance the Cancel button
             Spacer(modifier = Modifier.width(64.dp))
@@ -181,7 +184,7 @@ private fun NewMessagePickerContent(
         ) {
             Icon(
                 Icons.Filled.Search,
-                contentDescription = "Search",
+                contentDescription = stringResource(id = R.string.search_cd_search),
                 tint = CorusColors.Tertiary,
                 modifier = Modifier.size(20.dp),
             )
@@ -189,7 +192,7 @@ private fun NewMessagePickerContent(
             Box(modifier = Modifier.weight(1f)) {
                 if (searchText.isEmpty()) {
                     Text(
-                        "Search username",
+                        stringResource(id = R.string.messaging_list_search_placeholder),
                         style = CorusFont.body,
                         color = CorusColors.Tertiary,
                     )
@@ -212,7 +215,7 @@ private fun NewMessagePickerContent(
                 ) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = "Clear",
+                        contentDescription = stringResource(id = R.string.search_cd_clear),
                         tint = CorusColors.Tertiary,
                         modifier = Modifier.size(16.dp),
                     )
@@ -240,7 +243,7 @@ private fun NewMessagePickerContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    if (searchText.isNotBlank()) "No users found" else "No suggestions",
+                    if (searchText.isNotBlank()) stringResource(id = R.string.search_no_users_found) else stringResource(id = R.string.messaging_list_no_suggestions),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                 )
@@ -333,7 +336,7 @@ private fun ThreadRow(thread: CymbalThread, onClick: () -> Unit) {
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = DateUtils.relativeTime(thread.lastMessageAt),
+                    text = DateUtils.relativeTime(LocalContext.current, thread.lastMessageAt),
                     style = CorusFont.timestamp,
                     color = CorusColors.Secondary,
                 )

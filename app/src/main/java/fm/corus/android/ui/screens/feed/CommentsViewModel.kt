@@ -1,8 +1,11 @@
 package fm.corus.android.ui.screens.feed
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
@@ -35,6 +38,7 @@ class CommentsViewModel @Inject constructor(
     val nowPlayingManager: NowPlayingManager,
     private val remoteConfigService: RemoteConfigService,
     override val analyticsService: AnalyticsService,
+    @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
 
     override val remoteConfig: RemoteConfigService get() = remoteConfigService
@@ -236,7 +240,7 @@ class CommentsViewModel @Inject constructor(
                     _comments.value = _comments.value.filter { it.id != tempId }
                 }
                 engagementManager.decrementCommentCount(postId)
-                _sendError.value = "Failed to send comment"
+                _sendError.value = context.getString(R.string.comments_send_error_send)
             }
         }
     }
@@ -305,7 +309,7 @@ class CommentsViewModel @Inject constructor(
                     _comments.value = _comments.value.filter { it.id != tempId }
                 }
                 engagementManager.decrementCommentCount(postId)
-                _sendError.value = "Failed to send GIF"
+                _sendError.value = context.getString(R.string.comments_send_error_gif)
             }
         }
     }
@@ -345,7 +349,7 @@ class CommentsViewModel @Inject constructor(
             } catch (_: Exception) {
                 // Revert on failure
                 updateCommentInPlace(editing)
-                _sendError.value = "Couldn't save changes. Please try again."
+                _sendError.value = context.getString(R.string.comments_edit_error)
             }
         }
     }
@@ -637,9 +641,9 @@ class CommentsViewModel @Inject constructor(
             try {
                 postRepository.deletePost(postId, userId)
                 authRepository.bumpCymbalCount(-1)
-                ToastManager.show("Post deleted")
+                ToastManager.show(context.getString(R.string.feed_toast_post_deleted))
             } catch (_: Exception) {
-                ToastManager.show("Failed to delete post")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_delete))
             }
         }
     }
@@ -718,7 +722,7 @@ class CommentsViewModel @Inject constructor(
                     )
                 }
             } catch (_: Exception) {
-                ToastManager.show("Failed to send post")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_send_post))
             }
         }
     }
@@ -735,9 +739,9 @@ class CommentsViewModel @Inject constructor(
                     reason = "reported_from_feed",
                     details = "",
                 )
-                ToastManager.show("Post reported")
+                ToastManager.show(context.getString(R.string.feed_toast_post_reported))
             } catch (_: Exception) {
-                ToastManager.show("Failed to report post")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_report))
             }
         }
     }
@@ -747,9 +751,9 @@ class CommentsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 userRepository.blockUser(currentUserId, targetUserId)
-                ToastManager.show("User blocked")
+                ToastManager.show(context.getString(R.string.feed_toast_user_blocked))
             } catch (_: Exception) {
-                ToastManager.show("Failed to block user")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_block))
             }
         }
     }

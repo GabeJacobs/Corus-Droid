@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
@@ -157,10 +159,10 @@ fun SinglePostCommentsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Corus", style = CorusFont.screenTitle, color = CorusColors.Text) },
+                title = { Text(stringResource(R.string.feed_screen_title_Corus), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.feed_cd_back), tint = CorusColors.Text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
@@ -188,7 +190,7 @@ fun SinglePostCommentsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            "Editing your comment",
+                            stringResource(R.string.comments_editing_your_comment),
                             style = CorusFont.caption,
                             color = CorusColors.Secondary,
                             modifier = Modifier.weight(1f),
@@ -201,7 +203,7 @@ fun SinglePostCommentsScreen(
                             },
                             modifier = Modifier.size(20.dp),
                         ) {
-                            Icon(Icons.Filled.Close, contentDescription = "Cancel edit", tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.comments_cd_cancel_edit), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
@@ -215,7 +217,7 @@ fun SinglePostCommentsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            "Replying to @${replyingTo?.user?.username}",
+                            stringResource(R.string.comments_replying_to_format, replyingTo?.user?.username ?: ""),
                             style = CorusFont.caption,
                             color = CorusColors.Secondary,
                             modifier = Modifier.weight(1f),
@@ -224,7 +226,7 @@ fun SinglePostCommentsScreen(
                             onClick = { viewModel.clearReply() },
                             modifier = Modifier.size(20.dp),
                         ) {
-                            Icon(Icons.Filled.Close, contentDescription = "Cancel reply", tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.comments_cd_cancel_reply), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
@@ -258,9 +260,9 @@ fun SinglePostCommentsScreen(
                         placeholder = {
                             Text(
                                 when {
-                                    editingComment != null -> "Edit your comment..."
-                                    replyingTo != null -> "Reply..."
-                                    else -> "Add a comment..."
+                                    editingComment != null -> stringResource(R.string.comments_input_placeholder_edit)
+                                    replyingTo != null -> stringResource(R.string.comments_input_placeholder_reply)
+                                    else -> stringResource(R.string.comments_input_placeholder_add)
                                 },
                                 style = CorusFont.body,
                                 color = CorusColors.Tertiary,
@@ -296,7 +298,7 @@ fun SinglePostCommentsScreen(
                         IconButton(onClick = { showGifPicker = true }) {
                             Icon(
                                 Icons.Filled.Gif,
-                                contentDescription = "Send GIF",
+                                contentDescription = stringResource(R.string.comments_cd_send_gif),
                                 tint = CorusColors.Accent,
                                 modifier = Modifier.size(28.dp),
                             )
@@ -323,7 +325,7 @@ fun SinglePostCommentsScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.ArrowUpward,
-                            contentDescription = "Send",
+                            contentDescription = stringResource(R.string.comments_cd_send),
                             modifier = Modifier.size(18.dp),
                             tint = if (canSend) Color.White else CorusColors.Tertiary,
                         )
@@ -408,7 +410,7 @@ fun SinglePostCommentsScreen(
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, "https://corus.fm/post/${p.id}")
                             }
-                            try { context.startActivity(Intent.createChooser(shareIntent, "Share")) } catch (_: Exception) { }
+                            try { context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.post_detail_share_chooser))) } catch (_: Exception) { }
                         },
                         onSpotifyTap = {
                             val spotifyUri = p.track.spotifyURI
@@ -460,9 +462,9 @@ fun SinglePostCommentsScreen(
                         modifier = Modifier.fillMaxWidth().padding(CorusSpacing.xxl),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text("No comments yet", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(R.string.comments_no_comments), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                        Text("Be the first to comment!", style = CorusFont.caption, color = CorusColors.Tertiary)
+                        Text(stringResource(R.string.comments_be_the_first), style = CorusFont.caption, color = CorusColors.Tertiary)
                     }
                 }
             } else {
@@ -636,6 +638,7 @@ private fun CommentContentRow(
     var showBlockConfirm by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
+    val localContextForCopy = LocalContext.current
     val canCopy = comment.text.isNotEmpty()
     val canBlock = !isOwnComment && !comment.user.isBot
     val canLongPress = canCopy || !isOwnComment
@@ -643,19 +646,19 @@ private fun CommentContentRow(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Comment?", style = CorusFont.songTitleLarge) },
-            text = { Text("This comment will be permanently deleted.", style = CorusFont.body) },
+            title = { Text(stringResource(R.string.comments_dialog_delete_title), style = CorusFont.songTitleLarge) },
+            text = { Text(stringResource(R.string.comments_dialog_delete_message), style = CorusFont.body) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteConfirm = false
                     onDelete()
                 }) {
-                    Text("Delete", color = CorusColors.Error)
+                    Text(stringResource(R.string.comments_dialog_delete_confirm), color = CorusColors.Error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
         )
@@ -664,10 +667,10 @@ private fun CommentContentRow(
     if (showBlockConfirm) {
         AlertDialog(
             onDismissRequest = { showBlockConfirm = false },
-            title = { Text("Block @${comment.user.username}?", style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(R.string.comments_dialog_block_title_format, comment.user.username), style = CorusFont.songTitleLarge) },
             text = {
                 Text(
-                    "They won't be able to see your profile or posts, and you won't see theirs.",
+                    stringResource(R.string.comments_dialog_block_message),
                     style = CorusFont.body,
                 )
             },
@@ -676,12 +679,12 @@ private fun CommentContentRow(
                     showBlockConfirm = false
                     onBlock()
                 }) {
-                    Text("Block", color = CorusColors.Error)
+                    Text(stringResource(R.string.comments_dialog_block_confirm), color = CorusColors.Error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showBlockConfirm = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
         )
@@ -710,17 +713,17 @@ private fun CommentContentRow(
         ) {
             if (canCopy) {
                 DropdownMenuItem(
-                    text = { Text("Copy", style = CorusFont.body, color = CorusColors.Text) },
+                    text = { Text(stringResource(R.string.comments_menu_copy), style = CorusFont.body, color = CorusColors.Text) },
                     onClick = {
                         showContextMenu = false
                         clipboardManager.setText(AnnotatedString(comment.text))
-                        ToastManager.show("Copied")
+                        ToastManager.show(localContextForCopy.getString(R.string.comments_toast_copied))
                     },
                 )
             }
             if (!isOwnComment && !comment.user.isBot) {
                 DropdownMenuItem(
-                    text = { Text("Report", style = CorusFont.body, color = CorusColors.Error) },
+                    text = { Text(stringResource(R.string.comments_menu_report), style = CorusFont.body, color = CorusColors.Error) },
                     onClick = {
                         showContextMenu = false
                         onReport()
@@ -729,7 +732,7 @@ private fun CommentContentRow(
             }
             if (canBlock) {
                 DropdownMenuItem(
-                    text = { Text("Block", style = CorusFont.body, color = CorusColors.Error) },
+                    text = { Text(stringResource(R.string.comments_menu_block), style = CorusFont.body, color = CorusColors.Error) },
                     onClick = {
                         showContextMenu = false
                         showBlockConfirm = true
@@ -754,10 +757,10 @@ private fun CommentContentRow(
                     modifier = Modifier.clickable(onClick = onUserTap),
                 )
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                Text(DateUtils.relativeTime(comment.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
+                Text(DateUtils.relativeTime(LocalContext.current, comment.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
                 if (comment.isEdited) {
                     Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                    Text("edited", style = CorusFont.caption, color = CorusColors.Tertiary)
+                    Text(stringResource(R.string.comments_edited), style = CorusFont.caption, color = CorusColors.Tertiary)
                 }
             }
             Spacer(modifier = Modifier.height(CorusSpacing.xxs))
@@ -765,7 +768,7 @@ private fun CommentContentRow(
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(comment.gifURL).build(),
-                    contentDescription = "GIF",
+                    contentDescription = stringResource(R.string.comments_cd_gif),
                     modifier = Modifier
                         .widthIn(max = if (isReply) 160.dp else 200.dp)
                         .heightIn(max = if (isReply) 120.dp else 150.dp)
@@ -790,7 +793,7 @@ private fun CommentContentRow(
             }
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
             Text(
-                "Reply",
+                stringResource(R.string.comments_reply),
                 style = CorusFont.captionMedium,
                 color = CorusColors.Secondary,
                 modifier = Modifier.clickable(onClick = onReply),
@@ -820,7 +823,7 @@ private fun CommentContentRow(
             ) {
                 Icon(
                     if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Like",
+                    contentDescription = stringResource(R.string.comments_cd_like),
                     tint = if (isLiked) CorusColors.Like else CorusColors.Tertiary,
                     modifier = Modifier.size(if (isReply) 14.dp else 16.dp),
                 )
@@ -830,7 +833,7 @@ private fun CommentContentRow(
                 Box {
                     Icon(
                         imageVector = Icons.Filled.MoreHoriz,
-                        contentDescription = "Comment options",
+                        contentDescription = stringResource(R.string.comments_cd_options),
                         modifier = Modifier
                             .size(16.dp)
                             .clickable(
@@ -846,7 +849,7 @@ private fun CommentContentRow(
                     ) {
                         if (comment.gifURL == null) {
                             DropdownMenuItem(
-                                text = { Text("Edit", style = CorusFont.body, color = CorusColors.Text) },
+                                text = { Text(stringResource(R.string.comments_menu_edit), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showMenu = false
                                     onEdit()
@@ -854,7 +857,7 @@ private fun CommentContentRow(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("Delete", style = CorusFont.body, color = CorusColors.Error) },
+                            text = { Text(stringResource(R.string.comments_menu_delete), style = CorusFont.body, color = CorusColors.Error) },
                             onClick = {
                                 showMenu = false
                                 showDeleteConfirm = true

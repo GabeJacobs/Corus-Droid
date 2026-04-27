@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.auth
 
 import android.app.Activity
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,8 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import fm.corus.android.R
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.SubscriptionRepository
@@ -43,6 +46,7 @@ class AuthViewModel @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val unreadCountsRepository: UnreadCountsRepository,
     private val musicServicePreference: MusicServicePreference,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     sealed class AuthState {
@@ -93,7 +97,7 @@ class AuthViewModel @Inject constructor(
                     val isBanned = authRepository.checkIfUserIsBanned(user.uid)
                     if (isBanned) {
                         authRepository.signOut()
-                        _error.value = "Your account has been suspended. Please contact support if you believe this is a mistake."
+                        _error.value = context.getString(R.string.auth_error_account_suspended)
                         _authState.value = AuthState.SignedOut
                         return@launch
                     }
@@ -165,7 +169,7 @@ class AuthViewModel @Inject constructor(
                         try {
                             firebaseAuth.signInWithCredential(credential)
                         } catch (e: Exception) {
-                            _error.value = "Verification failed. Please try again."
+                            _error.value = context.getString(R.string.auth_error_verification_failed)
                         }
                         _isLoading.value = false
                     }
@@ -173,7 +177,7 @@ class AuthViewModel @Inject constructor(
 
                 override fun onVerificationFailed(e: FirebaseException) {
                     Log.e("AuthViewModel", "phone verification failed", e)
-                    _error.value = "Could not send verification code. Please try again."
+                    _error.value = context.getString(R.string.auth_error_could_not_send_code)
                     _isLoading.value = false
                 }
 
@@ -198,7 +202,7 @@ class AuthViewModel @Inject constructor(
                     analyticsService.logSignIn("phone")
                 }
             } catch (e: Exception) {
-                _error.value = "Invalid verification code. Please try again."
+                _error.value = context.getString(R.string.auth_error_invalid_code)
             }
             _isLoading.value = false
         }
@@ -220,7 +224,7 @@ class AuthViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 android.util.Log.e("AuthViewModel", "Google sign-in failed", e)
-                _error.value = "Couldn't sign in with Google. Please try again."
+                _error.value = context.getString(R.string.auth_google_signin_error)
             }
             _isLoading.value = false
         }
@@ -241,7 +245,7 @@ class AuthViewModel @Inject constructor(
                 analyticsService.logOnboardingCompleted()
                 _authState.value = AuthState.NeedsSocialSetup
             } catch (e: Exception) {
-                _error.value = "Something went wrong. Please try again."
+                _error.value = context.getString(R.string.auth_error_generic)
             }
             _isLoading.value = false
         }
@@ -297,12 +301,12 @@ class AuthViewModel @Inject constructor(
                 if (providerId != null) {
                     _needsReauth.tryEmit(providerId)
                 } else {
-                    _error.value = "Please sign out and sign back in, then try again."
+                    _error.value = context.getString(R.string.settings_reauth_signout_prompt)
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "deleteAccount failed", e)
                 _isDeletingAccount.value = false
-                _error.value = "Couldn't delete your account. Please try again."
+                _error.value = context.getString(R.string.auth_error_delete_account)
             }
         }
     }
@@ -317,7 +321,7 @@ class AuthViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "reauthenticateAndDelete failed", e)
                 _isDeletingAccount.value = false
-                _error.value = "Couldn't delete your account. Please try again."
+                _error.value = context.getString(R.string.auth_error_delete_account)
             }
         }
     }
@@ -357,7 +361,7 @@ class AuthViewModel @Inject constructor(
                             } catch (e: Exception) {
                                 Log.e("AuthViewModel", "auto phone reauth+delete failed", e)
                                 _isDeletingAccount.value = false
-                                _error.value = "Couldn't delete your account. Please try again."
+                                _error.value = context.getString(R.string.auth_error_delete_account)
                             }
                         }
                     }
@@ -365,7 +369,7 @@ class AuthViewModel @Inject constructor(
                     override fun onVerificationFailed(e: FirebaseException) {
                         Log.e("AuthViewModel", "phone reauth verification failed", e)
                         _isDeletingAccount.value = false
-                        _error.value = "Could not send verification code. Please try again."
+                        _error.value = context.getString(R.string.auth_error_could_not_send_code)
                     }
                 },
             )
@@ -389,7 +393,7 @@ class AuthViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "verifyPhoneReauthAndDelete failed", e)
                 _isDeletingAccount.value = false
-                _error.value = "Invalid code. Please try again."
+                _error.value = context.getString(R.string.auth_error_invalid_phone_reauth_code)
             }
         }
     }

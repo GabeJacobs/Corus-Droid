@@ -1,8 +1,11 @@
 package fm.corus.android.ui.screens.profile
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
@@ -21,6 +24,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class OtherProfileViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val userRepository: UserRepository,
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
@@ -378,22 +382,21 @@ class OtherProfileViewModel @Inject constructor(
         val wasMuted = _isMuted.value
         _isMuted.value = !wasMuted
         val username = _profile.value?.username
-        val handle = username?.let { "@$it" }
         val loadingMessage = if (!wasMuted) {
-            if (handle != null) "Muting $handle\u2026" else "Muting\u2026"
+            if (username != null) context.getString(R.string.other_profile_muting_format, username) else context.getString(R.string.other_profile_muting)
         } else {
-            if (handle != null) "Unmuting $handle\u2026" else "Unmuting\u2026"
+            if (username != null) context.getString(R.string.other_profile_unmuting_format, username) else context.getString(R.string.other_profile_unmuting)
         }
         val toastId = ToastManager.showLoading(loadingMessage)
         viewModelScope.launch {
             try {
                 if (!wasMuted) {
                     userRepository.muteUser(currentUserId, userId)
-                    val message = if (handle != null) "$handle's posts muted" else "Muted"
+                    val message = if (username != null) context.getString(R.string.other_profile_muted_format, username) else context.getString(R.string.other_profile_muted)
                     ToastManager.update(toastId, message)
                 } else {
                     userRepository.unmuteUser(currentUserId, userId)
-                    val message = if (handle != null) "$handle's posts unmuted" else "Unmuted"
+                    val message = if (username != null) context.getString(R.string.other_profile_unmuted_format, username) else context.getString(R.string.other_profile_unmuted)
                     ToastManager.update(toastId, message)
                 }
             } catch (_: Exception) {

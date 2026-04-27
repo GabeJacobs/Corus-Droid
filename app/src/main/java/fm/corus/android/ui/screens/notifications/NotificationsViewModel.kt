@@ -1,8 +1,11 @@
 package fm.corus.android.ui.screens.notifications
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalNotification
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.NotificationRepository
@@ -28,6 +31,7 @@ class NotificationsViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val postRepository: PostRepository,
     private val engagementManager: PostEngagementManager,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val pageSize = 15
@@ -368,10 +372,10 @@ class NotificationsViewModel @Inject constructor(
                     )
                 } catch (_: Exception) { }
 
-                _replyToastEvents.trySend("Reply sent")
+                _replyToastEvents.trySend(context.getString(R.string.notifications_toast_reply_sent))
             } catch (e: Exception) {
                 Log.e("Notifications", "Failed to send reply", e)
-                _replyToastEvents.trySend("Failed to send reply")
+                _replyToastEvents.trySend(context.getString(R.string.notifications_toast_reply_failed))
             }
             _isSendingReply.value = false
         }

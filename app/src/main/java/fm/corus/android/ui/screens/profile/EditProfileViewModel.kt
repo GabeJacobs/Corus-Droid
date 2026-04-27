@@ -1,8 +1,11 @@
 package fm.corus.android.ui.screens.profile
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
@@ -20,6 +23,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class EditProfileViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val userRepository: UserRepository,
     private val authRepository: AuthRepository,
     private val postRepository: PostRepository,
@@ -230,7 +234,7 @@ class EditProfileViewModel @Inject constructor(
                 analyticsService.logEditProfileSaved()
                 onSuccess()
             } catch (e: Exception) {
-                _saveError.value = "Couldn't save changes. Please try again."
+                _saveError.value = context.getString(R.string.edit_profile_save_error)
                 analyticsService.logProfileUpdateError(e.message ?: "unknown")
             }
             _isSaving.value = false
@@ -251,7 +255,7 @@ class EditProfileViewModel @Inject constructor(
                 _styleSelections.value = selections
                 onSuccess()
             } catch (e: Exception) {
-                _saveError.value = "Couldn't save style changes. Please try again."
+                _saveError.value = context.getString(R.string.edit_profile_save_style_error)
             }
             _isStyleSaving.value = false
         }

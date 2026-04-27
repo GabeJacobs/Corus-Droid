@@ -18,10 +18,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -40,12 +42,12 @@ fun CommentLikesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Likes", style = CorusFont.screenTitle, color = CorusColors.Text) },
+                title = { Text(stringResource(R.string.likes_title), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.feed_cd_back),
                             tint = CorusColors.Text,
                         )
                     }
@@ -107,7 +109,7 @@ fun CommentLikesContent(
     ) {
         if (showTitle) {
             Text(
-                text = "Likes",
+                text = stringResource(R.string.likes_title),
                 style = CorusFont.screenTitle,
                 color = CorusColors.Text,
                 modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
@@ -120,14 +122,14 @@ fun CommentLikesContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-            placeholder = { Text("Search", style = CorusFont.body, color = CorusColors.Tertiary) },
+            placeholder = { Text(stringResource(R.string.likes_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
             leadingIcon = {
-                Icon(Icons.Filled.Search, contentDescription = "Search", tint = CorusColors.Tertiary, modifier = Modifier.size(15.dp))
+                Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.likes_cd_search), tint = CorusColors.Tertiary, modifier = Modifier.size(15.dp))
             },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
                     IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Clear", tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.likes_cd_clear), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
                     }
                 }
             },
@@ -173,7 +175,7 @@ fun CommentLikesContent(
                                 modifier = Modifier.size(36.dp),
                             )
                             Text(
-                                text = if (searchQuery.isEmpty()) "No likes yet" else "No results",
+                                text = if (searchQuery.isEmpty()) stringResource(R.string.likes_empty_no_likes) else stringResource(R.string.likes_empty_no_results),
                                 style = CorusFont.bodyMedium,
                                 color = CorusColors.Secondary,
                             )
@@ -273,9 +275,9 @@ private fun CommentLikerRow(
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
             val buttonText = when {
-                isFollowing -> "Following"
-                isFollower -> "Follow back"
-                else -> "Follow"
+                isFollowing -> stringResource(R.string.likes_button_following)
+                isFollower -> stringResource(R.string.likes_button_follow_back)
+                else -> stringResource(R.string.likes_button_follow)
             }
 
             Button(

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -79,14 +80,14 @@ fun FollowListScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (isFollowers) "Followers" else "Following",
+                        if (isFollowers) stringResource(fm.corus.android.R.string.follow_list_followers) else stringResource(fm.corus.android.R.string.follow_list_following),
                         style = CorusFont.screenTitle,
                         color = CorusColors.Text,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
@@ -107,14 +108,14 @@ fun FollowListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-                placeholder = { Text("Search", style = CorusFont.body, color = CorusColors.Tertiary) },
+                placeholder = { Text(stringResource(fm.corus.android.R.string.follow_list_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
                 leadingIcon = {
-                    Icon(Icons.Filled.Search, contentDescription = "Search", tint = CorusColors.Secondary)
+                    Icon(Icons.Filled.Search, contentDescription = stringResource(fm.corus.android.R.string.follow_list_search_placeholder), tint = CorusColors.Secondary)
                 },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Filled.Close, contentDescription = "Clear", tint = CorusColors.Secondary, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.R.string.follow_list_cd_clear), tint = CorusColors.Secondary, modifier = Modifier.size(16.dp))
                         }
                     }
                 },
@@ -179,8 +180,8 @@ fun FollowListScreen(
                         )
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "No results" else
-                                if (isFollowers) "No followers yet" else "Not following anyone yet",
+                            text = if (searchQuery.isNotBlank()) stringResource(fm.corus.android.R.string.follow_list_no_results) else
+                                if (isFollowers) stringResource(fm.corus.android.R.string.follow_list_no_followers) else stringResource(fm.corus.android.R.string.follow_list_not_following),
                             style = CorusFont.bodyMedium,
                             color = CorusColors.Secondary,
                         )
@@ -266,7 +267,7 @@ private fun FollowUserRow(
                 )
                 if (showFollowsYou) {
                     Text(
-                        text = " \u00B7 Follows you",
+                        text = " \u00B7 " + stringResource(fm.corus.android.R.string.follow_list_follows_you),
                         style = CorusFont.caption,
                         color = CorusColors.Tertiary,
                         maxLines = 1,
@@ -280,9 +281,9 @@ private fun FollowUserRow(
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
             val buttonText = when {
-                isFollowing -> "Following"
-                showFollowBack -> "Follow back"
-                else -> "Follow"
+                isFollowing -> stringResource(fm.corus.android.R.string.follow_list_button_following)
+                showFollowBack -> stringResource(fm.corus.android.R.string.follow_list_button_follow_back)
+                else -> stringResource(fm.corus.android.R.string.follow_list_button_follow)
             }
 
             Button(

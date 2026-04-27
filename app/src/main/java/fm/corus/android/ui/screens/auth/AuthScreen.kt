@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -76,12 +77,12 @@ fun AuthScreen(
             if (idToken != null) {
                 viewModel.signInWithGoogle(idToken)
             } else {
-                viewModel.setError("Couldn't sign in with Google. Please try again.")
+                viewModel.setError(context.getString(R.string.auth_google_signin_error))
             }
         } catch (e: ApiException) {
             android.util.Log.e("AuthScreen", "Google sign-in failed: status=${e.statusCode}", e)
             if (e.statusCode != GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
-                viewModel.setError("Couldn't sign in with Google. Please try again.")
+                viewModel.setError(context.getString(R.string.auth_google_signin_error))
             }
         }
     }
@@ -152,7 +153,7 @@ fun AuthScreen(
                 // Logo image — 90dp frame, tinted with cymbalText color (matching iOS)
                 Image(
                     painter = painterResource(id = R.drawable.logo_no_background),
-                    contentDescription = "Corus Logo",
+                    contentDescription = stringResource(id = R.string.auth_cd_corus_logo),
                     modifier = Modifier.size(90.dp),
                     colorFilter = ColorFilter.tint(CorusColors.Text),
                 )
@@ -170,7 +171,7 @@ fun AuthScreen(
 
                 // Tagline — bodyMedium: Nunito Medium 15sp
                 Text(
-                    text = "Share what you love",
+                    text = stringResource(id = R.string.auth_tagline),
                     style = CorusFont.bodyMedium,
                     color = CorusColors.Secondary,
                 )
@@ -198,7 +199,7 @@ fun AuthScreen(
                 val haptics = LocalHapticManager.current
                 // Google Sign-In button
                 AuthButton(
-                    text = "Continue with Google",
+                    text = stringResource(id = R.string.auth_button_google),
                     icon = {
                         Image(
                             painter = painterResource(id = R.drawable.google_logo),
@@ -222,7 +223,7 @@ fun AuthScreen(
 
                 // Phone button
                 AuthButton(
-                    text = "Continue with Phone",
+                    text = stringResource(id = R.string.auth_button_phone),
                     icon = {
                         Icon(
                             Icons.Filled.Phone,
@@ -353,7 +354,7 @@ private fun PhoneAuthContent(
 
         if (!verificationSent) {
             Text(
-                text = "Enter your phone number",
+                text = stringResource(id = R.string.auth_phone_prompt),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Text,
             )
@@ -386,7 +387,7 @@ private fun PhoneAuthContent(
                     value = phoneNumber,
                     onValueChange = onPhoneNumberChange,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Phone number") },
+                    placeholder = { Text(stringResource(id = R.string.change_phone_placeholder)) },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Phone,
                         imeAction = ImeAction.Done,
@@ -417,12 +418,12 @@ private fun PhoneAuthContent(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Text("SEND CODE", style = CorusFont.button, color = Color.White)
+                    Text(stringResource(id = R.string.auth_button_send_code), style = CorusFont.button, color = Color.White)
                 }
             }
         } else {
             Text(
-                text = "Enter the 6-digit code sent to\n${selectedCountry.dialCode} $phoneNumber",
+                text = stringResource(id = R.string.auth_phone_code_sent_format, selectedCountry.dialCode, phoneNumber),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Text,
                 textAlign = TextAlign.Center,
@@ -434,7 +435,7 @@ private fun PhoneAuthContent(
                 value = verificationCode,
                 onValueChange = onVerificationCodeChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("123456") },
+                placeholder = { Text(stringResource(id = R.string.auth_code_placeholder)) },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done,
@@ -464,7 +465,7 @@ private fun PhoneAuthContent(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Text("VERIFY", style = CorusFont.button, color = Color.White)
+                    Text(stringResource(id = R.string.auth_button_verify), style = CorusFont.button, color = Color.White)
                 }
             }
 
@@ -478,7 +479,7 @@ private fun PhoneAuthContent(
                 enabled = resendCooldown == 0 && !isLoading,
             ) {
                 Text(
-                    if (resendCooldown > 0) "Resend in ${resendCooldown}s" else "Resend Code",
+                    if (resendCooldown > 0) stringResource(id = R.string.change_phone_resend_in_format, resendCooldown) else stringResource(id = R.string.change_phone_resend_code),
                     style = CorusFont.captionMedium,
                     color = if (resendCooldown > 0) CorusColors.Tertiary else CorusColors.Accent,
                 )
@@ -487,7 +488,7 @@ private fun PhoneAuthContent(
             // Use a different number — matches iOS
             TextButton(onClick = onUseDifferentNumber) {
                 Text(
-                    "Use a different number",
+                    stringResource(id = R.string.change_phone_use_different_number),
                     style = CorusFont.captionMedium,
                     color = CorusColors.Accent,
                 )
@@ -510,7 +511,7 @@ private fun PhoneAuthContent(
         if (showCountryPicker) {
             AlertDialog(
                 onDismissRequest = { showCountryPicker = false },
-                title = { Text("Select Country", style = CorusFont.songTitleLarge) },
+                title = { Text(stringResource(id = R.string.change_phone_select_country_title), style = CorusFont.songTitleLarge) },
                 text = {
                     Column {
                         CountryCode.all.forEach { country ->
@@ -546,7 +547,7 @@ private fun PhoneAuthContent(
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(id = R.string.common_back),
                 tint = CorusColors.Text,
             )
         }

@@ -33,6 +33,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +41,7 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import android.graphics.Bitmap
+import fm.corus.android.R
 import fm.corus.android.domain.UsernameValidator
 import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.SelfieCaptureScreen
@@ -170,7 +172,7 @@ fun OnboardingScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "Welcome",
+                    text = stringResource(id = R.string.onboarding_welcome),
                     style = CorusFont.custom(900, 28),
                     color = CorusColors.Text,
                 )
@@ -178,7 +180,7 @@ fun OnboardingScreen(
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
                 Text(
-                    text = "set up your profile",
+                    text = stringResource(id = R.string.onboarding_subtitle),
                     style = CorusFont.bodyMedium,
                     color = CorusColors.Secondary,
                 )
@@ -194,7 +196,7 @@ fun OnboardingScreen(
                     if (avatarUri != null) {
                         AsyncImage(
                             model = avatarUri,
-                            contentDescription = "Avatar",
+                            contentDescription = stringResource(id = R.string.onboarding_cd_avatar),
                             modifier = Modifier
                                 .size(100.dp)
                                 .clip(CircleShape),
@@ -211,7 +213,7 @@ fun OnboardingScreen(
                         ) {
                             Icon(
                                 Icons.Filled.Person,
-                                contentDescription = "Add photo",
+                                contentDescription = stringResource(id = R.string.onboarding_add_photo),
                                 modifier = Modifier.size(40.dp),
                                 tint = CorusColors.Tertiary,
                             )
@@ -239,7 +241,7 @@ fun OnboardingScreen(
             if (avatarUri == null) {
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
                 Text(
-                    text = "Add photo",
+                    text = stringResource(id = R.string.onboarding_add_photo),
                     style = CorusFont.captionMedium,
                     color = CorusColors.Accent,
                 )
@@ -276,7 +278,7 @@ fun OnboardingScreen(
                     Box(modifier = Modifier.weight(1f)) {
                         if (displayName.isEmpty()) {
                             Text(
-                                "Full Name",
+                                stringResource(id = R.string.onboarding_full_name),
                                 style = CorusFont.body,
                                 color = CorusColors.Tertiary,
                             )
@@ -330,7 +332,7 @@ fun OnboardingScreen(
                     Box(modifier = Modifier.weight(1f)) {
                         if (username.isEmpty()) {
                             Text(
-                                "Username",
+                                stringResource(id = R.string.change_username_field_label),
                                 style = CorusFont.body,
                                 color = CorusColors.Tertiary,
                             )
@@ -382,7 +384,7 @@ fun OnboardingScreen(
                     }
                     usernameAvailable == false -> {
                         Text(
-                            "Username is already taken",
+                            stringResource(id = R.string.change_username_status_taken),
                             style = CorusFont.caption,
                             color = CorusColors.Error,
                         )
@@ -414,7 +416,7 @@ fun OnboardingScreen(
                 exit = fadeOut(),
             ) {
                 Text(
-                    text = "By creating an account, you agree to our Terms of Use and Privacy Policy.",
+                    text = stringResource(id = R.string.onboarding_terms),
                     style = CorusFont.caption,
                     color = CorusColors.Tertiary,
                     textAlign = TextAlign.Center,
@@ -454,7 +456,7 @@ fun OnboardingScreen(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Text("CONTINUE", style = CorusFont.button, color = Color.White)
+                    Text(stringResource(id = R.string.onboarding_button_continue), style = CorusFont.button, color = Color.White)
                 }
             }
         }
@@ -469,7 +471,7 @@ fun OnboardingScreen(
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(id = R.string.common_back),
                 tint = CorusColors.Text,
             )
         }
@@ -493,7 +495,7 @@ fun OnboardingScreen(
     if (showPhotoDialog) {
         AlertDialog(
             onDismissRequest = { showPhotoDialog = false },
-            title = { Text("Profile Photo", style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(id = R.string.onboarding_dialog_photo_title), style = CorusFont.songTitleLarge) },
             text = {
                 Column {
                     TextButton(
@@ -503,7 +505,7 @@ fun OnboardingScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Take Photo", style = CorusFont.body, color = CorusColors.Text)
+                        Text(stringResource(id = R.string.profile_avatar_take_photo), style = CorusFont.body, color = CorusColors.Text)
                     }
                     TextButton(
                         onClick = {
@@ -514,7 +516,7 @@ fun OnboardingScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Choose from Library", style = CorusFont.body, color = CorusColors.Text)
+                        Text(stringResource(id = R.string.profile_avatar_choose_library), style = CorusFont.body, color = CorusColors.Text)
                     }
                     if (avatarUri != null) {
                         TextButton(
@@ -525,14 +527,14 @@ fun OnboardingScreen(
                             },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Remove Photo", style = CorusFont.body, color = CorusColors.Error)
+                            Text(stringResource(id = R.string.onboarding_remove_photo), style = CorusFont.body, color = CorusColors.Error)
                         }
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showPhotoDialog = false }) {
-                    Text("Cancel", color = CorusColors.Secondary)
+                    Text(stringResource(id = R.string.common_cancel), color = CorusColors.Secondary)
                 }
             },
         )
@@ -542,15 +544,15 @@ fun OnboardingScreen(
     if (showAvatarNudge) {
         AlertDialog(
             onDismissRequest = { showAvatarNudge = false },
-            title = { Text("Add a profile photo?", style = CorusFont.songTitleLarge) },
-            text = { Text("A photo helps friends find you on Corus", style = CorusFont.body) },
+            title = { Text(stringResource(id = R.string.onboarding_avatar_nudge_title), style = CorusFont.songTitleLarge) },
+            text = { Text(stringResource(id = R.string.onboarding_avatar_nudge_message), style = CorusFont.body) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.analyticsService.logOnboardingAvatarNudge("add_photo")
                     showAvatarNudge = false
                     showPhotoDialog = true
                 }) {
-                    Text("Add Photo", color = CorusColors.Accent)
+                    Text(stringResource(id = R.string.onboarding_add_photo_button), color = CorusColors.Accent)
                 }
             },
             dismissButton = {
@@ -559,7 +561,7 @@ fun OnboardingScreen(
                     showAvatarNudge = false
                     viewModel.completeOnboarding(username, displayName, avatarData)
                 }) {
-                    Text("Skip", color = CorusColors.Secondary)
+                    Text(stringResource(id = R.string.onboarding_skip), color = CorusColors.Secondary)
                 }
             },
         )

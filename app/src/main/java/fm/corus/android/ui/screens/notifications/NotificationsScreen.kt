@@ -45,11 +45,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalNotification
 import fm.corus.android.data.model.NotificationType
 import fm.corus.android.domain.HapticManager
@@ -243,7 +245,7 @@ private fun NotificationsHeader(
     ) {
         // Center: "Activity" title
         Text(
-            text = "Activity",
+            text = stringResource(id = R.string.notifications_activity_title),
             style = CorusFont.displayName,
             color = CorusColors.Text,
             modifier = Modifier.align(Alignment.Center),
@@ -259,7 +261,7 @@ private fun NotificationsHeader(
         ) {
             Icon(
                 imageVector = Icons.Filled.Email,
-                contentDescription = "Messages",
+                contentDescription = stringResource(id = R.string.notifications_cd_messages),
                 modifier = Modifier.size(24.dp),
                 tint = CorusColors.Secondary,
             )
@@ -346,7 +348,7 @@ private fun NotificationRow(
         // when truncated, matching the iOS .truncationMode(.middle) behavior.
         val hasCommentText = notification.commentText != null
         val maxLines = if (hasCommentText) 4 else 2
-        val timeString = DateUtils.relativeTime(notification.timestamp)
+        val timeString = DateUtils.relativeTime(LocalContext.current, notification.timestamp)
         val timeSuffix = " $timeString"
 
         val fullAnnotatedText = buildAnnotatedString {
@@ -442,14 +444,14 @@ private fun NotificationRow(
                     ) {
                         Icon(
                             imageVector = if (isCommentLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = if (isCommentLiked) "Unlike" else "Like",
+                            contentDescription = if (isCommentLiked) stringResource(id = R.string.notifications_cd_unlike) else stringResource(id = R.string.notifications_cd_like),
                             modifier = Modifier.size(14.dp),
                             tint = if (isCommentLiked) CorusColors.Like else CorusColors.Tertiary,
                         )
                     }
                     Spacer(modifier = Modifier.width(CorusSpacing.lg))
                     Text(
-                        text = "Reply",
+                        text = stringResource(id = R.string.comments_reply),
                         style = CorusFont.body.copy(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
@@ -468,9 +470,9 @@ private fun NotificationRow(
         if (showFollowButton) {
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             val buttonText = when {
-                isFollowing -> "Following"
-                notification.type == NotificationType.CONTACT_JOINED -> "Follow"
-                else -> "Follow back"
+                isFollowing -> stringResource(id = R.string.search_button_following)
+                notification.type == NotificationType.CONTACT_JOINED -> stringResource(id = R.string.search_button_follow)
+                else -> stringResource(id = R.string.likes_button_follow_back)
             }
             Button(
                 onClick = onFollowToggle,
@@ -517,7 +519,7 @@ private fun NotificationsEmptyState() {
             Spacer(modifier = Modifier.height(CorusSpacing.md))
 
             Text(
-                text = "No activity yet",
+                text = stringResource(id = R.string.notifications_empty_title),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Secondary,
             )
@@ -525,7 +527,7 @@ private fun NotificationsEmptyState() {
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
             Text(
-                text = "When people like, comment, or save your cymbals, you\u2019ll see it here",
+                text = stringResource(id = R.string.notifications_empty_subtitle),
                 style = CorusFont.body,
                 color = CorusColors.Tertiary,
                 textAlign = TextAlign.Center,
@@ -566,7 +568,7 @@ private fun InlineReplyBar(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Replying to ${replyingTo.fromUser.username}",
+                    text = stringResource(id = R.string.notifications_replying_to_format, replyingTo.fromUser.username),
                     style = CorusFont.body.copy(
                         fontSize = 12.sp,
                         color = CorusColors.Secondary,
@@ -589,7 +591,7 @@ private fun InlineReplyBar(
                     decorationBox = { inner ->
                         if (text.isEmpty()) {
                             Text(
-                                text = "Reply\u2026",
+                                text = stringResource(id = R.string.notifications_reply_placeholder),
                                 style = CorusFont.body.copy(color = CorusColors.Tertiary),
                             )
                         }
@@ -599,7 +601,7 @@ private fun InlineReplyBar(
             }
             Spacer(modifier = Modifier.width(CorusSpacing.md))
             Text(
-                text = "Cancel",
+                text = stringResource(id = R.string.common_cancel),
                 style = CorusFont.body.copy(
                     fontSize = 14.sp,
                     color = CorusColors.Accent,
@@ -620,7 +622,7 @@ private fun InlineReplyBar(
             ) {
                 Icon(
                     imageVector = Icons.Filled.ArrowUpward,
-                    contentDescription = "Send reply",
+                    contentDescription = stringResource(id = R.string.notifications_cd_send_reply),
                     modifier = Modifier.size(18.dp),
                     tint = if (canSend) Color.White else CorusColors.Tertiary,
                 )

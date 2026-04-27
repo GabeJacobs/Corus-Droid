@@ -53,6 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,10 +85,10 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.util.DateUtils
 
-enum class SearchTab(val label: String) {
-    USERS("Users"),
-    SONGS("Songs"),
-    FILMS("Films"),
+enum class SearchTab(val labelRes: Int) {
+    USERS(fm.corus.android.R.string.search_tab_users),
+    SONGS(fm.corus.android.R.string.search_tab_songs),
+    FILMS(fm.corus.android.R.string.search_tab_films),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -212,7 +213,7 @@ fun SearchScreen(
                 .padding(vertical = CorusSpacing.md),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Search", style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(fm.corus.android.R.string.search_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
         }
 
         // Search bar
@@ -228,9 +229,9 @@ fun SearchScreen(
             },
             onFocusChanged = { isSearchFocused = it },
             placeholder = when (activeTab) {
-                SearchTab.SONGS -> "Search for a song"
-                SearchTab.FILMS -> "Search for a film"
-                SearchTab.USERS -> "Search by username"
+                SearchTab.SONGS -> stringResource(fm.corus.android.R.string.search_placeholder_songs)
+                SearchTab.FILMS -> stringResource(fm.corus.android.R.string.search_placeholder_films)
+                SearchTab.USERS -> stringResource(fm.corus.android.R.string.search_placeholder_users)
             },
         )
 
@@ -371,12 +372,12 @@ private fun SearchBarSection(
             Text(placeholder, style = CorusFont.body, color = CorusColors.Tertiary)
         },
         leadingIcon = {
-            Icon(Icons.Filled.Search, contentDescription = "Search", tint = CorusColors.Secondary)
+            Icon(Icons.Filled.Search, contentDescription = stringResource(fm.corus.android.R.string.search_cd_search), tint = CorusColors.Secondary)
         },
         trailingIcon = {
             if (showClearButton) {
                 IconButton(onClick = onClear) {
-                    Icon(Icons.Filled.Close, contentDescription = "Clear", tint = CorusColors.Secondary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.R.string.search_cd_clear), tint = CorusColors.Secondary, modifier = Modifier.size(18.dp))
                 }
             }
         },
@@ -422,7 +423,7 @@ private fun SearchTabBar(
                         animationSpec = tween(200),
                         label = "tabTextColor",
                     )
-                    Text(text = tab.label, style = CorusFont.bodyMedium, color = textColor)
+                    Text(text = stringResource(tab.labelRes), style = CorusFont.bodyMedium, color = textColor)
                 }
             }
         }
@@ -468,10 +469,10 @@ private fun RecentSearchesOverlay(
                     .padding(top = CorusSpacing.sm, bottom = CorusSpacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Recent", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.R.string.search_recent), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = "Clear all",
+                    text = stringResource(fm.corus.android.R.string.search_clear_all),
                     style = CorusFont.captionMedium,
                     color = CorusColors.Accent,
                     modifier = Modifier.clickable { onClearAll() },
@@ -514,7 +515,7 @@ private fun RecentSearchesOverlay(
                     IconButton(onClick = { onRemoveUser(user.id) }) {
                         Icon(
                             Icons.Filled.Close,
-                            contentDescription = "Remove",
+                            contentDescription = stringResource(fm.corus.android.R.string.search_cd_remove),
                             tint = CorusColors.Tertiary,
                             modifier = Modifier.size(16.dp),
                         )
@@ -552,6 +553,12 @@ private fun SuggestedUsersContent(
     onNavigateToContactFriends: () -> Unit,
 ) {
     val context = LocalContext.current
+    val tasteMatchesTitle = stringResource(fm.corus.android.R.string.search_taste_matches_title)
+    val mutualConnectionsTitle = stringResource(fm.corus.android.R.string.search_mutual_connections_title)
+    val popularOnCorusTitle = stringResource(fm.corus.android.R.string.search_popular_title)
+    val newOnCorusTitle = stringResource(fm.corus.android.R.string.search_new_title)
+    val fromContactsSubtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts)
+    val joinedFormat = fm.corus.android.R.string.suggested_users_joined_format
 
     val contactPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -590,7 +597,7 @@ private fun SuggestedUsersContent(
         // ── Friends on Corus (contact matches) ──
         if (isSyncingContacts && contactsSyncStatus == "synced") {
             item {
-                SectionHeader(icon = "contacts", title = "FRIENDS ON CORUS")
+                SectionHeader(icon = "contacts", title = stringResource(fm.corus.android.R.string.search_section_friends_on_corus))
             }
             items(3) {
                 SkeletonUserRow()
@@ -600,7 +607,7 @@ private fun SuggestedUsersContent(
             item {
                 SectionHeader(
                     icon = "contacts",
-                    title = "FRIENDS ON CORUS",
+                    title = stringResource(fm.corus.android.R.string.search_section_friends_on_corus),
                     showSeeAll = contactMatches.size > 3,
                     onSeeAll = onNavigateToContactFriends,
                 )
@@ -608,7 +615,7 @@ private fun SuggestedUsersContent(
             items(contactMatches.take(3), key = { "contact-${it.id}" }) { user ->
                 SuggestedUserRow(
                     user = user,
-                    subtitle = "From your contacts",
+                    subtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts),
                     isFollowed = viewModel.isFollowed(user.id),
                     onTap = { onNavigateToUser(user.id) },
                     onFollow = { viewModel.toggleFollow(user) },
@@ -625,7 +632,7 @@ private fun SuggestedUsersContent(
         // ── Taste Matches section ──
         if (isSuggestedLoading && musicMatchUsers.isEmpty()) {
             item {
-                SectionHeader(icon = "sparkles", title = "TASTE MATCHES")
+                SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
             }
             item {
                 Row(
@@ -644,9 +651,9 @@ private fun SuggestedUsersContent(
             item {
                 SectionHeader(
                     icon = "sparkles",
-                    title = "TASTE MATCHES",
+                    title = stringResource(fm.corus.android.R.string.search_section_taste_matches),
                     showSeeAll = filteredMusicMatchUsers.size > 2,
-                    onSeeAll = { onNavigateToSuggestedUsers("Taste Matches", false, "tasteMatches") },
+                    onSeeAll = { onNavigateToSuggestedUsers(tasteMatchesTitle, false, "tasteMatches") },
                     trailingAction = if (showUnfollowedMatchesToggle) {
                         {
                             TasteMatchFilterMenu(
@@ -686,15 +693,15 @@ private fun SuggestedUsersContent(
             item {
                 SectionHeader(
                     icon = "people",
-                    title = "MUTUAL CONNECTIONS",
+                    title = stringResource(fm.corus.android.R.string.search_section_mutual_connections),
                     showSeeAll = mutualConnectionUsers.size > 2,
-                    onSeeAll = { onNavigateToSuggestedUsers("Mutual Connections", true, "mutualConnections") },
+                    onSeeAll = { onNavigateToSuggestedUsers(mutualConnectionsTitle, true, "mutualConnections") },
                 )
             }
             items(mutualConnectionUsers.take(2)) { match ->
                 SuggestedUserRow(
                     user = match.user,
-                    subtitle = formatMutualFollowersText(match.suggestionReason?.mutualNames),
+                    subtitle = formatMutualFollowersText(context, match.suggestionReason?.mutualNames),
                     isFollowed = viewModel.isFollowed(match.user.id),
                     onTap = { onNavigateToUser(match.user.id) },
                     onFollow = { viewModel.toggleFollow(match.user) },
@@ -708,15 +715,15 @@ private fun SuggestedUsersContent(
             item {
                 SectionHeader(
                     icon = "trending",
-                    title = "POPULAR ON CORUS",
+                    title = stringResource(fm.corus.android.R.string.search_section_popular),
                     showSeeAll = popularUsers.size > 2,
-                    onSeeAll = { onNavigateToSuggestedUsers("Popular on Corus", true, "popular") },
+                    onSeeAll = { onNavigateToSuggestedUsers(popularOnCorusTitle, true, "popular") },
                 )
             }
             items(popularUsers.take(2), key = { "popular-${it.id}" }) { user ->
                 SuggestedUserRow(
                     user = user,
-                    subtitle = "${user.followerCount} followers",
+                    subtitle = context.resources.getQuantityString(fm.corus.android.R.plurals.search_followers_count, user.followerCount, user.followerCount),
                     isFollowed = viewModel.isFollowed(user.id),
                     onTap = { onNavigateToUser(user.id) },
                     onFollow = { viewModel.toggleFollow(user) },
@@ -725,7 +732,7 @@ private fun SuggestedUsersContent(
             item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         } else if (isPopularLoading) {
             item {
-                SectionHeader(icon = "trending", title = "POPULAR ON CORUS")
+                SectionHeader(icon = "trending", title = stringResource(fm.corus.android.R.string.search_section_popular))
             }
             items(2) { SkeletonUserRow() }
             item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
@@ -743,15 +750,15 @@ private fun SuggestedUsersContent(
             item {
                 SectionHeader(
                     icon = "new",
-                    title = "NEW ON CORUS",
+                    title = stringResource(fm.corus.android.R.string.search_section_new),
                     showSeeAll = displayNewUsers.size > 2,
-                    onSeeAll = { onNavigateToSuggestedUsers("New on Corus", true, "new") },
+                    onSeeAll = { onNavigateToSuggestedUsers(newOnCorusTitle, true, "new") },
                 )
             }
             items(displayNewUsers.take(2), key = { "new-${it.id}" }) { user ->
                 SuggestedUserRow(
                     user = user,
-                    subtitle = user.createdAt?.let { "Joined ${DateUtils.relativeTime(it)} ago" },
+                    subtitle = user.createdAt?.let { context.getString(joinedFormat, DateUtils.relativeTime(context, it)) },
                     isFollowed = viewModel.isFollowed(user.id),
                     onTap = { onNavigateToUser(user.id) },
                     onFollow = { viewModel.toggleFollow(user) },
@@ -765,7 +772,7 @@ private fun SuggestedUsersContent(
             item {
                 SectionHeader(
                     icon = "bot",
-                    title = "CURATED MUSIC BOTS",
+                    title = stringResource(fm.corus.android.R.string.search_section_curated_music_bots),
                     showSeeAll = curatedMusicBots.size > 4,
                     onSeeAll = { onNavigateToBotList("music") },
                 )
@@ -781,7 +788,7 @@ private fun SuggestedUsersContent(
             item {
                 SectionHeader(
                     icon = "bot",
-                    title = "CURATED FILM BOTS",
+                    title = stringResource(fm.corus.android.R.string.search_section_curated_film_bots),
                     showSeeAll = curatedFilmBots.size > 4,
                     onSeeAll = { onNavigateToBotList("film") },
                 )
@@ -801,7 +808,7 @@ private fun SuggestedUsersContent(
                     .padding(vertical = CorusSpacing.xxxl, horizontal = CorusSpacing.lg),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("know someone with good taste?", style = CorusFont.songTitleLarge, color = CorusColors.Text)
+                Text(stringResource(fm.corus.android.R.string.search_invite_title), style = CorusFont.songTitleLarge, color = CorusColors.Text)
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
                 Button(
                     onClick = { /* share intent */ },
@@ -809,7 +816,7 @@ private fun SuggestedUsersContent(
                     colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent, contentColor = Color.White),
                     contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
                 ) {
-                    Text("invite friends", style = CorusFont.bodyMedium)
+                    Text(stringResource(fm.corus.android.R.string.search_invite_button), style = CorusFont.bodyMedium)
                 }
             }
         }
@@ -844,13 +851,13 @@ private fun FindFriendsFromContactsCard(
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
         Text(
-            "Find your friends on Corus",
+            stringResource(fm.corus.android.R.string.search_contacts_card_title),
             style = CorusFont.songTitleLarge,
             color = CorusColors.Text,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
         Text(
-            "See which of your contacts are already here",
+            stringResource(fm.corus.android.R.string.search_contacts_card_subtitle),
             style = CorusFont.body,
             color = CorusColors.Secondary,
         )
@@ -875,7 +882,7 @@ private fun FindFriendsFromContactsCard(
                     strokeWidth = 2.dp,
                 )
             } else {
-                Text("Sync Contacts", style = CorusFont.buttonSmall)
+                Text(stringResource(fm.corus.android.R.string.search_contacts_card_sync), style = CorusFont.buttonSmall)
             }
         }
 
@@ -883,7 +890,7 @@ private fun FindFriendsFromContactsCard(
             onClick = onDismiss,
             contentPadding = PaddingValues(horizontal = CorusSpacing.md, vertical = CorusSpacing.xs),
         ) {
-            Text("Not now", style = CorusFont.caption, color = CorusColors.Tertiary)
+            Text(stringResource(fm.corus.android.R.string.search_contacts_card_not_now), style = CorusFont.caption, color = CorusColors.Tertiary)
         }
     }
 }
@@ -897,13 +904,13 @@ private fun NoContactMatchesCard() {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            "None of your contacts are on Corus yet",
+            stringResource(fm.corus.android.R.string.search_no_contact_matches_title),
             style = CorusFont.body,
             color = CorusColors.Secondary,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.xxs))
         Text(
-            "We\u2019ll let you know when they join",
+            stringResource(fm.corus.android.R.string.search_no_contact_matches_subtitle),
             style = CorusFont.caption,
             color = CorusColors.Tertiary,
         )
@@ -950,7 +957,7 @@ private fun SectionHeader(
         Spacer(modifier = Modifier.weight(1f))
         if (showSeeAll) {
             TextButton(onClick = onSeeAll) {
-                Text("See All", style = CorusFont.captionMedium, color = CorusColors.Accent)
+                Text(stringResource(fm.corus.android.R.string.search_see_all), style = CorusFont.captionMedium, color = CorusColors.Accent)
             }
         }
     }
@@ -973,7 +980,7 @@ private fun TasteMatchFilterMenu(
                 } else {
                     Icons.Outlined.FilterAlt
                 },
-                contentDescription = "Filter taste matches",
+                contentDescription = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches),
                 tint = if (filterUnfollowedMatches) CorusColors.Accent else CorusColors.Tertiary,
                 modifier = Modifier.size(16.dp),
             )
@@ -983,7 +990,7 @@ private fun TasteMatchFilterMenu(
             onDismissRequest = { expanded = false },
         ) {
             DropdownMenuItem(
-                text = { Text("All") },
+                text = { Text(stringResource(fm.corus.android.R.string.search_filter_all)) },
                 onClick = {
                     onSetFilterUnfollowed(false)
                     expanded = false
@@ -993,7 +1000,7 @@ private fun TasteMatchFilterMenu(
                 } else null,
             )
             DropdownMenuItem(
-                text = { Text("Unfollowed") },
+                text = { Text(stringResource(fm.corus.android.R.string.search_filter_unfollowed)) },
                 onClick = {
                     onSetFilterUnfollowed(true)
                     expanded = false
@@ -1020,7 +1027,7 @@ private fun UserSearchResults(
         } else if (results.isEmpty()) {
             item {
                 Text(
-                    "No users found",
+                    stringResource(fm.corus.android.R.string.search_no_users_found),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     modifier = Modifier
@@ -1100,7 +1107,7 @@ fun SuggestedUserRow(
             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
             modifier = Modifier.height(30.dp),
         ) {
-            Text(if (isFollowed) "Following" else "Follow", style = CorusFont.buttonSmall)
+            Text(if (isFollowed) stringResource(fm.corus.android.R.string.search_button_following) else stringResource(fm.corus.android.R.string.search_button_follow), style = CorusFont.buttonSmall)
         }
     }
 }
@@ -1114,7 +1121,7 @@ private fun TrendingSongsContent(
 ) {
     if (isLoading) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
-            item { SectionHeader(icon = "music", title = "TRENDING THIS MONTH") }
+            item { SectionHeader(icon = "music", title = stringResource(fm.corus.android.R.string.search_section_trending_this_month)) }
             items(5) { SkeletonTrendingSongRow() }
         }
         return
@@ -1124,13 +1131,13 @@ private fun TrendingSongsContent(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Spacer(modifier = Modifier.height(80.dp))
                 Text("\uD83C\uDFB5", style = CorusFont.songTitleLarge, modifier = Modifier.padding(bottom = CorusSpacing.sm))
-                Text("Nothing trending yet", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
-                Text("Post some songs to get things going", style = CorusFont.body, color = CorusColors.Tertiary)
+                Text(stringResource(fm.corus.android.R.string.search_nothing_trending), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.R.string.search_post_some_songs), style = CorusFont.body, color = CorusColors.Tertiary)
             }
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
-            item { SectionHeader(icon = "music", title = "TRENDING THIS MONTH") }
+            item { SectionHeader(icon = "music", title = stringResource(fm.corus.android.R.string.search_section_trending_this_month)) }
             itemsIndexed(songs) { index, song ->
                 TrendingSongRow(song = song, onClick = { onSongTap(song.track) })
                 if (index < songs.lastIndex) {
@@ -1184,7 +1191,7 @@ private fun TrendingFilmsContent(
 ) {
     if (isLoading) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
-            item { SectionHeader(icon = "film", title = "TRENDING THIS MONTH") }
+            item { SectionHeader(icon = "film", title = stringResource(fm.corus.android.R.string.search_section_trending_this_month)) }
             items(10) { SkeletonTrendingFilmRow() }
         }
         return
@@ -1194,13 +1201,13 @@ private fun TrendingFilmsContent(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Spacer(modifier = Modifier.height(80.dp))
                 Text("\uD83C\uDFAC", style = CorusFont.songTitleLarge, modifier = Modifier.padding(bottom = CorusSpacing.sm))
-                Text("No trending films yet", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
-                Text("Post some films to get things going", style = CorusFont.body, color = CorusColors.Tertiary)
+                Text(stringResource(fm.corus.android.R.string.search_no_trending_films), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.R.string.search_post_some_films), style = CorusFont.body, color = CorusColors.Tertiary)
             }
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
-            item { SectionHeader(icon = "film", title = "TRENDING THIS MONTH") }
+            item { SectionHeader(icon = "film", title = stringResource(fm.corus.android.R.string.search_section_trending_this_month)) }
             itemsIndexed(movies) { index, movie ->
                 TrendingFilmRow(movie = movie, onClick = {
                     onFilmTap(FilmDetailRoute(
@@ -1278,7 +1285,7 @@ private fun SongSearchResultsList(
         }
     } else if (tracks.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No songs found", style = CorusFont.body, color = CorusColors.Secondary)
+            Text(stringResource(fm.corus.android.R.string.search_no_songs_found), style = CorusFont.body, color = CorusColors.Secondary)
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
@@ -1346,7 +1353,7 @@ private fun FilmSearchResultsList(
         }
     } else if (movies.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No films found", style = CorusFont.body, color = CorusColors.Secondary)
+            Text(stringResource(fm.corus.android.R.string.search_no_films_found), style = CorusFont.body, color = CorusColors.Secondary)
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
@@ -1372,14 +1379,15 @@ private fun FilmSearchResultsList(
 
 // ── Helpers ──
 
-internal fun formatMutualFollowersText(names: List<String>?): String? {
+internal fun formatMutualFollowersText(context: android.content.Context, names: List<String>?): String? {
     if (names.isNullOrEmpty()) return null
     return when (names.size) {
-        1 -> "Followed by @${names[0]}"
-        2 -> "Followed by @${names[0]} and @${names[1]}"
+        1 -> context.getString(fm.corus.android.R.string.search_followed_by_one_format, names[0])
+        2 -> context.getString(fm.corus.android.R.string.search_followed_by_two_format, names[0], names[1])
         else -> {
             val others = names.size - 2
-            "Followed by @${names[0]}, @${names[1]}, and $others ${if (others == 1) "other" else "others"}"
+            val othersText = context.resources.getQuantityString(fm.corus.android.R.plurals.search_others_count, others, others)
+            context.getString(fm.corus.android.R.string.search_followed_by_many_format, names[0], names[1], othersText)
         }
     }
 }

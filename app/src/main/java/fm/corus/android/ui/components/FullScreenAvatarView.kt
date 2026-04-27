@@ -17,8 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import fm.corus.android.R
 
 @Composable
 fun FullScreenAvatarOverlay(
@@ -46,7 +48,7 @@ fun FullScreenAvatarOverlay(
         ) {
             AsyncImage(
                 model = avatarURL,
-                contentDescription = "Full screen avatar",
+                contentDescription = stringResource(R.string.full_screen_cd_avatar),
                 modifier = Modifier
                     .size(250.dp)
                     .clip(CircleShape)

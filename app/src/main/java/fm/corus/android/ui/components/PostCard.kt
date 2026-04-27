@@ -34,6 +34,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import coil3.size.Size
@@ -56,7 +57,6 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.NunitoFamily
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
@@ -166,7 +166,7 @@ fun PostCard(
                             tint = CorusColors.Secondary,
                         )
                         Text(
-                            text = "reposted from",
+                            text = stringResource(R.string.post_card_reposted_from),
                             style = CorusFont.caption,
                             color = CorusColors.Secondary,
                         )
@@ -181,7 +181,7 @@ fun PostCard(
 
             Icon(
                 imageVector = Icons.Filled.MoreHoriz,
-                contentDescription = "More options",
+                contentDescription = stringResource(R.string.post_card_cd_more_options),
                 modifier = Modifier
                     .size(14.dp)
                     .clickable(
@@ -269,7 +269,7 @@ fun PostCard(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                text = "Finding back cover…",
+                                text = stringResource(R.string.post_card_finding_back_cover),
                                 color = Color.White,
                                 style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
                                 modifier = Modifier.padding(bottom = CorusSpacing.xs),
@@ -292,7 +292,7 @@ fun PostCard(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = "No back cover available",
+                                text = stringResource(R.string.post_card_no_back_cover),
                                 color = Color.White,
                                 style = CorusFont.body.copy(fontWeight = FontWeight.Medium),
                             )
@@ -316,7 +316,7 @@ fun PostCard(
                             } else {
                                 Icon(
                                     imageVector = Icons.Filled.Pause,
-                                    contentDescription = "Pause",
+                                    contentDescription = stringResource(R.string.post_card_cd_pause),
                                     tint = Color.White,
                                     modifier = Modifier.size(52.dp),
                                 )
@@ -370,7 +370,7 @@ fun PostCard(
                                     modifier = Modifier.size(24.dp),
                                 )
                                 Text(
-                                    text = "View Film Page",
+                                    text = stringResource(R.string.post_card_view_film_page),
                                     style = CorusFont.button,
                                 )
                             }
@@ -402,7 +402,7 @@ fun PostCard(
                                         modifier = Modifier.size(24.dp),
                                     )
                                     Text(
-                                        text = "Watch Trailer",
+                                        text = stringResource(R.string.post_card_watch_trailer),
                                         style = CorusFont.button,
                                     )
                                 }
@@ -441,7 +441,7 @@ fun PostCard(
                             .crossfade(true)
                             .size(Size(640, 640))
                             .build(),
-                        contentDescription = "Album back cover",
+                        contentDescription = stringResource(R.string.post_card_cd_album_back_cover),
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                     )
@@ -514,7 +514,7 @@ fun PostCard(
                     if (post.trailerURL != null) {
                         Image(
                             painter = painterResource(R.drawable.ic_play_rectangle_fill),
-                            contentDescription = "Watch Trailer",
+                            contentDescription = stringResource(R.string.post_card_cd_watch_trailer),
                             modifier = Modifier
                                 .height(22.dp)
                                 .offset(y = (-4).dp)
@@ -529,7 +529,7 @@ fun PostCard(
             } else {
                 Image(
                     painter = painterResource(R.drawable.spotify_logo),
-                    contentDescription = "Play on Spotify",
+                    contentDescription = stringResource(R.string.post_card_cd_play_spotify),
                     modifier = Modifier
                         .size(28.dp)
                         .clickable(
@@ -563,7 +563,7 @@ fun PostCard(
             ) {
                 Icon(
                     imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Like",
+                    contentDescription = stringResource(R.string.post_card_cd_like),
                     modifier = Modifier.size(22.dp),
                     tint = if (isLiked) CorusColors.Like else CorusColors.Text,
                 )
@@ -588,7 +588,7 @@ fun PostCard(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.ChatBubbleOutline,
-                    contentDescription = "Comment",
+                    contentDescription = stringResource(R.string.post_card_cd_comment),
                     modifier = Modifier.size(20.dp),
                     tint = CorusColors.Text,
                 )
@@ -604,7 +604,7 @@ fun PostCard(
             // Share button
             Icon(
                 imageVector = Icons.Filled.Send,
-                contentDescription = "Share",
+                contentDescription = stringResource(R.string.post_card_cd_share),
                 modifier = Modifier
                     .size(20.dp)
                     .clickable(
@@ -643,7 +643,7 @@ fun PostCard(
             // Save button
             Icon(
                 imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                contentDescription = "Save",
+                contentDescription = stringResource(R.string.post_card_cd_save),
                 modifier = Modifier
                     .size(20.dp)
                     .clickable(
@@ -772,38 +772,14 @@ fun PostCard(
         }
 
         // 8. TIMESTAMP
+        val timestampContext = LocalContext.current
         Text(
-            text = relativeTimeString(post.timestamp),
+            text = fm.corus.android.ui.util.DateUtils.relativeTime(timestampContext, post.timestamp),
             style = CorusFont.caption, // Normal 12sp
             color = CorusColors.Secondary,
             modifier = Modifier
                 .padding(horizontal = CorusSpacing.lg)
                 .padding(bottom = CorusSpacing.sm),
         )
-    }
-}
-
-
-/**
- * Produces a human-readable relative time string (e.g. "2h", "3d", "1w").
- */
-private fun relativeTimeString(date: java.util.Date): String {
-    val now = System.currentTimeMillis()
-    val diff = now - date.time
-    if (diff < 0) return "now"
-
-    val seconds = TimeUnit.MILLISECONDS.toSeconds(diff)
-    val minutes = TimeUnit.MILLISECONDS.toMinutes(diff)
-    val hours = TimeUnit.MILLISECONDS.toHours(diff)
-    val days = TimeUnit.MILLISECONDS.toDays(diff)
-
-    return when {
-        seconds < 60 -> "now"
-        minutes < 60 -> "${minutes}m"
-        hours < 24 -> "${hours}h"
-        days < 7 -> "${days}d"
-        days < 30 -> "${days / 7}w"
-        days < 365 -> "${days / 30}mo"
-        else -> "${days / 365}y"
     }
 }

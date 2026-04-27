@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -251,7 +252,7 @@ fun ProfileScreen(
                     if (posts.isNotEmpty()) {
                         Icon(
                             painter = painterResource(fm.corus.android.R.drawable.corus_club_vector),
-                            contentDescription = "Customize Profile",
+                            contentDescription = stringResource(fm.corus.android.R.string.profile_cd_customize),
                             tint = CorusColors.Accent,
                             modifier = Modifier
                                 .size(40.dp)
@@ -269,7 +270,7 @@ fun ProfileScreen(
 
                     Icon(
                         Icons.Filled.Settings,
-                        contentDescription = "Settings",
+                        contentDescription = stringResource(fm.corus.android.R.string.profile_cd_settings),
                         tint = CorusColors.Secondary,
                         modifier = Modifier
                             .size(24.dp)
@@ -303,14 +304,14 @@ fun ProfileScreen(
                             containerColor = CorusColors.Background,
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Take Photo", style = CorusFont.body, color = CorusColors.Text) },
+                                text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_take_photo), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showAvatarMenu = false
                                     showSelfieCapture = true
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Choose from Library", style = CorusFont.body, color = CorusColors.Text) },
+                                text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_choose_library), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showAvatarMenu = false
                                     photoPickerLauncher.launch(
@@ -319,19 +320,19 @@ fun ProfileScreen(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("View Photo", style = CorusFont.body, color = CorusColors.Text) },
+                                text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_view_photo), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showAvatarMenu = false
                                     showFullScreenAvatar = true
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Share Profile Link", style = CorusFont.body, color = CorusColors.Text) },
+                                text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_share_link), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showAvatarMenu = false
                                     val link = "https://corus.fm/u/${currentProfile.username}"
                                     clipboardManager.setText(AnnotatedString(link))
-                                    ToastManager.show("Profile link copied!")
+                                    ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_link_copied))
                                 },
                             )
                         }
@@ -349,15 +350,15 @@ fun ProfileScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
                         ) {
-                            StatItem(count = currentProfile.cymbalCount, label = "coruses")
+                            StatItem(count = currentProfile.cymbalCount, label = stringResource(fm.corus.android.R.string.profile_stat_coruses))
                             StatItem(
                                 count = currentProfile.followerCount,
-                                label = "followers",
+                                label = stringResource(fm.corus.android.R.string.profile_stat_followers),
                                 onClick = { onNavigateToFollowList(currentProfile.id, true) },
                             )
                             StatItem(
                                 count = currentProfile.followingCount,
-                                label = "following",
+                                label = stringResource(fm.corus.android.R.string.profile_stat_following),
                                 onClick = { onNavigateToFollowList(currentProfile.id, false) },
                             )
                         }
@@ -380,7 +381,7 @@ fun ProfileScreen(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
-                                    text = "EDIT PROFILE",
+                                    text = stringResource(fm.corus.android.R.string.profile_button_edit),
                                     style = CorusFont.button,
                                     color = CorusColors.Secondary,
                                 )
@@ -414,7 +415,7 @@ fun ProfileScreen(
                                     )
                                     .clickable(enabled = !isGeneratingPlaylist) {
                                         if (!hasSongs) {
-                                            ToastManager.show("No songs to make a playlist")
+                                            ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
                                         } else {
                                             viewModel.generatePlaylist()
                                         }
@@ -434,12 +435,12 @@ fun ProfileScreen(
                                 ) {
                                     Icon(
                                         painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
-                                        contentDescription = "Playlist",
+                                        contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
                                         modifier = Modifier.size(14.dp),
                                         tint = CorusColors.Secondary,
                                     )
                                     Text(
-                                        text = "PLAYLIST",
+                                        text = stringResource(fm.corus.android.R.string.profile_button_playlist),
                                         style = CorusFont.button,
                                         color = CorusColors.Secondary,
                                     )
@@ -518,7 +519,12 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
                 // ── Segment Control ──
-                val tabs = listOf("MUSIC", "FILM", "LIKES", "SAVES")
+                val tabs = listOf(
+                    stringResource(fm.corus.android.R.string.profile_tab_music),
+                    stringResource(fm.corus.android.R.string.profile_tab_film),
+                    stringResource(fm.corus.android.R.string.profile_tab_likes),
+                    stringResource(fm.corus.android.R.string.profile_tab_saves),
+                )
                 val tabSelectedColor = CorusColors.Text
                 val tabUnselectedColor = CorusColors.Divider
                 Row(
@@ -639,25 +645,25 @@ fun ProfileScreen(
                     when (selectedSegment) {
                         0 -> ProfileEmptyPrompt(
                             icon = Icons.Filled.Headphones,
-                            title = "What are you listening to?",
-                            subtitle = "Share your first song and let\neveryone know what's on repeat.",
-                            buttonText = "Post your first song",
+                            title = stringResource(fm.corus.android.R.string.profile_empty_music_title),
+                            subtitle = stringResource(fm.corus.android.R.string.profile_empty_music_subtitle),
+                            buttonText = stringResource(fm.corus.android.R.string.profile_empty_music_button),
                             onButtonClick = { onOpenCompose("track") },
                         )
                         1 -> ProfileEmptyPrompt(
                             icon = Icons.Filled.Movie,
-                            title = "Watch anything good lately?",
-                            subtitle = "Share your first film and let\neveryone know what you're watching.",
-                            buttonText = "Post your first film",
+                            title = stringResource(fm.corus.android.R.string.profile_empty_film_title),
+                            subtitle = stringResource(fm.corus.android.R.string.profile_empty_film_subtitle),
+                            buttonText = stringResource(fm.corus.android.R.string.profile_empty_film_button),
                             onButtonClick = { onOpenCompose("movie") },
                         )
                         2 -> ProfileEmptyPlaceholder(
                             icon = Icons.Filled.Favorite,
-                            message = "No liked posts yet",
+                            message = stringResource(fm.corus.android.R.string.profile_empty_likes),
                         )
                         else -> ProfileEmptyPlaceholder(
                             icon = Icons.Filled.Bookmark,
-                            message = "No saved posts yet",
+                            message = stringResource(fm.corus.android.R.string.profile_empty_saves),
                         )
                     }
                 }
@@ -780,7 +786,7 @@ fun ProfileScreen(
                     val fields = selections.changedFields(current)
                     if (fields.isNotEmpty()) {
                         viewModel.saveStyleSelections(fields)
-                        ToastManager.show("Style updated!")
+                        ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_style_updated))
                     }
                     showStylePicker = false
                 },
@@ -838,7 +844,7 @@ fun ProfileScreen(
             onConfirm = { croppedBytes ->
                 cropBitmap = null
                 viewModel.uploadAvatar(croppedBytes)
-                ToastManager.show("Avatar updated!")
+                ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_avatar_updated))
             },
             onCancel = { cropBitmap = null },
         )

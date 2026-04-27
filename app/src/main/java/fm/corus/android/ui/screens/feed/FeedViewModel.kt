@@ -1,9 +1,12 @@
 package fm.corus.android.ui.screens.feed
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import android.util.Log
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
@@ -47,6 +50,7 @@ class FeedViewModel @Inject constructor(
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
     private val postCreationEvent: PostCreationEvent,
+    @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
@@ -336,7 +340,7 @@ class FeedViewModel @Inject constructor(
                     )
                 }
             } catch (_: Exception) {
-                ToastManager.show("Failed to send post")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_send_post))
             }
         }
     }
@@ -355,9 +359,9 @@ class FeedViewModel @Inject constructor(
                     reason = "reported_from_feed",
                     details = "",
                 )
-                ToastManager.show("Post reported")
+                ToastManager.show(context.getString(R.string.feed_toast_post_reported))
             } catch (_: Exception) {
-                ToastManager.show("Failed to report post")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_report))
             }
         }
     }
@@ -368,9 +372,9 @@ class FeedViewModel @Inject constructor(
             try {
                 userRepository.blockUser(currentUserId, targetUserId)
                 _posts.value = _posts.value.filter { it.user.id != targetUserId }
-                ToastManager.show("User blocked")
+                ToastManager.show(context.getString(R.string.feed_toast_user_blocked))
             } catch (_: Exception) {
-                ToastManager.show("Failed to block user")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_block))
             }
         }
     }
@@ -381,9 +385,9 @@ class FeedViewModel @Inject constructor(
             try {
                 userRepository.muteUser(currentUserId, targetUserId)
                 _posts.value = _posts.value.filter { it.user.id != targetUserId }
-                ToastManager.show("User muted")
+                ToastManager.show(context.getString(R.string.feed_toast_user_muted))
             } catch (_: Exception) {
-                ToastManager.show("Failed to mute user")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_mute))
             }
         }
     }
@@ -395,9 +399,9 @@ class FeedViewModel @Inject constructor(
                 postRepository.deletePost(postId, userId)
                 _posts.value = _posts.value.filter { it.id != postId }
                 authRepository.bumpCymbalCount(-1)
-                ToastManager.show("Post deleted")
+                ToastManager.show(context.getString(R.string.feed_toast_post_deleted))
             } catch (_: Exception) {
-                ToastManager.show("Failed to delete post")
+                ToastManager.show(context.getString(R.string.feed_toast_failed_delete))
             }
         }
     }

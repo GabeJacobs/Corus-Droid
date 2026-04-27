@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.R
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.MessageFailureReason
@@ -75,15 +77,15 @@ private val REACTION_KEYS = listOf("heart", "laugh", "thumbsup", "wow", "cry", "
 private val URL_REGEX = Regex("""https?://\S+""", RegexOption.IGNORE_CASE)
 
 /** Short preview text for the message being replied to. Mirrors iOS replySnippet. */
-internal fun replyPreviewText(msg: CymbalMessage): String {
+internal fun replyPreviewText(msg: CymbalMessage, context: android.content.Context): String {
     val text = msg.text
     if (!text.isNullOrBlank()) return text.take(100)
     return when (msg.type) {
-        MessageType.IMAGE -> "Photo"
-        MessageType.GIF -> "GIF"
-        MessageType.SHARED_TRACK -> msg.trackName?.takeIf { it.isNotBlank() } ?: "Song"
-        MessageType.SHARED_FILM -> msg.movieTitle?.takeIf { it.isNotBlank() } ?: "Film"
-        else -> "Message"
+        MessageType.IMAGE -> context.getString(R.string.messaging_thread_attachment_photo)
+        MessageType.GIF -> context.getString(R.string.comments_cd_gif)
+        MessageType.SHARED_TRACK -> msg.trackName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_song)
+        MessageType.SHARED_FILM -> msg.movieTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_film)
+        else -> context.getString(R.string.messaging_thread_message_fallback)
     }
 }
 
@@ -172,7 +174,7 @@ fun MessageThreadScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.common_back))
             }
             Text(otherUsername, style = CorusFont.screenTitle, color = CorusColors.Text)
         }
@@ -233,15 +235,15 @@ fun MessageThreadScreen(
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Column(modifier = Modifier.weight(1f)) {
                     val replyAuthorLabel =
-                        if (replyToMessage?.fromUserId == viewModel.currentUserId) "yourself"
-                        else otherUsername.ifBlank { "message" }
+                        if (replyToMessage?.fromUserId == viewModel.currentUserId) stringResource(id = R.string.messaging_thread_yourself)
+                        else otherUsername.ifBlank { stringResource(id = R.string.messaging_thread_message_fallback) }
                     Text(
-                        text = "Replying to $replyAuthorLabel",
+                        text = stringResource(id = R.string.messaging_thread_replying_to_format, replyAuthorLabel),
                         style = CorusFont.caption,
                         color = CorusColors.Text,
                     )
                     Text(
-                        text = replyPreviewText(replyToMessage!!),
+                        text = replyPreviewText(replyToMessage!!, context),
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
                         maxLines = 1,
@@ -249,7 +251,7 @@ fun MessageThreadScreen(
                     )
                 }
                 IconButton(onClick = { viewModel.setReplyTo(null) }) {
-                    Icon(Icons.Filled.Close, contentDescription = "Cancel reply", modifier = Modifier.size(18.dp), tint = CorusColors.Secondary)
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(id = R.string.comments_cd_cancel_reply), modifier = Modifier.size(18.dp), tint = CorusColors.Secondary)
                 }
             }
         }
@@ -267,7 +269,7 @@ fun MessageThreadScreen(
                 IconButton(onClick = { showAttachmentMenu = true }) {
                     Icon(
                         imageVector = Icons.Filled.AddCircle,
-                        contentDescription = "Add attachment",
+                        contentDescription = stringResource(id = R.string.messaging_thread_cd_add_attachment),
                         tint = CorusColors.Accent,
                         modifier = Modifier.size(28.dp),
                     )
@@ -277,7 +279,7 @@ fun MessageThreadScreen(
                     onDismissRequest = { showAttachmentMenu = false },
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Photo") },
+                        text = { Text(stringResource(id = R.string.messaging_thread_attachment_photo)) },
                         leadingIcon = { Icon(Icons.Filled.Photo, contentDescription = null) },
                         onClick = {
                             showAttachmentMenu = false
@@ -287,7 +289,7 @@ fun MessageThreadScreen(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Song") },
+                        text = { Text(stringResource(id = R.string.messaging_thread_attachment_song)) },
                         leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
                         onClick = {
                             showAttachmentMenu = false
@@ -295,7 +297,7 @@ fun MessageThreadScreen(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Film") },
+                        text = { Text(stringResource(id = R.string.messaging_thread_attachment_film)) },
                         leadingIcon = { Icon(Icons.Filled.Movie, contentDescription = null) },
                         onClick = {
                             showAttachmentMenu = false
@@ -309,7 +311,7 @@ fun MessageThreadScreen(
                 IconButton(onClick = { showGifPicker = true }) {
                     Icon(
                         Icons.Filled.Gif,
-                        contentDescription = "Send GIF",
+                        contentDescription = stringResource(id = R.string.comments_cd_send_gif),
                         tint = CorusColors.Accent,
                         modifier = Modifier.size(28.dp),
                     )
@@ -320,7 +322,7 @@ fun MessageThreadScreen(
                 value = messageText,
                 onValueChange = { messageText = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Message...", style = CorusFont.body) },
+                placeholder = { Text(stringResource(id = R.string.messaging_thread_placeholder), style = CorusFont.body) },
                 singleLine = false,
                 maxLines = 4,
                 shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
@@ -337,7 +339,7 @@ fun MessageThreadScreen(
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Send",
+                    contentDescription = stringResource(id = R.string.comments_cd_send),
                     tint = if (messageText.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary,
                 )
             }
@@ -471,14 +473,14 @@ private fun ReactionOverlay(
                 Column {
                     ActionMenuItem(
                         icon = Icons.AutoMirrored.Filled.Reply,
-                        label = "Reply",
+                        label = stringResource(id = R.string.comments_reply),
                         onClick = onReply,
                     )
                     if (!message.text.isNullOrBlank()) {
                         HorizontalDivider(color = CorusColors.Divider)
                         ActionMenuItem(
                             icon = Icons.Filled.ContentCopy,
-                            label = "Copy",
+                            label = stringResource(id = R.string.comments_menu_copy),
                             onClick = onCopy,
                         )
                     }
@@ -486,14 +488,14 @@ private fun ReactionOverlay(
                         HorizontalDivider(color = CorusColors.Divider)
                         ActionMenuItem(
                             icon = Icons.Filled.Flag,
-                            label = "Report",
+                            label = stringResource(id = R.string.comments_menu_report),
                             tint = CorusColors.Error,
                             onClick = onReport,
                         )
                         HorizontalDivider(color = CorusColors.Divider)
                         ActionMenuItem(
                             icon = Icons.Filled.Block,
-                            label = "Block",
+                            label = stringResource(id = R.string.comments_menu_block),
                             tint = CorusColors.Error,
                             onClick = onBlock,
                         )
@@ -612,7 +614,7 @@ private fun MessageBubble(
                 // Quoted reply context, inside the bubble
                 if (message.replyToText != null) {
                     val isOwnQuote = message.replyToUserId == currentUserId
-                    val authorName = if (isOwnQuote) "You" else otherUsername
+                    val authorName = if (isOwnQuote) stringResource(id = R.string.messaging_thread_you) else otherUsername
                     val accentBarColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.6f)
                                          else CorusColors.Accent.copy(alpha = 0.6f)
                     val quotedAuthorColor = if (isFromCurrentUser) Color.White else CorusColors.Accent
@@ -652,7 +654,7 @@ private fun MessageBubble(
                 if (message.type == MessageType.IMAGE && message.mediaURL != null) {
                     ShimmerAsyncImage(
                         model = message.mediaURL,
-                        contentDescription = "Shared image",
+                        contentDescription = stringResource(id = R.string.messaging_thread_cd_shared_image),
                         modifier = Modifier
                             .widthIn(max = 240.dp)
                             .heightIn(max = 300.dp)
@@ -669,7 +671,7 @@ private fun MessageBubble(
                 if (message.type == MessageType.GIF && message.mediaURL != null) {
                     ShimmerAsyncImage(
                         model = message.mediaURL,
-                        contentDescription = "GIF",
+                        contentDescription = stringResource(id = R.string.comments_cd_gif),
                         modifier = Modifier
                             .widthIn(max = 240.dp)
                             .heightIn(max = 300.dp)
@@ -731,7 +733,7 @@ private fun MessageBubble(
         // Send status indicators
         if (isSending) {
             Text(
-                text = "Sending...",
+                text = stringResource(id = R.string.messaging_thread_sending),
                 style = CorusFont.caption,
                 color = CorusColors.Tertiary,
                 modifier = Modifier.padding(top = 2.dp),
@@ -757,18 +759,18 @@ private fun MessageBubble(
                 )
                 if (message.failureReason == MessageFailureReason.MESSAGING_DISABLED) {
                     Text(
-                        text = "This user has messaging disabled",
+                        text = stringResource(id = R.string.messaging_thread_user_messaging_disabled),
                         style = CorusFont.caption,
                         color = Color.Red,
                     )
                 } else {
                     Text(
-                        text = "Failed to deliver",
+                        text = stringResource(id = R.string.messaging_thread_failed_to_deliver),
                         style = CorusFont.caption,
                         color = Color.Red,
                     )
                     Text(
-                        text = "\u00B7 Tap to retry",
+                        text = stringResource(id = R.string.messaging_thread_tap_to_retry),
                         style = CorusFont.caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
                         color = Color.Red,
                     )

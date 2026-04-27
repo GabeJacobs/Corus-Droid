@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
@@ -273,7 +274,7 @@ fun FeaturedCymbalView(
             ) {
                 Icon(
                     imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Like",
+                    contentDescription = stringResource(R.string.featured_cd_like),
                     tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
                     modifier = Modifier.size(20.dp),
                 )
@@ -292,7 +293,7 @@ fun FeaturedCymbalView(
             // Spotify button
             Image(
                 painter = painterResource(R.drawable.spotify_logo),
-                contentDescription = "Play on Spotify",
+                contentDescription = stringResource(R.string.featured_cd_play_spotify),
                 modifier = Modifier
                     .size(21.dp)
                     .clickable(onClick = onSpotifyTap),

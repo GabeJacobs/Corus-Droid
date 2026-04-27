@@ -105,7 +105,7 @@ fun ProfileFeedScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = androidx.compose.ui.res.stringResource(fm.corus.android.R.string.common_back),
                             tint = CorusColors.Text,
                         )
                     }

@@ -23,6 +23,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,6 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.UserAvatarView
@@ -94,7 +97,7 @@ fun SongDetailScreen(
                 title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.feed_cd_back), tint = CorusColors.Text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
@@ -162,7 +165,7 @@ fun SongDetailScreen(
                             } else if (isPlayingThisTrack) {
                                 Icon(
                                     imageVector = Icons.Filled.Pause,
-                                    contentDescription = "Pause preview",
+                                    contentDescription = stringResource(R.string.song_detail_cd_pause_preview),
                                     tint = Color.White,
                                     modifier = Modifier.size(40.dp),
                                 )
@@ -211,7 +214,7 @@ fun SongDetailScreen(
                         ),
                         contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                     ) {
-                        Text("+ Post Song", style = CorusFont.buttonSmall)
+                        Text(stringResource(R.string.song_detail_post_song), style = CorusFont.buttonSmall)
                     }
 
                     // Play in Spotify capsule
@@ -229,7 +232,7 @@ fun SongDetailScreen(
                         ),
                         contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                     ) {
-                        Text("Play in Spotify", style = CorusFont.buttonSmall)
+                        Text(stringResource(R.string.song_detail_play_spotify), style = CorusFont.buttonSmall)
                     }
                 }
 
@@ -242,7 +245,7 @@ fun SongDetailScreen(
             if (isLoading) {
                 item {
                     Text(
-                        text = "Posted by",
+                        text = stringResource(R.string.song_detail_posted_by),
                         style = CorusFont.sectionHeader,
                         color = CorusColors.Secondary,
                         modifier = Modifier
@@ -267,10 +270,10 @@ fun SongDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text("Couldn't load posts", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(R.string.song_detail_load_error), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         TextButton(onClick = { viewModel.loadSongPosts(trackId) }) {
-                            Text("Try Again", style = CorusFont.buttonSmall, color = CorusColors.Accent)
+                            Text(stringResource(R.string.song_detail_try_again), style = CorusFont.buttonSmall, color = CorusColors.Accent)
                         }
                     }
                 }
@@ -280,7 +283,7 @@ fun SongDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text("No one has posted this song yet", style = CorusFont.body, color = CorusColors.Secondary)
+                        Text(stringResource(R.string.song_detail_empty), style = CorusFont.body, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Button(
                             onClick = { onNavigateToCompose(trackId) },
@@ -291,7 +294,7 @@ fun SongDetailScreen(
                             ),
                             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                         ) {
-                            Text("Be the first!", style = CorusFont.buttonSmall)
+                            Text(stringResource(R.string.song_detail_be_the_first), style = CorusFont.buttonSmall)
                         }
                     }
                 }
@@ -300,7 +303,7 @@ fun SongDetailScreen(
                 item {
                     val count = uniquePosterCount ?: posts.map { it.user.id }.toSet().size
                     Text(
-                        text = "Posted by ${formatUserCount(count)} user${if (count != 1) "s" else ""}",
+                        text = pluralStringResource(R.plurals.song_detail_posted_by_count, count, formatUserCount(count)),
                         style = CorusFont.sectionHeader,
                         color = CorusColors.Secondary,
                         modifier = Modifier
@@ -385,7 +388,7 @@ private fun PostedByRow(
         }
 
         Text(
-            text = DateUtils.relativeTime(post.timestamp),
+            text = DateUtils.relativeTime(LocalContext.current, post.timestamp),
             style = CorusFont.caption,
             color = CorusColors.Tertiary,
         )

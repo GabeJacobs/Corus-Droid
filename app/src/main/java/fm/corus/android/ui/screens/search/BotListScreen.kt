@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,14 +43,14 @@ fun BotListScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (botType == "film") "Curated Film Bots" else "Curated Music Bots",
+                        if (botType == "film") stringResource(fm.corus.android.R.string.bot_list_title_film) else stringResource(fm.corus.android.R.string.bot_list_title_music),
                         style = CorusFont.screenTitle,
                         color = CorusColors.Text,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
@@ -76,7 +77,7 @@ fun BotListScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("No bots available", style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.R.string.bot_list_empty), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
             }
         } else {
             LazyVerticalGrid(
