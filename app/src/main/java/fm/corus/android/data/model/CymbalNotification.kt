@@ -10,6 +10,8 @@ data class CymbalNotification(
     val postAlbumArtURL: String? = null,
     val commentText: String? = null,
     val commentId: String? = null,
+    val bodyText: String? = null,
+    val subtype: String? = null,
     val timestamp: Date = Date(),
     val isRead: Boolean = false,
 ) {
@@ -28,6 +30,7 @@ data class CymbalNotification(
             NotificationType.NEW_POST -> "posted a new corus."
             NotificationType.REPLY -> if (commentText != null) "replied to your comment: $commentText" else "replied to your comment."
             NotificationType.CONTACT_JOINED -> "joined Corus!"
+            NotificationType.TASTE_MATCH -> bodyText ?: "is a new taste match."
         }
 
     companion object {
@@ -54,6 +57,8 @@ data class CymbalNotification(
                 postAlbumArtURL = data["postAlbumArtURL"] as? String,
                 commentText = data["commentText"] as? String,
                 commentId = data["commentId"] as? String,
+                bodyText = data["bodyText"] as? String,
+                subtype = data["subtype"] as? String,
                 timestamp = timestamp,
                 isRead = data["isRead"] as? Boolean ?: false,
             )

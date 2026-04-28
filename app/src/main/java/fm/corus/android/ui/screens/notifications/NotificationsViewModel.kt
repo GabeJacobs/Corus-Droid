@@ -6,12 +6,17 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
+import fm.corus.android.data.model.CommentAttachedFilm
+import fm.corus.android.data.model.CommentAttachedSong
+import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalNotification
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.NotificationRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
@@ -31,6 +36,7 @@ class NotificationsViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val postRepository: PostRepository,
     private val engagementManager: PostEngagementManager,
+    private val analyticsService: AnalyticsService,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -61,6 +67,28 @@ class NotificationsViewModel @Inject constructor(
 
     private val _isSendingReply = MutableStateFlow(false)
     val isSendingReply: StateFlow<Boolean> = _isSendingReply.asStateFlow()
+
+    // ── Reply attachment state ──
+    private val _replyPendingSong = MutableStateFlow<CommentAttachedSong?>(null)
+    val replyPendingSong: StateFlow<CommentAttachedSong?> = _replyPendingSong.asStateFlow()
+
+    private val _replyPendingFilm = MutableStateFlow<CommentAttachedFilm?>(null)
+    val replyPendingFilm: StateFlow<CommentAttachedFilm?> = _replyPendingFilm.asStateFlow()
+
+    fun attachReplySong(track: CymbalTrack) {
+        _replyPendingSong.value = CommentAttachedSong.fromTrack(track)
+        _replyPendingFilm.value = null
+    }
+
+    fun attachReplyFilm(movie: CymbalMovie) {
+        _replyPendingFilm.value = CommentAttachedFilm.fromMovie(movie)
+        _replyPendingSong.value = null
+    }
+
+    fun clearReplyAttachment() {
+        _replyPendingSong.value = null
+        _replyPendingFilm.value = null
+    }
 
     /** One-shot "Reply sent" / "Failed to send reply" toast events, consumed by the screen. */
     private val _replyToastEvents = Channel<String>(Channel.BUFFERED)
@@ -166,6 +194,23 @@ class NotificationsViewModel @Inject constructor(
         viewModelScope.launch {
             try { notificationRepository.markNotificationRead(notificationId) } catch (_: Exception) { }
         }
+        // Taste-match-specific tap analytics (mirrors iOS).
+        val n = _notifications.value.firstOrNull { it.id == notificationId } ?: return
+        if (n.type == fm.corus.android.data.model.NotificationType.TASTE_MATCH) {
+            analyticsService.logTasteMatchFeedRowTapped(
+                subtype = n.subtype ?: "unknown",
+                fromUserId = n.fromUser.id,
+            )
+        }
+    }
+
+    /** Fires once when a taste_match row appears in the activity feed. */
+    fun markTasteMatchRowViewed(notification: CymbalNotification) {
+        if (notification.type != fm.corus.android.data.model.NotificationType.TASTE_MATCH) return
+        analyticsService.logTasteMatchFeedRowViewed(
+            subtype = notification.subtype ?: "unknown",
+            fromUserId = notification.fromUser.id,
+        )
     }
 
     /**
@@ -337,12 +382,16 @@ class NotificationsViewModel @Inject constructor(
         val postId = notification.postId ?: return
         val parentCommentId = notification.commentId ?: return
         val trimmed = text.trim()
-        if (trimmed.isEmpty()) return
+        val attachedSong = _replyPendingSong.value
+        val attachedFilm = _replyPendingFilm.value
+        if (trimmed.isEmpty() && attachedSong == null && attachedFilm == null) return
 
         // Optimistically dismiss the reply bar so the user sees immediate
         // acknowledgment even if the network call is slow. A Toast confirms
         // the final outcome (success or failure).
         _replyingToNotification.value = null
+        _replyPendingSong.value = null
+        _replyPendingFilm.value = null
         _isSendingReply.value = true
 
         viewModelScope.launch {
@@ -353,14 +402,27 @@ class NotificationsViewModel @Inject constructor(
                     text = trimmed,
                     parentCommentId = parentCommentId,
                     replyToUserId = notification.fromUser.id,
+                    attachedSong = attachedSong,
+                    attachedFilm = attachedFilm,
                 )
                 engagementManager.incrementCommentCount(postId)
 
-                // Create reply notification to the parent comment author (matches iOS
-                // addComment behavior which emits reply notifications server-side).
+                // Create reply notification to the parent comment author. Push copy
+                // suppresses synthesized fallback text so it reads "shared a song/film".
                 try {
                     val post = postRepository.getCachedPost(postId)
-                    val truncated = if (trimmed.length > 100) trimmed.take(100) + "…" else trimmed
+                    val attachmentType = when {
+                        attachedSong != null -> "song"
+                        attachedFilm != null -> "film"
+                        else -> null
+                    }
+                    val truncated = when {
+                        trimmed.isNotEmpty() ->
+                            if (trimmed.length > 100) trimmed.take(100) + "…" else trimmed
+                        attachmentType == "song" -> "shared a song"
+                        attachmentType == "film" -> "shared a film"
+                        else -> ""
+                    }
                     postRepository.createNotification(
                         type = "reply",
                         fromUserId = userId,
@@ -369,6 +431,7 @@ class NotificationsViewModel @Inject constructor(
                         postAlbumArtURL = post?.displayImageURL,
                         commentText = truncated,
                         commentId = newCommentId,
+                        attachmentType = attachmentType,
                     )
                 } catch (_: Exception) { }
 
@@ -376,6 +439,10 @@ class NotificationsViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("Notifications", "Failed to send reply", e)
                 _replyToastEvents.trySend(context.getString(R.string.notifications_toast_reply_failed))
+                // Restore so the user can retry
+                _replyingToNotification.value = notification
+                _replyPendingSong.value = attachedSong
+                _replyPendingFilm.value = attachedFilm
             }
             _isSendingReply.value = false
         }

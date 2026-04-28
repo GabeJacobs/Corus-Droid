@@ -6,8 +6,12 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
+import fm.corus.android.data.model.CommentAttachedFilm
+import fm.corus.android.data.model.CommentAttachedSong
 import fm.corus.android.data.model.CymbalComment
+import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
@@ -45,6 +49,31 @@ class CommentsViewModel @Inject constructor(
 
     val giphySupport: Boolean
         get() = remoteConfigService.giphySupport
+
+    val commentAttachmentsEnabled: Boolean
+        get() = remoteConfigService.commentAttachmentsEnabled
+
+    // ── Pending attachment state for the composer ──
+    private val _pendingSong = MutableStateFlow<CommentAttachedSong?>(null)
+    val pendingSong: StateFlow<CommentAttachedSong?> = _pendingSong.asStateFlow()
+
+    private val _pendingFilm = MutableStateFlow<CommentAttachedFilm?>(null)
+    val pendingFilm: StateFlow<CommentAttachedFilm?> = _pendingFilm.asStateFlow()
+
+    fun attachSong(track: CymbalTrack) {
+        _pendingSong.value = CommentAttachedSong.fromTrack(track)
+        _pendingFilm.value = null
+    }
+
+    fun attachFilm(movie: CymbalMovie) {
+        _pendingFilm.value = CommentAttachedFilm.fromMovie(movie)
+        _pendingSong.value = null
+    }
+
+    fun clearAttachment() {
+        _pendingSong.value = null
+        _pendingFilm.value = null
+    }
 
     private val _comments = MutableStateFlow<List<CymbalComment>>(emptyList())
     val comments: StateFlow<List<CymbalComment>> = _comments.asStateFlow()
@@ -175,7 +204,10 @@ class CommentsViewModel @Inject constructor(
 
     fun sendComment(text: String) {
         val userId = authRepository.currentUserId ?: return
-        if (text.isBlank()) return
+        val attachedSong = _pendingSong.value
+        val attachedFilm = _pendingFilm.value
+        // Allow attachment-only sends (text empty but attachment set).
+        if (text.isBlank() && attachedSong == null && attachedFilm == null) return
 
         viewModelScope.launch {
             _isSending.value = true
@@ -189,14 +221,25 @@ class CommentsViewModel @Inject constructor(
                 ?: try { userRepository.fetchUserProfile(userId) } catch (_: Exception) { null }
             _currentUserProfile = userProfile
 
+            val isFallback = text.isBlank() && (attachedSong != null || attachedFilm != null)
+            val optimisticText = when {
+                text.isNotBlank() -> text
+                attachedSong != null -> attachedSong.fallbackText
+                attachedFilm != null -> attachedFilm.fallbackText
+                else -> ""
+            }
+
             val tempId = "temp_${System.currentTimeMillis()}"
             val optimisticComment = CymbalComment(
                 id = tempId,
                 user = userProfile ?: CymbalUser(id = userId, username = "", displayName = ""),
-                text = text,
+                text = optimisticText,
                 timestamp = java.util.Date(),
                 parentCommentId = parentId,
                 replyToUser = replyTo?.user,
+                attachedSong = attachedSong,
+                attachedFilm = attachedFilm,
+                textIsAttachmentFallback = isFallback,
             )
 
             // Insert optimistically
@@ -209,6 +252,8 @@ class CommentsViewModel @Inject constructor(
             }
             engagementManager.incrementCommentCount(postId)
             _replyingTo.value = null
+            _pendingSong.value = null
+            _pendingFilm.value = null
             _isSending.value = false
 
             // Send to server, reload on success, rollback on failure
@@ -219,6 +264,8 @@ class CommentsViewModel @Inject constructor(
                     text = text,
                     parentCommentId = parentId,
                     replyToUserId = replyToUserId,
+                    attachedSong = attachedSong,
+                    attachedFilm = attachedFilm,
                 )
                 loadComments(postId)
                 sendCommentNotifications(
@@ -229,6 +276,12 @@ class CommentsViewModel @Inject constructor(
                     gifURL = null,
                     parentId = parentId,
                     replyToUserId = replyToUserId,
+                    isAttachmentFallback = isFallback,
+                    attachmentType = when {
+                        attachedSong != null -> "song"
+                        attachedFilm != null -> "film"
+                        else -> null
+                    },
                 )
             } catch (_: Exception) {
                 // Rollback optimistic insert
@@ -514,15 +567,26 @@ class CommentsViewModel @Inject constructor(
         gifURL: String?,
         parentId: String?,
         replyToUserId: String?,
+        isAttachmentFallback: Boolean = false,
+        attachmentType: String? = null,
     ) {
         viewModelScope.launch {
             try {
                 val post = postRepository.getCachedPost(postId)
                 val ownerId = post?.user?.id
                 val albumArtURL = post?.displayImageURL
-                val truncatedText = if (gifURL != null) "sent a GIF"
-                    else if (text.length > 100) text.take(100) + "…"
-                    else text
+                // Suppress synthesized fallback text from notification copy so push reads
+                // "shared a song/film" instead of "🎵 Anti-Hero — Taylor Swift".
+                val captionForNotif = if (isAttachmentFallback) "" else text
+                val truncatedText = when {
+                    gifURL != null -> "sent a GIF"
+                    captionForNotif.isNotEmpty() ->
+                        if (captionForNotif.length > 100) captionForNotif.take(100) + "…"
+                        else captionForNotif
+                    attachmentType == "song" -> "shared a song"
+                    attachmentType == "film" -> "shared a film"
+                    else -> ""
+                }
 
                 val notifiedIds = mutableSetOf(userId) // Don't notify self
 
@@ -541,6 +605,7 @@ class CommentsViewModel @Inject constructor(
                                 postAlbumArtURL = albumArtURL,
                                 commentText = truncatedText,
                                 commentId = newCommentId,
+                                attachmentType = attachmentType,
                             )
                         } catch (_: Exception) { }
                     }
@@ -556,6 +621,7 @@ class CommentsViewModel @Inject constructor(
                                 postAlbumArtURL = albumArtURL,
                                 commentText = truncatedText,
                                 commentId = newCommentId,
+                                attachmentType = attachmentType,
                             )
                         } catch (_: Exception) { }
                     }
@@ -571,6 +637,7 @@ class CommentsViewModel @Inject constructor(
                                 postAlbumArtURL = albumArtURL,
                                 commentText = truncatedText,
                                 commentId = newCommentId,
+                                attachmentType = attachmentType,
                             )
                         } catch (_: Exception) { }
                     }
@@ -586,6 +653,7 @@ class CommentsViewModel @Inject constructor(
                                 postAlbumArtURL = albumArtURL,
                                 commentText = truncatedText,
                                 commentId = newCommentId,
+                                attachmentType = attachmentType,
                             )
                         } catch (_: Exception) { }
                     }
@@ -605,6 +673,7 @@ class CommentsViewModel @Inject constructor(
                                 postAlbumArtURL = albumArtURL,
                                 commentText = truncatedText,
                                 commentId = newCommentId,
+                                attachmentType = attachmentType,
                             )
                         } catch (_: Exception) { }
                     }

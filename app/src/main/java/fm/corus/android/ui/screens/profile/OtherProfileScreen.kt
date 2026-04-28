@@ -97,6 +97,8 @@ fun OtherProfileScreen(
 ) {
     val profile by viewModel.profile.collectAsState()
     val posts by viewModel.posts.collectAsState()
+    val musicService by viewModel.musicServicePreference.current.collectAsState()
+    var showPlaylistAlert by remember { mutableStateOf(false) }
     val isLoading by viewModel.isLoading.collectAsState()
     val isFollowing by viewModel.isFollowing.collectAsState()
     val isBlocked by viewModel.isBlocked.collectAsState()
@@ -216,7 +218,13 @@ fun OtherProfileScreen(
                                     enabled = hasSongs && !isGeneratingPlaylist,
                                     onClick = {
                                         showMenu = false
-                                        viewModel.generatePlaylist(userId)
+                                        val isApple = musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                                        val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+                                        if (isApple || hasSoundCloud) {
+                                            showPlaylistAlert = true
+                                        } else {
+                                            viewModel.generatePlaylist(userId)
+                                        }
                                     },
                                 )
                             }
@@ -659,7 +667,13 @@ fun OtherProfileScreen(
                                             if (!hasSongs) {
                                                 ToastManager.show(playlistContext.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
                                             } else {
-                                                viewModel.generatePlaylist(userId)
+                                                val isApple = musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                                                val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+                                                if (isApple || hasSoundCloud) {
+                                                    showPlaylistAlert = true
+                                                } else {
+                                                    viewModel.generatePlaylist(userId)
+                                                }
                                             }
                                         }
                                         .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
@@ -998,6 +1012,33 @@ fun OtherProfileScreen(
                 onDismiss = { showClubOffer = false },
             )
         }
+    }
+
+    if (showPlaylistAlert) {
+        val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showPlaylistAlert = false },
+            title = { androidx.compose.material3.Text("Spotify Feature") },
+            text = {
+                androidx.compose.material3.Text(
+                    if (hasSoundCloud)
+                        "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
+                    else
+                        "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showPlaylistAlert = false
+                    viewModel.generatePlaylist(userId)
+                }) { androidx.compose.material3.Text("Generate Spotify Playlist") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showPlaylistAlert = false }) {
+                    androidx.compose.material3.Text("Cancel")
+                }
+            },
+        )
     }
 }
 

@@ -10,9 +10,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusSpacing
 
@@ -51,7 +53,7 @@ fun UserAvatarView(
     } else {
         ShimmerAsyncImage(
             model = resolvedModel,
-            contentDescription = "User avatar",
+            contentDescription = stringResource(R.string.user_avatar_cd),
             modifier = modifier.size(size),
             shape = CircleShape,
         )

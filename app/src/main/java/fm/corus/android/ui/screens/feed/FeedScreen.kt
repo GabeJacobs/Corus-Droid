@@ -63,6 +63,8 @@ fun FeedScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
     val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
+    val musicService by viewModel.musicServicePreference.current.collectAsState()
+    var showPlaylistAlert by remember { mutableStateOf(false) }
 
     LaunchedEffect(playlistError) {
         if (playlistError != null) {
@@ -131,7 +133,15 @@ fun FeedScreen(
             filterMenuExpanded = filterMenuExpanded,
             onFilterMenuExpandedChange = { filterMenuExpanded = it },
             onSetFilter = { viewModel.setFeedMediaFilter(it) },
-            onGeneratePlaylist = { viewModel.generateFeedPlaylist() },
+            onGeneratePlaylist = {
+                val isApple = musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+                if (isApple || hasSoundCloud) {
+                    showPlaylistAlert = true
+                } else {
+                    viewModel.generateFeedPlaylist()
+                }
+            },
         )
     }
 
@@ -319,6 +329,11 @@ fun FeedScreen(
                             onSpotifyTap = {
                                 if (post.isMovie) {
                                     filmInfoPost = post
+                                } else if (post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
+                                    val permalink = post.track.soundcloudPermalinkUrl
+                                    if (!permalink.isNullOrBlank()) {
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
+                                    }
                                 } else {
                                     val uri = post.track.spotifyURI
                                     val webUrl = post.track.spotifyWebURL
@@ -404,6 +419,37 @@ fun FeedScreen(
             post = post,
             onDismiss = { filmInfoPost = null },
             fetchMovieDetails = { movieId -> viewModel.fetchMovieDetails(movieId) },
+        )
+    }
+
+    // ── Spotify Playlist Confirmation ──
+    // Surfaces when (a) the user prefers Apple Music (this is a Spotify-only
+    // feature) or (b) the feed contains SoundCloud tracks that will be
+    // skipped from the Spotify playlist.
+    if (showPlaylistAlert) {
+        val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showPlaylistAlert = false },
+            title = { androidx.compose.material3.Text("Spotify Feature") },
+            text = {
+                androidx.compose.material3.Text(
+                    if (hasSoundCloud)
+                        "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
+                    else
+                        "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showPlaylistAlert = false
+                    viewModel.generateFeedPlaylist()
+                }) { androidx.compose.material3.Text("Generate Spotify Playlist") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showPlaylistAlert = false }) {
+                    androidx.compose.material3.Text("Cancel")
+                }
+            },
         )
     }
 

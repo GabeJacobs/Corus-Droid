@@ -28,7 +28,12 @@ class MainTabViewModel @Inject constructor(
     val subscriptionRepository: SubscriptionRepository,
     private val preferencesDataStore: PreferencesDataStore,
     private val unreadCountsRepository: UnreadCountsRepository,
+    val postEngagementManager: fm.corus.android.domain.PostEngagementManager,
+    private val analyticsService: fm.corus.android.service.AnalyticsService,
 ) : ViewModel() {
+
+    fun logPaywallShown(source: String) = analyticsService.logPaywallShown(source)
+    fun logSaveWarningTapped(remaining: Int) = analyticsService.logSaveWarningToastTapped(remaining)
 
     val notificationCount: StateFlow<Int> = unreadCountsRepository.notificationCount
     val unreadMessageCount: StateFlow<Int> = unreadCountsRepository.unreadMessageCount

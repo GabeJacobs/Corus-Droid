@@ -29,6 +29,7 @@ class OtherProfileViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
     val nowPlayingManager: NowPlayingManager,
+    val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     private val engagementManager: PostEngagementManager,
     private val subscriptionRepository: SubscriptionRepository,
 ) : ViewModel() {

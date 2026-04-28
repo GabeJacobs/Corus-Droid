@@ -96,6 +96,8 @@ fun ProfileScreen(
     val profile by viewModel.profile.collectAsState()
     val pendingAvatarBytes by viewModel.pendingAvatarBytes.collectAsState()
     val posts by viewModel.posts.collectAsState()
+    val musicService by viewModel.musicServicePreference.current.collectAsState()
+    var showPlaylistAlert by remember { mutableStateOf(false) }
     val likedPosts by viewModel.likedPosts.collectAsState()
     val savedPosts by viewModel.savedPosts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -417,7 +419,13 @@ fun ProfileScreen(
                                         if (!hasSongs) {
                                             ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
                                         } else {
-                                            viewModel.generatePlaylist()
+                                            val isApple = musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                                            val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+                                            if (isApple || hasSoundCloud) {
+                                                showPlaylistAlert = true
+                                            } else {
+                                                viewModel.generatePlaylist()
+                                            }
                                         }
                                     }
                                     .padding(horizontal = CorusSpacing.md),
@@ -702,8 +710,12 @@ fun ProfileScreen(
                 else -> posts
             }
             // For Likes/Saves, show all posts in grid (no featured post);
-            // for Music/Film, skip the first post (already shown as featured)
-            val gridPosts = if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts
+            // for Music/Film, skip the first post (already shown as featured).
+            // distinctBy guards the LazyGrid against duplicate ids (server pages
+            // can occasionally overlap on Likes/Saves) — duplicates would crash
+            // SubcomposeLayout with "Key … was already used".
+            val gridPosts = (if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts)
+                .distinctBy { it.id }
             if (gridPosts.isNotEmpty()) {
                 items(gridPosts, key = { it.id }, contentType = { "post_grid" }) { post ->
                     PostGridItem(
@@ -847,6 +859,33 @@ fun ProfileScreen(
                 ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_avatar_updated))
             },
             onCancel = { cropBitmap = null },
+        )
+    }
+
+    if (showPlaylistAlert) {
+        val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showPlaylistAlert = false },
+            title = { androidx.compose.material3.Text("Spotify Feature") },
+            text = {
+                androidx.compose.material3.Text(
+                    if (hasSoundCloud)
+                        "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
+                    else
+                        "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showPlaylistAlert = false
+                    viewModel.generatePlaylist()
+                }) { androidx.compose.material3.Text("Generate Spotify Playlist") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showPlaylistAlert = false }) {
+                    androidx.compose.material3.Text("Cancel")
+                }
+            },
         )
     }
 }

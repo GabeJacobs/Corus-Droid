@@ -16,6 +16,8 @@ data class CorusColorPalette(
     val divider: Color,
     val featuredBackgroundTop: Color,
     val featuredBackgroundBottom: Color,
+    val featuredFilmBackgroundTop: Color,
+    val featuredFilmBackgroundBottom: Color,
 )
 
 val LightCorusPalette = CorusColorPalette(
@@ -28,6 +30,8 @@ val LightCorusPalette = CorusColorPalette(
     divider = Color(0xFFEEEEF0),
     featuredBackgroundTop = Color(0xFFF3F3F3),
     featuredBackgroundBottom = Color(0xFFBFBFBF),
+    featuredFilmBackgroundTop = Color(0xFFF3F3F3),
+    featuredFilmBackgroundBottom = Color(0xFFBFBFBF),
 )
 
 val DarkCorusPalette = CorusColorPalette(
@@ -40,6 +44,8 @@ val DarkCorusPalette = CorusColorPalette(
     divider = Color(0xFF2C2C2E),
     featuredBackgroundTop = Color(0xFF1F1F22),
     featuredBackgroundBottom = Color(0xFF0C0C0E),
+    featuredFilmBackgroundTop = Color(0xFF333336),
+    featuredFilmBackgroundBottom = Color(0xFF1F1F22),
 )
 
 val LocalCorusPalette = staticCompositionLocalOf { LightCorusPalette }
@@ -90,4 +96,17 @@ object CorusColors {
     val FeaturedBackgroundBottom: Color
         @Composable @ReadOnlyComposable
         get() = LocalCorusPalette.current.featuredBackgroundBottom
+
+    val FeaturedFilmBackgroundTop: Color
+        @Composable @ReadOnlyComposable
+        get() = LocalCorusPalette.current.featuredFilmBackgroundTop
+
+    val FeaturedFilmBackgroundBottom: Color
+        @Composable @ReadOnlyComposable
+        get() = LocalCorusPalette.current.featuredFilmBackgroundBottom
+
+    /** + button in the comment composer. White in dark, accent in light. */
+    val CommentAttachmentPlus: Color
+        @Composable @ReadOnlyComposable
+        get() = if (LocalCorusPalette.current.text == Color(0xFFF5F5F7)) Color.White else Accent
 }

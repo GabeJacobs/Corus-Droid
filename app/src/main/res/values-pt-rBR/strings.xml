@@ -776,4 +776,12 @@
 
     <!-- NowPlayingManager -->
     <string name="now_playing_generating_playlist">Gerando playlist…</string>
+
+    <!-- Avatar crop -->
+    <string name="avatar_crop_cancel">Cancelar</string>
+    <string name="avatar_crop_use_photo">Usar Foto</string>
+
+    <!-- Full screen image -->
+    <string name="full_screen_image_cd">Imagem em tela cheia</string>
+    <string name="full_screen_image_cd_close">Fechar</string>
 </resources>

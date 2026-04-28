@@ -37,11 +37,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.valentinilk.shimmer.shimmer
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.theme.CorusColors
@@ -126,7 +128,7 @@ fun SharePostSheet(
                 modifier = Modifier
                     .weight(1f)
                     .onFocusChanged { isSearchFocused = it.isFocused },
-                placeholder = { Text("Search", style = CorusFont.body, color = CorusColors.Tertiary) },
+                placeholder = { Text(stringResource(R.string.share_post_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = CorusColors.Tertiary) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -134,7 +136,7 @@ fun SharePostSheet(
                             searchQuery = ""
                             onSearchQueryChange("")
                         }) {
-                            Icon(Icons.Filled.Close, contentDescription = "Clear", tint = CorusColors.Tertiary)
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.share_post_cd_clear), tint = CorusColors.Tertiary)
                         }
                     }
                 },
@@ -157,7 +159,7 @@ fun SharePostSheet(
                     onSearchQueryChange("")
                     isSearchFocused = false
                 }) {
-                    Text("Cancel", style = CorusFont.bodyMedium, color = CorusColors.Accent)
+                    Text(stringResource(R.string.share_post_cancel), style = CorusFont.bodyMedium, color = CorusColors.Accent)
                 }
             }
         }
@@ -188,7 +190,7 @@ fun SharePostSheet(
                 } else if (usersToShow.isEmpty() && hasQuery) {
                     item {
                         Text(
-                            "No results found",
+                            stringResource(R.string.share_post_no_results),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                             modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.xxl),
@@ -221,7 +223,7 @@ fun SharePostSheet(
                         .padding(vertical = CorusSpacing.xxl),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("No recent contacts", style = CorusFont.caption, color = CorusColors.Secondary)
+                    Text(stringResource(R.string.share_post_no_recent), style = CorusFont.caption, color = CorusColors.Secondary)
                 }
             } else {
                 LazyVerticalGrid(
@@ -257,7 +259,7 @@ fun SharePostSheet(
                         value = messageText,
                         onValueChange = { messageText = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Write a message...", style = CorusFont.body, color = CorusColors.Tertiary) },
+                        placeholder = { Text(stringResource(R.string.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
                         singleLine = true,
                         textStyle = CorusFont.body,
                         colors = TextFieldDefaults.colors(
@@ -280,7 +282,7 @@ fun SharePostSheet(
                         shape = RoundedCornerShape(50),
                         contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
                     ) {
-                        Text("Send", style = CorusFont.buttonSmall, color = Color.White)
+                        Text(stringResource(R.string.share_post_send), style = CorusFont.buttonSmall, color = Color.White)
                     }
                 }
             } else {
@@ -297,7 +299,7 @@ fun SharePostSheet(
                     contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
                 ) {
                     item {
-                        ShareActionButton(icon = Icons.Filled.Repeat, label = "Repost", isProminent = true) {
+                        ShareActionButton(icon = Icons.Filled.Repeat, label = stringResource(R.string.share_post_repost), isProminent = true) {
                             onAnalyticsLog?.invoke("repost")
                             onRepost()
                         }
@@ -321,7 +323,7 @@ fun SharePostSheet(
                         item {
                             ShareActionButton(
                                 icon = Icons.Filled.Share,
-                                label = "WhatsApp",
+                                label = stringResource(R.string.share_post_whatsapp),
                                 backgroundColor = Color(0xFF25D366),
                                 iconTint = Color.White,
                             ) {
@@ -335,23 +337,23 @@ fun SharePostSheet(
                         }
                     }
                     item {
-                        ShareActionButton(icon = Icons.Filled.Share, label = "Share Link") {
+                        ShareActionButton(icon = Icons.Filled.Share, label = stringResource(R.string.share_post_share_link)) {
                             onAnalyticsLog?.invoke("share_link")
                             val intent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, shareableLink)
                             }
-                            context.startActivity(Intent.createChooser(intent, "Share via"))
+                            context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_post_share_chooser)))
                         }
                     }
                     item {
                         ShareActionButton(
                             icon = if (showCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
-                            label = if (showCopied) "Copied" else "Copy Link",
+                            label = if (showCopied) stringResource(R.string.share_post_copied) else stringResource(R.string.share_post_copy_link),
                         ) {
                             onAnalyticsLog?.invoke("copy_link")
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("Corus Link", shareableLink))
+                            clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_post_clip_label), shareableLink))
                             showCopied = true
                         }
                     }
@@ -418,7 +420,7 @@ private fun ShareContactCell(
                 ) {
                     Icon(
                         Icons.Filled.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.share_post_cd_selected),
                         tint = Color.White,
                         modifier = Modifier.size(11.dp),
                     )
@@ -467,7 +469,7 @@ private fun ShareUserRow(
         if (isSelected) {
             Icon(
                 Icons.Filled.Check,
-                contentDescription = "Selected",
+                contentDescription = stringResource(R.string.share_post_cd_selected),
                 tint = CorusColors.Accent,
                 modifier = Modifier.size(22.dp),
             )
@@ -549,14 +551,14 @@ private fun InstagramShareButton(
             } else {
                 Icon(
                     imageVector = Icons.Filled.Share,
-                    contentDescription = "Instagram",
+                    contentDescription = stringResource(R.string.share_post_cd_instagram),
                     tint = Color.White,
                     modifier = Modifier.size(22.dp),
                 )
             }
         }
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
-        Text("Instagram", style = CorusFont.captionMedium, color = CorusColors.Text)
+        Text(stringResource(R.string.share_post_instagram), style = CorusFont.captionMedium, color = CorusColors.Text)
     }
 }
 

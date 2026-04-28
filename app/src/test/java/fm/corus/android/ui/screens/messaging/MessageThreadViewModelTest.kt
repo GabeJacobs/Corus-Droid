@@ -62,6 +62,7 @@ class MessageThreadViewModelTest {
             authRepository = authRepository,
             userRepository = userRepository,
             remoteConfigService = remoteConfigService,
+            context = mock(),
         )
     }
 

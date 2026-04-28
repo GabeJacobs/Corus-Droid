@@ -171,7 +171,11 @@ class AnalyticsServiceTest {
             "feed_playlist_tapped",
             "profile_playlist_tapped",
             "profile_update_error",
+            "taste_match_push_opened",
+            "taste_match_feed_row_viewed",
+            "taste_match_feed_row_tapped",
+            "taste_match_settings_toggled",
         )
-        assertEquals(20, expected.size)
+        assertEquals(24, expected.size)
     }
 }

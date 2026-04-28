@@ -21,15 +21,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalTrack
-import fm.corus.android.data.repository.SpotifyRepository
+import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -51,7 +53,7 @@ fun SongFilmPickerSheet(
     onDismiss: () -> Unit,
 ) {
     val viewModel: SongFilmPickerViewModel = hiltViewModel()
-    val spotifyRepository = viewModel.spotifyRepository
+    val musicSearchRepository = viewModel.musicSearchRepository
     val tmdbRepository = viewModel.tmdbRepository
 
     var mode by remember { mutableStateOf(initialMode) }
@@ -75,7 +77,7 @@ fun SongFilmPickerSheet(
             isSearching = true
             try {
                 if (currentMode == PickerMode.SONG) {
-                    tracks = spotifyRepository.search(query)
+                    tracks = musicSearchRepository.search(query).tracks
                     movies = emptyList()
                 } else {
                     val initial = tmdbRepository.searchMovies(query)
@@ -150,7 +152,7 @@ fun SongFilmPickerSheet(
                     decorationBox = { innerTextField ->
                         if (searchQuery.isEmpty()) {
                             Text(
-                                text = if (mode == PickerMode.SONG) "Search for a song" else "Search for a film",
+                                text = if (mode == PickerMode.SONG) stringResource(R.string.song_film_picker_search_song) else stringResource(R.string.song_film_picker_search_film),
                                 style = CorusFont.body,
                                 color = CorusColors.Secondary,
                             )
@@ -161,7 +163,7 @@ fun SongFilmPickerSheet(
                 if (searchQuery.isNotEmpty()) {
                     Icon(
                         imageVector = Icons.Filled.Close,
-                        contentDescription = "Clear",
+                        contentDescription = stringResource(R.string.song_film_picker_cd_clear),
                         tint = CorusColors.Secondary,
                         modifier = Modifier
                             .size(18.dp)
@@ -221,7 +223,7 @@ private fun PickerSegmentedToggle(
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val options = listOf("Songs", "Films")
+    val options = listOf(stringResource(R.string.song_film_picker_songs), stringResource(R.string.song_film_picker_films))
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -294,6 +296,6 @@ private fun SongPickerRow(track: CymbalTrack, onClick: () -> Unit) {
 
 @HiltViewModel
 class SongFilmPickerViewModel @Inject constructor(
-    val spotifyRepository: SpotifyRepository,
+    val musicSearchRepository: MusicSearchRepository,
     val tmdbRepository: TMDBRepository,
 ) : ViewModel()

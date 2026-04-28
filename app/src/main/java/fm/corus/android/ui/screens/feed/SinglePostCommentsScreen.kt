@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -50,9 +51,14 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalComment
+import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.ui.components.CommentAttachmentCard
+import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.ui.components.GifPickerSheet
+import fm.corus.android.ui.components.PickerMode
+import fm.corus.android.ui.components.SongFilmPickerSheet
 import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.ReportContentType
@@ -100,9 +106,13 @@ fun SinglePostCommentsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    val pendingSong by viewModel.pendingSong.collectAsState()
+    val pendingFilm by viewModel.pendingFilm.collectAsState()
+
     var commentText by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
     var showGifPicker by remember { mutableStateOf(false) }
+    var showSongFilmPicker by remember { mutableStateOf(false) }
     val maxChars = 700
     val listState = rememberLazyListState()
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
@@ -165,7 +175,7 @@ fun SinglePostCommentsScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.feed_cd_back), tint = CorusColors.Text)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
@@ -231,16 +241,52 @@ fun SinglePostCommentsScreen(
                     }
                 }
 
+                // Pending song/film attachment chip — left-aligned, hugs content.
+                if (editingComment == null && (pendingSong != null || pendingFilm != null)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+                    ) {
+                        CommentAttachmentPendingChip(
+                            attachedSong = pendingSong,
+                            attachedFilm = pendingFilm,
+                            onClear = { viewModel.clearAttachment() },
+                        )
+                    }
+                }
+
                 // Input bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White)
+                        .background(CorusColors.Background)
                         .navigationBarsPadding()
                         .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
                         .imePadding(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (editingComment == null && viewModel.commentAttachmentsEnabled) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(CorusColors.Accent)
+                                .clickable(enabled = pendingSong == null && pendingFilm == null) {
+                                    showSongFilmPicker = true
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = stringResource(R.string.comment_attachment_attach),
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(CorusSpacing.sm))
+                    }
+
                     TextField(
                         value = commentText,
                         onValueChange = { newValue ->
@@ -294,7 +340,7 @@ fun SinglePostCommentsScreen(
                             }
                         }),
                     )
-                    if (viewModel.giphySupport && editingComment == null) {
+                    if (viewModel.giphySupport && editingComment == null && !viewModel.commentAttachmentsEnabled) {
                         IconButton(onClick = { showGifPicker = true }) {
                             Icon(
                                 Icons.Filled.Gif,
@@ -304,7 +350,8 @@ fun SinglePostCommentsScreen(
                             )
                         }
                     }
-                    val canSend = commentText.text.isNotBlank() && !isSending
+                    val hasAttachment = pendingSong != null || pendingFilm != null
+                    val canSend = (commentText.text.isNotBlank() || hasAttachment) && !isSending
                     Spacer(modifier = Modifier.width(CorusSpacing.sm))
                     Box(
                         modifier = Modifier
@@ -341,6 +388,21 @@ fun SinglePostCommentsScreen(
                     showGifPicker = false
                 },
                 onDismiss = { showGifPicker = false },
+            )
+        }
+
+        if (showSongFilmPicker) {
+            SongFilmPickerSheet(
+                initialMode = PickerMode.SONG,
+                onSongSelected = { track ->
+                    viewModel.attachSong(track)
+                    showSongFilmPicker = false
+                },
+                onFilmSelected = { movie ->
+                    viewModel.attachFilm(movie)
+                    showSongFilmPicker = false
+                },
+                onDismiss = { showSongFilmPicker = false },
             )
         }
 
@@ -413,11 +475,18 @@ fun SinglePostCommentsScreen(
                             try { context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.post_detail_share_chooser))) } catch (_: Exception) { }
                         },
                         onSpotifyTap = {
-                            val spotifyUri = p.track.spotifyURI
-                            val spotifyWeb = p.track.spotifyWebURL
-                            val uri = spotifyUri.ifBlank { spotifyWeb }
-                            if (uri.isNotBlank()) {
-                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
+                            if (p.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
+                                val permalink = p.track.soundcloudPermalinkUrl
+                                if (!permalink.isNullOrBlank()) {
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
+                                }
+                            } else {
+                                val spotifyUri = p.track.spotifyURI
+                                val spotifyWeb = p.track.spotifyWebURL
+                                val uri = spotifyUri.ifBlank { spotifyWeb }
+                                if (uri.isNotBlank()) {
+                                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
+                                }
                             }
                         },
                         onLikesTap = { onNavigateToLikes(p.id) },
@@ -509,6 +578,9 @@ fun SinglePostCommentsScreen(
                         onReplyDelete = { replyId -> viewModel.deleteComment(replyId) },
                         onReplyReport = { reply -> reportingComment = reply },
                         onReplyBlock = { reply -> viewModel.blockUser(reply.user.id) },
+                        nowPlaying = viewModel.nowPlayingManager,
+                        onNavigateToSong = onNavigateToSong,
+                        onNavigateToFilm = { movie -> onNavigateToFilm(movie.id) },
                     )
                 }
             }
@@ -544,6 +616,7 @@ private fun SingleCommentRow(
     likedCommentIds: Set<String>,
     currentUserId: String?,
     highlightedCommentId: String? = null,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager? = null,
     onLike: () -> Unit,
     onLikeLongPress: () -> Unit,
     onReply: () -> Unit,
@@ -551,6 +624,8 @@ private fun SingleCommentRow(
     onReplyUserTap: (String) -> Unit,
     onMentionTap: (String) -> Unit,
     onHashtagTap: (String) -> Unit,
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
+    onNavigateToFilm: (CymbalMovie) -> Unit = {},
     onReplyReply: (CymbalComment) -> Unit,
     onReplyLike: (String) -> Unit,
     onReplyLikeLongPress: (String) -> Unit,
@@ -585,6 +660,9 @@ private fun SingleCommentRow(
             onBlock = onBlock,
             onMentionTap = onMentionTap,
             onHashtagTap = onHashtagTap,
+            nowPlaying = nowPlaying,
+            onNavigateToSong = onNavigateToSong,
+            onNavigateToFilm = onNavigateToFilm,
         )
 
         // Replies
@@ -610,6 +688,9 @@ private fun SingleCommentRow(
                 onBlock = { onReplyBlock(reply) },
                 onMentionTap = onMentionTap,
                 onHashtagTap = onHashtagTap,
+                nowPlaying = nowPlaying,
+                onNavigateToSong = onNavigateToSong,
+                onNavigateToFilm = onNavigateToFilm,
             )
         }
     }
@@ -633,6 +714,9 @@ private fun CommentContentRow(
     onBlock: () -> Unit,
     onMentionTap: (String) -> Unit,
     onHashtagTap: (String) -> Unit,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager? = null,
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
+    onNavigateToFilm: (CymbalMovie) -> Unit = {},
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showBlockConfirm by remember { mutableStateOf(false) }
@@ -776,20 +860,33 @@ private fun CommentContentRow(
                     contentScale = ContentScale.Fit,
                 )
             } else {
-                val annotatedText = remember(comment.text) {
-                    buildMentionAnnotatedString(
-                        text = comment.text,
-                        baseStyle = androidx.compose.ui.text.SpanStyle(
-                            fontFamily = CorusFont.body.fontFamily,
-                        ),
+                val displayedText = if (comment.textIsAttachmentFallback) "" else comment.text
+                if (displayedText.isNotEmpty()) {
+                    val annotatedText = remember(displayedText) {
+                        buildMentionAnnotatedString(
+                            text = displayedText,
+                            baseStyle = androidx.compose.ui.text.SpanStyle(
+                                fontFamily = CorusFont.body.fontFamily,
+                            ),
+                        )
+                    }
+                    TappableMentionText(
+                        text = annotatedText,
+                        style = CorusFont.body,
+                        onMentionTap = onMentionTap,
+                        onHashtagTap = onHashtagTap,
                     )
                 }
-                TappableMentionText(
-                    text = annotatedText,
-                    style = CorusFont.body,
-                    onMentionTap = onMentionTap,
-                    onHashtagTap = onHashtagTap,
-                )
+                if ((comment.attachedSong != null || comment.attachedFilm != null) && nowPlaying != null) {
+                    if (displayedText.isNotEmpty()) Spacer(Modifier.height(CorusSpacing.xs))
+                    CommentAttachmentCard(
+                        attachedSong = comment.attachedSong,
+                        attachedFilm = comment.attachedFilm,
+                        nowPlaying = nowPlaying,
+                        onNavigateToSong = onNavigateToSong,
+                        onNavigateToFilm = onNavigateToFilm,
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
             Text(
@@ -847,7 +944,7 @@ private fun CommentContentRow(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
                     ) {
-                        if (comment.gifURL == null) {
+                        if (comment.gifURL == null && !comment.textIsAttachmentFallback) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.comments_menu_edit), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {

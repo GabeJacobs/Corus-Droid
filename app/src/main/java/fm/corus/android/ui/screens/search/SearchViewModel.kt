@@ -18,7 +18,7 @@ import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
-import fm.corus.android.data.repository.SpotifyRepository
+import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
 import kotlinx.coroutines.Job
@@ -38,7 +38,7 @@ class SearchViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val exploreRepository: ExploreRepository,
     private val cloudFunctions: CloudFunctionsDataSource,
-    private val spotifyRepository: SpotifyRepository,
+    private val musicSearchRepository: MusicSearchRepository,
     private val tmdbRepository: TMDBRepository,
     private val preferencesDataStore: PreferencesDataStore,
     private val firestoreDataSource: FirestoreDataSource,
@@ -353,7 +353,7 @@ class SearchViewModel @Inject constructor(
             try {
                 when (tab) {
                     0 -> _userSearchResults.value = userRepository.searchUsers(query.lowercase().trim())
-                    1 -> _songSearchResults.value = spotifyRepository.search(query)
+                    1 -> _songSearchResults.value = musicSearchRepository.search(query).tracks
                     2 -> {
                         val results = tmdbRepository.searchMovies(query)
                         val withDirectors = try {

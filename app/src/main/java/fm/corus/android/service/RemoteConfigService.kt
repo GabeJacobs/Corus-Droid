@@ -48,6 +48,24 @@ class RemoteConfigService @Inject constructor(
     val serverNotificationsEnabled: Boolean
         get() = remoteConfig.getBoolean("server_notifications_enabled")
 
+    val commentAttachmentsEnabled: Boolean
+        get() = remoteConfig.getBoolean("comment_attachments_enabled")
+
+    val saveCapEnforced: Boolean
+        get() = remoteConfig.getBoolean("save_cap_enforced")
+
+    val saveCapLimit: Int
+        get() {
+            val v = remoteConfig.getLong("save_cap_limit").toInt()
+            return if (v > 0) v else 25
+        }
+
+    val saveCapWarningAt: Int
+        get() {
+            val v = remoteConfig.getLong("save_cap_warning_at").toInt()
+            return if (v > 0) v else 23
+        }
+
     suspend fun fetchAndActivate() {
         try {
             val settings = FirebaseRemoteConfigSettings.Builder()
@@ -68,6 +86,10 @@ class RemoteConfigService @Inject constructor(
                     "paywall_default_yearly" to false,
                     "giphy_support" to false,
                     "server_notifications_enabled" to false,
+                    "comment_attachments_enabled" to true,
+                    "save_cap_enforced" to false,
+                    "save_cap_limit" to 25L,
+                    "save_cap_warning_at" to 23L,
                 )
             ).await()
             remoteConfig.fetchAndActivate().await()

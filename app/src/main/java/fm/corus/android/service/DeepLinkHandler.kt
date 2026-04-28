@@ -63,7 +63,9 @@ object DeepLinkHandler {
         val type = data["type"] ?: return fallbackParse(data)
         return when (type) {
             "follow" -> data["userId"]?.let { DeepLinkDestination.Profile(it) }
-            "message" -> data["threadId"]?.let { DeepLinkDestination.Thread(it, data["userId"] ?: "") }
+            "message" -> data["threadId"]?.let {
+                DeepLinkDestination.Thread(it, data["fromUserId"] ?: data["userId"] ?: "")
+            }
             "comment", "reply", "mention", "comment_like" -> {
                 val postId = data["postId"] ?: return fallbackParse(data)
                 val commentId = data["commentId"]
@@ -71,12 +73,24 @@ object DeepLinkHandler {
                 else DeepLinkDestination.Post(postId)
             }
             "like", "save", "new_post" -> data["postId"]?.let { DeepLinkDestination.Post(it) }
+            "taste_match" -> {
+                val subtype = data["subtype"]
+                val postId = data["postId"]
+                val userId = data["fromUserId"] ?: data["userId"]
+                if ((subtype == "activity_song" || subtype == "activity_film") && !postId.isNullOrEmpty()) {
+                    DeepLinkDestination.Post(postId)
+                } else if (!userId.isNullOrEmpty()) {
+                    DeepLinkDestination.Profile(userId)
+                } else {
+                    null
+                }
+            }
             else -> fallbackParse(data)
         }
     }
 
     private fun fallbackParse(data: Map<String, String>): DeepLinkDestination? {
-        data["threadId"]?.let { return DeepLinkDestination.Thread(it, data["userId"] ?: "") }
+        data["threadId"]?.let { return DeepLinkDestination.Thread(it, data["fromUserId"] ?: data["userId"] ?: "") }
         data["postId"]?.let { return DeepLinkDestination.Post(it) }
         data["userId"]?.let { return DeepLinkDestination.Profile(it) }
         return null

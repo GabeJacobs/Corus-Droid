@@ -763,7 +763,7 @@ private fun OnboardingSeeAllScreen(
                         Icon(Icons.Filled.Close, contentDescription = stringResource(id = R.string.common_back), tint = CorusColors.Text)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
             )
         },
     ) { padding ->

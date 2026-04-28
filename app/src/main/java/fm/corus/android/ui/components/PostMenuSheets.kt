@@ -19,7 +19,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.ui.screens.feed.EditCaptionSheet
@@ -54,6 +56,10 @@ fun PostMenuSheets(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val postSentMsg = stringResource(R.string.post_menu_toast_post_sent)
+    val linkCopiedMsg = stringResource(R.string.post_menu_toast_link_copied)
+    val captionUpdatedMsg = stringResource(R.string.post_menu_toast_caption_updated)
+    val postLinkLabel = stringResource(R.string.post_menu_clip_label_post_link)
 
     // ── Share Post Bottom Sheet ──
     sharePost?.let { post ->
@@ -86,7 +92,7 @@ fun PostMenuSheets(
                 onSearchQueryChange = { query -> actions.searchShareUsers(query) },
                 onSendToUser = { userId, message ->
                     actions.sendPostToUser(userId, post, message)
-                    ToastManager.show("Post sent!")
+                    ToastManager.show(postSentMsg)
                     onSharePostChange(null)
                 },
                 onRepost = {
@@ -138,8 +144,8 @@ fun PostMenuSheets(
                 onSharePost = { onSharePostChange(post) },
                 onCopyLink = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Post Link", "https://corus.fm/post/${post.id}"))
-                    ToastManager.show("Link copied")
+                    clipboard.setPrimaryClip(ClipData.newPlainText(postLinkLabel, "https://corus.fm/post/${post.id}"))
+                    ToastManager.show(linkCopiedMsg)
                 },
                 onEditCaption = { onEditCaptionPostChange(post) },
                 onDeletePost = { onDeleteConfirmPostChange(post) },
@@ -153,10 +159,10 @@ fun PostMenuSheets(
     deleteConfirmPost?.let { post ->
         AlertDialog(
             onDismissRequest = { onDeleteConfirmPostChange(null) },
-            title = { Text("Delete Post", style = CorusFont.songTitle, color = CorusColors.Text) },
+            title = { Text(stringResource(R.string.post_menu_dialog_delete_title), style = CorusFont.songTitle, color = CorusColors.Text) },
             text = {
                 Text(
-                    "Are you sure you want to delete this post? This cannot be undone.",
+                    stringResource(R.string.post_menu_dialog_delete_message),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                 )
@@ -167,12 +173,12 @@ fun PostMenuSheets(
                     onDeleteConfirmPostChange(null)
                     onPostDeleted(post)
                 }) {
-                    Text("Delete", style = CorusFont.button, color = CorusColors.Error)
+                    Text(stringResource(R.string.post_menu_dialog_delete_confirm), style = CorusFont.button, color = CorusColors.Error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { onDeleteConfirmPostChange(null) }) {
-                    Text("Cancel", style = CorusFont.button, color = CorusColors.Text)
+                    Text(stringResource(R.string.post_menu_dialog_delete_cancel), style = CorusFont.button, color = CorusColors.Text)
                 }
             },
             containerColor = CorusColors.Background,
@@ -198,7 +204,7 @@ fun PostMenuSheets(
                 onDismiss = { onEditCaptionPostChange(null) },
                 onSaved = { _ ->
                     onEditCaptionPostChange(null)
-                    ToastManager.show("Caption updated")
+                    ToastManager.show(captionUpdatedMsg)
                     onCaptionSaved()
                 },
             )

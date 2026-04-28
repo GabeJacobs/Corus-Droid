@@ -21,10 +21,12 @@ import com.valentinilk.shimmer.shimmer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import fm.corus.android.R
 import fm.corus.android.data.model.TenorGif
 import fm.corus.android.data.repository.GifRepository
 import fm.corus.android.ui.theme.CorusColors
@@ -79,7 +81,7 @@ fun GifPickerSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = CorusColors.Background,
         sheetMaxWidth = Int.MAX_VALUE.dp,
     ) {
         Column(
@@ -96,16 +98,16 @@ fun GifPickerSheet(
                     doSearch(it)
                 },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search GIFs", style = CorusFont.body, color = CorusColors.Tertiary) },
+                placeholder = { Text(stringResource(R.string.gif_picker_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
                 singleLine = true,
                 leadingIcon = {
-                    Icon(Icons.Filled.Search, contentDescription = "Search", tint = CorusColors.Secondary)
+                    Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.gif_picker_cd_search), tint = CorusColors.Secondary)
                 },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         Icon(
                             Icons.Filled.Close,
-                            contentDescription = "Clear",
+                            contentDescription = stringResource(R.string.gif_picker_cd_clear),
                             modifier = Modifier.clickable {
                                 searchQuery = ""
                                 doSearch("")
@@ -161,7 +163,7 @@ fun GifPickerSheet(
                             model = ImageRequest.Builder(LocalContext.current)
                                 .data(gif.tinyGifURL)
                                 .build(),
-                            contentDescription = "GIF",
+                            contentDescription = stringResource(R.string.gif_picker_cd_gif),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp)
@@ -204,7 +206,7 @@ fun GifPickerSheet(
 
             // Attribution
             Text(
-                text = "Powered by GIPHY",
+                text = stringResource(R.string.gif_picker_powered_by),
                 style = CorusFont.caption,
                 color = CorusColors.Tertiary,
                 modifier = Modifier

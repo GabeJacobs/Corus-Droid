@@ -22,12 +22,14 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
@@ -127,7 +129,7 @@ fun TrophyCelebrationView(
                     // Trophy
                     Icon(
                         Icons.Filled.EmojiEvents,
-                        contentDescription = "Trophy",
+                        contentDescription = stringResource(R.string.trophy_cd_trophy),
                         tint = Color(0xFFFFD700),
                         modifier = Modifier
                             .size(72.dp)
@@ -141,14 +143,14 @@ fun TrophyCelebrationView(
                 AnimatedVisibility(visible = showText, enter = fadeIn()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            "FIRST TO SHARE!",
+                            stringResource(R.string.trophy_title),
                             style = CorusFont.appTitle,
                             color = Color.White,
                             textAlign = TextAlign.Center,
                         )
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
                         Text(
-                            "You're the first on Corus to post this",
+                            stringResource(R.string.trophy_subtitle),
                             style = CorusFont.body,
                             color = Color.White.copy(alpha = 0.8f),
                             textAlign = TextAlign.Center,
@@ -203,7 +205,7 @@ fun TrophyCelebrationView(
                             shape = RoundedCornerShape(50),
                             modifier = Modifier.width(120.dp),
                         ) {
-                            Text("NICE!", style = CorusFont.button, color = Color.White)
+                            Text(stringResource(R.string.trophy_button), style = CorusFont.button, color = Color.White)
                         }
                     }
                 }

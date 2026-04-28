@@ -217,6 +217,14 @@
     <string name="comments_send_error_gif">Failed to send GIF</string>
     <string name="comments_edit_error">Couldn\'t save changes. Please try again.</string>
 
+    <!-- Comment attachments (song / film) -->
+    <string name="comment_attachment_attach">Attach song or film</string>
+    <string name="comment_attachment_remove">Remove attachment</string>
+    <string name="comment_attachment_play_preview">Play preview</string>
+    <string name="comment_attachment_pause_preview">Pause preview</string>
+    <string name="comment_attachment_picker_title">Attach to comment</string>
+    <string name="comment_attachment_picker_reply_title">Attach to reply</string>
+
     <!-- Feed: likes / comment likes -->
     <string name="likes_title">Likes</string>
     <string name="likes_search_placeholder">Search</string>
@@ -776,4 +784,12 @@
 
     <!-- NowPlayingManager -->
     <string name="now_playing_generating_playlist">Generating playlist…</string>
+
+    <!-- Avatar crop -->
+    <string name="avatar_crop_cancel">Cancel</string>
+    <string name="avatar_crop_use_photo">Use Photo</string>
+
+    <!-- Full screen image -->
+    <string name="full_screen_image_cd">Full screen image</string>
+    <string name="full_screen_image_cd_close">Close</string>
 </resources>

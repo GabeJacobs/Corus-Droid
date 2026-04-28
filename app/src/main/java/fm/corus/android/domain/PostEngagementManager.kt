@@ -2,13 +2,20 @@ package fm.corus.android.domain
 
 import com.google.firebase.firestore.ListenerRegistration
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.data.repository.SubscriptionRepository
+import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.async
@@ -18,6 +25,14 @@ import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** UI events related to the save cap, observed by the host activity / Compose root. */
+sealed class SaveCapEvent {
+    /** User attempted to save when at/over cap. UI should open the paywall. */
+    object PaywallRequested : SaveCapEvent()
+    /** Show a transient warning toast/snackbar. `tappable=true` means tapping opens paywall. */
+    data class WarningToast(val message: String, val savesRemaining: Int, val tappable: Boolean) : SaveCapEvent()
+}
 
 data class EngagementState(
     val likeCount: Int = 0,
@@ -40,11 +55,17 @@ class PostEngagementManager @Inject constructor(
     private val postRepository: PostRepository,
     private val firestoreDataSource: FirestoreDataSource,
     private val hapticManager: HapticManager,
+    private val subscriptionRepository: SubscriptionRepository,
+    private val remoteConfig: RemoteConfigService,
+    private val analyticsService: AnalyticsService,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _states = MutableStateFlow<Map<String, EngagementState>>(emptyMap())
     val states: StateFlow<Map<String, EngagementState>> = _states.asStateFlow()
+
+    private val _saveCapEvents = MutableSharedFlow<SaveCapEvent>(extraBufferCapacity = 4)
+    val saveCapEvents: SharedFlow<SaveCapEvent> = _saveCapEvents.asSharedFlow()
 
     /** Post IDs the user has modified locally (like/save toggle) — these are preserved on refresh. */
     private val userModifiedPostIds = Collections.synchronizedSet(mutableSetOf<String>())
@@ -167,6 +188,15 @@ class PostEngagementManager @Inject constructor(
         val current = _states.value[postId] ?: return
         val newSaved = !current.isSaved
 
+        // Save cap pre-check on the way in (instant, no network). Server still
+        // enforces; this is for UX latency. Only applies when about to save.
+        if (newSaved && subscriptionRepository.shouldRejectSave()) {
+            hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
+            analyticsService.logSaveCapReached(subscriptionRepository.savesCount.value)
+            scope.launch { _saveCapEvents.emit(SaveCapEvent.PaywallRequested) }
+            return
+        }
+
         // Mirrors iOS PostCard / PostDetailView / PostContextMenu toggleSave haptic.
         hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
 
@@ -178,7 +208,9 @@ class PostEngagementManager @Inject constructor(
         scope.launch {
             try {
                 if (newSaved) {
-                    postRepository.savePost(userId, postId)
+                    val result = postRepository.savePost(userId, postId)
+                    subscriptionRepository.setSavesCount(result.savesCount)
+                    maybeFireSaveWarningToast(result.savesCount)
                     // Send save notification (matches iOS)
                     try {
                         val post = postRepository.getCachedPost(postId)
@@ -193,16 +225,40 @@ class PostEngagementManager @Inject constructor(
                         }
                     } catch (_: Exception) { }
                 } else {
-                    postRepository.unsavePost(userId, postId)
+                    val newCount = postRepository.unsavePost(userId, postId)
+                    subscriptionRepository.setSavesCount(newCount)
                 }
+            } catch (e: CloudFunctionsDataSource.SaveCapReachedException) {
+                // Server rejected — local cache was stale. Sync count, revert UI, request paywall.
+                subscriptionRepository.setSavesCount(e.savesCount)
+                _states.update { map -> map + (postId to current) }
+                analyticsService.logSaveCapReached(e.savesCount)
+                _saveCapEvents.emit(SaveCapEvent.PaywallRequested)
             } catch (e: Exception) {
                 _states.update { map ->
                     map + (postId to current)
                 }
+                analyticsService.logSaveError(postId, e.message ?: "")
             } finally {
                 userModifiedPostIds.remove(postId)
             }
         }
+    }
+
+    private suspend fun maybeFireSaveWarningToast(savesCountAfter: Int) {
+        if (!remoteConfig.saveCapEnforced) return
+        if (subscriptionRepository.hasFullAccess) return
+        val limit = remoteConfig.saveCapLimit
+        val warnAt = remoteConfig.saveCapWarningAt
+        if (savesCountAfter < warnAt || savesCountAfter > limit) return
+        val remaining = (limit - savesCountAfter).coerceAtLeast(0)
+        val (msg, tappable) = when (remaining) {
+            0 -> "You've used your last free save. Upgrade for unlimited." to true
+            1 -> "1 save left" to false
+            else -> "$remaining saves left" to false
+        }
+        analyticsService.logSaveWarningToastShown(remaining)
+        _saveCapEvents.emit(SaveCapEvent.WarningToast(msg, remaining, tappable))
     }
 
     fun incrementCommentCount(postId: String) {

@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
@@ -52,11 +53,16 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.R
+import fm.corus.android.data.model.CommentAttachedFilm
+import fm.corus.android.data.model.CommentAttachedSong
 import fm.corus.android.data.model.CymbalNotification
 import fm.corus.android.data.model.NotificationType
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.CommentAttachmentPendingChip
+import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SkeletonNotificationRow
+import fm.corus.android.ui.components.SongFilmPickerSheet
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -171,13 +177,24 @@ fun NotificationsScreen(
                                 isNew = newNotificationIds.contains(notification.id),
                                 onClick = {
                                     viewModel.markNotificationTapped(notification.id)
-                                    val postId = notification.postId
-                                    if (postId != null && notification.commentId != null) {
-                                        onNavigateToPostComments(postId, notification.commentId)
-                                    } else if (postId != null) {
-                                        onNavigateToPost(postId)
+                                    if (notification.type == NotificationType.TASTE_MATCH) {
+                                        val isActivity = notification.subtype == "activity_song" ||
+                                                notification.subtype == "activity_film"
+                                        val postId = notification.postId
+                                        if (isActivity && postId != null) {
+                                            onNavigateToPost(postId)
+                                        } else {
+                                            onNavigateToUser(notification.fromUser.id)
+                                        }
                                     } else {
-                                        onNavigateToUser(notification.fromUser.id)
+                                        val postId = notification.postId
+                                        if (postId != null && notification.commentId != null) {
+                                            onNavigateToPostComments(postId, notification.commentId)
+                                        } else if (postId != null) {
+                                            onNavigateToPost(postId)
+                                        } else {
+                                            onNavigateToUser(notification.fromUser.id)
+                                        }
                                     }
                                 },
                                 onUserTap = {
@@ -194,6 +211,11 @@ fun NotificationsScreen(
                                     viewModel.setReplyingToNotification(notification)
                                 },
                             )
+                            if (notification.type == NotificationType.TASTE_MATCH) {
+                                LaunchedEffect(notification.id) {
+                                    viewModel.markTasteMatchRowViewed(notification)
+                                }
+                            }
                             HorizontalDivider(
                                 color = CorusColors.Divider,
                                 modifier = Modifier.padding(
@@ -223,11 +245,37 @@ fun NotificationsScreen(
         }
 
         if (replyingTo != null) {
+            val replyPendingSong by viewModel.replyPendingSong.collectAsState()
+            val replyPendingFilm by viewModel.replyPendingFilm.collectAsState()
+            var showReplySongFilmPicker by remember { mutableStateOf(false) }
+
+            if (showReplySongFilmPicker) {
+                SongFilmPickerSheet(
+                    initialMode = PickerMode.SONG,
+                    onSongSelected = { track ->
+                        viewModel.attachReplySong(track)
+                        showReplySongFilmPicker = false
+                    },
+                    onFilmSelected = { movie ->
+                        viewModel.attachReplyFilm(movie)
+                        showReplySongFilmPicker = false
+                    },
+                    onDismiss = { showReplySongFilmPicker = false },
+                )
+            }
+
             InlineReplyBar(
                 replyingTo = replyingTo!!,
                 isSending = isSendingReply,
+                pendingSong = replyPendingSong,
+                pendingFilm = replyPendingFilm,
+                onAttachmentClick = { showReplySongFilmPicker = true },
+                onClearAttachment = { viewModel.clearReplyAttachment() },
                 onSend = { text -> viewModel.sendReply(text) },
-                onCancel = { viewModel.setReplyingToNotification(null) },
+                onCancel = {
+                    viewModel.setReplyingToNotification(null)
+                    viewModel.clearReplyAttachment()
+                },
             )
         }
     }
@@ -351,7 +399,9 @@ private fun NotificationRow(
         val timeString = DateUtils.relativeTime(LocalContext.current, notification.timestamp)
         val timeSuffix = " $timeString"
 
-        val fullAnnotatedText = buildAnnotatedString {
+        val fullAnnotatedText = if (notification.type == NotificationType.TASTE_MATCH) {
+            buildTasteMatchAnnotated(notification, timeString)
+        } else buildAnnotatedString {
             pushStringAnnotation(tag = "USER", annotation = notification.fromUser.id)
             withStyle(
                 SpanStyle(
@@ -500,6 +550,54 @@ private fun NotificationRow(
     }
 }
 
+/**
+ * Build the row text for a TASTE_MATCH notification — different layout from
+ * other types: "<prefix>" (regular) + "username" (bold) + "<suffix>" (regular)
+ * + " — " + bodyText + " " + relativeTime.
+ */
+@androidx.compose.runtime.Composable
+@androidx.compose.runtime.ReadOnlyComposable
+private fun buildTasteMatchAnnotated(
+    notification: CymbalNotification,
+    timeString: String,
+): androidx.compose.ui.text.AnnotatedString {
+    val (prefix, suffix) = when (notification.subtype) {
+        "discovery" -> "New Taste Match: " to ""
+        "activity_song" -> "You and " to " both shared a song"
+        "activity_film" -> "You and " to " both shared a film"
+        "milestone_song", "milestone_film", "milestone_artist" ->
+            "Taste match milestone with " to ""
+        else -> "Taste match with " to ""
+    }
+    val username = notification.fromUser.username
+    val body = notification.bodyText.orEmpty()
+    return buildAnnotatedString {
+        withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
+            append(prefix)
+        }
+        pushStringAnnotation(tag = "USER", annotation = notification.fromUser.id)
+        withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)) {
+            append(username)
+        }
+        pop()
+        if (suffix.isNotEmpty()) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
+                append(suffix)
+            }
+        }
+        if (body.isNotEmpty()) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
+                append(" — ")
+                append(body)
+            }
+        }
+        append(" ")
+        withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, color = CorusColors.Secondary)) {
+            append(timeString)
+        }
+    }
+}
+
 @Composable
 private fun NotificationsEmptyState() {
     Box(
@@ -541,6 +639,10 @@ private fun NotificationsEmptyState() {
 private fun InlineReplyBar(
     replyingTo: CymbalNotification,
     isSending: Boolean,
+    pendingSong: CommentAttachedSong? = null,
+    pendingFilm: CommentAttachedFilm? = null,
+    onAttachmentClick: () -> Unit = {},
+    onClearAttachment: () -> Unit = {},
     onSend: (String) -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -551,7 +653,8 @@ private fun InlineReplyBar(
         focusRequester.requestFocus()
     }
 
-    val canSend = text.trim().isNotEmpty() && !isSending
+    val hasAttachment = pendingSong != null || pendingFilm != null
+    val canSend = (text.trim().isNotEmpty() || hasAttachment) && !isSending
 
     Column(
         modifier = Modifier
@@ -560,12 +663,44 @@ private fun InlineReplyBar(
             .imePadding(),
     ) {
         HorizontalDivider(color = CorusColors.Divider)
+
+        if (hasAttachment) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+            ) {
+                CommentAttachmentPendingChip(
+                    attachedSong = pendingSong,
+                    attachedFilm = pendingFilm,
+                    onClear = onClearAttachment,
+                )
+            }
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(CorusColors.CommentAttachmentPlus.copy(alpha = 0.15f))
+                    .clickable(enabled = !hasAttachment) { onAttachmentClick() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.Add,
+                    contentDescription = stringResource(R.string.comment_attachment_attach),
+                    tint = CorusColors.CommentAttachmentPlus,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(Modifier.width(CorusSpacing.sm))
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(id = R.string.notifications_replying_to_format, replyingTo.fromUser.username),

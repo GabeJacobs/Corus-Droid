@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.Notifications
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -28,17 +30,13 @@ import fm.corus.android.ui.theme.CorusSpacing
 @Composable
 fun NotificationSettingsScreen(
     onBack: () -> Unit = {},
+    viewModel: NotificationSettingsViewModel = hiltViewModel(),
 ) {
-    // Notification toggles
-    var notifyLikes by remember { mutableStateOf(true) }
-    var notifyComments by remember { mutableStateOf(true) }
-    var notifyNewFollowers by remember { mutableStateOf(true) }
-    var notifyFollowRequests by remember { mutableStateOf(true) }
-    var notifyContactJoined by remember { mutableStateOf(true) }
-    var messagePushNotifications by remember { mutableStateOf(true) }
+    val settings by viewModel.settings.collectAsState()
+
+    LaunchedEffect(Unit) { viewModel.load() }
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
-        // ── Header ──
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -61,43 +59,50 @@ fun NotificationSettingsScreen(
             NotifToggleRow(
                 icon = Icons.Filled.Favorite,
                 title = stringResource(R.string.notifications_row_likes),
-                checked = notifyLikes,
-                onCheckedChange = { notifyLikes = it },
+                checked = settings.likes,
+                onCheckedChange = viewModel::setLikes,
             )
 
             NotifToggleRow(
                 icon = Icons.Outlined.ChatBubbleOutline,
                 title = stringResource(R.string.notifications_row_comments_replies),
-                checked = notifyComments,
-                onCheckedChange = { notifyComments = it },
+                checked = settings.commentsAndReplies,
+                onCheckedChange = viewModel::setCommentsAndReplies,
             )
 
             NotifToggleRow(
                 icon = Icons.Outlined.PersonAdd,
                 title = stringResource(R.string.notifications_row_new_followers),
-                checked = notifyNewFollowers,
-                onCheckedChange = { notifyNewFollowers = it },
+                checked = settings.newFollowers,
+                onCheckedChange = viewModel::setNewFollowers,
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.PersonSearch,
                 title = stringResource(R.string.notifications_row_follow_requests),
-                checked = notifyFollowRequests,
-                onCheckedChange = { notifyFollowRequests = it },
+                checked = settings.followRequests,
+                onCheckedChange = viewModel::setFollowRequests,
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.HowToReg,
                 title = stringResource(R.string.notifications_row_contact_joined),
-                checked = notifyContactJoined,
-                onCheckedChange = { notifyContactJoined = it },
+                checked = settings.contactJoined,
+                onCheckedChange = viewModel::setContactJoined,
+            )
+
+            NotifToggleRow(
+                icon = Icons.Filled.AutoAwesome,
+                title = "Taste Matches",
+                checked = settings.tasteMatches,
+                onCheckedChange = viewModel::setTasteMatches,
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.Notifications,
                 title = stringResource(R.string.notifications_row_messages),
-                checked = messagePushNotifications,
-                onCheckedChange = { messagePushNotifications = it },
+                checked = settings.messagePush,
+                onCheckedChange = viewModel::setMessagePush,
             )
         }
     }

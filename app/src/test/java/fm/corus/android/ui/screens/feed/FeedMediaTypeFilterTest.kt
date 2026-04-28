@@ -96,6 +96,7 @@ class FeedMediaTypeFilterTest {
         remoteConfig = remoteConfig,
         analyticsService = analyticsService,
         postCreationEvent = postCreationEvent,
+        context = mock(),
     )
 
     @Test

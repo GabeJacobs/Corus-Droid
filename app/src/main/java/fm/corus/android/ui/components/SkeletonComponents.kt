@@ -1460,8 +1460,8 @@ fun SkeletonFeaturedMoviePoster() {
             .background(
                 Brush.verticalGradient(
                     colorStops = arrayOf(
-                        0.36f to CorusColors.FeaturedBackgroundTop,
-                        1.0f to CorusColors.FeaturedBackgroundBottom,
+                        0.36f to CorusColors.FeaturedFilmBackgroundTop,
+                        1.0f to CorusColors.FeaturedFilmBackgroundBottom,
                     ),
                 ),
             ),

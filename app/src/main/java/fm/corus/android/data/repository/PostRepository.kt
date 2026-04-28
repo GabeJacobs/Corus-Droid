@@ -123,8 +123,9 @@ class PostRepository @Inject constructor(
         postAlbumArtURL: String? = null,
         commentText: String? = null,
         commentId: String? = null,
+        attachmentType: String? = null,
     ) {
-        firestoreDataSource.createNotification(type, fromUserId, toUserId, postId, postAlbumArtURL, commentText, commentId)
+        firestoreDataSource.createNotification(type, fromUserId, toUserId, postId, postAlbumArtURL, commentText, commentId, attachmentType)
     }
 
     suspend fun deletePost(postId: String, userId: String) {
@@ -145,13 +146,18 @@ class PostRepository @Inject constructor(
         return firestoreDataSource.isPostLiked(userId, postId)
     }
 
-    suspend fun savePost(userId: String, postId: String) {
-        firestoreDataSource.savePost(userId, postId)
+    /** Save via the `savePost` cloud callable. Server enforces the cap and
+     *  returns the new savesCount. Throws SaveCapReachedException on cap-hit. */
+    suspend fun savePost(userId: String, postId: String): CloudFunctionsDataSource.SavePostResult {
+        return cloudFunctions.savePost(postId)
     }
 
-    suspend fun unsavePost(userId: String, postId: String) {
-        firestoreDataSource.unsavePost(userId, postId)
+    /** Unsave via the `unsavePost` cloud callable. Returns new savesCount. */
+    suspend fun unsavePost(userId: String, postId: String): Int {
+        return cloudFunctions.unsavePost(postId)
     }
+
+    suspend fun reconcileSavesCount(): Int = cloudFunctions.reconcileSavesCount()
 
     suspend fun isPostSaved(userId: String, postId: String): Boolean {
         return firestoreDataSource.isPostSaved(userId, postId)
@@ -194,8 +200,19 @@ class PostRepository @Inject constructor(
         return cloudFunctions.getReplies(commentId, postId, limit, lastTimestamp)
     }
 
-    suspend fun addComment(postId: String, userId: String, text: String, parentCommentId: String? = null, replyToUserId: String? = null, gifURL: String? = null): String {
-        return firestoreDataSource.addComment(postId, userId, text, parentCommentId, replyToUserId, gifURL)
+    suspend fun addComment(
+        postId: String,
+        userId: String,
+        text: String,
+        parentCommentId: String? = null,
+        replyToUserId: String? = null,
+        gifURL: String? = null,
+        attachedSong: fm.corus.android.data.model.CommentAttachedSong? = null,
+        attachedFilm: fm.corus.android.data.model.CommentAttachedFilm? = null,
+    ): String {
+        return firestoreDataSource.addComment(
+            postId, userId, text, parentCommentId, replyToUserId, gifURL, attachedSong, attachedFilm
+        )
     }
 
     suspend fun editComment(postId: String, commentId: String, newText: String) {

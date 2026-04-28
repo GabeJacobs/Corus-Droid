@@ -21,6 +21,9 @@ class PostEngagementManagerHapticsTest {
         postRepository = mock<PostRepository>(),
         firestoreDataSource = mock<FirestoreDataSource>(),
         hapticManager = haptic,
+        subscriptionRepository = mock(),
+        remoteConfig = mock(),
+        analyticsService = mock(),
     )
 
     @Test

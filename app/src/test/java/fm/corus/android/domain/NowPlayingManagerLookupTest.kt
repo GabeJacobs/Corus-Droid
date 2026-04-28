@@ -3,8 +3,10 @@ package fm.corus.android.domain
 import android.content.Context
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -43,9 +45,12 @@ class NowPlayingManagerLookupTest {
     private val preferencesDataStore = mock<PreferencesDataStore> {
         on { autoplayNextSong } doReturn MutableStateFlow(true)
     }
+    private val userRepository = mock<UserRepository> {
+        on { unfollowEvents } doReturn MutableSharedFlow()
+    }
 
     private fun newManager(cloudFunctions: CloudFunctionsDataSource): NowPlayingManager =
-        NowPlayingManager(context, cloudFunctions, preferencesDataStore)
+        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository)
 
     @Before
     fun setUp() {

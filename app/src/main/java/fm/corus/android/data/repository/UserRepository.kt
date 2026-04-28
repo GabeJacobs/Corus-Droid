@@ -11,8 +11,11 @@ import fm.corus.android.data.remote.FirestoreDataSource
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -25,6 +28,7 @@ class UserRepository @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val preferencesDataStore: PreferencesDataStore,
     private val auth: FirebaseAuth,
+    private val subscriptionRepository: SubscriptionRepository,
 ) {
     companion object {
         private const val PROFILE_TTL_MS = 5L * 60 * 1000      // 5 minutes — matches iOS
@@ -41,6 +45,14 @@ class UserRepository @Inject constructor(
     // Cached following set
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     val followingIds: StateFlow<Set<String>> = _followingIds.asStateFlow()
+
+    /**
+     * Fires whenever the local user unfollows someone. Downstream listeners
+     * (e.g. NowPlayingManager) react by pruning that user's content from
+     * in-memory state so it doesn't linger past the unfollow.
+     */
+    private val _unfollowEvents = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val unfollowEvents: SharedFlow<String> = _unfollowEvents.asSharedFlow()
 
     // Cached blocked set
     private val _blockedIds = MutableStateFlow<Set<String>>(emptySet())
@@ -67,10 +79,14 @@ class UserRepository @Inject constructor(
             // Current user's profile never expires from cache (matching iOS) —
             // it's always needed for optimistic UI (comments, etc.)
             val isCurrentUser = uid == auth.currentUser?.uid
-            if (isCurrentUser || entry.isValid(PROFILE_TTL_MS)) return entry.value
+            if (isCurrentUser || entry.isValid(PROFILE_TTL_MS)) {
+                if (isCurrentUser) subscriptionRepository.setSavesCount(entry.value.savesCount)
+                return entry.value
+            }
         }
         val user = firestoreDataSource.fetchUserProfile(uid) ?: return null
         profileCache[uid] = CacheEntry(user)
+        if (uid == auth.currentUser?.uid) subscriptionRepository.setSavesCount(user.savesCount)
         return user
     }
 
@@ -126,6 +142,7 @@ class UserRepository @Inject constructor(
     suspend fun unfollowUser(userId: String, targetUserId: String) {
         firestoreDataSource.unfollowUser(userId, targetUserId)
         _followingIds.value = _followingIds.value - targetUserId
+        _unfollowEvents.tryEmit(targetUserId)
     }
 
     suspend fun fetchFollowerIds(userId: String): Set<String> {

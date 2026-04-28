@@ -87,6 +87,14 @@ class MainActivity : ComponentActivity() {
         val destination = DeepLinkHandler.parseNotificationData(data)
         if (destination != null) {
             analyticsService.logDeepLinkOpened(destination.analyticsType())
+            if (data["type"] == "taste_match") {
+                val appState = if (fromCustomNotification) "foreground" else "background_or_terminated"
+                analyticsService.logTasteMatchPushOpened(
+                    subtype = data["subtype"] ?: "unknown",
+                    fromUserId = data["fromUserId"] ?: data["userId"] ?: "",
+                    appState = appState,
+                )
+            }
             _pendingNotificationDestination.value = destination
         }
 

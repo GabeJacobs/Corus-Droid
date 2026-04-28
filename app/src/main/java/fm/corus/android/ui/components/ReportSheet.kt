@@ -11,7 +11,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import fm.corus.android.R
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.AnalyticsService
@@ -28,15 +30,16 @@ enum class ReportContentType(val label: String) {
     MESSAGE("message"),
 }
 
-private val REPORT_REASONS = listOf(
-    "Spam or scam",
-    "Harassment or bullying",
-    "Hate speech",
-    "Nudity or sexual content",
-    "Violence or threats",
-    "False information",
-    "Intellectual property violation",
-    "Other",
+@Composable
+private fun reportReasons(): List<String> = listOf(
+    stringResource(R.string.report_reason_spam),
+    stringResource(R.string.report_reason_harassment),
+    stringResource(R.string.report_reason_hate),
+    stringResource(R.string.report_reason_nudity),
+    stringResource(R.string.report_reason_violence),
+    stringResource(R.string.report_reason_false_info),
+    stringResource(R.string.report_reason_ip_violation),
+    stringResource(R.string.report_reason_other),
 )
 
 @Composable
@@ -53,6 +56,13 @@ fun ReportSheet(
     var isSubmitting by remember { mutableStateOf(false) }
     var showSuccess by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val reasons = reportReasons()
+    val whyTextRes = when (contentType) {
+        ReportContentType.POST -> R.string.report_why_post
+        ReportContentType.COMMENT -> R.string.report_why_comment
+        ReportContentType.USER -> R.string.report_why_user
+        ReportContentType.MESSAGE -> R.string.report_why_message
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -64,10 +74,10 @@ fun ReportSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onDismiss) {
-                    Text("Cancel", style = CorusFont.body, color = CorusColors.Accent)
+                    Text(stringResource(R.string.report_cancel), style = CorusFont.body, color = CorusColors.Accent)
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                Text("Report", style = CorusFont.screenTitle, color = CorusColors.Text)
+                Text(stringResource(R.string.report_title), style = CorusFont.screenTitle, color = CorusColors.Text)
                 Spacer(modifier = Modifier.weight(1f))
                 TextButton(
                     onClick = {
@@ -99,7 +109,7 @@ fun ReportSheet(
                     },
                     enabled = selectedReason != null && !isSubmitting,
                 ) {
-                    Text("Submit", style = CorusFont.button, color = CorusColors.Accent)
+                    Text(stringResource(R.string.report_submit), style = CorusFont.button, color = CorusColors.Accent)
                 }
             }
 
@@ -109,13 +119,13 @@ fun ReportSheet(
             Column(modifier = Modifier.padding(horizontal = CorusSpacing.lg)) {
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
                 Text(
-                    text = "Why are you reporting this ${contentType.label}?",
+                    text = stringResource(whyTextRes),
                     style = CorusFont.caption,
                     color = CorusColors.Secondary,
                 )
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-                REPORT_REASONS.forEach { reason ->
+                reasons.forEach { reason ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -143,7 +153,7 @@ fun ReportSheet(
                         value = details,
                         onValueChange = { details = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Additional details (optional)") },
+                        placeholder = { Text(stringResource(R.string.report_details_placeholder)) },
                         minLines = 3,
                         maxLines = 6,
                         shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
@@ -170,9 +180,9 @@ fun ReportSheet(
                         tint = CorusColors.Accent,
                         modifier = Modifier.size(48.dp),
                     )
-                    Text("Thanks for reporting", style = CorusFont.songTitleLarge, color = CorusColors.Text)
+                    Text(stringResource(R.string.report_thanks_title), style = CorusFont.songTitleLarge, color = CorusColors.Text)
                     Text(
-                        "We'll review this and take action if needed.",
+                        stringResource(R.string.report_thanks_message),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                     )

@@ -43,6 +43,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
@@ -52,6 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
@@ -144,7 +146,7 @@ fun ComposeScreen(
                 if (hasSelection && preSelectedTrackId == null && preSelectedMovieId == null && repostedFromUsername == null) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.compose_cd_back),
                         tint = CorusColors.Secondary,
                         modifier = Modifier
                             .align(Alignment.CenterStart)
@@ -158,7 +160,7 @@ fun ComposeScreen(
 
                 // Center: title
                 Text(
-                    text = "Set Corus",
+                    text = stringResource(R.string.compose_title),
                     style = CorusFont.displayName,
                     color = CorusColors.Text,
                     modifier = Modifier.align(Alignment.Center),
@@ -166,7 +168,7 @@ fun ComposeScreen(
 
                 // Right: Cancel button
                 Text(
-                    text = "Cancel",
+                    text = stringResource(R.string.compose_cancel),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     modifier = Modifier
@@ -372,7 +374,7 @@ private fun SearchModeContent(
     Column(modifier = Modifier.fillMaxSize().imePadding().nestedScroll(scrollDismissConnection)) {
         // ── Songs / Films segmented toggle ──
         SegmentedToggle(
-            options = listOf("Songs", "Films"),
+            options = listOf(stringResource(R.string.compose_segment_songs), stringResource(R.string.compose_segment_films)),
             selectedIndex = if (mediaType == MediaType.TRACK) 0 else 1,
             onSelected = { index ->
                 onMediaTypeChange(if (index == 0) MediaType.TRACK else MediaType.MOVIE)
@@ -408,7 +410,7 @@ private fun SearchModeContent(
                 decorationBox = { innerTextField ->
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = if (mediaType == MediaType.TRACK) "Search for a song" else "Search for a film",
+                            text = if (mediaType == MediaType.TRACK) stringResource(R.string.compose_search_song) else stringResource(R.string.compose_search_film),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )
@@ -570,7 +572,7 @@ private fun TrendingSongsSection(
                     modifier = Modifier.size(16.dp),
                 )
                 Text(
-                    text = "TRENDING SONGS",
+                    text = stringResource(R.string.compose_trending_songs),
                     style = CorusFont.sectionHeader,
                     color = CorusColors.Secondary,
                 )
@@ -615,7 +617,7 @@ private fun TrendingMoviesSection(
                     modifier = Modifier.size(16.dp),
                 )
                 Text(
-                    text = "TRENDING FILMS",
+                    text = stringResource(R.string.compose_trending_films),
                     style = CorusFont.sectionHeader,
                     color = CorusColors.Secondary,
                 )
@@ -809,7 +811,7 @@ private fun SearchResultRow(
                         } else {
                             Icon(
                                 imageVector = Icons.Filled.Pause,
-                                contentDescription = "Pause",
+                                contentDescription = stringResource(R.string.compose_cd_pause),
                                 tint = Color.White,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -824,7 +826,7 @@ private fun SearchResultRow(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.PlayArrow,
-                            contentDescription = "Play preview",
+                            contentDescription = stringResource(R.string.compose_cd_play_preview),
                             tint = Color.White,
                             modifier = Modifier.size(20.dp),
                         )
@@ -888,11 +890,12 @@ private fun ComposeModeContent(
 ) {
     val imageURL = if (mediaType == MediaType.TRACK) (selectedTrack?.albumArtLargeURL ?: selectedTrack?.albumArtURL) else selectedMovie?.posterURL
     val title = if (mediaType == MediaType.TRACK) selectedTrack?.name.orEmpty() else selectedMovie?.title.orEmpty()
+    val unknownDirector = stringResource(R.string.compose_director_unknown)
     val subtitle = if (mediaType == MediaType.TRACK) {
         selectedTrack?.artistName.orEmpty()
     } else {
         buildString {
-            val director = selectedMovie?.directorName?.ifEmpty { "Unknown" } ?: "Unknown"
+            val director = selectedMovie?.directorName?.ifEmpty { unknownDirector } ?: unknownDirector
             append(director)
             val year = selectedMovie?.year.orEmpty()
             if (year.isNotEmpty()) append("  $year")
@@ -958,7 +961,7 @@ private fun ComposeModeContent(
                         } else {
                             Icon(
                                 imageVector = Icons.Filled.Pause,
-                                contentDescription = "Pause preview",
+                                contentDescription = stringResource(R.string.compose_cd_pause_preview),
                                 tint = Color.White.copy(alpha = overlayAlpha),
                                 modifier = Modifier.size(22.dp),
                             )
@@ -1001,7 +1004,7 @@ private fun ComposeModeContent(
                 )
                 Spacer(modifier = Modifier.width(CorusSpacing.xs))
                 Text(
-                    text = "Reposted from @${repostedFromUsername}",
+                    text = stringResource(R.string.compose_reposted_from_format, repostedFromUsername),
                     style = CorusFont.bodyMedium,
                     color = CorusColors.Text,
                     modifier = Modifier.weight(1f),
@@ -1021,7 +1024,7 @@ private fun ComposeModeContent(
 
         // ── Caption mode toggle (Text / Voice) — segmented style like iOS ──
         SegmentedToggle(
-            options = listOf("Text", "Voice"),
+            options = listOf(stringResource(R.string.compose_segment_text), stringResource(R.string.compose_segment_voice)),
             selectedIndex = if (captionMode == "text") 0 else 1,
             onSelected = { index ->
                 onCaptionModeChange(if (index == 0) "text" else "voice")
@@ -1047,7 +1050,7 @@ private fun ComposeModeContent(
         ) {
             if (caption.text.isEmpty()) {
                 Text(
-                    text = "Write a caption...",
+                    text = stringResource(R.string.compose_caption_placeholder),
                     style = CorusFont.body,
                     color = CorusColors.Secondary.copy(alpha = 0.6f),
                     modifier = Modifier.padding(top = CorusSpacing.xs),
@@ -1070,7 +1073,7 @@ private fun ComposeModeContent(
         // Character counter (visible at 650+)
         if (caption.text.length >= 650) {
             Text(
-                text = "${caption.text.length}/700",
+                text = stringResource(R.string.compose_char_count_format, caption.text.length),
                 style = CorusFont.caption,
                 color = if (caption.text.length >= 700) CorusColors.Error else CorusColors.Secondary,
                 modifier = Modifier
@@ -1150,7 +1153,7 @@ private fun ComposeModeContent(
                 )
             } else {
                 Text(
-                    text = "SET YOUR CORUS \u2192",
+                    text = stringResource(R.string.compose_post_button),
                     style = CorusFont.button,
                     color = Color.White,
                 )

@@ -45,11 +45,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import fm.corus.android.R
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
@@ -151,7 +153,7 @@ private fun CameraPreview(
         ) {
             Icon(
                 Icons.Filled.Close,
-                contentDescription = "Cancel",
+                contentDescription = stringResource(R.string.selfie_cd_cancel),
                 tint = Color.White,
             )
         }
@@ -206,13 +208,13 @@ private fun PermissionPrompt(
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "Camera access needed",
+            text = stringResource(R.string.selfie_permission_title),
             style = CorusFont.songTitleLarge,
             color = Color.White,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "Allow camera access to take a profile photo.",
+            text = stringResource(R.string.selfie_permission_message),
             style = CorusFont.bodyMedium,
             color = Color.White.copy(alpha = 0.7f),
             textAlign = TextAlign.Center,
@@ -228,13 +230,13 @@ private fun PermissionPrompt(
                 onClick = onCancel,
                 colors = ButtonDefaults.buttonColors(containerColor = CorusColors.CardBackground),
             ) {
-                Text("Cancel", color = CorusColors.Text)
+                Text(stringResource(R.string.selfie_permission_cancel), color = CorusColors.Text)
             }
             Button(
                 onClick = onRequest,
                 colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
             ) {
-                Text("Allow", color = Color.White)
+                Text(stringResource(R.string.selfie_permission_allow), color = Color.White)
             }
         }
     }

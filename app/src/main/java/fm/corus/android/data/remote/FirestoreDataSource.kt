@@ -448,6 +448,7 @@ class FirestoreDataSource @Inject constructor(
         postAlbumArtURL: String? = null,
         commentText: String? = null,
         commentId: String? = null,
+        attachmentType: String? = null,
     ) {
         if (remoteConfigService.serverNotificationsEnabled) return
         if (fromUserId == toUserId) return
@@ -462,6 +463,7 @@ class FirestoreDataSource @Inject constructor(
         if (postAlbumArtURL != null) data["postAlbumArtURL"] = postAlbumArtURL
         if (commentText != null) data["commentText"] = commentText
         if (commentId != null) data["commentId"] = commentId
+        if (attachmentType != null) data["attachmentType"] = attachmentType
 
         // Deterministic IDs for actions that can be toggled — matches iOS behavior.
         val deterministicId = when (type) {
@@ -491,13 +493,47 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Comments ──
 
-    suspend fun addComment(postId: String, userId: String, text: String, parentCommentId: String? = null, replyToUserId: String? = null, gifURL: String? = null): String {
+    suspend fun addComment(
+        postId: String,
+        userId: String,
+        text: String,
+        parentCommentId: String? = null,
+        replyToUserId: String? = null,
+        gifURL: String? = null,
+        attachedSong: fm.corus.android.data.model.CommentAttachedSong? = null,
+        attachedFilm: fm.corus.android.data.model.CommentAttachedFilm? = null,
+    ): String {
+        // Mutual exclusion: at most one of {gifURL, attachedSong, attachedFilm}.
+        val attachmentCount = (if (gifURL != null) 1 else 0) +
+            (if (attachedSong != null) 1 else 0) +
+            (if (attachedFilm != null) 1 else 0)
+        require(attachmentCount <= 1) { "Comment can have at most one attachment" }
+
+        // Backwards-compat: when the caption is empty but we're attaching a song/film,
+        // synthesize a fallback `text` so old clients still render something legible.
+        // New clients detect `textIsAttachmentFallback` and suppress text rendering.
+        val trimmedCaption = text.trim()
+        var writtenText = text
+        var isAttachmentFallback = false
+        if (trimmedCaption.isEmpty()) {
+            when {
+                attachedSong != null -> {
+                    writtenText = attachedSong.fallbackText
+                    isAttachmentFallback = true
+                }
+                attachedFilm != null -> {
+                    writtenText = attachedFilm.fallbackText
+                    isAttachmentFallback = true
+                }
+            }
+        }
+
         val commentRef = firestore.collection("posts").document(postId)
             .collection("comments").document()
         val commentData = mutableMapOf<String, Any?>(
             "id" to commentRef.id,
             "userId" to userId,
-            "text" to text,
+            "text" to writtenText,
             "createdAt" to FieldValue.serverTimestamp(),
             "likeCount" to 0,
             "replyCount" to 0,
@@ -505,6 +541,9 @@ class FirestoreDataSource @Inject constructor(
         parentCommentId?.let { commentData["parentCommentId"] = it }
         replyToUserId?.let { commentData["replyToUserId"] = it }
         gifURL?.let { commentData["gifURL"] = it }
+        attachedSong?.let { commentData["attachedSong"] = it.toFirestoreMap() }
+        attachedFilm?.let { commentData["attachedFilm"] = it.toFirestoreMap() }
+        if (isAttachmentFallback) commentData["textIsAttachmentFallback"] = true
         commentRef.set(commentData).await()
 
         firestore.collection("posts").document(postId)

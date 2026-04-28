@@ -81,7 +81,7 @@ fun EditCaptionSheet(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
             )
         },
     ) { padding ->

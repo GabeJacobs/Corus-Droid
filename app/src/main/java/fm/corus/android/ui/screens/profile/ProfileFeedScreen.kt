@@ -110,7 +110,7 @@ fun ProfileFeedScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
@@ -155,6 +155,12 @@ fun ProfileFeedScreen(
                     onSpotifyTap = {
                         if (post.isMovie) {
                             onNavigateToFilm(post.movieId ?: "")
+                        } else if (post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
+                            // SoundCloud tracks aren't on Spotify — open the SC permalink instead.
+                            val permalink = post.track.soundcloudPermalinkUrl
+                            if (!permalink.isNullOrBlank()) {
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
+                            }
                         } else {
                             val uri = post.track.spotifyURI
                             val webUrl = post.track.spotifyWebURL

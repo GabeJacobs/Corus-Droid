@@ -163,6 +163,14 @@ class AnalyticsService @Inject constructor(
     // MARK: - Notification / Message Events
 
     fun logNotificationTapped(type: String) = logEvent("notification_tapped", mapOf("notification_type" to type))
+    fun logTasteMatchPushOpened(subtype: String, fromUserId: String, appState: String) =
+        logEvent("taste_match_push_opened", mapOf("subtype" to subtype, "from_user_id" to fromUserId, "app_state" to appState))
+    fun logTasteMatchFeedRowViewed(subtype: String, fromUserId: String) =
+        logEvent("taste_match_feed_row_viewed", mapOf("subtype" to subtype, "from_user_id" to fromUserId))
+    fun logTasteMatchFeedRowTapped(subtype: String, fromUserId: String) =
+        logEvent("taste_match_feed_row_tapped", mapOf("subtype" to subtype, "from_user_id" to fromUserId))
+    fun logTasteMatchSettingsToggled(enabled: Boolean) =
+        logEvent("taste_match_settings_toggled", mapOf("enabled" to enabled))
     fun logMessageThreadOpened(threadId: String) = logEvent("message_thread_opened", mapOf("thread_id" to threadId))
     fun logMessageSent(threadId: String, type: String) = logEvent("message_sent", mapOf("thread_id" to threadId, "message_type" to type))
     fun logMessageError(threadId: String, error: String) = logEvent("message_error", mapOf("thread_id" to threadId, "error" to error.take(100)))
@@ -184,6 +192,9 @@ class AnalyticsService @Inject constructor(
     fun logSubscriptionExpired() = logEvent("subscription_expired")
     fun logManageSubscriptionTapped() = logEvent("manage_subscription_tapped")
     fun logPostLimitReached(todayCount: Int) = logEvent("post_limit_reached", mapOf("today_count" to todayCount))
+    fun logSaveCapReached(savesCount: Int) = logEvent("save_cap_reached", mapOf("saves_count" to savesCount))
+    fun logSaveWarningToastShown(savesRemaining: Int) = logEvent("save_warning_toast_shown", mapOf("saves_remaining" to savesRemaining))
+    fun logSaveWarningToastTapped(savesRemaining: Int) = logEvent("save_warning_toast_tapped", mapOf("saves_remaining" to savesRemaining))
 
     // MARK: - Error Events
 

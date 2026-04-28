@@ -71,6 +71,8 @@ class NotificationsViewModelTest {
         userRepository = userRepository,
         postRepository = postRepository,
         engagementManager = engagementManager,
+        analyticsService = mock(),
+        context = mock(),
     )
 
     private fun commentNotification(
@@ -110,6 +112,8 @@ class NotificationsViewModelTest {
             userRepository = userRepository,
             postRepository = postRepository,
             engagementManager = engagementManager,
+            analyticsService = mock(),
+            context = mock(),
         )
 
         viewModel.loadNotifications()

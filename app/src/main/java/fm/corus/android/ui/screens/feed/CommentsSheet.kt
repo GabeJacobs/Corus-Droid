@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Gif
@@ -54,12 +55,19 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalComment
+import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.ui.components.CommentAttachmentCard
+import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.ui.components.MentionSuggestionsList
+import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.ReportContentType
 import fm.corus.android.ui.components.ReportSheet
 import fm.corus.android.ui.components.SkeletonCommentRow
 import fm.corus.android.ui.components.GifPickerSheet
+import fm.corus.android.ui.components.SongFilmPickerSheet
 import fm.corus.android.ui.components.TappableMentionText
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
@@ -80,6 +88,8 @@ fun CommentsBottomSheet(
     postId: String,
     onDismiss: () -> Unit,
     onNavigateToUser: (String) -> Unit = {},
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
+    onNavigateToFilm: (CymbalMovie) -> Unit = {},
 ) {
     val viewModel: CommentsViewModel = hiltViewModel()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -90,7 +100,7 @@ fun CommentsBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White,
+        containerColor = CorusColors.Background,
         dragHandle = {
             // Add status bar padding so the drag handle stays below the camera cutout
             Column(modifier = Modifier.statusBarsPadding()) {
@@ -103,6 +113,8 @@ fun CommentsBottomSheet(
             viewModel = viewModel,
             onDismiss = onDismiss,
             onNavigateToUser = onNavigateToUser,
+            onNavigateToSong = onNavigateToSong,
+            onNavigateToFilm = onNavigateToFilm,
             autoFocusInput = true,
         )
     }
@@ -115,6 +127,8 @@ fun CommentsSheet(
     viewModel: CommentsViewModel = hiltViewModel(),
     onDismiss: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
+    onNavigateToFilm: (CymbalMovie) -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -125,7 +139,7 @@ fun CommentsSheet(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.feed_cd_back), tint = CorusColors.Text)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
             )
         },
     ) { padding ->
@@ -135,6 +149,8 @@ fun CommentsSheet(
                 viewModel = viewModel,
                 onDismiss = onDismiss,
                 onNavigateToUser = onNavigateToUser,
+                onNavigateToSong = onNavigateToSong,
+                onNavigateToFilm = onNavigateToFilm,
             )
         }
     }
@@ -147,6 +163,8 @@ private fun CommentsSheetContent(
     viewModel: CommentsViewModel = hiltViewModel(),
     onDismiss: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
+    onNavigateToFilm: (CymbalMovie) -> Unit = {},
     autoFocusInput: Boolean = false,
 ) {
     val comments by viewModel.comments.collectAsState()
@@ -159,10 +177,14 @@ private fun CommentsSheetContent(
     val sendError by viewModel.sendError.collectAsState()
     val editingComment by viewModel.editingComment.collectAsState()
 
+    val pendingSong by viewModel.pendingSong.collectAsState()
+    val pendingFilm by viewModel.pendingFilm.collectAsState()
+
     var commentText by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     var showGifPicker by remember { mutableStateOf(false) }
+    var showSongFilmPicker by remember { mutableStateOf(false) }
     var reportingComment by remember { mutableStateOf<CymbalComment?>(null) }
     var viewingLikesCommentId by remember { mutableStateOf<String?>(null) }
     val maxChars = 700
@@ -221,6 +243,21 @@ private fun CommentsSheetContent(
                 showGifPicker = false
             },
             onDismiss = { showGifPicker = false },
+        )
+    }
+
+    if (showSongFilmPicker) {
+        SongFilmPickerSheet(
+            initialMode = PickerMode.SONG,
+            onSongSelected = { track ->
+                viewModel.attachSong(track)
+                showSongFilmPicker = false
+            },
+            onFilmSelected = { movie ->
+                viewModel.attachFilm(movie)
+                showSongFilmPicker = false
+            },
+            onDismiss = { showSongFilmPicker = false },
         )
     }
 
@@ -348,6 +385,7 @@ private fun CommentsSheetContent(
                             comment = comment,
                             isOwnComment = comment.user.id == viewModel.currentUserId,
                             isLiked = likedCommentIds.contains(comment.id),
+                            nowPlaying = viewModel.nowPlayingManager,
                             onUserTap = { onNavigateToUser(comment.user.id) },
                             onReplyTap = {
                                 viewModel.setReplyingTo(comment)
@@ -360,6 +398,8 @@ private fun CommentsSheetContent(
                             onReportTap = { reportingComment = comment },
                             onBlockTap = { viewModel.blockUser(comment.user.id) },
                             onMentionTap = handleMentionTap,
+                            onNavigateToSong = onNavigateToSong,
+                            onNavigateToFilm = onNavigateToFilm,
                         )
                     }
                     val replies = repliesByParent[comment.id] ?: emptyList()
@@ -370,6 +410,7 @@ private fun CommentsSheetContent(
                                 isOwnComment = reply.user.id == viewModel.currentUserId,
                                 isReply = true,
                                 isLiked = likedCommentIds.contains(reply.id),
+                                nowPlaying = viewModel.nowPlayingManager,
                                 onUserTap = { onNavigateToUser(reply.user.id) },
                                 onReplyTap = {
                                     viewModel.setReplyingTo(reply)
@@ -382,6 +423,8 @@ private fun CommentsSheetContent(
                                 onReportTap = { reportingComment = reply },
                                 onBlockTap = { viewModel.blockUser(reply.user.id) },
                                 onMentionTap = handleMentionTap,
+                                onNavigateToSong = onNavigateToSong,
+                                onNavigateToFilm = onNavigateToFilm,
                             )
                         }
                     }
@@ -414,6 +457,21 @@ private fun CommentsSheetContent(
             )
         }
 
+        // Pending song/film attachment chip — left-aligned, hugs content.
+        if (editingComment == null && (pendingSong != null || pendingFilm != null)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+            ) {
+                CommentAttachmentPendingChip(
+                    attachedSong = pendingSong,
+                    attachedFilm = pendingFilm,
+                    onClear = { viewModel.clearAttachment() },
+                )
+            }
+        }
+
         if (editingComment != null) {
             Row(
                 modifier = Modifier
@@ -441,11 +499,32 @@ private fun CommentsSheetContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(CorusColors.Background)
                 .navigationBarsPadding()
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (editingComment == null && viewModel.commentAttachmentsEnabled) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(CorusColors.Accent)
+                        .clickable(enabled = pendingSong == null && pendingFilm == null) {
+                            showSongFilmPicker = true
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.comment_attachment_attach),
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(Modifier.width(CorusSpacing.sm))
+            }
+
             TextField(
                 value = commentText,
                 onValueChange = { newValue ->
@@ -498,13 +577,14 @@ private fun CommentsSheetContent(
                 },
             )
 
-            if (viewModel.giphySupport && editingComment == null) {
+            if (viewModel.giphySupport && editingComment == null && !viewModel.commentAttachmentsEnabled) {
                 IconButton(onClick = { showGifPicker = true }) {
                     Icon(Icons.Filled.Gif, contentDescription = stringResource(R.string.comments_cd_send_gif), tint = CorusColors.Accent, modifier = Modifier.size(28.dp))
                 }
             }
 
-            val canSend = commentText.text.isNotBlank() && !isSending
+            val hasAttachment = pendingSong != null || pendingFilm != null
+            val canSend = (commentText.text.isNotBlank() || hasAttachment) && !isSending
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Box(
                 modifier = Modifier
@@ -607,6 +687,7 @@ private fun CommentRow(
     isOwnComment: Boolean = false,
     isReply: Boolean = false,
     isLiked: Boolean = false,
+    nowPlaying: NowPlayingManager? = null,
     onUserTap: () -> Unit = {},
     onReplyTap: () -> Unit = {},
     onLikeTap: () -> Unit = {},
@@ -616,6 +697,8 @@ private fun CommentRow(
     onReportTap: () -> Unit = {},
     onBlockTap: () -> Unit = {},
     onMentionTap: (String) -> Unit = {},
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
+    onNavigateToFilm: (CymbalMovie) -> Unit = {},
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showBlockConfirm by remember { mutableStateOf(false) }
@@ -765,7 +848,7 @@ private fun CommentRow(
                 }
             }
 
-            // GIF or text content
+            // GIF, text, or song/film attachment content
             if (comment.gifURL != null) {
                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
                 AsyncImage(
@@ -779,22 +862,36 @@ private fun CommentRow(
                         .clip(RoundedCornerShape(12.dp)),
                     contentScale = ContentScale.Fit,
                 )
-            } else if (comment.text.isNotEmpty()) {
-                val annotatedText = remember(comment.text) {
-                    buildMentionAnnotatedString(
-                        text = comment.text,
-                        baseStyle = SpanStyle(
-                            fontFamily = CorusFont.body.fontFamily,
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 15.sp,
-                        ),
+            } else {
+                val displayedText = if (comment.textIsAttachmentFallback) "" else comment.text
+                if (displayedText.isNotEmpty()) {
+                    val annotatedText = remember(displayedText) {
+                        buildMentionAnnotatedString(
+                            text = displayedText,
+                            baseStyle = SpanStyle(
+                                fontFamily = CorusFont.body.fontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 15.sp,
+                            ),
+                        )
+                    }
+                    TappableMentionText(
+                        text = annotatedText,
+                        style = CorusFont.body.copy(fontSize = 15.sp),
+                        onMentionTap = onMentionTap,
                     )
                 }
-                TappableMentionText(
-                    text = annotatedText,
-                    style = CorusFont.body.copy(fontSize = 15.sp),
-                    onMentionTap = onMentionTap,
-                )
+
+                if ((comment.attachedSong != null || comment.attachedFilm != null) && nowPlaying != null) {
+                    if (displayedText.isNotEmpty()) Spacer(Modifier.height(CorusSpacing.xs))
+                    CommentAttachmentCard(
+                        attachedSong = comment.attachedSong,
+                        attachedFilm = comment.attachedFilm,
+                        nowPlaying = nowPlaying,
+                        onNavigateToSong = onNavigateToSong,
+                        onNavigateToFilm = onNavigateToFilm,
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
@@ -870,7 +967,7 @@ private fun CommentRow(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
                 ) {
-                    if (comment.gifURL == null) {
+                    if (comment.gifURL == null && !comment.textIsAttachmentFallback) {
                         DropdownMenuItem(
                             text = {
                                 Text(

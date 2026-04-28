@@ -117,7 +117,7 @@ fun PostDetailScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
@@ -210,11 +210,18 @@ fun PostDetailScreen(
                                 }
                             },
                             onSpotifyTap = {
-                                val spotifyUri = currentPost.track.spotifyURI
-                                val spotifyWeb = currentPost.track.spotifyWebURL
-                                val uri = spotifyUri.ifBlank { spotifyWeb }
-                                if (uri.isNotBlank()) {
-                                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
+                                if (currentPost.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
+                                    val permalink = currentPost.track.soundcloudPermalinkUrl
+                                    if (!permalink.isNullOrBlank()) {
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
+                                    }
+                                } else {
+                                    val spotifyUri = currentPost.track.spotifyURI
+                                    val spotifyWeb = currentPost.track.spotifyWebURL
+                                    val uri = spotifyUri.ifBlank { spotifyWeb }
+                                    if (uri.isNotBlank()) {
+                                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
+                                    }
                                 }
                             },
                             onTrailerTap = {

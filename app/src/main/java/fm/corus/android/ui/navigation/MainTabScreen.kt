@@ -46,6 +46,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import fm.corus.android.R
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
@@ -106,6 +108,33 @@ fun MainTabScreen(
     // Club offer sheet state
     var showClubOffer by remember { mutableStateOf(false) }
     var clubOfferSource by remember { mutableStateOf(PaywallSource.DEFAULT) }
+
+    // Save cap snackbar
+    val saveCapSnackbarHost = remember { androidx.compose.material3.SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        viewModel.postEngagementManager.saveCapEvents.collect { event ->
+            when (event) {
+                is fm.corus.android.domain.SaveCapEvent.PaywallRequested -> {
+                    viewModel.logPaywallShown("save_cap")
+                    clubOfferSource = PaywallSource.SAVE_LIMIT
+                    showClubOffer = true
+                }
+                is fm.corus.android.domain.SaveCapEvent.WarningToast -> {
+                    val result = saveCapSnackbarHost.showSnackbar(
+                        message = event.message,
+                        actionLabel = if (event.tappable) "Upgrade" else null,
+                        duration = androidx.compose.material3.SnackbarDuration.Short,
+                    )
+                    if (event.tappable && result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                        viewModel.logSaveWarningTapped(event.savesRemaining)
+                        viewModel.logPaywallShown("save_cap")
+                        clubOfferSource = PaywallSource.SAVE_LIMIT
+                        showClubOffer = true
+                    }
+                }
+            }
+        }
+    }
 
     // Observe pre-selected media IDs for compose-with-preselection flow.
     val preSelectedTrackId by viewModel.preSelectedTrackId.collectAsState()
@@ -167,8 +196,8 @@ fun MainTabScreen(
     val notificationDestination = pendingNotificationDestination?.collectAsState()?.value
     LaunchedEffect(notificationDestination) {
         if (notificationDestination == null) return@LaunchedEffect
-        val navController = feedNavController
-        selectedTab = CorusTab.FEED
+        val navController = notificationsNavController
+        selectedTab = CorusTab.NOTIFICATIONS
         when (notificationDestination) {
             is DeepLinkDestination.Post -> navController.navigate(PostDetailRoute(notificationDestination.postId))
             is DeepLinkDestination.PostComment -> navController.navigate(
@@ -338,6 +367,15 @@ fun MainTabScreen(
             )
         }
     }
+
+    // Save cap toast/snackbar host (overlay above content, inside outer Box).
+    androidx.compose.material3.SnackbarHost(
+        hostState = saveCapSnackbarHost,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 56.dp)
+            .align(Alignment.TopCenter),
+    )
 
     } // end outer Box
 }
@@ -528,7 +566,7 @@ private fun ComposeButton(onClick: () -> Unit) {
         ) {
             Icon(
                 imageVector = Icons.Rounded.Add,
-                contentDescription = "Compose",
+                contentDescription = stringResource(R.string.tab_cd_compose),
                 modifier = Modifier.size(25.dp),
                 tint = Color.White,
             )

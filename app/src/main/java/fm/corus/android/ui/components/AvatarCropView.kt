@@ -28,6 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import fm.corus.android.ui.theme.CorusColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +48,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
+import fm.corus.android.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.exifinterface.media.ExifInterface
@@ -90,7 +93,7 @@ fun AvatarCropView(
                 onClick = onCancel,
                 modifier = Modifier.padding(start = 8.dp, top = 8.dp)
             ) {
-                Text("Cancel", color = Color.White, fontSize = 17.sp)
+                Text(stringResource(R.string.avatar_crop_cancel), color = Color.White, fontSize = 17.sp)
             }
 
             Spacer(Modifier.weight(1f))
@@ -176,11 +179,11 @@ fun AvatarCropView(
                     .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
+                    containerColor = CorusColors.Background,
                     contentColor = Color.Black,
                 ),
             ) {
-                Text("Use Photo", fontSize = 17.sp)
+                Text(stringResource(R.string.avatar_crop_use_photo), fontSize = 17.sp)
             }
         }
     }

@@ -2,6 +2,15 @@ package fm.corus.android.data.model
 
 import fm.corus.android.ui.navigation.SongDetailRoute
 
+enum class TrackSource(val raw: String) {
+    SPOTIFY("spotify"),
+    SOUNDCLOUD("soundcloud");
+
+    companion object {
+        fun fromRaw(raw: String?): TrackSource = entries.firstOrNull { it.raw == raw } ?: SPOTIFY
+    }
+}
+
 data class CymbalTrack(
     val id: String,
     val name: String,
@@ -17,6 +26,11 @@ data class CymbalTrack(
     val albumArtBackURL: String? = null,
     val releaseDate: String? = null,
     val releaseDatePrecision: String? = null,
+    val source: TrackSource = TrackSource.SPOTIFY,
+    val soundcloudId: String? = null,
+    val soundcloudPermalinkUrl: String? = null,
+    val unavailable: Boolean = false,
+    val unavailableReason: String? = null,
 ) {
     val formattedDuration: String
         get() {
@@ -38,21 +52,34 @@ data class CymbalTrack(
     companion object {
         val EMPTY = CymbalTrack(id = "", name = "", artistName = "", albumName = "")
 
-        fun fromMap(data: Map<String, Any?>): CymbalTrack = CymbalTrack(
-            id = data["trackId"] as? String ?: data["id"] as? String ?: "",
-            name = data["trackName"] as? String ?: data["name"] as? String ?: "",
-            artistName = data["artistName"] as? String ?: "",
-            albumName = data["albumName"] as? String ?: "",
-            albumArtURL = data["albumArtURL"] as? String ?: data["albumArtThumbnailURL"] as? String,
-            albumArtLargeURL = data["albumArtLargeURL"] as? String,
-            spotifyURI = data["spotifyURI"] as? String ?: "",
-            spotifyWebURL = data["spotifyWebURL"] as? String ?: "",
-            durationMs = (data["durationMs"] as? Number)?.toInt() ?: 0,
-            previewUrl = data["previewUrl"] as? String ?: data["previewURL"] as? String,
-            isrc = data["isrc"] as? String,
-            albumArtBackURL = data["albumArtBackURL"] as? String,
-            releaseDate = (data["trackReleaseDate"] as? String)?.ifEmpty { null },
-            releaseDatePrecision = (data["trackReleaseDatePrecision"] as? String)?.ifEmpty { null },
-        )
+        fun fromMap(data: Map<String, Any?>): CymbalTrack {
+            val source = TrackSource.fromRaw(data["trackSource"] as? String ?: data["source"] as? String)
+            val isSoundCloud = source == TrackSource.SOUNDCLOUD
+            val rawSpotifyURI = data["spotifyURI"] as? String ?: ""
+            val rawSpotifyWebURL = data["spotifyWebURL"] as? String ?: ""
+            // Don't synthesize Spotify URLs for SoundCloud tracks — those IDs
+            // aren't in Spotify's catalog and would 404 on tap.
+            return CymbalTrack(
+                id = data["trackId"] as? String ?: data["id"] as? String ?: "",
+                name = data["trackName"] as? String ?: data["name"] as? String ?: "",
+                artistName = data["artistName"] as? String ?: "",
+                albumName = data["albumName"] as? String ?: "",
+                albumArtURL = data["albumArtURL"] as? String ?: data["albumArtThumbnailURL"] as? String,
+                albumArtLargeURL = data["albumArtLargeURL"] as? String,
+                spotifyURI = if (isSoundCloud) "" else rawSpotifyURI,
+                spotifyWebURL = if (isSoundCloud) "" else rawSpotifyWebURL,
+                durationMs = (data["durationMs"] as? Number)?.toInt() ?: 0,
+                previewUrl = data["previewUrl"] as? String ?: data["previewURL"] as? String,
+                isrc = data["isrc"] as? String,
+                albumArtBackURL = data["albumArtBackURL"] as? String,
+                releaseDate = (data["trackReleaseDate"] as? String)?.ifEmpty { null },
+                releaseDatePrecision = (data["trackReleaseDatePrecision"] as? String)?.ifEmpty { null },
+                source = source,
+                soundcloudId = (data["soundcloudId"] as? String)?.ifEmpty { null },
+                soundcloudPermalinkUrl = (data["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
+                unavailable = data["trackUnavailable"] as? Boolean ?: false,
+                unavailableReason = (data["trackUnavailableReason"] as? String)?.ifEmpty { null },
+            )
+        }
     }
 }

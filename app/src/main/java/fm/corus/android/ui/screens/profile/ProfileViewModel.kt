@@ -29,6 +29,7 @@ class ProfileViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val subscriptionRepository: SubscriptionRepository,
     val nowPlayingManager: NowPlayingManager,
+    val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     private val engagementManager: PostEngagementManager,
     private val postCreationEvent: PostCreationEvent,
     private val analyticsService: AnalyticsService,

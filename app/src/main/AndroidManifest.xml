@@ -8,6 +8,11 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Media playback foreground service so the lock-screen / notification
+         controls (play/pause/next/scrubber) stay alive while the app is
+         backgrounded. Required for the MediaSessionService below. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
@@ -63,6 +68,18 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Media playback service: hosts the MediaSession that backs the
+             lock-screen / notification media controls. media3 starts this
+             as a foreground service automatically when playback begins. -->
+        <service
+            android:name=".service.CorusPlaybackService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
 

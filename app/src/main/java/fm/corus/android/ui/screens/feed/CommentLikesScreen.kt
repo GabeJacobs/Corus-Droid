@@ -52,10 +52,10 @@ fun CommentLikesScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
             )
         },
-        containerColor = Color.White,
+        containerColor = CorusColors.Background,
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             CommentLikesContent(

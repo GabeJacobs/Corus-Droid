@@ -27,8 +27,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import fm.corus.android.R
 import kotlinx.coroutines.launch
 
 /**
@@ -85,7 +87,7 @@ fun FullScreenImageView(
         ) {
             AsyncImage(
                 model = imageUrl,
-                contentDescription = "Full screen image",
+                contentDescription = stringResource(R.string.full_screen_image_cd),
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer(
@@ -153,7 +155,7 @@ fun FullScreenImageView(
                 onClick = onDismiss,
                 modifier = Modifier.align(Alignment.TopEnd),
             ) {
-                Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.full_screen_image_cd_close), tint = Color.White)
             }
         }
     }

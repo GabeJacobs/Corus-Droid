@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -527,9 +528,18 @@ fun PostCard(
                     }
                 }
             } else {
+                val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
+                val logoRes = when {
+                    isSoundCloud && isSystemInDarkTheme() -> R.drawable.soundcloud_white
+                    isSoundCloud -> R.drawable.soundcloud_black
+                    else -> R.drawable.spotify_logo
+                }
                 Image(
-                    painter = painterResource(R.drawable.spotify_logo),
-                    contentDescription = stringResource(R.string.post_card_cd_play_spotify),
+                    painter = painterResource(logoRes),
+                    contentDescription = stringResource(
+                        if (isSoundCloud) R.string.post_card_cd_play_spotify // TODO: localize "Play on SoundCloud"
+                        else R.string.post_card_cd_play_spotify
+                    ),
                     modifier = Modifier
                         .size(28.dp)
                         .clickable(

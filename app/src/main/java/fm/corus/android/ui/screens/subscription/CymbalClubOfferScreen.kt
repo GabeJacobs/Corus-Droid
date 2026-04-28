@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -51,38 +52,40 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 
 // --- Trial detection helpers ---
 
-private fun trialDurationText(pkg: Package?): String? {
+private fun trialDurationText(context: Context, pkg: Package?): String? {
     val freeTrialOption = pkg?.product?.subscriptionOptions?.freeTrial ?: return null
     val freePhase = freeTrialOption.freePhase ?: return null
-    return formatPeriod(freePhase.billingPeriod)
+    return formatPeriod(context, freePhase.billingPeriod)
 }
 
-private fun formatPeriod(period: Period): String? {
+private fun formatPeriod(context: Context, period: Period): String? {
     val v = period.value
     if (v <= 0) return null
     return when (period.unit) {
-        Period.Unit.YEAR -> if (v == 1) "1 year" else "$v years"
-        Period.Unit.MONTH -> if (v == 1) "1 month" else "$v months"
-        Period.Unit.WEEK -> if (v == 1) "1 week" else "$v weeks"
-        Period.Unit.DAY -> if (v == 1) "1 day" else "$v days"
+        Period.Unit.YEAR -> if (v == 1) context.getString(R.string.club_period_year_one) else context.getString(R.string.club_period_year_format, v)
+        Period.Unit.MONTH -> if (v == 1) context.getString(R.string.club_period_month_one) else context.getString(R.string.club_period_month_format, v)
+        Period.Unit.WEEK -> if (v == 1) context.getString(R.string.club_period_week_one) else context.getString(R.string.club_period_week_format, v)
+        Period.Unit.DAY -> if (v == 1) context.getString(R.string.club_period_day_one) else context.getString(R.string.club_period_day_format, v)
         Period.Unit.UNKNOWN -> null
     }
 }
 
-private fun ctaText(selectedPackage: Package?, isClubMember: Boolean): String {
-    if (isClubMember) return "You're a member!"
-    val trial = trialDurationText(selectedPackage)
-    return if (trial != null) "Try Free for $trial" else "Join the Club"
+private fun ctaText(context: Context, selectedPackage: Package?, isClubMember: Boolean): String {
+    if (isClubMember) return context.getString(R.string.club_cta_member)
+    val trial = trialDurationText(context, selectedPackage)
+    return if (trial != null) context.getString(R.string.club_cta_try_free_format, trial) else context.getString(R.string.club_cta_join)
 }
 
-private fun monthlyDetailText(pkg: Package?, price: String): String {
-    val trial = trialDurationText(pkg)
-    return if (trial != null) "$trial free, then $price/mo" else "Billed at $price/mo."
+private fun monthlyDetailText(context: Context, pkg: Package?, price: String): String {
+    val trial = trialDurationText(context, pkg)
+    return if (trial != null) context.getString(R.string.club_monthly_detail_trial_format, trial, price)
+    else context.getString(R.string.club_monthly_detail_billed_format, price)
 }
 
-private fun yearlyDetailText(pkg: Package?, price: String, monthlyEquivalent: String): String {
-    val trial = trialDurationText(pkg)
-    return if (trial != null) "$trial free, then $price/yr" else "Only $monthlyEquivalent/mo"
+private fun yearlyDetailText(context: Context, pkg: Package?, price: String, monthlyEquivalent: String): String {
+    val trial = trialDurationText(context, pkg)
+    return if (trial != null) context.getString(R.string.club_yearly_detail_trial_format, trial, price)
+    else context.getString(R.string.club_yearly_detail_only_format, monthlyEquivalent)
 }
 
 // --- Full-screen paywall ---
@@ -116,12 +119,12 @@ fun CymbalClubOfferScreen(
     LaunchedEffect(purchaseResult) {
         when (purchaseResult) {
             CymbalClubViewModel.PurchaseResult.Success -> {
-                ToastManager.show("Welcome to the Club!")
+                ToastManager.show(context.getString(R.string.club_toast_welcome))
                 viewModel.clearResult()
                 onBack()
             }
             CymbalClubViewModel.PurchaseResult.Restored -> {
-                ToastManager.show("Purchases restored!")
+                ToastManager.show(context.getString(R.string.club_toast_restored))
                 viewModel.clearResult()
             }
             CymbalClubViewModel.PurchaseResult.Cancelled -> {
@@ -147,7 +150,7 @@ fun CymbalClubOfferScreen(
                         viewModel.logPaywallDismissed()
                         onBack()
                     }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Close", tint = CorusColors.Secondary)
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.club_cd_close), tint = CorusColors.Secondary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -170,7 +173,7 @@ fun CymbalClubOfferScreen(
             Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
             Text(
-                text = "Join the Corus Club",
+                text = stringResource(R.string.club_title),
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
             )
@@ -192,17 +195,17 @@ fun CymbalClubOfferScreen(
                 modifier = Modifier.padding(horizontal = CorusSpacing.xl),
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                FeatureRow(icon = Icons.Filled.AllInclusive, text = "Unlimited posts")
-                FeatureRow(icon = Icons.Filled.Verified, text = "Verified badge")
-                FeatureRow(icon = Icons.Filled.Person, text = "Profile customization")
-                FeatureRow(icon = Icons.Filled.QueueMusic, text = "Generate Spotify playlists")
-                FeatureRow(icon = Icons.Filled.Favorite, text = "Help keep Corus running")
+                FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+                FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+                FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
+                FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+                FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
             }
 
             Spacer(modifier = Modifier.height(CorusSpacing.md))
 
             Text(
-                text = "Corus is built by a small team. Club members help keep Corus ad-free, independent, and growing.",
+                text = stringResource(R.string.club_disclaimer),
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,
                 textAlign = TextAlign.Center,
@@ -223,21 +226,21 @@ fun CymbalClubOfferScreen(
                 val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 19.99) / 12)}"
 
                 PlanCard(
-                    label = "Monthly",
-                    price = "$monthlyPrice/mo",
-                    detail = monthlyDetailText(monthlyPackage, monthlyPrice),
+                    label = stringResource(R.string.club_plan_monthly),
+                    price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
+                    detail = monthlyDetailText(context, monthlyPackage, monthlyPrice),
                     isSelected = selectedPlan == "monthly",
                     onClick = { selectedPlan = "monthly" },
                     modifier = Modifier.weight(1f),
                 )
                 PlanCard(
-                    label = "Yearly",
-                    price = "$yearlyPrice/yr",
-                    detail = yearlyDetailText(yearlyPackage, yearlyPrice, yearlyMonthly),
+                    label = stringResource(R.string.club_plan_yearly),
+                    price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
+                    detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly),
                     isSelected = selectedPlan == "yearly",
                     onClick = { selectedPlan = "yearly" },
                     modifier = Modifier.weight(1f),
-                    badge = "SAVE 58%",
+                    badge = stringResource(R.string.club_plan_save_badge),
                 )
             }
 
@@ -281,7 +284,7 @@ fun CymbalClubOfferScreen(
                     )
                 } else {
                     Text(
-                        text = ctaText(selectedPackage, isClubMember),
+                        text = ctaText(context, selectedPackage, isClubMember),
                         style = CorusFont.button,
                     )
                 }
@@ -295,17 +298,17 @@ fun CymbalClubOfferScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = { viewModel.restorePurchases() }) {
-                    Text("Restore Purchases", style = CorusFont.caption, color = CorusColors.Secondary)
+                    Text(stringResource(R.string.club_restore_purchases), style = CorusFont.caption, color = CorusColors.Secondary)
                 }
                 TextButton(onClick = {
                     try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/terms"))) } catch (_: Exception) { }
                 }) {
-                    Text("Terms", style = CorusFont.caption, color = CorusColors.Secondary)
+                    Text(stringResource(R.string.club_terms), style = CorusFont.caption, color = CorusColors.Secondary)
                 }
                 TextButton(onClick = {
                     try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/privacy"))) } catch (_: Exception) { }
                 }) {
-                    Text("Privacy", style = CorusFont.caption, color = CorusColors.Secondary)
+                    Text(stringResource(R.string.club_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
                 }
             }
 
@@ -346,12 +349,12 @@ fun CymbalClubOfferSheet(
     LaunchedEffect(purchaseResult) {
         when (purchaseResult) {
             CymbalClubViewModel.PurchaseResult.Success -> {
-                ToastManager.show("Welcome to the Club!")
+                ToastManager.show(context.getString(R.string.club_toast_welcome))
                 viewModel.clearResult()
                 onDismiss()
             }
             CymbalClubViewModel.PurchaseResult.Restored -> {
-                ToastManager.show("Purchases restored!")
+                ToastManager.show(context.getString(R.string.club_toast_restored))
                 viewModel.clearResult()
             }
             CymbalClubViewModel.PurchaseResult.Cancelled -> {
@@ -388,7 +391,7 @@ fun CymbalClubOfferSheet(
             }) {
                 Icon(
                     Icons.Filled.Close,
-                    contentDescription = "Close",
+                    contentDescription = stringResource(R.string.club_cd_close),
                     tint = CorusColors.Secondary,
                 )
             }
@@ -400,7 +403,7 @@ fun CymbalClubOfferSheet(
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
         Text(
-            text = "Join the Corus Club",
+            text = stringResource(R.string.club_title),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
         )
@@ -421,17 +424,17 @@ fun CymbalClubOfferSheet(
             modifier = Modifier.padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
         ) {
-            FeatureRow(icon = Icons.Filled.AllInclusive, text = "Unlimited posts")
-            FeatureRow(icon = Icons.Filled.Verified, text = "Verified badge")
-            FeatureRow(icon = Icons.Filled.Person, text = "Profile customization")
-            FeatureRow(icon = Icons.Filled.QueueMusic, text = "Generate Spotify playlists")
-            FeatureRow(icon = Icons.Filled.Favorite, text = "Help keep Corus running")
+            FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+            FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+            FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
+            FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+            FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
         }
 
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
         Text(
-            text = "Corus is built by a small team. Club members help keep Corus ad-free, independent, and growing.",
+            text = stringResource(R.string.club_disclaimer),
             style = CorusFont.caption,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -446,26 +449,26 @@ fun CymbalClubOfferSheet(
                 .padding(horizontal = CorusSpacing.xl),
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
-            val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$2.99"
-            val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$19.99"
+            val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_monthly_default_price)
+            val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_yearly_default_price)
             val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 19.99) / 12)}"
 
             PlanCard(
-                label = "Monthly",
-                price = "$monthlyPrice/mo",
-                detail = monthlyDetailText(monthlyPackage, monthlyPrice),
+                label = stringResource(R.string.club_plan_monthly),
+                price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
+                detail = monthlyDetailText(context, monthlyPackage, monthlyPrice),
                 isSelected = selectedPlan == "monthly",
                 onClick = { selectedPlan = "monthly" },
                 modifier = Modifier.weight(1f),
             )
             PlanCard(
-                label = "Yearly",
-                price = "$yearlyPrice/yr",
-                detail = yearlyDetailText(yearlyPackage, yearlyPrice, yearlyMonthly),
+                label = stringResource(R.string.club_plan_yearly),
+                price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
+                detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly),
                 isSelected = selectedPlan == "yearly",
                 onClick = { selectedPlan = "yearly" },
                 modifier = Modifier.weight(1f),
-                badge = "SAVE 58%",
+                badge = stringResource(R.string.club_plan_save_badge),
             )
         }
 
@@ -508,7 +511,7 @@ fun CymbalClubOfferSheet(
                 )
             } else {
                 Text(
-                    text = ctaText(selectedPackage, isClubMember),
+                    text = ctaText(context, selectedPackage, isClubMember),
                     style = CorusFont.button,
                 )
             }
@@ -521,17 +524,17 @@ fun CymbalClubOfferSheet(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = { viewModel.restorePurchases() }) {
-                Text("Restore Purchases", style = CorusFont.caption, color = CorusColors.Secondary)
+                Text(stringResource(R.string.club_restore_purchases), style = CorusFont.caption, color = CorusColors.Secondary)
             }
             TextButton(onClick = {
                 try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/terms"))) } catch (_: Exception) { }
             }) {
-                Text("Terms", style = CorusFont.caption, color = CorusColors.Secondary)
+                Text(stringResource(R.string.club_terms), style = CorusFont.caption, color = CorusColors.Secondary)
             }
             TextButton(onClick = {
                 try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/privacy"))) } catch (_: Exception) { }
             }) {
-                Text("Privacy", style = CorusFont.caption, color = CorusColors.Secondary)
+                Text(stringResource(R.string.club_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
             }
         }
 

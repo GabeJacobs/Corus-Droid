@@ -172,6 +172,47 @@ class CloudFunctionsDataSource @Inject constructor(
         return posts.map { CymbalPost.fromCloudData(it) }
     }
 
+    /** Result of a savePost callable invocation. */
+    data class SavePostResult(val savesCount: Int, val alreadySaved: Boolean)
+
+    /** Thrown when the server rejects a save because the user has hit the free cap. */
+    class SaveCapReachedException(val savesCount: Int) : Exception("SAVE_CAP_REACHED")
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun savePost(postId: String): SavePostResult {
+        try {
+            val result = functions.getHttpsCallable("savePost")
+                .call(mapOf("postId" to postId)).await()
+            val data = result.getData() as? Map<String, Any?> ?: emptyMap()
+            val count = (data["savesCount"] as? Number)?.toInt() ?: 0
+            val already = data["alreadySaved"] as? Boolean ?: false
+            return SavePostResult(savesCount = count, alreadySaved = already)
+        } catch (e: com.google.firebase.functions.FirebaseFunctionsException) {
+            if (e.code == com.google.firebase.functions.FirebaseFunctionsException.Code.RESOURCE_EXHAUSTED) {
+                val details = e.details as? Map<String, Any?>
+                val count = (details?.get("savesCount") as? Number)?.toInt() ?: 0
+                throw SaveCapReachedException(count)
+            }
+            throw e
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun unsavePost(postId: String): Int {
+        val result = functions.getHttpsCallable("unsavePost")
+            .call(mapOf("postId" to postId)).await()
+        val data = result.getData() as? Map<String, Any?> ?: emptyMap()
+        return (data["savesCount"] as? Number)?.toInt() ?: 0
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun reconcileSavesCount(): Int {
+        val result = functions.getHttpsCallable("reconcileSavesCount")
+            .call(emptyMap<String, Any>()).await()
+        val data = result.getData() as? Map<String, Any?> ?: emptyMap()
+        return (data["savesCount"] as? Number)?.toInt() ?: 0
+    }
+
     // ── Song / Movie Posts ──
 
     data class SongPostsPage(
@@ -376,6 +417,59 @@ class CloudFunctionsDataSource @Inject constructor(
         return result.getData() as? Map<String, Any?> ?: emptyMap()
     }
 
+    // ── Unified Songs Search (Spotify + SoundCloud) ──
+
+    /**
+     * Single source of truth for song search across Android, iOS, and Web.
+     * The backend fans out to both Spotify and SoundCloud, merges, and ranks.
+     * Returns a unified track list that already includes `source`,
+     * `soundcloudId`, and `soundcloudPermalinkUrl` for SoundCloud entries.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun searchSongs(
+        query: String,
+        offset: Int = 0,
+        limit: Int = 20,
+        market: String = "US",
+        includeSoundCloud: Boolean = true,
+    ): Map<String, Any?> {
+        val result = functions.getHttpsCallable("searchSongs").call(
+            mapOf(
+                "query" to query,
+                "offset" to offset,
+                "limit" to limit,
+                "market" to market,
+                "includeSoundCloud" to includeSoundCloud,
+            )
+        ).await()
+        return result.getData() as? Map<String, Any?> ?: emptyMap()
+    }
+
+    // ── SoundCloud ──
+
+    /**
+     * Resolves a fresh, signed HLS stream URL for a SoundCloud track.
+     * URLs are short-lived (~1h) — call at playback time, not post-creation time.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun soundcloudResolveStream(soundcloudId: String): Map<String, Any?> {
+        val result = functions.getHttpsCallable("soundcloudResolveStream").call(
+            mapOf("soundcloudId" to soundcloudId)
+        ).await()
+        return result.getData() as? Map<String, Any?> ?: emptyMap()
+    }
+
+    /**
+     * Marks all posts referencing a given SoundCloud track ID as unavailable.
+     * Called reactively when stream resolution returns 404 / 403 (deleted,
+     * privatized, or geo-blocked).
+     */
+    suspend fun markSoundCloudUnavailable(soundcloudId: String, reason: String) {
+        functions.getHttpsCallable("markSoundCloudUnavailable").call(
+            mapOf("soundcloudId" to soundcloudId, "reason" to reason)
+        ).await()
+    }
+
     // ── Social ──
 
     suspend fun blockUser(userId: String, targetUserId: String) {
@@ -533,13 +627,24 @@ class CloudFunctionsDataSource @Inject constructor(
         val playlistURI: String,
         val playlistWebURL: String,
         val cached: Boolean,
+        /** Number of SoundCloud tracks omitted from the Spotify playlist. */
+        val soundcloudSkipped: Int = 0,
     )
 
     class PaywallRequiredException : Exception("Playlist generation limit reached")
 
+    /**
+     * Special exception when the source feed/profile contained ONLY SoundCloud
+     * tracks, so a Spotify playlist couldn't be built. UIs should surface a
+     * different message than a generic playlist failure.
+     */
+    class OnlySoundCloudException(val skipped: Int) : Exception("Only SoundCloud tracks available")
+
     internal fun parsePlaylistResponse(data: Map<String, Any?>): PlaylistResult {
         if (data["error"] != null) {
             if ((data["code"] as? String) == "PAYWALL") throw PaywallRequiredException()
+            val skipped = (data["soundcloudSkipped"] as? Number)?.toInt() ?: 0
+            if (skipped > 0) throw OnlySoundCloudException(skipped)
             val msg = data["message"] as? String ?: "Unknown error"
             throw Exception(msg)
         }
@@ -547,6 +652,7 @@ class CloudFunctionsDataSource @Inject constructor(
             playlistURI = data["playlistURI"] as? String ?: throw Exception("Missing playlistURI"),
             playlistWebURL = data["playlistWebURL"] as? String ?: throw Exception("Missing playlistWebURL"),
             cached = data["cached"] as? Boolean ?: false,
+            soundcloudSkipped = (data["soundcloudSkipped"] as? Number)?.toInt() ?: 0,
         )
     }
 

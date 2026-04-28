@@ -46,6 +46,8 @@ import fm.corus.android.data.model.SnowIntensity
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.DarkCorusPalette
+import fm.corus.android.ui.theme.LocalCorusPalette
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
@@ -98,8 +100,8 @@ fun FeaturedMoviePosterView(
             .background(
                 Brush.verticalGradient(
                     colorStops = arrayOf(
-                        0.36f to CorusColors.FeaturedBackgroundTop,
-                        1.0f to CorusColors.FeaturedBackgroundBottom,
+                        0.36f to CorusColors.FeaturedFilmBackgroundTop,
+                        1.0f to CorusColors.FeaturedFilmBackgroundBottom,
                     ),
                 ),
             )
@@ -162,18 +164,23 @@ fun FeaturedMoviePosterView(
                 )
             }
 
-            // Glass overlay (screen blend — matches iOS .blendMode(.screen))
-            Spacer(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .drawBehind {
-                        drawImage(
-                            image = glassOverlay,
-                            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
-                            blendMode = BlendMode.Screen,
-                        )
-                    },
-            )
+            // Glass overlay (screen blend — matches iOS .blendMode(.screen)).
+            // Skipped in dark mode where .Screen blend overexposes against the near-black
+            // backdrop and reads as harsh sparkles.
+            val isDark = LocalCorusPalette.current === DarkCorusPalette
+            if (!isDark) {
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .drawBehind {
+                            drawImage(
+                                image = glassOverlay,
+                                dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                                blendMode = BlendMode.Screen,
+                            )
+                        },
+                )
+            }
 
             // Weather / disco effects overlay
             if (rainIntensity != RainIntensity.OFF) {

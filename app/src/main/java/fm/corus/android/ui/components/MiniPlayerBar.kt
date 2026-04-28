@@ -24,9 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import fm.corus.android.R
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -104,7 +106,7 @@ fun MiniPlayerBar(
                 // Play/Pause
                 Icon(
                     imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (state.isPlaying) "Pause" else "Play",
+                    contentDescription = if (state.isPlaying) stringResource(R.string.mini_player_cd_pause) else stringResource(R.string.mini_player_cd_play),
                     modifier = Modifier
                         .size(28.dp)
                         .clickable(
@@ -119,7 +121,7 @@ fun MiniPlayerBar(
                 // disabled (grayed) when the current queue has no next track.
                 Icon(
                     imageVector = Icons.Filled.SkipNext,
-                    contentDescription = "Next",
+                    contentDescription = stringResource(R.string.mini_player_cd_next),
                     modifier = Modifier
                         .padding(start = CorusSpacing.xs)
                         .size(28.dp)
@@ -136,7 +138,7 @@ fun MiniPlayerBar(
                 // Spotify button
                 Image(
                     painter = painterResource(fm.corus.android.R.drawable.spotify_logo),
-                    contentDescription = "Open in Spotify",
+                    contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
                     modifier = Modifier
                         .padding(start = CorusSpacing.xs)
                         .size(22.dp)

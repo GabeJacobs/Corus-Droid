@@ -6,12 +6,19 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import androidx.annotation.VisibleForTesting
+import androidx.core.content.ContextCompat
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaSession
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.local.PreferencesDataStore
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.service.CorusPlaybackService
 import fm.corus.android.ui.components.ToastManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +44,16 @@ data class QueuedTrack(
     val spotifyWebURL: String?,
     val isrc: String?,
     val sourcePostId: String?,
+    /**
+     * User who posted the source CymbalPost. Lets the queue be pruned when
+     * the local user unfollows them — otherwise their tracks linger in the
+     * in-memory queue and the mini-player's next button keeps playing them
+     * even after they've left the visible feed.
+     */
+    val posterUserId: String? = null,
+    val source: TrackSource = TrackSource.SPOTIFY,
+    val soundcloudId: String? = null,
+    val soundcloudPermalinkUrl: String? = null,
 )
 
 data class NowPlayingState(
@@ -58,6 +75,7 @@ class NowPlayingManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val cloudFunctions: CloudFunctionsDataSource,
     private val preferencesDataStore: PreferencesDataStore,
+    private val userRepository: UserRepository,
 ) {
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -67,6 +85,14 @@ class NowPlayingManager @Inject constructor(
     init {
         managerScope.launch {
             preferencesDataStore.autoplayNextSong.collect { autoplayEnabled = it }
+        }
+        // Prune the queue whenever the local user unfollows someone — keeps
+        // the mini-player from advancing into tracks belonging to a user
+        // they just stopped following.
+        managerScope.launch {
+            userRepository.unfollowEvents.collect { unfollowedUserId ->
+                removeFromQueue(setOf(unfollowedUserId))
+            }
         }
     }
 
@@ -81,6 +107,18 @@ class NowPlayingManager @Inject constructor(
         return idx + 1 < queue.size || queueHasMore
     }
     private var player: ExoPlayer? = null
+
+    /**
+     * MediaSession backing the lock-screen / notification media controls.
+     * Read by [CorusPlaybackService.onGetSession] so system controllers
+     * (lock screen, Bluetooth, Wear) can drive playback. Built lazily once
+     * the first track starts and reused across track changes within the
+     * same playback context — releasing/recreating per track tears the
+     * notification down and back up, which flickers.
+     */
+    var mediaSession: MediaSession? = null
+        private set
+    private var foregroundServiceStarted: Boolean = false
 
     private val _state = MutableStateFlow(NowPlayingState())
     val state: StateFlow<NowPlayingState> = _state.asStateFlow()
@@ -132,6 +170,9 @@ class NowPlayingManager @Inject constructor(
 
         try {
             val result = cloudFunctions.generateFeedPlaylist()
+            if (result.soundcloudSkipped > 0) {
+                android.util.Log.i("NowPlaying", "Feed playlist skipped ${result.soundcloudSkipped} SoundCloud track(s)")
+            }
             if (!result.cached) {
                 delay(2000)
             }
@@ -141,6 +182,8 @@ class NowPlayingManager @Inject constructor(
             context.startActivity(intent)
         } catch (e: CloudFunctionsDataSource.PaywallRequiredException) {
             _paywallRequested.value = true
+        } catch (e: CloudFunctionsDataSource.OnlySoundCloudException) {
+            _playlistError.value = "Your feed only has SoundCloud tracks — Spotify playlists aren't available for those."
         } catch (e: UnknownHostException) {
             _playlistError.value = "Couldn't connect. Check your connection."
         } catch (e: SocketTimeoutException) {
@@ -163,6 +206,9 @@ class NowPlayingManager @Inject constructor(
 
         try {
             val result = cloudFunctions.generateProfilePlaylist(userId)
+            if (result.soundcloudSkipped > 0) {
+                android.util.Log.i("NowPlaying", "Profile playlist skipped ${result.soundcloudSkipped} SoundCloud track(s)")
+            }
             if (!result.cached) {
                 delay(2000) // Wait for Spotify to process
             }
@@ -172,6 +218,8 @@ class NowPlayingManager @Inject constructor(
             context.startActivity(intent)
         } catch (e: CloudFunctionsDataSource.PaywallRequiredException) {
             _paywallRequested.value = true
+        } catch (e: CloudFunctionsDataSource.OnlySoundCloudException) {
+            _playlistError.value = "This profile only has SoundCloud tracks — Spotify playlists aren't available for those."
         } catch (e: UnknownHostException) {
             _playlistError.value = "Couldn't connect. Check your connection."
         } catch (e: SocketTimeoutException) {
@@ -220,6 +268,37 @@ class NowPlayingManager @Inject constructor(
         _state.value = _state.value.copy(hasNext = computeHasNext())
     }
 
+    /**
+     * Drop tracks posted by the given users from the in-memory queue.
+     *
+     * Called when the local user unfollows someone — without this the queue
+     * keeps the unfollowed user's tracks even after their posts leave the
+     * visible feed, so tapping "next" plays songs from a person they no
+     * longer follow. If the *currently playing* track itself was posted by
+     * one of those users, stop playback entirely; the user already signaled
+     * they don't want this person's content.
+     */
+    fun removeFromQueue(userIds: Set<String>) {
+        if (userIds.isEmpty() || queue.isEmpty()) return
+        val oldQueue = queue
+        val curIdx = currentQueueIndex
+        val currentRemoved = curIdx != null &&
+            curIdx in oldQueue.indices &&
+            oldQueue[curIdx].posterUserId in userIds
+        val pruned = oldQueue.filter { it.posterUserId == null || it.posterUserId !in userIds }
+        if (pruned.size == oldQueue.size) return
+        if (currentRemoved) {
+            stop()
+            return
+        }
+        queue = pruned
+        val curId = _state.value.trackId
+        currentQueueIndex = curId?.let { id ->
+            pruned.indexOfFirst { it.trackId == id }.takeIf { it >= 0 }
+        }
+        _state.value = _state.value.copy(hasNext = computeHasNext())
+    }
+
     suspend fun play(
         trackId: String,
         trackName: String,
@@ -230,6 +309,9 @@ class NowPlayingManager @Inject constructor(
         spotifyWebURL: String? = null,
         isrc: String? = null,
         sourcePostId: String? = null,
+        source: TrackSource = TrackSource.SPOTIFY,
+        soundcloudId: String? = null,
+        soundcloudPermalinkUrl: String? = null,
     ) {
         // Single-track path: clear any queued context so hasNext is false.
         queue = emptyList()
@@ -247,6 +329,9 @@ class NowPlayingManager @Inject constructor(
                 spotifyWebURL = spotifyWebURL,
                 isrc = isrc,
                 sourcePostId = sourcePostId,
+                source = source,
+                soundcloudId = soundcloudId,
+                soundcloudPermalinkUrl = soundcloudPermalinkUrl,
             ),
         )
     }
@@ -273,10 +358,16 @@ class NowPlayingManager @Inject constructor(
         _loadingTrackId.value = trackId
         val generation = ++playGeneration
 
-        // Resolve preview URL — use stored URL or look it up
-        val resolvedUrl = track.previewUrl?.takeIf { it.isNotBlank() }
-            ?: previewCache[trackId]
-            ?: lookupPreviewUrl(trackId, track.trackName, track.artistName, track.isrc)
+        // Resolve playback URL.
+        //   SoundCloud → fetch a fresh signed HLS URL (short-lived, never cached on the post).
+        //   Spotify/Apple → use the 30s preview URL (looked up server-side via Apple Music).
+        val resolvedUrl = if (track.source == TrackSource.SOUNDCLOUD) {
+            track.soundcloudId?.let { resolveSoundCloudStream(it) }
+        } else {
+            track.previewUrl?.takeIf { it.isNotBlank() }
+                ?: previewCache[trackId]
+                ?: lookupPreviewUrl(trackId, track.trackName, track.artistName, track.isrc)
+        }
 
         // If cancelled while resolving, bail out
         if (generation != playGeneration) return
@@ -290,7 +381,17 @@ class NowPlayingManager @Inject constructor(
 
         // New track — start playback
         stopPlayerOnly()
-        player = ExoPlayer.Builder(context).build().apply {
+        val mediaItem = MediaItem.Builder()
+            .setUri(resolvedUrl)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(track.trackName)
+                    .setArtist(track.artistName)
+                    .setArtworkUri(track.albumArtURL?.let { Uri.parse(it) })
+                    .build()
+            )
+            .build()
+        val exo = ExoPlayer.Builder(context).build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
@@ -299,9 +400,49 @@ class NowPlayingManager @Inject constructor(
                     }
                 }
             })
-            setMediaItem(MediaItem.fromUri(resolvedUrl))
+            setMediaItem(mediaItem)
             prepare()
             play()
+        }
+        player = exo
+
+        // Build a session so lock-screen / notification controls work.
+        // We wrap the player to redirect the system "next" command to our
+        // own queue logic (skipToNext) — ExoPlayer alone has no knowledge
+        // of the feed-backed queue. For Spotify/Apple-preview tracks we
+        // hide the scrubber: 30s clips with a seek bar feel broken. For
+        // SoundCloud (full HLS), scrubbing is the whole point.
+        val isSoundCloud = track.source == TrackSource.SOUNDCLOUD
+        val sessionPlayer = object : ForwardingPlayer(exo) {
+            override fun seekToNext() {
+                this@NowPlayingManager.skipToNext()
+            }
+
+            override fun seekToNextMediaItem() {
+                this@NowPlayingManager.skipToNext()
+            }
+
+            override fun hasNextMediaItem(): Boolean = computeHasNext()
+
+            override fun getAvailableCommands(): Player.Commands {
+                val builder = Player.Commands.Builder()
+                    .addAll(super.getAvailableCommands())
+                    .add(Player.COMMAND_SEEK_TO_NEXT)
+                    .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                if (!isSoundCloud) {
+                    builder.remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+                }
+                return builder.build()
+            }
+        }
+
+        mediaSession = MediaSession.Builder(context, sessionPlayer).build()
+        if (!foregroundServiceStarted) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, CorusPlaybackService::class.java),
+            )
+            foregroundServiceStarted = true
         }
 
         _state.value = NowPlayingState(
@@ -315,6 +456,35 @@ class NowPlayingManager @Inject constructor(
             sourcePostId = track.sourcePostId,
             hasNext = computeHasNext(),
         )
+    }
+
+    /**
+     * Calls the `soundcloudResolveStream` Cloud Function. On 404 / blocked,
+     * fans out a marker to mark all posts of this track as unavailable so
+     * other clients render the post in a greyed-out state.
+     */
+    private suspend fun resolveSoundCloudStream(soundcloudId: String): String? {
+        return try {
+            val data = withContext(Dispatchers.IO) {
+                cloudFunctions.soundcloudResolveStream(soundcloudId)
+            }
+            (data["streamUrl"] as? String)?.takeIf { it.isNotBlank() }
+        } catch (e: Exception) {
+            // Best-effort marking of unavailability when the track has been
+            // deleted, privatized, or geo-blocked. Non-fatal to playback path.
+            val message = e.message?.lowercase().orEmpty()
+            val reason = when {
+                "not-found" in message || "not_found" in message -> "deleted"
+                "failed-precondition" in message || "blocked" in message -> "blocked"
+                else -> null
+            }
+            if (reason != null) {
+                managerScope.launch {
+                    runCatching { cloudFunctions.markSoundCloudUnavailable(soundcloudId, reason) }
+                }
+            }
+            null
+        }
     }
 
     /** Auto-advance to the next queued preview when enabled by user setting. */
@@ -360,6 +530,8 @@ class NowPlayingManager @Inject constructor(
 
     /** Stops the player without clearing the queue — used between queued tracks. */
     private fun stopPlayerOnly() {
+        mediaSession?.release()
+        mediaSession = null
         player?.release()
         player = null
     }
@@ -424,8 +596,14 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun stop() {
+        mediaSession?.release()
+        mediaSession = null
         player?.release()
         player = null
+        if (foregroundServiceStarted) {
+            context.stopService(Intent(context, CorusPlaybackService::class.java))
+            foregroundServiceStarted = false
+        }
         queue = emptyList()
         currentQueueIndex = null
         queueHasMore = false

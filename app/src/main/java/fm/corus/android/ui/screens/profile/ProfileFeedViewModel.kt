@@ -319,6 +319,10 @@ class ProfileFeedViewModel @Inject constructor(
         spotifyWebURL = track.spotifyWebURL,
         isrc = track.isrc,
         sourcePostId = id,
+        posterUserId = user.id,
+        source = track.source,
+        soundcloudId = track.soundcloudId,
+        soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
     )
 
     fun toggleLike(postId: String) {

@@ -19,9 +19,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -61,10 +63,10 @@ fun HashtagFeedScreen(
                 title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CorusColors.Text)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.hashtag_feed_cd_back), tint = CorusColors.Text)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
@@ -91,7 +93,7 @@ fun HashtagFeedScreen(
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                     Text(
-                        text = "${formatCount(posts.size)} coruses",
+                        text = stringResource(R.string.hashtag_feed_count_format, formatCount(posts.size)),
                         style = CorusFont.artistNameLarge,
                         color = CorusColors.Secondary,
                     )
@@ -108,7 +110,7 @@ fun HashtagFeedScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = "Couldn't load posts",
+                            text = stringResource(R.string.hashtag_feed_load_error),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )
@@ -118,7 +120,7 @@ fun HashtagFeedScreen(
                             border = BorderStroke(1.dp, CorusColors.Accent),
                         ) {
                             Text(
-                                text = "Try Again",
+                                text = stringResource(R.string.hashtag_feed_try_again),
                                 color = CorusColors.Accent,
                             )
                         }
@@ -150,7 +152,7 @@ fun HashtagFeedScreen(
                         )
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Text(
-                            text = "No posts for this hashtag yet",
+                            text = stringResource(R.string.hashtag_feed_empty),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )

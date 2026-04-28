@@ -47,6 +47,7 @@ class FeedViewModel @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val tmdbApiService: TMDBApiService,
     val nowPlayingManager: NowPlayingManager,
+    val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
     private val postCreationEvent: PostCreationEvent,
@@ -245,6 +246,10 @@ class FeedViewModel @Inject constructor(
         spotifyWebURL = track.spotifyWebURL,
         isrc = track.isrc,
         sourcePostId = id,
+        posterUserId = user.id,
+        source = track.source,
+        soundcloudId = track.soundcloudId,
+        soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
     )
 
     fun generateFeedPlaylist() {

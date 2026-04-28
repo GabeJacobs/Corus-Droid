@@ -29,8 +29,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -229,7 +231,7 @@ private fun IdleState(onStartRecording: () -> Unit) {
     ) {
         Icon(Icons.Filled.Mic, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
-        Text("Record Voice Note", style = CorusFont.body, color = CorusColors.Accent)
+        Text(stringResource(R.string.voice_note_record), style = CorusFont.body, color = CorusColors.Accent)
     }
 }
 
@@ -269,7 +271,7 @@ private fun RecordingState(recorderState: VoiceNoteRecorderState) {
         )
 
         Text(
-            text = "/ ${formatTime(30f)}",
+            text = stringResource(R.string.voice_note_max_duration_format, formatTime(30f)),
             style = CorusFont.caption,
             color = CorusColors.Secondary,
         )
@@ -295,7 +297,7 @@ private fun RecordingState(recorderState: VoiceNoteRecorderState) {
         // Stop button
         Icon(
             Icons.Filled.Stop,
-            contentDescription = "Stop recording",
+            contentDescription = stringResource(R.string.voice_note_cd_stop),
             tint = Color.Red,
             modifier = Modifier
                 .size(28.dp)
@@ -322,7 +324,7 @@ private fun RecordedState(
         // Play/Pause
         Icon(
             imageVector = if (recorderState.isPreviewing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-            contentDescription = if (recorderState.isPreviewing) "Pause" else "Play",
+            contentDescription = if (recorderState.isPreviewing) stringResource(R.string.voice_note_cd_pause) else stringResource(R.string.voice_note_cd_play),
             tint = CorusColors.Accent,
             modifier = Modifier
                 .size(28.dp)
@@ -361,7 +363,7 @@ private fun RecordedState(
         // Delete
         Icon(
             Icons.Filled.Delete,
-            contentDescription = "Delete recording",
+            contentDescription = stringResource(R.string.voice_note_cd_delete),
             tint = CorusColors.Secondary,
             modifier = Modifier
                 .size(16.dp)

@@ -32,6 +32,10 @@ class HapticManager @Inject constructor(
 
     @Volatile private var cachedEnabled: Boolean = true
 
+    val hapticsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[HAPTICS_ENABLED] ?: true
+    }
+
     init {
         scope.launch {
             hapticsEnabled.collect { cachedEnabled = it }
@@ -46,10 +50,6 @@ class HapticManager @Inject constructor(
             @Suppress("DEPRECATION")
             context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
-    }
-
-    val hapticsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[HAPTICS_ENABLED] ?: true
     }
 
     suspend fun setHapticsEnabled(enabled: Boolean) {

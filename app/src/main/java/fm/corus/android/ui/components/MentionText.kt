@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -335,7 +336,7 @@ fun UsernameWithFlair(
                 if (flair.usesAssetImage) {
                     Image(
                         painter = painterResource(R.drawable.logo_no_background),
-                        contentDescription = "Corus",
+                        contentDescription = stringResource(R.string.mention_cd_corus),
                         modifier = Modifier.size(14.dp),
                         contentScale = ContentScale.Fit,
                         colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(CorusColors.Accent),
@@ -371,7 +372,7 @@ fun UsernameWithFlair(
                     modifier = Modifier.size(9.dp),
                 )
                 Text(
-                    text = "1ST",
+                    text = stringResource(R.string.mention_badge_first),
                     style = CorusFont.caption.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 9.sp,
@@ -402,7 +403,7 @@ fun UsernameWithFlair(
                     modifier = Modifier.size(9.dp),
                 )
                 Text(
-                    text = "NEW RELEASE",
+                    text = stringResource(R.string.mention_badge_new_release),
                     style = CorusFont.caption.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 9.sp,
@@ -425,7 +426,7 @@ fun UsernameWithFlair(
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
                 Text(
-                    text = "BOT",
+                    text = stringResource(R.string.mention_badge_bot),
                     style = CorusFont.caption.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 9.sp,
@@ -552,7 +553,7 @@ private fun MentionSearchingRow() {
         )
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
         Text(
-            text = "Searching…",
+            text = stringResource(R.string.mention_searching),
             style = CorusFont.caption,
             color = CorusColors.Secondary,
         )

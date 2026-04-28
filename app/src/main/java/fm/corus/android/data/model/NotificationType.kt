@@ -10,7 +10,8 @@ enum class NotificationType(val value: String) {
     FOLLOW("follow"),
     NEW_POST("new_post"),
     REPLY("reply"),
-    CONTACT_JOINED("contact_joined");
+    CONTACT_JOINED("contact_joined"),
+    TASTE_MATCH("taste_match");
 
     val supportsCommentActions: Boolean
         get() = this in listOf(COMMENT, REPLY, MENTION)

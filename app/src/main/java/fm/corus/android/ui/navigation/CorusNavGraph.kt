@@ -4,6 +4,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -109,6 +110,14 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                 commentPostId = null
                 navController.navigate(OtherProfileRoute(userId))
             },
+            onNavigateToSong = { track ->
+                commentPostId = null
+                navController.navigate(track.toSongDetailRoute())
+            },
+            onNavigateToFilm = { movie ->
+                commentPostId = null
+                navController.navigate(FilmDetailRoute(movie.id))
+            },
         )
     }
 
@@ -158,6 +167,14 @@ fun SearchNavGraph(navController: NavHostController, mainTabViewModel: MainTabVi
             onNavigateToUser = { userId ->
                 commentPostId = null
                 navController.navigate(OtherProfileRoute(userId))
+            },
+            onNavigateToSong = { track ->
+                commentPostId = null
+                navController.navigate(track.toSongDetailRoute())
+            },
+            onNavigateToFilm = { movie ->
+                commentPostId = null
+                navController.navigate(FilmDetailRoute(movie.id))
             },
         )
     }
@@ -210,6 +227,14 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
             onNavigateToUser = { userId ->
                 commentPostId = null
                 navController.navigate(OtherProfileRoute(userId))
+            },
+            onNavigateToSong = { track ->
+                commentPostId = null
+                navController.navigate(track.toSongDetailRoute())
+            },
+            onNavigateToFilm = { movie ->
+                commentPostId = null
+                navController.navigate(FilmDetailRoute(movie.id))
             },
         )
     }
@@ -270,6 +295,14 @@ fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
             onNavigateToUser = { userId ->
                 commentPostId = null
                 navController.navigate(OtherProfileRoute(userId))
+            },
+            onNavigateToSong = { track ->
+                commentPostId = null
+                navController.navigate(track.toSongDetailRoute())
+            },
+            onNavigateToFilm = { movie ->
+                commentPostId = null
+                navController.navigate(FilmDetailRoute(movie.id))
             },
         )
     }
@@ -461,12 +494,13 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
 
     composable<EditCaptionRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<EditCaptionRoute>()
+        val captionUpdatedMsg = stringResource(fm.corus.android.R.string.nav_toast_caption_updated)
         EditCaptionSheet(
             postId = route.postId,
             initialCaption = route.initialCaption,
             albumArtURL = route.albumArtURL,
             onDismiss = { navController.popBackStack() },
-            onSaved = { ToastManager.show("Caption updated") },
+            onSaved = { ToastManager.show(captionUpdatedMsg) },
         )
     }
 

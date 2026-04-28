@@ -14,6 +14,7 @@ import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.repository.SpotifyRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.TMDBRepository
@@ -46,6 +47,7 @@ data class SearchResultItem(
 class ComposeViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val spotifyRepository: SpotifyRepository,
+    private val musicSearchRepository: MusicSearchRepository,
     private val tmdbRepository: TMDBRepository,
     private val authRepository: AuthRepository,
     val analyticsService: AnalyticsService,
@@ -65,6 +67,20 @@ class ComposeViewModel @Inject constructor(
     fun dismissPostLimitPaywall() {
         _showPostLimitPaywall.value = false
     }
+
+    // Trending songs & movies — declared before `init` because the init block
+    // launches coroutines that write to these flows. With Dispatchers.Main.immediate,
+    // a suspend repo call that completes without truly suspending will run the
+    // assignment synchronously inside the constructor, so the backing fields must
+    // already exist by then.
+    private val _trendingSongs = MutableStateFlow<List<TrendingSong>>(emptyList())
+    val trendingSongs: StateFlow<List<TrendingSong>> = _trendingSongs.asStateFlow()
+
+    private val _trendingMovies = MutableStateFlow<List<TrendingMovie>>(emptyList())
+    val trendingMovies: StateFlow<List<TrendingMovie>> = _trendingMovies.asStateFlow()
+
+    private val _isLoadingTrending = MutableStateFlow(true)
+    val isLoadingTrending: StateFlow<Boolean> = _isLoadingTrending.asStateFlow()
 
     init {
         val userId = authRepository.currentUserId
@@ -132,16 +148,6 @@ class ComposeViewModel @Inject constructor(
     private val _mentionSuggestions = MutableStateFlow<List<CymbalUser>>(emptyList())
     val mentionSuggestions: StateFlow<List<CymbalUser>> = _mentionSuggestions.asStateFlow()
 
-    // Trending songs & movies
-    private val _trendingSongs = MutableStateFlow<List<TrendingSong>>(emptyList())
-    val trendingSongs: StateFlow<List<TrendingSong>> = _trendingSongs.asStateFlow()
-
-    private val _trendingMovies = MutableStateFlow<List<TrendingMovie>>(emptyList())
-    val trendingMovies: StateFlow<List<TrendingMovie>> = _trendingMovies.asStateFlow()
-
-    private val _isLoadingTrending = MutableStateFlow(true)
-    val isLoadingTrending: StateFlow<Boolean> = _isLoadingTrending.asStateFlow()
-
     // Pre-selection loading (hides search mode while fetching track/movie by ID)
     private val _isLoadingPreSelection = MutableStateFlow(false)
     val isLoadingPreSelection: StateFlow<Boolean> = _isLoadingPreSelection.asStateFlow()
@@ -180,7 +186,7 @@ class ComposeViewModel @Inject constructor(
             _isSearching.value = true
             try {
                 if (mediaType == MediaType.TRACK) {
-                    cachedTracks = spotifyRepository.search(query)
+                    cachedTracks = musicSearchRepository.search(query).tracks
                     _searchResults.value = cachedTracks.map { track ->
                         SearchResultItem(
                             id = track.id,
@@ -382,6 +388,11 @@ class ComposeViewModel @Inject constructor(
                     data["isrc"] = track.isrc ?: ""
                     data["trackReleaseDate"] = track.releaseDate ?: ""
                     data["trackReleaseDatePrecision"] = track.releaseDatePrecision ?: ""
+                    data["trackSource"] = track.source.raw
+                    if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
+                        data["soundcloudId"] = track.soundcloudId ?: ""
+                        data["soundcloudPermalinkUrl"] = track.soundcloudPermalinkUrl ?: ""
+                    }
                 } else {
                     val movie = _selectedMovie.value ?: throw Exception("No movie selected")
 

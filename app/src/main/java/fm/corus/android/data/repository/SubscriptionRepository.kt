@@ -90,6 +90,21 @@ class SubscriptionRepository @Inject constructor(
     val isHardCapped: Boolean
         get() = _recentPostCount.value >= DAILY_POST_LIMIT_HARD
 
+    /** Mirror of users_v2/{uid}.savesCount. Hydrated at profile load and updated after each save/unsave. */
+    private val _savesCount = MutableStateFlow(0)
+    val savesCount: StateFlow<Int> = _savesCount.asStateFlow()
+
+    fun setSavesCount(count: Int) {
+        _savesCount.value = count.coerceAtLeast(0)
+    }
+
+    /** Local cap pre-check. Mirrors backend `shouldRejectSave`. */
+    fun shouldRejectSave(): Boolean {
+        if (!remoteConfig.saveCapEnforced) return false
+        if (hasFullAccess) return false
+        return _savesCount.value >= remoteConfig.saveCapLimit
+    }
+
     fun updateVerifiedStatus(isVerified: Boolean) {
         _isVerified.value = isVerified
         prefs.edit().putBoolean(PREF_IS_VERIFIED, isVerified).apply()

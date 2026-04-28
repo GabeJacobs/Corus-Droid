@@ -20,9 +20,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.android.play.core.review.ReviewManagerFactory
+import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -54,7 +56,7 @@ fun ReviewPromptView(
                 modifier = Modifier
                     .padding(horizontal = CorusSpacing.xxl)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White)
+                    .background(CorusColors.Background)
                     .padding(CorusSpacing.xxl),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -68,7 +70,7 @@ fun ReviewPromptView(
                 Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
                 Text(
-                    "Enjoying Corus?",
+                    stringResource(R.string.review_prompt_title),
                     style = CorusFont.songTitleLarge,
                     color = CorusColors.Text,
                     textAlign = TextAlign.Center,
@@ -77,7 +79,7 @@ fun ReviewPromptView(
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
                 Text(
-                    "If you enjoy using Corus, would you mind taking a moment to rate it? It really helps!",
+                    stringResource(R.string.review_prompt_message),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     textAlign = TextAlign.Center,
@@ -103,13 +105,13 @@ fun ReviewPromptView(
                     colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
                     shape = RoundedCornerShape(50),
                 ) {
-                    Text("Leave a review", style = CorusFont.button, color = Color.White)
+                    Text(stringResource(R.string.review_prompt_button), style = CorusFont.button, color = Color.White)
                 }
 
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
                 TextButton(onClick = onDismiss) {
-                    Text("Not now", style = CorusFont.body, color = CorusColors.Secondary)
+                    Text(stringResource(R.string.review_prompt_not_now), style = CorusFont.body, color = CorusColors.Secondary)
                 }
             }
         }
