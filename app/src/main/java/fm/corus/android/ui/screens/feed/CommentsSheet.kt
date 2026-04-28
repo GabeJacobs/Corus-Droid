@@ -102,7 +102,6 @@ fun CommentsBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = CorusColors.Background,
-        modifier = Modifier.fillMaxHeight(0.95f),
         dragHandle = {
             // Add status bar padding so the drag handle stays below the camera cutout
             Column(modifier = Modifier.statusBarsPadding()) {
@@ -472,6 +471,7 @@ private fun CommentsSheetContent(
                     attachedSong = pendingSong,
                     attachedFilm = pendingFilm,
                     onClear = { viewModel.clearAttachment() },
+                    nowPlaying = viewModel.nowPlayingManager,
                 )
             }
         }

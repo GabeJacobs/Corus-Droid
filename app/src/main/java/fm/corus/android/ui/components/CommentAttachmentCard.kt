@@ -203,15 +203,6 @@ fun CommentAttachmentCard(
                         )
                     }
                 }
-
-                Icon(
-                    Icons.Filled.Movie,
-                    contentDescription = null,
-                    tint = CorusColors.Tertiary,
-                    modifier = Modifier
-                        .size(16.dp)
-                        .padding(end = CorusSpacing.xs),
-                )
             }
         }
     }
@@ -227,8 +218,12 @@ fun CommentAttachmentPendingChip(
     attachedFilm: CommentAttachedFilm?,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
+    nowPlaying: NowPlayingManager? = null,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val state = nowPlaying?.state?.collectAsState()?.value
+    val loadingTrackId = nowPlaying?.loadingTrackId?.collectAsState()?.value
 
     Row(
         modifier = modifier
@@ -239,14 +234,73 @@ fun CommentAttachmentPendingChip(
     ) {
         when {
             attachedSong != null -> {
-                AsyncImage(
-                    model = ImageRequest.Builder(context).data(attachedSong.albumArtURL).build(),
-                    contentDescription = null,
+                val isLoading = loadingTrackId == attachedSong.trackId
+                val isPlaying = state?.trackId == attachedSong.trackId && state?.isPlaying == true
+
+                Box(
                     modifier = Modifier
                         .size(34.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    contentScale = ContentScale.Crop,
-                )
+                        .clip(RoundedCornerShape(4.dp))
+                        .then(
+                            if (nowPlaying != null) {
+                                Modifier.clickable {
+                                    if (state?.trackId == attachedSong.trackId) {
+                                        nowPlaying.togglePlayPause()
+                                    } else {
+                                        scope.launch {
+                                            nowPlaying.play(
+                                                trackId = attachedSong.trackId,
+                                                trackName = attachedSong.trackName,
+                                                artistName = attachedSong.artistName,
+                                                albumArtURL = attachedSong.albumArtURL,
+                                                previewUrl = attachedSong.previewUrl,
+                                                spotifyURI = attachedSong.spotifyURI,
+                                                spotifyWebURL = attachedSong.spotifyWebURL,
+                                                isrc = attachedSong.isrc,
+                                            )
+                                        }
+                                    }
+                                }
+                            } else Modifier,
+                        ),
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(attachedSong.albumArtURL).build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                    if (nowPlaying != null) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(18.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(Color.Black.copy(alpha = 0.4f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            when {
+                                isLoading -> CircularProgressIndicator(
+                                    modifier = Modifier.size(10.dp),
+                                    strokeWidth = 1.5.dp,
+                                    color = Color.White,
+                                )
+                                isPlaying -> Icon(
+                                    Icons.Filled.Pause,
+                                    contentDescription = stringResource(R.string.comment_attachment_pause_preview),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(10.dp),
+                                )
+                                else -> Icon(
+                                    Icons.Filled.PlayArrow,
+                                    contentDescription = stringResource(R.string.comment_attachment_play_preview),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(10.dp),
+                                )
+                            }
+                        }
+                    }
+                }
                 Spacer(Modifier.width(CorusSpacing.sm))
                 Column(modifier = Modifier.widthIn(max = 200.dp)) {
                     Text(

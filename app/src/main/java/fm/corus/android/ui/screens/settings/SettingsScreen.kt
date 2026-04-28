@@ -39,6 +39,7 @@ import fm.corus.android.R
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.CymbalClubVinyl
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.auth.AuthViewModel
@@ -148,7 +149,6 @@ fun SettingsScreen(
 
     // Messaging
     var whoCanMessageMe by remember { mutableStateOf("Everyone") }
-    var showMessageMenu by remember { mutableStateOf(false) }
     val messageOptionLabels: Map<String, String> = mapOf(
         "Everyone" to stringResource(R.string.settings_message_everyone),
         "My Followers" to stringResource(R.string.settings_message_my_followers),
@@ -164,9 +164,11 @@ fun SettingsScreen(
                 .padding(horizontal = CorusSpacing.sm, vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-            }
+            CorusHeaderIconButton(
+                onClick = onBack,
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.common_back),
+            )
             Text(stringResource(R.string.settings_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
         }
 
@@ -222,43 +224,20 @@ fun SettingsScreen(
             SectionHeader(stringResource(R.string.settings_section_appearance))
 
             val appearanceMode by appearanceViewModel.appearanceMode.collectAsState()
-            var showAppearanceMenu by remember { mutableStateOf(false) }
             val appearanceOptionLabels: Map<AppearanceMode, String> = mapOf(
                 AppearanceMode.LIGHT to stringResource(R.string.appearance_option_light),
                 AppearanceMode.DARK to stringResource(R.string.appearance_option_dark),
                 AppearanceMode.SYSTEM to stringResource(R.string.appearance_option_system),
             )
-            Box(modifier = Modifier.fillMaxWidth()) {
-                SettingsNavRow(
-                    icon = Icons.Filled.DarkMode,
-                    title = stringResource(R.string.appearance_row_theme),
-                    subtitle = stringResource(R.string.appearance_row_theme_subtitle),
-                    trailingText = appearanceOptionLabels[appearanceMode],
-                    onClick = { showAppearanceMenu = true },
-                )
-                Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                    DropdownMenu(
-                        expanded = showAppearanceMenu,
-                        onDismissRequest = { showAppearanceMenu = false },
-                    ) {
-                        AppearanceMode.values().forEach { option ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = appearanceOptionLabels[option] ?: option.displayLabel,
-                                        style = CorusFont.body,
-                                        color = if (option == appearanceMode) CorusColors.Accent else CorusColors.Text,
-                                    )
-                                },
-                                onClick = {
-                                    appearanceViewModel.setAppearanceMode(option)
-                                    showAppearanceMenu = false
-                                },
-                            )
-                        }
-                    }
-                }
-            }
+            DropdownSettingsRow(
+                icon = Icons.Filled.DarkMode,
+                title = stringResource(R.string.appearance_row_theme),
+                subtitle = stringResource(R.string.appearance_row_theme_subtitle),
+                selected = appearanceMode,
+                options = AppearanceMode.values().toList(),
+                labelFor = { appearanceOptionLabels[it] ?: it.displayLabel },
+                onSelect = { appearanceViewModel.setAppearanceMode(it) },
+            )
 
             // ── Section: General ──
             SectionHeader(stringResource(R.string.settings_section_general))
@@ -280,43 +259,23 @@ fun SettingsScreen(
             )
 
             var currentLanguage by remember { mutableStateOf(fm.corus.android.i18n.LanguageManager.current(context)) }
-            var showLanguageMenu by remember { mutableStateOf(false) }
             val languageOptionLabels: Map<fm.corus.android.i18n.AppLanguage, String> = mapOf(
                 fm.corus.android.i18n.AppLanguage.SYSTEM to stringResource(R.string.language_option_system),
                 fm.corus.android.i18n.AppLanguage.ENGLISH to stringResource(R.string.language_option_english),
                 fm.corus.android.i18n.AppLanguage.PORTUGUESE_BR to stringResource(R.string.language_option_portuguese_br),
             )
-            Box(modifier = Modifier.fillMaxWidth()) {
-                SettingsNavRow(
-                    icon = Icons.Filled.Language,
-                    title = stringResource(R.string.settings_row_language),
-                    trailingText = languageOptionLabels[currentLanguage],
-                    onClick = { showLanguageMenu = true },
-                )
-                Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                    DropdownMenu(
-                        expanded = showLanguageMenu,
-                        onDismissRequest = { showLanguageMenu = false },
-                    ) {
-                        fm.corus.android.i18n.AppLanguage.values().forEach { option ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = languageOptionLabels[option] ?: option.name,
-                                        style = CorusFont.body,
-                                        color = if (option == currentLanguage) CorusColors.Accent else CorusColors.Text,
-                                    )
-                                },
-                                onClick = {
-                                    currentLanguage = option
-                                    showLanguageMenu = false
-                                    activity?.let { fm.corus.android.i18n.LanguageManager.set(it, option) }
-                                },
-                            )
-                        }
-                    }
-                }
-            }
+            DropdownSettingsRow(
+                icon = Icons.Filled.Language,
+                title = stringResource(R.string.settings_row_language),
+                selected = currentLanguage,
+                options = fm.corus.android.i18n.AppLanguage.values().toList(),
+                labelFor = { languageOptionLabels[it] ?: it.name },
+                onSelect = { option ->
+                    currentLanguage = option
+                    settingsViewModel.syncLanguagePreference(option)
+                    activity?.let { fm.corus.android.i18n.LanguageManager.set(it, option) }
+                },
+            )
 
             // ── Section: Notifications & Messaging ──
             SectionHeader(stringResource(R.string.settings_section_notifications_messaging))
@@ -329,38 +288,14 @@ fun SettingsScreen(
             )
 
             // "Who Can Message Me" menu row
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    SettingsNavRow(
-                        icon = Icons.Outlined.Group,
-                        title = stringResource(R.string.settings_row_who_can_message),
-                        trailingText = messageOptionLabels[whoCanMessageMe] ?: whoCanMessageMe,
-                        onClick = { showMessageMenu = true },
-                    )
-                }
-                Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                    DropdownMenu(
-                        expanded = showMessageMenu,
-                        onDismissRequest = { showMessageMenu = false },
-                    ) {
-                        listOf("Everyone", "My Followers", "People I Follow", "Nobody").forEach { option ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = messageOptionLabels[option] ?: option,
-                                        style = CorusFont.body,
-                                        color = if (option == whoCanMessageMe) CorusColors.Accent else CorusColors.Text,
-                                    )
-                                },
-                                onClick = {
-                                    whoCanMessageMe = option
-                                    showMessageMenu = false
-                                },
-                            )
-                        }
-                    }
-                }
-            }
+            DropdownSettingsRow(
+                icon = Icons.Outlined.Group,
+                title = stringResource(R.string.settings_row_who_can_message),
+                selected = whoCanMessageMe,
+                options = listOf("Everyone", "My Followers", "People I Follow", "Nobody"),
+                labelFor = { messageOptionLabels[it] ?: it },
+                onSelect = { whoCanMessageMe = it },
+            )
 
             // ── Section: Account ──
             SectionHeader(stringResource(R.string.settings_section_account))
@@ -817,6 +752,58 @@ private fun SettingsActionRow(
         color = CorusColors.Divider,
         modifier = Modifier.padding(horizontal = CorusSpacing.lg),
     )
+}
+
+// ── Dropdown Settings Row ──
+//
+// Use this for any settings row that opens a dropdown (Theme, Language, Who Can
+// Message Me, etc.). It renders a normal SettingsNavRow plus the DropdownMenu
+// inline — no wrapping Box. Wrapping rows in a Box(fillMaxWidth) was producing a
+// visible "double divider" above the row when the previous row also drew an inset
+// divider, because the Box allocated layout space differently than a plain row.
+//
+// Always use this helper when adding a new dropdown row. Do not wrap a
+// SettingsNavRow in a Box just to anchor a DropdownMenu — DropdownMenu uses a
+// Popup internally and consumes no layout space when collapsed, so the menu
+// will still anchor correctly to the row above it.
+@Composable
+private fun <T> DropdownSettingsRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    selected: T,
+    options: List<T>,
+    labelFor: (T) -> String,
+    onSelect: (T) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    SettingsNavRow(
+        icon = icon,
+        title = title,
+        subtitle = subtitle,
+        trailingText = labelFor(selected),
+        onClick = { expanded = true },
+    )
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = { expanded = false },
+    ) {
+        options.forEach { option ->
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = labelFor(option),
+                        style = CorusFont.body,
+                        color = if (option == selected) CorusColors.Accent else CorusColors.Text,
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onSelect(option)
+                },
+            )
+        }
+    }
 }
 
 // ── Social Link Button ──

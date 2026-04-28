@@ -452,8 +452,47 @@
     <string name="suggested_users_empty">Nenhuma sugestão disponível</string>
     <string name="suggested_users_joined_format">Entrou há %1$s</string>
 
+    <!-- Notifications: message templates (mirrors iOS localizedMessage by type) -->
+    <string name="notif_msg_like">curtiu seu %s.</string>
+    <string name="notif_msg_comment_with_text">comentou: %s</string>
+    <string name="notif_msg_comment_no_text">comentou no seu %s.</string>
+    <string name="notif_msg_comment_like">curtiu seu comentário.</string>
+    <string name="notif_msg_mention_with_text">mencionou você: %s</string>
+    <string name="notif_msg_mention_no_text">mencionou você em um comentário.</string>
+    <string name="notif_msg_tag">mencionou você em um %s.</string>
+    <string name="notif_msg_save">salvou seu %s.</string>
+    <string name="notif_msg_follow">começou a seguir você.</string>
+    <string name="notif_msg_new_post">postou um novo %s.</string>
+    <string name="notif_msg_reply_with_text">respondeu ao seu comentário: %s</string>
+    <string name="notif_msg_reply_no_text">respondeu ao seu comentário.</string>
+    <string name="notif_msg_contact_joined">entrou no %s!</string>
+    <string name="notif_msg_repost">repostou seu %s.</string>
+    <string name="notif_msg_taste_match_default">é uma nova combinação de gosto.</string>
+
+    <!-- Tab bar -->
+    <string name="tab_feed">Início</string>
+    <string name="tab_search">Buscar</string>
+    <string name="tab_post">Postar</string>
+    <string name="tab_activity">Atividades</string>
+    <string name="tab_profile">Perfil</string>
+
     <!-- Time / relative -->
     <string name="relative_time_just_now">agora mesmo</string>
+    <string name="post_time_just_now">Agora mesmo</string>
+    <plurals name="post_time_minutes_ago">
+        <item quantity="one">há %d minuto</item>
+        <item quantity="other">há %d minutos</item>
+    </plurals>
+    <plurals name="post_time_hours_ago">
+        <item quantity="one">há %d hora</item>
+        <item quantity="other">há %d horas</item>
+    </plurals>
+    <plurals name="post_time_days_ago">
+        <item quantity="one">há %d dia</item>
+        <item quantity="other">há %d dias</item>
+    </plurals>
+    <string name="post_time_date_format_same_year">d \'de\' MMMM</string>
+    <string name="post_time_date_format_other_year">d \'de\' MMMM \'de\' yyyy</string>
 
     <!-- Auth -->
     <string name="auth_cd_corus_logo">Logotipo Corus</string>

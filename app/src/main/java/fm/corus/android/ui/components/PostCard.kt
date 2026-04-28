@@ -784,7 +784,7 @@ fun PostCard(
         // 8. TIMESTAMP
         val timestampContext = LocalContext.current
         Text(
-            text = fm.corus.android.ui.util.DateUtils.relativeTime(timestampContext, post.timestamp),
+            text = fm.corus.android.ui.util.DateUtils.relativeTimeLong(timestampContext, post.timestamp),
             style = CorusFont.caption, // Normal 12sp
             color = CorusColors.Secondary,
             modifier = Modifier

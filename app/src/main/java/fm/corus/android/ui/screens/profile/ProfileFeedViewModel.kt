@@ -128,7 +128,7 @@ class ProfileFeedViewModel @Inject constructor(
             3 -> ProfileFeedSource.SAVES
             else -> ProfileFeedSource.SONGS
         }
-        val cachedPosts = ProfileFeedCache.posts
+        val cachedPosts = ProfileFeedCache.posts.distinctBy { it.id }
         val profileUser = ProfileFeedCache.profileUser
         this.profileUser = profileUser
         _hasMore.value = ProfileFeedCache.hasMore

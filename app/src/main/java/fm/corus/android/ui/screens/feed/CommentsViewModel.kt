@@ -182,6 +182,9 @@ class CommentsViewModel @Inject constructor(
         if (postChanged) {
             _comments.value = emptyList()
             _repliesByParent.value = emptyMap()
+            _pendingSong.value = null
+            _pendingFilm.value = null
+            _replyingTo.value = null
         }
         viewModelScope.launch {
             _isLoading.value = true

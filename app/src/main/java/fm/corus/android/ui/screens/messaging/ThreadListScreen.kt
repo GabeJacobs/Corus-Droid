@@ -9,12 +9,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.EditSquare
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -23,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
@@ -56,22 +57,22 @@ fun ThreadListScreen(
                 .padding(start = CorusSpacing.xs, end = CorusSpacing.lg, top = CorusSpacing.md, bottom = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.common_back), tint = CorusColors.Text)
-            }
+            CorusHeaderIconButton(
+                onClick = onBack,
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(id = R.string.common_back),
+            )
             Text(
                 stringResource(id = R.string.messaging_list_title),
                 style = CorusFont.screenTitle,
                 color = CorusColors.Text,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = { showNewMessagePicker = true }) {
-                Icon(
-                    Icons.Filled.EditSquare,
-                    contentDescription = stringResource(id = R.string.messaging_list_cd_new_message),
-                    tint = CorusColors.Text,
-                )
-            }
+            CorusHeaderIconButton(
+                onClick = { showNewMessagePicker = true },
+                painter = painterResource(id = R.drawable.ic_edit_square),
+                contentDescription = stringResource(id = R.string.messaging_list_cd_new_message),
+            )
         }
 
         HorizontalDivider(color = CorusColors.Divider)

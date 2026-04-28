@@ -57,7 +57,7 @@ object CorusFont {
     val screenTitle = TextStyle(
         fontFamily = NunitoFamily,
         fontWeight = FontWeight.ExtraBold,
-        fontSize = 16.sp,
+        fontSize = 18.sp,
     )
     val sectionHeader = TextStyle(
         fontFamily = NunitoFamily,

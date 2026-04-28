@@ -59,6 +59,8 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.CorusHeaderIcon
+import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.FeaturedCymbalView
 import fm.corus.android.ui.components.FeaturedMoviePosterView

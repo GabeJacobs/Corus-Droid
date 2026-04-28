@@ -14,6 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -21,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -88,15 +92,20 @@ fun LikedBySection(
 
         Spacer(modifier = Modifier.width(CorusSpacing.xs))
 
+        val prefix = stringResource(R.string.post_card_liked_by_prefix)
+        val andConnector = stringResource(R.string.post_card_liked_by_and)
+        val othersText = if (likeCount > 1) {
+            pluralStringResource(R.plurals.post_card_others_count, likeCount - 1, likeCount - 1)
+        } else null
         val likedByText = buildAnnotatedString {
-            append("Liked by ")
+            append(prefix)
             withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) {
                 append(effectiveLikers.first().username)
             }
-            if (likeCount > 1) {
-                append(" and ")
+            if (othersText != null) {
+                append(andConnector)
                 withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) {
-                    append("${likeCount - 1} other${if (likeCount - 1 > 1) "s" else ""}")
+                    append(othersText)
                 }
             }
         }

@@ -7,6 +7,8 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import com.valentinilk.shimmer.ShimmerBounds
+import com.valentinilk.shimmer.rememberShimmer
 import com.valentinilk.shimmer.shimmer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -235,6 +237,7 @@ fun ProfileScreen(
         },
         modifier = Modifier.fillMaxSize(),
     ) {
+    val gridSkeletonShimmer = rememberShimmer(shimmerBounds = ShimmerBounds.Window)
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Fixed(3),
@@ -697,8 +700,8 @@ fun ProfileScreen(
                 Box(
                     modifier = Modifier
                         .aspectRatio(1f)
-                        .background(CorusColors.Skeleton)
-                        .shimmer(),
+                        .shimmer(gridSkeletonShimmer)
+                        .background(CorusColors.Skeleton),
                 )
             }
         } else {

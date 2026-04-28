@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -30,9 +31,11 @@ fun ContactFriendsListScreen(
             TopAppBar(
                 title = { Text(stringResource(fm.corus.android.R.string.contacts_list_title), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
-                    }
+                    CorusHeaderIconButton(
+                        onClick = onBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(fm.corus.android.R.string.common_back),
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),

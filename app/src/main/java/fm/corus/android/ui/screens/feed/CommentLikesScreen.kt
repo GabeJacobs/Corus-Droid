@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
@@ -44,13 +45,11 @@ fun CommentLikesScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.likes_title), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.feed_cd_back),
-                            tint = CorusColors.Text,
-                        )
-                    }
+                    CorusHeaderIconButton(
+                        onClick = onBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.feed_cd_back),
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
             )

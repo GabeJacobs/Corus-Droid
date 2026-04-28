@@ -460,8 +460,47 @@
     <string name="suggested_users_empty">No suggestions available</string>
     <string name="suggested_users_joined_format">Joined %1$s ago</string>
 
+    <!-- Notifications: message templates (mirrors iOS localizedMessage by type) -->
+    <string name="notif_msg_like">liked your %s.</string>
+    <string name="notif_msg_comment_with_text">commented: %s</string>
+    <string name="notif_msg_comment_no_text">commented on your %s.</string>
+    <string name="notif_msg_comment_like">liked your comment.</string>
+    <string name="notif_msg_mention_with_text">mentioned you: %s</string>
+    <string name="notif_msg_mention_no_text">mentioned you in a comment.</string>
+    <string name="notif_msg_tag">mentioned you in a %s.</string>
+    <string name="notif_msg_save">saved your %s.</string>
+    <string name="notif_msg_follow">started following you.</string>
+    <string name="notif_msg_new_post">posted a new %s.</string>
+    <string name="notif_msg_reply_with_text">replied to your comment: %s</string>
+    <string name="notif_msg_reply_no_text">replied to your comment.</string>
+    <string name="notif_msg_contact_joined">joined %s!</string>
+    <string name="notif_msg_repost">reposted your %s.</string>
+    <string name="notif_msg_taste_match_default">is a new taste match.</string>
+
+    <!-- Tab bar -->
+    <string name="tab_feed">Feed</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_post">Post</string>
+    <string name="tab_activity">Activity</string>
+    <string name="tab_profile">Profile</string>
+
     <!-- Time / relative -->
     <string name="relative_time_just_now">just now</string>
+    <string name="post_time_just_now">Just now</string>
+    <plurals name="post_time_minutes_ago">
+        <item quantity="one">%d minute ago</item>
+        <item quantity="other">%d minutes ago</item>
+    </plurals>
+    <plurals name="post_time_hours_ago">
+        <item quantity="one">%d hour ago</item>
+        <item quantity="other">%d hours ago</item>
+    </plurals>
+    <plurals name="post_time_days_ago">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <string name="post_time_date_format_same_year">MMMM d</string>
+    <string name="post_time_date_format_other_year">MMMM d, yyyy</string>
 
     <!-- Auth -->
     <string name="auth_cd_corus_logo">Corus Logo</string>

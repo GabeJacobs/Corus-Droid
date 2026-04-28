@@ -56,6 +56,7 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.ui.components.CommentAttachmentCard
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
+import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SongFilmPickerSheet
@@ -172,9 +173,11 @@ fun SinglePostCommentsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.feed_screen_title_Corus), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.feed_cd_back), tint = CorusColors.Text)
-                    }
+                    CorusHeaderIconButton(
+                        onClick = onBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.feed_cd_back),
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -253,6 +256,7 @@ fun SinglePostCommentsScreen(
                             attachedSong = pendingSong,
                             attachedFilm = pendingFilm,
                             onClear = { viewModel.clearAttachment() },
+                            nowPlaying = viewModel.nowPlayingManager,
                         )
                     }
                 }

@@ -109,4 +109,9 @@ object CorusColors {
     val CommentAttachmentPlus: Color
         @Composable @ReadOnlyComposable
         get() = if (LocalCorusPalette.current.text == Color(0xFFF5F5F7)) Color.White else Accent
+
+    /** Selected pill inside a segmented control sitting on [CardBackground]. */
+    val SegmentedSelected: Color
+        @Composable @ReadOnlyComposable
+        get() = if (LocalCorusPalette.current.text == Color(0xFFF5F5F7)) Color(0xFF3A3A3C) else Color.White
 }

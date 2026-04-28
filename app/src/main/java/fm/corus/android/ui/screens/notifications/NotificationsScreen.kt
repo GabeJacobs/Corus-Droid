@@ -396,7 +396,8 @@ private fun NotificationRow(
         // when truncated, matching the iOS .truncationMode(.middle) behavior.
         val hasCommentText = notification.commentText != null
         val maxLines = if (hasCommentText) 4 else 2
-        val timeString = DateUtils.relativeTime(LocalContext.current, notification.timestamp)
+        val context = LocalContext.current
+        val timeString = DateUtils.relativeTime(context, notification.timestamp)
         val timeSuffix = " $timeString"
 
         val fullAnnotatedText = if (notification.type == NotificationType.TASTE_MATCH) {
@@ -419,7 +420,7 @@ private fun NotificationRow(
                     fontSize = 15.sp,
                 )
             ) {
-                append(notification.message)
+                append(localizedNotificationMessage(notification, context))
             }
             append(" ")
             withStyle(
@@ -763,5 +764,45 @@ private fun InlineReplyBar(
                 )
             }
         }
+    }
+}
+
+/**
+ * Build the user-facing notification message client-side from the notification type,
+ * mirroring iOS CymbalNotification.localizedMessage. The server-side `notification.message`
+ * field is English-only fallback content; we ignore it so the message respects the
+ * user's selected app language.
+ *
+ * Comment-text excerpts are server-supplied user content, so we render them verbatim.
+ */
+private fun localizedNotificationMessage(
+    notification: CymbalNotification,
+    context: android.content.Context,
+): String {
+    val postNoun = context.getString(R.string.post_noun)
+    val appName = context.getString(R.string.app_name)
+    // Mirror iOS: when commentText is exactly 100 chars and not already truncated, append ellipsis.
+    val commentExcerpt = notification.commentText?.let {
+        if (it.length == 100 && !it.endsWith("…")) "$it…" else it
+    }
+    return when (notification.type) {
+        NotificationType.LIKE -> context.getString(R.string.notif_msg_like, postNoun)
+        NotificationType.COMMENT -> commentExcerpt
+            ?.let { context.getString(R.string.notif_msg_comment_with_text, it) }
+            ?: context.getString(R.string.notif_msg_comment_no_text, postNoun)
+        NotificationType.COMMENT_LIKE -> context.getString(R.string.notif_msg_comment_like)
+        NotificationType.MENTION -> commentExcerpt
+            ?.let { context.getString(R.string.notif_msg_mention_with_text, it) }
+            ?: context.getString(R.string.notif_msg_mention_no_text)
+        NotificationType.TAG -> context.getString(R.string.notif_msg_tag, postNoun)
+        NotificationType.SAVE -> context.getString(R.string.notif_msg_save, postNoun)
+        NotificationType.FOLLOW -> context.getString(R.string.notif_msg_follow)
+        NotificationType.NEW_POST -> context.getString(R.string.notif_msg_new_post, postNoun)
+        NotificationType.REPLY -> commentExcerpt
+            ?.let { context.getString(R.string.notif_msg_reply_with_text, it) }
+            ?: context.getString(R.string.notif_msg_reply_no_text)
+        NotificationType.CONTACT_JOINED -> context.getString(R.string.notif_msg_contact_joined, appName)
+        NotificationType.TASTE_MATCH -> notification.bodyText
+            ?: context.getString(R.string.notif_msg_taste_match_default)
     }
 }

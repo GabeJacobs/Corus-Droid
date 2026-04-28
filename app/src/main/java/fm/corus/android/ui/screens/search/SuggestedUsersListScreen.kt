@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.SkeletonTasteMatchCard
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.TasteMatchCard
@@ -54,9 +55,11 @@ fun SuggestedUsersListScreen(
             TopAppBar(
                 title = { Text(resolvedTitle, style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
-                    }
+                    CorusHeaderIconButton(
+                        onClick = onBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(fm.corus.android.R.string.common_back),
+                    )
                 },
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),

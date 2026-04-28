@@ -77,6 +77,7 @@ class ProfileViewModelTest {
         engagementManager = engagementManager,
         postCreationEvent = postCreationEvent,
         analyticsService = analyticsService,
+        musicServicePreference = mock(),
     )
 
     @Test

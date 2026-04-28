@@ -447,27 +447,27 @@ private fun CorusBottomBar(
         ) {
             TabItem(
                 icon = if (selectedTab == CorusTab.FEED) CorusTab.FEED.selectedIcon else CorusTab.FEED.unselectedIcon,
-                label = CorusTab.FEED.label,
+                label = stringResource(CorusTab.FEED.labelRes),
                 isSelected = selectedTab == CorusTab.FEED,
                 onClick = { onTabSelected(CorusTab.FEED) },
             )
             TabItem(
                 icon = if (selectedTab == CorusTab.EXPLORE) CorusTab.EXPLORE.selectedIcon else CorusTab.EXPLORE.unselectedIcon,
-                label = CorusTab.EXPLORE.label,
+                label = stringResource(CorusTab.EXPLORE.labelRes),
                 isSelected = selectedTab == CorusTab.EXPLORE,
                 onClick = { onTabSelected(CorusTab.EXPLORE) },
             )
             ComposeButton(onClick = onComposeTapped)
             TabItem(
                 icon = if (selectedTab == CorusTab.NOTIFICATIONS) CorusTab.NOTIFICATIONS.selectedIcon else CorusTab.NOTIFICATIONS.unselectedIcon,
-                label = CorusTab.NOTIFICATIONS.label,
+                label = stringResource(CorusTab.NOTIFICATIONS.labelRes),
                 isSelected = selectedTab == CorusTab.NOTIFICATIONS,
                 badgeCount = notificationTabBadgeCount,
                 onClick = { onTabSelected(CorusTab.NOTIFICATIONS) },
             )
             TabItem(
                 icon = if (selectedTab == CorusTab.PROFILE) CorusTab.PROFILE.selectedIcon else CorusTab.PROFILE.unselectedIcon,
-                label = CorusTab.PROFILE.label,
+                label = stringResource(CorusTab.PROFILE.labelRes),
                 isSelected = selectedTab == CorusTab.PROFILE,
                 onClick = { onTabSelected(CorusTab.PROFILE) },
             )

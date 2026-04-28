@@ -22,6 +22,12 @@ object CorusSpacing {
     val touchTarget = 44.dp
 
     val tabBarHeight = 50.dp
+
+    val iconSm = 16.dp
+    val iconMd = 20.dp
+    val iconLg = 24.dp
+    val iconXl = 28.dp
+
     val cornerRadius = 6.dp
     val cornerRadiusMedium = 12.dp
     val cornerRadiusLarge = 16.dp

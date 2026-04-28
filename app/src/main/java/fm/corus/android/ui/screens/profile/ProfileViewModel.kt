@@ -385,7 +385,9 @@ class ProfileViewModel @Inject constructor(
                         val cursor = postsLastTimestamp
                         if (cursor != null) {
                             val newPosts = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
-                            _posts.value = _posts.value + newPosts
+                            val existingIds = _posts.value.mapTo(HashSet()) { it.id }
+                            val unique = newPosts.filter { it.id !in existingIds }
+                            _posts.value = _posts.value + unique
                             if (newPosts.isNotEmpty()) {
                                 postsLastTimestamp = newPosts.last().timestamp.time
                             }
@@ -402,7 +404,9 @@ class ProfileViewModel @Inject constructor(
                     }
                     2 -> {
                         val newPosts = cloudFunctions.getLikedPosts(userId, userId, limit = PAGE_SIZE, offset = likedOffset)
-                        _likedPosts.value = _likedPosts.value + newPosts
+                        val existingIds = _likedPosts.value.mapTo(HashSet()) { it.id }
+                        val unique = newPosts.filter { it.id !in existingIds }
+                        _likedPosts.value = _likedPosts.value + unique
                         likedOffset += newPosts.size
                         _hasMore.value = _hasMore.value.toMutableMap().apply {
                             this[2] = newPosts.size >= PAGE_SIZE
@@ -410,7 +414,9 @@ class ProfileViewModel @Inject constructor(
                     }
                     3 -> {
                         val newPosts = cloudFunctions.getSavedPosts(userId, limit = PAGE_SIZE, offset = savedOffset)
-                        _savedPosts.value = _savedPosts.value + newPosts
+                        val existingIds = _savedPosts.value.mapTo(HashSet()) { it.id }
+                        val unique = newPosts.filter { it.id !in existingIds }
+                        _savedPosts.value = _savedPosts.value + unique
                         savedOffset += newPosts.size
                         _hasMore.value = _hasMore.value.toMutableMap().apply {
                             this[3] = newPosts.size >= PAGE_SIZE

@@ -15,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
+import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -39,9 +40,11 @@ fun ChangeUsernameScreen(
                 .padding(horizontal = CorusSpacing.sm, vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-            }
+            CorusHeaderIconButton(
+                onClick = onBack,
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.common_back),
+            )
             Text(stringResource(R.string.change_username_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
 
             Spacer(modifier = Modifier.weight(1f))

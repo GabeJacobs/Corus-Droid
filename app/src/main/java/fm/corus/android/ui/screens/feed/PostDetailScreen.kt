@@ -52,6 +52,7 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.R
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.LikedBySection
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.launchBackCoverFlip
@@ -109,13 +110,11 @@ fun PostDetailScreen(
                     Text(stringResource(R.string.feed_screen_title_corus), style = CorusFont.screenTitle, color = CorusColors.Text)
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.feed_cd_back),
-                            tint = CorusColors.Text,
-                        )
-                    }
+                    CorusHeaderIconButton(
+                        onClick = onBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.feed_cd_back),
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -350,7 +349,7 @@ fun PostDetailScreen(
                     // Timestamp
                     item {
                         Text(
-                            text = DateUtils.relativeTime(context, currentPost.timestamp),
+                            text = DateUtils.relativeTimeLong(context, currentPost.timestamp),
                             style = CorusFont.caption,
                             color = CorusColors.Secondary,
                             modifier = Modifier
