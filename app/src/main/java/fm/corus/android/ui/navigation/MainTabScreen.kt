@@ -204,10 +204,13 @@ fun MainTabScreen(
                 SinglePostCommentsRoute(notificationDestination.postId, notificationDestination.commentId)
             )
             is DeepLinkDestination.Profile -> navController.navigate(OtherProfileRoute(notificationDestination.userId))
-            is DeepLinkDestination.Thread -> navController.navigate(MessageThreadRoute(
-                threadId = notificationDestination.threadId,
-                otherUserId = notificationDestination.otherUserId,
-            ))
+            is DeepLinkDestination.Thread -> {
+                navController.navigate(ThreadListRoute)
+                navController.navigate(MessageThreadRoute(
+                    threadId = notificationDestination.threadId,
+                    otherUserId = notificationDestination.otherUserId,
+                ))
+            }
             is DeepLinkDestination.Hashtag -> navController.navigate(HashtagFeedRoute(notificationDestination.tag))
             is DeepLinkDestination.ProfileByUsername -> navController.navigate(ProfileByUsernameRoute(notificationDestination.username))
         }

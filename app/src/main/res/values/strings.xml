@@ -89,7 +89,7 @@
     <string name="notifications_row_messages">Messages</string>
 
     <!-- Settings: Appearance -->
-    <string name="settings_row_appearance">Appearance</string>
+    <string name="settings_section_appearance">APPEARANCE</string>
     <string name="appearance_screen_title">Appearance</string>
     <string name="appearance_row_theme">Theme</string>
     <string name="appearance_row_theme_subtitle">Use light, dark, or match your device</string>

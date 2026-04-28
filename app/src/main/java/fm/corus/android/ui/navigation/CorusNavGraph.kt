@@ -37,7 +37,6 @@ import fm.corus.android.ui.screens.search.BotListScreen
 import fm.corus.android.ui.screens.search.SearchScreen
 import fm.corus.android.ui.screens.messaging.MessageThreadScreen
 import fm.corus.android.ui.screens.messaging.ThreadListScreen
-import fm.corus.android.ui.screens.settings.AppearanceSettingsScreen
 import fm.corus.android.ui.screens.settings.LanguageSettingsScreen
 import fm.corus.android.ui.screens.settings.NotificationSettingsScreen
 import fm.corus.android.ui.screens.settings.SettingsScreen
@@ -520,7 +519,6 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onSendFeedback = { navController.navigate(FeedbackFormRoute) },
             onNotificationSettings = { navController.navigate(NotificationSettingsRoute) },
             onLanguageSettings = { navController.navigate(LanguageSettingsRoute) },
-            onAppearanceSettings = { navController.navigate(AppearanceSettingsRoute) },
         )
     }
 
@@ -532,12 +530,6 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
 
     composable<NotificationSettingsRoute> {
         NotificationSettingsScreen(
-            onBack = { navController.popBackStack() },
-        )
-    }
-
-    composable<AppearanceSettingsRoute> {
-        AppearanceSettingsScreen(
             onBack = { navController.popBackStack() },
         )
     }

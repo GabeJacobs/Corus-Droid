@@ -68,7 +68,6 @@ fun SettingsScreen(
     onSendFeedback: () -> Unit = {},
     onNotificationSettings: () -> Unit = {},
     onLanguageSettings: () -> Unit = {},
-    onAppearanceSettings: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
     appearanceViewModel: AppearanceSettingsViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
@@ -219,6 +218,48 @@ fun SettingsScreen(
                 )
             }
 
+            // ── Section: Appearance ──
+            SectionHeader(stringResource(R.string.settings_section_appearance))
+
+            val appearanceMode by appearanceViewModel.appearanceMode.collectAsState()
+            var showAppearanceMenu by remember { mutableStateOf(false) }
+            val appearanceOptionLabels: Map<AppearanceMode, String> = mapOf(
+                AppearanceMode.LIGHT to stringResource(R.string.appearance_option_light),
+                AppearanceMode.DARK to stringResource(R.string.appearance_option_dark),
+                AppearanceMode.SYSTEM to stringResource(R.string.appearance_option_system),
+            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                SettingsNavRow(
+                    icon = Icons.Filled.DarkMode,
+                    title = stringResource(R.string.appearance_row_theme),
+                    subtitle = stringResource(R.string.appearance_row_theme_subtitle),
+                    trailingText = appearanceOptionLabels[appearanceMode],
+                    onClick = { showAppearanceMenu = true },
+                )
+                Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                    DropdownMenu(
+                        expanded = showAppearanceMenu,
+                        onDismissRequest = { showAppearanceMenu = false },
+                    ) {
+                        AppearanceMode.values().forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = appearanceOptionLabels[option] ?: option.displayLabel,
+                                        style = CorusFont.body,
+                                        color = if (option == appearanceMode) CorusColors.Accent else CorusColors.Text,
+                                    )
+                                },
+                                onClick = {
+                                    appearanceViewModel.setAppearanceMode(option)
+                                    showAppearanceMenu = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
             // ── Section: General ──
             SectionHeader(stringResource(R.string.settings_section_general))
 
@@ -249,18 +290,6 @@ fun SettingsScreen(
                     }
                 },
                 onClick = onLanguageSettings,
-            )
-
-            val appearanceMode by appearanceViewModel.appearanceMode.collectAsState()
-            SettingsNavRow(
-                icon = Icons.Filled.DarkMode,
-                title = stringResource(R.string.settings_row_appearance),
-                trailingText = when (appearanceMode) {
-                    AppearanceMode.LIGHT -> stringResource(R.string.appearance_option_light)
-                    AppearanceMode.DARK -> stringResource(R.string.appearance_option_dark)
-                    AppearanceMode.SYSTEM -> stringResource(R.string.appearance_option_system)
-                },
-                onClick = onAppearanceSettings,
             )
 
             // ── Section: Notifications & Messaging ──
