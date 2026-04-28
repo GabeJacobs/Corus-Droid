@@ -520,6 +520,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onSendFeedback = { navController.navigate(FeedbackFormRoute) },
             onNotificationSettings = { navController.navigate(NotificationSettingsRoute) },
             onLanguageSettings = { navController.navigate(LanguageSettingsRoute) },
+            onAppearanceSettings = { navController.navigate(AppearanceSettingsRoute) },
         )
     }
 

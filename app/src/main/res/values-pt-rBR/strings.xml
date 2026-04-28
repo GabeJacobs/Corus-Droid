@@ -89,9 +89,13 @@
     <string name="notifications_row_messages">Mensagens</string>
 
     <!-- Settings: Appearance -->
+    <string name="settings_row_appearance">Aparência</string>
     <string name="appearance_screen_title">Aparência</string>
     <string name="appearance_row_theme">Tema</string>
     <string name="appearance_row_theme_subtitle">Use claro, escuro, ou siga seu dispositivo</string>
+    <string name="appearance_option_light">Claro</string>
+    <string name="appearance_option_dark">Escuro</string>
+    <string name="appearance_option_system">Sistema</string>
 
     <!-- Settings: Blocked Users -->
     <string name="blocked_users_screen_title">Usuários Bloqueados</string>

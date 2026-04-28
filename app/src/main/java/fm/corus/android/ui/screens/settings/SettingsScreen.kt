@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Policy
 import androidx.compose.material.icons.outlined.Vibration
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import fm.corus.android.ui.theme.AppearanceMode
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -66,7 +68,9 @@ fun SettingsScreen(
     onSendFeedback: () -> Unit = {},
     onNotificationSettings: () -> Unit = {},
     onLanguageSettings: () -> Unit = {},
+    onAppearanceSettings: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
+    appearanceViewModel: AppearanceSettingsViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -245,6 +249,18 @@ fun SettingsScreen(
                     }
                 },
                 onClick = onLanguageSettings,
+            )
+
+            val appearanceMode by appearanceViewModel.appearanceMode.collectAsState()
+            SettingsNavRow(
+                icon = Icons.Filled.DarkMode,
+                title = stringResource(R.string.settings_row_appearance),
+                trailingText = when (appearanceMode) {
+                    AppearanceMode.LIGHT -> stringResource(R.string.appearance_option_light)
+                    AppearanceMode.DARK -> stringResource(R.string.appearance_option_dark)
+                    AppearanceMode.SYSTEM -> stringResource(R.string.appearance_option_system)
+                },
+                onClick = onAppearanceSettings,
             )
 
             // ── Section: Notifications & Messaging ──

@@ -82,8 +82,13 @@ fun AppearanceSettingsScreen(
             )
 
             AppearanceMode.values().forEach { option ->
+                val label = when (option) {
+                    AppearanceMode.LIGHT -> stringResource(R.string.appearance_option_light)
+                    AppearanceMode.DARK -> stringResource(R.string.appearance_option_dark)
+                    AppearanceMode.SYSTEM -> stringResource(R.string.appearance_option_system)
+                }
                 AppearanceOptionRow(
-                    label = option.displayLabel,
+                    label = label,
                     isSelected = mode == option,
                     onClick = { viewModel.setAppearanceMode(option) },
                 )
