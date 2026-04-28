@@ -24,7 +24,7 @@ class MusicSearchRepository @Inject constructor(
         query: String,
         offset: Int = 0,
         limit: Int = 20,
-        includeSoundCloud: Boolean = true,
+        includeSoundCloud: Boolean = false,
     ): Page {
         if (query.isBlank()) return Page(emptyList(), false)
         val market = java.util.Locale.getDefault().country.ifEmpty { "US" }

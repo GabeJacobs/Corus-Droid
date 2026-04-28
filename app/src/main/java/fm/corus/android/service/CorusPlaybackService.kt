@@ -1,8 +1,14 @@
 package fm.corus.android.service
 
+import android.app.Notification
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import dagger.hilt.android.AndroidEntryPoint
+import fm.corus.android.R
 import fm.corus.android.domain.NowPlayingManager
 import javax.inject.Inject
 
@@ -13,17 +19,45 @@ import javax.inject.Inject
  * Control Center, Wear, Auto, headphone-button events) can pause / resume
  * / skip / scrub via the session.
  *
- * media3 spins this service up automatically when playback starts and
- * keeps it alive (with a notification) for as long as the player is
- * playing. We don't own the [androidx.media3.exoplayer.ExoPlayer] or
- * [MediaSession] here — [NowPlayingManager] does — so this class is a
- * thin bridge.
+ * We immediately call startForeground() with a minimal placeholder notification
+ * inside onStartCommand so we *always* satisfy Android's 5-second
+ * startForegroundService → startForeground contract, even when the player is
+ * still buffering at the moment the service starts. media3's
+ * DefaultMediaNotificationProvider then replaces this placeholder with the
+ * rich media-style notification once the session has a playing player —
+ * Samsung's QS inline media player picks that up just fine.
+ *
+ * Without this, switching tracks (which can briefly drop the player back into
+ * BUFFERING) caused a `ForegroundServiceDidNotStartInTimeException` because
+ * media3 couldn't post its notification quickly enough on the second
+ * startForegroundService call.
  */
 @AndroidEntryPoint
 class CorusPlaybackService : MediaSessionService() {
 
     @Inject
     lateinit var nowPlayingManager: NowPlayingManager
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val notification = NotificationCompat.Builder(this, PLAYBACK_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Corus")
+            .setOngoing(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         // NowPlayingManager builds the session lazily when the first track
@@ -33,7 +67,7 @@ class CorusPlaybackService : MediaSessionService() {
         return nowPlayingManager.mediaSession
     }
 
-    override fun onTaskRemoved(rootIntent: android.content.Intent?) {
+    override fun onTaskRemoved(rootIntent: Intent?) {
         // App swiped away from recents while audio is playing. Match the
         // common-case music-app behavior: tear down playback so we don't
         // keep the foreground service alive without UI to manage it.
@@ -41,10 +75,8 @@ class CorusPlaybackService : MediaSessionService() {
         stopSelf()
     }
 
-    override fun onDestroy() {
-        // The service is being killed (e.g. system resource pressure or
-        // task removal). NowPlayingManager owns the session/player
-        // lifecycle, so we just clear our reference here.
-        super.onDestroy()
+    companion object {
+        private const val PLAYBACK_CHANNEL_ID = "corus_playback"
+        private const val NOTIFICATION_ID = 1001
     }
 }

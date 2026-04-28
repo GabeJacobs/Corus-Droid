@@ -139,6 +139,7 @@ fun MainTabScreen(
 
     // Observe pre-selected media IDs for compose-with-preselection flow.
     val preSelectedTrackId by viewModel.preSelectedTrackId.collectAsState()
+    val preSelectedTrack by viewModel.preSelectedTrack.collectAsState()
     val preSelectedMovieId by viewModel.preSelectedMovieId.collectAsState()
     val repostOriginalPost by viewModel.repostOriginalPost.collectAsState()
 
@@ -166,6 +167,14 @@ fun MainTabScreen(
         if (viewModel.subscriptionRepository.canPost) {
             composeViewModel.reset()
             composeViewModel.loadAndSelectTrack(trackId)
+            showCompose = true
+        } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
+    }
+    LaunchedEffect(preSelectedTrack) {
+        val track = preSelectedTrack ?: return@LaunchedEffect
+        if (viewModel.subscriptionRepository.canPost) {
+            composeViewModel.reset()
+            composeViewModel.selectPreloadedTrack(track)
             showCompose = true
         } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
     }

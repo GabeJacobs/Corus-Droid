@@ -51,6 +51,7 @@ import fm.corus.android.ui.components.SnowEffectView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 
 data class StyleSelections(
     val vinylColor: VinylStyle = VinylStyle.BLACK,
@@ -589,13 +590,14 @@ private fun FramePreview(
     latestMoviePost: CymbalPost?,
     modifier: Modifier = Modifier,
 ) {
-    val frameDrawable = remember(style) {
+    val isDark = LocalCorusDarkTheme.current
+    val frameDrawable = remember(style, isDark) {
         when (style) {
-            FrameStyle.BLACK -> R.drawable.frame_black
-            FrameStyle.WHITE -> R.drawable.frame_white
-            FrameStyle.RED -> R.drawable.frame_red
-            FrameStyle.BLUE -> R.drawable.frame_blue
-            FrameStyle.GREEN -> R.drawable.frame_green
+            FrameStyle.BLACK -> if (isDark) R.drawable.frame_black_dark else R.drawable.frame_black
+            FrameStyle.WHITE -> if (isDark) R.drawable.frame_white_dark else R.drawable.frame_white
+            FrameStyle.RED -> if (isDark) R.drawable.frame_red_dark else R.drawable.frame_red
+            FrameStyle.BLUE -> if (isDark) R.drawable.frame_blue_dark else R.drawable.frame_blue
+            FrameStyle.GREEN -> if (isDark) R.drawable.frame_green_dark else R.drawable.frame_green
         }
     }
 

@@ -1,5 +1,6 @@
 package fm.corus.android.service
 
+import android.util.Log
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
 import kotlinx.coroutines.tasks.await
@@ -66,6 +67,9 @@ class RemoteConfigService @Inject constructor(
             return if (v > 0) v else 23
         }
 
+    val soundcloudEnabled: Boolean
+        get() = remoteConfig.getBoolean("soundcloud_enabled")
+
     suspend fun fetchAndActivate() {
         try {
             val settings = FirebaseRemoteConfigSettings.Builder()
@@ -90,9 +94,36 @@ class RemoteConfigService @Inject constructor(
                     "save_cap_enforced" to false,
                     "save_cap_limit" to 25L,
                     "save_cap_warning_at" to 23L,
+                    "soundcloud_enabled" to false,
                 )
             ).await()
-            remoteConfig.fetchAndActivate().await()
-        } catch (_: Exception) { }
+            val activated = remoteConfig.fetchAndActivate().await()
+            logValues(activated)
+        } catch (e: Exception) {
+            Log.w("RemoteConfig", "fetchAndActivate failed", e)
+        }
+    }
+
+    private fun logValues(activated: Boolean) {
+        Log.i(
+            "RemoteConfig",
+            "fetchAndActivate activated=$activated " +
+                "soundcloud_enabled=$soundcloudEnabled " +
+                "movie_mode=$movieModeEnabled " +
+                "maintenance_mode=$maintenanceMode " +
+                "instagram_share_enabled=$instagramShareEnabled " +
+                "corus_club_enabled=$corusClubEnabled " +
+                "vinyl_flip_enabled=$vinylFlipEnabled " +
+                "review_prompt_enabled=$reviewPromptEnabled " +
+                "daily_post_limit_enabled=$dailyPostLimitEnabled " +
+                "filter_for_club_members_only=$filterForClubMembersOnly " +
+                "paywall_default_yearly=$paywallDefaultYearly " +
+                "giphy_support=$giphySupport " +
+                "server_notifications_enabled=$serverNotificationsEnabled " +
+                "comment_attachments_enabled=$commentAttachmentsEnabled " +
+                "save_cap_enforced=$saveCapEnforced " +
+                "save_cap_limit=$saveCapLimit " +
+                "save_cap_warning_at=$saveCapWarningAt"
+        )
     }
 }

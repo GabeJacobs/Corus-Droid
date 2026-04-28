@@ -107,6 +107,8 @@ data class CymbalPost(
             val mediaTypeStr = data["mediaType"] as? String
             val mediaType = MediaType.from(mediaTypeStr)
 
+            val trackSource = TrackSource.fromRaw(data["trackSource"] as? String ?: data["source"] as? String)
+            val isTrackSoundCloud = trackSource == TrackSource.SOUNDCLOUD
             val track = CymbalTrack(
                 id = data["trackId"] as? String ?: "",
                 name = data["trackName"] as? String ?: "",
@@ -114,14 +116,19 @@ data class CymbalPost(
                 albumName = data["albumName"] as? String ?: "",
                 albumArtURL = data["albumArtThumbnailURL"] as? String ?: data["albumArtURL"] as? String,
                 albumArtLargeURL = data["albumArtLargeURL"] as? String,
-                spotifyURI = data["spotifyURI"] as? String ?: "",
-                spotifyWebURL = data["spotifyWebURL"] as? String ?: "",
+                spotifyURI = if (isTrackSoundCloud) "" else (data["spotifyURI"] as? String ?: ""),
+                spotifyWebURL = if (isTrackSoundCloud) "" else (data["spotifyWebURL"] as? String ?: ""),
                 durationMs = (data["durationMs"] as? Number)?.toInt() ?: 0,
                 previewUrl = data["previewUrl"] as? String ?: data["previewURL"] as? String,
                 isrc = data["isrc"] as? String,
                 albumArtBackURL = data["albumArtBackURL"] as? String,
                 releaseDate = (data["trackReleaseDate"] as? String)?.ifEmpty { null },
                 releaseDatePrecision = (data["trackReleaseDatePrecision"] as? String)?.ifEmpty { null },
+                source = trackSource,
+                soundcloudId = (data["soundcloudId"] as? String)?.ifEmpty { null },
+                soundcloudPermalinkUrl = (data["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
+                unavailable = data["trackUnavailable"] as? Boolean ?: false,
+                unavailableReason = (data["trackUnavailableReason"] as? String)?.ifEmpty { null },
             )
 
             // Preview comments from cloud functions use a flat structure

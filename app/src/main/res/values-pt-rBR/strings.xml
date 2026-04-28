@@ -592,6 +592,8 @@
     <string name="post_card_watch_trailer">Assistir Trailer</string>
     <string name="post_card_cd_album_back_cover">Contracapa do álbum</string>
     <string name="post_card_cd_play_spotify">Tocar no Spotify</string>
+    <string name="post_card_cd_play_soundcloud">Tocar no SoundCloud</string>
+    <string name="post_card_cd_track_unavailable">Faixa não está mais disponível no SoundCloud</string>
     <string name="post_card_cd_like">Curtir</string>
     <string name="post_card_cd_comment">Comentar</string>
     <string name="post_card_cd_share">Compartilhar</string>

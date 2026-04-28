@@ -1,15 +1,18 @@
 package fm.corus.android.ui.screens.profile
 
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import com.valentinilk.shimmer.ShimmerBounds
-import com.valentinilk.shimmer.rememberShimmer
-import com.valentinilk.shimmer.shimmer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -237,7 +240,6 @@ fun ProfileScreen(
         },
         modifier = Modifier.fillMaxSize(),
     ) {
-    val gridSkeletonShimmer = rememberShimmer(shimmerBounds = ShimmerBounds.Window)
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Fixed(3),
@@ -696,12 +698,25 @@ fun ProfileScreen(
             // SkeletonProfileGrid in the header already covers grid area; emit nothing here
         } else if (isSegmentLoading) {
             // Skeleton grid cells while likes/saves load (matching iOS)
-            items(15) {
+            items(15) { index ->
+                // Per-cell pulse staggered by index, matching iOS SkeletonAlbumGridCell.
+                // Adjacent cells sit at different opacities so grid boundaries stay visible
+                // without any inter-cell spacing.
+                val transition = rememberInfiniteTransition(label = "skeletonPulse")
+                val alpha by transition.animateFloat(
+                    initialValue = 0.85f,
+                    targetValue = 0.3f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 750, easing = EaseInOut),
+                        repeatMode = RepeatMode.Reverse,
+                        initialStartOffset = StartOffset(offsetMillis = index * 80),
+                    ),
+                    label = "skeletonAlpha",
+                )
                 Box(
                     modifier = Modifier
                         .aspectRatio(1f)
-                        .shimmer(gridSkeletonShimmer)
-                        .background(CorusColors.Skeleton),
+                        .background(CorusColors.Skeleton.copy(alpha = alpha)),
                 )
             }
         } else {

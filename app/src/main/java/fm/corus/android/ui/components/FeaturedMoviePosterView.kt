@@ -46,8 +46,7 @@ import fm.corus.android.data.model.SnowIntensity
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusColors
-import fm.corus.android.ui.theme.DarkCorusPalette
-import fm.corus.android.ui.theme.LocalCorusPalette
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
@@ -69,13 +68,17 @@ fun FeaturedMoviePosterView(
     onArtReady: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val frameDrawable = remember(frameStyle) {
+    // Pick frame asset explicitly per in-app theme. We can't rely on Android's
+    // drawable-night qualifier because the appearance toggle (System/Light/Dark)
+    // can force dark while the OS Configuration is still in light uiMode.
+    val isDark = LocalCorusDarkTheme.current
+    val frameDrawable = remember(frameStyle, isDark) {
         when (frameStyle) {
-            FrameStyle.BLACK -> R.drawable.frame_black
-            FrameStyle.WHITE -> R.drawable.frame_white
-            FrameStyle.RED -> R.drawable.frame_red
-            FrameStyle.BLUE -> R.drawable.frame_blue
-            FrameStyle.GREEN -> R.drawable.frame_green
+            FrameStyle.BLACK -> if (isDark) R.drawable.frame_black_dark else R.drawable.frame_black
+            FrameStyle.WHITE -> if (isDark) R.drawable.frame_white_dark else R.drawable.frame_white
+            FrameStyle.RED -> if (isDark) R.drawable.frame_red_dark else R.drawable.frame_red
+            FrameStyle.BLUE -> if (isDark) R.drawable.frame_blue_dark else R.drawable.frame_blue
+            FrameStyle.GREEN -> if (isDark) R.drawable.frame_green_dark else R.drawable.frame_green
         }
     }
 
@@ -167,7 +170,6 @@ fun FeaturedMoviePosterView(
             // Glass overlay (screen blend — matches iOS .blendMode(.screen)).
             // Skipped in dark mode where .Screen blend overexposes against the near-black
             // backdrop and reads as harsh sparkles.
-            val isDark = LocalCorusPalette.current === DarkCorusPalette
             if (!isDark) {
                 Spacer(
                     modifier = Modifier

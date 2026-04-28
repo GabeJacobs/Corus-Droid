@@ -1310,12 +1310,19 @@ private fun SongSearchRow(track: CymbalTrack, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = track.albumArtURL,
-            contentDescription = track.name,
-            modifier = Modifier.size(CorusSpacing.albumArtThumbnail).clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
-            contentScale = ContentScale.Crop,
-        )
+        Box(modifier = Modifier.size(CorusSpacing.albumArtThumbnail)) {
+            AsyncImage(
+                model = track.albumArtURL,
+                contentDescription = track.name,
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+                contentScale = ContentScale.Crop,
+            )
+            if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
+                fm.corus.android.ui.components.SoundCloudBadgeOverlay(
+                    modifier = Modifier.align(Alignment.BottomEnd),
+                )
+            }
+        }
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),

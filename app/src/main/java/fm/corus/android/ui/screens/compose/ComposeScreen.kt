@@ -153,8 +153,7 @@ fun ComposeScreen(
                             .align(Alignment.CenterStart)
                             .size(20.dp)
                             .clickable {
-                                viewModel.clearSelection()
-                                searchQuery = ""
+                                viewModel.clearSelectionKeepingResults()
                             },
                     )
                 }
@@ -467,6 +466,7 @@ private fun SearchModeContent(
                             showPlayOverlay = result.showPlayOverlay,
                             isPlaying = result.showPlayOverlay && nowPlayingTrackId == result.id,
                             isLoading = result.showPlayOverlay && previewLoadingTrackId == result.id,
+                            isSoundCloud = result.isSoundCloud,
                             onAlbumArtTap = if (result.showPlayOverlay) {{ onPreviewTap(result.id) }} else null,
                             onClick = { onResultClick(result) },
                         )
@@ -532,7 +532,7 @@ private fun SegmentedToggle(
                     .clip(RoundedCornerShape(10.dp))
                     .then(
                         if (index == selectedIndex) {
-                            Modifier.background(Color.White, RoundedCornerShape(10.dp))
+                            Modifier.background(CorusColors.SegmentedSelected, RoundedCornerShape(10.dp))
                         } else {
                             Modifier
                         }
@@ -772,6 +772,7 @@ private fun SearchResultRow(
     showPlayOverlay: Boolean = false,
     isPlaying: Boolean = false,
     isLoading: Boolean = false,
+    isSoundCloud: Boolean = false,
     onAlbumArtTap: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
@@ -786,16 +787,22 @@ private fun SearchResultRow(
         Box(
             modifier = Modifier
                 .size(CorusSpacing.albumArtSearch) // 48dp
-                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
                 .then(if (onAlbumArtTap != null) Modifier.clickable { onAlbumArtTap() } else Modifier),
             contentAlignment = Alignment.Center,
         ) {
             AsyncImage(
                 model = imageURL,
                 contentDescription = title,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
                 contentScale = ContentScale.Crop,
             )
+            if (isSoundCloud) {
+                fm.corus.android.ui.components.SoundCloudBadgeOverlay(
+                    modifier = Modifier.align(Alignment.BottomEnd),
+                )
+            }
             if (showPlayOverlay) {
                 if (isPlaying || isLoading) {
                     Box(

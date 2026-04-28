@@ -21,6 +21,7 @@ import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -42,6 +43,7 @@ class SearchViewModel @Inject constructor(
     private val tmdbRepository: TMDBRepository,
     private val preferencesDataStore: PreferencesDataStore,
     private val firestoreDataSource: FirestoreDataSource,
+    private val remoteConfigService: RemoteConfigService,
 ) : ViewModel() {
 
     // Tab state
@@ -353,7 +355,10 @@ class SearchViewModel @Inject constructor(
             try {
                 when (tab) {
                     0 -> _userSearchResults.value = userRepository.searchUsers(query.lowercase().trim())
-                    1 -> _songSearchResults.value = musicSearchRepository.search(query).tracks
+                    1 -> _songSearchResults.value = musicSearchRepository.search(
+                        query,
+                        includeSoundCloud = remoteConfigService.soundcloudEnabled,
+                    ).tracks
                     2 -> {
                         val results = tmdbRepository.searchMovies(query)
                         val withDirectors = try {

@@ -756,16 +756,12 @@ private fun SettingsActionRow(
 
 // ── Dropdown Settings Row ──
 //
-// Use this for any settings row that opens a dropdown (Theme, Language, Who Can
-// Message Me, etc.). It renders a normal SettingsNavRow plus the DropdownMenu
-// inline — no wrapping Box. Wrapping rows in a Box(fillMaxWidth) was producing a
-// visible "double divider" above the row when the previous row also drew an inset
-// divider, because the Box allocated layout space differently than a plain row.
-//
-// Always use this helper when adding a new dropdown row. Do not wrap a
-// SettingsNavRow in a Box just to anchor a DropdownMenu — DropdownMenu uses a
-// Popup internally and consumes no layout space when collapsed, so the menu
-// will still anchor correctly to the row above it.
+// Wraps SettingsNavRow + DropdownMenu in a Box so the popup anchors to the row
+// itself. Use Modifier.fillMaxWidth() on the Box: a wrap-content Box would size
+// to the menu's anchor bounds and break the row's full-width divider. Material3
+// DropdownMenu does not anchor to its layout-flow position when its parent is a
+// scrolling Column — it anchors to the parent layout's bounds — so an explicit
+// Box wrapper is required.
 @Composable
 private fun <T> DropdownSettingsRow(
     icon: ImageVector,
@@ -777,17 +773,19 @@ private fun <T> DropdownSettingsRow(
     onSelect: (T) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    SettingsNavRow(
-        icon = icon,
-        title = title,
-        subtitle = subtitle,
-        trailingText = labelFor(selected),
-        onClick = { expanded = true },
-    )
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = { expanded = false },
-    ) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        SettingsNavRow(
+            icon = icon,
+            title = title,
+            subtitle = subtitle,
+            trailingText = labelFor(selected),
+            onClick = { expanded = true },
+        )
+        Box(modifier = Modifier.align(Alignment.BottomEnd)) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
         options.forEach { option ->
             DropdownMenuItem(
                 text = {
@@ -802,6 +800,8 @@ private fun <T> DropdownSettingsRow(
                     onSelect(option)
                 },
             )
+        }
+        }
         }
     }
 }

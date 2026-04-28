@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.domain.NowPlayingManager
@@ -65,11 +66,20 @@ class MainTabViewModel @Inject constructor(
     private val _preSelectedTrackId = MutableStateFlow<String?>(null)
     val preSelectedTrackId: StateFlow<String?> = _preSelectedTrackId.asStateFlow()
 
+    // Full-track preselect — used when the caller already has a complete CymbalTrack
+    // (e.g. SoundCloud tracks, where a Spotify-by-id lookup would lose source info).
+    private val _preSelectedTrack = MutableStateFlow<CymbalTrack?>(null)
+    val preSelectedTrack: StateFlow<CymbalTrack?> = _preSelectedTrack.asStateFlow()
+
     private val _preSelectedMovieId = MutableStateFlow<String?>(null)
     val preSelectedMovieId: StateFlow<String?> = _preSelectedMovieId.asStateFlow()
 
     fun setPreSelectedTrackId(trackId: String?) {
         _preSelectedTrackId.value = trackId
+    }
+
+    fun setPreSelectedTrack(track: CymbalTrack?) {
+        _preSelectedTrack.value = track
     }
 
     fun setPreSelectedMovieId(movieId: String?) {
@@ -88,6 +98,7 @@ class MainTabViewModel @Inject constructor(
     /** Called after compose overlay closes to clear any pre-selection. */
     fun clearPreSelectedMedia() {
         _preSelectedTrackId.value = null
+        _preSelectedTrack.value = null
         _preSelectedMovieId.value = null
         _repostOriginalPost.value = null
     }

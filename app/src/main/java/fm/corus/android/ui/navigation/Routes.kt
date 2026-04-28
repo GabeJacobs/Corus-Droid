@@ -33,6 +33,9 @@ import kotlinx.serialization.Serializable
     val spotifyURI: String? = null,
     val spotifyWebURL: String? = null,
     val previewUrl: String? = null,
+    val source: String? = null,
+    val soundcloudId: String? = null,
+    val soundcloudPermalinkUrl: String? = null,
 )
 @Serializable data class FilmDetailRoute(
     val movieId: String,

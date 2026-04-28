@@ -432,10 +432,13 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             spotifyURI = route.spotifyURI,
             spotifyWebURL = route.spotifyWebURL,
             previewUrl = route.previewUrl,
+            source = route.source,
+            soundcloudId = route.soundcloudId,
+            soundcloudPermalinkUrl = route.soundcloudPermalinkUrl,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            onNavigateToCompose = { trackId ->
-                mainTabViewModel.setPreSelectedTrackId(trackId)
+            onNavigateToCompose = { track ->
+                mainTabViewModel.setPreSelectedTrack(track)
             },
         )
     }

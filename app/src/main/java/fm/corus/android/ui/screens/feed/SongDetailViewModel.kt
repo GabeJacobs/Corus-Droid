@@ -121,6 +121,9 @@ class SongDetailViewModel @Inject constructor(
         spotifyURI: String?,
         spotifyWebURL: String?,
         isrc: String?,
+        source: fm.corus.android.data.model.TrackSource = fm.corus.android.data.model.TrackSource.SPOTIFY,
+        soundcloudId: String? = null,
+        soundcloudPermalinkUrl: String? = null,
     ) {
         viewModelScope.launch {
             nowPlayingManager.play(
@@ -132,6 +135,9 @@ class SongDetailViewModel @Inject constructor(
                 spotifyURI = spotifyURI,
                 spotifyWebURL = spotifyWebURL,
                 isrc = isrc,
+                source = source,
+                soundcloudId = soundcloudId,
+                soundcloudPermalinkUrl = soundcloudPermalinkUrl,
             )
         }
     }

@@ -10,6 +10,8 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.data.remote.TMDBApiService
+import fm.corus.android.data.remote.TMDBMovieDetails
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
@@ -51,6 +53,7 @@ class ProfileFeedViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
     private val engagementManager: PostEngagementManager,
+    private val tmdbApiService: TMDBApiService,
     val nowPlayingManager: NowPlayingManager,
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
@@ -469,6 +472,14 @@ class ProfileFeedViewModel @Inject constructor(
             } catch (_: Exception) {
                 ToastManager.show(context.getString(R.string.feed_toast_failed_block))
             }
+        }
+    }
+
+    suspend fun fetchMovieDetails(movieId: Int): TMDBMovieDetails? {
+        return try {
+            tmdbApiService.getMovieDetails(movieId)
+        } catch (_: Exception) {
+            null
         }
     }
 

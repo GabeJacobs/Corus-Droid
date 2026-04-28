@@ -269,6 +269,7 @@ fun NotificationsScreen(
                 isSending = isSendingReply,
                 pendingSong = replyPendingSong,
                 pendingFilm = replyPendingFilm,
+                nowPlaying = viewModel.nowPlayingManager,
                 onAttachmentClick = { showReplySongFilmPicker = true },
                 onClearAttachment = { viewModel.clearReplyAttachment() },
                 onSend = { text -> viewModel.sendReply(text) },
@@ -642,6 +643,7 @@ private fun InlineReplyBar(
     isSending: Boolean,
     pendingSong: CommentAttachedSong? = null,
     pendingFilm: CommentAttachedFilm? = null,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager? = null,
     onAttachmentClick: () -> Unit = {},
     onClearAttachment: () -> Unit = {},
     onSend: (String) -> Unit,
@@ -675,6 +677,7 @@ private fun InlineReplyBar(
                     attachedSong = pendingSong,
                     attachedFilm = pendingFilm,
                     onClear = onClearAttachment,
+                    nowPlaying = nowPlaying,
                 )
             }
         }

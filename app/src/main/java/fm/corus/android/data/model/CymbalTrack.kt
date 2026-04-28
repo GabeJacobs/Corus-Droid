@@ -47,6 +47,9 @@ data class CymbalTrack(
         spotifyURI = spotifyURI,
         spotifyWebURL = spotifyWebURL,
         previewUrl = previewUrl,
+        source = source.raw,
+        soundcloudId = soundcloudId,
+        soundcloudPermalinkUrl = soundcloudPermalinkUrl,
     )
 
     companion object {

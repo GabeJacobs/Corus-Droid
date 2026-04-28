@@ -66,6 +66,8 @@ data class NowPlayingState(
     val isPlaying: Boolean = false,
     val sourcePostId: String? = null,
     val hasNext: Boolean = false,
+    val source: TrackSource = TrackSource.SPOTIFY,
+    val soundcloudPermalinkUrl: String? = null,
 ) {
     val hasActiveTrack: Boolean get() = trackId != null
 }
@@ -119,6 +121,14 @@ class NowPlayingManager @Inject constructor(
     var mediaSession: MediaSession? = null
         private set
     private var foregroundServiceStarted: Boolean = false
+
+    // Read by the persistent ForwardingPlayer's getAvailableCommands to
+    // gate the scrubber per source. Spotify/Apple previews are 30s clips
+    // where a seek bar feels broken; SoundCloud is full HLS where it's
+    // the whole point. Updated on each track change before setMediaItem
+    // so media3 picks up the new command set.
+    @Volatile
+    private var currentTrackIsSoundCloud: Boolean = false
 
     private val _state = MutableStateFlow(NowPlayingState())
     val state: StateFlow<NowPlayingState> = _state.asStateFlow()
@@ -379,8 +389,12 @@ class NowPlayingManager @Inject constructor(
         // Cache for future taps
         previewCache[trackId] = resolvedUrl
 
-        // New track — start playback
-        stopPlayerOnly()
+        // New track — switch the persistent player+session to it.
+        // We do NOT release & rebuild the MediaSession per track:
+        // MediaSessionService binds its internal controller on first
+        // attach, and a freshly-built session isn't auto-reattached, so
+        // releasing kills the system media notification permanently.
+        currentTrackIsSoundCloud = track.source == TrackSource.SOUNDCLOUD
         val mediaItem = MediaItem.Builder()
             .setUri(resolvedUrl)
             .setMediaMetadata(
@@ -391,59 +405,14 @@ class NowPlayingManager @Inject constructor(
                     .build()
             )
             .build()
-        val exo = ExoPlayer.Builder(context).build().apply {
-            addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (playbackState == Player.STATE_ENDED) {
-                        _state.value = _state.value.copy(isPlaying = false)
-                        handlePlaybackEnded()
-                    }
-                }
-            })
-            setMediaItem(mediaItem)
-            prepare()
-            play()
-        }
-        player = exo
-
-        // Build a session so lock-screen / notification controls work.
-        // We wrap the player to redirect the system "next" command to our
-        // own queue logic (skipToNext) — ExoPlayer alone has no knowledge
-        // of the feed-backed queue. For Spotify/Apple-preview tracks we
-        // hide the scrubber: 30s clips with a seek bar feel broken. For
-        // SoundCloud (full HLS), scrubbing is the whole point.
-        val isSoundCloud = track.source == TrackSource.SOUNDCLOUD
-        val sessionPlayer = object : ForwardingPlayer(exo) {
-            override fun seekToNext() {
-                this@NowPlayingManager.skipToNext()
-            }
-
-            override fun seekToNextMediaItem() {
-                this@NowPlayingManager.skipToNext()
-            }
-
-            override fun hasNextMediaItem(): Boolean = computeHasNext()
-
-            override fun getAvailableCommands(): Player.Commands {
-                val builder = Player.Commands.Builder()
-                    .addAll(super.getAvailableCommands())
-                    .add(Player.COMMAND_SEEK_TO_NEXT)
-                    .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
-                if (!isSoundCloud) {
-                    builder.remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
-                }
-                return builder.build()
-            }
-        }
-
-        mediaSession = MediaSession.Builder(context, sessionPlayer).build()
-        if (!foregroundServiceStarted) {
-            ContextCompat.startForegroundService(
-                context,
-                Intent(context, CorusPlaybackService::class.java),
-            )
-            foregroundServiceStarted = true
-        }
+        val exo = ensurePlayerAndSession()
+        exo.setMediaItem(mediaItem)
+        exo.prepare()
+        exo.play()
+        // Promote the service only after the session is playing — otherwise
+        // MediaSessionService can't post its notification fast enough and
+        // Android kills us with ForegroundServiceDidNotStartInTimeException.
+        startForegroundServiceIfNeeded()
 
         _state.value = NowPlayingState(
             trackId = trackId,
@@ -455,6 +424,8 @@ class NowPlayingManager @Inject constructor(
             isPlaying = true,
             sourcePostId = track.sourcePostId,
             hasNext = computeHasNext(),
+            source = track.source,
+            soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
         )
     }
 
@@ -464,12 +435,16 @@ class NowPlayingManager @Inject constructor(
      * other clients render the post in a greyed-out state.
      */
     private suspend fun resolveSoundCloudStream(soundcloudId: String): String? {
+        android.util.Log.i("NowPlaying", "resolveSoundCloudStream START id=$soundcloudId")
         return try {
             val data = withContext(Dispatchers.IO) {
                 cloudFunctions.soundcloudResolveStream(soundcloudId)
             }
-            (data["streamUrl"] as? String)?.takeIf { it.isNotBlank() }
+            val streamUrl = (data["streamUrl"] as? String)?.takeIf { it.isNotBlank() }
+            android.util.Log.i("NowPlaying", "resolveSoundCloudStream OK id=$soundcloudId streamUrl=${streamUrl?.take(60)}…")
+            streamUrl
         } catch (e: Exception) {
+            android.util.Log.w("NowPlaying", "resolveSoundCloudStream FAILED id=$soundcloudId msg=${e.message}", e)
             // Best-effort marking of unavailability when the track has been
             // deleted, privatized, or geo-blocked. Non-fatal to playback path.
             val message = e.message?.lowercase().orEmpty()
@@ -528,12 +503,68 @@ class NowPlayingManager @Inject constructor(
         }
     }
 
-    /** Stops the player without clearing the queue — used between queued tracks. */
-    private fun stopPlayerOnly() {
-        mediaSession?.release()
-        mediaSession = null
-        player?.release()
-        player = null
+    /**
+     * Lazily build the persistent ExoPlayer + ForwardingPlayer + MediaSession
+     * and start the foreground service. All three live for the full playback
+     * lifecycle and are only torn down in [stop]. Track changes reuse them
+     * via [ExoPlayer.setMediaItem].
+     */
+    private fun ensurePlayerAndSession(): ExoPlayer {
+        player?.let { return it }
+
+        val exo = ExoPlayer.Builder(context).build().apply {
+            addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_ENDED) {
+                        _state.value = _state.value.copy(isPlaying = false)
+                        handlePlaybackEnded()
+                    }
+                }
+            })
+        }
+        // Redirect the system "next" command to our own queue (ExoPlayer
+        // has no knowledge of the feed-backed queue) and gate the scrubber
+        // per source via currentTrackIsSoundCloud.
+        val sessionPlayer = object : ForwardingPlayer(exo) {
+            override fun seekToNext() {
+                this@NowPlayingManager.skipToNext()
+            }
+
+            override fun seekToNextMediaItem() {
+                this@NowPlayingManager.skipToNext()
+            }
+
+            override fun hasNextMediaItem(): Boolean = computeHasNext()
+
+            override fun getAvailableCommands(): Player.Commands {
+                val builder = Player.Commands.Builder()
+                    .addAll(super.getAvailableCommands())
+                    .add(Player.COMMAND_SEEK_TO_NEXT)
+                    .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                if (!currentTrackIsSoundCloud) {
+                    builder.remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+                }
+                return builder.build()
+            }
+        }
+        player = exo
+        mediaSession = MediaSession.Builder(context, sessionPlayer).build()
+        return exo
+    }
+
+    /**
+     * Promote [CorusPlaybackService] to foreground. Must be called only after the
+     * session's player has prepare()+play() running, so media3 can post its rich
+     * media-style notification within Android's 5s ANR window. Calling this with
+     * an idle session causes a `ForegroundServiceDidNotStartInTimeException`.
+     */
+    private fun startForegroundServiceIfNeeded() {
+        if (foregroundServiceStarted) return
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, CorusPlaybackService::class.java),
+        )
+        foregroundServiceStarted = true
     }
 
     /**

@@ -24,6 +24,7 @@ import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.extractMentions
 import fm.corus.android.ui.components.parseMentionQuery
 import kotlinx.coroutines.Job
@@ -41,6 +42,7 @@ data class SearchResultItem(
     val subtitle: String,
     val trailingText: String? = null,
     val showPlayOverlay: Boolean = false,
+    val isSoundCloud: Boolean = false,
 )
 
 @HiltViewModel
@@ -58,6 +60,7 @@ class ComposeViewModel @Inject constructor(
     private val postCreationEvent: PostCreationEvent,
     private val engagementManager: PostEngagementManager,
     private val hapticManager: HapticManager,
+    private val remoteConfigService: RemoteConfigService,
 ) : ViewModel() {
 
     // Post limit / Cymbal Club
@@ -186,7 +189,10 @@ class ComposeViewModel @Inject constructor(
             _isSearching.value = true
             try {
                 if (mediaType == MediaType.TRACK) {
-                    cachedTracks = musicSearchRepository.search(query).tracks
+                    cachedTracks = musicSearchRepository.search(
+                        query,
+                        includeSoundCloud = remoteConfigService.soundcloudEnabled,
+                    ).tracks
                     _searchResults.value = cachedTracks.map { track ->
                         SearchResultItem(
                             id = track.id,
@@ -195,6 +201,7 @@ class ComposeViewModel @Inject constructor(
                             subtitle = track.artistName,
                             trailingText = track.formattedDuration,
                             showPlayOverlay = true,
+                            isSoundCloud = track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD,
                         )
                     }
                 } else {
@@ -240,6 +247,19 @@ class ComposeViewModel @Inject constructor(
         _filmResults.value = emptyList()
     }
 
+    /**
+     * Clears the current track/movie selection but preserves the in-progress
+     * search query results. Used when the user taps the back chevron from
+     * compose mode and expects to land on the search list they had open.
+     * A fresh entry into Compose still goes through [reset], which wipes
+     * everything.
+     */
+    fun clearSelectionKeepingResults() {
+        stopPreview()
+        _selectedTrack.value = null
+        _selectedMovie.value = null
+    }
+
     fun selectTrendingSong(song: TrendingSong) {
         // Mirrors iOS SongSearchView.selectTrendingSong haptic.
         hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
@@ -268,6 +288,18 @@ class ComposeViewModel @Inject constructor(
             }
             _isLoadingPreSelection.value = false
         }
+    }
+
+    /**
+     * Pre-select a track when the caller already has a full CymbalTrack (preserves
+     * source = SoundCloud and the SC-specific identifiers, which a Spotify-by-id
+     * lookup would silently drop).
+     */
+    fun selectPreloadedTrack(track: CymbalTrack) {
+        hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
+        _selectedTrack.value = track
+        _searchResults.value = emptyList()
+        _isLoadingPreSelection.value = false
     }
 
     /**
@@ -534,6 +566,9 @@ class ComposeViewModel @Inject constructor(
                 albumArtURL = track.albumArtURL,
                 previewUrl = track.previewUrl,
                 isrc = track.isrc,
+                source = track.source,
+                soundcloudId = track.soundcloudId,
+                soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
             )
         }
     }

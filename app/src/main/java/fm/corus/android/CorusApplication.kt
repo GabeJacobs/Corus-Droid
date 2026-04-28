@@ -90,6 +90,19 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
             description = "Direct messages"
         }
 
-        manager.createNotificationChannels(listOf(general, social, messages))
+        // Silent low-importance channel for the playback foreground-service
+        // placeholder notification. media3 replaces it with the rich media
+        // notification once the session attaches; the channel just has to
+        // exist so we can post the placeholder without surprising the user.
+        val playback = NotificationChannel(
+            "corus_playback",
+            "Playback",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Now playing controls"
+            setShowBadge(false)
+        }
+
+        manager.createNotificationChannels(listOf(general, social, messages, playback))
     }
 }

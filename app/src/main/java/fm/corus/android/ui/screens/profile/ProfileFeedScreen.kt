@@ -22,6 +22,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.screens.feed.FilmInfoSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -56,6 +57,7 @@ fun ProfileFeedScreen(
 
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
+    var filmInfoPost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<CymbalPost?>(null) }
     val backCoverStates = remember { mutableMapOf<String, fm.corus.android.ui.components.BackCoverFlipState>() }
@@ -154,7 +156,7 @@ fun ProfileFeedScreen(
                     onFilmPageTap = { onNavigateToFilm(post.movieId ?: "") },
                     onSpotifyTap = {
                         if (post.isMovie) {
-                            onNavigateToFilm(post.movieId ?: "")
+                            filmInfoPost = post
                         } else if (post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
                             // SoundCloud tracks aren't on Spotify — open the SC permalink instead.
                             val permalink = post.track.soundcloudPermalinkUrl
@@ -238,4 +240,12 @@ fun ProfileFeedScreen(
         onRepost = onRepost,
         onPostDeleted = { if (posts.size <= 1) onBack() },
     )
+
+    filmInfoPost?.let { post ->
+        FilmInfoSheet(
+            post = post,
+            onDismiss = { filmInfoPost = null },
+            fetchMovieDetails = { movieId -> viewModel.fetchMovieDetails(movieId) },
+        )
+    }
 }

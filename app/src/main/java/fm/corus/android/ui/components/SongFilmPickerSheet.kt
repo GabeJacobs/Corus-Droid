@@ -39,6 +39,7 @@ import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.MusicSearchRepository
+import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -93,7 +94,10 @@ fun SongFilmPickerSheet(
             delay(300)
             try {
                 if (currentMode == PickerMode.SONG) {
-                    tracks = musicSearchRepository.search(query).tracks
+                    tracks = musicSearchRepository.search(
+                        query,
+                        includeSoundCloud = viewModel.remoteConfigService.soundcloudEnabled,
+                    ).tracks
                     movies = emptyList()
                 } else {
                     val initial = tmdbRepository.searchMovies(query)
@@ -119,6 +123,11 @@ fun SongFilmPickerSheet(
         sheetState = sheetState,
         containerColor = CorusColors.Background,
         sheetMaxWidth = Int.MAX_VALUE.dp,
+        dragHandle = {
+            Column(modifier = Modifier.statusBarsPadding()) {
+                BottomSheetDefaults.DragHandle()
+            }
+        },
     ) {
         CorusSystemBars()
         Column(modifier = Modifier.fillMaxSize()) {
@@ -313,14 +322,19 @@ private fun SongPickerRow(track: CymbalTrack, onClick: () -> Unit) {
             .heightIn(min = CorusSpacing.touchTarget),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = track.albumArtURL,
-            contentDescription = track.name,
-            modifier = Modifier
-                .size(CorusSpacing.albumArtSearch)
-                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
-            contentScale = ContentScale.Crop,
-        )
+        Box(modifier = Modifier.size(CorusSpacing.albumArtSearch)) {
+            AsyncImage(
+                model = track.albumArtURL,
+                contentDescription = track.name,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+                contentScale = ContentScale.Crop,
+            )
+            if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
+                SoundCloudBadgeOverlay(modifier = Modifier.align(Alignment.BottomEnd))
+            }
+        }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -552,6 +566,7 @@ class SongFilmPickerViewModel @Inject constructor(
     val musicSearchRepository: MusicSearchRepository,
     val tmdbRepository: TMDBRepository,
     private val exploreRepository: ExploreRepository,
+    val remoteConfigService: RemoteConfigService,
 ) : ViewModel() {
 
     private val _trendingSongs = MutableStateFlow<List<TrendingSong>>(emptyList())

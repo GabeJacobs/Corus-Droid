@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -13,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Send
@@ -36,6 +36,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import coil3.size.Size
@@ -103,6 +105,7 @@ fun PostCard(
     val heartAlpha = remember { Animatable(0f) }
     var showDoubleTapHeart by remember { mutableStateOf(false) }
     var showFilmOverlay by remember { mutableStateOf(false) }
+    var showUnavailableToast by remember(post.id) { mutableStateOf(false) }
     val flipState = backCoverFlipState
     val haptics = LocalHapticManager.current
     Column(
@@ -239,6 +242,13 @@ fun PostCard(
                                 onTap = {
                                     if (flipState.isLoading) return@detectTapGestures
                                     when {
+                                        post.isTrack && post.track.unavailable -> {
+                                            showUnavailableToast = true
+                                            scope.launch {
+                                                kotlinx.coroutines.delay(2000)
+                                                showUnavailableToast = false
+                                            }
+                                        }
                                         post.isTrack -> onPreviewTap()
                                         post.isMovie -> showFilmOverlay = !showFilmOverlay
                                         else -> onPostTap()
@@ -248,6 +258,7 @@ fun PostCard(
                         },
                     contentAlignment = Alignment.Center,
                 ) {
+                    val isUnavailable = post.isTrack && post.track.unavailable
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(post.displayImageLargeURL ?: post.displayImageURL)
@@ -257,7 +268,45 @@ fun PostCard(
                         contentDescription = post.displayTitle,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
+                        colorFilter = if (isUnavailable) {
+                            androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+                                androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0.3f) }
+                            )
+                        } else null,
                     )
+
+                    if (isUnavailable) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color.Black.copy(alpha = 0.55f), shape = CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+
+                    if (showUnavailableToast) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.BottomCenter)
+                                .background(Color.Black.copy(alpha = 0.7f))
+                                .padding(vertical = CorusSpacing.sm, horizontal = CorusSpacing.lg),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.post_card_cd_track_unavailable),
+                                color = Color.White,
+                                style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
+                            )
+                        }
+                    }
 
                     // Back-cover loading overlay
                     if (flipState.isLoading) {
@@ -529,26 +578,30 @@ fun PostCard(
                 }
             } else {
                 val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
-                val logoRes = when {
-                    isSoundCloud && isSystemInDarkTheme() -> R.drawable.soundcloud_white
-                    isSoundCloud -> R.drawable.soundcloud_black
-                    else -> R.drawable.spotify_logo
-                }
-                Image(
-                    painter = painterResource(logoRes),
-                    contentDescription = stringResource(
-                        if (isSoundCloud) R.string.post_card_cd_play_spotify // TODO: localize "Play on SoundCloud"
-                        else R.string.post_card_cd_play_spotify
-                    ),
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onSpotifyTap,
-                        ),
-                    contentScale = ContentScale.Fit,
+                val cd = stringResource(
+                    if (isSoundCloud) R.string.post_card_cd_play_soundcloud
+                    else R.string.post_card_cd_play_spotify
                 )
+                val tapModifier = Modifier
+                    .size(28.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onSpotifyTap,
+                    )
+                if (isSoundCloud) {
+                    SoundCloudAdaptiveLogo(
+                        modifier = tapModifier.semantics { contentDescription = cd },
+                        size = 28.dp,
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(R.drawable.spotify_logo),
+                        contentDescription = cd,
+                        modifier = tapModifier,
+                        contentScale = ContentScale.Fit,
+                    )
+                }
             }
         }
 

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -34,6 +36,8 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.UserAvatarView
@@ -54,10 +58,13 @@ fun SongDetailScreen(
     spotifyURI: String? = null,
     spotifyWebURL: String? = null,
     previewUrl: String? = null,
+    source: String? = null,
+    soundcloudId: String? = null,
+    soundcloudPermalinkUrl: String? = null,
     viewModel: SongDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
-    onNavigateToCompose: (String) -> Unit = {},
+    onNavigateToCompose: (CymbalTrack) -> Unit = {},
 ) {
     val posts by viewModel.posts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -78,6 +85,10 @@ fun SongDetailScreen(
     val effectiveSpotifyWebURL = songInfo?.track?.spotifyWebURL ?: spotifyWebURL ?: ""
     val effectivePreviewUrl = songInfo?.track?.previewUrl ?: previewUrl
     val effectiveIsrc = songInfo?.track?.isrc
+    val effectiveSource = songInfo?.track?.source ?: TrackSource.fromRaw(source)
+    val effectiveSoundcloudId = songInfo?.track?.soundcloudId ?: soundcloudId
+    val effectiveSoundcloudPermalinkUrl = songInfo?.track?.soundcloudPermalinkUrl ?: soundcloudPermalinkUrl
+    val isSoundCloud = effectiveSource == TrackSource.SOUNDCLOUD
 
     val isPlayingThisTrack = nowPlayingState.trackId == trackId && nowPlayingState.isPlaying
     val isLoadingThisTrack = previewLoadingTrackId == trackId
@@ -139,6 +150,9 @@ fun SongDetailScreen(
                                     spotifyURI = effectiveSpotifyURI.ifBlank { null },
                                     spotifyWebURL = effectiveSpotifyWebURL.ifBlank { null },
                                     isrc = effectiveIsrc,
+                                    source = effectiveSource,
+                                    soundcloudId = effectiveSoundcloudId,
+                                    soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
                                 )
                             },
                         contentAlignment = Alignment.Center,
@@ -208,7 +222,22 @@ fun SongDetailScreen(
                     Button(
                         onClick = {
                             viewModel.analyticsService.logPostThisSongTapped(trackId)
-                            onNavigateToCompose(trackId)
+                            val resolvedTrack = songInfo?.track ?: CymbalTrack(
+                                id = trackId,
+                                name = displayName ?: "",
+                                artistName = displayArtist ?: "",
+                                albumName = "",
+                                albumArtURL = artUrl,
+                                albumArtLargeURL = albumArtLargeURL ?: artUrl,
+                                spotifyURI = effectiveSpotifyURI,
+                                spotifyWebURL = effectiveSpotifyWebURL,
+                                previewUrl = effectivePreviewUrl,
+                                isrc = effectiveIsrc,
+                                source = effectiveSource,
+                                soundcloudId = effectiveSoundcloudId,
+                                soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
+                            )
+                            onNavigateToCompose(resolvedTrack)
                         },
                         shape = RoundedCornerShape(50),
                         colors = ButtonDefaults.buttonColors(
@@ -220,22 +249,48 @@ fun SongDetailScreen(
                         Text(stringResource(R.string.song_detail_post_song), style = CorusFont.buttonSmall)
                     }
 
-                    // Play in Spotify capsule
-                    Button(
-                        onClick = {
-                            val uri = effectiveSpotifyURI.ifBlank { effectiveSpotifyWebURL }
-                            if (uri.isNotBlank()) {
-                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
-                            }
-                        },
-                        shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = CorusColors.SpotifyGreen,
-                            contentColor = Color.White,
-                        ),
-                        contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-                    ) {
-                        Text(stringResource(R.string.song_detail_play_spotify), style = CorusFont.buttonSmall)
+                    if (isSoundCloud) {
+                        // Listen on SoundCloud capsule (matches iOS: white logo on black)
+                        Button(
+                            onClick = {
+                                val permalink = effectiveSoundcloudPermalinkUrl
+                                if (!permalink.isNullOrBlank()) {
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
+                                }
+                            },
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black,
+                                contentColor = Color.White,
+                            ),
+                            contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.soundcloud_white),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                            Text(stringResource(R.string.song_detail_listen_soundcloud), style = CorusFont.buttonSmall)
+                        }
+                    } else {
+                        // Play in Spotify capsule
+                        Button(
+                            onClick = {
+                                val uri = effectiveSpotifyURI.ifBlank { effectiveSpotifyWebURL }
+                                if (uri.isNotBlank()) {
+                                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
+                                }
+                            },
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = CorusColors.SpotifyGreen,
+                                contentColor = Color.White,
+                            ),
+                            contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        ) {
+                            Text(stringResource(R.string.song_detail_play_spotify), style = CorusFont.buttonSmall)
+                        }
                     }
                 }
 
@@ -289,7 +344,24 @@ fun SongDetailScreen(
                         Text(stringResource(R.string.song_detail_empty), style = CorusFont.body, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Button(
-                            onClick = { onNavigateToCompose(trackId) },
+                            onClick = {
+                                val resolvedTrack = songInfo?.track ?: CymbalTrack(
+                                    id = trackId,
+                                    name = displayName ?: "",
+                                    artistName = displayArtist ?: "",
+                                    albumName = "",
+                                    albumArtURL = artUrl,
+                                    albumArtLargeURL = albumArtLargeURL ?: artUrl,
+                                    spotifyURI = effectiveSpotifyURI,
+                                    spotifyWebURL = effectiveSpotifyWebURL,
+                                    previewUrl = effectivePreviewUrl,
+                                    isrc = effectiveIsrc,
+                                    source = effectiveSource,
+                                    soundcloudId = effectiveSoundcloudId,
+                                    soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
+                                )
+                                onNavigateToCompose(resolvedTrack)
+                            },
                             shape = RoundedCornerShape(50),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = CorusColors.Accent,

@@ -135,30 +135,49 @@ fun MiniPlayerBar(
                     tint = if (state.hasNext) CorusColors.Text else CorusColors.Tertiary,
                 )
 
-                // Spotify button
-                Image(
-                    painter = painterResource(fm.corus.android.R.drawable.spotify_logo),
-                    contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
-                    modifier = Modifier
-                        .padding(start = CorusSpacing.xs)
-                        .size(22.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) {
-                            val uri = state.spotifyURI
-                            val webUrl = state.spotifyWebURL
-                            val opened = if (!uri.isNullOrBlank()) {
-                                try {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
-                                    true
-                                } catch (_: Exception) { false }
-                            } else false
-                            if (!opened && !webUrl.isNullOrBlank()) {
-                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
-                            }
-                        },
-                )
+                // Spotify / SoundCloud button (matches the source of the playing track)
+                val isSoundCloud = state.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
+                if (isSoundCloud) {
+                    SoundCloudAdaptiveLogo(
+                        modifier = Modifier
+                            .padding(start = CorusSpacing.xs)
+                            .size(22.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                val permalink = state.soundcloudPermalinkUrl
+                                if (!permalink.isNullOrBlank()) {
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
+                                }
+                            },
+                        size = 22.dp,
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(fm.corus.android.R.drawable.spotify_logo),
+                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        modifier = Modifier
+                            .padding(start = CorusSpacing.xs)
+                            .size(22.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                val uri = state.spotifyURI
+                                val webUrl = state.spotifyWebURL
+                                val opened = if (!uri.isNullOrBlank()) {
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                                        true
+                                    } catch (_: Exception) { false }
+                                } else false
+                                if (!opened && !webUrl.isNullOrBlank()) {
+                                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
+                                }
+                            },
+                    )
+                }
             }
             HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
         }

@@ -290,15 +290,25 @@ fun FeaturedCymbalView(
 
             Spacer(modifier = Modifier.width(CorusSpacing.md))
 
-            // Spotify button
-            Image(
-                painter = painterResource(R.drawable.spotify_logo),
-                contentDescription = stringResource(R.string.featured_cd_play_spotify),
-                modifier = Modifier
-                    .size(21.dp)
-                    .clickable(onClick = onSpotifyTap),
-                contentScale = ContentScale.Fit,
-            )
+            // Spotify / SoundCloud button (matches PostCard logic)
+            val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
+            if (isSoundCloud) {
+                SoundCloudAdaptiveLogo(
+                    modifier = Modifier
+                        .size(21.dp)
+                        .clickable(onClick = onSpotifyTap),
+                    size = 21.dp,
+                )
+            } else {
+                Image(
+                    painter = painterResource(R.drawable.spotify_logo),
+                    contentDescription = stringResource(R.string.featured_cd_play_spotify),
+                    modifier = Modifier
+                        .size(21.dp)
+                        .clickable(onClick = onSpotifyTap),
+                    contentScale = ContentScale.Fit,
+                )
+            }
         }
     }
 }

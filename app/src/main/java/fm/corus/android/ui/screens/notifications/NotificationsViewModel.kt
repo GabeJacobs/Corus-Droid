@@ -15,6 +15,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.NotificationRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.async
@@ -36,6 +37,7 @@ class NotificationsViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val postRepository: PostRepository,
     private val engagementManager: PostEngagementManager,
+    val nowPlayingManager: NowPlayingManager,
     private val analyticsService: AnalyticsService,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
