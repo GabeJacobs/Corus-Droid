@@ -296,6 +296,10 @@
     <string name="profile_empty_film_button">Poste seu primeiro filme</string>
     <string name="profile_empty_likes">Nenhuma curtida ainda</string>
     <string name="profile_empty_saves">Nenhum post salvo ainda</string>
+    <string name="profile_share_another_track">Compartilhe outra música</string>
+
+    <string name="profile_share_another_film">Compartilhe outro filme</string>
+    <string name="profile_share_another_subtitle">Monte sua coleção</string>
 
     <!-- Other Profile -->
     <string name="other_profile_cd_message">Mensagem</string>
@@ -470,7 +474,7 @@
     <string name="notif_msg_taste_match_default">é uma nova combinação de gosto.</string>
 
     <!-- Tab bar -->
-    <string name="tab_feed">Início</string>
+    <string name="tab_feed">Feed</string>
     <string name="tab_search">Buscar</string>
     <string name="tab_post">Postar</string>
     <string name="tab_activity">Atividades</string>

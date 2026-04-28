@@ -146,22 +146,13 @@ fun PostCard(
                     color = CorusColors.Text,
                 )
 
-                // Repost indicator — tappable row that jumps to the original poster's profile
+                // Repost indicator — only the @username is tappable so a near-miss on
+                // the poster's username above doesn't accidentally land on the original poster's handle
                 val repostedFromUsername = post.repostedFromUsername
                 if (!repostedFromUsername.isNullOrEmpty()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        modifier = Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {
-                                onRepostedFromUserTap(
-                                    post.repostedFromUserId?.takeIf { it.isNotEmpty() },
-                                    repostedFromUsername,
-                                )
-                            },
-                        ),
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Repeat,
@@ -178,6 +169,16 @@ fun PostCard(
                             text = "@$repostedFromUsername",
                             style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
                             color = CorusColors.Secondary,
+                            modifier = Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = {
+                                    onRepostedFromUserTap(
+                                        post.repostedFromUserId?.takeIf { it.isNotEmpty() },
+                                        repostedFromUsername,
+                                    )
+                                },
+                            ),
                         )
                     }
                 }
@@ -427,7 +428,7 @@ fun PostCard(
                         }
 
                         // Watch Trailer button (only if trailer exists)
-                        if (post.trailerURL != null) {
+                        if (!post.trailerURL.isNullOrBlank()) {
                             Button(
                                 onClick = { onTrailerTap() },
                                 shape = CircleShape,
@@ -561,7 +562,7 @@ fun PostCard(
                     }
 
                     // Trailer button — red rectangle with white play icon, matching iOS TrailerButton
-                    if (post.trailerURL != null) {
+                    if (!post.trailerURL.isNullOrBlank()) {
                         Image(
                             painter = painterResource(R.drawable.ic_play_rectangle_fill),
                             contentDescription = stringResource(R.string.post_card_cd_watch_trailer),

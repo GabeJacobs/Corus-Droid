@@ -25,6 +25,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusSpacing
@@ -44,8 +45,15 @@ fun ShimmerAsyncImage(
     contentScale: ContentScale = ContentScale.Crop,
     shape: Shape = RectangleShape,
 ) {
-    var isLoading by remember(model) { mutableStateOf(true) }
-    var fromMemoryCache by remember(model) { mutableStateOf(false) }
+    // Key loading state on a stable identity. Callers often pass a freshly-built
+    // ImageRequest each recomposition, so keying on `model` directly would reset
+    // isLoading every frame and flash the shimmer over already-loaded images.
+    val modelKey = when (model) {
+        is ImageRequest -> model.data
+        else -> model
+    }
+    var isLoading by remember(modelKey) { mutableStateOf(true) }
+    var fromMemoryCache by remember(modelKey) { mutableStateOf(false) }
     val imageAlpha by animateFloatAsState(
         targetValue = if (isLoading) 0f else 1f,
         animationSpec = if (fromMemoryCache) tween(durationMillis = 0) else tween(durationMillis = 300),

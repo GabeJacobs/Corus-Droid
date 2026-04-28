@@ -305,6 +305,9 @@
     <string name="profile_empty_film_button">Post your first film</string>
     <string name="profile_empty_likes">No liked posts yet</string>
     <string name="profile_empty_saves">No saved posts yet</string>
+    <string name="profile_share_another_track">Share another song</string>
+    <string name="profile_share_another_film">Share another film</string>
+    <string name="profile_share_another_subtitle">Build your collection</string>
 
     <!-- Other Profile -->
     <string name="other_profile_cd_message">Message</string>

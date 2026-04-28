@@ -440,6 +440,7 @@ class FirestoreDataSource @Inject constructor(
             .await()
     }
 
+    @Suppress("UNUSED_PARAMETER")
     suspend fun createNotification(
         type: String,
         fromUserId: String,
@@ -450,38 +451,11 @@ class FirestoreDataSource @Inject constructor(
         commentId: String? = null,
         attachmentType: String? = null,
     ) {
-        if (remoteConfigService.serverNotificationsEnabled) return
-        if (fromUserId == toUserId) return
-        val data = mutableMapOf<String, Any>(
-            "type" to type,
-            "fromUserId" to fromUserId,
-            "toUserId" to toUserId,
-            "isRead" to false,
-            "createdAt" to FieldValue.serverTimestamp(),
-        )
-        if (postId != null) data["postId"] = postId
-        if (postAlbumArtURL != null) data["postAlbumArtURL"] = postAlbumArtURL
-        if (commentText != null) data["commentText"] = commentText
-        if (commentId != null) data["commentId"] = commentId
-        if (attachmentType != null) data["attachmentType"] = attachmentType
-
-        // Deterministic IDs for actions that can be toggled — matches iOS behavior.
-        val deterministicId = when (type) {
-            "follow" -> "follow_${fromUserId}_${toUserId}"
-            "like" -> "like_${fromUserId}_${postId.orEmpty()}"
-            "comment_like" -> "comment_like_${fromUserId}_${commentId.orEmpty()}"
-            "save" -> "save_${fromUserId}_${postId.orEmpty()}"
-            else -> null
-        }
-
-        val collection = firestore.collection("notifications")
-        if (deterministicId != null) {
-            val docRef = collection.document(deterministicId)
-            try { docRef.delete().await() } catch (_: Exception) { }
-            docRef.set(data).await()
-        } else {
-            collection.add(data).await()
-        }
+        // Server-only notification writes. Cloud Functions handle every type
+        // (see onCommentCreatedNotify, onPostLikeCreated, etc.). Existing call
+        // sites are kept intact as no-ops; full removal will follow in a later
+        // release once this build has rolled out.
+        return
     }
 
     suspend fun deletePost(postId: String, userId: String) {

@@ -20,6 +20,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
+import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.service.AnalyticsService
@@ -51,6 +52,7 @@ class FeedViewModel @Inject constructor(
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
     private val postCreationEvent: PostCreationEvent,
+    private val postDeletionEvent: PostDeletionEvent,
     @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
 
@@ -123,6 +125,11 @@ class FeedViewModel @Inject constructor(
             postCreationEvent.events.collect {
                 delay(500) // brief delay for Firestore propagation
                 loadFeed(refresh = true)
+            }
+        }
+        viewModelScope.launch {
+            postDeletionEvent.events.collect { deletedId ->
+                _posts.value = _posts.value.filter { it.id != deletedId }
             }
         }
         // Keep NowPlayingManager's queue in sync with the paginated feed so the
@@ -404,6 +411,7 @@ class FeedViewModel @Inject constructor(
                 postRepository.deletePost(postId, userId)
                 _posts.value = _posts.value.filter { it.id != postId }
                 authRepository.bumpCymbalCount(-1)
+                postDeletionEvent.notifyPostDeleted(postId)
                 ToastManager.show(context.getString(R.string.feed_toast_post_deleted))
             } catch (_: Exception) {
                 ToastManager.show(context.getString(R.string.feed_toast_failed_delete))

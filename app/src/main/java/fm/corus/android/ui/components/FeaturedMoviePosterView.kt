@@ -265,7 +265,7 @@ fun FeaturedMoviePosterView(
             }
 
             // Trailer button (if available) — YouTube red play icon, matching iOS
-            if (post.trailerURL != null) {
+            if (!post.trailerURL.isNullOrBlank()) {
                 Spacer(modifier = Modifier.width(CorusSpacing.md))
                 Image(
                     painter = painterResource(R.drawable.ic_play_rectangle_fill),

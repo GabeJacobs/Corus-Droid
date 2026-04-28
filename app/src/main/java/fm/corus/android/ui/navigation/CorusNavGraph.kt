@@ -47,16 +47,54 @@ import fm.corus.android.ui.screens.search.ContactFriendsListViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.ui.screens.profile.OtherProfileViewModel
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.launch
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface UserRepositoryEntryPoint {
+    fun userRepository(): UserRepository
+}
+
+/**
+ * Returns a callback that resolves a username to a user via [UserRepository] and
+ * then navigates to the resolved profile. Resolving before navigation (matching
+ * iOS) avoids transitioning into a blank screen while the lookup is in flight.
+ */
+@Composable
+private fun rememberNavigateToUserByUsername(navController: NavHostController): (String) -> Unit {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val userRepository = remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            UserRepositoryEntryPoint::class.java,
+        ).userRepository()
+    }
+    return { username ->
+        scope.launch {
+            val user = userRepository.fetchUserByUsername(username) ?: return@launch
+            navController.navigate(OtherProfileRoute(user.id))
+        }
+    }
+}
 
 @Composable
 fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
+    val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
 
     NavHost(
         navController = navController,
@@ -87,7 +125,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                     ))
                 },
                 onNavigateToUserById = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-                onNavigateToUserByUsername = { username -> navController.navigate(ProfileByUsernameRoute(username)) },
+                onNavigateToUserByUsername = navigateToUserByUsername,
                 onNavigateToComments = { postId -> commentPostId = postId },
                 onNavigateToLikes = { postId -> likesPostId = postId },
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
@@ -97,7 +135,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                 onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
     }
 
     commentPostId?.let { postId ->
@@ -135,6 +173,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
 fun SearchNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
+    val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
 
     NavHost(
         navController = navController,
@@ -155,7 +194,7 @@ fun SearchNavGraph(navController: NavHostController, mainTabViewModel: MainTabVi
                 onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
     }
 
     commentPostId?.let { postId ->
@@ -193,6 +232,7 @@ fun SearchNavGraph(navController: NavHostController, mainTabViewModel: MainTabVi
 fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
+    val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
 
     NavHost(
         navController = navController,
@@ -215,7 +255,7 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
                 },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
     }
 
     commentPostId?.let { postId ->
@@ -253,6 +293,7 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
 fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0, onOpenCompose: (String) -> Unit = {}) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
+    val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
 
     NavHost(
         navController = navController,
@@ -283,7 +324,7 @@ fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
                 onOpenCompose = onOpenCompose,
             )
         }
-        sharedDestinations(navController, mainTabViewModel, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
     }
 
     commentPostId?.let { postId ->
@@ -323,6 +364,7 @@ fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
 private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     navController: NavHostController,
     mainTabViewModel: MainTabViewModel,
+    navigateToUserByUsername: (String) -> Unit,
     onShowComments: (String) -> Unit = {},
     onShowLikes: (String) -> Unit = {},
 ) {
@@ -332,7 +374,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             postId = route.postId,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            onNavigateToUserByUsername = { username -> navController.navigate(ProfileByUsernameRoute(username)) },
+            onNavigateToUserByUsername = navigateToUserByUsername,
             onNavigateToComments = onShowComments,
             onNavigateToLikes = onShowLikes,
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
@@ -351,7 +393,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             initialPostId = route.initialPostId,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            onNavigateToUserByUsername = { username -> navController.navigate(ProfileByUsernameRoute(username)) },
+            onNavigateToUserByUsername = navigateToUserByUsername,
             onNavigateToComments = onShowComments,
             onNavigateToLikes = onShowLikes,
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },

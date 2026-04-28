@@ -18,6 +18,7 @@ import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -39,6 +40,7 @@ class CommentsViewModel @Inject constructor(
     val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
     private val engagementManager: PostEngagementManager,
+    private val postDeletionEvent: PostDeletionEvent,
     val nowPlayingManager: NowPlayingManager,
     private val remoteConfigService: RemoteConfigService,
     override val analyticsService: AnalyticsService,
@@ -713,6 +715,7 @@ class CommentsViewModel @Inject constructor(
             try {
                 postRepository.deletePost(postId, userId)
                 authRepository.bumpCymbalCount(-1)
+                postDeletionEvent.notifyPostDeleted(postId)
                 ToastManager.show(context.getString(R.string.feed_toast_post_deleted))
             } catch (_: Exception) {
                 ToastManager.show(context.getString(R.string.feed_toast_failed_delete))

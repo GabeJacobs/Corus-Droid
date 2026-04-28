@@ -317,9 +317,10 @@ fun FeedScreen(
                                 viewModel.playPreview(post)
                             },
                             onTrailerTap = {
-                                post.trailerURL?.let { url ->
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    context.startActivity(intent)
+                                post.trailerURL?.takeIf { it.isNotBlank() }?.let { url ->
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                    } catch (_: Exception) { }
                                 }
                             },
                             onCommentTap = { onNavigateToComments(post.id) },

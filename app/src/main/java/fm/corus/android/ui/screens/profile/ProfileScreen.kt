@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Headphones
@@ -47,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
@@ -743,6 +745,15 @@ fun ProfileScreen(
                         onClick = { navigateToFeed(post.id) },
                     )
                 }
+            } else if (selectedSegment <= 1 && filteredPosts.isNotEmpty()) {
+                // Featured post is showing but the grid below would be empty —
+                // mirror iOS and prompt the user to share another (matches addAnotherCymbalPrompt / addAnotherFilmPrompt).
+                item(span = { GridItemSpan(3) }) {
+                    ShareAnotherPrompt(
+                        isFilm = selectedSegment == 1,
+                        onClick = { onOpenCompose(if (selectedSegment == 1) "movie" else "track") },
+                    )
+                }
             }
 
             // Loading more indicator
@@ -972,6 +983,75 @@ private fun PostGridItem(post: CymbalPost, isFilmPoster: Boolean = false, onClic
             .aspectRatio(aspectRatio)
             .clickable(onClick = onClick),
     )
+}
+
+@Composable
+private fun ShareAnotherPrompt(
+    isFilm: Boolean,
+    onClick: () -> Unit,
+) {
+    val accent = CorusColors.Accent
+    val cornerRadius = 16.dp
+    val cornerRadiusPx = with(LocalDensity.current) { cornerRadius.toPx() }
+    val strokeWidthPx = with(LocalDensity.current) { 1.5.dp.toPx() }
+    val dashOnPx = with(LocalDensity.current) { 8.dp.toPx() }
+    val dashOffPx = with(LocalDensity.current) { 6.dp.toPx() }
+    val dashEffect = remember(dashOnPx, dashOffPx) {
+        androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(dashOnPx, dashOffPx), 0f)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xl)
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(accent.copy(alpha = 0.04f))
+            .clickable(onClick = onClick)
+            .drawBehind {
+                drawRoundRect(
+                    color = accent.copy(alpha = 0.3f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadiusPx, cornerRadiusPx),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = strokeWidthPx,
+                        pathEffect = dashEffect,
+                    ),
+                )
+            }
+            .padding(horizontal = CorusSpacing.xl, vertical = CorusSpacing.xxxl + CorusSpacing.lg),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(modifier = Modifier.height(CorusSpacing.md))
+            Text(
+                text = stringResource(
+                    if (isFilm) fm.corus.android.R.string.profile_share_another_film
+                    else fm.corus.android.R.string.profile_share_another_track
+                ),
+                style = CorusFont.bodyMedium,
+                color = CorusColors.Text,
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+            Text(
+                text = stringResource(fm.corus.android.R.string.profile_share_another_subtitle),
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+            )
+        }
+    }
 }
 
 @Composable

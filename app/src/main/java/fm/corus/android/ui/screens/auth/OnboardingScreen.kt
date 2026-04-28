@@ -33,6 +33,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -60,6 +62,8 @@ fun OnboardingScreen(
     viewModel: AuthViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -190,7 +194,11 @@ fun OnboardingScreen(
             Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
 
             Box(
-                modifier = Modifier.clickable { showPhotoDialog = true },
+                modifier = Modifier.clickable {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    showPhotoDialog = true
+                },
             ) {
                 Box(contentAlignment = Alignment.BottomEnd) {
                     if (avatarUri != null) {

@@ -12,6 +12,7 @@ import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
+import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.Job
@@ -32,6 +33,7 @@ class ProfileViewModel @Inject constructor(
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     private val engagementManager: PostEngagementManager,
     private val postCreationEvent: PostCreationEvent,
+    private val postDeletionEvent: PostDeletionEvent,
     private val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
@@ -46,6 +48,15 @@ class ProfileViewModel @Inject constructor(
             postCreationEvent.events.collect {
                 delay(500) // brief delay for Firestore propagation
                 refreshProfile()
+            }
+        }
+        // Drop deleted posts from any visible list so returning from
+        // PostDetail reflects the deletion immediately (matches iOS).
+        viewModelScope.launch {
+            postDeletionEvent.events.collect { deletedId ->
+                _posts.value = _posts.value.filter { it.id != deletedId }
+                _likedPosts.value = _likedPosts.value.filter { it.id != deletedId }
+                _savedPosts.value = _savedPosts.value.filter { it.id != deletedId }
             }
         }
     }

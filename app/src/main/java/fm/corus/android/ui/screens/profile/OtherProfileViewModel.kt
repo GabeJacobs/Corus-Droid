@@ -14,6 +14,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,9 +33,18 @@ class OtherProfileViewModel @Inject constructor(
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     private val engagementManager: PostEngagementManager,
     private val subscriptionRepository: SubscriptionRepository,
+    private val postDeletionEvent: PostDeletionEvent,
 ) : ViewModel() {
 
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
+
+    init {
+        viewModelScope.launch {
+            postDeletionEvent.events.collect { deletedId ->
+                _posts.value = _posts.value.filter { it.id != deletedId }
+            }
+        }
+    }
 
     fun generatePlaylist(userId: String) {
         viewModelScope.launch {

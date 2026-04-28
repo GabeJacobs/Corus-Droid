@@ -17,6 +17,7 @@ import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.service.AnalyticsService
@@ -53,6 +54,7 @@ class ProfileFeedViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
     private val engagementManager: PostEngagementManager,
+    private val postDeletionEvent: PostDeletionEvent,
     private val tmdbApiService: TMDBApiService,
     val nowPlayingManager: NowPlayingManager,
     override val remoteConfig: RemoteConfigService,
@@ -116,6 +118,11 @@ class ProfileFeedViewModel @Inject constructor(
                     hasMore = hasMore,
                     loadMore = { loadMoreSuspending() },
                 )
+            }
+        }
+        viewModelScope.launch {
+            postDeletionEvent.events.collect { deletedId ->
+                _posts.value = _posts.value.filter { it.id != deletedId }
             }
         }
     }
@@ -345,6 +352,7 @@ class ProfileFeedViewModel @Inject constructor(
                 postRepository.deletePost(postId, userId)
                 _posts.value = _posts.value.filter { it.id != postId }
                 authRepository.bumpCymbalCount(-1)
+                postDeletionEvent.notifyPostDeleted(postId)
                 ToastManager.show(context.getString(R.string.feed_toast_post_deleted))
             } catch (_: Exception) {
                 ToastManager.show(context.getString(R.string.feed_toast_failed_delete))

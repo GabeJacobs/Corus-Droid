@@ -425,16 +425,6 @@ private fun PostDetailHeader(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {
-                            onRepostedFromUserTap(
-                                post.repostedFromUserId?.takeIf { it.isNotEmpty() },
-                                repostedFromUsername,
-                            )
-                        },
-                    ),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Repeat,
@@ -451,6 +441,16 @@ private fun PostDetailHeader(
                         text = stringResource(R.string.post_detail_reposted_from_username_format, repostedFromUsername),
                         style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
                         color = CorusColors.Secondary,
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                onRepostedFromUserTap(
+                                    post.repostedFromUserId?.takeIf { it.isNotEmpty() },
+                                    repostedFromUsername,
+                                )
+                            },
+                        ),
                     )
                 }
             }
@@ -681,18 +681,21 @@ private fun PostDetailSongInfo(
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
         // Spotify or trailer button — YouTube red play icon, matching iOS
+        // Trailer button is only shown when a URL exists (matches iOS).
         if (post.isMovie) {
-            Image(
-                painter = painterResource(R.drawable.ic_play_rectangle_fill),
-                contentDescription = stringResource(R.string.post_detail_cd_watch_trailer),
-                modifier = Modifier
-                    .size(22.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onTrailerTap,
-                    ),
-            )
+            if (!post.trailerURL.isNullOrBlank()) {
+                Image(
+                    painter = painterResource(R.drawable.ic_play_rectangle_fill),
+                    contentDescription = stringResource(R.string.post_detail_cd_watch_trailer),
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onTrailerTap,
+                        ),
+                )
+            }
         } else {
             Image(
                 painter = painterResource(R.drawable.spotify_logo),
