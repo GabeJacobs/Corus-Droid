@@ -70,6 +70,7 @@ import fm.corus.android.ui.components.rememberVoiceNoteRecorderState
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -318,6 +319,7 @@ fun ComposeScreen(
             containerColor = CorusColors.Background,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
+            CorusSystemBars()
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = fm.corus.android.ui.screens.subscription.PaywallSource.POST_LIMIT,
                 onDismiss = {

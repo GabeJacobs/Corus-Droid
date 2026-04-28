@@ -72,6 +72,7 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1006,6 +1007,7 @@ fun OtherProfileScreen(
             containerColor = CorusColors.Background,
             dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
         ) {
+            CorusSystemBars()
             BackHandler { showClubOffer = false }
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT,

@@ -72,6 +72,7 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -758,6 +759,7 @@ fun ProfileScreen(
             containerColor = CorusColors.Background,
             dragHandle = null,
         ) {
+            CorusSystemBars()
             // When on the FILM tab, open directly to the frame color page
             val styleInitialPage = if (selectedSegment == 1 && trackPosts.isNotEmpty() && moviePosts.isNotEmpty()) {
                 1 // FRAME is at index 1 when both track and movie posts exist (VINYL=0, FRAME=1)
@@ -820,6 +822,7 @@ fun ProfileScreen(
             containerColor = CorusColors.Background,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
+            CorusSystemBars()
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = clubOfferSource,
                 onDismiss = { showClubOffer = false },

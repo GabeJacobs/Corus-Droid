@@ -9,7 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EditSquare
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +28,7 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.DateUtils
 import kotlinx.coroutines.launch
 
@@ -66,7 +67,7 @@ fun ThreadListScreen(
             )
             IconButton(onClick = { showNewMessagePicker = true }) {
                 Icon(
-                    Icons.Filled.Edit,
+                    Icons.Filled.EditSquare,
                     contentDescription = stringResource(id = R.string.messaging_list_cd_new_message),
                     tint = CorusColors.Text,
                 )
@@ -109,6 +110,7 @@ fun ThreadListScreen(
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {
+            CorusSystemBars()
             NewMessagePickerContent(
                 viewModel = viewModel,
                 onCancel = {

@@ -36,6 +36,7 @@ import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -100,6 +101,7 @@ fun SongFilmPickerSheet(
         containerColor = CorusColors.Background,
         sheetMaxWidth = Int.MAX_VALUE.dp,
     ) {
+        CorusSystemBars()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

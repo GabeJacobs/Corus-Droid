@@ -32,6 +32,7 @@ import fm.corus.android.ui.components.SkeletonFilmInfoSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 import java.net.URLEncoder
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,6 +63,7 @@ fun FilmInfoSheet(
         containerColor = CorusColors.Background,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
+        CorusSystemBars()
         AnimatedContent(
             targetState = isLoading,
             transitionSpec = { fadeIn() togetherWith fadeOut() },

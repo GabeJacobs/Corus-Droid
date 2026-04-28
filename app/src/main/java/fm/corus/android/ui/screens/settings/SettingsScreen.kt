@@ -56,6 +56,7 @@ import fm.corus.android.ui.theme.AppearanceMode
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +68,6 @@ fun SettingsScreen(
     onMutedUsers: () -> Unit = {},
     onSendFeedback: () -> Unit = {},
     onNotificationSettings: () -> Unit = {},
-    onLanguageSettings: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
     appearanceViewModel: AppearanceSettingsViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
@@ -279,18 +279,44 @@ fun SettingsScreen(
                 onCheckedChange = { hapticsEnabled = it },
             )
 
-            SettingsNavRow(
-                icon = Icons.Filled.Language,
-                title = stringResource(R.string.settings_row_language),
-                trailingText = fm.corus.android.i18n.LanguageManager.current().let { lang ->
-                    when (lang) {
-                        fm.corus.android.i18n.AppLanguage.SYSTEM -> stringResource(R.string.language_option_system)
-                        fm.corus.android.i18n.AppLanguage.ENGLISH -> stringResource(R.string.language_option_english)
-                        fm.corus.android.i18n.AppLanguage.PORTUGUESE_BR -> stringResource(R.string.language_option_portuguese_br)
-                    }
-                },
-                onClick = onLanguageSettings,
+            var currentLanguage by remember { mutableStateOf(fm.corus.android.i18n.LanguageManager.current(context)) }
+            var showLanguageMenu by remember { mutableStateOf(false) }
+            val languageOptionLabels: Map<fm.corus.android.i18n.AppLanguage, String> = mapOf(
+                fm.corus.android.i18n.AppLanguage.SYSTEM to stringResource(R.string.language_option_system),
+                fm.corus.android.i18n.AppLanguage.ENGLISH to stringResource(R.string.language_option_english),
+                fm.corus.android.i18n.AppLanguage.PORTUGUESE_BR to stringResource(R.string.language_option_portuguese_br),
             )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                SettingsNavRow(
+                    icon = Icons.Filled.Language,
+                    title = stringResource(R.string.settings_row_language),
+                    trailingText = languageOptionLabels[currentLanguage],
+                    onClick = { showLanguageMenu = true },
+                )
+                Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                    DropdownMenu(
+                        expanded = showLanguageMenu,
+                        onDismissRequest = { showLanguageMenu = false },
+                    ) {
+                        fm.corus.android.i18n.AppLanguage.values().forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = languageOptionLabels[option] ?: option.name,
+                                        style = CorusFont.body,
+                                        color = if (option == currentLanguage) CorusColors.Accent else CorusColors.Text,
+                                    )
+                                },
+                                onClick = {
+                                    currentLanguage = option
+                                    showLanguageMenu = false
+                                    activity?.let { fm.corus.android.i18n.LanguageManager.set(it, option) }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
 
             // ── Section: Notifications & Messaging ──
             SectionHeader(stringResource(R.string.settings_section_notifications_messaging))
@@ -521,6 +547,7 @@ fun SettingsScreen(
             containerColor = CorusColors.Background,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
+            CorusSystemBars()
             CymbalClubOfferSheet(
                 source = PaywallSource.SETTINGS,
                 onDismiss = { showClubOffer = false },

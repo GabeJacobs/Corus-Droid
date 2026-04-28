@@ -1,8 +1,10 @@
 package fm.corus.android
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import fm.corus.android.i18n.LanguageManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.Lifecycle
@@ -27,6 +29,10 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var subscriptionRepository: SubscriptionRepository
     @Inject lateinit var analyticsService: AnalyticsService
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LanguageManager.wrapContext(newBase))
+    }
 
     private val _pendingNotificationDestination = MutableStateFlow<DeepLinkDestination?>(null)
     val pendingNotificationDestination: StateFlow<DeepLinkDestination?> = _pendingNotificationDestination.asStateFlow()

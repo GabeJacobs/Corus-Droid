@@ -65,7 +65,6 @@ import kotlinx.serialization.Serializable
 @Serializable object SearchRoute
 @Serializable data class EditCaptionRoute(val postId: String, val initialCaption: String, val albumArtURL: String? = null)
 @Serializable object SettingsRoute
-@Serializable data object LanguageSettingsRoute
 @Serializable data object NotificationSettingsRoute
 @Serializable object BlockedUsersRoute
 @Serializable data object MutedUsersRoute

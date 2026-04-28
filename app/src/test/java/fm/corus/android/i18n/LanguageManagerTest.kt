@@ -1,32 +1,22 @@
 package fm.corus.android.i18n
 
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.os.LocaleListCompat
+import android.content.Context
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
-import org.robolectric.annotation.Config
-import android.os.Looper
+import org.robolectric.RuntimeEnvironment
 
-/**
- * Verifies the in-app language picker correctly maps tags to AppLanguage and
- * round-trips selections through AppCompatDelegate.
- *
- * Uses Robolectric so AppCompatDelegate.setApplicationLocales has a real
- * Application/Looper context to operate against.
- */
 @RunWith(RobolectricTestRunner::class)
-@Config(application = android.app.Application::class)
 class LanguageManagerTest {
+
+    private val context: Context get() = RuntimeEnvironment.getApplication()
 
     @After
     fun tearDown() {
-        // Reset to system default so tests don't bleed into each other.
-        AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
-        shadowOf(Looper.getMainLooper()).idle()
+        context.getSharedPreferences("corus_locale", Context.MODE_PRIVATE)
+            .edit().clear().apply()
     }
 
     @Test
@@ -55,33 +45,39 @@ class LanguageManagerTest {
     }
 
     @Test
-    fun `current returns PORTUGUESE_BR when locales are pt-BR`() {
-        // Bypass LanguageManager.set's setApplicationLocales handler-posted persistence
-        // (Robolectric's AppCompat shim doesn't propagate that storage), and seed the
-        // delegate's locale list directly. This exercises the read path of current().
-        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("pt-BR"))
-        shadowOf(Looper.getMainLooper()).idle()
-        // If Robolectric persists, we should see PORTUGUESE_BR; if it doesn't, current()
-        // falls through to SYSTEM. Either way, current() must never throw.
-        val result = LanguageManager.current()
-        assert(result == AppLanguage.PORTUGUESE_BR || result == AppLanguage.SYSTEM)
+    fun `current returns SYSTEM when nothing persisted`() {
+        assertEquals(AppLanguage.SYSTEM, LanguageManager.current(context))
     }
 
     @Test
-    fun `current returns SYSTEM when locales are empty`() {
-        AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
-        shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(AppLanguage.SYSTEM, LanguageManager.current())
+    fun `current reflects persisted pt-BR tag`() {
+        context.getSharedPreferences("corus_locale", Context.MODE_PRIVATE)
+            .edit().putString("tag", "pt-BR").apply()
+        assertEquals(AppLanguage.PORTUGUESE_BR, LanguageManager.current(context))
     }
 
     @Test
-    fun `set does not throw for any AppLanguage`() {
-        // The SUT delegates persistence to AppCompatDelegate; we just verify the call
-        // path doesn't crash for each enum value.
-        LanguageManager.set(AppLanguage.PORTUGUESE_BR)
-        LanguageManager.set(AppLanguage.ENGLISH)
-        LanguageManager.set(AppLanguage.SYSTEM)
-        shadowOf(Looper.getMainLooper()).idle()
-        assert(AppCompatDelegate.getApplicationLocales().isEmpty)
+    fun `wrapContext returns base when no language persisted`() {
+        val wrapped = LanguageManager.wrapContext(context)
+        // No persisted locale → no wrapping needed; base context is returned directly.
+        assertEquals(context, wrapped)
+    }
+
+    @Test
+    fun `wrapContext applies pt-BR locale to configuration when persisted`() {
+        context.getSharedPreferences("corus_locale", Context.MODE_PRIVATE)
+            .edit().putString("tag", "pt-BR").apply()
+        val wrapped = LanguageManager.wrapContext(context)
+        val locale = wrapped.resources.configuration.locales[0]
+        assertEquals("pt", locale.language)
+        assertEquals("BR", locale.country)
+    }
+
+    @Test
+    fun `wrapContext applies english locale when persisted`() {
+        context.getSharedPreferences("corus_locale", Context.MODE_PRIVATE)
+            .edit().putString("tag", "en").apply()
+        val wrapped = LanguageManager.wrapContext(context)
+        assertEquals("en", wrapped.resources.configuration.locales[0].language)
     }
 }

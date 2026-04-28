@@ -28,6 +28,7 @@ import fm.corus.android.ui.screens.feed.EditCaptionSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 
 /**
  * Shared bottom-sheet / dialog bundle for the post "…" menu: action menu,
@@ -80,6 +81,7 @@ fun PostMenuSheets(
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {
+            CorusSystemBars()
             BackHandler { onSharePostChange(null) }
             SharePostSheet(
                 post = post,
@@ -123,6 +125,7 @@ fun PostMenuSheets(
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {
+            CorusSystemBars()
             BackHandler { onMenuPostChange(null) }
             PostActionMenu(
                 post = post,
@@ -197,6 +200,7 @@ fun PostMenuSheets(
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {
+            CorusSystemBars()
             EditCaptionSheet(
                 postId = post.id,
                 initialCaption = post.caption.orEmpty(),

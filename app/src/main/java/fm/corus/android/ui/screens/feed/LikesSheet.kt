@@ -31,6 +31,7 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,6 +48,7 @@ fun LikesBottomSheet(
         containerColor = CorusColors.Background,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
+        CorusSystemBars()
         BackHandler { onDismiss() }
         LikesSheetContent(
             postId = postId,

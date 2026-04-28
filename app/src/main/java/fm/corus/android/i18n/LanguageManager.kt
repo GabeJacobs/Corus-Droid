@@ -1,19 +1,30 @@
 package fm.corus.android.i18n
 
+import android.app.Activity
+import android.content.Context
+import android.content.res.Configuration
+import android.os.Build
+import android.os.LocaleList
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
+import java.util.Locale
 
 /**
  * In-app language picker — mirrors iOS LanguageManager.
  *
- * Source of truth is [AppCompatDelegate.getApplicationLocales]:
- *   - Empty list  → System default (Android resolves: pt-* → values-pt, else default English)
- *   - "en"        → English
- *   - "pt-BR"     → Brazilian Portuguese
+ * Default Android resource resolution handles fresh installs: pt-* devices pick
+ * `values-pt-rBR/`, everyone else falls back to default `values/` (English).
  *
- * AppCompat persists the selection across launches (platform LocaleManager on API 33+,
- * its own SharedPreferences on lower APIs) and re-applies it before the activity is created,
- * so callers never need to re-apply on startup.
+ * Once the user explicitly picks a language, we persist it in SharedPreferences and
+ * apply it via:
+ *   - [Activity.attachBaseContext] for the next cold start (wraps Configuration)
+ *   - [Activity.recreate] for the current session (UI updates immediately)
+ *   - [AppCompatDelegate.setApplicationLocales] so the platform's per-app locale
+ *     setting in system settings reflects our choice on Android 13+.
+ *
+ * MainActivity extends ComponentActivity, not AppCompatActivity, so we cannot rely
+ * on AppCompatActivity's automatic locale-on-attach behavior — we wrap the
+ * Configuration ourselves in [wrapContext].
  */
 enum class AppLanguage(val tag: String, val displayName: String) {
     SYSTEM("", "System Default"),
@@ -31,18 +42,60 @@ enum class AppLanguage(val tag: String, val displayName: String) {
 }
 
 object LanguageManager {
-    fun current(): AppLanguage {
-        val locales = AppCompatDelegate.getApplicationLocales()
-        return if (locales.isEmpty) AppLanguage.SYSTEM
-        else AppLanguage.fromTag(locales[0]?.toLanguageTag())
+    private const val PREFS = "corus_locale"
+    private const val KEY_TAG = "tag"
+
+    fun current(context: Context): AppLanguage {
+        val tag = context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_TAG, "") ?: ""
+        return AppLanguage.fromTag(tag)
     }
 
-    fun set(language: AppLanguage) {
+    /**
+     * Persist the selection and apply it to the running activity.
+     * Pass the calling Activity so we can recreate it to refresh the UI.
+     */
+    fun set(activity: Activity, language: AppLanguage) {
+        activity.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_TAG, language.tag)
+            .apply()
+
+        // Keep platform per-app locale (Android 13+ system settings) in sync.
         val list = if (language == AppLanguage.SYSTEM) {
             LocaleListCompat.getEmptyLocaleList()
         } else {
             LocaleListCompat.forLanguageTags(language.tag)
         }
         AppCompatDelegate.setApplicationLocales(list)
+
+        // Force the activity to recreate so the new resources apply now.
+        activity.recreate()
+    }
+
+    /**
+     * Wrap the base context with the persisted locale.
+     * Called from MainActivity.attachBaseContext.
+     */
+    fun wrapContext(base: Context): Context {
+        val tag = base.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_TAG, "") ?: ""
+        if (tag.isEmpty()) return base
+
+        val locale = Locale.forLanguageTag(tag)
+        Locale.setDefault(locale)
+
+        val config = Configuration(base.resources.configuration)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val localeList = LocaleList(locale)
+            LocaleList.setDefault(localeList)
+            config.setLocales(localeList)
+        } else {
+            @Suppress("DEPRECATION")
+            config.locale = locale
+        }
+        return base.createConfigurationContext(config)
     }
 }

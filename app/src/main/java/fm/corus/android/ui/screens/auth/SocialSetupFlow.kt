@@ -65,6 +65,7 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.PushNotificationPermission
 
 private enum class SetupStep { SYNC_CONTACTS, FOLLOW_FRIENDS }
@@ -1102,6 +1103,7 @@ private fun FilmBotPreviewSheet(
         containerColor = CorusColors.Background,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
+        CorusSystemBars()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

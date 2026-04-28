@@ -37,7 +37,6 @@ import fm.corus.android.ui.screens.search.BotListScreen
 import fm.corus.android.ui.screens.search.SearchScreen
 import fm.corus.android.ui.screens.messaging.MessageThreadScreen
 import fm.corus.android.ui.screens.messaging.ThreadListScreen
-import fm.corus.android.ui.screens.settings.LanguageSettingsScreen
 import fm.corus.android.ui.screens.settings.NotificationSettingsScreen
 import fm.corus.android.ui.screens.settings.SettingsScreen
 import fm.corus.android.ui.screens.search.SuggestedUsersListScreen
@@ -518,13 +517,6 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onMutedUsers = { navController.navigate(MutedUsersRoute) },
             onSendFeedback = { navController.navigate(FeedbackFormRoute) },
             onNotificationSettings = { navController.navigate(NotificationSettingsRoute) },
-            onLanguageSettings = { navController.navigate(LanguageSettingsRoute) },
-        )
-    }
-
-    composable<LanguageSettingsRoute> {
-        LanguageSettingsScreen(
-            onBack = { navController.popBackStack() },
         )
     }
 

@@ -40,6 +40,7 @@ import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -462,6 +463,7 @@ fun FeedScreen(
             containerColor = fm.corus.android.ui.theme.CorusColors.Background,
             dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
         ) {
+            CorusSystemBars()
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT,
                 onDismiss = { showClubOffer = false },

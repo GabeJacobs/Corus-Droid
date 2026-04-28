@@ -65,6 +65,7 @@ import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.PushNotificationPermission
 import kotlinx.coroutines.flow.StateFlow
 
@@ -363,6 +364,7 @@ fun MainTabScreen(
             containerColor = CorusColors.Background,
             dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
         ) {
+            CorusSystemBars()
             BackHandler { showClubOffer = false }
             CymbalClubOfferSheet(
                 source = clubOfferSource,

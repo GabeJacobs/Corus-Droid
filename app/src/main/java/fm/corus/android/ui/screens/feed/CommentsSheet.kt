@@ -80,6 +80,7 @@ import kotlinx.coroutines.delay
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,6 +102,7 @@ fun CommentsBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = CorusColors.Background,
+        modifier = Modifier.fillMaxHeight(0.95f),
         dragHandle = {
             // Add status bar padding so the drag handle stays below the camera cutout
             Column(modifier = Modifier.statusBarsPadding()) {
@@ -108,6 +110,7 @@ fun CommentsBottomSheet(
             }
         },
     ) {
+        CorusSystemBars()
         CommentsSheetContent(
             postId = postId,
             viewModel = viewModel,
@@ -268,6 +271,7 @@ private fun CommentsSheetContent(
             sheetState = reportSheetState,
             containerColor = CorusColors.Background,
         ) {
+            CorusSystemBars()
             ReportSheet(
                 contentType = ReportContentType.COMMENT,
                 contentId = comment.id,

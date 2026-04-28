@@ -73,6 +73,7 @@ import kotlinx.coroutines.Job
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.DateUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -413,6 +414,7 @@ fun SinglePostCommentsScreen(
                 sheetState = reportSheetState,
                 containerColor = CorusColors.Background,
             ) {
+                CorusSystemBars()
                 ReportSheet(
                     contentType = ReportContentType.COMMENT,
                     contentId = comment.id,
