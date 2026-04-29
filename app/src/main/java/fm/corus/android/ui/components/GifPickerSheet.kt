@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import fm.corus.android.R
-import fm.corus.android.data.model.TenorGif
+import fm.corus.android.data.model.KlipyGif
 import fm.corus.android.data.repository.GifRepository
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -41,12 +41,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun GifPickerSheet(
     gifRepository: GifRepository = hiltGifRepository(),
-    onGifSelected: (TenorGif) -> Unit,
+    onGifSelected: (KlipyGif) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var gifs by remember { mutableStateOf<List<TenorGif>>(emptyList()) }
-    var nextCursor by remember { mutableStateOf("") }
+    var gifs by remember { mutableStateOf<List<KlipyGif>>(emptyList()) }
+    var currentPage by remember { mutableStateOf(1) }
+    var hasNext by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     var searchJob by remember { mutableStateOf<Job?>(null) }
@@ -56,7 +57,8 @@ fun GifPickerSheet(
         try {
             val result = gifRepository.getTrendingGifs()
             gifs = result.gifs
-            nextCursor = result.nextCursor
+            currentPage = result.currentPage
+            hasNext = result.hasNext
         } catch (_: Exception) { }
         isLoading = false
     }
@@ -74,7 +76,8 @@ fun GifPickerSheet(
                     gifRepository.searchGifs(query)
                 }
                 gifs = result.gifs
-                nextCursor = result.nextCursor
+                currentPage = result.currentPage
+                hasNext = result.hasNext
             } catch (_: Exception) { }
             isLoading = false
         }
@@ -163,7 +166,7 @@ fun GifPickerSheet(
                     items(gifs, key = { it.id }) { gif ->
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
-                                .data(gif.tinyGifURL)
+                                .data(gif.thumbnailURL)
                                 .build(),
                             contentDescription = stringResource(R.string.gif_picker_cd_gif),
                             modifier = Modifier
@@ -176,17 +179,19 @@ fun GifPickerSheet(
                     }
 
                     // Load more
-                    if (nextCursor.isNotEmpty()) {
+                    if (hasNext) {
                         item {
-                            LaunchedEffect(nextCursor) {
+                            val nextPage = currentPage + 1
+                            LaunchedEffect(nextPage) {
                                 try {
                                     val result = if (searchQuery.isBlank()) {
-                                        gifRepository.getTrendingGifs(pos = nextCursor)
+                                        gifRepository.getTrendingGifs(page = nextPage)
                                     } else {
-                                        gifRepository.searchGifs(searchQuery, pos = nextCursor)
+                                        gifRepository.searchGifs(searchQuery, page = nextPage)
                                     }
                                     gifs = gifs + result.gifs
-                                    nextCursor = result.nextCursor
+                                    currentPage = result.currentPage
+                                    hasNext = result.hasNext
                                 } catch (_: Exception) { }
                             }
                             Box(

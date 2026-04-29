@@ -71,7 +71,10 @@ class NotificationsViewModelTest {
         userRepository = userRepository,
         postRepository = postRepository,
         engagementManager = engagementManager,
+        nowPlayingManager = mock(),
         analyticsService = mock(),
+        remoteConfigService = mock(),
+        gifRepository = mock(),
         context = mock(),
     )
 
@@ -112,7 +115,10 @@ class NotificationsViewModelTest {
             userRepository = userRepository,
             postRepository = postRepository,
             engagementManager = engagementManager,
+            nowPlayingManager = mock(),
             analyticsService = mock(),
+            remoteConfigService = mock(),
+            gifRepository = mock(),
             context = mock(),
         )
 

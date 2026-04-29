@@ -625,7 +625,7 @@
     <string name="gif_picker_cd_search">Buscar</string>
     <string name="gif_picker_cd_clear">Limpar</string>
     <string name="gif_picker_cd_gif">GIF</string>
-    <string name="gif_picker_powered_by">Powered by GIPHY</string>
+    <string name="gif_picker_powered_by">Powered by KLIPY</string>
 
     <!-- Mention text / flair badges -->
     <string name="mention_cd_corus">Corus</string>

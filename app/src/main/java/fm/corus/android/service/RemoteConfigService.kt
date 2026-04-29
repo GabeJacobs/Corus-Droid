@@ -43,14 +43,11 @@ class RemoteConfigService @Inject constructor(
     val paywallDefaultYearly: Boolean
         get() = remoteConfig.getBoolean("paywall_default_yearly")
 
-    val giphySupport: Boolean
-        get() = remoteConfig.getBoolean("giphy_support")
+    val gifSupport: Boolean
+        get() = remoteConfig.getBoolean("gif_support")
 
     val serverNotificationsEnabled: Boolean
         get() = remoteConfig.getBoolean("server_notifications_enabled")
-
-    val commentAttachmentsEnabled: Boolean
-        get() = remoteConfig.getBoolean("comment_attachments_enabled")
 
     val saveCapEnforced: Boolean
         get() = remoteConfig.getBoolean("save_cap_enforced")
@@ -88,9 +85,8 @@ class RemoteConfigService @Inject constructor(
                     "daily_post_limit_enabled" to true,
                     "filter_for_club_members_only" to false,
                     "paywall_default_yearly" to false,
-                    "giphy_support" to false,
+                    "gif_support" to false,
                     "server_notifications_enabled" to false,
-                    "comment_attachments_enabled" to true,
                     "save_cap_enforced" to false,
                     "save_cap_limit" to 25L,
                     "save_cap_warning_at" to 23L,
@@ -118,9 +114,8 @@ class RemoteConfigService @Inject constructor(
                 "daily_post_limit_enabled=$dailyPostLimitEnabled " +
                 "filter_for_club_members_only=$filterForClubMembersOnly " +
                 "paywall_default_yearly=$paywallDefaultYearly " +
-                "giphy_support=$giphySupport " +
+                "gif_support=$gifSupport " +
                 "server_notifications_enabled=$serverNotificationsEnabled " +
-                "comment_attachments_enabled=$commentAttachmentsEnabled " +
                 "save_cap_enforced=$saveCapEnforced " +
                 "save_cap_limit=$saveCapLimit " +
                 "save_cap_warning_at=$saveCapWarningAt"

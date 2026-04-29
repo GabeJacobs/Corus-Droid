@@ -33,11 +33,12 @@ class MessageThreadViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val remoteConfigService: RemoteConfigService,
+    private val gifRepository: fm.corus.android.data.repository.GifRepository,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
-    val giphySupport: Boolean
-        get() = remoteConfigService.giphySupport
+    val gifSupport: Boolean
+        get() = remoteConfigService.gifSupport
 
     private val _serverMessages = MutableStateFlow<List<CymbalMessage>>(emptyList())
 
@@ -198,7 +199,7 @@ class MessageThreadViewModel @Inject constructor(
 
     // ── Optimistic send: GIF ──
 
-    fun sendGifMessage(threadId: String, gifURL: String) {
+    fun sendGifMessage(threadId: String, gifURL: String, slug: String = "") {
         val userId = authRepository.currentUserId ?: return
         val resolvedId = currentThreadId ?: threadId
         val clientId = UUID.randomUUID().toString()
@@ -217,6 +218,9 @@ class MessageThreadViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                if (slug.isNotEmpty()) {
+                    gifRepository.triggerShare(slug)
+                }
                 messageRepository.sendGifMessage(
                     threadId = resolvedId,
                     fromUserId = userId,

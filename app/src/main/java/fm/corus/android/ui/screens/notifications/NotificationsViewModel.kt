@@ -39,8 +39,13 @@ class NotificationsViewModel @Inject constructor(
     private val engagementManager: PostEngagementManager,
     val nowPlayingManager: NowPlayingManager,
     private val analyticsService: AnalyticsService,
+    private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
+    private val gifRepository: fm.corus.android.data.repository.GifRepository,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    val gifSupport: Boolean
+        get() = remoteConfigService.gifSupport
 
     private val pageSize = 15
 
@@ -445,6 +450,52 @@ class NotificationsViewModel @Inject constructor(
                 _replyingToNotification.value = notification
                 _replyPendingSong.value = attachedSong
                 _replyPendingFilm.value = attachedFilm
+            }
+            _isSendingReply.value = false
+        }
+    }
+
+    fun sendGifReply(gifURL: String, slug: String = "") {
+        val userId = authRepository.currentUserId ?: return
+        val notification = _replyingToNotification.value ?: return
+        val postId = notification.postId ?: return
+        val parentCommentId = notification.commentId ?: return
+
+        _replyingToNotification.value = null
+        _isSendingReply.value = true
+
+        viewModelScope.launch {
+            try {
+                if (slug.isNotEmpty()) gifRepository.triggerShare(slug)
+                val newCommentId = postRepository.addComment(
+                    postId = postId,
+                    userId = userId,
+                    text = "",
+                    parentCommentId = parentCommentId,
+                    replyToUserId = notification.fromUser.id,
+                    gifURL = gifURL,
+                )
+                engagementManager.incrementCommentCount(postId)
+
+                try {
+                    val post = postRepository.getCachedPost(postId)
+                    postRepository.createNotification(
+                        type = "reply",
+                        fromUserId = userId,
+                        toUserId = notification.fromUser.id,
+                        postId = postId,
+                        postAlbumArtURL = post?.displayImageURL,
+                        commentText = "shared a GIF",
+                        commentId = newCommentId,
+                        attachmentType = "gif",
+                    )
+                } catch (_: Exception) { }
+
+                _replyToastEvents.trySend(context.getString(R.string.notifications_toast_reply_sent))
+            } catch (e: Exception) {
+                Log.e("Notifications", "Failed to send GIF reply", e)
+                _replyToastEvents.trySend(context.getString(R.string.notifications_toast_reply_failed))
+                _replyingToNotification.value = notification
             }
             _isSendingReply.value = false
         }

@@ -43,17 +43,15 @@ class CommentsViewModel @Inject constructor(
     private val postDeletionEvent: PostDeletionEvent,
     val nowPlayingManager: NowPlayingManager,
     private val remoteConfigService: RemoteConfigService,
+    private val gifRepository: fm.corus.android.data.repository.GifRepository,
     override val analyticsService: AnalyticsService,
     @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
 
     override val remoteConfig: RemoteConfigService get() = remoteConfigService
 
-    val giphySupport: Boolean
-        get() = remoteConfigService.giphySupport
-
-    val commentAttachmentsEnabled: Boolean
-        get() = remoteConfigService.commentAttachmentsEnabled
+    val gifSupport: Boolean
+        get() = remoteConfigService.gifSupport
 
     // ── Pending attachment state for the composer ──
     private val _pendingSong = MutableStateFlow<CommentAttachedSong?>(null)
@@ -303,11 +301,14 @@ class CommentsViewModel @Inject constructor(
         }
     }
 
-    fun sendGifComment(gifURL: String) {
+    fun sendGifComment(gifURL: String, slug: String = "") {
         val userId = authRepository.currentUserId ?: return
 
         viewModelScope.launch {
             _isSending.value = true
+            if (slug.isNotEmpty()) {
+                gifRepository.triggerShare(slug)
+            }
 
             val replyTo = _replyingTo.value
             val parentId = replyTo?.parentCommentId ?: replyTo?.id

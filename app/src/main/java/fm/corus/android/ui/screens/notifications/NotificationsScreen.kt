@@ -63,6 +63,7 @@ import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SkeletonNotificationRow
 import fm.corus.android.ui.components.SongFilmPickerSheet
+import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -248,10 +249,13 @@ fun NotificationsScreen(
             val replyPendingSong by viewModel.replyPendingSong.collectAsState()
             val replyPendingFilm by viewModel.replyPendingFilm.collectAsState()
             var showReplySongFilmPicker by remember { mutableStateOf(false) }
+            var replyPickerInitialMode by remember { mutableStateOf(PickerMode.SONG) }
+            var showReplyAttachmentMenu by remember { mutableStateOf(false) }
+            var showReplyGifPicker by remember { mutableStateOf(false) }
 
             if (showReplySongFilmPicker) {
                 SongFilmPickerSheet(
-                    initialMode = PickerMode.SONG,
+                    initialMode = replyPickerInitialMode,
                     onSongSelected = { track ->
                         viewModel.attachReplySong(track)
                         showReplySongFilmPicker = false
@@ -264,13 +268,47 @@ fun NotificationsScreen(
                 )
             }
 
+            if (viewModel.gifSupport && showReplyGifPicker) {
+                GifPickerSheet(
+                    onGifSelected = { gif ->
+                        showReplyGifPicker = false
+                        viewModel.sendGifReply(gif.fullURL, gif.slug)
+                    },
+                    onDismiss = { showReplyGifPicker = false },
+                )
+            }
+
             InlineReplyBar(
                 replyingTo = replyingTo!!,
                 isSending = isSendingReply,
                 pendingSong = replyPendingSong,
                 pendingFilm = replyPendingFilm,
                 nowPlaying = viewModel.nowPlayingManager,
-                onAttachmentClick = { showReplySongFilmPicker = true },
+                gifSupport = viewModel.gifSupport,
+                showAttachmentMenu = showReplyAttachmentMenu,
+                onAttachmentClick = {
+                    if (viewModel.gifSupport) {
+                        showReplyAttachmentMenu = true
+                    } else {
+                        replyPickerInitialMode = PickerMode.SONG
+                        showReplySongFilmPicker = true
+                    }
+                },
+                onAttachmentMenuDismiss = { showReplyAttachmentMenu = false },
+                onAttachSong = {
+                    showReplyAttachmentMenu = false
+                    replyPickerInitialMode = PickerMode.SONG
+                    showReplySongFilmPicker = true
+                },
+                onAttachFilm = {
+                    showReplyAttachmentMenu = false
+                    replyPickerInitialMode = PickerMode.FILM
+                    showReplySongFilmPicker = true
+                },
+                onAttachGif = {
+                    showReplyAttachmentMenu = false
+                    showReplyGifPicker = true
+                },
                 onClearAttachment = { viewModel.clearReplyAttachment() },
                 onSend = { text -> viewModel.sendReply(text) },
                 onCancel = {
@@ -644,7 +682,13 @@ private fun InlineReplyBar(
     pendingSong: CommentAttachedSong? = null,
     pendingFilm: CommentAttachedFilm? = null,
     nowPlaying: fm.corus.android.domain.NowPlayingManager? = null,
+    gifSupport: Boolean = false,
+    showAttachmentMenu: Boolean = false,
     onAttachmentClick: () -> Unit = {},
+    onAttachmentMenuDismiss: () -> Unit = {},
+    onAttachSong: () -> Unit = {},
+    onAttachFilm: () -> Unit = {},
+    onAttachGif: () -> Unit = {},
     onClearAttachment: () -> Unit = {},
     onSend: (String) -> Unit,
     onCancel: () -> Unit,
@@ -688,20 +732,41 @@ private fun InlineReplyBar(
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(CorusColors.CommentAttachmentPlus.copy(alpha = 0.15f))
-                    .clickable(enabled = !hasAttachment) { onAttachmentClick() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.comment_attachment_attach),
-                    tint = CorusColors.CommentAttachmentPlus,
-                    modifier = Modifier.size(20.dp),
-                )
+            Box {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(CorusColors.CommentAttachmentPlus.copy(alpha = 0.15f))
+                        .clickable(enabled = !hasAttachment) { onAttachmentClick() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.comment_attachment_attach),
+                        tint = CorusColors.CommentAttachmentPlus,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                if (gifSupport) {
+                    DropdownMenu(
+                        expanded = showAttachmentMenu,
+                        onDismissRequest = onAttachmentMenuDismiss,
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.comment_attachment_song)) },
+                            onClick = onAttachSong,
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.comment_attachment_film)) },
+                            onClick = onAttachFilm,
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.comment_attachment_gif)) },
+                            onClick = onAttachGif,
+                        )
+                    }
+                }
             }
             Spacer(Modifier.width(CorusSpacing.sm))
 

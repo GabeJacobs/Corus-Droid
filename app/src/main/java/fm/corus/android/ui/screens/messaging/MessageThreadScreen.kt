@@ -307,7 +307,7 @@ fun MessageThreadScreen(
                 }
             }
 
-            if (viewModel.giphySupport) {
+            if (viewModel.gifSupport) {
                 IconButton(onClick = { showGifPicker = true }) {
                     Icon(
                         Icons.Filled.Gif,
@@ -346,10 +346,10 @@ fun MessageThreadScreen(
         }
     }
 
-    if (viewModel.giphySupport && showGifPicker) {
+    if (viewModel.gifSupport && showGifPicker) {
         GifPickerSheet(
             onGifSelected = { gif ->
-                viewModel.sendGifMessage(threadId, gif.gifURL)
+                viewModel.sendGifMessage(threadId, gif.fullURL, gif.slug)
                 showGifPicker = false
             },
             onDismiss = { showGifPicker = false },

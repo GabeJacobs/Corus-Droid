@@ -187,6 +187,8 @@ private fun CommentsSheetContent(
     val keyboardController = LocalSoftwareKeyboardController.current
     var showGifPicker by remember { mutableStateOf(false) }
     var showSongFilmPicker by remember { mutableStateOf(false) }
+    var pickerInitialMode by remember { mutableStateOf(PickerMode.SONG) }
+    var showAttachmentMenu by remember { mutableStateOf(false) }
     var reportingComment by remember { mutableStateOf<CymbalComment?>(null) }
     var viewingLikesCommentId by remember { mutableStateOf<String?>(null) }
     val maxChars = 700
@@ -238,10 +240,10 @@ private fun CommentsSheetContent(
         }
     }
 
-    if (viewModel.giphySupport && showGifPicker) {
+    if (viewModel.gifSupport && showGifPicker) {
         GifPickerSheet(
             onGifSelected = { gif ->
-                viewModel.sendGifComment(gif.gifURL)
+                viewModel.sendGifComment(gif.fullURL, gif.slug)
                 showGifPicker = false
             },
             onDismiss = { showGifPicker = false },
@@ -250,7 +252,7 @@ private fun CommentsSheetContent(
 
     if (showSongFilmPicker) {
         SongFilmPickerSheet(
-            initialMode = PickerMode.SONG,
+            initialMode = pickerInitialMode,
             onSongSelected = { track ->
                 viewModel.attachSong(track)
                 showSongFilmPicker = false
@@ -508,23 +510,58 @@ private fun CommentsSheetContent(
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (editingComment == null && viewModel.commentAttachmentsEnabled) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(CorusColors.Accent)
-                        .clickable(enabled = pendingSong == null && pendingFilm == null) {
-                            showSongFilmPicker = true
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Filled.Add,
-                        contentDescription = stringResource(R.string.comment_attachment_attach),
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp),
-                    )
+            if (editingComment == null) {
+                Box {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(CorusColors.Accent)
+                            .clickable(enabled = pendingSong == null && pendingFilm == null) {
+                                if (viewModel.gifSupport) {
+                                    showAttachmentMenu = true
+                                } else {
+                                    pickerInitialMode = PickerMode.SONG
+                                    showSongFilmPicker = true
+                                }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = stringResource(R.string.comment_attachment_attach),
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showAttachmentMenu,
+                        onDismissRequest = { showAttachmentMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.comment_attachment_song)) },
+                            onClick = {
+                                showAttachmentMenu = false
+                                pickerInitialMode = PickerMode.SONG
+                                showSongFilmPicker = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.comment_attachment_film)) },
+                            onClick = {
+                                showAttachmentMenu = false
+                                pickerInitialMode = PickerMode.FILM
+                                showSongFilmPicker = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.comment_attachment_gif)) },
+                            onClick = {
+                                showAttachmentMenu = false
+                                showGifPicker = true
+                            },
+                        )
+                    }
                 }
                 Spacer(Modifier.width(CorusSpacing.sm))
             }
@@ -580,12 +617,6 @@ private fun CommentsSheetContent(
                     }
                 },
             )
-
-            if (viewModel.giphySupport && editingComment == null && !viewModel.commentAttachmentsEnabled) {
-                IconButton(onClick = { showGifPicker = true }) {
-                    Icon(Icons.Filled.Gif, contentDescription = stringResource(R.string.comments_cd_send_gif), tint = CorusColors.Accent, modifier = Modifier.size(28.dp))
-                }
-            }
 
             val hasAttachment = pendingSong != null || pendingFilm != null
             val canSend = (commentText.text.isNotBlank() || hasAttachment) && !isSending

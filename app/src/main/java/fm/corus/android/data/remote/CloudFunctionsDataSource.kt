@@ -368,35 +368,46 @@ class CloudFunctionsDataSource @Inject constructor(
         ).await()
     }
 
-    // ── GIF Search (Giphy via Cloud Function) ──
+    // ── GIF Search (Klipy via Cloud Function) ──
 
     data class GifSearchResult(
-        val results: List<TenorGif>,
-        val next: String,
+        val results: List<KlipyGif>,
+        val currentPage: Int,
+        val hasNext: Boolean,
     )
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun searchGifs(query: String = "", limit: Int = 20, pos: String = ""): GifSearchResult {
-        val params = mutableMapOf<String, Any>("limit" to limit)
+    suspend fun searchKlipyGifs(query: String = "", page: Int = 1, perPage: Int = 24): GifSearchResult {
+        val params = mutableMapOf<String, Any>("page" to page, "perPage" to perPage)
         if (query.isNotBlank()) params["query"] = query
-        if (pos.isNotBlank()) params["pos"] = pos
 
-        val result = functions.getHttpsCallable("searchTenorGifs").call(params).await()
+        val result = functions.getHttpsCallable("searchKlipyGifs").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: emptyMap()
         val rawResults = data["results"] as? List<Map<String, Any?>> ?: emptyList()
 
         return GifSearchResult(
             results = rawResults.map { r ->
-                TenorGif(
+                KlipyGif(
                     id = r["id"] as? String ?: "",
-                    tinyGifURL = r["tinyGifURL"] as? String ?: "",
-                    gifURL = r["gifURL"] as? String ?: "",
-                    tinyGifWidth = (r["tinyGifWidth"] as? Number)?.toInt() ?: 0,
-                    tinyGifHeight = (r["tinyGifHeight"] as? Number)?.toInt() ?: 0,
+                    slug = r["slug"] as? String ?: "",
+                    title = r["title"] as? String ?: "",
+                    thumbnailURL = r["thumbnailURL"] as? String ?: "",
+                    fullURL = r["fullURL"] as? String ?: "",
+                    thumbnailWidth = (r["thumbnailWidth"] as? Number)?.toInt() ?: 0,
+                    thumbnailHeight = (r["thumbnailHeight"] as? Number)?.toInt() ?: 0,
                 )
             },
-            next = data["next"] as? String ?: "",
+            currentPage = (data["currentPage"] as? Number)?.toInt() ?: page,
+            hasNext = data["hasNext"] as? Boolean ?: false,
         )
+    }
+
+    suspend fun triggerKlipyShare(slug: String) {
+        try {
+            functions.getHttpsCallable("triggerKlipyShare").call(mapOf("slug" to slug)).await()
+        } catch (_: Exception) {
+            // best-effort analytics ping
+        }
     }
 
     // ── Spotify ──
