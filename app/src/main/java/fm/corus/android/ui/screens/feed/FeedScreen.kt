@@ -318,6 +318,7 @@ fun FeedScreen(
                             },
                             onTrailerTap = {
                                 post.trailerURL?.takeIf { it.isNotBlank() }?.let { url ->
+                                    viewModel.nowPlayingManager.pause()
                                     try {
                                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                                     } catch (_: Exception) { }

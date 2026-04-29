@@ -225,6 +225,7 @@ fun PostDetailScreen(
                             },
                             onTrailerTap = {
                                 currentPost.trailerURL?.let { url ->
+                                    viewModel.nowPlayingManager.pause()
                                     try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { }
                                 }
                             },
@@ -313,23 +314,11 @@ fun PostDetailScreen(
                     // Inline comments (max 3)
                     val previewComments = (comments.ifEmpty { currentPost.comments }).take(3)
                     if (previewComments.isNotEmpty()) {
-                        item {
-                            if (commentCount > previewComments.size) {
-                                Text(
-                                    text = stringResource(R.string.post_detail_view_all_comments_format, commentCount),
-                                    style = CorusFont.body,
-                                    color = CorusColors.Secondary,
-                                    modifier = Modifier
-                                        .clickable { onNavigateToComments(currentPost.id) }
-                                        .padding(horizontal = CorusSpacing.lg)
-                                        .padding(top = CorusSpacing.xs),
-                                )
-                            }
-                        }
                         items(previewComments, key = { it.id }) { comment ->
                             InlineCommentRow(
                                 comment = comment,
                                 onUserTap = { onNavigateToUser(comment.user.id) },
+                                onCommentTap = { onNavigateToComments(currentPost.id) },
                                 onMentionTap = { username ->
                                     scope.launch {
                                         val userId = viewModel.resolveUsernameToId(username.removePrefix("@"))
@@ -343,6 +332,19 @@ fun PostDetailScreen(
                                     onNavigateToHashtag(hashtag)
                                 },
                             )
+                        }
+                        item {
+                            if (commentCount > previewComments.size) {
+                                Text(
+                                    text = stringResource(R.string.post_detail_view_all_comments_format, commentCount),
+                                    style = CorusFont.body,
+                                    color = CorusColors.Secondary,
+                                    modifier = Modifier
+                                        .clickable { onNavigateToComments(currentPost.id) }
+                                        .padding(horizontal = CorusSpacing.lg)
+                                        .padding(top = CorusSpacing.xs),
+                                )
+                            }
                         }
                     }
 
@@ -772,7 +774,7 @@ private fun PostDetailEngagementRow(
             ) {
                 VennDiagramIcon(
                     size = 22.dp,
-                    color = CorusColors.Secondary,
+                    color = CorusColors.Text,
                 )
                 Spacer(modifier = Modifier.width(CorusSpacing.xs))
                 Text(
@@ -908,11 +910,13 @@ private fun PostDetailCaption(
 private fun InlineCommentRow(
     comment: CymbalComment,
     onUserTap: () -> Unit,
+    onCommentTap: () -> Unit,
     onMentionTap: (String) -> Unit,
     onHashtagTap: (String) -> Unit,
 ) {
     val commentText = remember(comment.user.username, comment.text) {
         buildAnnotatedString {
+            pushStringAnnotation(tag = "user", annotation = comment.user.username)
             withStyle(
                 SpanStyle(
                     fontWeight = FontWeight.ExtraBold,
@@ -921,6 +925,7 @@ private fun InlineCommentRow(
             ) {
                 append(comment.user.username)
             }
+            pop()
             append(" ")
             append(
                 buildMentionAnnotatedString(
@@ -952,7 +957,11 @@ private fun InlineCommentRow(
                 onHashtagTap(it.item)
                 return@ClickableText
             }
-            onUserTap()
+            commentText.getStringAnnotations("user", offset, offset).firstOrNull()?.let {
+                onUserTap()
+                return@ClickableText
+            }
+            onCommentTap()
         },
     )
 }

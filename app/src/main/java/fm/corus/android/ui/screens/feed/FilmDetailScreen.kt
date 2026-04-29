@@ -193,6 +193,7 @@ fun FilmDetailScreen(
                             if (!header.trailerURL.isNullOrBlank()) {
                                 Button(
                                     onClick = {
+                                        viewModel.nowPlayingManager.pause()
                                         try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(header.trailerURL))) } catch (_: Exception) { }
                                     },
                                     shape = RoundedCornerShape(50),

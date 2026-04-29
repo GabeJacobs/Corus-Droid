@@ -467,6 +467,7 @@ fun SinglePostCommentsScreen(
                         },
                         onTrailerTap = {
                             p.trailerURL?.let { url ->
+                                viewModel.nowPlayingManager.pause()
                                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { }
                             }
                         },

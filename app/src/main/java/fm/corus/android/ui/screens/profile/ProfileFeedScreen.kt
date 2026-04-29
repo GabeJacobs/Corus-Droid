@@ -146,6 +146,7 @@ fun ProfileFeedScreen(
                     onPreviewTap = { viewModel.playPreview(post) },
                     onTrailerTap = {
                         post.trailerURL?.let { url ->
+                            viewModel.nowPlayingManager.pause()
                             try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { }
                         }
                     },
