@@ -118,8 +118,8 @@ fun ProfileScreen(
     val hasFullAccess by viewModel.hasFullAccess.collectAsState()
     val isSavingStyle by viewModel.isSavingStyle.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
-    var selectedSegment by remember { mutableIntStateOf(0) }
-    var isFeaturedArtReady by remember { mutableStateOf(false) }
+    var selectedSegment by rememberSaveable { mutableIntStateOf(0) }
+    var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
     var didRevealFromSkeleton by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
@@ -175,6 +175,8 @@ fun ProfileScreen(
         viewModel.loadProfile()
     }
 
+    val gridState = rememberLazyGridState()
+
     if (isLoading && profile == null) {
         Column(modifier = Modifier.fillMaxSize()) {
             fm.corus.android.ui.components.SkeletonProfileView()
@@ -185,7 +187,6 @@ fun ProfileScreen(
 
     val currentProfile = profile ?: return
 
-    val gridState = rememberLazyGridState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
 
@@ -248,7 +249,7 @@ fun ProfileScreen(
         modifier = Modifier.fillMaxSize(),
     ) {
         // All header content spans full width
-        item(span = { GridItemSpan(3) }) {
+        item(span = { GridItemSpan(3) }, key = "header_row") {
             Column {
                 // ── Header Row: icon / display name / settings ──
                 Row(
@@ -287,7 +288,11 @@ fun ProfileScreen(
                             .clickable(onClick = onNavigateToSettings),
                     )
                 }
+            }
+        }
 
+        item(span = { GridItemSpan(3) }, key = "avatar_stats") {
+            Column {
                 // ── Avatar + Stats Row ──
                 Row(
                     modifier = Modifier
@@ -475,7 +480,11 @@ fun ProfileScreen(
                 }
 
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
+            }
+        }
 
+        item(span = { GridItemSpan(3) }, key = "bio") {
+            Column {
                 // ── Username + Bio + Website ──
                 Column(
                     modifier = Modifier
@@ -533,7 +542,11 @@ fun ProfileScreen(
                 }
 
                 Spacer(modifier = Modifier.height(CorusSpacing.lg))
+            }
+        }
 
+        item(span = { GridItemSpan(3) }, key = "tabs") {
+            Column {
                 // ── Segment Control ──
                 val tabs = listOf(
                     stringResource(fm.corus.android.R.string.profile_tab_music),
@@ -577,7 +590,11 @@ fun ProfileScreen(
                         }
                     }
                 }
+            }
+        }
 
+        item(span = { GridItemSpan(3) }, key = "featured") {
+            Column {
                 // Filter posts by segment
                 val filteredPosts = when (selectedSegment) {
                     0 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.TRACK }

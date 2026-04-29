@@ -39,6 +39,7 @@ import fm.corus.android.R
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.CymbalClubVinyl
 import fm.corus.android.ui.components.ToastManager
@@ -250,13 +251,17 @@ fun SettingsScreen(
                 onCheckedChange = { settingsViewModel.setAutoplayNextSong(it) },
             )
 
-            SettingsToggleRow(
-                icon = Icons.Outlined.Vibration,
-                title = stringResource(R.string.settings_row_haptics),
-                subtitle = stringResource(R.string.settings_row_haptics_subtitle),
-                checked = hapticsEnabled,
-                onCheckedChange = { hapticsEnabled = it },
-            )
+            // Hide on devices without a vibrator (some tablets, Android TV, emulators) —
+            // a toggle that controls non-existent hardware would be misleading.
+            if (LocalHapticManager.current.hasVibrator()) {
+                SettingsToggleRow(
+                    icon = Icons.Outlined.Vibration,
+                    title = stringResource(R.string.settings_row_haptics),
+                    subtitle = stringResource(R.string.settings_row_haptics_subtitle),
+                    checked = hapticsEnabled,
+                    onCheckedChange = { hapticsEnabled = it },
+                )
+            }
 
             var currentLanguage by remember { mutableStateOf(fm.corus.android.i18n.LanguageManager.current(context)) }
             val languageOptionLabels: Map<fm.corus.android.i18n.AppLanguage, String> = mapOf(

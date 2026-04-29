@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.ui.theme.CorusColors
@@ -181,7 +182,10 @@ fun TasteMatchCard(
                 .height(32.dp),
         ) {
             Text(
-                if (isFollowing) "Following" else "Follow",
+                stringResource(
+                    if (isFollowing) fm.corus.android.R.string.likes_button_following
+                    else fm.corus.android.R.string.likes_button_follow
+                ),
                 style = CorusFont.buttonSmall,
             )
         }

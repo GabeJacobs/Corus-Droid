@@ -25,7 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -76,7 +78,7 @@ fun PostActionMenu(
         if (!isMovie && spotifyUri != null) {
             MenuRow(
                 icon = Icons.Filled.PlayArrow,
-                label = "Play in Spotify",
+                label = stringResource(R.string.post_menu_play_spotify),
                 onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(spotifyUri))
                     try {
@@ -96,13 +98,13 @@ fun PostActionMenu(
         if (isMovie) {
             MenuRow(
                 icon = Icons.Filled.Movie,
-                label = "View Film Page",
+                label = stringResource(R.string.post_menu_view_film_page),
                 onClick = { onViewFilmPage(); onDismiss() },
             )
         } else {
             MenuRow(
                 icon = Icons.Filled.MusicNote,
-                label = "View Song Page",
+                label = stringResource(R.string.post_menu_view_song_page),
                 onClick = { onViewSongPage(); onDismiss() },
             )
         }
@@ -111,7 +113,10 @@ fun PostActionMenu(
         if (!isMovie && showBackCoverOption) {
             MenuRow(
                 icon = Icons.Outlined.Style,
-                label = if (isBackCoverFlipped) "View Front Cover" else "View Back Cover",
+                label = stringResource(
+                    if (isBackCoverFlipped) R.string.post_menu_view_front_cover
+                    else R.string.post_menu_view_back_cover
+                ),
                 onClick = { onViewBackCover(); onDismiss() },
             )
         }
@@ -119,21 +124,21 @@ fun PostActionMenu(
         // Repost
         MenuRow(
             icon = Icons.Filled.Repeat,
-            label = "Repost",
+            label = stringResource(R.string.post_menu_repost),
             onClick = { onRepost(); onDismiss() },
         )
 
         // Share
         MenuRow(
             icon = Icons.Filled.Share,
-            label = "Share",
+            label = stringResource(R.string.post_menu_share),
             onClick = { onSharePost(); onDismiss() },
         )
 
         // Copy Link
         MenuRow(
             icon = Icons.Filled.ContentCopy,
-            label = "Copy Link",
+            label = stringResource(R.string.post_menu_copy_link),
             onClick = { onCopyLink(); onDismiss() },
         )
 
@@ -148,14 +153,14 @@ fun PostActionMenu(
             // Edit Caption
             MenuRow(
                 icon = Icons.Filled.Edit,
-                label = "Edit Caption",
+                label = stringResource(R.string.post_menu_edit_caption),
                 onClick = { onEditCaption(); onDismiss() },
             )
 
             // Delete
             MenuRow(
                 icon = Icons.Filled.Delete,
-                label = "Delete Post",
+                label = stringResource(R.string.post_menu_delete_post),
                 tint = CorusColors.Error,
                 onClick = { onDeletePost(); onDismiss() },
             )
@@ -163,14 +168,14 @@ fun PostActionMenu(
             // Report
             MenuRow(
                 icon = Icons.Filled.Flag,
-                label = "Report",
+                label = stringResource(R.string.post_menu_report),
                 onClick = { onReportPost(); onDismiss() },
             )
 
             // Block
             MenuRow(
                 icon = Icons.Filled.Block,
-                label = "Block User",
+                label = stringResource(R.string.post_menu_block_user),
                 tint = CorusColors.Error,
                 onClick = { onBlockUser(); onDismiss() },
             )

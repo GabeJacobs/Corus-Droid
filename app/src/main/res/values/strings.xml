@@ -611,8 +611,8 @@
     <string name="post_card_cd_share">Share</string>
     <string name="post_card_cd_save">Save</string>
     <string name="post_card_cd_watch_trailer">Watch Trailer</string>
-    <string name="post_card_liked_by_prefix">Liked by </string>
-    <string name="post_card_liked_by_and"> and </string>
+    <string name="post_card_liked_by_prefix">"Liked by "</string>
+    <string name="post_card_liked_by_and">" and "</string>
     <plurals name="post_card_others_count">
         <item quantity="one">%d other</item>
         <item quantity="other">%d others</item>

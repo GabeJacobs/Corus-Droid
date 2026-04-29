@@ -40,7 +40,7 @@
     <string name="settings_section_general">GERAL</string>
     <string name="settings_row_autoplay_title">Reproduzir Próxima Música Automaticamente</string>
     <string name="settings_row_autoplay_subtitle">Tocar a próxima música automaticamente quando uma terminar</string>
-    <string name="settings_row_haptics">Hápticos</string>
+    <string name="settings_row_haptics">Vibração</string>
     <string name="settings_row_haptics_subtitle">Vibração nas interações</string>
     <string name="settings_section_notifications_messaging">NOTIFICAÇÕES E MENSAGENS</string>
     <string name="settings_row_notifications">Notificações</string>
@@ -406,7 +406,7 @@
     <string name="search_section_trending_this_month">EM ALTA ESTE MÊS</string>
     <string name="search_see_all">Ver Todos</string>
     <string name="search_taste_matches_title">Combinações de Gosto</string>
-    <string name="search_mutual_connections_title">Conexões Mútuas</string>
+    <string name="search_mutual_connections_title">Conexões em comum</string>
     <string name="search_popular_title">Populares no Corus</string>
     <string name="search_new_title">Novos no Corus</string>
     <string name="search_filter_all">Todos</string>
@@ -603,8 +603,8 @@
     <string name="post_card_cd_share">Compartilhar</string>
     <string name="post_card_cd_save">Salvar</string>
     <string name="post_card_cd_watch_trailer">Assistir Trailer</string>
-    <string name="post_card_liked_by_prefix">Curtido por </string>
-    <string name="post_card_liked_by_and"> e </string>
+    <string name="post_card_liked_by_prefix">"Curtido por "</string>
+    <string name="post_card_liked_by_and">" e "</string>
     <plurals name="post_card_others_count">
         <item quantity="one">mais %d</item>
         <item quantity="other">mais %d</item>

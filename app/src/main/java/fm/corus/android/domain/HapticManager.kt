@@ -56,6 +56,9 @@ class HapticManager @Inject constructor(
         dataStore.edit { it[HAPTICS_ENABLED] = enabled }
     }
 
+    /** Whether this device has a vibrator capable of producing haptic feedback. */
+    fun hasVibrator(): Boolean = vibrator.hasVibrator()
+
     /** Light impact — button taps, selections. */
     fun impact(style: ImpactStyle = ImpactStyle.LIGHT) {
         if (!isEnabled()) return
