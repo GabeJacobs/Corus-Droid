@@ -47,4 +47,29 @@ class DeepLinkHandlerTest {
         val dest = DeepLinkHandler.parseNotificationData(data)
         assertEquals(DeepLinkDestination.Thread("dm_abc", "user_123"), dest)
     }
+
+    @Test
+    fun `contact_joined notification routes to profile`() {
+        val data = mapOf(
+            "type" to "contact_joined",
+            "fromUserId" to "user_123",
+            "userId" to "user_123",
+            "postId" to "",
+            "commentId" to "",
+        )
+        val dest = DeepLinkHandler.parseNotificationData(data)
+        assertEquals(DeepLinkDestination.Profile("user_123"), dest)
+    }
+
+    @Test
+    fun `fallback ignores empty postId and uses fromUserId`() {
+        val data = mapOf(
+            "postId" to "",
+            "commentId" to "",
+            "fromUserId" to "user_999",
+            "userId" to "user_999",
+        )
+        val dest = DeepLinkHandler.parseNotificationData(data)
+        assertEquals(DeepLinkDestination.Profile("user_999"), dest)
+    }
 }

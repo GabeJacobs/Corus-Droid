@@ -219,11 +219,56 @@ fun CommentAttachmentPendingChip(
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
     nowPlaying: NowPlayingManager? = null,
+    pendingGif: fm.corus.android.data.model.KlipyGif? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state = nowPlaying?.state?.collectAsState()?.value
     val loadingTrackId = nowPlaying?.loadingTrackId?.collectAsState()?.value
+
+    // GIF chip is rendered as just the preview image with an X overlay (no pill,
+    // no labels) — mirrors the iOS pattern.
+    if (pendingGif != null) {
+        val maxWidthDp = 160.dp
+        val maxHeightDp = 120.dp
+        val aspect = if (pendingGif.thumbnailHeight > 0)
+            pendingGif.thumbnailWidth.toFloat() / pendingGif.thumbnailHeight.toFloat()
+        else 1f
+        val safeAspect = if (aspect > 0f) aspect else 1f
+        val (gifW, gifH) = run {
+            val targetH = minOf(maxHeightDp.value, maxWidthDp.value / safeAspect)
+            val targetW = minOf(maxWidthDp.value, targetH * safeAspect)
+            targetW.dp to targetH.dp
+        }
+        Box(modifier = modifier) {
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(pendingGif.thumbnailURL).build(),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(width = gifW, height = gifH)
+                    .clip(RoundedCornerShape(10.dp)),
+                contentScale = ContentScale.Crop,
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(20.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable { onClear() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.comment_attachment_remove),
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+        return
+    }
 
     Row(
         modifier = modifier

@@ -110,6 +110,7 @@ fun SinglePostCommentsScreen(
 
     val pendingSong by viewModel.pendingSong.collectAsState()
     val pendingFilm by viewModel.pendingFilm.collectAsState()
+    val pendingGif by viewModel.pendingGif.collectAsState()
 
     var commentText by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
@@ -118,6 +119,7 @@ fun SinglePostCommentsScreen(
     var pickerInitialMode by remember { mutableStateOf(PickerMode.SONG) }
     var showAttachmentMenu by remember { mutableStateOf(false) }
     val maxChars = 700
+    val showCounter = commentText.text.length >= 650
     val listState = rememberLazyListState()
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
     val isSearchingMentions by viewModel.isSearchingMentions.collectAsState()
@@ -247,8 +249,8 @@ fun SinglePostCommentsScreen(
                     }
                 }
 
-                // Pending song/film attachment chip — left-aligned, hugs content.
-                if (editingComment == null && (pendingSong != null || pendingFilm != null)) {
+                // Pending attachment chip (song / film / GIF) — left-aligned.
+                if (editingComment == null && (pendingSong != null || pendingFilm != null || pendingGif != null)) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -257,6 +259,7 @@ fun SinglePostCommentsScreen(
                         CommentAttachmentPendingChip(
                             attachedSong = pendingSong,
                             attachedFilm = pendingFilm,
+                            pendingGif = pendingGif,
                             onClear = { viewModel.clearAttachment() },
                             nowPlaying = viewModel.nowPlayingManager,
                         )
@@ -280,7 +283,7 @@ fun SinglePostCommentsScreen(
                                     .size(32.dp)
                                     .clip(CircleShape)
                                     .background(CorusColors.Accent)
-                                    .clickable(enabled = pendingSong == null && pendingFilm == null) {
+                                    .clickable(enabled = pendingSong == null && pendingFilm == null && pendingGif == null) {
                                         if (viewModel.gifSupport) {
                                             showAttachmentMenu = true
                                         } else {
@@ -302,6 +305,13 @@ fun SinglePostCommentsScreen(
                                 onDismissRequest = { showAttachmentMenu = false },
                             ) {
                                 DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.comment_attachment_gif)) },
+                                    onClick = {
+                                        showAttachmentMenu = false
+                                        showGifPicker = true
+                                    },
+                                )
+                                DropdownMenuItem(
                                     text = { Text(stringResource(R.string.comment_attachment_song)) },
                                     onClick = {
                                         showAttachmentMenu = false
@@ -315,13 +325,6 @@ fun SinglePostCommentsScreen(
                                         showAttachmentMenu = false
                                         pickerInitialMode = PickerMode.FILM
                                         showSongFilmPicker = true
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.comment_attachment_gif)) },
-                                    onClick = {
-                                        showAttachmentMenu = false
-                                        showGifPicker = true
                                     },
                                 )
                             }
@@ -368,21 +371,38 @@ fun SinglePostCommentsScreen(
                         ),
                         singleLine = false,
                         maxLines = 4,
+                        trailingIcon = {
+                            if (showCounter) {
+                                // Match iOS / CommentsSheet: counter visible at >= 650;
+                                // turns red at >= maxChars - 10 (690).
+                                Text(
+                                    "${maxChars - commentText.text.length}",
+                                    style = CorusFont.caption,
+                                    color = if (commentText.text.length >= maxChars - 10) CorusColors.Error else CorusColors.Secondary,
+                                )
+                            }
+                        },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = {
-                            if (commentText.text.isNotBlank() && !isSending) {
+                            val hasAnyAttachment = pendingSong != null || pendingFilm != null || pendingGif != null
+                            if ((commentText.text.isNotBlank() || hasAnyAttachment) && !isSending) {
                                 val editing = editingComment
-                                if (editing != null) {
-                                    viewModel.editComment(editing.id, commentText.text.trim())
-                                } else {
-                                    viewModel.addComment(postId, commentText.text.trim())
+                                val pendingGifSnapshot = pendingGif
+                                when {
+                                    editing != null -> viewModel.editComment(editing.id, commentText.text.trim())
+                                    pendingGifSnapshot != null -> viewModel.sendGifComment(
+                                        gifURL = pendingGifSnapshot.fullURL,
+                                        slug = pendingGifSnapshot.slug,
+                                        text = commentText.text.trim(),
+                                    )
+                                    else -> viewModel.addComment(postId, commentText.text.trim())
                                 }
                                 commentText = TextFieldValue("")
                                 viewModel.clearMentions()
                             }
                         }),
                     )
-                    val hasAttachment = pendingSong != null || pendingFilm != null
+                    val hasAttachment = pendingSong != null || pendingFilm != null || pendingGif != null
                     val canSend = (commentText.text.isNotBlank() || hasAttachment) && !isSending
                     Spacer(modifier = Modifier.width(CorusSpacing.sm))
                     Box(
@@ -392,10 +412,15 @@ fun SinglePostCommentsScreen(
                             .background(if (canSend) CorusColors.Accent else CorusColors.Divider)
                             .clickable(enabled = canSend) {
                                 val editing = editingComment
-                                if (editing != null) {
-                                    viewModel.editComment(editing.id, commentText.text.trim())
-                                } else {
-                                    viewModel.addComment(postId, commentText.text.trim())
+                                val pendingGifSnapshot = pendingGif
+                                when {
+                                    editing != null -> viewModel.editComment(editing.id, commentText.text.trim())
+                                    pendingGifSnapshot != null -> viewModel.sendGifComment(
+                                        gifURL = pendingGifSnapshot.fullURL,
+                                        slug = pendingGifSnapshot.slug,
+                                        text = commentText.text.trim(),
+                                    )
+                                    else -> viewModel.addComment(postId, commentText.text.trim())
                                 }
                                 commentText = TextFieldValue("")
                                 viewModel.clearMentions()
@@ -416,7 +441,7 @@ fun SinglePostCommentsScreen(
         if (viewModel.gifSupport && showGifPicker) {
             GifPickerSheet(
                 onGifSelected = { gif ->
-                    viewModel.sendGifComment(gif.fullURL, gif.slug)
+                    viewModel.attachGif(gif)
                     showGifPicker = false
                 },
                 onDismiss = { showGifPicker = false },
@@ -882,35 +907,39 @@ private fun CommentContentRow(
                 }
             }
             Spacer(modifier = Modifier.height(CorusSpacing.xxs))
-            if (comment.gifURL != null) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(comment.gifURL).build(),
-                    contentDescription = stringResource(R.string.comments_cd_gif),
-                    modifier = Modifier
-                        .widthIn(max = if (isReply) 160.dp else 200.dp)
-                        .heightIn(max = if (isReply) 120.dp else 150.dp)
-                        .clip(RoundedCornerShape(if (isReply) 8.dp else 12.dp)),
-                    contentScale = ContentScale.Fit,
-                )
-            } else {
-                val displayedText = if (comment.textIsAttachmentFallback) "" else comment.text
-                if (displayedText.isNotEmpty()) {
-                    val annotatedText = remember(displayedText) {
-                        buildMentionAnnotatedString(
-                            text = displayedText,
-                            baseStyle = androidx.compose.ui.text.SpanStyle(
-                                fontFamily = CorusFont.body.fontFamily,
-                            ),
-                        )
-                    }
-                    TappableMentionText(
-                        text = annotatedText,
-                        style = CorusFont.body,
-                        onMentionTap = onMentionTap,
-                        onHashtagTap = onHashtagTap,
+            // Text, then GIF (left-aligned), then song/film. Text + GIF can co-exist.
+            val displayedText = if (comment.textIsAttachmentFallback) "" else comment.text
+            if (displayedText.isNotEmpty()) {
+                val annotatedText = remember(displayedText) {
+                    buildMentionAnnotatedString(
+                        text = displayedText,
+                        baseStyle = androidx.compose.ui.text.SpanStyle(
+                            fontFamily = CorusFont.body.fontFamily,
+                        ),
                     )
                 }
+                TappableMentionText(
+                    text = annotatedText,
+                    style = CorusFont.body,
+                    onMentionTap = onMentionTap,
+                    onHashtagTap = onHashtagTap,
+                )
+            }
+            if (comment.gifURL != null) {
+                if (displayedText.isNotEmpty()) Spacer(Modifier.height(CorusSpacing.xs))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(comment.gifURL).build(),
+                        contentDescription = stringResource(R.string.comments_cd_gif),
+                        modifier = Modifier
+                            .widthIn(max = if (isReply) 160.dp else 200.dp)
+                            .heightIn(max = if (isReply) 120.dp else 150.dp)
+                            .clip(RoundedCornerShape(if (isReply) 8.dp else 12.dp)),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
+            } else {
                 if ((comment.attachedSong != null || comment.attachedFilm != null) && nowPlaying != null) {
                     if (displayedText.isNotEmpty()) Spacer(Modifier.height(CorusSpacing.xs))
                     CommentAttachmentCard(

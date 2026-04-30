@@ -9,6 +9,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CommentAttachedFilm
 import fm.corus.android.data.model.CommentAttachedSong
 import fm.corus.android.data.model.CymbalComment
+import fm.corus.android.data.model.KlipyGif
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
@@ -60,19 +61,31 @@ class CommentsViewModel @Inject constructor(
     private val _pendingFilm = MutableStateFlow<CommentAttachedFilm?>(null)
     val pendingFilm: StateFlow<CommentAttachedFilm?> = _pendingFilm.asStateFlow()
 
+    private val _pendingGif = MutableStateFlow<KlipyGif?>(null)
+    val pendingGif: StateFlow<KlipyGif?> = _pendingGif.asStateFlow()
+
     fun attachSong(track: CymbalTrack) {
         _pendingSong.value = CommentAttachedSong.fromTrack(track)
         _pendingFilm.value = null
+        _pendingGif.value = null
     }
 
     fun attachFilm(movie: CymbalMovie) {
         _pendingFilm.value = CommentAttachedFilm.fromMovie(movie)
         _pendingSong.value = null
+        _pendingGif.value = null
+    }
+
+    fun attachGif(gif: KlipyGif) {
+        _pendingGif.value = gif
+        _pendingSong.value = null
+        _pendingFilm.value = null
     }
 
     fun clearAttachment() {
         _pendingSong.value = null
         _pendingFilm.value = null
+        _pendingGif.value = null
     }
 
     private val _comments = MutableStateFlow<List<CymbalComment>>(emptyList())
@@ -301,14 +314,18 @@ class CommentsViewModel @Inject constructor(
         }
     }
 
-    fun sendGifComment(gifURL: String, slug: String = "") {
+    fun sendGifComment(gifURL: String, slug: String = "", text: String = "") {
         val userId = authRepository.currentUserId ?: return
+        val trimmedText = text.trim()
+
+        // Fire-and-forget the share-trigger ping so the optimistic insert
+        // doesn't have to wait on a network round-trip.
+        if (slug.isNotEmpty()) {
+            viewModelScope.launch { gifRepository.triggerShare(slug) }
+        }
 
         viewModelScope.launch {
             _isSending.value = true
-            if (slug.isNotEmpty()) {
-                gifRepository.triggerShare(slug)
-            }
 
             val replyTo = _replyingTo.value
             val parentId = replyTo?.parentCommentId ?: replyTo?.id
@@ -322,7 +339,7 @@ class CommentsViewModel @Inject constructor(
             val optimisticComment = CymbalComment(
                 id = tempId,
                 user = userProfile ?: CymbalUser(id = userId, username = "", displayName = ""),
-                text = "",
+                text = trimmedText,
                 timestamp = java.util.Date(),
                 parentCommentId = parentId,
                 replyToUser = replyTo?.user,
@@ -338,13 +355,14 @@ class CommentsViewModel @Inject constructor(
             }
             engagementManager.incrementCommentCount(postId)
             _replyingTo.value = null
+            _pendingGif.value = null
             _isSending.value = false
 
             try {
                 val newCommentId = postRepository.addComment(
                     postId = postId,
                     userId = userId,
-                    text = "",
+                    text = trimmedText,
                     parentCommentId = parentId,
                     replyToUserId = replyToUserId,
                     gifURL = gifURL,
@@ -354,7 +372,7 @@ class CommentsViewModel @Inject constructor(
                     userId = userId,
                     postId = postId,
                     newCommentId = newCommentId,
-                    text = "",
+                    text = trimmedText,
                     gifURL = gifURL,
                     parentId = parentId,
                     replyToUserId = replyToUserId,

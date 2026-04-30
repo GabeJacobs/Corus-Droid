@@ -240,8 +240,6 @@ class ProfileViewModel @Inject constructor(
                 // Reset lazy-loaded segments so they reload on next visit
                 likedLoaded = false
                 savedLoaded = false
-                _likedPosts.value = emptyList()
-                _savedPosts.value = emptyList()
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
                     this[2] = true
                     this[3] = true
@@ -253,6 +251,12 @@ class ProfileViewModel @Inject constructor(
             }
             _isLoading.value = false
             _isRefreshing.value = false
+            // If the user is currently viewing Likes/Saves, re-fetch that segment
+            // immediately so pull-to-refresh doesn't leave them on an empty state.
+            when (_currentSegment.value) {
+                2 -> loadLikedPosts()
+                3 -> loadSavedPosts()
+            }
         }
     }
 

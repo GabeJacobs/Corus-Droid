@@ -66,9 +66,13 @@ fun ProfileFeedScreen(
 
     val listState = rememberLazyListState()
 
-    // Initialize feed from cache
+    // Initialize feed from cache. If the cache was empty (e.g. process death
+    // restored this route without the upstream grid populating it), pop back
+    // to the profile so the user isn't stranded on a blank screen.
     LaunchedEffect(Unit) {
-        viewModel.initFeed(userId, segment)
+        if (!viewModel.initFeed(userId, segment)) {
+            onBack()
+        }
     }
 
     // Scroll to the tapped post once posts are loaded

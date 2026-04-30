@@ -62,7 +62,10 @@ object DeepLinkHandler {
     fun parseNotificationData(data: Map<String, String>): DeepLinkDestination? {
         val type = data["type"] ?: return fallbackParse(data)
         return when (type) {
-            "follow" -> data["userId"]?.let { DeepLinkDestination.Profile(it) }
+            "follow", "contact_joined" -> {
+                val userId = data["fromUserId"].orEmpty().ifEmpty { data["userId"].orEmpty() }
+                if (userId.isNotEmpty()) DeepLinkDestination.Profile(userId) else null
+            }
             "message" -> data["threadId"]?.let {
                 DeepLinkDestination.Thread(it, data["fromUserId"] ?: data["userId"] ?: "")
             }
@@ -90,9 +93,17 @@ object DeepLinkHandler {
     }
 
     private fun fallbackParse(data: Map<String, String>): DeepLinkDestination? {
-        data["threadId"]?.let { return DeepLinkDestination.Thread(it, data["fromUserId"] ?: data["userId"] ?: "") }
-        data["postId"]?.let { return DeepLinkDestination.Post(it) }
-        data["userId"]?.let { return DeepLinkDestination.Profile(it) }
+        data["threadId"]?.takeIf { it.isNotEmpty() }?.let {
+            return DeepLinkDestination.Thread(
+                it,
+                data["fromUserId"]?.takeIf { v -> v.isNotEmpty() }
+                    ?: data["userId"]?.takeIf { v -> v.isNotEmpty() }
+                    ?: "",
+            )
+        }
+        data["postId"]?.takeIf { it.isNotEmpty() }?.let { return DeepLinkDestination.Post(it) }
+        data["fromUserId"]?.takeIf { it.isNotEmpty() }?.let { return DeepLinkDestination.Profile(it) }
+        data["userId"]?.takeIf { it.isNotEmpty() }?.let { return DeepLinkDestination.Profile(it) }
         return null
     }
 }

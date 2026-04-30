@@ -1,5 +1,6 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,6 +22,7 @@ import com.valentinilk.shimmer.shimmer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -83,8 +85,10 @@ fun GifPickerSheet(
         }
     }
 
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = CorusColors.Background,
         sheetMaxWidth = Int.MAX_VALUE.dp,
     ) {
@@ -92,7 +96,8 @@ fun GifPickerSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.6f)
+                .fillMaxHeight(0.95f)
+                .imePadding()
                 .padding(horizontal = CorusSpacing.lg),
         ) {
             // Search bar
@@ -212,12 +217,12 @@ fun GifPickerSheet(
             }
 
             // Attribution
-            Text(
-                text = stringResource(R.string.gif_picker_powered_by),
-                style = CorusFont.caption,
-                color = CorusColors.Tertiary,
+            Image(
+                painter = painterResource(id = R.drawable.powered_by_klipy),
+                contentDescription = stringResource(R.string.gif_picker_powered_by),
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
+                    .height(14.dp)
                     .padding(vertical = CorusSpacing.sm),
             )
         }

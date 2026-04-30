@@ -248,6 +248,7 @@ fun NotificationsScreen(
         if (replyingTo != null) {
             val replyPendingSong by viewModel.replyPendingSong.collectAsState()
             val replyPendingFilm by viewModel.replyPendingFilm.collectAsState()
+            val replyPendingGif by viewModel.replyPendingGif.collectAsState()
             var showReplySongFilmPicker by remember { mutableStateOf(false) }
             var replyPickerInitialMode by remember { mutableStateOf(PickerMode.SONG) }
             var showReplyAttachmentMenu by remember { mutableStateOf(false) }
@@ -272,7 +273,7 @@ fun NotificationsScreen(
                 GifPickerSheet(
                     onGifSelected = { gif ->
                         showReplyGifPicker = false
-                        viewModel.sendGifReply(gif.fullURL, gif.slug)
+                        viewModel.attachReplyGif(gif)
                     },
                     onDismiss = { showReplyGifPicker = false },
                 )
@@ -283,6 +284,7 @@ fun NotificationsScreen(
                 isSending = isSendingReply,
                 pendingSong = replyPendingSong,
                 pendingFilm = replyPendingFilm,
+                pendingGif = replyPendingGif,
                 nowPlaying = viewModel.nowPlayingManager,
                 gifSupport = viewModel.gifSupport,
                 showAttachmentMenu = showReplyAttachmentMenu,
@@ -681,6 +683,7 @@ private fun InlineReplyBar(
     isSending: Boolean,
     pendingSong: CommentAttachedSong? = null,
     pendingFilm: CommentAttachedFilm? = null,
+    pendingGif: fm.corus.android.data.model.KlipyGif? = null,
     nowPlaying: fm.corus.android.domain.NowPlayingManager? = null,
     gifSupport: Boolean = false,
     showAttachmentMenu: Boolean = false,
@@ -700,7 +703,7 @@ private fun InlineReplyBar(
         focusRequester.requestFocus()
     }
 
-    val hasAttachment = pendingSong != null || pendingFilm != null
+    val hasAttachment = pendingSong != null || pendingFilm != null || pendingGif != null
     val canSend = (text.trim().isNotEmpty() || hasAttachment) && !isSending
 
     Column(
@@ -720,6 +723,7 @@ private fun InlineReplyBar(
                 CommentAttachmentPendingChip(
                     attachedSong = pendingSong,
                     attachedFilm = pendingFilm,
+                    pendingGif = pendingGif,
                     onClear = onClearAttachment,
                     nowPlaying = nowPlaying,
                 )
@@ -754,16 +758,16 @@ private fun InlineReplyBar(
                         onDismissRequest = onAttachmentMenuDismiss,
                     ) {
                         DropdownMenuItem(
+                            text = { Text(stringResource(R.string.comment_attachment_gif)) },
+                            onClick = onAttachGif,
+                        )
+                        DropdownMenuItem(
                             text = { Text(stringResource(R.string.comment_attachment_song)) },
                             onClick = onAttachSong,
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.comment_attachment_film)) },
                             onClick = onAttachFilm,
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.comment_attachment_gif)) },
-                            onClick = onAttachGif,
                         )
                     }
                 }

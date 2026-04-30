@@ -520,9 +520,7 @@ class FirestoreDataSource @Inject constructor(
         if (isAttachmentFallback) commentData["textIsAttachmentFallback"] = true
         commentRef.set(commentData).await()
 
-        firestore.collection("posts").document(postId)
-            .update("commentCount", FieldValue.increment(1))
-            .await()
+        // commentCount is reconciled server-side by onCommentCreatedReconcileCount.
 
         if (parentCommentId != null) {
             // Non-fatal: Firestore rules disallow updating another user's comment,
@@ -540,6 +538,21 @@ class FirestoreDataSource @Inject constructor(
         }
 
         return commentRef.id
+    }
+
+    /**
+     * Returns the parentCommentId field of a comment, or null if the comment is top-level
+     * or cannot be fetched. Used to re-root replies-to-replies onto the top-level comment,
+     * since the comment system only supports two levels.
+     */
+    suspend fun getCommentParentId(postId: String, commentId: String): String? {
+        return try {
+            firestore.collection("posts").document(postId)
+                .collection("comments").document(commentId)
+                .get().await().getString("parentCommentId")
+        } catch (_: Exception) {
+            null
+        }
     }
 
     suspend fun editComment(postId: String, commentId: String, newText: String) {
@@ -561,10 +574,7 @@ class FirestoreDataSource @Inject constructor(
 
         commentRef.delete().await()
 
-        // Decrement post comment count
-        firestore.collection("posts").document(postId)
-            .update("commentCount", FieldValue.increment(-1))
-            .await()
+        // commentCount is reconciled server-side by onCommentDeletedReconcileCount.
 
         // Decrement parent reply count if it's a reply
         if (parentId != null) {

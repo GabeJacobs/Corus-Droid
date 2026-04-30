@@ -127,8 +127,13 @@ class ProfileFeedViewModel @Inject constructor(
         }
     }
 
-    fun initFeed(userId: String, segment: Int) {
-        if (initialized) return
+    /**
+     * Seeds the feed from [ProfileFeedCache]. Returns true if posts were
+     * available, false if the cache was empty (e.g. after process death
+     * restored this screen without a populated cache).
+     */
+    fun initFeed(userId: String, segment: Int): Boolean {
+        if (initialized) return _posts.value.isNotEmpty()
         initialized = true
         this.userId = userId
         this.source = when (segment) {
@@ -163,7 +168,7 @@ class ProfileFeedViewModel @Inject constructor(
         }
 
         // Init engagement states for all posts
-        val viewerId = authRepository.currentUserId ?: return
+        val viewerId = authRepository.currentUserId ?: return _posts.value.isNotEmpty()
         _posts.value.forEach { post ->
             engagementManager.initState(
                 postId = post.id,
@@ -180,6 +185,7 @@ class ProfileFeedViewModel @Inject constructor(
         viewModelScope.launch {
             engagementManager.checkLikeStatuses(_posts.value.map { it.id }, viewerId)
         }
+        return _posts.value.isNotEmpty()
     }
 
     private fun enrichPost(post: CymbalPost): CymbalPost {

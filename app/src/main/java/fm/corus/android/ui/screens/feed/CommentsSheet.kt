@@ -181,6 +181,7 @@ private fun CommentsSheetContent(
 
     val pendingSong by viewModel.pendingSong.collectAsState()
     val pendingFilm by viewModel.pendingFilm.collectAsState()
+    val pendingGif by viewModel.pendingGif.collectAsState()
 
     var commentText by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
@@ -243,7 +244,7 @@ private fun CommentsSheetContent(
     if (viewModel.gifSupport && showGifPicker) {
         GifPickerSheet(
             onGifSelected = { gif ->
-                viewModel.sendGifComment(gif.fullURL, gif.slug)
+                viewModel.attachGif(gif)
                 showGifPicker = false
             },
             onDismiss = { showGifPicker = false },
@@ -462,8 +463,8 @@ private fun CommentsSheetContent(
             )
         }
 
-        // Pending song/film attachment chip — left-aligned, hugs content.
-        if (editingComment == null && (pendingSong != null || pendingFilm != null)) {
+        // Pending attachment chip (song / film / GIF) — left-aligned, hugs content.
+        if (editingComment == null && (pendingSong != null || pendingFilm != null || pendingGif != null)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -472,6 +473,7 @@ private fun CommentsSheetContent(
                 CommentAttachmentPendingChip(
                     attachedSong = pendingSong,
                     attachedFilm = pendingFilm,
+                    pendingGif = pendingGif,
                     onClear = { viewModel.clearAttachment() },
                     nowPlaying = viewModel.nowPlayingManager,
                 )
@@ -517,7 +519,7 @@ private fun CommentsSheetContent(
                             .size(32.dp)
                             .clip(CircleShape)
                             .background(CorusColors.Accent)
-                            .clickable(enabled = pendingSong == null && pendingFilm == null) {
+                            .clickable(enabled = pendingSong == null && pendingFilm == null && pendingGif == null) {
                                 if (viewModel.gifSupport) {
                                     showAttachmentMenu = true
                                 } else {
@@ -539,6 +541,13 @@ private fun CommentsSheetContent(
                         onDismissRequest = { showAttachmentMenu = false },
                     ) {
                         DropdownMenuItem(
+                            text = { Text(stringResource(R.string.comment_attachment_gif)) },
+                            onClick = {
+                                showAttachmentMenu = false
+                                showGifPicker = true
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text(stringResource(R.string.comment_attachment_song)) },
                             onClick = {
                                 showAttachmentMenu = false
@@ -552,13 +561,6 @@ private fun CommentsSheetContent(
                                 showAttachmentMenu = false
                                 pickerInitialMode = PickerMode.FILM
                                 showSongFilmPicker = true
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.comment_attachment_gif)) },
-                            onClick = {
-                                showAttachmentMenu = false
-                                showGifPicker = true
                             },
                         )
                     }
@@ -613,12 +615,18 @@ private fun CommentsSheetContent(
                 textStyle = CorusFont.body.copy(color = CorusColors.Text),
                 trailingIcon = {
                     if (showCounter) {
-                        Text("${maxChars - commentText.text.length}", style = CorusFont.caption, color = if (commentText.text.length >= maxChars) CorusColors.Error else CorusColors.Secondary)
+                        // Match iOS: counter visible at >= 650; turns red at >= maxChars - 10 (690).
+                        // Previous behavior only turned red at the cap (700), missing the iOS warning band.
+                        Text(
+                            "${maxChars - commentText.text.length}",
+                            style = CorusFont.caption,
+                            color = if (commentText.text.length >= maxChars - 10) CorusColors.Error else CorusColors.Secondary,
+                        )
                     }
                 },
             )
 
-            val hasAttachment = pendingSong != null || pendingFilm != null
+            val hasAttachment = pendingSong != null || pendingFilm != null || pendingGif != null
             val canSend = (commentText.text.isNotBlank() || hasAttachment) && !isSending
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Box(
@@ -627,7 +635,16 @@ private fun CommentsSheetContent(
                     .clip(CircleShape)
                     .background(if (canSend) CorusColors.Accent else CorusColors.Divider)
                     .clickable(enabled = canSend) {
-                        if (editingComment != null) viewModel.editComment(editingComment!!.id, commentText.text) else viewModel.sendComment(commentText.text)
+                        val pendingGifSnapshot = pendingGif
+                        when {
+                            editingComment != null -> viewModel.editComment(editingComment!!.id, commentText.text)
+                            pendingGifSnapshot != null -> viewModel.sendGifComment(
+                                gifURL = pendingGifSnapshot.fullURL,
+                                slug = pendingGifSnapshot.slug,
+                                text = commentText.text,
+                            )
+                            else -> viewModel.sendComment(commentText.text)
+                        }
                         commentText = TextFieldValue("")
                         viewModel.clearMentions()
                     },
@@ -883,50 +900,51 @@ private fun CommentRow(
                 }
             }
 
-            // GIF, text, or song/film attachment content
+            // Text, then GIF (left-aligned), then song/film attachment.
+            // Text + GIF can co-exist (caption + GIF in one comment).
+            val displayedText = if (comment.textIsAttachmentFallback) "" else comment.text
+            if (displayedText.isNotEmpty()) {
+                val annotatedText = remember(displayedText) {
+                    buildMentionAnnotatedString(
+                        text = displayedText,
+                        baseStyle = SpanStyle(
+                            fontFamily = CorusFont.body.fontFamily,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 15.sp,
+                        ),
+                    )
+                }
+                TappableMentionText(
+                    text = annotatedText,
+                    style = CorusFont.body.copy(fontSize = 15.sp),
+                    onMentionTap = onMentionTap,
+                )
+            }
+
             if (comment.gifURL != null) {
                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(comment.gifURL)
-                        .build(),
-                    contentDescription = stringResource(R.string.comments_cd_gif),
-                    modifier = Modifier
-                        .widthIn(max = 200.dp)
-                        .heightIn(max = 150.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.Fit,
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(comment.gifURL)
+                            .build(),
+                        contentDescription = stringResource(R.string.comments_cd_gif),
+                        modifier = Modifier
+                            .widthIn(max = 200.dp)
+                            .heightIn(max = 150.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
+            } else if ((comment.attachedSong != null || comment.attachedFilm != null) && nowPlaying != null) {
+                if (displayedText.isNotEmpty()) Spacer(Modifier.height(CorusSpacing.xs))
+                CommentAttachmentCard(
+                    attachedSong = comment.attachedSong,
+                    attachedFilm = comment.attachedFilm,
+                    nowPlaying = nowPlaying,
+                    onNavigateToSong = onNavigateToSong,
+                    onNavigateToFilm = onNavigateToFilm,
                 )
-            } else {
-                val displayedText = if (comment.textIsAttachmentFallback) "" else comment.text
-                if (displayedText.isNotEmpty()) {
-                    val annotatedText = remember(displayedText) {
-                        buildMentionAnnotatedString(
-                            text = displayedText,
-                            baseStyle = SpanStyle(
-                                fontFamily = CorusFont.body.fontFamily,
-                                fontWeight = FontWeight.Normal,
-                                fontSize = 15.sp,
-                            ),
-                        )
-                    }
-                    TappableMentionText(
-                        text = annotatedText,
-                        style = CorusFont.body.copy(fontSize = 15.sp),
-                        onMentionTap = onMentionTap,
-                    )
-                }
-
-                if ((comment.attachedSong != null || comment.attachedFilm != null) && nowPlaying != null) {
-                    if (displayedText.isNotEmpty()) Spacer(Modifier.height(CorusSpacing.xs))
-                    CommentAttachmentCard(
-                        attachedSong = comment.attachedSong,
-                        attachedFilm = comment.attachedFilm,
-                        nowPlaying = nowPlaying,
-                        onNavigateToSong = onNavigateToSong,
-                        onNavigateToFilm = onNavigateToFilm,
-                    )
-                }
             }
 
             Spacer(modifier = Modifier.height(CorusSpacing.xs))

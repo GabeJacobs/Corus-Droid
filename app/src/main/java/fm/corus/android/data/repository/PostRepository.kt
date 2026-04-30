@@ -215,6 +215,10 @@ class PostRepository @Inject constructor(
         )
     }
 
+    suspend fun getCommentParentId(postId: String, commentId: String): String? {
+        return firestoreDataSource.getCommentParentId(postId, commentId)
+    }
+
     suspend fun editComment(postId: String, commentId: String, newText: String) {
         firestoreDataSource.editComment(postId, commentId, newText)
     }

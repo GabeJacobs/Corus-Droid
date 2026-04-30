@@ -82,6 +82,48 @@ class PostEngagementManager @Inject constructor(
      *  While in flight, listener updates skip likeCount to avoid overwriting optimistic state. */
     private val likeInFlightIds = Collections.synchronizedSet(mutableSetOf<String>())
 
+    /**
+     * Per-engagement in-flight markers with expiry timestamps (epoch millis).
+     * `initState` and `applyListenerUpdate` skip the corresponding count if its
+     * marker is still active, so a stale refresh (the post-comment / post-repost
+     * cloud function aggregation can lag 10–20s before the post doc's count is
+     * updated) can't clobber an optimistic mutation. Markers are time-bounded,
+     * so other users' activity syncs on subsequent refreshes.
+     */
+    private val commentInFlightUntil = ConcurrentHashMap<String, Long>()
+    private val repostInFlightUntil = ConcurrentHashMap<String, Long>()
+    private val likeRetainedUntil = ConcurrentHashMap<String, Long>()
+
+    /** Retention window for optimistic-count protection. Sized to cover the
+     *  cloud-function aggregation lag plus slack, while staying short enough
+     *  that other users' activity syncs on the next refresh after that. */
+    private val inFlightRetentionMs: Long = 30_000L
+
+    private fun markCommentInFlight(postId: String) {
+        commentInFlightUntil[postId] = System.currentTimeMillis() + inFlightRetentionMs
+    }
+
+    private fun markRepostInFlight(postId: String) {
+        repostInFlightUntil[postId] = System.currentTimeMillis() + inFlightRetentionMs
+    }
+
+    private fun markLikeRetained(postId: String) {
+        likeRetainedUntil[postId] = System.currentTimeMillis() + inFlightRetentionMs
+    }
+
+    private fun isCommentInFlight(postId: String): Boolean = isMarkerActive(commentInFlightUntil, postId)
+    private fun isRepostInFlight(postId: String): Boolean = isMarkerActive(repostInFlightUntil, postId)
+    private fun isLikeRetained(postId: String): Boolean = isMarkerActive(likeRetainedUntil, postId)
+
+    private fun isMarkerActive(map: ConcurrentHashMap<String, Long>, postId: String): Boolean {
+        val until = map[postId] ?: return false
+        if (until <= System.currentTimeMillis()) {
+            map.remove(postId)
+            return false
+        }
+        return true
+    }
+
     fun getState(postId: String): EngagementState? = _states.value[postId]
 
     fun initState(postId: String, likeCount: Int, commentCount: Int, repostCount: Int, isLiked: Boolean, isSaved: Boolean) {
@@ -92,7 +134,17 @@ class PostEngagementManager @Inject constructor(
                 if (existing != null) {
                     // Preserve local isLiked/isSaved state to avoid flash;
                     // checkLikeStatuses() will reconcile from Firestore shortly after.
-                    map + (postId to existing.copy(likeCount = likeCount, commentCount = commentCount, repostCount = repostCount))
+                    // Per-count in-flight checks keep optimistic comment/repost/like
+                    // bumps from being clobbered by a feed payload that was fetched
+                    // before the cloud-function count aggregation committed.
+                    val safeLikeCount = if (likeInFlightIds.contains(postId) || isLikeRetained(postId)) existing.likeCount else likeCount
+                    val safeCommentCount = if (isCommentInFlight(postId)) existing.commentCount else commentCount
+                    val safeRepostCount = if (isRepostInFlight(postId)) existing.repostCount else repostCount
+                    map + (postId to existing.copy(
+                        likeCount = safeLikeCount,
+                        commentCount = safeCommentCount,
+                        repostCount = safeRepostCount,
+                    ))
                 } else {
                     map + (postId to EngagementState(likeCount, commentCount, repostCount, isLiked, isSaved))
                 }
@@ -126,12 +178,16 @@ class PostEngagementManager @Inject constructor(
     private fun applyListenerUpdate(postId: String, likeCount: Int, commentCount: Int, repostCount: Int) {
         _states.update { map ->
             val current = map[postId] ?: return@update map
-            // If a like is in flight, preserve the optimistic likeCount
-            val safeLikeCount = if (likeInFlightIds.contains(postId)) current.likeCount else likeCount
+            // The post-doc snapshot can fire with a stale count if some other
+            // field on the post changed before the count-aggregation trigger
+            // committed — so each count is gated by its own in-flight marker.
+            val safeLikeCount = if (likeInFlightIds.contains(postId) || isLikeRetained(postId)) current.likeCount else likeCount
+            val safeCommentCount = if (isCommentInFlight(postId)) current.commentCount else commentCount
+            val safeRepostCount = if (isRepostInFlight(postId)) current.repostCount else repostCount
             map + (postId to current.copy(
                 likeCount = safeLikeCount,
-                commentCount = commentCount,
-                repostCount = repostCount,
+                commentCount = safeCommentCount,
+                repostCount = safeRepostCount,
             ))
         }
     }
@@ -179,6 +235,11 @@ class PostEngagementManager @Inject constructor(
                 }
             } finally {
                 likeInFlightIds.remove(postId)
+                // Hold the in-flight marker for a retention window so a stale
+                // refresh fired right after the request completes can't clobber
+                // the optimistic count with the pre-toggle value the feed
+                // payload was built with.
+                markLikeRetained(postId)
                 userModifiedPostIds.remove(postId)
             }
         }
@@ -262,6 +323,7 @@ class PostEngagementManager @Inject constructor(
     }
 
     fun incrementCommentCount(postId: String) {
+        markCommentInFlight(postId)
         _states.update { map ->
             val current = map[postId] ?: return@update map
             map + (postId to current.copy(commentCount = current.commentCount + 1))
@@ -269,6 +331,7 @@ class PostEngagementManager @Inject constructor(
     }
 
     fun decrementCommentCount(postId: String) {
+        markCommentInFlight(postId)
         _states.update { map ->
             val current = map[postId] ?: return@update map
             map + (postId to current.copy(commentCount = (current.commentCount - 1).coerceAtLeast(0)))
@@ -278,6 +341,7 @@ class PostEngagementManager @Inject constructor(
     /** Optimistically bumps the repost count on the original post. Called
      *  by ComposeViewModel after a successful repost-with-caption post. */
     fun incrementRepostCount(postId: String) {
+        markRepostInFlight(postId)
         _states.update { map ->
             val current = map[postId] ?: return@update map
             map + (postId to current.copy(repostCount = current.repostCount + 1))
@@ -317,6 +381,9 @@ class PostEngagementManager @Inject constructor(
         activeListeners.clear()
         listenerRefCounts.clear()
         likeInFlightIds.clear()
+        commentInFlightUntil.clear()
+        repostInFlightUntil.clear()
+        likeRetainedUntil.clear()
         _states.value = emptyMap()
         userModifiedPostIds.clear()
     }

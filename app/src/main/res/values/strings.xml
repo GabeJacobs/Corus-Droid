@@ -632,7 +632,7 @@
     <string name="full_screen_cd_close">Close</string>
 
     <!-- GIF picker -->
-    <string name="gif_picker_search_placeholder">Search GIFs</string>
+    <string name="gif_picker_search_placeholder">Search KLIPY</string>
     <string name="gif_picker_cd_search">Search</string>
     <string name="gif_picker_cd_clear">Clear</string>
     <string name="gif_picker_cd_gif">GIF</string>

@@ -82,19 +82,31 @@ class NotificationsViewModel @Inject constructor(
     private val _replyPendingFilm = MutableStateFlow<CommentAttachedFilm?>(null)
     val replyPendingFilm: StateFlow<CommentAttachedFilm?> = _replyPendingFilm.asStateFlow()
 
+    private val _replyPendingGif = MutableStateFlow<fm.corus.android.data.model.KlipyGif?>(null)
+    val replyPendingGif: StateFlow<fm.corus.android.data.model.KlipyGif?> = _replyPendingGif.asStateFlow()
+
     fun attachReplySong(track: CymbalTrack) {
         _replyPendingSong.value = CommentAttachedSong.fromTrack(track)
         _replyPendingFilm.value = null
+        _replyPendingGif.value = null
     }
 
     fun attachReplyFilm(movie: CymbalMovie) {
         _replyPendingFilm.value = CommentAttachedFilm.fromMovie(movie)
         _replyPendingSong.value = null
+        _replyPendingGif.value = null
+    }
+
+    fun attachReplyGif(gif: fm.corus.android.data.model.KlipyGif) {
+        _replyPendingGif.value = gif
+        _replyPendingSong.value = null
+        _replyPendingFilm.value = null
     }
 
     fun clearReplyAttachment() {
         _replyPendingSong.value = null
         _replyPendingFilm.value = null
+        _replyPendingGif.value = null
     }
 
     /** One-shot "Reply sent" / "Failed to send reply" toast events, consumed by the screen. */
@@ -387,11 +399,20 @@ class NotificationsViewModel @Inject constructor(
         val userId = authRepository.currentUserId ?: return
         val notification = _replyingToNotification.value ?: return
         val postId = notification.postId ?: return
-        val parentCommentId = notification.commentId ?: return
+        val sourceCommentId = notification.commentId ?: return
         val trimmed = text.trim()
         val attachedSong = _replyPendingSong.value
         val attachedFilm = _replyPendingFilm.value
-        if (trimmed.isEmpty() && attachedSong == null && attachedFilm == null) return
+        val pendingGif = _replyPendingGif.value
+        if (trimmed.isEmpty() && attachedSong == null && attachedFilm == null && pendingGif == null) return
+
+        // GIF dispatch is a separate code path because addComment treats gifURL
+        // mutually exclusive with song/film at the type level on the iOS client;
+        // we route through sendGifReply for parity.
+        if (pendingGif != null) {
+            sendGifReply(pendingGif.fullURL, pendingGif.slug, trimmed)
+            return
+        }
 
         // Optimistically dismiss the reply bar so the user sees immediate
         // acknowledgment even if the network call is slow. A Toast confirms
@@ -403,6 +424,12 @@ class NotificationsViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                // The comment system supports two levels (top-level + replies). If the
+                // notification's source comment is itself a reply, re-root onto its
+                // top-level parent — otherwise the new comment would be orphaned and
+                // never displayed in the thread.
+                val parentCommentId =
+                    postRepository.getCommentParentId(postId, sourceCommentId) ?: sourceCommentId
                 val newCommentId = postRepository.addComment(
                     postId = postId,
                     userId = userId,
@@ -455,22 +482,32 @@ class NotificationsViewModel @Inject constructor(
         }
     }
 
-    fun sendGifReply(gifURL: String, slug: String = "") {
+    fun sendGifReply(gifURL: String, slug: String = "", text: String = "") {
         val userId = authRepository.currentUserId ?: return
         val notification = _replyingToNotification.value ?: return
         val postId = notification.postId ?: return
-        val parentCommentId = notification.commentId ?: return
+        val sourceCommentId = notification.commentId ?: return
+        val trimmed = text.trim()
+
+        // Fire-and-forget so the optimistic dismissal is instant.
+        if (slug.isNotEmpty()) {
+            viewModelScope.launch { gifRepository.triggerShare(slug) }
+        }
 
         _replyingToNotification.value = null
+        _replyPendingSong.value = null
+        _replyPendingFilm.value = null
+        _replyPendingGif.value = null
         _isSendingReply.value = true
 
         viewModelScope.launch {
             try {
-                if (slug.isNotEmpty()) gifRepository.triggerShare(slug)
+                val parentCommentId =
+                    postRepository.getCommentParentId(postId, sourceCommentId) ?: sourceCommentId
                 val newCommentId = postRepository.addComment(
                     postId = postId,
                     userId = userId,
-                    text = "",
+                    text = trimmed,
                     parentCommentId = parentCommentId,
                     replyToUserId = notification.fromUser.id,
                     gifURL = gifURL,
@@ -479,13 +516,16 @@ class NotificationsViewModel @Inject constructor(
 
                 try {
                     val post = postRepository.getCachedPost(postId)
+                    val truncated = if (trimmed.isNotEmpty()) {
+                        if (trimmed.length > 100) trimmed.take(100) + "…" else trimmed
+                    } else "shared a GIF"
                     postRepository.createNotification(
                         type = "reply",
                         fromUserId = userId,
                         toUserId = notification.fromUser.id,
                         postId = postId,
                         postAlbumArtURL = post?.displayImageURL,
-                        commentText = "shared a GIF",
+                        commentText = truncated,
                         commentId = newCommentId,
                         attachmentType = "gif",
                     )
