@@ -603,13 +603,15 @@ private fun buildTasteMatchAnnotated(
     notification: CymbalNotification,
     timeString: String,
 ): androidx.compose.ui.text.AnnotatedString {
-    val (prefix, suffix) = when (notification.subtype) {
-        "discovery" -> "New Taste Match: " to ""
-        "activity_song" -> "You and " to " both shared a song"
-        "activity_film" -> "You and " to " both shared a film"
+    // Activity types render as one flowing sentence; discovery + milestones
+    // use an em-dash because their body is its own complete clause.
+    val (prefix, suffix, bodySeparator) = when (notification.subtype) {
+        "discovery" -> Triple("New Taste Match: ", "", " — ")
+        "activity_song" -> Triple("You and ", " both shared the song ", "")
+        "activity_film" -> Triple("You and ", " both shared the film ", "")
         "milestone_song", "milestone_film", "milestone_artist" ->
-            "Taste match milestone with " to ""
-        else -> "Taste match with " to ""
+            Triple("Taste match milestone with ", "", " — ")
+        else -> Triple("Taste match with ", "", " — ")
     }
     val username = notification.fromUser.username
     val body = notification.bodyText.orEmpty()
@@ -629,7 +631,7 @@ private fun buildTasteMatchAnnotated(
         }
         if (body.isNotEmpty()) {
             withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
-                append(" — ")
+                append(bodySeparator)
                 append(body)
             }
         }
