@@ -224,14 +224,12 @@ class ComposeViewModel @Inject constructor(
         // Mirrors iOS SongSearchView.selectSong haptic.
         hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
         _selectedTrack.value = cachedTracks.firstOrNull { it.id == result.id }
-        _searchResults.value = emptyList()
     }
 
     fun selectFilmResult(movie: CymbalMovie) {
         // Mirrors iOS FilmSearchView.selectMovie haptic.
         hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
         _selectedMovie.value = movie
-        _filmResults.value = emptyList()
     }
 
     fun toggleSearchResultPreview(trackId: String) {
@@ -352,6 +350,14 @@ class ComposeViewModel @Inject constructor(
     fun createPost(caption: String, mediaType: MediaType, voiceNoteData: ByteArray? = null) {
         val userId = authRepository.currentUserId ?: return
 
+        // Synchronous re-entry guard. The Compose UI's enabled-state binding
+        // is ineffective until recomposition runs, so a fast double-tap can
+        // fire createPost twice and write two posts to Firestore. Setting
+        // isPosting before the launched coroutine closes that window — both
+        // calls enter, only the first proceeds.
+        if (!_isPosting.compareAndSet(expect = false, update = true)) return
+        _error.value = null
+
         viewModelScope.launch {
             // Safety net: verify post limit with the server before submitting.
             // Mirrors iOS ComposeView.postCymbal — if the count hasn't been loaded yet,
@@ -360,15 +366,14 @@ class ComposeViewModel @Inject constructor(
                 val allowed = subscriptionRepository.checkCanPostFromServer()
                 if (!allowed) {
                     _showPostLimitPaywall.value = true
+                    _isPosting.value = false
                     return@launch
                 }
             } else if (!subscriptionRepository.canPost) {
                 _showPostLimitPaywall.value = true
+                _isPosting.value = false
                 return@launch
             }
-
-            _isPosting.value = true
-            _error.value = null
 
             try {
                 val data = mutableMapOf<String, Any>()
