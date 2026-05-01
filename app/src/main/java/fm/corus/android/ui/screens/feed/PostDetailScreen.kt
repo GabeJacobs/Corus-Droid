@@ -49,6 +49,8 @@ import kotlinx.coroutines.launch
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.TrackSource
+import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.R
 import fm.corus.android.ui.LocalHapticManager
@@ -699,18 +701,34 @@ private fun PostDetailSongInfo(
                 )
             }
         } else {
-            Image(
-                painter = painterResource(R.drawable.spotify_logo),
-                contentDescription = stringResource(R.string.post_detail_cd_play_spotify),
-                modifier = Modifier
-                    .size(28.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onSpotifyTap,
-                    ),
-                contentScale = ContentScale.Fit,
-            )
+            // SoundCloud posts must show the SC logo, not the Spotify badge —
+            // the track isn't on Spotify and the badge would be misleading.
+            // PostCard had this guard; PostDetailSongInfo was missing it.
+            if (post.track.source == TrackSource.SOUNDCLOUD) {
+                SoundCloudAdaptiveLogo(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onSpotifyTap,
+                        ),
+                    size = 28.dp,
+                )
+            } else {
+                Image(
+                    painter = painterResource(R.drawable.spotify_logo),
+                    contentDescription = stringResource(R.string.post_detail_cd_play_spotify),
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onSpotifyTap,
+                        ),
+                    contentScale = ContentScale.Fit,
+                )
+            }
         }
     }
 }
