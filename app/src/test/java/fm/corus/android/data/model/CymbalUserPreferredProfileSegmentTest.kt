@@ -57,4 +57,46 @@ class CymbalUserPreferredProfileSegmentTest {
             user(trackCount = null, movieCount = null, isBot = true, botType = "music").preferredProfileSegment,
         )
     }
+
+    private fun post(mediaType: MediaType, id: String = "p"): CymbalPost = CymbalPost(
+        id = id,
+        user = CymbalUser(id = "u1", username = "alice", displayName = "Alice"),
+        track = CymbalTrack(id = "t", name = "Track", artistName = "Artist", albumName = "Album"),
+        mediaType = mediaType,
+    )
+
+    @Test
+    fun `derives film tab from loaded posts when counters missing and films-only`() {
+        val u = user(trackCount = null, movieCount = null).copy(cymbalCount = 1)
+        val posts = listOf(post(MediaType.MOVIE))
+        assertEquals(1, u.preferredProfileSegmentFromPosts(posts, hasMore = false))
+    }
+
+    @Test
+    fun `derives music tab from loaded posts when counters missing and any song present`() {
+        val u = user(trackCount = null, movieCount = null).copy(cymbalCount = 2)
+        val posts = listOf(post(MediaType.MOVIE, "p1"), post(MediaType.TRACK, "p2"))
+        assertEquals(0, u.preferredProfileSegmentFromPosts(posts, hasMore = false))
+    }
+
+    @Test
+    fun `defers when posts page is incomplete and counters missing`() {
+        val u = user(trackCount = null, movieCount = null).copy(cymbalCount = 50)
+        val posts = listOf(post(MediaType.MOVIE))
+        assertNull(u.preferredProfileSegmentFromPosts(posts, hasMore = true))
+    }
+
+    @Test
+    fun `derived path treats fully-loaded set as authoritative even when hasMore stale`() {
+        val u = user(trackCount = null, movieCount = null).copy(cymbalCount = 1)
+        val posts = listOf(post(MediaType.MOVIE))
+        assertEquals(1, u.preferredProfileSegmentFromPosts(posts, hasMore = true))
+    }
+
+    @Test
+    fun `explicit counters win even if loaded posts disagree`() {
+        val u = user(trackCount = 3, movieCount = 0).copy(cymbalCount = 3)
+        // Posts page hasn't loaded yet but counters say music.
+        assertEquals(0, u.preferredProfileSegmentFromPosts(emptyList(), hasMore = true))
+    }
 }

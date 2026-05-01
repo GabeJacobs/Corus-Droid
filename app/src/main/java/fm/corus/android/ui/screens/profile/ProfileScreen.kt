@@ -119,16 +119,16 @@ fun ProfileScreen(
     val hasFullAccess by viewModel.hasFullAccess.collectAsState()
     val isSavingStyle by viewModel.isSavingStyle.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
-    var selectedSegment by rememberSaveable { mutableIntStateOf(0) }
-    var didFinalizeInitialSegment by rememberSaveable { mutableStateOf(false) }
-    // Open on FILM when the profile is known to have films but no songs.
-    // Runs once after the profile loads; after that the user is in control.
-    LaunchedEffect(profile?.id, profile?.preferredProfileSegment) {
-        if (didFinalizeInitialSegment) return@LaunchedEffect
-        val preferred = profile?.preferredProfileSegment ?: return@LaunchedEffect
-        if (preferred != selectedSegment) selectedSegment = preferred
-        didFinalizeInitialSegment = true
-    }
+    // The user's explicit choice once they've tapped a tab. While null, the
+    // selected tab is derived synchronously from the profile data so the
+    // first frame after load already lands on the right tab — no flicker
+    // from MUSIC to FILM after a recomposition.
+    var userSelectedSegment by rememberSaveable { mutableStateOf<Int?>(null) }
+    val rawHasMore by viewModel.hasMore.collectAsState()
+    val hasMoreMixedPosts = rawHasMore[0] ?: true
+    val selectedSegment = userSelectedSegment
+        ?: profile?.preferredProfileSegmentFromPosts(posts, hasMoreMixedPosts)
+        ?: 0
     var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
     var didRevealFromSkeleton by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
@@ -198,7 +198,7 @@ fun ProfileScreen(
     val currentProfile = profile ?: return
 
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
-    val hasMore by viewModel.hasMore.collectAsState()
+    val hasMore = rawHasMore
 
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTrigger) {
@@ -589,7 +589,7 @@ fun ProfileScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable {
-                                    selectedSegment = index
+                                    userSelectedSegment = index
                                     isFeaturedArtReady = false
                                     viewModel.loadSegment(index)
                                 }

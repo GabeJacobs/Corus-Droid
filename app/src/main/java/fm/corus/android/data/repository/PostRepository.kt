@@ -64,6 +64,15 @@ class PostRepository @Inject constructor(
             .also { cachePosts(it) }
     }
 
+    suspend fun getProfileData(
+        userId: String,
+        pageSize: Int = 15,
+        mediaType: String? = null,
+    ): CloudFunctionsDataSource.ProfileData {
+        return cloudFunctions.getProfileData(userId, pageSize, mediaType)
+            .also { cachePosts(it.posts) }
+    }
+
     // ── Content-specific feeds ──
 
     suspend fun fetchSongPostsFromCloud(

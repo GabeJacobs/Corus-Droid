@@ -123,8 +123,6 @@ class OtherProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val user = userRepository.fetchUserProfile(userId)
-                _profile.value = user
                 _isFollowing.value = userRepository.isFollowing(userId)
                 _isBlocked.value = userRepository.blockedIds.value.contains(userId)
                 _isMuted.value = userRepository.isUserMuted(userId)
@@ -133,14 +131,36 @@ class OtherProfileViewModel @Inject constructor(
                     _isSubscribedToNotifications.value = userRepository.isSubscribedToUserPosts(viewerIdForSub, userId)
                 }
 
-                // Load initial page of posts (matching iOS fixed-page approach)
                 val viewerId = authRepository.currentUserId ?: return@launch
-                val page = postRepository.getProfilePosts(
-                    userId = userId,
-                    viewerId = viewerId,
-                    limit = PAGE_SIZE,
-                    lastTimestamp = null,
-                )
+
+                // Single round-trip: user (with live cymbalCount via count() aggregation)
+                // and the first page of posts come from the same backend call, so the
+                // header count and the grid can't disagree on cold load. If this fails,
+                // fall back to the legacy two-call path.
+                val page: List<CymbalPost> = try {
+                    val data = postRepository.getProfileData(userId = userId, pageSize = PAGE_SIZE)
+                    if (data.user != null) {
+                        _profile.value = data.user
+                        data.posts
+                    } else {
+                        _profile.value = userRepository.fetchUserProfile(userId)
+                        postRepository.getProfilePosts(
+                            userId = userId,
+                            viewerId = viewerId,
+                            limit = PAGE_SIZE,
+                            lastTimestamp = null,
+                        )
+                    }
+                } catch (_: Exception) {
+                    _profile.value = userRepository.fetchUserProfile(userId)
+                    postRepository.getProfilePosts(
+                        userId = userId,
+                        viewerId = viewerId,
+                        limit = PAGE_SIZE,
+                        lastTimestamp = null,
+                    )
+                }
+
                 _posts.value = page
                 if (page.isNotEmpty()) postsLastTimestamp = page.last().timestamp.time
                 _hasMore.value = page.size >= PAGE_SIZE

@@ -125,12 +125,35 @@ class CloudFunctionsDataSource @Inject constructor(
 
     // ── Profile ──
 
+    data class ProfileData(
+        val user: CymbalUser?,
+        val posts: List<CymbalPost>,
+    )
+
+    /**
+     * Fetches user profile metadata (with live cymbalCount via count() aggregation)
+     * AND the first page of posts in a single round-trip. Use this for cold profile
+     * loads so the header count and the posts grid come from the same backend
+     * snapshot — prevents the "header says 2, grid says no songs yet" flash that
+     * occurs with separate getUserProfile + getProfilePosts calls when Firestore's
+     * composite index is still propagating a brand-new user's first posts.
+     */
     @Suppress("UNCHECKED_CAST")
-    suspend fun getProfileData(userId: String, viewerId: String): Map<String, Any?>? {
-        val result = functions.getHttpsCallable("getProfileData").call(
-            mapOf("userId" to userId, "viewerId" to viewerId)
-        ).await()
-        return result.getData() as? Map<String, Any?>
+    suspend fun getProfileData(
+        userId: String,
+        pageSize: Int = 15,
+        mediaType: String? = null,
+    ): ProfileData {
+        val params = mutableMapOf<String, Any>("userId" to userId, "pageSize" to pageSize)
+        mediaType?.let { params["mediaType"] = it }
+        val result = functions.getHttpsCallable("getProfileData").call(params).await()
+        val data = result.getData() as? Map<String, Any?> ?: return ProfileData(null, emptyList())
+
+        val userMap = data["user"] as? Map<String, Any?>
+        val user = userMap?.let { CymbalUser.fromMap(it["id"] as? String ?: "", it) }
+        val postDicts = data["posts"] as? List<Map<String, Any?>> ?: emptyList()
+        val posts = postDicts.map { CymbalPost.fromCloudData(it) }
+        return ProfileData(user, posts)
     }
 
     @Suppress("UNCHECKED_CAST")

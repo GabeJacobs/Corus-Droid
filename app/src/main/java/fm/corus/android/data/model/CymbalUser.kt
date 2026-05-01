@@ -43,10 +43,10 @@ data class CymbalUser(
     val isFilmBot: Boolean get() = isBot && botType == "film"
 
     /**
-     * Initial profile-tab segment: open on FILM (1) when the user has no
-     * songs but at least one film; otherwise MUSIC (0). Returns null when
-     * counts aren't authoritative yet, so callers can defer the decision
-     * until after a fresh fetch. Bots always default to 0 (their single tab).
+     * Initial profile-tab segment based purely on the per-medium counters on
+     * the user document. Returns null when those counters aren't populated —
+     * callers should fall back to deriving from loaded posts (see
+     * [preferredProfileSegmentFromPosts]). Bots always default to 0.
      */
     val preferredProfileSegment: Int?
         get() {
@@ -55,6 +55,33 @@ data class CymbalUser(
             val movies = movieCount ?: return null
             return if (tracks == 0 && movies > 0) 1 else 0
         }
+
+    /**
+     * Initial profile-tab segment derived from already-loaded posts, used
+     * when the per-medium counters on the user doc aren't populated.
+     *
+     * @param loadedPosts the page of posts already fetched for this profile
+     * @param hasMore whether more posts remain unfetched
+     * @return 1 (FILM) when the loaded set is exhausted and contains films
+     *   but no songs; 0 (MUSIC) when the loaded set is exhausted; null while
+     *   we still don't have a complete picture.
+     */
+    fun preferredProfileSegmentFromPosts(
+        loadedPosts: List<CymbalPost>,
+        hasMore: Boolean,
+    ): Int? {
+        if (isBot) return 0
+        // Trust the explicit counters first if we have them.
+        preferredProfileSegment?.let { return it }
+        // Otherwise we can only decide once we've seen every post — either the
+        // page exhausted the user's content, or the loaded set already covers
+        // every cymbal on their profile per the (still-trusted) total counter.
+        val sawEverything = !hasMore || loadedPosts.size >= cymbalCount
+        if (!sawEverything) return null
+        val hasTrack = loadedPosts.any { it.mediaType == MediaType.TRACK }
+        val hasMovie = loadedPosts.any { it.mediaType == MediaType.MOVIE }
+        return if (!hasTrack && hasMovie) 1 else 0
+    }
 
     fun withArtistsInCommonCount(count: Int?): CymbalUser =
         copy(artistsInCommonCount = count)

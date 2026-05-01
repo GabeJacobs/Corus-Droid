@@ -114,17 +114,17 @@ fun OtherProfileScreen(
     val isLoadingFilms by viewModel.isLoadingFilms.collectAsState()
     val hasFetchedFilmPage by viewModel.hasFetchedFilmPage.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
-    var selectedSegment by rememberSaveable { mutableIntStateOf(0) }
-    var didFinalizeInitialSegment by rememberSaveable { mutableStateOf(false) }
-    // Open on FILM when the user is known to have films but no songs.
-    // Runs once after the profile loads (cache or fresh fetch); after that
-    // the user is in control of which tab is selected.
-    LaunchedEffect(profile?.id, profile?.preferredProfileSegment) {
-        if (didFinalizeInitialSegment) return@LaunchedEffect
-        val preferred = profile?.preferredProfileSegment ?: return@LaunchedEffect
-        if (preferred != selectedSegment) selectedSegment = preferred
-        didFinalizeInitialSegment = true
-    }
+    // The user's explicit choice once they've tapped a tab. While null, the
+    // selected tab is derived synchronously from the profile data so the
+    // first frame already lands on the right tab — no flicker from MUSIC to
+    // FILM after a recomposition. Prefers the per-medium counters on the
+    // user doc; falls back to deriving from the loaded posts once the page
+    // is exhausted (the user doc's counters are often unpopulated since
+    // Android doesn't go through the count() cloud function like iOS does).
+    var userSelectedSegment by rememberSaveable { mutableStateOf<Int?>(null) }
+    val selectedSegment = userSelectedSegment
+        ?: profile?.preferredProfileSegmentFromPosts(posts, hasMore)
+        ?: 0
     // Other-profile views show MUSIC/FILM/LIKES (no Saves). Bots only show
     // their single tab and always map to posts. Segment 2 == LIKES.
     val playlistSource: CloudFunctionsDataSource.ProfilePlaylistSource = when {
@@ -817,7 +817,7 @@ fun OtherProfileScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable {
-                                            selectedSegment = index
+                                            userSelectedSegment = index
                                             isFeaturedArtReady = false
                                         }
                                         .drawBehind {
