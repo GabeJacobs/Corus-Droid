@@ -31,8 +31,11 @@ class SubscriptionRepositoryTest {
         whenever(remoteConfig.corusClubEnabled).thenReturn(true)
         whenever(prefs.getBoolean("cached_isClubMember", false)).thenReturn(false)
         whenever(prefs.getBoolean("cached_isVerified", false)).thenReturn(false)
+        whenever(prefs.getInt("cached_dailyPostLimit", SubscriptionRepository.DEFAULT_DAILY_POST_LIMIT))
+            .thenReturn(SubscriptionRepository.DEFAULT_DAILY_POST_LIMIT)
         whenever(prefs.edit()).thenReturn(prefsEditor)
         whenever(prefsEditor.putBoolean(any(), any())).thenReturn(prefsEditor)
+        whenever(prefsEditor.putInt(any(), any())).thenReturn(prefsEditor)
         repo = SubscriptionRepository(cloudFunctions, remoteConfig, analyticsService, prefs)
     }
 
@@ -68,20 +71,20 @@ class SubscriptionRepositoryTest {
     @Test
     fun `canPost is true when verified regardless of post count`() {
         repo.updateVerifiedStatus(true)
-        repeat(SubscriptionRepository.DAILY_POST_LIMIT) { repo.incrementPostCount() }
+        repeat(repo.dailyPostLimit.value) { repo.incrementPostCount() }
         assertTrue(repo.canPost)
     }
 
     @Test
     fun `canPost is false when at soft limit and not verified`() {
-        repeat(SubscriptionRepository.DAILY_POST_LIMIT) { repo.incrementPostCount() }
+        repeat(repo.dailyPostLimit.value) { repo.incrementPostCount() }
         assertFalse(repo.canPost)
     }
 
     @Test
     fun `canPost is always true when club not enabled`() {
         whenever(remoteConfig.corusClubEnabled).thenReturn(false)
-        repeat(SubscriptionRepository.DAILY_POST_LIMIT + 5) { repo.incrementPostCount() }
+        repeat(repo.dailyPostLimit.value + 5) { repo.incrementPostCount() }
         assertTrue(repo.canPost)
     }
 
@@ -117,6 +120,58 @@ class SubscriptionRepositoryTest {
         assertEquals(3, repo.recentPostCount.value)
         assertTrue(repo.postCountLoaded.value)
         assertFalse(repo.canPost)
+    }
+
+    @Test
+    fun `refreshPostLimit adopts server dailyLimit and persists it`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenReturn(
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = 5)
+        )
+
+        repo.refreshPostLimit()
+
+        assertEquals(5, repo.dailyPostLimit.value)
+        verify(prefsEditor).putInt("cached_dailyPostLimit", 5)
+    }
+
+    @Test
+    fun `canPost respects server-driven limit`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenReturn(
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = 5)
+        )
+        repo.refreshPostLimit()
+
+        // 4 posts: under the new server limit of 5 -> still allowed.
+        repeat(4) { repo.incrementPostCount() }
+        assertTrue(repo.canPost)
+
+        // 5th post hits the limit.
+        repo.incrementPostCount()
+        assertFalse(repo.canPost)
+    }
+
+    @Test
+    fun `canPost falls back to default 3 when server has not responded`() {
+        // Default cache returns DEFAULT_DAILY_POST_LIMIT (3) — no refresh has happened.
+        repeat(3) { repo.incrementPostCount() }
+        assertFalse(repo.canPost)
+    }
+
+    @Test
+    fun `null or non-positive dailyLimit from server is ignored`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenReturn(
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = null)
+        )
+
+        val before = repo.dailyPostLimit.value
+        repo.refreshPostLimit()
+        assertEquals(before, repo.dailyPostLimit.value)
+
+        whenever(cloudFunctions.checkCanPost()).thenReturn(
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = 0)
+        )
+        repo.refreshPostLimit()
+        assertEquals(before, repo.dailyPostLimit.value)
     }
 
     @Test

@@ -46,10 +46,16 @@ class SubscriptionRepository @Inject constructor(
 
     companion object {
         const val CLUB_ENTITLEMENT_ID = "corus_club"
-        const val DAILY_POST_LIMIT = 3
+        /**
+         * Fallback used until the server tells us the current limit. The number
+         * of truth lives in Remote Config; this value only matters offline /
+         * before the first `checkCanPost` response.
+         */
+        const val DEFAULT_DAILY_POST_LIMIT = 3
         const val DAILY_POST_LIMIT_HARD = 400
         private const val PREF_IS_CLUB_MEMBER = "cached_isClubMember"
         private const val PREF_IS_VERIFIED = "cached_isVerified"
+        private const val PREF_DAILY_POST_LIMIT = "cached_dailyPostLimit"
     }
 
     private val _isClubMember = MutableStateFlow(prefs.getBoolean(PREF_IS_CLUB_MEMBER, false))
@@ -73,6 +79,15 @@ class SubscriptionRepository @Inject constructor(
     private val _postCountLoaded = MutableStateFlow(false)
     val postCountLoaded: StateFlow<Boolean> = _postCountLoaded.asStateFlow()
 
+    // Rolling 24h post limit returned by the server (Remote Config-driven).
+    // Cached in SharedPreferences so the gate behaves consistently across
+    // launches before the next `checkCanPost` round trip. Defaults to
+    // [DEFAULT_DAILY_POST_LIMIT] when nothing has been received yet.
+    private val _dailyPostLimit = MutableStateFlow(
+        prefs.getInt(PREF_DAILY_POST_LIMIT, DEFAULT_DAILY_POST_LIMIT).coerceAtLeast(1)
+    )
+    val dailyPostLimit: StateFlow<Int> = _dailyPostLimit.asStateFlow()
+
     val hasFullAccessFlow: StateFlow<Boolean> = combine(_isClubMember, _isVerified) { club, verified ->
         club || verified
     }.stateIn(scope, SharingStarted.Eagerly, _isClubMember.value || _isVerified.value)
@@ -84,7 +99,7 @@ class SubscriptionRepository @Inject constructor(
         get() {
             if (!remoteConfig.corusClubEnabled) return true
             if (_recentPostCount.value >= DAILY_POST_LIMIT_HARD) return false
-            return hasFullAccess || _recentPostCount.value < DAILY_POST_LIMIT
+            return hasFullAccess || _recentPostCount.value < _dailyPostLimit.value
         }
 
     val isHardCapped: Boolean
@@ -120,6 +135,7 @@ class SubscriptionRepository @Inject constructor(
         try {
             val result = cloudFunctions.checkCanPost()
             _recentPostCount.value = result.recentCount
+            applyDailyLimit(result.dailyLimit)
             _postCountLoaded.value = true
         } catch (_: Exception) { }
     }
@@ -133,11 +149,22 @@ class SubscriptionRepository @Inject constructor(
         return try {
             val result = cloudFunctions.checkCanPost()
             _recentPostCount.value = result.recentCount
+            applyDailyLimit(result.dailyLimit)
             _postCountLoaded.value = true
             result.canPost
         } catch (_: Exception) {
             true
         }
+    }
+
+    /**
+     * Persist the server-returned dailyLimit. Skipped when null/non-positive so
+     * the cached value is preserved across malformed responses.
+     */
+    private fun applyDailyLimit(limit: Int?) {
+        if (limit == null || limit <= 0) return
+        _dailyPostLimit.value = limit
+        prefs.edit().putInt(PREF_DAILY_POST_LIMIT, limit).apply()
     }
 
     fun setTotalPostCount(count: Int) {
