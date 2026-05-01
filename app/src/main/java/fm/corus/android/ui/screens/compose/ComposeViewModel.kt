@@ -56,7 +56,7 @@ class ComposeViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val subscriptionRepository: SubscriptionRepository,
     private val exploreRepository: ExploreRepository,
-    private val nowPlayingManager: NowPlayingManager,
+    val nowPlayingManager: NowPlayingManager,
     private val postCreationEvent: PostCreationEvent,
     private val engagementManager: PostEngagementManager,
     private val hapticManager: HapticManager,

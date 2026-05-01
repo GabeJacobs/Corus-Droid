@@ -10,6 +10,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
+import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -55,6 +56,7 @@ class FeedMediaTypeFilterTest {
     private lateinit var remoteConfig: RemoteConfigService
     private lateinit var analyticsService: AnalyticsService
     private lateinit var postCreationEvent: PostCreationEvent
+    private lateinit var postDeletionEvent: PostDeletionEvent
 
     @Before
     fun setUp() {
@@ -77,6 +79,9 @@ class FeedMediaTypeFilterTest {
         postCreationEvent = mock {
             on { events } doReturn MutableSharedFlow()
         }
+        postDeletionEvent = mock {
+            on { events } doReturn MutableSharedFlow()
+        }
     }
 
     @After
@@ -96,6 +101,7 @@ class FeedMediaTypeFilterTest {
         remoteConfig = remoteConfig,
         analyticsService = analyticsService,
         postCreationEvent = postCreationEvent,
+        postDeletionEvent = postDeletionEvent,
         musicServicePreference = mock(),
         context = mock(),
     )

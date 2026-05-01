@@ -65,6 +65,7 @@ import coil3.size.Size
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import android.graphics.Bitmap
@@ -119,6 +120,15 @@ fun ProfileScreen(
     val isSavingStyle by viewModel.isSavingStyle.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
     var selectedSegment by rememberSaveable { mutableIntStateOf(0) }
+    var didFinalizeInitialSegment by rememberSaveable { mutableStateOf(false) }
+    // Open on FILM when the profile is known to have films but no songs.
+    // Runs once after the profile loads; after that the user is in control.
+    LaunchedEffect(profile?.id, profile?.preferredProfileSegment) {
+        if (didFinalizeInitialSegment) return@LaunchedEffect
+        val preferred = profile?.preferredProfileSegment ?: return@LaunchedEffect
+        if (preferred != selectedSegment) selectedSegment = preferred
+        didFinalizeInitialSegment = true
+    }
     var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
     var didRevealFromSkeleton by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
@@ -405,7 +415,18 @@ fun ProfileScreen(
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
                             // Playlist button (matching iOS music.note.list)
-                            val hasSongs = posts.any { it.mediaType == MediaType.TRACK }
+                            val playlistSource = when (selectedSegment) {
+                                2 -> CloudFunctionsDataSource.ProfilePlaylistSource.Likes
+                                3 -> CloudFunctionsDataSource.ProfilePlaylistSource.Saves
+                                else -> CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+                            }
+                            // The has-tracks precheck only applies to posts. Likes/Saves are
+                            // lazy-loaded into separate flows and the backend responds when empty.
+                            val hasSongs = when (playlistSource) {
+                                CloudFunctionsDataSource.ProfilePlaylistSource.Posts ->
+                                    posts.any { it.mediaType == MediaType.TRACK }
+                                else -> true
+                            }
                             val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
                             val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
 
@@ -433,11 +454,14 @@ fun ProfileScreen(
                                             ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
                                         } else {
                                             val isApple = musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC
-                                            val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+                                            // SoundCloud preflight only meaningful for posts source —
+                                            // likes/saves aren't loaded into `posts`.
+                                            val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+                                                && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
                                             if (isApple || hasSoundCloud) {
                                                 showPlaylistAlert = true
                                             } else {
-                                                viewModel.generatePlaylist()
+                                                viewModel.generatePlaylist(playlistSource)
                                             }
                                         }
                                     }
@@ -912,7 +936,13 @@ fun ProfileScreen(
     }
 
     if (showPlaylistAlert) {
-        val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+        val alertSource = when (selectedSegment) {
+            2 -> CloudFunctionsDataSource.ProfilePlaylistSource.Likes
+            3 -> CloudFunctionsDataSource.ProfilePlaylistSource.Saves
+            else -> CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+        }
+        val hasSoundCloud = alertSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+            && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showPlaylistAlert = false },
             title = { androidx.compose.material3.Text("Spotify Feature") },
@@ -927,7 +957,7 @@ fun ProfileScreen(
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     showPlaylistAlert = false
-                    viewModel.generatePlaylist()
+                    viewModel.generatePlaylist(alertSource)
                 }) { androidx.compose.material3.Text("Generate Spotify Playlist") }
             },
             dismissButton = {

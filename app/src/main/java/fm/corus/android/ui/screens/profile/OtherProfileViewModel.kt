@@ -9,6 +9,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
@@ -46,9 +47,12 @@ class OtherProfileViewModel @Inject constructor(
         }
     }
 
-    fun generatePlaylist(userId: String) {
+    fun generatePlaylist(
+        userId: String,
+        source: CloudFunctionsDataSource.ProfilePlaylistSource = CloudFunctionsDataSource.ProfilePlaylistSource.Posts,
+    ) {
         viewModelScope.launch {
-            nowPlayingManager.generateProfilePlaylist(userId)
+            nowPlayingManager.generateProfilePlaylist(userId, source)
         }
     }
 

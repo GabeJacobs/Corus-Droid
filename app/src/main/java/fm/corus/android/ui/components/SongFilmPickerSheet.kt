@@ -39,6 +39,7 @@ import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.MusicSearchRepository
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.ui.theme.CorusColors
@@ -227,6 +228,7 @@ fun SongFilmPickerSheet(
                         TrendingSongsSection(
                             songs = trendingSongs,
                             onClick = { song -> onSongSelected(song.track) },
+                            nowPlaying = viewModel.nowPlayingManager,
                         )
                     }
                 }
@@ -385,11 +387,12 @@ private fun TrendingHeader(text: String) {
 private fun TrendingSongsSection(
     songs: List<TrendingSong>,
     onClick: (TrendingSong) -> Unit,
+    nowPlaying: NowPlayingManager,
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item { TrendingHeader(stringResource(R.string.compose_trending_songs)) }
         itemsIndexed(songs, key = { _, s -> s.track.id }) { index, song ->
-            TrendingSongRow(song = song, onClick = { onClick(song) })
+            TrendingSongRow(song = song, nowPlaying = nowPlaying, onClick = { onClick(song) })
             if (index < songs.lastIndex) {
                 HorizontalDivider(
                     color = CorusColors.Divider,
@@ -420,7 +423,11 @@ private fun TrendingFilmsSection(
 }
 
 @Composable
-private fun TrendingSongRow(song: TrendingSong, onClick: () -> Unit) {
+private fun TrendingSongRow(
+    song: TrendingSong,
+    nowPlaying: NowPlayingManager,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -437,13 +444,12 @@ private fun TrendingSongRow(song: TrendingSong, onClick: () -> Unit) {
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
-        AsyncImage(
-            model = song.track.albumArtLargeURL ?: song.track.albumArtURL,
+        SongPreviewArtwork(
+            track = song.track,
+            nowPlaying = nowPlaying,
+            size = CorusSpacing.albumArtSearch,
+            cornerRadius = CorusSpacing.cornerRadius,
             contentDescription = song.track.name,
-            modifier = Modifier
-                .size(CorusSpacing.albumArtSearch)
-                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
-            contentScale = ContentScale.Crop,
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
@@ -567,6 +573,7 @@ class SongFilmPickerViewModel @Inject constructor(
     val tmdbRepository: TMDBRepository,
     private val exploreRepository: ExploreRepository,
     val remoteConfigService: RemoteConfigService,
+    val nowPlayingManager: NowPlayingManager,
 ) : ViewModel() {
 
     private val _trendingSongs = MutableStateFlow<List<TrendingSong>>(emptyList())

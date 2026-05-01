@@ -169,6 +169,10 @@ class ChangePhoneNumberViewModel @Inject constructor(
                 "ERROR_INVALID_VERIFICATION_CODE" -> "Invalid verification code. Please try again."
                 "ERROR_SESSION_EXPIRED" -> "Code expired. Please request a new one."
                 "ERROR_TOO_MANY_REQUESTS" -> "Too many attempts. Please try again later."
+                "ERROR_CREDENTIAL_ALREADY_IN_USE", "ERROR_PROVIDER_ALREADY_LINKED" ->
+                    "This phone number is already linked to another account."
+                "ERROR_REQUIRES_RECENT_LOGIN" ->
+                    "For security, please sign out and sign back in, then try again."
                 else -> "Something went wrong. Please try again."
             }
         }

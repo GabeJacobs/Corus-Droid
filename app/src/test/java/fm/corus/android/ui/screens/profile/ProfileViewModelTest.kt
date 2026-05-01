@@ -7,6 +7,7 @@ import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
+import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +41,7 @@ class ProfileViewModelTest {
     private lateinit var nowPlayingManager: NowPlayingManager
     private lateinit var engagementManager: PostEngagementManager
     private lateinit var postCreationEvent: PostCreationEvent
+    private lateinit var postDeletionEvent: PostDeletionEvent
     private lateinit var analyticsService: AnalyticsService
 
     @Before
@@ -60,6 +62,9 @@ class ProfileViewModelTest {
         postCreationEvent = mock {
             on { events } doReturn MutableSharedFlow()
         }
+        postDeletionEvent = mock {
+            on { events } doReturn MutableSharedFlow()
+        }
         analyticsService = mock()
     }
 
@@ -76,6 +81,7 @@ class ProfileViewModelTest {
         nowPlayingManager = nowPlayingManager,
         engagementManager = engagementManager,
         postCreationEvent = postCreationEvent,
+        postDeletionEvent = postDeletionEvent,
         analyticsService = analyticsService,
         musicServicePreference = mock(),
     )

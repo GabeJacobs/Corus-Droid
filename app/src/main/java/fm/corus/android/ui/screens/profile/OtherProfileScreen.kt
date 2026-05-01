@@ -57,6 +57,7 @@ import android.content.Intent
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CorusHeaderIcon
@@ -114,6 +115,23 @@ fun OtherProfileScreen(
     val hasFetchedFilmPage by viewModel.hasFetchedFilmPage.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
     var selectedSegment by rememberSaveable { mutableIntStateOf(0) }
+    var didFinalizeInitialSegment by rememberSaveable { mutableStateOf(false) }
+    // Open on FILM when the user is known to have films but no songs.
+    // Runs once after the profile loads (cache or fresh fetch); after that
+    // the user is in control of which tab is selected.
+    LaunchedEffect(profile?.id, profile?.preferredProfileSegment) {
+        if (didFinalizeInitialSegment) return@LaunchedEffect
+        val preferred = profile?.preferredProfileSegment ?: return@LaunchedEffect
+        if (preferred != selectedSegment) selectedSegment = preferred
+        didFinalizeInitialSegment = true
+    }
+    // Other-profile views show MUSIC/FILM/LIKES (no Saves). Bots only show
+    // their single tab and always map to posts. Segment 2 == LIKES.
+    val playlistSource: CloudFunctionsDataSource.ProfilePlaylistSource = when {
+        profile?.isBot == true -> CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+        selectedSegment == 2 -> CloudFunctionsDataSource.ProfilePlaylistSource.Likes
+        else -> CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+    }
     var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
     var didRevealFromSkeleton by rememberSaveable { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -222,11 +240,12 @@ fun OtherProfileScreen(
                                     onClick = {
                                         showMenu = false
                                         val isApple = musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC
-                                        val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+                                        val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+                                            && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
                                         if (isApple || hasSoundCloud) {
                                             showPlaylistAlert = true
                                         } else {
-                                            viewModel.generatePlaylist(userId)
+                                            viewModel.generatePlaylist(userId, playlistSource)
                                         }
                                     },
                                 )
@@ -651,7 +670,13 @@ fun OtherProfileScreen(
 
                                 // Playlist button
                                 val playlistContext = LocalContext.current
-                                val hasSongs = posts.any { it.mediaType == MediaType.TRACK }
+                                // Likes are lazy-loaded into a separate flow; let the backend respond
+                                // when the user has none.
+                                val hasSongs = when (playlistSource) {
+                                    CloudFunctionsDataSource.ProfilePlaylistSource.Posts ->
+                                        posts.any { it.mediaType == MediaType.TRACK }
+                                    else -> true
+                                }
                                 val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
                                 val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
 
@@ -671,11 +696,12 @@ fun OtherProfileScreen(
                                                 ToastManager.show(playlistContext.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
                                             } else {
                                                 val isApple = musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC
-                                                val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+                                                val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+                                                    && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
                                                 if (isApple || hasSoundCloud) {
                                                     showPlaylistAlert = true
                                                 } else {
-                                                    viewModel.generatePlaylist(userId)
+                                                    viewModel.generatePlaylist(userId, playlistSource)
                                                 }
                                             }
                                         }
@@ -1019,7 +1045,8 @@ fun OtherProfileScreen(
     }
 
     if (showPlaylistAlert) {
-        val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+        val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+            && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showPlaylistAlert = false },
             title = { androidx.compose.material3.Text("Spotify Feature") },
@@ -1034,7 +1061,7 @@ fun OtherProfileScreen(
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     showPlaylistAlert = false
-                    viewModel.generatePlaylist(userId)
+                    viewModel.generatePlaylist(userId, playlistSource)
                 }) { androidx.compose.material3.Text("Generate Spotify Playlist") }
             },
             dismissButton = {

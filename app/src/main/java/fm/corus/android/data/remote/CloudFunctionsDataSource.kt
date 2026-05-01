@@ -667,11 +667,30 @@ class CloudFunctionsDataSource @Inject constructor(
         )
     }
 
+    /** Source the profile playlist should pull from. `Posts` is the legacy
+     *  default; `Likes` and `Saves` were added later. Wire format matches the
+     *  backend `source` parameter exactly. */
+    enum class ProfilePlaylistSource(val wire: String) {
+        Posts("posts"),
+        Likes("likes"),
+        Saves("saves"),
+    }
+
     @Suppress("UNCHECKED_CAST")
-    suspend fun generateProfilePlaylist(userId: String): PlaylistResult {
-        val result = functions.getHttpsCallable("generateProfilePlaylist").call(
-            mapOf("userId" to userId, "supportsGating" to true)
-        ).await()
+    suspend fun generateProfilePlaylist(
+        userId: String,
+        source: ProfilePlaylistSource = ProfilePlaylistSource.Posts,
+    ): PlaylistResult {
+        // Only attach `source` for the new branches so the request shape stays
+        // identical to older clients for the posts case.
+        val payload = mutableMapOf<String, Any>(
+            "userId" to userId,
+            "supportsGating" to true,
+        )
+        if (source != ProfilePlaylistSource.Posts) {
+            payload["source"] = source.wire
+        }
+        val result = functions.getHttpsCallable("generateProfilePlaylist").call(payload).await()
         val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
         return parsePlaylistResponse(data)
     }

@@ -311,6 +311,7 @@ fun SearchScreen(
                                 songs = trendingSongs,
                                 isLoading = isTrendingLoading,
                                 onSongTap = onNavigateToSong,
+                                nowPlaying = viewModel.nowPlayingManager,
                             )
                         }
                     }
@@ -1118,6 +1119,7 @@ private fun TrendingSongsContent(
     songs: List<TrendingSong>,
     isLoading: Boolean,
     onSongTap: (CymbalTrack) -> Unit,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
 ) {
     if (isLoading) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
@@ -1139,7 +1141,7 @@ private fun TrendingSongsContent(
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
             item { SectionHeader(icon = "music", title = stringResource(fm.corus.android.R.string.search_section_trending_this_month)) }
             itemsIndexed(songs) { index, song ->
-                TrendingSongRow(song = song, onClick = { onSongTap(song.track) })
+                TrendingSongRow(song = song, nowPlaying = nowPlaying, onClick = { onSongTap(song.track) })
                 if (index < songs.lastIndex) {
                     HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
                 }
@@ -1151,6 +1153,7 @@ private fun TrendingSongsContent(
 @Composable
 private fun TrendingSongRow(
     song: TrendingSong,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
     onClick: () -> Unit,
 ) {
     Row(
@@ -1167,11 +1170,12 @@ private fun TrendingSongRow(
             modifier = Modifier.width(24.dp),
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
-        AsyncImage(
-            model = song.track.albumArtURL,
-            contentDescription = null,
-            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(4.dp)),
-            contentScale = ContentScale.Crop,
+        fm.corus.android.ui.components.SongPreviewArtwork(
+            track = song.track,
+            nowPlaying = nowPlaying,
+            size = 44.dp,
+            cornerRadius = 4.dp,
+            contentDescription = song.track.name,
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {

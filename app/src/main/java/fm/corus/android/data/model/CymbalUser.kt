@@ -42,6 +42,20 @@ data class CymbalUser(
     val isMusicBot: Boolean get() = isBot && botType == "music"
     val isFilmBot: Boolean get() = isBot && botType == "film"
 
+    /**
+     * Initial profile-tab segment: open on FILM (1) when the user has no
+     * songs but at least one film; otherwise MUSIC (0). Returns null when
+     * counts aren't authoritative yet, so callers can defer the decision
+     * until after a fresh fetch. Bots always default to 0 (their single tab).
+     */
+    val preferredProfileSegment: Int?
+        get() {
+            if (isBot) return 0
+            val tracks = trackCount ?: return null
+            val movies = movieCount ?: return null
+            return if (tracks == 0 && movies > 0) 1 else 0
+        }
+
     fun withArtistsInCommonCount(count: Int?): CymbalUser =
         copy(artistsInCommonCount = count)
 

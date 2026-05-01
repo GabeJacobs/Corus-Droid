@@ -21,6 +21,7 @@ import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -44,6 +45,7 @@ class SearchViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
     private val firestoreDataSource: FirestoreDataSource,
     private val remoteConfigService: RemoteConfigService,
+    val nowPlayingManager: NowPlayingManager,
 ) : ViewModel() {
 
     // Tab state

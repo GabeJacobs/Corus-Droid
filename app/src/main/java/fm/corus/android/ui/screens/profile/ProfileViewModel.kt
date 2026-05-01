@@ -83,11 +83,13 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun generatePlaylist() {
+    fun generatePlaylist(
+        source: CloudFunctionsDataSource.ProfilePlaylistSource = CloudFunctionsDataSource.ProfilePlaylistSource.Posts,
+    ) {
         val userId = authRepository.currentUserId ?: return
         analyticsService.logProfilePlaylistTapped(userId)
         viewModelScope.launch {
-            nowPlayingManager.generateProfilePlaylist(userId)
+            nowPlayingManager.generateProfilePlaylist(userId, source)
         }
     }
 

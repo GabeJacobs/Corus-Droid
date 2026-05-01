@@ -237,6 +237,7 @@ fun ComposeScreen(
                         isLoadingTrending = isLoadingTrending,
                         onTrendingSongClick = { viewModel.selectTrendingSong(it) },
                         onTrendingMovieClick = { viewModel.selectTrendingMovie(it) },
+                        nowPlaying = viewModel.nowPlayingManager,
                     )
                 } else if (selectedTrack != null || selectedMovie != null) {
                     ComposeModeContent(
@@ -354,6 +355,7 @@ private fun SearchModeContent(
     isLoadingTrending: Boolean,
     onTrendingSongClick: (TrendingSong) -> Unit,
     onTrendingMovieClick: (TrendingMovie) -> Unit,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -499,6 +501,7 @@ private fun SearchModeContent(
                 TrendingSongsSection(
                     songs = trendingSongs,
                     onSongClick = onTrendingSongClick,
+                    nowPlaying = nowPlaying,
                 )
             } else if (mediaType == MediaType.MOVIE && trendingMovies.isNotEmpty()) {
                 TrendingMoviesSection(
@@ -557,6 +560,7 @@ private fun SegmentedToggle(
 private fun TrendingSongsSection(
     songs: List<TrendingSong>,
     onSongClick: (TrendingSong) -> Unit,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
@@ -584,6 +588,7 @@ private fun TrendingSongsSection(
         itemsIndexed(songs) { index, song ->
             TrendingSongRow(
                 song = song,
+                nowPlaying = nowPlaying,
                 onClick = { onSongClick(song) },
             )
             if (index < songs.lastIndex) {
@@ -646,6 +651,7 @@ private fun TrendingMoviesSection(
 @Composable
 private fun TrendingSongRow(
     song: TrendingSong,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
     onClick: () -> Unit,
 ) {
     Row(
@@ -664,13 +670,12 @@ private fun TrendingSongRow(
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
-        AsyncImage(
-            model = song.track.albumArtLargeURL ?: song.track.albumArtURL,
+        fm.corus.android.ui.components.SongPreviewArtwork(
+            track = song.track,
+            nowPlaying = nowPlaying,
+            size = CorusSpacing.albumArtSearch,
+            cornerRadius = CorusSpacing.cornerRadius,
             contentDescription = song.track.name,
-            modifier = Modifier
-                .size(CorusSpacing.albumArtSearch)
-                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
-            contentScale = ContentScale.Crop,
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
@@ -947,32 +952,31 @@ private fun ComposeModeContent(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
-                // Scrim overlay when playing or loading
-                val showOverlay = isPreviewPlaying || isPreviewLoading
-                val overlayAlpha by animateFloatAsState(
-                    targetValue = if (showOverlay) 1f else 0f,
-                    animationSpec = tween(200),
-                    label = "previewOverlay",
-                )
-                if (overlayAlpha > 0f) {
+                if (mediaType == MediaType.TRACK) {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.4f * overlayAlpha)),
+                            .size(22.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(Color.Black.copy(alpha = 0.4f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (isPreviewLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.White.copy(alpha = overlayAlpha),
-                                strokeWidth = 2.dp,
+                        when {
+                            isPreviewLoading -> CircularProgressIndicator(
+                                modifier = Modifier.size(12.dp),
+                                strokeWidth = 1.5.dp,
+                                color = Color.White,
                             )
-                        } else {
-                            Icon(
+                            isPreviewPlaying -> Icon(
                                 imageVector = Icons.Filled.Pause,
                                 contentDescription = stringResource(R.string.compose_cd_pause_preview),
-                                tint = Color.White.copy(alpha = overlayAlpha),
-                                modifier = Modifier.size(22.dp),
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp),
+                            )
+                            else -> Icon(
+                                imageVector = Icons.Filled.PlayArrow,
+                                contentDescription = stringResource(R.string.comment_attachment_play_preview),
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp),
                             )
                         }
                     }

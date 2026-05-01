@@ -204,7 +204,10 @@ class NowPlayingManager @Inject constructor(
         _isGeneratingPlaylist.value = false
     }
 
-    suspend fun generateProfilePlaylist(userId: String) {
+    suspend fun generateProfilePlaylist(
+        userId: String,
+        source: CloudFunctionsDataSource.ProfilePlaylistSource = CloudFunctionsDataSource.ProfilePlaylistSource.Posts,
+    ) {
         _isGeneratingPlaylist.value = true
         ToastManager.show("Generating playlist\u2026")
 
@@ -215,7 +218,7 @@ class NowPlayingManager @Inject constructor(
         }
 
         try {
-            val result = cloudFunctions.generateProfilePlaylist(userId)
+            val result = cloudFunctions.generateProfilePlaylist(userId, source)
             if (result.soundcloudSkipped > 0) {
                 android.util.Log.i("NowPlaying", "Profile playlist skipped ${result.soundcloudSkipped} SoundCloud track(s)")
             }
