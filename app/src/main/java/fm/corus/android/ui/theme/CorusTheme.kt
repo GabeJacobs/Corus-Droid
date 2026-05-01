@@ -81,8 +81,6 @@ fun CorusSystemBars(darkTheme: Boolean = LocalCorusDarkTheme.current) {
     if (view.isInEditMode) return
     SideEffect {
         val window = view.findOwningWindow() ?: return@SideEffect
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.TRANSPARENT
         val controller = WindowCompat.getInsetsController(window, view)
         controller.isAppearanceLightStatusBars = !darkTheme
         controller.isAppearanceLightNavigationBars = !darkTheme
