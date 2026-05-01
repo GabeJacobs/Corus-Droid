@@ -56,6 +56,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import fm.corus.android.R
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
@@ -240,14 +241,29 @@ fun MainTabScreen(
                         val trackId = state.trackId
                         when {
                             postId != null -> navController.navigate(PostDetailRoute(postId))
-                            trackId != null -> navController.navigate(SongDetailRoute(
-                                trackId = trackId,
-                                albumArtURL = state.albumArtURL,
-                                songName = state.trackName,
-                                artistName = state.artistName,
-                                spotifyURI = state.spotifyURI,
-                                spotifyWebURL = state.spotifyWebURL,
-                            ))
+                            trackId != null -> {
+                                // Round-trip SoundCloud fields. Without these, opening
+                                // SongDetail from the mini-player while a SoundCloud
+                                // track is playing would default the route's source to
+                                // null/spotify, causing the detail screen to render
+                                // Apple Music / Spotify CTAs and "Post Song" to write
+                                // a Spotify-shaped post — feed renders the wrong badge
+                                // and playback fails. SC trackIds are formatted
+                                // `sc:<numeric>` so we can derive the SC id directly.
+                                val isSoundCloud = state.source == TrackSource.SOUNDCLOUD
+                                val soundcloudId = if (isSoundCloud) trackId.removePrefix("sc:") else null
+                                navController.navigate(SongDetailRoute(
+                                    trackId = trackId,
+                                    albumArtURL = state.albumArtURL,
+                                    songName = state.trackName,
+                                    artistName = state.artistName,
+                                    spotifyURI = state.spotifyURI,
+                                    spotifyWebURL = state.spotifyWebURL,
+                                    source = state.source.raw,
+                                    soundcloudId = soundcloudId,
+                                    soundcloudPermalinkUrl = state.soundcloudPermalinkUrl,
+                                ))
+                            }
                         }
                     },
                 )
