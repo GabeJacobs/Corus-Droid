@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PersonSearch
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.*
@@ -106,6 +107,13 @@ fun NotificationSettingsScreen(
                 title = stringResource(R.string.notifications_row_messages),
                 checked = settings.messagePush,
                 onCheckedChange = viewModel::setMessagePush,
+            )
+
+            NotifToggleRow(
+                icon = Icons.Filled.DoneAll,
+                title = stringResource(R.string.notifications_row_read_receipts),
+                checked = settings.readReceipts,
+                onCheckedChange = viewModel::setReadReceipts,
             )
         }
     }

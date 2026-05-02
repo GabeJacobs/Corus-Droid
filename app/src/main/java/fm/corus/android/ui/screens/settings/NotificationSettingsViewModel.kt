@@ -24,6 +24,7 @@ data class NotificationSettings(
     val contactJoined: Boolean = true,
     val tasteMatches: Boolean = true,
     val messagePush: Boolean = true,
+    val readReceipts: Boolean = true,
     val isLoaded: Boolean = false,
 )
 
@@ -59,6 +60,7 @@ class NotificationSettingsViewModel @Inject constructor(
                     contactJoined = notif["contactJoined"] as? Boolean ?: true,
                     tasteMatches = notif["tasteMatches"] as? Boolean ?: true,
                     messagePush = msg["pushEnabled"] as? Boolean ?: true,
+                    readReceipts = msg["readReceiptsEnabled"] as? Boolean ?: true,
                     isLoaded = true,
                 )
             } catch (_: Exception) {
@@ -94,6 +96,17 @@ class NotificationSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 userRepository.updateUserProfile(uid, mapOf("settings.messaging.pushEnabled" to enabled))
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun setReadReceipts(enabled: Boolean) {
+        val uid = authRepository.currentUserId ?: return
+        _settings.value = _settings.value.copy(readReceipts = enabled)
+        viewModelScope.launch {
+            try {
+                userRepository.updateUserProfile(uid, mapOf("settings.messaging.readReceiptsEnabled" to enabled))
+                analyticsService.logSettingToggled("read_receipts_enabled", enabled)
             } catch (_: Exception) { }
         }
     }

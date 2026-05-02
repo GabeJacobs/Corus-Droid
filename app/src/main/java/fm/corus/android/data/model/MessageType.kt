@@ -18,6 +18,14 @@ enum class MessageSendStatus {
     SENDING, SENT, FAILED
 }
 
+/**
+ * Per-message delivery state shown to the sender as a check / double-check
+ * inside the bubble meta. Mirrors the web `deliveryStatus` discriminant.
+ */
+enum class MessageDeliveryStatus {
+    SENDING, SENT, READ
+}
+
 enum class MessageFailureReason {
     GENERIC, MESSAGING_DISABLED
 }

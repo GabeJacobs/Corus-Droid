@@ -87,6 +87,7 @@
     <string name="notifications_row_follow_requests">Follow Requests</string>
     <string name="notifications_row_contact_joined">Contact Joined</string>
     <string name="notifications_row_messages">Messages</string>
+    <string name="notifications_row_read_receipts">Read receipts</string>
 
     <!-- Settings: Appearance -->
     <string name="settings_section_appearance">APPEARANCE</string>

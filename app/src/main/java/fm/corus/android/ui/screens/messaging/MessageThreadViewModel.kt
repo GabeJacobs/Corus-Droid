@@ -65,8 +65,17 @@ class MessageThreadViewModel @Inject constructor(
     private val _replyToMessage = MutableStateFlow<CymbalMessage?>(null)
     val replyToMessage: StateFlow<CymbalMessage?> = _replyToMessage.asStateFlow()
 
+    private val _recipientUnread = MutableStateFlow(0)
+    val recipientUnread: StateFlow<Int> = _recipientUnread.asStateFlow()
+
+    private val _myReadReceiptsEnabled = MutableStateFlow(true)
+    val myReadReceiptsEnabled: StateFlow<Boolean> = _myReadReceiptsEnabled.asStateFlow()
+
     private var currentThreadId: String? = null
     private var listenerJob: Job? = null
+    private var recipientUnreadJob: Job? = null
+    private var readReceiptsJob: Job? = null
+
 
     fun loadMessages(threadId: String, otherUserId: String) {
         currentThreadId = threadId
@@ -87,11 +96,13 @@ class MessageThreadViewModel @Inject constructor(
 
                 // Start real-time Firestore listener (matches iOS snapshot listener)
                 startListening(resolvedId)
+                startThreadDocListener(resolvedId, otherUserId)
 
                 // Mark as read
                 val userId = authRepository.currentUserId
                 if (userId != null) {
                     messageRepository.markThreadRead(resolvedId, userId)
+                    startReadReceiptsListener(userId)
                 }
             } catch (_: Exception) { }
             _isLoading.value = false
@@ -110,9 +121,29 @@ class MessageThreadViewModel @Inject constructor(
         }
     }
 
+    private fun startThreadDocListener(threadId: String, otherUserId: String) {
+        recipientUnreadJob?.cancel()
+        recipientUnreadJob = viewModelScope.launch {
+            messageRepository.listenToRecipientUnreadCount(threadId, otherUserId).collect {
+                _recipientUnread.value = it
+            }
+        }
+    }
+
+    private fun startReadReceiptsListener(userId: String) {
+        readReceiptsJob?.cancel()
+        readReceiptsJob = viewModelScope.launch {
+            messageRepository.listenToReadReceiptsEnabled(userId).collect {
+                _myReadReceiptsEnabled.value = it
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         listenerJob?.cancel()
+        recipientUnreadJob?.cancel()
+        readReceiptsJob?.cancel()
     }
 
     fun setReplyTo(message: CymbalMessage?) {

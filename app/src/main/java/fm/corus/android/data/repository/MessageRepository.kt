@@ -132,4 +132,48 @@ class MessageRepository @Inject constructor(
             }
         awaitClose { registration.remove() }
     }
+
+    /**
+     * Emits the user's `settings.messaging.readReceiptsEnabled` setting,
+     * defaulting to `true` when missing. The sender hides "read" status on
+     * outgoing messages when this is `false` (mutual two-way behavior).
+     */
+    fun listenToReadReceiptsEnabled(userId: String): Flow<Boolean> = callbackFlow {
+        val registration = firestore
+            .collection("users_v2")
+            .document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    trySend(true); return@addSnapshotListener
+                }
+                @Suppress("UNCHECKED_CAST")
+                val settings = snapshot.data?.get("settings") as? Map<String, Any?>
+                @Suppress("UNCHECKED_CAST")
+                val messaging = settings?.get("messaging") as? Map<String, Any?>
+                val enabled = messaging?.get("readReceiptsEnabled") as? Boolean ?: true
+                trySend(enabled)
+            }
+        awaitClose { registration.remove() }
+    }
+
+    /**
+     * Emits the recipient's unread count for the thread, read from
+     * `threads/{threadId}.unreadCount[otherUserId]`. Used to derive the
+     * "read" boundary for messages I sent.
+     */
+    fun listenToRecipientUnreadCount(threadId: String, otherUserId: String): Flow<Int> = callbackFlow {
+        val registration = firestore
+            .collection("threads")
+            .document(threadId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    trySend(0); return@addSnapshotListener
+                }
+                @Suppress("UNCHECKED_CAST")
+                val map = snapshot.data?.get("unreadCount") as? Map<String, Any?>
+                val count = (map?.get(otherUserId) as? Number)?.toInt() ?: 0
+                trySend(count)
+            }
+        awaitClose { registration.remove() }
+    }
 }

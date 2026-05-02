@@ -44,7 +44,7 @@ class RemoteConfigService @Inject constructor(
         get() = remoteConfig.getBoolean("paywall_default_yearly")
 
     val gifSupport: Boolean
-        get() = remoteConfig.getBoolean("gif_support")
+        get() = true // TEMP: hardcoded for QA — revert before merge
 
     val serverNotificationsEnabled: Boolean
         get() = remoteConfig.getBoolean("server_notifications_enabled")

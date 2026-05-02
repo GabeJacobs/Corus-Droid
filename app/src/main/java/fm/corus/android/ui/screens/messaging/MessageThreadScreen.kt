@@ -58,9 +58,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.data.model.CymbalMessage
+import fm.corus.android.data.model.MessageDeliveryStatus
 import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Schedule
+import java.text.SimpleDateFormat
+import java.util.Locale
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FullScreenImageView
@@ -86,6 +92,80 @@ internal fun replyPreviewText(msg: CymbalMessage, context: android.content.Conte
         MessageType.SHARED_TRACK -> msg.trackName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_song)
         MessageType.SHARED_FILM -> msg.movieTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_film)
         else -> context.getString(R.string.messaging_thread_message_fallback)
+    }
+}
+
+/**
+ * Compute the visible delivery status (sending / sent / read) for a message.
+ * Mirrors the web `deliveryStatus` in
+ * `Corus-Web/app/app/(main)/messages/[threadId]/page.tsx`.
+ *
+ * Note: `messages` arrives newest-first (LazyColumn reverseLayout), so we
+ * iterate `asReversed()` to get chronological order before computing the read
+ * boundary.
+ */
+internal fun computeDeliveryStatus(
+    message: CymbalMessage,
+    currentUserId: String?,
+    messages: List<CymbalMessage>,
+    recipientUnread: Int,
+    myReadReceiptsEnabled: Boolean,
+): MessageDeliveryStatus {
+    if (message.sendStatus == MessageSendStatus.SENDING) return MessageDeliveryStatus.SENDING
+    if (currentUserId == null || message.fromUserId != currentUserId) return MessageDeliveryStatus.SENT
+    if (!myReadReceiptsEnabled) return MessageDeliveryStatus.SENT
+    val mySent = messages.asReversed()
+        .filter { it.fromUserId == currentUserId && it.sendStatus == MessageSendStatus.SENT }
+    val readBoundary = (mySent.size - recipientUnread).coerceAtLeast(0)
+    val idx = mySent.indexOfFirst { it.id == message.id }
+    if (idx < 0) return MessageDeliveryStatus.SENT
+    return if (idx < readBoundary) MessageDeliveryStatus.READ else MessageDeliveryStatus.SENT
+}
+
+private val bubbleTimeFormatter: SimpleDateFormat by lazy {
+    SimpleDateFormat("h:mm a", Locale.getDefault())
+}
+
+@Composable
+private fun BubbleMeta(
+    message: CymbalMessage,
+    isFromCurrentUser: Boolean,
+    deliveryStatus: MessageDeliveryStatus,
+    modifier: Modifier = Modifier,
+) {
+    if (message.sendStatus == MessageSendStatus.FAILED) return
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = bubbleTimeFormatter.format(message.createdAt).lowercase(),
+            fontSize = 10.sp,
+            color = CorusColors.Tertiary,
+        )
+        if (isFromCurrentUser) {
+            when (deliveryStatus) {
+                MessageDeliveryStatus.SENDING -> Icon(
+                    imageVector = Icons.Filled.Schedule,
+                    contentDescription = null,
+                    modifier = Modifier.size(10.dp),
+                    tint = CorusColors.Tertiary,
+                )
+                MessageDeliveryStatus.SENT -> Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(10.dp),
+                    tint = CorusColors.Tertiary,
+                )
+                MessageDeliveryStatus.READ -> Icon(
+                    imageVector = Icons.Filled.DoneAll,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = CorusColors.Accent,
+                )
+            }
+        }
     }
 }
 
@@ -124,6 +204,8 @@ fun MessageThreadScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val otherUsername by viewModel.otherUsername.collectAsState()
     val replyToMessage by viewModel.replyToMessage.collectAsState()
+    val recipientUnread by viewModel.recipientUnread.collectAsState()
+    val myReadReceiptsEnabled by viewModel.myReadReceiptsEnabled.collectAsState()
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     var reactionTarget by remember { mutableStateOf<CymbalMessage?>(null) }
@@ -197,6 +279,13 @@ fun MessageThreadScreen(
                     isFromCurrentUser = message.fromUserId == viewModel.currentUserId,
                     currentUserId = viewModel.currentUserId ?: "",
                     otherUsername = otherUsername,
+                    deliveryStatus = computeDeliveryStatus(
+                        message = message,
+                        currentUserId = viewModel.currentUserId,
+                        messages = messages,
+                        recipientUnread = recipientUnread,
+                        myReadReceiptsEnabled = myReadReceiptsEnabled,
+                    ),
                     onLongPress = {
                         // Mirrors iOS NotificationsView message long-press haptic.
                         bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
@@ -537,6 +626,7 @@ private fun MessageBubble(
     isFromCurrentUser: Boolean,
     currentUserId: String,
     otherUsername: String,
+    deliveryStatus: MessageDeliveryStatus,
     onLongPress: () -> Unit,
     onDoubleTap: () -> Unit,
     onReactionTap: (String) -> Unit,
@@ -730,15 +820,14 @@ private fun MessageBubble(
             }
         }
 
-        // Send status indicators
-        if (isSending) {
-            Text(
-                text = stringResource(id = R.string.messaging_thread_sending),
-                style = CorusFont.caption,
-                color = CorusColors.Tertiary,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-        }
+        // Time + read-receipt meta (mirrors web BubbleMeta)
+        BubbleMeta(
+            message = message,
+            isFromCurrentUser = isFromCurrentUser,
+            deliveryStatus = deliveryStatus,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+
         if (isFailed) {
             Row(
                 modifier = Modifier
