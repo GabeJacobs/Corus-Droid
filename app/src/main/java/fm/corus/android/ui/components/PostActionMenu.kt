@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.filled.ContentCopy
@@ -17,7 +18,6 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -130,7 +130,7 @@ fun PostActionMenu(
 
         // Share
         MenuRow(
-            icon = Icons.Filled.Share,
+            icon = Icons.AutoMirrored.Filled.Send,
             label = stringResource(R.string.post_menu_share),
             onClick = { onSharePost(); onDismiss() },
         )

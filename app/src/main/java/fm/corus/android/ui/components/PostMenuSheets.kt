@@ -16,8 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -61,6 +63,19 @@ fun PostMenuSheets(
     val linkCopiedMsg = stringResource(R.string.post_menu_toast_link_copied)
     val captionUpdatedMsg = stringResource(R.string.post_menu_toast_caption_updated)
     val postLinkLabel = stringResource(R.string.post_menu_clip_label_post_link)
+
+    // When Share is tapped from the "…" menu, we can't open the share sheet
+    // immediately — two ModalBottomSheets in the same frame race and the new
+    // sheet never appears. Stash the post here, dismiss the menu, then open
+    // the share sheet once the menu is fully gone.
+    var pendingSharePost by remember { mutableStateOf<CymbalPost?>(null) }
+    LaunchedEffect(menuPost, pendingSharePost) {
+        val pending = pendingSharePost
+        if (menuPost == null && pending != null) {
+            onSharePostChange(pending)
+            pendingSharePost = null
+        }
+    }
 
     // ── Share Post Bottom Sheet ──
     sharePost?.let { post ->
@@ -144,7 +159,7 @@ fun PostMenuSheets(
                     }
                 },
                 onRepost = { onRepost(post) },
-                onSharePost = { onSharePostChange(post) },
+                onSharePost = { pendingSharePost = post },
                 onCopyLink = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     clipboard.setPrimaryClip(ClipData.newPlainText(postLinkLabel, "https://corus.fm/post/${post.id}"))

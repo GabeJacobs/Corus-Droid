@@ -188,7 +188,7 @@ fun SearchScreen(
             .sortedByDescending { it.matchData?.similarityScore ?: 0.0 }
     }
 
-    var filterUnfollowedMatches by rememberSaveable { mutableStateOf(false) }
+    var filterUnfollowedMatches by rememberSaveable { mutableStateOf(true) }
     val allFollowedIds = remember(followingIds, localFollowedIds) { followingIds + localFollowedIds }
     val filteredMusicMatchUsers = remember(musicMatchUsers, filterUnfollowedMatches, allFollowedIds) {
         filteredMusicMatchUsers(filterUnfollowedMatches, musicMatchUsers, allFollowedIds)
