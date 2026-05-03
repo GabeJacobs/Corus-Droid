@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.explore
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -17,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -40,10 +42,14 @@ fun HashtagFeedScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
     val loadError by viewModel.loadError.collectAsState()
+    val isFollowing by viewModel.isFollowing.collectAsState()
+    val hasLoadedFollowState by viewModel.hasLoadedFollowState.collectAsState()
+    val isTogglingFollow by viewModel.isTogglingFollow.collectAsState()
     val gridState = rememberLazyGridState()
 
     LaunchedEffect(hashtag) {
         viewModel.loadHashtagPosts(hashtag)
+        viewModel.loadFollowState(hashtag)
     }
 
     // Prefetch when near end
@@ -96,6 +102,12 @@ fun HashtagFeedScreen(
                         text = stringResource(R.string.hashtag_feed_count_format, formatCount(posts.size)),
                         style = CorusFont.artistNameLarge,
                         color = CorusColors.Secondary,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    HashtagFollowButton(
+                        isFollowing = isFollowing,
+                        isEnabled = hasLoadedFollowState && !isTogglingFollow,
+                        onClick = { viewModel.toggleFollow(hashtag) },
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                 }
@@ -180,5 +192,41 @@ private fun formatCount(count: Int): String {
         count >= 1_000_000 -> "${count / 1_000_000}M"
         count >= 1_000 -> "${count / 1_000}K"
         else -> count.toString()
+    }
+}
+
+@Composable
+private fun HashtagFollowButton(
+    isFollowing: Boolean,
+    isEnabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val label = if (isFollowing) {
+        stringResource(R.string.hashtag_feed_following)
+    } else {
+        stringResource(R.string.hashtag_feed_follow)
+    }
+    val container = if (isFollowing) CorusColors.CardBackground else CorusColors.Accent
+    val textColor = if (isFollowing) CorusColors.Text else Color.White
+    Box(
+        modifier = Modifier
+            .widthIn(min = 140.dp)
+            .heightIn(min = 36.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(container)
+            .then(
+                if (isFollowing) {
+                    Modifier.border(1.dp, CorusColors.Secondary.copy(alpha = 0.3f), RoundedCornerShape(999.dp))
+                } else Modifier
+            )
+            .clickable(enabled = isEnabled, onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = CorusFont.bodyMedium,
+            color = textColor.copy(alpha = if (isEnabled) 1f else 0.5f),
+        )
     }
 }

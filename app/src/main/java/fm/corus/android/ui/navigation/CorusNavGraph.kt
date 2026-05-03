@@ -192,6 +192,7 @@ fun SearchNavGraph(navController: NavHostController, mainTabViewModel: MainTabVi
                 onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
                 onNavigateToSuggestedUsers = { title, useRowLayout, source -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout, source)) },
                 onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
+                onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             )
         }
         sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
@@ -610,6 +611,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
             onNavigateToSuggestedUsers = { title, useRowLayout, source -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout, source)) },
             onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
+            onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
         )
     }
 
@@ -665,6 +667,12 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             threadId = route.threadId,
             otherUserId = route.otherUserId,
             onBack = { navController.popBackStack() },
+            onNavigateToSong = { track ->
+                navController.navigate(track.toSongDetailRoute())
+            },
+            onNavigateToFilm = { movie ->
+                navController.navigate(FilmDetailRoute(movie.id))
+            },
         )
     }
 

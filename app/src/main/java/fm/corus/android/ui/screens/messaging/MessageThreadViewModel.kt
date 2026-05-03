@@ -11,6 +11,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
@@ -34,6 +35,7 @@ class MessageThreadViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val remoteConfigService: RemoteConfigService,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
+    val nowPlayingManager: fm.corus.android.domain.NowPlayingManager,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -272,6 +274,7 @@ class MessageThreadViewModel @Inject constructor(
         val resolvedId = currentThreadId ?: threadId
         val clientId = UUID.randomUUID().toString()
 
+        val isSoundCloud = track.source == TrackSource.SOUNDCLOUD
         val optimistic = CymbalMessage(
             id = clientId,
             threadId = resolvedId,
@@ -280,10 +283,20 @@ class MessageThreadViewModel @Inject constructor(
             type = MessageType.SHARED_TRACK,
             createdAt = Date(),
             sendStatus = MessageSendStatus.SENDING,
+            trackId = track.id,
             trackName = track.name,
             artistName = track.artistName,
+            albumName = track.albumName,
             albumArtURL = track.albumArtURL,
+            albumArtLargeURL = track.albumArtLargeURL,
+            spotifyURI = track.spotifyURI.ifBlank { null },
             spotifyURL = track.spotifyWebURL.ifBlank { null },
+            previewUrl = track.previewUrl,
+            isrc = track.isrc,
+            durationMs = track.durationMs,
+            trackSource = if (isSoundCloud) "soundcloud" else "spotify",
+            soundcloudId = track.soundcloudId,
+            soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
         )
         _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
 
@@ -292,10 +305,7 @@ class MessageThreadViewModel @Inject constructor(
                 messageRepository.sendSharedTrackMessage(
                     threadId = resolvedId,
                     fromUserId = userId,
-                    trackName = track.name,
-                    artistName = track.artistName,
-                    albumArtURL = track.albumArtURL,
-                    spotifyURL = track.spotifyWebURL.ifBlank { null },
+                    track = track,
                     clientMessageId = clientId,
                 )
                 _pendingMessages.value = _pendingMessages.value - clientId
@@ -320,9 +330,12 @@ class MessageThreadViewModel @Inject constructor(
             type = MessageType.SHARED_FILM,
             createdAt = Date(),
             sendStatus = MessageSendStatus.SENDING,
+            movieId = movie.id,
             movieTitle = movie.title,
             directorName = movie.directorName,
+            releaseYear = movie.year,
             posterURL = movie.posterURL,
+            posterLargeURL = movie.posterLargeURL,
             tmdbWebURL = movie.tmdbWebURL.ifBlank { null },
         )
         _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
@@ -332,10 +345,7 @@ class MessageThreadViewModel @Inject constructor(
                 messageRepository.sendSharedFilmMessage(
                     threadId = resolvedId,
                     fromUserId = userId,
-                    movieTitle = movie.title,
-                    directorName = movie.directorName,
-                    posterURL = movie.posterURL,
-                    tmdbWebURL = movie.tmdbWebURL.ifBlank { null },
+                    movie = movie,
                     clientMessageId = clientId,
                 )
                 _pendingMessages.value = _pendingMessages.value - clientId
@@ -371,24 +381,34 @@ class MessageThreadViewModel @Inject constructor(
                         gifURL = message.mediaURL ?: "",
                         clientMessageId = messageId,
                     )
-                    MessageType.SHARED_TRACK -> messageRepository.sendSharedTrackMessage(
-                        threadId = message.threadId,
-                        fromUserId = message.fromUserId,
-                        trackName = message.trackName ?: "",
-                        artistName = message.artistName ?: "",
-                        albumArtURL = message.albumArtURL,
-                        spotifyURL = message.spotifyURL,
-                        clientMessageId = messageId,
-                    )
-                    MessageType.SHARED_FILM -> messageRepository.sendSharedFilmMessage(
-                        threadId = message.threadId,
-                        fromUserId = message.fromUserId,
-                        movieTitle = message.movieTitle ?: "",
-                        directorName = message.directorName ?: "",
-                        posterURL = message.posterURL,
-                        tmdbWebURL = message.tmdbWebURL,
-                        clientMessageId = messageId,
-                    )
+                    MessageType.SHARED_TRACK -> {
+                        val song = message.attachedSong
+                        val source = message.attachedSongSource ?: TrackSource.SPOTIFY
+                        if (song != null) {
+                            val track = song.asCymbalTrack().copy(
+                                source = source,
+                                soundcloudId = message.soundcloudId,
+                                soundcloudPermalinkUrl = message.soundcloudPermalinkUrl,
+                            )
+                            messageRepository.sendSharedTrackMessage(
+                                threadId = message.threadId,
+                                fromUserId = message.fromUserId,
+                                track = track,
+                                clientMessageId = messageId,
+                            )
+                        }
+                    }
+                    MessageType.SHARED_FILM -> {
+                        val film = message.attachedFilm
+                        if (film != null) {
+                            messageRepository.sendSharedFilmMessage(
+                                threadId = message.threadId,
+                                fromUserId = message.fromUserId,
+                                movie = film.asCymbalMovie(),
+                                clientMessageId = messageId,
+                            )
+                        }
+                    }
                     // Image retry is not supported — the original imageData is not retained
                     else -> {}
                 }

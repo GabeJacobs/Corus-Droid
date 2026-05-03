@@ -3,7 +3,10 @@ package fm.corus.android.data.repository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import fm.corus.android.data.model.CymbalMessage
+import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalThread
+import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import kotlinx.coroutines.channels.awaitClose
@@ -65,21 +68,29 @@ class MessageRepository @Inject constructor(
         threadId: String,
         fromUserId: String,
         text: String = "",
-        trackName: String,
-        artistName: String,
-        albumArtURL: String?,
-        spotifyURL: String?,
+        track: CymbalTrack,
         clientMessageId: String? = null,
     ) {
+        val isSoundCloud = track.source == TrackSource.SOUNDCLOUD
         cloudFunctions.sendMessage(
             threadId = threadId,
             fromUserId = fromUserId,
             text = text,
             type = "sharedTrack",
-            trackName = trackName,
-            artistName = artistName,
-            albumArtURL = albumArtURL,
-            spotifyURL = spotifyURL,
+            trackId = track.id,
+            trackName = track.name,
+            artistName = track.artistName,
+            albumName = track.albumName,
+            albumArtURL = track.albumArtURL,
+            albumArtLargeURL = track.albumArtLargeURL,
+            spotifyURI = track.spotifyURI,
+            spotifyURL = track.spotifyWebURL,
+            previewUrl = track.previewUrl,
+            isrc = track.isrc,
+            durationMs = track.durationMs,
+            source = if (isSoundCloud) "soundcloud" else null,
+            soundcloudId = if (isSoundCloud) track.soundcloudId else null,
+            soundcloudPermalinkUrl = if (isSoundCloud) track.soundcloudPermalinkUrl else null,
             clientMessageId = clientMessageId,
         )
     }
@@ -88,10 +99,7 @@ class MessageRepository @Inject constructor(
         threadId: String,
         fromUserId: String,
         text: String = "",
-        movieTitle: String,
-        directorName: String,
-        posterURL: String?,
-        tmdbWebURL: String?,
+        movie: CymbalMovie,
         clientMessageId: String? = null,
     ) {
         cloudFunctions.sendMessage(
@@ -99,10 +107,13 @@ class MessageRepository @Inject constructor(
             fromUserId = fromUserId,
             text = text,
             type = "sharedFilm",
-            movieTitle = movieTitle,
-            directorName = directorName,
-            posterURL = posterURL,
-            tmdbWebURL = tmdbWebURL,
+            movieId = movie.id,
+            movieTitle = movie.title,
+            directorName = movie.directorName,
+            releaseYear = movie.year,
+            posterURL = movie.posterURL,
+            posterLargeURL = movie.posterLargeURL,
+            tmdbWebURL = movie.tmdbWebURL,
             clientMessageId = clientMessageId,
         )
     }

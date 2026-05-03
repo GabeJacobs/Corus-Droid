@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
+import fm.corus.android.data.model.CymbalHashtag
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
@@ -49,7 +50,7 @@ class SearchViewModel @Inject constructor(
 ) : ViewModel() {
 
     // Tab state
-    private val _activeTab = MutableStateFlow(0) // 0=Users, 1=Songs, 2=Films
+    private val _activeTab = MutableStateFlow(0) // 0=Users, 1=Songs, 2=Films, 3=Hashtags
     val activeTab: StateFlow<Int> = _activeTab.asStateFlow()
 
     fun setActiveTab(tabIndex: Int) {
@@ -61,7 +62,13 @@ class SearchViewModel @Inject constructor(
                 0 -> _userSearchResults.value = emptyList()
                 1 -> _songSearchResults.value = emptyList()
                 2 -> _filmSearchResults.value = emptyList()
+                3 -> _hashtagSearchResults.value = emptyList()
             }
+        }
+        if (tabIndex == 3) {
+            loadTrendingHashtagsIfNeeded()
+            // Re-pull in case follow state was changed on HashtagFeedScreen.
+            refreshFollowedHashtags()
         }
     }
 
@@ -78,8 +85,29 @@ class SearchViewModel @Inject constructor(
     private val _filmSearchResults = MutableStateFlow<List<CymbalMovie>>(emptyList())
     val filmSearchResults: StateFlow<List<CymbalMovie>> = _filmSearchResults.asStateFlow()
 
+    private val _hashtagSearchResults = MutableStateFlow<List<CymbalHashtag>>(emptyList())
+    val hashtagSearchResults: StateFlow<List<CymbalHashtag>> = _hashtagSearchResults.asStateFlow()
+
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
+    // Trending hashtags + cache for prefix search
+    private val _trendingHashtags = MutableStateFlow<List<CymbalHashtag>>(emptyList())
+    val trendingHashtags: StateFlow<List<CymbalHashtag>> = _trendingHashtags.asStateFlow()
+
+    private val _isTrendingHashtagsLoading = MutableStateFlow(true)
+    val isTrendingHashtagsLoading: StateFlow<Boolean> = _isTrendingHashtagsLoading.asStateFlow()
+
+    private var hasLoadedTrendingHashtags = false
+    private val hashtagSearchCache = mutableMapOf<String, List<CymbalHashtag>>()
+
+    // Hashtags the current user follows (lowercased). Single source of truth
+    // for the follow pills in both the trending list and search results.
+    // Populated on init via `fetchFollowedHashtagNames`, updated optimistically
+    // on toggle, and refreshed when the Search tab becomes active so it picks
+    // up changes the user made on `HashtagFeedScreen`.
+    private val _followedHashtagNames = MutableStateFlow<Set<String>>(emptySet())
+    val followedHashtagNames: StateFlow<Set<String>> = _followedHashtagNames.asStateFlow()
 
     // Trending
     private val _trendingSongs = MutableStateFlow<List<TrendingSong>>(emptyList())
@@ -289,6 +317,7 @@ class SearchViewModel @Inject constructor(
             loadPopularUsers()
             loadNewUsers()
         }
+        refreshFollowedHashtags()
     }
 
     private fun loadPopularUsers() {
@@ -345,6 +374,7 @@ class SearchViewModel @Inject constructor(
             0 -> _userSearchResults.value.isNotEmpty()
             1 -> _songSearchResults.value.isNotEmpty()
             2 -> _filmSearchResults.value.isNotEmpty()
+            3 -> _hashtagSearchResults.value.isNotEmpty()
             else -> false
         }
         if (!hasResults) {
@@ -368,6 +398,17 @@ class SearchViewModel @Inject constructor(
                         } catch (_: Exception) { results }
                         _filmSearchResults.value = withDirectors
                     }
+                    3 -> {
+                        val key = query.trim().removePrefix("#").lowercase()
+                        val cached = hashtagSearchCache[key]
+                        if (cached != null) {
+                            _hashtagSearchResults.value = cached
+                        } else {
+                            val results = firestoreDataSource.searchHashtagsByPrefix(query)
+                            hashtagSearchCache[key] = results
+                            _hashtagSearchResults.value = results
+                        }
+                    }
                 }
             } catch (_: Exception) { }
             _isSearching.value = false
@@ -379,7 +420,57 @@ class SearchViewModel @Inject constructor(
         _userSearchResults.value = emptyList()
         _songSearchResults.value = emptyList()
         _filmSearchResults.value = emptyList()
+        _hashtagSearchResults.value = emptyList()
         _isSearching.value = false
+    }
+
+    private fun loadTrendingHashtagsIfNeeded() {
+        if (hasLoadedTrendingHashtags) return
+        hasLoadedTrendingHashtags = true
+        viewModelScope.launch {
+            try {
+                _trendingHashtags.value = firestoreDataSource.fetchTrendingHashtags(limit = 20)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load trending hashtags", e)
+                hasLoadedTrendingHashtags = false
+            }
+            _isTrendingHashtagsLoading.value = false
+        }
+    }
+
+    fun refreshFollowedHashtags() {
+        val uid = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                _followedHashtagNames.value = firestoreDataSource.fetchFollowedHashtagNames(uid)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load followed hashtags", e)
+            }
+        }
+    }
+
+    fun toggleHashtagFollow(tag: CymbalHashtag) {
+        val uid = authRepository.currentUserId ?: return
+        val key = tag.name.lowercase()
+        val current = _followedHashtagNames.value
+        val wasFollowing = current.contains(key)
+        // Optimistic update.
+        _followedHashtagNames.value = if (wasFollowing) current - key else current + key
+        viewModelScope.launch {
+            try {
+                if (wasFollowing) {
+                    firestoreDataSource.unfollowHashtag(uid, tag.name)
+                } else {
+                    firestoreDataSource.followHashtag(uid, tag.name)
+                }
+            } catch (e: Exception) {
+                Log.e("SearchVM", "toggleHashtagFollow failed for $key", e)
+                // Revert.
+                val rolled = _followedHashtagNames.value
+                _followedHashtagNames.value =
+                    if (wasFollowing) rolled + key else rolled - key
+            }
+        }
     }
 
     fun onUserSelected(user: CymbalUser) {

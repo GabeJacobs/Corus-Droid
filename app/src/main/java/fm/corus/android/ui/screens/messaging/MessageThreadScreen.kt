@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
@@ -62,11 +64,17 @@ import fm.corus.android.data.model.MessageDeliveryStatus
 import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
+import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.TrackSource
+import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Schedule
 import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlinx.coroutines.launch
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FullScreenImageView
@@ -198,8 +206,11 @@ fun MessageThreadScreen(
     threadId: String,
     otherUserId: String,
     onBack: () -> Unit = {},
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
+    onNavigateToFilm: (CymbalMovie) -> Unit = {},
     viewModel: MessageThreadViewModel = hiltViewModel(),
 ) {
+    val nowPlayingManager = viewModel.nowPlayingManager
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val otherUsername by viewModel.otherUsername.collectAsState()
@@ -286,6 +297,7 @@ fun MessageThreadScreen(
                         recipientUnread = recipientUnread,
                         myReadReceiptsEnabled = myReadReceiptsEnabled,
                     ),
+                    nowPlayingManager = nowPlayingManager,
                     onLongPress = {
                         // Mirrors iOS NotificationsView message long-press haptic.
                         bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
@@ -303,6 +315,8 @@ fun MessageThreadScreen(
                     },
                     onImageTap = { url -> fullScreenImageUrl = url },
                     onRetry = { viewModel.retrySendMessage(message.id) },
+                    onNavigateToSong = onNavigateToSong,
+                    onNavigateToFilm = onNavigateToFilm,
                 )
             }
         }
@@ -377,6 +391,16 @@ fun MessageThreadScreen(
                             )
                         },
                     )
+                    if (viewModel.gifSupport) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(id = R.string.comment_attachment_gif)) },
+                            leadingIcon = { Icon(Icons.Filled.Gif, contentDescription = null) },
+                            onClick = {
+                                showAttachmentMenu = false
+                                showGifPicker = true
+                            },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text(stringResource(id = R.string.messaging_thread_attachment_song)) },
                         leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
@@ -392,17 +416,6 @@ fun MessageThreadScreen(
                             showAttachmentMenu = false
                             mediaPickerMode = PickerMode.FILM
                         },
-                    )
-                }
-            }
-
-            if (viewModel.gifSupport) {
-                IconButton(onClick = { showGifPicker = true }) {
-                    Icon(
-                        Icons.Filled.Gif,
-                        contentDescription = stringResource(id = R.string.comments_cd_send_gif),
-                        tint = CorusColors.Accent,
-                        modifier = Modifier.size(28.dp),
                     )
                 }
             }
@@ -627,11 +640,14 @@ private fun MessageBubble(
     currentUserId: String,
     otherUsername: String,
     deliveryStatus: MessageDeliveryStatus,
+    nowPlayingManager: NowPlayingManager,
     onLongPress: () -> Unit,
     onDoubleTap: () -> Unit,
     onReactionTap: (String) -> Unit,
     onImageTap: (String) -> Unit = {},
     onRetry: () -> Unit = {},
+    onNavigateToSong: (CymbalTrack) -> Unit = {},
+    onNavigateToFilm: (CymbalMovie) -> Unit = {},
 ) {
     val context = LocalContext.current
     val isSending = message.sendStatus == MessageSendStatus.SENDING
@@ -773,11 +789,25 @@ private fun MessageBubble(
                 // Shared track content
                 if (message.type == MessageType.SHARED_TRACK) {
                     SharedTrackContent(
-                        trackName = message.trackName.orEmpty(),
-                        artistName = message.artistName.orEmpty(),
-                        albumArtURL = message.albumArtURL,
-                        spotifyURL = message.spotifyURL,
+                        message = message,
+                        nowPlayingManager = nowPlayingManager,
                         isFromCurrentUser = isFromCurrentUser,
+                        onNavigate = {
+                            val song = message.attachedSong
+                            if (song != null) {
+                                val source = message.attachedSongSource ?: TrackSource.SPOTIFY
+                                onNavigateToSong(
+                                    song.asCymbalTrack().copy(
+                                        source = source,
+                                        soundcloudId = message.soundcloudId,
+                                        soundcloudPermalinkUrl = message.soundcloudPermalinkUrl,
+                                    )
+                                )
+                            } else if (!message.spotifyURL.isNullOrBlank()) {
+                                // Legacy fallback: pre-trackId messages with no parseable Spotify URL.
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(message.spotifyURL)))
+                            }
+                        },
                     )
                     if (!message.text.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
@@ -787,11 +817,16 @@ private fun MessageBubble(
                 // Shared film content
                 if (message.type == MessageType.SHARED_FILM) {
                     SharedFilmContent(
-                        movieTitle = message.movieTitle.orEmpty(),
-                        directorName = message.directorName.orEmpty(),
-                        posterURL = message.posterURL,
-                        tmdbWebURL = message.tmdbWebURL,
+                        message = message,
                         isFromCurrentUser = isFromCurrentUser,
+                        onNavigate = {
+                            val film = message.attachedFilm
+                            if (film != null) {
+                                onNavigateToFilm(film.asCymbalMovie())
+                            } else if (!message.tmdbWebURL.isNullOrBlank()) {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(message.tmdbWebURL)))
+                            }
+                        },
                     )
                     if (!message.text.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
@@ -933,36 +968,96 @@ private fun buildLinkifiedText(
     }
 }
 
+/**
+ * Shared-song message bubble. The artwork plays a preview (auto-routes
+ * SoundCloud vs Spotify via NowPlayingManager); tapping the rest of the row
+ * navigates to the in-app song page — same split as `CommentAttachmentCard`.
+ */
 @Composable
 private fun SharedTrackContent(
-    trackName: String,
-    artistName: String,
-    albumArtURL: String?,
-    spotifyURL: String?,
+    message: CymbalMessage,
+    nowPlayingManager: NowPlayingManager,
     isFromCurrentUser: Boolean,
+    onNavigate: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val trackName = message.trackName.orEmpty()
+    val artistName = message.artistName.orEmpty()
     val textColor = if (isFromCurrentUser) Color.White else CorusColors.Text
     val subtitleColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f) else CorusColors.Secondary
+
+    val song = message.attachedSong
+    val source = message.attachedSongSource ?: TrackSource.SPOTIFY
+    val isSoundCloud = source == TrackSource.SOUNDCLOUD
+
+    val nowPlayingState by nowPlayingManager.state.collectAsState()
+    val loadingTrackId by nowPlayingManager.loadingTrackId.collectAsState()
+    val scope = rememberCoroutineScope()
+    val targetTrackId = song?.trackId ?: message.trackId
+    val artworkIsActive = targetTrackId != null && nowPlayingState.trackId == targetTrackId
+    val showPause = artworkIsActive && nowPlayingState.isPlaying
+    val showLoading = targetTrackId != null && loadingTrackId == targetTrackId
+
     Row(
         modifier = Modifier
             .widthIn(max = 240.dp)
-            .then(
-                if (!spotifyURL.isNullOrBlank()) Modifier.clickable {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(spotifyURL))
-                    context.startActivity(intent)
-                } else Modifier
-            ),
+            .clickable { onNavigate() },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ShimmerAsyncImage(
-            model = albumArtURL,
-            contentDescription = trackName,
+        Box(
             modifier = Modifier
                 .size(56.dp)
-                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-        )
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                .clickable(enabled = song != null) {
+                    if (song == null) return@clickable
+                    if (artworkIsActive) {
+                        nowPlayingManager.togglePlayPause()
+                    } else {
+                        scope.launch {
+                            nowPlayingManager.play(
+                                trackId = song.trackId,
+                                trackName = song.trackName,
+                                artistName = song.artistName,
+                                albumArtURL = song.albumArtURL,
+                                previewUrl = song.previewUrl,
+                                spotifyURI = song.spotifyURI,
+                                spotifyWebURL = song.spotifyWebURL,
+                                isrc = song.isrc,
+                            )
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            ShimmerAsyncImage(
+                model = message.albumArtURL,
+                contentDescription = trackName,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            )
+            if (song != null) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.4f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    when {
+                        showLoading -> CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 1.5.dp,
+                            color = Color.White,
+                        )
+                        else -> Icon(
+                            imageVector = if (showPause) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                }
+            }
+        }
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -981,39 +1076,41 @@ private fun SharedTrackContent(
             )
         }
         Spacer(modifier = Modifier.width(CorusSpacing.xs))
-        Icon(
-            imageVector = Icons.Filled.MusicNote,
-            contentDescription = null,
-            tint = subtitleColor,
-            modifier = Modifier.size(14.dp),
-        )
+        if (isSoundCloud) {
+            SoundCloudAdaptiveLogo(size = 14.dp)
+        } else {
+            Icon(
+                imageVector = Icons.Filled.MusicNote,
+                contentDescription = null,
+                tint = subtitleColor,
+                modifier = Modifier.size(14.dp),
+            )
+        }
     }
 }
 
+/**
+ * Shared-film message bubble. Tapping anywhere navigates to the in-app film
+ * page (films don't preview-play, mirroring `CommentAttachmentCard`).
+ */
 @Composable
 private fun SharedFilmContent(
-    movieTitle: String,
-    directorName: String,
-    posterURL: String?,
-    tmdbWebURL: String?,
+    message: CymbalMessage,
     isFromCurrentUser: Boolean,
+    onNavigate: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val movieTitle = message.movieTitle.orEmpty()
+    val directorName = message.directorName.orEmpty()
     val textColor = if (isFromCurrentUser) Color.White else CorusColors.Text
     val subtitleColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f) else CorusColors.Secondary
     Row(
         modifier = Modifier
             .widthIn(max = 240.dp)
-            .then(
-                if (!tmdbWebURL.isNullOrBlank()) Modifier.clickable {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(tmdbWebURL))
-                    context.startActivity(intent)
-                } else Modifier
-            ),
+            .clickable { onNavigate() },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ShimmerAsyncImage(
-            model = posterURL,
+            model = message.posterURL,
             contentDescription = movieTitle,
             modifier = Modifier
                 .width(50.dp)

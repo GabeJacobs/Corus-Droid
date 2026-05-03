@@ -403,9 +403,14 @@
     <string name="search_placeholder_users">Search by username</string>
     <string name="search_placeholder_songs">Search for a song</string>
     <string name="search_placeholder_films">Search for a film</string>
+    <string name="search_placeholder_hashtags">Search hashtags</string>
     <string name="search_tab_users">Users</string>
     <string name="search_tab_songs">Songs</string>
     <string name="search_tab_films">Films</string>
+    <string name="search_tab_hashtags">Hashtags</string>
+    <string name="search_section_trending_hashtags">TRENDING HASHTAGS</string>
+    <string name="search_no_trending_hashtags">No trending hashtags yet</string>
+    <string name="search_no_hashtags_found">No hashtags found</string>
     <string name="search_recent">Recent</string>
     <string name="search_clear_all">Clear all</string>
     <string name="search_section_friends_on_corus">FRIENDS ON CORUS</string>
@@ -830,6 +835,8 @@
     <string name="hashtag_feed_load_error">Couldn\'t load posts</string>
     <string name="hashtag_feed_try_again">Try Again</string>
     <string name="hashtag_feed_empty">No posts for this hashtag yet</string>
+    <string name="hashtag_feed_follow">Follow</string>
+    <string name="hashtag_feed_following">Following</string>
 
     <!-- Navigation / tabs -->
     <string name="nav_toast_caption_updated">Caption updated</string>

@@ -628,6 +628,86 @@ class FirestoreDataSource @Inject constructor(
         }
     }
 
+    /** Follow a hashtag — mirrors the web `followHashtag` exactly: writes
+     *  `users_v2/{uid}/hashtagsFollowed/{tag}` and bumps `hashtagCount` in a
+     *  batch so the two stay in sync. */
+    suspend fun followHashtag(uid: String, tag: String) {
+        val lower = tag.lowercase()
+        val batch = firestore.batch()
+        batch.set(
+            firestore.collection("users_v2").document(uid)
+                .collection("hashtagsFollowed").document(lower),
+            mapOf(
+                "tag" to lower,
+                "createdAt" to FieldValue.serverTimestamp(),
+            )
+        )
+        batch.update(
+            firestore.collection("users_v2").document(uid),
+            "hashtagCount", FieldValue.increment(1)
+        )
+        batch.commit().await()
+    }
+
+    suspend fun unfollowHashtag(uid: String, tag: String) {
+        val lower = tag.lowercase()
+        val batch = firestore.batch()
+        batch.delete(
+            firestore.collection("users_v2").document(uid)
+                .collection("hashtagsFollowed").document(lower)
+        )
+        batch.update(
+            firestore.collection("users_v2").document(uid),
+            "hashtagCount", FieldValue.increment(-1)
+        )
+        batch.commit().await()
+    }
+
+    suspend fun isHashtagFollowed(uid: String, tag: String): Boolean {
+        val lower = tag.lowercase()
+        val doc = firestore.collection("users_v2").document(uid)
+            .collection("hashtagsFollowed").document(lower)
+            .get().await()
+        return doc.exists()
+    }
+
+    /** Bulk-fetch the set of hashtag names the user currently follows.
+     *  Mirrors web's `getFollowedHashtags` and the iOS counterpart. */
+    suspend fun fetchFollowedHashtagNames(uid: String, max: Int = 200): Set<String> {
+        val snapshot = firestore.collection("users_v2").document(uid)
+            .collection("hashtagsFollowed")
+            .limit(max.toLong())
+            .get().await()
+        return snapshot.documents.map { it.id }.toSet()
+    }
+
+    /** Prefix-match hashtags by `name`. Mirrors the iOS implementation:
+     *  Firestore range trick (`>= prefix && <= prefix + ""`) over the
+     *  `hashtags` collection, then sorted client-side by `cymbalCount` desc.
+     *  Strips a leading `#` and lowercases the prefix. Returns empty for a
+     *  blank prefix without hitting Firestore. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun searchHashtagsByPrefix(prefix: String, limit: Int = 20): List<CymbalHashtag> {
+        val lower = prefix.trim().removePrefix("#").lowercase()
+        if (lower.isEmpty()) return emptyList()
+        val upper = lower + ""
+        val snapshot = firestore.collection("hashtags")
+            .orderBy("name")
+            .startAt(lower)
+            .endAt(upper)
+            .limit(limit.toLong())
+            .get().await()
+        return snapshot.documents.mapNotNull { doc ->
+            val data = doc.data ?: return@mapNotNull null
+            CymbalHashtag(
+                id = doc.id,
+                name = data["name"] as? String ?: doc.id,
+                cymbalCount = (data["cymbalCount"] as? Number)?.toInt() ?: 0,
+                coverArtURLs = (data["coverArtURLs"] as? List<String>) ?: emptyList(),
+            )
+        }.sortedByDescending { it.cymbalCount }
+    }
+
     // ── Per-post engagement listener (matching iOS PostEngagementStore) ──
 
     fun listenForPostUpdates(

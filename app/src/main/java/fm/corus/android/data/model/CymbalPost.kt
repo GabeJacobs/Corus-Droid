@@ -95,6 +95,21 @@ data class CymbalPost(
     val displaySubtitle: String
         get() = if (isMovie) (directorName ?: "") else track.artistName
 
+    /**
+     * Build a [CymbalMovie] view of this post for share flows that take a movie
+     * (DM share, etc). Falls back to display strings for fields that may be
+     * missing on legacy posts so the share never silently drops content.
+     */
+    fun toSharedMovie(): CymbalMovie = CymbalMovie(
+        id = movieId.orEmpty(),
+        title = movieTitle ?: displayTitle,
+        directorName = directorName ?: displaySubtitle,
+        year = releaseYear.orEmpty(),
+        posterURL = posterURL,
+        posterLargeURL = posterLargeURL,
+        tmdbWebURL = tmdbWebURL.orEmpty(),
+    )
+
     companion object {
         @Suppress("UNCHECKED_CAST")
         fun fromCloudData(data: Map<String, Any?>): CymbalPost {

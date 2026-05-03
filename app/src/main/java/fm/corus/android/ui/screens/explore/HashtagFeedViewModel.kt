@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import javax.inject.Inject
 class HashtagFeedViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
+    private val firestoreDataSource: FirestoreDataSource,
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
@@ -30,8 +32,18 @@ class HashtagFeedViewModel @Inject constructor(
     private val _loadError = MutableStateFlow<String?>(null)
     val loadError: StateFlow<String?> = _loadError.asStateFlow()
 
+    private val _isFollowing = MutableStateFlow(false)
+    val isFollowing: StateFlow<Boolean> = _isFollowing.asStateFlow()
+
+    private val _hasLoadedFollowState = MutableStateFlow(false)
+    val hasLoadedFollowState: StateFlow<Boolean> = _hasLoadedFollowState.asStateFlow()
+
+    private val _isTogglingFollow = MutableStateFlow(false)
+    val isTogglingFollow: StateFlow<Boolean> = _isTogglingFollow.asStateFlow()
+
     private var lastTimestamp: Long? = null
     private var currentHashtag: String? = null
+    private var hasInitiatedFollowLoad = false
 
     fun loadHashtagPosts(hashtag: String, refresh: Boolean = false) {
         val userId = authRepository.currentUserId ?: return
@@ -65,5 +77,41 @@ class HashtagFeedViewModel @Inject constructor(
     fun retry() {
         _loadError.value = null
         currentHashtag?.let { loadHashtagPosts(it, refresh = true) }
+    }
+
+    fun loadFollowState(hashtag: String) {
+        if (hasInitiatedFollowLoad) return
+        hasInitiatedFollowLoad = true
+        val uid = authRepository.currentUserId
+        if (uid == null) {
+            _hasLoadedFollowState.value = true
+            return
+        }
+        viewModelScope.launch {
+            try {
+                _isFollowing.value = firestoreDataSource.isHashtagFollowed(uid, hashtag)
+            } catch (_: Exception) { }
+            _hasLoadedFollowState.value = true
+        }
+    }
+
+    fun toggleFollow(hashtag: String) {
+        val uid = authRepository.currentUserId ?: return
+        if (_isTogglingFollow.value) return
+        viewModelScope.launch {
+            _isTogglingFollow.value = true
+            val wasFollowing = _isFollowing.value
+            _isFollowing.value = !wasFollowing
+            try {
+                if (wasFollowing) {
+                    firestoreDataSource.unfollowHashtag(uid, hashtag)
+                } else {
+                    firestoreDataSource.followHashtag(uid, hashtag)
+                }
+            } catch (_: Exception) {
+                _isFollowing.value = wasFollowing
+            }
+            _isTogglingFollow.value = false
+        }
     }
 }

@@ -335,20 +335,14 @@ class FeedViewModel @Inject constructor(
                         threadId = threadId,
                         fromUserId = currentUserId,
                         text = text,
-                        movieTitle = post.movieTitle ?: post.displayTitle,
-                        directorName = post.directorName ?: post.displaySubtitle,
-                        posterURL = post.posterURL,
-                        tmdbWebURL = post.tmdbWebURL,
+                        movie = post.toSharedMovie(),
                     )
                 } else {
                     messageRepository.sendSharedTrackMessage(
                         threadId = threadId,
                         fromUserId = currentUserId,
                         text = text,
-                        trackName = post.track.name,
-                        artistName = post.track.artistName,
-                        albumArtURL = post.track.albumArtURL,
-                        spotifyURL = post.track.spotifyWebURL.ifBlank { null },
+                        track = post.track,
                     )
                 }
             } catch (_: Exception) {

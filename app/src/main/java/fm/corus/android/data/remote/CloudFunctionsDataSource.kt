@@ -346,7 +346,39 @@ class CloudFunctionsDataSource @Inject constructor(
         return messages.map { CymbalMessage.fromMap(it["id"] as? String ?: "", it) }
     }
 
-    suspend fun sendMessage(threadId: String, fromUserId: String, text: String, type: String = "text", mediaURL: String? = null, sharedPostId: String? = null, trackName: String? = null, artistName: String? = null, albumArtURL: String? = null, spotifyURL: String? = null, movieTitle: String? = null, directorName: String? = null, posterURL: String? = null, tmdbWebURL: String? = null, replyToMessageId: String? = null, replyToText: String? = null, replyToUserId: String? = null, clientMessageId: String? = null) {
+    suspend fun sendMessage(
+        threadId: String,
+        fromUserId: String,
+        text: String,
+        type: String = "text",
+        mediaURL: String? = null,
+        sharedPostId: String? = null,
+        trackId: String? = null,
+        trackName: String? = null,
+        artistName: String? = null,
+        albumName: String? = null,
+        albumArtURL: String? = null,
+        albumArtLargeURL: String? = null,
+        spotifyURI: String? = null,
+        spotifyURL: String? = null,
+        previewUrl: String? = null,
+        isrc: String? = null,
+        durationMs: Int? = null,
+        source: String? = null,
+        soundcloudId: String? = null,
+        soundcloudPermalinkUrl: String? = null,
+        movieId: String? = null,
+        movieTitle: String? = null,
+        directorName: String? = null,
+        releaseYear: String? = null,
+        posterURL: String? = null,
+        posterLargeURL: String? = null,
+        tmdbWebURL: String? = null,
+        replyToMessageId: String? = null,
+        replyToText: String? = null,
+        replyToUserId: String? = null,
+        clientMessageId: String? = null,
+    ) {
         val params = mutableMapOf<String, Any>(
             "threadId" to threadId,
             "fromUserId" to fromUserId,
@@ -355,13 +387,26 @@ class CloudFunctionsDataSource @Inject constructor(
         )
         mediaURL?.let { params["mediaURL"] = it }
         sharedPostId?.let { params["sharedPostId"] = it }
+        trackId?.let { params["trackId"] = it }
         trackName?.let { params["trackName"] = it }
         artistName?.let { params["artistName"] = it }
+        albumName?.let { params["albumName"] = it }
         albumArtURL?.let { params["albumArtURL"] = it }
+        albumArtLargeURL?.let { params["albumArtLargeURL"] = it }
+        spotifyURI?.let { params["spotifyURI"] = it }
         spotifyURL?.let { params["spotifyURL"] = it }
+        previewUrl?.let { params["previewUrl"] = it }
+        isrc?.let { params["isrc"] = it }
+        durationMs?.let { params["durationMs"] = it }
+        source?.let { params["source"] = it }
+        soundcloudId?.let { params["soundcloudId"] = it }
+        soundcloudPermalinkUrl?.let { params["soundcloudPermalinkUrl"] = it }
+        movieId?.let { params["movieId"] = it }
         movieTitle?.let { params["movieTitle"] = it }
         directorName?.let { params["directorName"] = it }
+        releaseYear?.let { params["releaseYear"] = it }
         posterURL?.let { params["posterURL"] = it }
+        posterLargeURL?.let { params["posterLargeURL"] = it }
         tmdbWebURL?.let { params["tmdbWebURL"] = it }
         replyToMessageId?.let { params["replyToMessageId"] = it }
         replyToText?.let { params["replyToText"] = it }

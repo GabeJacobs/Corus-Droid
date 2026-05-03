@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -59,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import fm.corus.android.data.model.CymbalHashtag
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.ui.navigation.FilmDetailRoute
 import fm.corus.android.data.model.CymbalTrack
@@ -89,6 +91,7 @@ enum class SearchTab(val labelRes: Int) {
     USERS(fm.corus.android.R.string.search_tab_users),
     SONGS(fm.corus.android.R.string.search_tab_songs),
     FILMS(fm.corus.android.R.string.search_tab_films),
+    HASHTAGS(fm.corus.android.R.string.search_tab_hashtags),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,6 +105,7 @@ fun SearchScreen(
     onNavigateToBotList: (String?) -> Unit = {},
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit = { _, _, _ -> },
     onNavigateToContactFriends: () -> Unit = {},
+    onNavigateToHashtag: (String) -> Unit = {},
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val userResults by viewModel.userSearchResults.collectAsState()
@@ -126,6 +130,10 @@ fun SearchScreen(
     val popularUsers by viewModel.popularUsers.collectAsState()
     val isPopularLoading by viewModel.isPopularLoading.collectAsState()
     val newUsers by viewModel.newUsers.collectAsState()
+    val hashtagSearchResults by viewModel.hashtagSearchResults.collectAsState()
+    val trendingHashtags by viewModel.trendingHashtags.collectAsState()
+    val isTrendingHashtagsLoading by viewModel.isTrendingHashtagsLoading.collectAsState()
+    val followedHashtagNames by viewModel.followedHashtagNames.collectAsState()
 
     val activeTabIndex by viewModel.activeTab.collectAsState()
     val activeTab = SearchTab.entries[activeTabIndex]
@@ -156,6 +164,7 @@ fun SearchScreen(
     val usersListState = rememberLazyListState()
     val songsListState = rememberLazyListState()
     val filmsListState = rememberLazyListState()
+    val hashtagsListState = rememberLazyListState()
 
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTrigger) {
@@ -164,6 +173,7 @@ fun SearchScreen(
                 SearchTab.USERS -> usersListState.animateScrollToItem(0)
                 SearchTab.SONGS -> songsListState.animateScrollToItem(0)
                 SearchTab.FILMS -> filmsListState.animateScrollToItem(0)
+                SearchTab.HASHTAGS -> hashtagsListState.animateScrollToItem(0)
             }
             lastScrollTrigger = scrollToTopTrigger
         }
@@ -232,6 +242,7 @@ fun SearchScreen(
                 SearchTab.SONGS -> stringResource(fm.corus.android.R.string.search_placeholder_songs)
                 SearchTab.FILMS -> stringResource(fm.corus.android.R.string.search_placeholder_films)
                 SearchTab.USERS -> stringResource(fm.corus.android.R.string.search_placeholder_users)
+                SearchTab.HASHTAGS -> stringResource(fm.corus.android.R.string.search_placeholder_hashtags)
             },
         )
 
@@ -329,6 +340,27 @@ fun SearchScreen(
                                 movies = trendingMovies,
                                 isLoading = isTrendingMoviesLoading,
                                 onFilmTap = onNavigateToFilm,
+                            )
+                        }
+                    }
+                    SearchTab.HASHTAGS -> {
+                        if (hasSearchQuery) {
+                            HashtagSearchResultsList(
+                                listState = hashtagsListState,
+                                hashtags = hashtagSearchResults,
+                                isSearching = isSearching,
+                                followedHashtagNames = followedHashtagNames,
+                                onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
+                                onToggleFollow = { tag -> viewModel.toggleHashtagFollow(tag) },
+                            )
+                        } else {
+                            TrendingHashtagsContent(
+                                listState = hashtagsListState,
+                                hashtags = trendingHashtags,
+                                isLoading = isTrendingHashtagsLoading,
+                                followedHashtagNames = followedHashtagNames,
+                                onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
+                                onToggleFollow = { tag -> viewModel.toggleHashtagFollow(tag) },
                             )
                         }
                     }
@@ -939,6 +971,7 @@ private fun SectionHeader(
             "new" -> Icons.Filled.PersonAdd
             "contacts" -> Icons.Filled.Contacts
             "bot" -> Icons.Filled.SmartToy
+            "hashtag" -> Icons.Filled.Tag
             else -> null
         }
         if (iconVector != null) {
@@ -1432,5 +1465,222 @@ private fun BotGrid(
                 }
             }
         }
+    }
+}
+
+// ── Hashtag Search ──
+
+@Composable
+private fun TrendingHashtagsContent(
+    listState: LazyListState = rememberLazyListState(),
+    hashtags: List<CymbalHashtag>,
+    isLoading: Boolean,
+    followedHashtagNames: Set<String>,
+    onHashtagTap: (CymbalHashtag) -> Unit,
+    onToggleFollow: (CymbalHashtag) -> Unit,
+) {
+    if (isLoading) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl),
+        ) {
+            item {
+                SectionHeader(
+                    icon = "hashtag",
+                    title = stringResource(fm.corus.android.R.string.search_section_trending_hashtags),
+                )
+            }
+            items(8) { SkeletonSearchSongRow() }
+        }
+        return
+    }
+    if (hashtags.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(modifier = Modifier.height(80.dp))
+                Text(
+                    text = "#",
+                    style = CorusFont.songTitleLarge,
+                    color = CorusColors.Tertiary,
+                    modifier = Modifier.padding(bottom = CorusSpacing.sm),
+                )
+                Text(
+                    stringResource(fm.corus.android.R.string.search_no_trending_hashtags),
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Secondary,
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl),
+        ) {
+            item {
+                SectionHeader(
+                    icon = "hashtag",
+                    title = stringResource(fm.corus.android.R.string.search_section_trending_hashtags),
+                )
+            }
+            itemsIndexed(hashtags) { index, tag ->
+                HashtagRow(
+                    hashtag = tag,
+                    isFollowing = followedHashtagNames.contains(tag.name.lowercase()),
+                    onClick = { onHashtagTap(tag) },
+                    onToggleFollow = { onToggleFollow(tag) },
+                )
+                if (index < hashtags.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 72.dp),
+                        color = CorusColors.Divider,
+                        thickness = 0.5.dp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HashtagSearchResultsList(
+    listState: LazyListState = rememberLazyListState(),
+    hashtags: List<CymbalHashtag>,
+    isSearching: Boolean,
+    followedHashtagNames: Set<String>,
+    onHashtagTap: (CymbalHashtag) -> Unit,
+    onToggleFollow: (CymbalHashtag) -> Unit,
+) {
+    if (isSearching && hashtags.isEmpty()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = CorusSpacing.sm),
+        ) {
+            items(8) { index ->
+                SkeletonSearchSongRow()
+                if (index < 7) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 72.dp),
+                        color = CorusColors.Divider,
+                        thickness = 0.5.dp,
+                    )
+                }
+            }
+        }
+    } else if (hashtags.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                stringResource(fm.corus.android.R.string.search_no_hashtags_found),
+                style = CorusFont.body,
+                color = CorusColors.Secondary,
+            )
+        }
+    } else {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = CorusSpacing.sm),
+        ) {
+            itemsIndexed(hashtags) { index, tag ->
+                HashtagRow(
+                    hashtag = tag,
+                    isFollowing = followedHashtagNames.contains(tag.name.lowercase()),
+                    onClick = { onHashtagTap(tag) },
+                    onToggleFollow = { onToggleFollow(tag) },
+                )
+                if (index < hashtags.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 72.dp),
+                        color = CorusColors.Divider,
+                        thickness = 0.5.dp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HashtagRow(
+    hashtag: CymbalHashtag,
+    isFollowing: Boolean,
+    onClick: () -> Unit,
+    onToggleFollow: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .heightIn(min = CorusSpacing.touchTarget),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(CorusColors.CardBackground),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "#",
+                style = CorusFont.bodyMedium,
+                color = CorusColors.Accent,
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+        ) {
+            Text(
+                text = "#${hashtag.name}",
+                style = CorusFont.bodyMedium,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val noun = stringResource(
+                if (hashtag.cymbalCount == 1) fm.corus.android.R.string.post_noun
+                else fm.corus.android.R.string.post_noun_plural
+            )
+            Text(
+                text = "${hashtag.cymbalCount} $noun",
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+            )
+        }
+        HashtagFollowPill(
+            isFollowing = isFollowing,
+            onClick = onToggleFollow,
+        )
+    }
+}
+
+@Composable
+private fun HashtagFollowPill(
+    isFollowing: Boolean,
+    onClick: () -> Unit,
+) {
+    val container = if (isFollowing) CorusColors.CardBackground else CorusColors.Accent
+    val textColor = if (isFollowing) CorusColors.Secondary else Color.White
+    val label = stringResource(
+        if (isFollowing) fm.corus.android.R.string.hashtag_feed_following
+        else fm.corus.android.R.string.hashtag_feed_follow
+    )
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(container)
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.xs),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = CorusFont.captionMedium,
+            color = textColor,
+        )
     }
 }

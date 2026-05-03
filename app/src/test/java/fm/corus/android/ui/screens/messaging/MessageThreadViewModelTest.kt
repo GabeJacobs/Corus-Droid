@@ -43,6 +43,7 @@ class MessageThreadViewModelTest {
     private lateinit var userRepository: UserRepository
     private lateinit var remoteConfigService: RemoteConfigService
     private lateinit var gifRepository: fm.corus.android.data.repository.GifRepository
+    private lateinit var nowPlayingManager: fm.corus.android.domain.NowPlayingManager
     private lateinit var viewModel: MessageThreadViewModel
 
     @Before
@@ -59,12 +60,14 @@ class MessageThreadViewModelTest {
             on { gifSupport } doReturn false
         }
         gifRepository = mock()
+        nowPlayingManager = mock()
         viewModel = MessageThreadViewModel(
             messageRepository = messageRepository,
             authRepository = authRepository,
             userRepository = userRepository,
             remoteConfigService = remoteConfigService,
             gifRepository = gifRepository,
+            nowPlayingManager = nowPlayingManager,
             context = mock(),
         )
     }
@@ -268,7 +271,7 @@ class MessageThreadViewModelTest {
     fun `sendSongMessage adds optimistic SHARED_TRACK message`() = runTest {
         val neverCompletes = CompletableDeferred<Unit>()
         whenever(messageRepository.sendSharedTrackMessage(
-            any(), any(), any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+            any(), any(), any(), any(), anyOrNull(),
         )).doSuspendableAnswer { neverCompletes.await() }
 
         val track = CymbalTrack(
@@ -294,7 +297,7 @@ class MessageThreadViewModelTest {
     @Test
     fun `sendSongMessage removes pending on success`() = runTest {
         whenever(messageRepository.sendSharedTrackMessage(
-            any(), any(), any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+            any(), any(), any(), any(), anyOrNull(),
         )).doReturn(Unit)
 
         val track = CymbalTrack(id = "t1", name = "Song", artistName = "Artist", albumName = "Album")
@@ -307,7 +310,7 @@ class MessageThreadViewModelTest {
     @Test
     fun `sendSongMessage marks FAILED on exception`() = runTest {
         whenever(messageRepository.sendSharedTrackMessage(
-            any(), any(), any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+            any(), any(), any(), any(), anyOrNull(),
         )).doSuspendableAnswer { throw RuntimeException("Network error") }
 
         val track = CymbalTrack(id = "t1", name = "Song", artistName = "Artist", albumName = "Album")
@@ -325,7 +328,7 @@ class MessageThreadViewModelTest {
     fun `sendFilmMessage adds optimistic SHARED_FILM message`() = runTest {
         val neverCompletes = CompletableDeferred<Unit>()
         whenever(messageRepository.sendSharedFilmMessage(
-            any(), any(), any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+            any(), any(), any(), any(), anyOrNull(),
         )).doSuspendableAnswer { neverCompletes.await() }
 
         val movie = CymbalMovie(
@@ -350,7 +353,7 @@ class MessageThreadViewModelTest {
     @Test
     fun `sendFilmMessage removes pending on success`() = runTest {
         whenever(messageRepository.sendSharedFilmMessage(
-            any(), any(), any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+            any(), any(), any(), any(), anyOrNull(),
         )).doReturn(Unit)
 
         val movie = CymbalMovie(id = "m1", title = "Film")
