@@ -374,9 +374,6 @@
     <string name="style_picker_choose_vinyl">Escolha a Cor do Vinil</string>
     <string name="style_picker_choose_frame">Escolha a Cor do Quadro</string>
     <string name="style_picker_choose_flair">Escolha o Selo</string>
-    <string name="style_picker_vinyl_spin">Vinil Girando</string>
-    <string name="style_picker_off">Desligado</string>
-    <string name="style_picker_on">Ligado</string>
     <string name="style_picker_username_placeholder">nomedeusuário</string>
     <string name="style_picker_rain_effect">Efeito Chuva</string>
     <string name="style_picker_snow_effect">Efeito Neve</string>
@@ -502,6 +499,7 @@
     <string name="auth_cd_corus_logo">Logotipo Corus</string>
     <string name="auth_tagline">Compartilhe o que você ama</string>
     <string name="auth_button_google">Continuar com Google</string>
+    <string name="auth_button_apple">Continuar com Apple</string>
     <string name="auth_button_phone">Continuar com Telefone</string>
     <string name="auth_phone_prompt">Digite seu número de telefone</string>
     <string name="auth_button_send_code">ENVIAR CÓDIGO</string>
@@ -509,6 +507,7 @@
     <string name="auth_phone_code_sent_format">Digite o código de 6 dígitos enviado para\n%1$s %2$s</string>
     <string name="auth_code_placeholder">123456</string>
     <string name="auth_google_signin_error">Não foi possível entrar com Google. Tente novamente.</string>
+    <string name="auth_apple_signin_error">Não foi possível entrar com Apple. Tente novamente.</string>
     <string name="auth_error_account_suspended">Sua conta foi suspensa. Entre em contato com o suporte se acredita que isso é um engano.</string>
     <string name="auth_error_verification_failed">Falha na verificação. Tente novamente.</string>
     <string name="auth_error_could_not_send_code">Não foi possível enviar o código de verificação. Tente novamente.</string>
@@ -779,7 +778,7 @@
     <string name="club_feature_verified">Selo verificado</string>
     <string name="club_feature_customization">Personalização de perfil</string>
     <string name="club_feature_playlists">Gerar playlists do Spotify</string>
-    <string name="club_feature_support">Ajude a manter o Corus no ar</string>
+    <string name="club_feature_support">Mantenha o Corus sem anúncios</string>
     <string name="club_disclaimer">O Corus é construído por uma pequena equipe. Membros do Club ajudam a manter o Corus sem anúncios, independente e em crescimento.</string>
     <string name="club_plan_monthly">Mensal</string>
     <string name="club_plan_yearly">Anual</string>

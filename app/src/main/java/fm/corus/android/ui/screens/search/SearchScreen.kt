@@ -1754,24 +1754,21 @@ private fun HashtagFollowPill(
     isFollowing: Boolean,
     onClick: () -> Unit,
 ) {
-    val container = if (isFollowing) CorusColors.CardBackground else CorusColors.Accent
-    val textColor = if (isFollowing) CorusColors.Secondary else Color.White
     val label = stringResource(
         if (isFollowing) fm.corus.android.R.string.hashtag_feed_following
         else fm.corus.android.R.string.hashtag_feed_follow
     )
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(container)
-            .clickable(onClick = onClick)
-            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.xs),
-        contentAlignment = Alignment.Center,
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isFollowing) CorusColors.CardBackground else CorusColors.Accent,
+            contentColor = if (isFollowing) CorusColors.Secondary else Color.White,
+        ),
+        border = if (isFollowing) androidx.compose.foundation.BorderStroke(1.dp, CorusColors.Divider) else null,
+        contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+        modifier = Modifier.height(30.dp),
     ) {
-        Text(
-            text = label,
-            style = CorusFont.captionMedium,
-            color = textColor,
-        )
+        Text(text = label, style = CorusFont.buttonSmall)
     }
 }

@@ -66,6 +66,10 @@ class AuthViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    /** Which sign-in provider is currently in flight (e.g. "google", "apple"), or null. */
+    private val _busyProvider = MutableStateFlow<String?>(null)
+    val busyProvider: StateFlow<String?> = _busyProvider.asStateFlow()
+
     private val _verificationSent = MutableStateFlow(false)
     val verificationSent: StateFlow<Boolean> = _verificationSent.asStateFlow()
 
@@ -214,6 +218,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _error.value = null
             _isLoading.value = true
+            _busyProvider.value = "google"
             didSignInThisSession = true
             try {
                 val isNewUser = authRepository.signInWithGoogleCredential(idToken)
@@ -227,7 +232,42 @@ class AuthViewModel @Inject constructor(
                 _error.value = context.getString(R.string.auth_google_signin_error)
             }
             _isLoading.value = false
+            _busyProvider.value = null
         }
+    }
+
+    // ── Apple Sign-In ──
+
+    fun signInWithApple(activity: Activity) {
+        viewModelScope.launch {
+            _error.value = null
+            _isLoading.value = true
+            _busyProvider.value = "apple"
+            didSignInThisSession = true
+            try {
+                val isNewUser = authRepository.signInWithApple(activity)
+                if (isNewUser) {
+                    analyticsService.logSignUp("apple")
+                } else {
+                    analyticsService.logSignIn("apple")
+                }
+            } catch (e: Exception) {
+                if (!isUserCancelled(e)) {
+                    android.util.Log.e("AuthViewModel", "Apple sign-in failed", e)
+                    _error.value = context.getString(R.string.auth_apple_signin_error)
+                }
+            }
+            _isLoading.value = false
+            _busyProvider.value = null
+        }
+    }
+
+    private fun isUserCancelled(e: Exception): Boolean {
+        // Firebase reports user-cancelled web OAuth flows as FirebaseAuthWebException
+        // with error code "ERROR_WEB_CONTEXT_CANCELED". Avoid showing an error
+        // message in that case to match the Google flow's silent-cancel behavior.
+        return (e as? com.google.firebase.auth.FirebaseAuthException)?.errorCode ==
+            "ERROR_WEB_CONTEXT_CANCELED"
     }
 
     // ── Onboarding ──
@@ -417,6 +457,11 @@ class AuthViewModel @Inject constructor(
 
     fun setError(message: String) {
         _error.value = message
+        _busyProvider.value = null
+    }
+
+    fun setBusyProvider(provider: String?) {
+        _busyProvider.value = provider
     }
 
     fun clearError() {

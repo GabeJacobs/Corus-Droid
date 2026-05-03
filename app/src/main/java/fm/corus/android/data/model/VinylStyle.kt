@@ -92,10 +92,6 @@ enum class VinylStyle(val value: String) {
             GOLD -> 95f / 447f
         }
 
-    /** True center of the vinyl disc for rotation (derived from black vinyl label center). */
-    val spinCenterX: Float get() = (330.77f + 82.44f / 2f) / 585f
-    val spinCenterY: Float get() = (153.98f + 84.43f / 2f) / 447f
-
     val canvasRatio: Float get() = 447f / 585f
 
     companion object {

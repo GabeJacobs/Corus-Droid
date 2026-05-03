@@ -1,6 +1,5 @@
 package fm.corus.android.ui.screens.profile
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -55,7 +54,6 @@ import fm.corus.android.ui.theme.LocalCorusDarkTheme
 
 data class StyleSelections(
     val vinylColor: VinylStyle = VinylStyle.BLACK,
-    val vinylSpinning: Boolean = false,
     val frameColor: FrameStyle = FrameStyle.BLACK,
     val profileFlair: FlairStyle = FlairStyle.CHECKMARK,
     val rainEffect: RainIntensity = RainIntensity.OFF,
@@ -64,7 +62,6 @@ data class StyleSelections(
 ) {
     fun hasChanges(from: StyleSelections): Boolean =
         vinylColor != from.vinylColor ||
-                vinylSpinning != from.vinylSpinning ||
                 frameColor != from.frameColor ||
                 profileFlair != from.profileFlair ||
                 rainEffect != from.rainEffect ||
@@ -74,7 +71,6 @@ data class StyleSelections(
     fun changedFields(from: StyleSelections): Map<String, Any> {
         val fields = mutableMapOf<String, Any>()
         if (vinylColor != from.vinylColor) fields["vinylColor"] = vinylColor.value
-        if (vinylSpinning != from.vinylSpinning) fields["vinylSpinning"] = vinylSpinning
         if (frameColor != from.frameColor) fields["frameColor"] = frameColor.value
         if (profileFlair != from.profileFlair) fields["profileFlair"] = profileFlair.value
         if (rainEffect != from.rainEffect) fields["rainEffect"] = rainEffect.value
@@ -85,7 +81,6 @@ data class StyleSelections(
 
     val hasNonDefaultValues: Boolean
         get() = vinylColor != VinylStyle.BLACK ||
-                vinylSpinning ||
                 frameColor != FrameStyle.BLACK ||
                 profileFlair != FlairStyle.CHECKMARK ||
                 rainEffect != RainIntensity.OFF ||
@@ -94,7 +89,6 @@ data class StyleSelections(
 
     fun introducesPremiumValue(from: StyleSelections): Boolean =
         (vinylColor != from.vinylColor && vinylColor != VinylStyle.BLACK) ||
-                (vinylSpinning != from.vinylSpinning && vinylSpinning) ||
                 (frameColor != from.frameColor && frameColor != FrameStyle.BLACK) ||
                 (profileFlair != from.profileFlair && profileFlair != FlairStyle.CHECKMARK) ||
                 (rainEffect != from.rainEffect && rainEffect != RainIntensity.OFF) ||
@@ -102,7 +96,7 @@ data class StyleSelections(
                 (discoEffect != from.discoEffect && discoEffect != DiscoIntensity.OFF)
 }
 
-private enum class StylePage { VINYL, VINYL_SPIN, FRAME, FLAIR, RAIN, SNOW, DISCO }
+private enum class StylePage { VINYL, FRAME, FLAIR, RAIN, SNOW, DISCO }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -125,7 +119,7 @@ fun StylePickerSheet(
     val pages = remember(hasTrackPosts, hasMoviePosts) {
         buildList {
             if (hasTrackPosts) add(StylePage.VINYL)
-            // VINYL_SPIN and DISCO hidden to match iOS
+            // DISCO hidden to match iOS
             if (hasMoviePosts) add(StylePage.FRAME)
             add(StylePage.FLAIR)
             if (hasTrackPosts) add(StylePage.RAIN)
@@ -191,12 +185,6 @@ fun StylePickerSheet(
                 StylePage.VINYL -> VinylColorPickerPage(
                     selected = draft.vinylColor,
                     onSelect = { draft = draft.copy(vinylColor = it) },
-                    latestTrackPost = latestTrackPost,
-                )
-                StylePage.VINYL_SPIN -> VinylSpinTogglePage(
-                    spinning = draft.vinylSpinning,
-                    onSpinningChange = { draft = draft.copy(vinylSpinning = it) },
-                    vinylStyle = draft.vinylColor,
                     latestTrackPost = latestTrackPost,
                 )
                 StylePage.FRAME -> FrameColorPickerPage(
@@ -437,95 +425,6 @@ private fun VinylPreview(
                     )
                 }
             }
-        }
-    }
-}
-
-// ── Vinyl Spin Toggle Page ──
-
-@Composable
-private fun VinylSpinTogglePage(
-    spinning: Boolean,
-    onSpinningChange: (Boolean) -> Unit,
-    vinylStyle: VinylStyle,
-    latestTrackPost: CymbalPost?,
-) {
-    val scrollState = rememberScrollState()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = stringResource(R.string.style_picker_vinyl_spin),
-            style = CorusFont.appTitle,
-            color = CorusColors.Text,
-            modifier = Modifier.padding(top = CorusSpacing.xl),
-        )
-
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-
-        // Vinyl preview (reuse existing)
-        VinylPreview(
-            style = vinylStyle,
-            latestTrackPost = latestTrackPost,
-            modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-        )
-
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-
-        // On/Off option cards
-        Column(
-            modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-            verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-        ) {
-            SpinOptionCard(label = stringResource(R.string.style_picker_off), isSelected = !spinning) {
-                onSpinningChange(false)
-            }
-            SpinOptionCard(label = stringResource(R.string.style_picker_on), isSelected = spinning) {
-                onSpinningChange(true)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-    }
-}
-
-@Composable
-private fun SpinOptionCard(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = CorusColors.Background,
-        border = BorderStroke(
-            width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) CorusColors.Accent else CorusColors.Secondary.copy(alpha = 0.2f),
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(CorusSpacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = label,
-                style = CorusFont.bodyMedium,
-                color = CorusColors.Text,
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Icon(
-                imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
-                contentDescription = null,
-                tint = if (isSelected) CorusColors.Accent else CorusColors.Secondary.copy(alpha = 0.4f),
-                modifier = Modifier.size(22.dp),
-            )
         }
     }
 }

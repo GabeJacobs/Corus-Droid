@@ -56,6 +56,7 @@ fun AuthScreen(
     viewModel: AuthViewModel = hiltViewModel(),
 ) {
     val isLoading by viewModel.isLoading.collectAsState()
+    val busyProvider by viewModel.busyProvider.collectAsState()
     val error by viewModel.error.collectAsState()
     val verificationSent by viewModel.verificationSent.collectAsState()
     val context = LocalContext.current
@@ -81,7 +82,9 @@ fun AuthScreen(
             }
         } catch (e: ApiException) {
             android.util.Log.e("AuthScreen", "Google sign-in failed: status=${e.statusCode}", e)
-            if (e.statusCode != GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
+            if (e.statusCode == GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
+                viewModel.setBusyProvider(null)
+            } else {
                 viewModel.setError(context.getString(R.string.auth_google_signin_error))
             }
         }
@@ -207,10 +210,11 @@ fun AuthScreen(
                             modifier = Modifier.size(18.dp),
                         )
                     },
-                    isLoading = isLoading,
+                    isLoading = busyProvider == "google",
                     onClick = {
                         // Mirrors iOS AuthView.signInWithGoogle / signInWithApple haptic.
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        viewModel.setBusyProvider("google")
                         val webClientId = context.getString(R.string.default_web_client_id)
                         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                             .requestIdToken(webClientId)
@@ -218,6 +222,24 @@ fun AuthScreen(
                             .build()
                         val client = GoogleSignIn.getClient(context, gso)
                         googleSignInLauncher.launch(client.signInIntent)
+                    },
+                )
+
+                // Apple Sign-In button
+                AuthButton(
+                    text = stringResource(id = R.string.auth_button_apple),
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.apple_logo),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = CorusColors.Text,
+                        )
+                    },
+                    isLoading = busyProvider == "apple",
+                    onClick = {
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        viewModel.signInWithApple(activity)
                     },
                 )
 

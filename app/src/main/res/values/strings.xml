@@ -386,9 +386,6 @@
     <string name="style_picker_choose_vinyl">Choose Vinyl Color</string>
     <string name="style_picker_choose_frame">Choose Frame Color</string>
     <string name="style_picker_choose_flair">Choose Badge Flair</string>
-    <string name="style_picker_vinyl_spin">Vinyl Spin</string>
-    <string name="style_picker_off">Off</string>
-    <string name="style_picker_on">On</string>
     <string name="style_picker_username_placeholder">username</string>
     <string name="style_picker_rain_effect">Rain Effect</string>
     <string name="style_picker_snow_effect">Snow Effect</string>
@@ -519,6 +516,7 @@
     <string name="auth_cd_corus_logo">Corus Logo</string>
     <string name="auth_tagline">Share what you love</string>
     <string name="auth_button_google">Continue with Google</string>
+    <string name="auth_button_apple">Continue with Apple</string>
     <string name="auth_button_phone">Continue with Phone</string>
     <string name="auth_phone_prompt">Enter your phone number</string>
     <string name="auth_button_send_code">SEND CODE</string>
@@ -526,6 +524,7 @@
     <string name="auth_phone_code_sent_format">Enter the 6-digit code sent to\n%1$s %2$s</string>
     <string name="auth_code_placeholder">123456</string>
     <string name="auth_google_signin_error">Couldn\'t sign in with Google. Please try again.</string>
+    <string name="auth_apple_signin_error">Couldn\'t sign in with Apple. Please try again.</string>
     <string name="auth_error_account_suspended">Your account has been suspended. Please contact support if you believe this is a mistake.</string>
     <string name="auth_error_verification_failed">Verification failed. Please try again.</string>
     <string name="auth_error_could_not_send_code">Could not send verification code. Please try again.</string>
@@ -797,7 +796,7 @@
     <string name="club_feature_verified">Verified badge</string>
     <string name="club_feature_customization">Profile customization</string>
     <string name="club_feature_playlists">Generate Spotify playlists</string>
-    <string name="club_feature_support">Help keep Corus running</string>
+    <string name="club_feature_support">Keep Corus ad-free</string>
     <string name="club_disclaimer">Corus is built by a small team. Club members help keep Corus ad-free, independent, and growing.</string>
     <string name="club_plan_monthly">Monthly</string>
     <string name="club_plan_yearly">Yearly</string>

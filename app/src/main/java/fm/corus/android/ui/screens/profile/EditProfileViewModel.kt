@@ -104,7 +104,6 @@ class EditProfileViewModel @Inject constructor(
                     // Load style selections from user profile
                     _styleSelections.value = StyleSelections(
                         vinylColor = user.vinylStyle,
-                        vinylSpinning = user.vinylSpinning,
                         frameColor = user.frameStyle,
                         profileFlair = user.flairStyle,
                         rainEffect = user.rainIntensity,

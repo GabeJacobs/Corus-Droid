@@ -842,7 +842,6 @@ fun ProfileScreen(
             StylePickerSheet(
                 currentSelections = StyleSelections(
                     vinylColor = currentProfile.vinylStyle,
-                    vinylSpinning = currentProfile.vinylSpinning,
                     frameColor = currentProfile.frameStyle,
                     profileFlair = currentProfile.flairStyle,
                     rainEffect = currentProfile.rainIntensity,
@@ -860,7 +859,6 @@ fun ProfileScreen(
                 onSave = { selections ->
                     val current = StyleSelections(
                         vinylColor = currentProfile.vinylStyle,
-                        vinylSpinning = currentProfile.vinylSpinning,
                         frameColor = currentProfile.frameStyle,
                         profileFlair = currentProfile.flairStyle,
                         rainEffect = currentProfile.rainIntensity,

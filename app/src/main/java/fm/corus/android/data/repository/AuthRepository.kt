@@ -1,5 +1,6 @@
 package fm.corus.android.data.repository
 
+import android.app.Activity
 import android.content.Context
 import android.util.Log
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -7,6 +8,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.OAuthProvider
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
@@ -95,6 +97,20 @@ class AuthRepository @Inject constructor(
     suspend fun signInWithGoogleCredential(idToken: String): Boolean {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         val result = auth.signInWithCredential(credential).await()
+        _currentUser.value = result.user
+        return result.additionalUserInfo?.isNewUser ?: false
+    }
+
+    // ── Apple Sign-In ──
+
+    suspend fun signInWithApple(activity: Activity): Boolean {
+        val provider = OAuthProvider.newBuilder("apple.com").apply {
+            scopes = listOf("email", "name")
+        }.build()
+        // If a previous attempt was interrupted (e.g. activity recreated),
+        // resume it instead of starting a new flow.
+        val pending = auth.pendingAuthResult
+        val result = (pending ?: auth.startActivityForSignInWithProvider(activity, provider)).await()
         _currentUser.value = result.user
         return result.additionalUserInfo?.isNewUser ?: false
     }
