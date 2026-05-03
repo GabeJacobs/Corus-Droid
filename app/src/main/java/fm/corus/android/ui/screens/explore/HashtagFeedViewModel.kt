@@ -23,6 +23,9 @@ class HashtagFeedViewModel @Inject constructor(
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
 
+    private val _totalCount = MutableStateFlow(0)
+    val totalCount: StateFlow<Int> = _totalCount.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -46,7 +49,7 @@ class HashtagFeedViewModel @Inject constructor(
     private var hasInitiatedFollowLoad = false
 
     fun loadHashtagPosts(hashtag: String, refresh: Boolean = false) {
-        val userId = authRepository.currentUserId ?: return
+        authRepository.currentUserId ?: return
         currentHashtag = hashtag
         viewModelScope.launch {
             if (_isLoading.value) return@launch
@@ -54,19 +57,19 @@ class HashtagFeedViewModel @Inject constructor(
             _loadError.value = null
             if (refresh) lastTimestamp = null
             try {
-                val newPosts = postRepository.getHashtagPosts(
+                val page = postRepository.getHashtagPosts(
                     hashtag = hashtag,
-                    userId = userId,
-                    limit = 15,
-                    lastTimestamp = if (refresh) null else lastTimestamp,
+                    pageSize = 15,
+                    beforeMs = if (refresh) null else lastTimestamp,
                 )
                 if (refresh) {
-                    _posts.value = newPosts
+                    _posts.value = page.posts
                 } else {
-                    _posts.value = _posts.value + newPosts
+                    _posts.value = _posts.value + page.posts
                 }
-                _hasMore.value = newPosts.size >= 15
-                if (newPosts.isNotEmpty()) lastTimestamp = newPosts.last().timestamp.time
+                _totalCount.value = page.totalCount
+                _hasMore.value = page.hasMore
+                if (page.posts.isNotEmpty()) lastTimestamp = page.posts.last().timestamp.time
             } catch (_: Exception) {
                 _loadError.value = "Couldn't load posts"
             }

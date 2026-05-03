@@ -494,6 +494,7 @@ fun SinglePostCommentsScreen(
                     val engagement = engagementStates[p.id]
                     val likeCount = engagement?.likeCount ?: p.likeCount
                     val commentCount = engagement?.commentCount ?: p.commentCount
+                    val repostCount = engagement?.repostCount ?: p.repostCount
                     val isLiked = engagement?.isLiked ?: p.isLiked
                     val isSaved = engagement?.isSaved ?: false
 
@@ -501,6 +502,7 @@ fun SinglePostCommentsScreen(
                         post = p,
                         likeCount = likeCount,
                         commentCount = commentCount,
+                        repostCount = repostCount,
                         isLiked = isLiked,
                         isSaved = isSaved,
                         currentUser = currentUserProfile,
@@ -526,6 +528,7 @@ fun SinglePostCommentsScreen(
                         onCommentTap = {
                             scope.launch { listState.animateScrollToItem(1) }
                         },
+                        onRepostTap = { onRepost(p) },
                         onShareTap = {
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"

@@ -250,6 +250,12 @@ class CloudFunctionsDataSource @Inject constructor(
         val firstPosterId: String?,
     )
 
+    data class HashtagPostsPage(
+        val posts: List<CymbalPost>,
+        val totalCount: Int,
+        val hasMore: Boolean,
+    )
+
     @Suppress("UNCHECKED_CAST")
     suspend fun fetchSongPostsFromCloud(
         trackId: String,
@@ -301,13 +307,17 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun getHashtagPosts(hashtag: String, userId: String, limit: Int = 30, lastTimestamp: Long? = null): List<CymbalPost> {
-        val params = mutableMapOf<String, Any>("hashtag" to hashtag, "userId" to userId, "limit" to limit)
-        lastTimestamp?.let { params["beforeMs"] = it }
+    suspend fun getHashtagPosts(hashtag: String, pageSize: Int = 15, beforeMs: Long? = null): HashtagPostsPage {
+        val params = mutableMapOf<String, Any>("hashtag" to hashtag, "pageSize" to pageSize)
+        beforeMs?.let { params["beforeMs"] = it }
         val result = functions.getHttpsCallable("getHashtagPosts").call(params).await()
-        val data = result.getData() as? Map<String, Any?> ?: return emptyList()
-        val posts = data["posts"] as? List<Map<String, Any?>> ?: return emptyList()
-        return posts.map { CymbalPost.fromCloudData(it) }
+        val data = result.getData() as? Map<String, Any?>
+            ?: return HashtagPostsPage(emptyList(), 0, false)
+        val postsData = data["posts"] as? List<Map<String, Any?>> ?: emptyList()
+        val posts = postsData.map { CymbalPost.fromCloudData(it) }
+        val totalCount = (data["totalCount"] as? Number)?.toInt() ?: 0
+        val hasMore = data["hasMore"] as? Boolean ?: false
+        return HashtagPostsPage(posts, totalCount, hasMore)
     }
 
     // ── Notifications ──

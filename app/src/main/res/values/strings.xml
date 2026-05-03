@@ -618,6 +618,7 @@
     <string name="post_card_cd_like">Like</string>
     <string name="post_card_cd_comment">Comment</string>
     <string name="post_card_cd_share">Share</string>
+    <string name="post_card_cd_repost">Repost</string>
     <string name="post_card_cd_save">Save</string>
     <string name="post_card_cd_watch_trailer">Watch Trailer</string>
     <string name="post_card_liked_by_prefix">"Liked by "</string>

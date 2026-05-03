@@ -392,6 +392,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             username = route.username,
             segment = route.segment,
             initialPostId = route.initialPostId,
+            hashtag = route.hashtag,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToUserByUsername = navigateToUserByUsername,
@@ -510,6 +511,17 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             hashtag = route.hashtag,
             onBack = { navController.popBackStack() },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+            onNavigateToHashtagFeed = { postId ->
+                navController.navigate(
+                    ProfileFeedRoute(
+                        userId = "",
+                        username = route.hashtag,
+                        segment = 4,
+                        initialPostId = postId,
+                        hashtag = route.hashtag.lowercase(),
+                    )
+                )
+            },
         )
     }
 

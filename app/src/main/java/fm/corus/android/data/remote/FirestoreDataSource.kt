@@ -681,6 +681,37 @@ class FirestoreDataSource @Inject constructor(
         return snapshot.documents.map { it.id }.toSet()
     }
 
+    /** Preview info for a hashtag in the search list: 2x2 album-art mosaic +
+     *  the live total post count. The `hashtags/{tag}.cymbalCount` counter is
+     *  increment-only, so it drifts upward over time — the live count from a
+     *  fresh `count()` aggregation keeps the search row in sync with the
+     *  detail screen. Mirrors `fetchHashtagPreview` on iOS / Web. */
+    data class HashtagPreview(val coverArt: List<String>, val totalCount: Int)
+
+    suspend fun fetchHashtagPreview(tag: String, artLimit: Int = 4): HashtagPreview {
+        val key = tag.trim().removePrefix("#").lowercase()
+        if (key.isEmpty()) return HashtagPreview(emptyList(), 0)
+        val postsCollection = firestore.collection("posts")
+        val tagFilter = postsCollection.whereArrayContains("hashtags", key)
+        val artQuery = tagFilter
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(artLimit.toLong())
+        val artSnap = artQuery.get().await()
+        val countSnap = tagFilter.count().get(com.google.firebase.firestore.AggregateSource.SERVER).await()
+        val coverArt = artSnap.documents.mapNotNull { doc ->
+            // Songs use albumArtURL; films use posterURL. Newer film posts also
+            // set albumArtURL for backwards compat, but older ones don't, so
+            // fall through both fields.
+            val data = doc.data ?: return@mapNotNull null
+            (data["albumArtURL"] as? String)
+                ?.takeIf { it.isNotEmpty() }
+                ?: (data["posterURL"] as? String)?.takeIf { it.isNotEmpty() }
+                ?: (data["albumArtLargeURL"] as? String)?.takeIf { it.isNotEmpty() }
+                ?: (data["posterLargeURL"] as? String)?.takeIf { it.isNotEmpty() }
+        }
+        return HashtagPreview(coverArt, countSnap.count.toInt())
+    }
+
     /** Prefix-match hashtags by `name`. Mirrors the iOS implementation:
      *  Firestore range trick (`>= prefix && <= prefix + ""`) over the
      *  `hashtags` collection, then sorted client-side by `cymbalCount` desc.

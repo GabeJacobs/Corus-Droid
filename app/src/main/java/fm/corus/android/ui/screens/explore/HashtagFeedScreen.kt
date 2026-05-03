@@ -1,7 +1,6 @@
 package fm.corus.android.ui.screens.explore
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -25,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -37,8 +37,11 @@ fun HashtagFeedScreen(
     viewModel: HashtagFeedViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
+    /** Open the scrollable hashtag feed (mirrors profile-grid → ProfileFeedScreen). */
+    onNavigateToHashtagFeed: (postId: String) -> Unit = {},
 ) {
     val posts by viewModel.posts.collectAsState()
+    val totalCount by viewModel.totalCount.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
     val loadError by viewModel.loadError.collectAsState()
@@ -98,17 +101,39 @@ fun HashtagFeedScreen(
                         color = CorusColors.Text,
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
-                    Text(
-                        text = stringResource(R.string.hashtag_feed_count_format, formatCount(posts.size)),
-                        style = CorusFont.artistNameLarge,
-                        color = CorusColors.Secondary,
-                    )
+                    if (isLoading && posts.isEmpty() && totalCount == 0) {
+                        Box(
+                            modifier = Modifier
+                                .width(80.dp)
+                                .height(16.dp)
+                                .shimmer()
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(CorusColors.Skeleton),
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.hashtag_feed_count_format, formatCount(totalCount)),
+                            style = CorusFont.artistNameLarge,
+                            color = CorusColors.Secondary,
+                        )
+                    }
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
-                    HashtagFollowButton(
-                        isFollowing = isFollowing,
-                        isEnabled = hasLoadedFollowState && !isTogglingFollow,
-                        onClick = { viewModel.toggleFollow(hashtag) },
-                    )
+                    if (hasLoadedFollowState) {
+                        HashtagFollowButton(
+                            isFollowing = isFollowing,
+                            isEnabled = !isTogglingFollow,
+                            onClick = { viewModel.toggleFollow(hashtag) },
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .width(120.dp)
+                                .height(30.dp)
+                                .shimmer()
+                                .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
+                                .background(CorusColors.Skeleton),
+                        )
+                    }
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                 }
             }
@@ -139,13 +164,13 @@ fun HashtagFeedScreen(
                     }
                 }
             } else if (isLoading && posts.isEmpty()) {
-                // Skeleton grid: 9 placeholders
+                // Skeleton grid: 9 placeholders with shimmer (matches iOS)
                 items(9) {
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
-                            .padding(CorusSpacing.xxs)
-                            .background(CorusColors.CardBackground),
+                            .shimmer()
+                            .background(CorusColors.Skeleton),
                     )
                 }
             } else if (posts.isEmpty()) {
@@ -173,12 +198,19 @@ fun HashtagFeedScreen(
             } else {
                 items(posts, key = { it.id }) { post ->
                     AsyncImage(
-                        model = post.displayImageURL,
+                        model = post.displayImageLargeURL ?: post.displayImageURL,
                         contentDescription = post.displayTitle,
                         modifier = Modifier
                             .aspectRatio(1f)
-                            .padding(CorusSpacing.xxs)
-                            .clickable { onNavigateToPost(post.id) },
+                            .clickable {
+                                // Mirror profile-grid behavior: seed
+                                // ProfileFeedCache then navigate to the
+                                // scrollable feed.
+                                fm.corus.android.ui.screens.profile.ProfileFeedCache.posts = posts
+                                fm.corus.android.ui.screens.profile.ProfileFeedCache.hasMore = hasMore
+                                fm.corus.android.ui.screens.profile.ProfileFeedCache.profileUser = null
+                                onNavigateToHashtagFeed(post.id)
+                            },
                         contentScale = ContentScale.Crop,
                     )
                 }
@@ -206,27 +238,18 @@ private fun HashtagFollowButton(
     } else {
         stringResource(R.string.hashtag_feed_follow)
     }
-    val container = if (isFollowing) CorusColors.CardBackground else CorusColors.Accent
-    val textColor = if (isFollowing) CorusColors.Text else Color.White
-    Box(
-        modifier = Modifier
-            .widthIn(min = 140.dp)
-            .heightIn(min = 36.dp)
-            .clip(RoundedCornerShape(999.dp))
-            .background(container)
-            .then(
-                if (isFollowing) {
-                    Modifier.border(1.dp, CorusColors.Secondary.copy(alpha = 0.3f), RoundedCornerShape(999.dp))
-                } else Modifier
-            )
-            .clickable(enabled = isEnabled, onClick = onClick)
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-        contentAlignment = Alignment.Center,
+    Button(
+        onClick = onClick,
+        enabled = isEnabled,
+        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isFollowing) CorusColors.CardBackground else CorusColors.Accent,
+            contentColor = if (isFollowing) CorusColors.Secondary else Color.White,
+        ),
+        border = if (isFollowing) BorderStroke(1.dp, CorusColors.Divider) else null,
+        contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+        modifier = Modifier.height(30.dp),
     ) {
-        Text(
-            text = label,
-            style = CorusFont.bodyMedium,
-            color = textColor.copy(alpha = if (isEnabled) 1f else 0.5f),
-        )
+        Text(text = label, style = CorusFont.buttonSmall)
     }
 }

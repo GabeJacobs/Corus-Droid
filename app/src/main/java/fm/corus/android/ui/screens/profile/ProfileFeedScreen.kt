@@ -34,6 +34,8 @@ fun ProfileFeedScreen(
     username: String,
     segment: Int,
     initialPostId: String,
+    /** Set when [segment] == 4 (hashtag feed). The lowercased tag name. */
+    hashtag: String = "",
     viewModel: ProfileFeedViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -70,7 +72,7 @@ fun ProfileFeedScreen(
     // restored this route without the upstream grid populating it), pop back
     // to the profile so the user isn't stranded on a blank screen.
     LaunchedEffect(Unit) {
-        if (!viewModel.initFeed(userId, segment)) {
+        if (!viewModel.initFeed(userId, segment, hashtag)) {
             onBack()
         }
     }
@@ -105,7 +107,8 @@ fun ProfileFeedScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("@$username", style = CorusFont.screenTitle, color = CorusColors.Text)
+                    val title = if (segment == 4 && hashtag.isNotEmpty()) "#$hashtag" else "@$username"
+                    Text(title, style = CorusFont.screenTitle, color = CorusColors.Text)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -138,6 +141,7 @@ fun ProfileFeedScreen(
                     post = post,
                     likeCount = engagement?.likeCount ?: post.likeCount,
                     commentCount = engagement?.commentCount ?: post.commentCount,
+                    repostCount = engagement?.repostCount ?: post.repostCount,
                     isLiked = engagement?.isLiked ?: post.isLiked,
                     isSaved = engagement?.isSaved ?: false,
                     currentUser = currentUserProfile,
@@ -156,6 +160,7 @@ fun ProfileFeedScreen(
                     },
                     onCommentTap = { onNavigateToComments(post.id) },
                     onLikesTap = { onNavigateToLikes(post.id) },
+                    onRepostTap = { onRepost(post) },
                     onShareTap = { sharePost = post },
                     onMenuTap = { menuPost = post },
                     onFilmPageTap = { onNavigateToFilm(post.movieId ?: "") },

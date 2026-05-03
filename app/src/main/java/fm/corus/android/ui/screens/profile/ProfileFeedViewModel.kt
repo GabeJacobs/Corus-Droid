@@ -33,7 +33,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class ProfileFeedSource { SONGS, FILMS, LIKES, SAVES }
+enum class ProfileFeedSource { SONGS, FILMS, LIKES, SAVES, HASHTAG }
 
 /**
  * In-memory cache for passing initial posts from profile grids to the
@@ -81,8 +81,12 @@ class ProfileFeedViewModel @Inject constructor(
 
     private var source: ProfileFeedSource = ProfileFeedSource.SONGS
     private var userId: String = ""
+    private var hashtag: String = ""
     private var initialized = false
     private var profileUser: CymbalUser? = null
+
+    /** Public read of the current hashtag, used by the screen to show `#tag` in the title bar. */
+    val currentHashtag: String get() = hashtag
 
     private val PAGE_SIZE = 15
 
@@ -132,15 +136,17 @@ class ProfileFeedViewModel @Inject constructor(
      * available, false if the cache was empty (e.g. after process death
      * restored this screen without a populated cache).
      */
-    fun initFeed(userId: String, segment: Int): Boolean {
+    fun initFeed(userId: String, segment: Int, hashtag: String = ""): Boolean {
         if (initialized) return _posts.value.isNotEmpty()
         initialized = true
         this.userId = userId
+        this.hashtag = hashtag.lowercase()
         this.source = when (segment) {
             0 -> ProfileFeedSource.SONGS
             1 -> ProfileFeedSource.FILMS
             2 -> ProfileFeedSource.LIKES
             3 -> ProfileFeedSource.SAVES
+            4 -> ProfileFeedSource.HASHTAG
             else -> ProfileFeedSource.SONGS
         }
         val cachedPosts = ProfileFeedCache.posts.distinctBy { it.id }
@@ -283,6 +289,39 @@ class ProfileFeedViewModel @Inject constructor(
                         val unique = fetched.filter { it.id !in existingIds }
                         _posts.value = _posts.value + unique
                         if (fetched.size < PAGE_SIZE) _hasMore.value = false
+                        unique.forEach { post ->
+                            engagementManager.initState(
+                                postId = post.id,
+                                likeCount = post.likeCount,
+                                commentCount = post.commentCount,
+                                repostCount = post.repostCount,
+                                isLiked = post.isLiked,
+                                isSaved = false,
+                            )
+                            if (activeListenerPostIds.add(post.id)) {
+                                engagementManager.startListening(post.id)
+                            }
+                        }
+                        if (unique.isNotEmpty()) {
+                            engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
+                        }
+                    }
+                    ProfileFeedSource.HASHTAG -> {
+                        val lastTimestamp = _posts.value.lastOrNull()?.timestamp?.time ?: run {
+                            _hasMore.value = false
+                            _isLoadingMore.value = false
+                            return
+                        }
+                        val page = cloudFunctions.getHashtagPosts(
+                            hashtag = hashtag,
+                            pageSize = PAGE_SIZE,
+                            beforeMs = lastTimestamp,
+                        )
+                        val fetched = page.posts
+                        val existingIds = _posts.value.map { it.id }.toSet()
+                        val unique = fetched.filter { it.id !in existingIds }
+                        _posts.value = _posts.value + unique
+                        if (!page.hasMore) _hasMore.value = false
                         unique.forEach { post ->
                             engagementManager.initState(
                                 postId = post.id,

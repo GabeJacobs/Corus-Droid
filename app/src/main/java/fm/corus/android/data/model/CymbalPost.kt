@@ -27,6 +27,10 @@ data class CymbalPost(
     val repostedFromUserId: String? = null,
     val repostedFromUsername: String? = null,
     val repostCount: Int = 0,
+    /** Set by the `getFeedPage` cloud function on posts injected into the
+     *  home feed because the user follows the hashtag (not the author).
+     *  `null` for posts from followed users and for direct-Firestore reads. */
+    val injectedByHashtag: String? = null,
 
     // Movie support
     val mediaType: MediaType = MediaType.TRACK,
@@ -191,6 +195,7 @@ data class CymbalPost(
                 repostedFromUserId = data["repostedFromUserId"] as? String,
                 repostedFromUsername = data["repostedFromUsername"] as? String,
                 repostCount = (data["repostCount"] as? Number)?.toInt() ?: 0,
+                injectedByHashtag = (data["injectedByHashtag"] as? String)?.ifEmpty { null },
                 mediaType = mediaType,
                 movieId = data["movieId"] as? String,
                 movieTitle = data["movieTitle"] as? String,

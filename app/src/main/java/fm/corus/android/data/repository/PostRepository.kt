@@ -95,8 +95,12 @@ class PostRepository @Inject constructor(
         return cloudFunctions.fetchMoviePostsFromCloud(movieId, movieTitle, pageSize, beforeMs)
     }
 
-    suspend fun getHashtagPosts(hashtag: String, userId: String, limit: Int = 30, lastTimestamp: Long? = null): List<CymbalPost> {
-        return cloudFunctions.getHashtagPosts(hashtag, userId, limit, lastTimestamp)
+    suspend fun getHashtagPosts(
+        hashtag: String,
+        pageSize: Int = 15,
+        beforeMs: Long? = null,
+    ): CloudFunctionsDataSource.HashtagPostsPage {
+        return cloudFunctions.getHashtagPosts(hashtag, pageSize, beforeMs)
     }
 
     // ── First Poster Check ──

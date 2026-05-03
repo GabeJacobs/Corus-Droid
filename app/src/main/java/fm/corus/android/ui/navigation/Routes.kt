@@ -23,6 +23,9 @@ import kotlinx.serialization.Serializable
     val username: String,
     val segment: Int,
     val initialPostId: String,
+    /** Set when [segment] == 4 (hashtag feed reuses this route). The lowercased
+     *  hashtag name without the leading `#`. */
+    val hashtag: String = "",
 )
 @Serializable data class SongDetailRoute(
     val trackId: String,

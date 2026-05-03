@@ -100,6 +100,18 @@ class SearchViewModel @Inject constructor(
 
     private var hasLoadedTrendingHashtags = false
     private val hashtagSearchCache = mutableMapOf<String, List<CymbalHashtag>>()
+    private val hashtagPreviewCache = mutableMapOf<String, FirestoreDataSource.HashtagPreview>()
+
+    /** Cached fetch of `(album-art mosaic, live count)` for a hashtag.
+     *  Used by the hashtag rows so each row only hits Firestore once per
+     *  session. Mirrors iOS `DatabaseService.fetchHashtagPreview`. */
+    suspend fun fetchHashtagPreview(tag: String): FirestoreDataSource.HashtagPreview {
+        val key = tag.lowercase()
+        hashtagPreviewCache[key]?.let { return it }
+        val preview = firestoreDataSource.fetchHashtagPreview(tag)
+        hashtagPreviewCache[key] = preview
+        return preview
+    }
 
     // Hashtags the current user follows (lowercased). Single source of truth
     // for the follow pills in both the trending list and search results.

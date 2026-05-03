@@ -1487,7 +1487,7 @@ private fun TrendingHashtagsContent(
         ) {
             item {
                 SectionHeader(
-                    icon = "hashtag",
+                    icon = "",
                     title = stringResource(fm.corus.android.R.string.search_section_trending_hashtags),
                 )
             }
@@ -1520,7 +1520,7 @@ private fun TrendingHashtagsContent(
         ) {
             item {
                 SectionHeader(
-                    icon = "hashtag",
+                    icon = "",
                     title = stringResource(fm.corus.android.R.string.search_section_trending_hashtags),
                 )
             }
@@ -1533,7 +1533,7 @@ private fun TrendingHashtagsContent(
                 )
                 if (index < hashtags.lastIndex) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(start = 72.dp),
+                        modifier = Modifier.padding(start = 88.dp),
                         color = CorusColors.Divider,
                         thickness = 0.5.dp,
                     )
@@ -1561,7 +1561,7 @@ private fun HashtagSearchResultsList(
                 SkeletonSearchSongRow()
                 if (index < 7) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(start = 72.dp),
+                        modifier = Modifier.padding(start = 88.dp),
                         color = CorusColors.Divider,
                         thickness = 0.5.dp,
                     )
@@ -1591,7 +1591,7 @@ private fun HashtagSearchResultsList(
                 )
                 if (index < hashtags.lastIndex) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(start = 72.dp),
+                        modifier = Modifier.padding(start = 88.dp),
                         color = CorusColors.Divider,
                         thickness = 0.5.dp,
                     )
@@ -1608,28 +1608,45 @@ private fun HashtagRow(
     onClick: () -> Unit,
     onToggleFollow: () -> Unit,
 ) {
+    val viewModel: SearchViewModel = hiltViewModel()
+    var preview by remember(hashtag.id) {
+        mutableStateOf<fm.corus.android.data.remote.FirestoreDataSource.HashtagPreview?>(null)
+    }
+    LaunchedEffect(hashtag.id) {
+        if (preview == null) {
+            preview = runCatching {
+                viewModel.fetchHashtagPreview(hashtag.name)
+            }.getOrNull() ?: fm.corus.android.data.remote.FirestoreDataSource.HashtagPreview(
+                coverArt = emptyList(),
+                totalCount = hashtag.cymbalCount,
+            )
+        }
+    }
+    // Hide the row entirely once preview loads with zero matching posts.
+    // Stops phantom hashtags (orphan docs, drift, deleted-post cleanup) from
+    // cluttering search results.
+    if (preview != null && (preview?.totalCount ?: 0) == 0) return
+
+    val liveCount = preview?.totalCount
+    val noun = stringResource(
+        if (liveCount == 1) fm.corus.android.R.string.post_noun
+        else fm.corus.android.R.string.post_noun_plural
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
-            .heightIn(min = CorusSpacing.touchTarget),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md)
+            .heightIn(min = 60.dp),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .background(CorusColors.CardBackground),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "#",
-                style = CorusFont.bodyMedium,
-                color = CorusColors.Accent,
-            )
-        }
+        HashtagAvatarMosaic(
+            urls = preview?.coverArt ?: emptyList(),
+            isLoaded = preview != null,
+            size = 60.dp,
+        )
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
@@ -1641,20 +1658,94 @@ private fun HashtagRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val noun = stringResource(
-                if (hashtag.cymbalCount == 1) fm.corus.android.R.string.post_noun
-                else fm.corus.android.R.string.post_noun_plural
-            )
-            Text(
-                text = "${hashtag.cymbalCount} $noun",
-                style = CorusFont.caption,
-                color = CorusColors.Secondary,
-            )
+            if (liveCount != null) {
+                Text(
+                    text = "$liveCount $noun",
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                )
+            }
         }
         HashtagFollowPill(
             isFollowing = isFollowing,
             onClick = onToggleFollow,
         )
+    }
+}
+
+/** 2x2 mosaic of recent post album art for a hashtag, with graceful fallbacks:
+ *  loading → 2x2 shimmer skeleton, empty → `#` glyph, partial → fills missing
+ *  cells with a soft placeholder. Mirrors iOS `HashtagAvatarMosaic`. */
+@Composable
+private fun HashtagAvatarMosaic(
+    urls: List<String>,
+    isLoaded: Boolean,
+    size: androidx.compose.ui.unit.Dp,
+) {
+    val cornerRadius = 8.dp
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(RoundedCornerShape(cornerRadius)),
+    ) {
+        if (!isLoaded) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight().background(CorusColors.CardBackground))
+                    Spacer(modifier = Modifier.width(1.dp))
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight().background(CorusColors.CardBackground))
+                }
+                Spacer(modifier = Modifier.height(1.dp))
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight().background(CorusColors.CardBackground))
+                    Spacer(modifier = Modifier.width(1.dp))
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight().background(CorusColors.CardBackground))
+                }
+            }
+        } else if (urls.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(CorusColors.CardBackground),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Tag,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(size * 0.45f),
+                )
+            }
+        } else {
+            val cells: List<String?> = (0 until 4).map { i -> urls.getOrNull(i) }
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    HashtagMosaicCell(cells[0], modifier = Modifier.weight(1f).fillMaxHeight())
+                    Spacer(modifier = Modifier.width(1.dp))
+                    HashtagMosaicCell(cells[1], modifier = Modifier.weight(1f).fillMaxHeight())
+                }
+                Spacer(modifier = Modifier.height(1.dp))
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    HashtagMosaicCell(cells[2], modifier = Modifier.weight(1f).fillMaxHeight())
+                    Spacer(modifier = Modifier.width(1.dp))
+                    HashtagMosaicCell(cells[3], modifier = Modifier.weight(1f).fillMaxHeight())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HashtagMosaicCell(url: String?, modifier: Modifier = Modifier) {
+    if (url != null) {
+        AsyncImage(
+            model = url,
+            contentDescription = null,
+            modifier = modifier,
+            contentScale = ContentScale.Crop,
+        )
+    } else {
+        Box(modifier = modifier.background(CorusColors.CardBackground))
     }
 }
 

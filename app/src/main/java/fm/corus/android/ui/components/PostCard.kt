@@ -73,6 +73,7 @@ fun PostCard(
     post: CymbalPost,
     likeCount: Int = post.likeCount,
     commentCount: Int = post.commentCount,
+    repostCount: Int = post.repostCount,
     isLiked: Boolean = post.isLiked,
     isSaved: Boolean = false,
     currentUser: CymbalUser? = null,
@@ -85,6 +86,7 @@ fun PostCard(
     onPreviewTap: () -> Unit = {},
     onTrailerTap: () -> Unit = {},
     onCommentTap: () -> Unit = {},
+    onRepostTap: () -> Unit = {},
     onShareTap: () -> Unit = {},
     onMenuTap: () -> Unit = {},
     onSpotifyTap: () -> Unit = {},
@@ -178,6 +180,32 @@ fun PostCard(
                                         repostedFromUsername,
                                     )
                                 },
+                            ),
+                        )
+                    }
+                }
+                // Injected by a followed hashtag — surface the tag so the user
+                // knows why this post is in their feed and can jump to the
+                // hashtag's full feed. Mirrors web + iOS.
+                val injectedTag = post.injectedByHashtag
+                if (!injectedTag.isNullOrEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        Text(
+                            text = "from",
+                            style = CorusFont.caption,
+                            color = CorusColors.Secondary,
+                        )
+                        Text(
+                            text = "#$injectedTag",
+                            style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
+                            color = CorusColors.Accent,
+                            modifier = Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { onHashtagTap(injectedTag) },
                             ),
                         )
                     }
@@ -659,6 +687,31 @@ fun PostCard(
                 if (commentCount > 0) {
                     Text(
                         text = commentCount.toString(),
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Text,
+                    )
+                }
+            }
+
+            // Repost button
+            Row(
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onRepostTap,
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Repeat,
+                    contentDescription = stringResource(R.string.post_card_cd_repost),
+                    modifier = Modifier.size(20.dp),
+                    tint = CorusColors.Text,
+                )
+                if (repostCount > 0) {
+                    Text(
+                        text = repostCount.toString(),
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Text,
                     )
