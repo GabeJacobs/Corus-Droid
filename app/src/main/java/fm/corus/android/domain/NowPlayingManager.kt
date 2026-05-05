@@ -168,7 +168,7 @@ class NowPlayingManager @Inject constructor(
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    suspend fun generateFeedPlaylist() {
+    suspend fun generateFeedPlaylist(newReleasesOnly: Boolean = false) {
         _isGeneratingPlaylist.value = true
         ToastManager.show("Generating playlist\u2026")
 
@@ -179,7 +179,7 @@ class NowPlayingManager @Inject constructor(
         }
 
         try {
-            val result = cloudFunctions.generateFeedPlaylist()
+            val result = cloudFunctions.generateFeedPlaylist(newReleasesOnly)
             if (result.soundcloudSkipped > 0) {
                 android.util.Log.i("NowPlaying", "Feed playlist skipped ${result.soundcloudSkipped} SoundCloud track(s)")
             }

@@ -8,6 +8,7 @@ import fm.corus.android.data.remote.TMDBApiService
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
@@ -93,6 +94,7 @@ class FeedMediaTypeFilterTest {
     private fun vm(): FeedViewModel = FeedViewModel(
         postRepository = postRepository,
         authRepository = authRepository,
+        subscriptionRepository = mock(),
         engagementManager = engagementManager,
         userRepository = userRepository,
         messageRepository = messageRepository,
@@ -104,6 +106,9 @@ class FeedMediaTypeFilterTest {
         postCreationEvent = postCreationEvent,
         postDeletionEvent = postDeletionEvent,
         musicServicePreference = mock(),
+        networkMonitor = mock {
+            on { isConnected } doReturn MutableStateFlow(true)
+        },
         context = mock(),
     )
 

@@ -276,6 +276,37 @@ fun EditProfileScreen(
                 singleLine = true,
             )
 
+            // Featured Tab picker — controls whether this user's profile leads
+            // with Music or Film when viewed by anyone (including themselves).
+            Column {
+                Text(
+                    stringResource(R.string.edit_profile_field_featured_tab),
+                    style = CorusFont.sectionHeader,
+                    color = CorusColors.Secondary,
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    val options = listOf("music" to R.string.profile_tab_music, "film" to R.string.profile_tab_film)
+                    options.forEachIndexed { index, (value, labelRes) ->
+                        SegmentedButton(
+                            selected = featuredTab == value,
+                            onClick = { viewModel.updateFeaturedTab(value) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = CorusColors.Accent.copy(alpha = 0.15f),
+                                activeContentColor = CorusColors.Accent,
+                                activeBorderColor = CorusColors.Accent,
+                                inactiveContainerColor = CorusColors.CardBackground,
+                                inactiveContentColor = CorusColors.Text,
+                                inactiveBorderColor = CorusColors.Divider,
+                            ),
+                        ) {
+                            Text(stringResource(labelRes))
+                        }
+                    }
+                }
+            }
+
             // Divider before action rows
             HorizontalDivider(color = CorusColors.Divider)
 
@@ -351,30 +382,6 @@ fun EditProfileScreen(
                 )
             }
 
-            HorizontalDivider(color = CorusColors.Divider)
-
-            // Featured Tab picker — controls whether this user's profile leads
-            // with Music or Film when viewed by anyone (including themselves).
-            Column {
-                Text(
-                    stringResource(R.string.edit_profile_field_featured_tab),
-                    style = CorusFont.sectionHeader,
-                    color = CorusColors.Secondary,
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    val options = listOf("music" to R.string.profile_tab_music, "film" to R.string.profile_tab_film)
-                    options.forEachIndexed { index, (value, labelRes) ->
-                        SegmentedButton(
-                            selected = featuredTab == value,
-                            onClick = { viewModel.updateFeaturedTab(value) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                        ) {
-                            Text(stringResource(labelRes))
-                        }
-                    }
-                }
-            }
         }
     }
 }

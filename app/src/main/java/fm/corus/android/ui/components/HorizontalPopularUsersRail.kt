@@ -43,6 +43,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.horizontalRailCardWidth
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -98,11 +99,13 @@ fun HorizontalPopularUsersRail(
             }
     }
 
+    val cardWidth = horizontalRailCardWidth()
+
     androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxWidth()) {
         Header(onSeeAll = onSeeAll)
 
         if (matches.isEmpty() && isLoading) {
-            SkeletonRow()
+            SkeletonRow(cardWidth = cardWidth)
         } else if (matches.isNotEmpty()) {
             LazyRow(
                 state = listState,
@@ -116,13 +119,14 @@ fun HorizontalPopularUsersRail(
                         isFollowing = isFollowed(match.user.id),
                         onUserTap = { onUserTap(match.user) },
                         onFollowTap = { onFollowTap(match.user) },
-                        modifier = Modifier.width(CARD_WIDTH),
+                        subtitle = followerCountSubtitle(match.user.followerCount),
+                        modifier = Modifier.width(cardWidth),
                     )
                 }
                 if (isLoading) {
                     item("loading") {
                         Box(
-                            modifier = Modifier.size(width = 48.dp, height = CARD_WIDTH),
+                            modifier = Modifier.size(width = 48.dp, height = cardWidth),
                             contentAlignment = Alignment.Center,
                         ) {
                             CircularProgressIndicator(
@@ -136,6 +140,16 @@ fun HorizontalPopularUsersRail(
             }
         }
     }
+}
+
+/** "1.2K followers" / "342 followers" / "1 follower". Matches iOS rail. */
+internal fun followerCountSubtitle(count: Int): String {
+    val formatted = when {
+        count >= 1_000_000 -> "%.1fM".format(count / 1_000_000.0)
+        count >= 1_000 -> "%.1fK".format(count / 1_000.0)
+        else -> count.toString()
+    }
+    return "$formatted ${if (count == 1) "follower" else "followers"}"
 }
 
 @Composable
@@ -172,19 +186,17 @@ private fun Header(onSeeAll: (() -> Unit)? = null) {
 }
 
 @Composable
-private fun SkeletonRow() {
+private fun SkeletonRow(cardWidth: androidx.compose.ui.unit.Dp) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
         items(4) {
-            SkeletonTasteMatchCard(modifier = Modifier.width(CARD_WIDTH))
+            SkeletonTasteMatchCard(modifier = Modifier.width(cardWidth))
         }
     }
 }
-
-private val CARD_WIDTH = 220.dp
 
 // ── ViewModel ──
 
@@ -273,12 +285,14 @@ class PopularUsersRailViewModel @Inject constructor(
                         postRepository.getProfilePosts(user.id, viewerId, limit = 4)
                     }.getOrDefault(emptyList())
 
+                    // Prefer the high-res field — the 2x2 grid tiles are big
+                    // enough on phones that the thumbnail-sized URL renders blurry.
                     val trackPreviews = posts.filter { it.isTrack }.map { post ->
                         SharedTrackPreview(
                             trackId = post.track.id,
                             trackName = post.track.name,
                             artistName = post.track.artistName,
-                            albumArtURL = post.track.albumArtURL,
+                            albumArtURL = post.track.albumArtLargeURL ?: post.track.albumArtURL,
                             posterURL = null,
                             isMovie = false,
                         )
@@ -288,7 +302,7 @@ class PopularUsersRailViewModel @Inject constructor(
                             movieId = post.movieId.orEmpty(),
                             movieTitle = post.movieTitle.orEmpty(),
                             directorName = post.directorName.orEmpty(),
-                            posterURL = post.posterURL,
+                            posterURL = post.posterLargeURL ?: post.posterURL,
                         )
                     }
                     SuggestedUserMatch(

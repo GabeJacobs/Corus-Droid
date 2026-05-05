@@ -243,6 +243,7 @@ class EditProfileViewModel @Inject constructor(
                 if (_featuredTab.value != p.featuredTab) fields["featuredTab"] = _featuredTab.value
 
                 userRepository.updateUserProfile(userId, fields)
+                authRepository.refreshUserProfile()
                 analyticsService.logEditProfileSaved()
                 onSuccess()
             } catch (e: Exception) {

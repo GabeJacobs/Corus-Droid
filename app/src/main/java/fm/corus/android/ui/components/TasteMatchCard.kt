@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -18,11 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.SuggestedUserMatch
@@ -137,14 +140,24 @@ fun TasteMatchCard(
                     color = CorusColors.Text,
                 )
 
-                // Match flavor text
-                val flavorText = buildMatchFlavorText(matchData)
-                if (flavorText.isNotBlank()) {
+                // Subtitle priority (matches iOS TasteMatchCard.matchFlavorText):
+                //  1. Explicit `subtitle` override (Popular = "X followers",
+                //     Mutual Connections = "via @x, @y +N")
+                //  2. Shared artist/director names from match previews
+                //  3. Count-based label ("2 song matches" / "1 film match")
+                //  4. "X artists in common" from the user-level field
+                val flavorText = subtitle?.takeIf { it.isNotBlank() }
+                    ?: buildSharedNamesSubtitle(matchData)
+                    ?: buildBestMatchLabel(matchData)
+                    ?: user.artistsInCommonCount?.takeIf { it > 0 }?.let {
+                        if (it == 1) "1 artist in common" else "$it artists in common"
+                    }
+                if (!flavorText.isNullOrBlank()) {
                     Text(
                         text = flavorText,
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -225,16 +238,48 @@ private fun GridTile(url: String?, modifier: Modifier = Modifier) {
             contentScale = ContentScale.Crop,
         )
     } else {
-        Box(modifier = modifier.background(CorusColors.Divider))
+        Box(
+            modifier = modifier.background(CorusColors.Divider),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                painter = painterResource(fm.corus.android.R.drawable.logo_no_background),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(CorusColors.Tertiary),
+                modifier = Modifier.fillMaxSize(0.45f),
+            )
+        }
     }
 }
 
-private fun buildMatchFlavorText(matchData: fm.corus.android.data.model.MusicMatchData?): String {
-    if (matchData == null) return ""
+/** Comma-joined artist + director names (deduped, order-preserving) from
+ *  shared previews. Mirrors iOS `sharedNames`. Returns null if there are no
+ *  similarity signals or no names available. */
+private fun buildSharedNamesSubtitle(
+    matchData: fm.corus.android.data.model.MusicMatchData?,
+): String? {
+    if (matchData == null || !matchData.hasSimilarityData) return null
+    val seen = mutableSetOf<String>()
+    val names = mutableListOf<String>()
+    matchData.sharedTrackPreviews.forEach { p ->
+        val name = p.artistName.trim()
+        if (name.isNotEmpty() && seen.add(name.lowercase())) names.add(name)
+    }
+    matchData.sharedMoviePreviews.forEach { p ->
+        val name = p.directorName.trim()
+        if (name.isNotEmpty() && seen.add(name.lowercase())) names.add(name)
+    }
+    return names.takeIf { it.isNotEmpty() }?.joinToString(", ")
+}
+
+/** Count-based fallback label. Mirrors iOS `bestMatchLabel`. */
+private fun buildBestMatchLabel(
+    matchData: fm.corus.android.data.model.MusicMatchData?,
+): String? {
+    if (matchData == null) return null
     val totalTracks = matchData.totalSharedTracks
     val totalMovies = matchData.totalSharedMovies
 
-    // Both music and film: show whichever count is higher
     if (totalTracks > 0 && totalMovies > 0) {
         return if (totalMovies > totalTracks) {
             if (totalMovies == 1) "1 film match" else "$totalMovies film matches"
@@ -242,12 +287,10 @@ private fun buildMatchFlavorText(matchData: fm.corus.android.data.model.MusicMat
             if (totalTracks == 1) "1 song match" else "$totalTracks song matches"
         }
     }
-    // Music only
     if (totalTracks > 0) return if (totalTracks == 1) "1 song match" else "$totalTracks song matches"
     if (matchData.sharedArtists > 0) return if (matchData.sharedArtists == 1) "1 artist match" else "${matchData.sharedArtists} artist matches"
-    // Film only
     if (totalMovies > 0) return if (totalMovies == 1) "1 film match" else "$totalMovies film matches"
     if (matchData.sharedDirectors > 0) return if (matchData.sharedDirectors == 1) "1 director match" else "${matchData.sharedDirectors} director matches"
     if (matchData.adjacentArtists > 0) return "similar taste"
-    return ""
+    return null
 }

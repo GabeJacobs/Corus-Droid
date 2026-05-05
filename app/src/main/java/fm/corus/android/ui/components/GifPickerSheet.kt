@@ -194,7 +194,7 @@ fun GifPickerSheet(
                                     } else {
                                         gifRepository.searchGifs(searchQuery, page = nextPage)
                                     }
-                                    gifs = gifs + result.gifs
+                                    gifs = (gifs + result.gifs).distinctBy { it.id }
                                     currentPage = result.currentPage
                                     hasNext = result.hasNext
                                 } catch (_: Exception) { }

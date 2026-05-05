@@ -6,12 +6,19 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MusicMatchData
+import fm.corus.android.data.model.SharedMoviePreview
+import fm.corus.android.data.model.SharedTrackPreview
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.SuggestionReason
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.ui.navigation.SuggestedUsersListRoute
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +33,7 @@ class SuggestedUsersListViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val authRepository: AuthRepository,
     private val firestoreDataSource: FirestoreDataSource,
+    private val postRepository: PostRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -151,7 +159,52 @@ class SuggestedUsersListViewModel @Inject constructor(
             excludeIds = setOf(uid),
             afterDocId = afterDocId,
         )
-        return users.map { SuggestedUserMatch(user = it, matchData = null, suggestionReason = null) }
+        return matchesWithPostPreviews(users, viewerId = uid)
+    }
+
+    /** Fetches up to 4 recent posts per user in parallel and synthesizes the
+     *  [MusicMatchData] previews that drives [TasteMatchCard]'s 2x2 album-art
+     *  grid. Mirrors `PopularUsersRailViewModel.matchesWithPreviews` so the
+     *  See-All grid renders the same card UI as the inline rail. */
+    private suspend fun matchesWithPostPreviews(
+        users: List<CymbalUser>,
+        viewerId: String,
+    ): List<SuggestedUserMatch> = coroutineScope {
+        users.map { user ->
+            async {
+                val posts = runCatching {
+                    postRepository.getProfilePosts(user.id, viewerId, limit = 4)
+                }.getOrDefault(emptyList())
+
+                // Prefer the high-res field — the 2x2 grid tiles are big
+                // enough on phones that the thumbnail-sized URL renders blurry.
+                val trackPreviews = posts.filter { it.isTrack }.map { post ->
+                    SharedTrackPreview(
+                        trackId = post.track.id,
+                        trackName = post.track.name,
+                        artistName = post.track.artistName,
+                        albumArtURL = post.track.albumArtLargeURL ?: post.track.albumArtURL,
+                        posterURL = null,
+                        isMovie = false,
+                    )
+                }
+                val moviePreviews = posts.filter { it.isMovie }.map { post ->
+                    SharedMoviePreview(
+                        movieId = post.movieId.orEmpty(),
+                        movieTitle = post.movieTitle.orEmpty(),
+                        directorName = post.directorName.orEmpty(),
+                        posterURL = post.posterLargeURL ?: post.posterURL,
+                    )
+                }
+                SuggestedUserMatch(
+                    user = user,
+                    matchData = MusicMatchData(
+                        sharedTrackPreviews = trackPreviews,
+                        sharedMoviePreviews = moviePreviews,
+                    ),
+                )
+            }
+        }.awaitAll()
     }
 
     private suspend fun loadNewUsersPage(uid: String, afterDocId: String?): List<SuggestedUserMatch> {

@@ -747,11 +747,13 @@ fun ProfileScreen(
         }
 
         // ── Album Art Grid (filtered) ──
-        // Hide grid while featured art is loading (skeleton in header covers both areas)
-        val isFeaturedTab = selectedSegment <= 1
-        val isFeaturedArtLoading = isFeaturedTab && !isFeaturedArtReady && posts.any {
-            it.mediaType == if (selectedSegment == 0) fm.corus.android.data.model.MediaType.TRACK
-            else fm.corus.android.data.model.MediaType.MOVIE
+        // Hide grid while featured art is loading (skeleton in header covers
+        // both areas). Music-only: the FeaturedCymbalView wires onArtReady to
+        // flip isFeaturedArtReady. The film featured view (FeaturedMoviePosterView)
+        // has no such callback, so gating Film on this flag would leave the grid
+        // permanently blank below the featured poster.
+        val isFeaturedArtLoading = selectedSegment == 0 && !isFeaturedArtReady && posts.any {
+            it.mediaType == fm.corus.android.data.model.MediaType.TRACK
         }
         val filmFetchPending = selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)
         val isSegmentLoading = (selectedSegment == 2 && isLoadingLiked && likedPosts.isEmpty())

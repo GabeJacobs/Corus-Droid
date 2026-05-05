@@ -76,6 +76,7 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.HorizontalPopularUsersRail
+import fm.corus.android.ui.components.MutualConnectionsCardRail
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.SkeletonFilmRow
 import fm.corus.android.ui.components.SkeletonSearchSongRow
@@ -90,7 +91,9 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.horizontalRailCardWidth
 import fm.corus.android.ui.util.DateUtils
+import androidx.compose.foundation.lazy.LazyRow
 
 enum class SearchTab(val labelRes: Int) {
     USERS(fm.corus.android.R.string.search_tab_users),
@@ -669,14 +672,13 @@ private fun SuggestedUsersContent(
                 SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
             }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.lg),
+                val cardWidth = horizontalRailCardWidth()
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 ) {
-                    SkeletonTasteMatchCard(modifier = Modifier.weight(1f))
-                    SkeletonTasteMatchCard(modifier = Modifier.weight(1f))
+                    items(4) { SkeletonTasteMatchCard(modifier = Modifier.width(cardWidth)) }
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
@@ -699,23 +701,22 @@ private fun SuggestedUsersContent(
                 )
             }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.lg),
+                // Horizontal rail — peek of next card on the right edge so the
+                // user can see it scrolls. Matches iOS SearchView.tasteMatchesRail.
+                val cardWidth = horizontalRailCardWidth()
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 ) {
-                    filteredMusicMatchUsers.take(2).forEach { match ->
+                    items(filteredMusicMatchUsers, key = { it.user.id }) { match ->
                         TasteMatchCard(
                             match = match,
                             isFollowing = viewModel.isFollowed(match.user.id),
                             onUserTap = { onNavigateToUser(match.user.id) },
                             onFollowTap = { viewModel.toggleFollow(match.user) },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.width(cardWidth),
                         )
-                    }
-                    if (filteredMusicMatchUsers.size < 2) {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
@@ -723,6 +724,8 @@ private fun SuggestedUsersContent(
         }
 
         // ── Mutual Connections section ──
+        // Horizontal rail of TasteMatchCards (2x2 album-art) — matches iOS
+        // SearchView.mutualConnectionsSection / MutualConnectionsCardGrid.
         if (mutualConnectionUsers.isNotEmpty()) {
             item {
                 SectionHeader(
@@ -732,16 +735,15 @@ private fun SuggestedUsersContent(
                     onSeeAll = { onNavigateToSuggestedUsers(mutualConnectionsTitle, true, "mutualConnections") },
                 )
             }
-            items(mutualConnectionUsers.take(2)) { match ->
-                SuggestedUserRow(
-                    user = match.user,
-                    subtitle = formatMutualFollowersText(context, match.suggestionReason?.mutualNames),
-                    isFollowed = viewModel.isFollowed(match.user.id),
-                    onTap = { onNavigateToUser(match.user.id) },
-                    onFollow = { viewModel.toggleFollow(match.user) },
+            item {
+                MutualConnectionsCardRail(
+                    matches = mutualConnectionUsers,
+                    isFollowed = { id -> viewModel.isFollowed(id) },
+                    onUserTap = { user -> onNavigateToUser(user.id) },
+                    onFollowTap = { user -> viewModel.toggleFollow(user) },
                 )
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         }
 
         // ── Popular on Corus — paginated horizontal rail of real users ──
@@ -766,11 +768,11 @@ private fun SuggestedUsersContent(
                 SectionHeader(
                     icon = "new",
                     title = stringResource(fm.corus.android.R.string.search_section_new),
-                    showSeeAll = displayNewUsers.size > 2,
+                    showSeeAll = displayNewUsers.size > 3,
                     onSeeAll = { onNavigateToSuggestedUsers(newOnCorusTitle, true, "new") },
                 )
             }
-            items(displayNewUsers.take(2), key = { "new-${it.id}" }) { user ->
+            items(displayNewUsers.take(3), key = { "new-${it.id}" }) { user ->
                 SuggestedUserRow(
                     user = user,
                     subtitle = user.createdAt?.let { context.getString(joinedFormat, DateUtils.relativeTime(context, it)) },

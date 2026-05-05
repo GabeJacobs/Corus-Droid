@@ -43,6 +43,9 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import java.io.ByteArrayOutputStream
+import java.net.URL
 import fm.corus.android.R
 import fm.corus.android.domain.UsernameValidator
 import fm.corus.android.ui.components.AvatarCropView
@@ -106,6 +109,34 @@ fun OnboardingScreen(
         FileProvider.getUriForFile(context, "${context.packageName}.provider", cameraPhotoFile)
     }
     var showSelfieCapture by remember { mutableStateOf(false) }
+
+    // Pre-fill avatar from the OAuth provider's profile photo (matching iOS
+    // OnboardingView.loadProviderPhoto). Runs once on entry; user can replace
+    // or remove it via the photo dialog. Skip if the user has already chosen
+    // a photo this session.
+    val providerPhotoUrl = viewModel.providerPhotoUrl
+    LaunchedEffect(providerPhotoUrl) {
+        if (providerPhotoUrl == null || avatarData != null) return@LaunchedEffect
+        val (bytes, uri) = withContext(Dispatchers.IO) {
+            try {
+                val raw = URL(providerPhotoUrl).openStream().use { it.readBytes() }
+                val bmp = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return@withContext null
+                val baos = ByteArrayOutputStream()
+                bmp.compress(Bitmap.CompressFormat.JPEG, 80, baos)
+                val jpeg = baos.toByteArray()
+                val file = File(context.cacheDir, "provider_avatar_${System.currentTimeMillis()}.jpg")
+                file.writeBytes(jpeg)
+                val u = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+                jpeg to u
+            } catch (_: Exception) {
+                null
+            }
+        } ?: return@LaunchedEffect
+        if (avatarData == null) {
+            avatarData = bytes
+            avatarUri = uri
+        }
+    }
 
     // Username availability check with debounce (min 1 char, matching iOS)
     LaunchedEffect(username) {

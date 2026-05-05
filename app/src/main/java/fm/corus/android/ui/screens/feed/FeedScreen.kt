@@ -101,12 +101,23 @@ fun FeedScreen(
         backCoverStates.getOrPut(postId) { fm.corus.android.ui.components.BackCoverFlipState() }
     var filmInfoPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showClubOffer by remember { mutableStateOf(false) }
+    var clubOfferSource by remember { mutableStateOf(fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT) }
 
     val paywallRequested by viewModel.nowPlayingManager.paywallRequested.collectAsState()
     LaunchedEffect(paywallRequested) {
         if (paywallRequested) {
+            clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
             showClubOffer = true
             viewModel.nowPlayingManager.clearPaywallRequested()
+        }
+    }
+
+    val newReleaseFilterPaywall by viewModel.newReleaseFilterPaywall.collectAsState()
+    LaunchedEffect(newReleaseFilterPaywall) {
+        if (newReleaseFilterPaywall != null) {
+            clubOfferSource = newReleaseFilterPaywall!!
+            showClubOffer = true
+            viewModel.clearNewReleaseFilterPaywall()
         }
     }
 
@@ -514,7 +525,7 @@ fun FeedScreen(
         )
     }
 
-    // ── Club Offer Paywall (playlist limit) ──
+    // ── Club Offer Paywall ──
     if (showClubOffer) {
         val clubSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
         androidx.compose.material3.ModalBottomSheet(
@@ -525,7 +536,7 @@ fun FeedScreen(
         ) {
             CorusSystemBars()
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
-                source = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT,
+                source = clubOfferSource,
                 onDismiss = { showClubOffer = false },
             )
         }

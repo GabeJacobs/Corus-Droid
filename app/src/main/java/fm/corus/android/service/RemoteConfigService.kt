@@ -77,6 +77,9 @@ class RemoteConfigService @Inject constructor(
     val soundcloudEnabled: Boolean
         get() = remoteConfig.getBoolean("soundcloud_enabled")
 
+    val newReleaseFilterClubOnly: Boolean
+        get() = remoteConfig.getBoolean("new_release_filter_club_only")
+
     /**
      * Per-post comments-audience picker (Everyone / Followers / Off).
      * Keep this OFF until web + iOS + Android all ship the gate — otherwise
@@ -132,6 +135,7 @@ class RemoteConfigService @Inject constructor(
                     "save_cap_warning_at" to 23L,
                     "soundcloud_enabled" to false,
                     "comment_controls_on_posts" to false,
+                    "new_release_filter_club_only" to false,
                 )
             ).await()
             val activated = remoteConfig.fetchAndActivate().await()
@@ -159,7 +163,8 @@ class RemoteConfigService @Inject constructor(
                 "server_notifications_enabled=$serverNotificationsEnabled " +
                 "save_cap_enforced=$saveCapEnforced " +
                 "save_cap_limit=$saveCapLimit " +
-                "save_cap_warning_at=$saveCapWarningAt"
+                "save_cap_warning_at=$saveCapWarningAt " +
+                "new_release_filter_club_only=$newReleaseFilterClubOnly"
         )
     }
 }

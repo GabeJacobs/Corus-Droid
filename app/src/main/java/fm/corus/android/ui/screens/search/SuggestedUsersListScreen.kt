@@ -75,19 +75,18 @@ fun SuggestedUsersListScreen(
             if (useRowLayout) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = CorusSpacing.md),
                 ) {
                     items(12) { SkeletonUserRow() }
                 }
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(CorusSpacing.lg),
+                    contentPadding = PaddingValues(start = CorusSpacing.lg, end = CorusSpacing.lg, bottom = CorusSpacing.lg),
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(12) { SkeletonTasteMatchCard() }
+                    repeat(12) { item { SkeletonTasteMatchCard() } }
                 }
             }
         } else if (matches.isEmpty()) {
@@ -100,7 +99,6 @@ fun SuggestedUsersListScreen(
         } else if (useRowLayout) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = CorusSpacing.md),
             ) {
                 itemsIndexed(matches, key = { _, m -> m.id }) { index, match ->
                     SuggestedUserRow(
@@ -121,18 +119,25 @@ fun SuggestedUsersListScreen(
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(CorusSpacing.lg),
+                contentPadding = PaddingValues(start = CorusSpacing.lg, end = CorusSpacing.lg, bottom = CorusSpacing.lg),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                gridItemsIndexed(matches, key = { _, m -> m.id }) { _, match ->
+                gridItemsIndexed(matches, key = { _, m -> m.id }) { index, match ->
                     TasteMatchCard(
                         match = match,
                         isFollowing = isFollowed(match.user.id),
                         onUserTap = { onNavigateToUser(match.user.id) },
                         onFollowTap = { onFollow(match.user) },
+                        subtitle = subtitleForRow(context, match, source),
                     )
+                    if (index == matches.lastIndex && hasMore && !isLoadingMore) {
+                        LaunchedEffect(index) { onLoadMore() }
+                    }
+                }
+                if (isLoadingMore) {
+                    repeat(3) { item { SkeletonTasteMatchCard() } }
                 }
             }
         }

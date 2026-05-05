@@ -178,6 +178,7 @@ private fun CommentsSheetContent(
     val post by viewModel.post.collectAsState()
     val sendError by viewModel.sendError.collectAsState()
     val editingComment by viewModel.editingComment.collectAsState()
+    val blockReason by viewModel.commentBlockReason.collectAsState()
 
     val pendingSong by viewModel.pendingSong.collectAsState()
     val pendingFilm by viewModel.pendingFilm.collectAsState()
@@ -218,26 +219,29 @@ private fun CommentsSheetContent(
         viewModel.loadPost(postId)
     }
 
-    LaunchedEffect(replyingTo) {
-        if (replyingTo != null) {
+    LaunchedEffect(replyingTo, blockReason) {
+        if (replyingTo != null && blockReason == null) {
             focusRequester.requestFocus()
         }
     }
 
-    LaunchedEffect(editingComment?.id) {
+    LaunchedEffect(editingComment?.id, blockReason) {
         val editing = editingComment
         if (editing != null) {
             commentText = TextFieldValue(editing.text, selection = TextRange(editing.text.length))
-            focusRequester.requestFocus()
+            if (blockReason == null) focusRequester.requestFocus()
         } else {
             commentText = TextFieldValue("")
         }
     }
 
-    // Auto-focus input to open keyboard immediately (Instagram-style)
+    // Auto-focus input to open keyboard immediately (Instagram-style).
+    // Re-key on blockReason: if the post hasn't loaded yet we don't know whether
+    // the composer will render, so wait until the gate resolves before grabbing
+    // focus (otherwise requestFocus throws on a detached FocusRequester).
     if (autoFocusInput) {
-        LaunchedEffect(Unit) {
-            focusRequester.requestFocus()
+        LaunchedEffect(blockReason) {
+            if (blockReason == null) focusRequester.requestFocus()
         }
     }
 
@@ -394,8 +398,10 @@ private fun CommentsSheetContent(
                             nowPlaying = viewModel.nowPlayingManager,
                             onUserTap = { onNavigateToUser(comment.user.id) },
                             onReplyTap = {
-                                viewModel.setReplyingTo(comment)
-                                focusRequester.requestFocus()
+                                if (blockReason == null) {
+                                    viewModel.setReplyingTo(comment)
+                                    focusRequester.requestFocus()
+                                }
                             },
                             onLikeTap = { viewModel.toggleCommentLike(comment.id) },
                             onLikeLongPress = { viewingLikesCommentId = comment.id },
@@ -419,8 +425,10 @@ private fun CommentsSheetContent(
                                 nowPlaying = viewModel.nowPlayingManager,
                                 onUserTap = { onNavigateToUser(reply.user.id) },
                                 onReplyTap = {
-                                    viewModel.setReplyingTo(reply)
-                                    focusRequester.requestFocus()
+                                    if (blockReason == null) {
+                                        viewModel.setReplyingTo(reply)
+                                        focusRequester.requestFocus()
+                                    }
                                 },
                                 onLikeTap = { viewModel.toggleCommentLike(reply.id) },
                                 onLikeLongPress = { viewingLikesCommentId = reply.id },
@@ -437,6 +445,22 @@ private fun CommentsSheetContent(
                 }
             }
 
+        }
+
+        val currentBlockReason = blockReason
+        if (currentBlockReason != null) {
+            // Mirror iOS: viewer can't write here, so swap the composer for an
+            // inline notice instead of the input bar. The comment list above
+            // stays visible.
+            fm.corus.android.ui.components.CommentsLockedNotice(
+                reason = currentBlockReason,
+                authorUsername = post?.user?.username,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CorusColors.Background)
+                    .navigationBarsPadding(),
+            )
+            return@Column
         }
 
         // ── Mention suggestions (above the input bar) ──

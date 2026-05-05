@@ -18,7 +18,9 @@ import fm.corus.android.data.remote.TMDBMovieDetails
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
@@ -44,6 +46,7 @@ import javax.inject.Inject
 class FeedViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
+    private val subscriptionRepository: SubscriptionRepository,
     private val engagementManager: PostEngagementManager,
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
@@ -88,6 +91,10 @@ class FeedViewModel @Inject constructor(
     val filteredPosts: StateFlow<List<CymbalPost>> = combine(_posts, _feedFilter) { posts, filter ->
         if (filter.newReleasesOnly) posts.filter { it.isNewRelease() } else posts
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private val _newReleaseFilterPaywall = MutableStateFlow<PaywallSource?>(null)
+    val newReleaseFilterPaywall: StateFlow<PaywallSource?> = _newReleaseFilterPaywall.asStateFlow()
+    fun clearNewReleaseFilterPaywall() { _newReleaseFilterPaywall.value = null }
 
     private val _isLoading = MutableStateFlow(false)
     private val _hasLoaded = MutableStateFlow(false)
@@ -237,6 +244,10 @@ class FeedViewModel @Inject constructor(
 
     fun setFeedFilter(filter: FeedFilter) {
         if (_feedFilter.value == filter) return
+        if (filter.newReleasesOnly && remoteConfig.newReleaseFilterClubOnly && !subscriptionRepository.hasFullAccess) {
+            _newReleaseFilterPaywall.value = PaywallSource.NEW_RELEASE_FILTER
+            return
+        }
         _feedFilter.value = filter
         // Server-side filter changed — reset the paginated feed and re-fetch
         // so the returned page matches the new filter.
@@ -301,7 +312,7 @@ class FeedViewModel @Inject constructor(
     fun generateFeedPlaylist() {
         analyticsService.logFeedPlaylistTapped()
         viewModelScope.launch {
-            nowPlayingManager.generateFeedPlaylist()
+            nowPlayingManager.generateFeedPlaylist(newReleasesOnly = _feedFilter.value.newReleasesOnly)
         }
     }
 

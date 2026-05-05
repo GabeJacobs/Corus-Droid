@@ -58,7 +58,7 @@ import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
-import fm.corus.android.ui.components.HorizontalPopularUsersRail
+import fm.corus.android.ui.components.PopularUsersInfiniteGrid
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
@@ -502,12 +502,12 @@ private fun FollowFriendsMainContent(
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
         // Content
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(bottom = CorusSpacing.lg),
-        ) {
-            if (searchQuery.length >= 2) {
-                // Search results mode
+        if (searchQuery.length >= 2) {
+            // Search results mode
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = CorusSpacing.lg),
+            ) {
                 if (isSearching) {
                     items(4) { SkeletonUserRow() }
                 } else if (searchResults.isEmpty()) {
@@ -529,69 +529,64 @@ private fun FollowFriendsMainContent(
                         )
                     }
                 }
-            } else {
-                // Suggestion sections
-
-                // Friends on Corus — only show after loading completes (matching iOS)
-                if (!isLoading) {
-                    if (contactMatches.isNotEmpty()) {
-                        item {
-                            OnboardingSectionHeader(
-                                title = stringResource(id = R.string.social_setup_section_friends),
-                                showSeeAll = contactMatches.size > 5,
-                                onSeeAll = { onSeeAll(SeeAllDestination.FRIENDS) },
-                            )
-                        }
-                        items(contactMatches.take(5), key = { "contact-${it.id}" }) { user ->
-                            OnboardingUserRow(
-                                user = user,
-                                subtitle = stringResource(id = R.string.search_subtitle_from_contacts),
-                                isFollowed = followedIds.contains(user.id),
-                                onFollow = { viewModel.toggleFollow(user.id) },
-                                onTap = { viewModel.openUserPreview(user) },
-                            )
-                        }
-                    } else if (contactsSynced) {
-                        // Friends empty state — only show if user chose to sync contacts
-                        item {
-                            OnboardingSectionHeader(
-                                title = stringResource(id = R.string.social_setup_section_friends),
-                            )
-                        }
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.lg),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Text(
-                                    stringResource(id = R.string.search_no_contact_matches_title),
-                                    style = CorusFont.bodyMedium,
-                                    color = CorusColors.Secondary,
+            }
+        } else {
+            // Suggestion mode — vertical, paginated grid of popular users.
+            // Friends section (when present) renders as topContent above the grid
+            // so the entire surface scrolls together.
+            PopularUsersInfiniteGrid(
+                excludeIds = emptySet(),
+                isFollowed = { id -> followedIds.contains(id) },
+                onUserTap = { user -> viewModel.openUserPreview(user) },
+                onFollowTap = { user -> viewModel.toggleFollow(user.id) },
+                modifier = Modifier.weight(1f),
+                topContent = {
+                    if (!isLoading) {
+                        if (contactMatches.isNotEmpty()) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                OnboardingSectionHeader(
+                                    title = stringResource(id = R.string.social_setup_section_friends),
+                                    showSeeAll = contactMatches.size > 5,
+                                    onSeeAll = { onSeeAll(SeeAllDestination.FRIENDS) },
                                 )
-                                Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                                Text(
-                                    stringResource(id = R.string.social_setup_will_notify),
-                                    style = CorusFont.caption,
-                                    color = CorusColors.Tertiary,
+                                contactMatches.take(5).forEach { user ->
+                                    OnboardingUserRow(
+                                        user = user,
+                                        subtitle = stringResource(id = R.string.search_subtitle_from_contacts),
+                                        isFollowed = followedIds.contains(user.id),
+                                        onFollow = { viewModel.toggleFollow(user.id) },
+                                        onTap = { viewModel.openUserPreview(user) },
+                                    )
+                                }
+                            }
+                        } else if (contactsSynced) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                OnboardingSectionHeader(
+                                    title = stringResource(id = R.string.social_setup_section_friends),
                                 )
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.lg),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Text(
+                                        stringResource(id = R.string.search_no_contact_matches_title),
+                                        style = CorusFont.bodyMedium,
+                                        color = CorusColors.Secondary,
+                                    )
+                                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                                    Text(
+                                        stringResource(id = R.string.social_setup_will_notify),
+                                        style = CorusFont.caption,
+                                        color = CorusColors.Tertiary,
+                                    )
+                                }
                             }
                         }
                     }
-                }
-
-                // Popular on Corus — paginated horizontal rail of real users.
-                // Replaces the old Popular + Curated Music/Film Bots sections.
-                item {
-                    HorizontalPopularUsersRail(
-                        excludeIds = emptySet(),
-                        isFollowed = { id -> followedIds.contains(id) },
-                        onUserTap = { user -> viewModel.openUserPreview(user) },
-                        onFollowTap = { user -> viewModel.toggleFollow(user.id) },
-                    )
-                }
-            }
+                },
+            )
         }
 
         // Continue button — matches iOS button text

@@ -129,6 +129,7 @@ fun PopularUsersInfiniteGrid(
                     isFollowing = isFollowed(match.user.id),
                     onUserTap = { onUserTap(match.user) },
                     onFollowTap = { onFollowTap(match.user) },
+                    subtitle = followerCountSubtitle(match.user.followerCount),
                 )
             }
             if (isLoading && matches.isNotEmpty()) {
@@ -245,12 +246,14 @@ class PopularUsersInfiniteGridViewModel @Inject constructor(
                         postRepository.getProfilePosts(user.id, viewerId, limit = 4)
                     }.getOrDefault(emptyList())
 
+                    // Prefer the high-res field — the 2x2 grid tiles are big
+                    // enough on phones that the thumbnail-sized URL renders blurry.
                     val trackPreviews = posts.filter { it.isTrack }.map { post ->
                         SharedTrackPreview(
                             trackId = post.track.id,
                             trackName = post.track.name,
                             artistName = post.track.artistName,
-                            albumArtURL = post.track.albumArtURL,
+                            albumArtURL = post.track.albumArtLargeURL ?: post.track.albumArtURL,
                             posterURL = null,
                             isMovie = false,
                         )
@@ -260,7 +263,7 @@ class PopularUsersInfiniteGridViewModel @Inject constructor(
                             movieId = post.movieId.orEmpty(),
                             movieTitle = post.movieTitle.orEmpty(),
                             directorName = post.directorName.orEmpty(),
-                            posterURL = post.posterURL,
+                            posterURL = post.posterLargeURL ?: post.posterURL,
                         )
                     }
                     SuggestedUserMatch(

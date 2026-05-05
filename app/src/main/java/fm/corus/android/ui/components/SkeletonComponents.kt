@@ -678,8 +678,8 @@ fun SkeletonCommentRow() {
     }
 }
 
-// 4. SkeletonTrendingSongRow — matches TrendingSongRow in ExploreScreen exactly:
-// rank 28dp width · 48dp album art · title/artist column · trailing count
+// 4. SkeletonTrendingSongRow — matches TrendingSongRow in SearchScreen exactly:
+// rank 24dp · 44dp album art · title/artist column · trailing count
 @Composable
 fun SkeletonTrendingSongRow() {
     Row(
@@ -690,14 +690,14 @@ fun SkeletonTrendingSongRow() {
             .heightIn(min = CorusSpacing.touchTarget),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Rank placeholder: 14dp bar centered inside a 28dp-wide cell (matches Text width)
+        // Rank placeholder: 12dp bar in a 24dp-wide cell (matches Text width)
         Box(
-            modifier = Modifier.width(28.dp),
+            modifier = Modifier.width(24.dp),
             contentAlignment = Alignment.Center,
         ) {
             Box(
                 modifier = Modifier
-                    .width(14.dp)
+                    .width(12.dp)
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(CorusColors.Skeleton)
@@ -705,10 +705,10 @@ fun SkeletonTrendingSongRow() {
         }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
-        // Square album art
+        // Square album art (44dp matches SongPreviewArtwork size)
         Box(
             modifier = Modifier
-                .size(CorusSpacing.albumArtSearch)
+                .size(44.dp)
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
                 .background(CorusColors.Skeleton)
         )
@@ -906,8 +906,8 @@ fun SkeletonFilmRow() {
     }
 }
 
-// 8b. SkeletonTrendingFilmRow — matches TrendingMovieRow in ExploreScreen exactly:
-// rank 28dp cell · 48×72 poster · title/director column · trailing count
+// 8b. SkeletonTrendingFilmRow — matches TrendingFilmRow in SearchScreen exactly:
+// rank 24dp · 33×44 poster · title/director column · trailing count
 @Composable
 fun SkeletonTrendingFilmRow() {
     Row(
@@ -918,14 +918,14 @@ fun SkeletonTrendingFilmRow() {
             .heightIn(min = CorusSpacing.touchTarget),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Rank placeholder: 14dp bar centered inside a 28dp-wide cell (matches Text width)
+        // Rank placeholder: 12dp bar in a 24dp-wide cell (matches Text width)
         Box(
-            modifier = Modifier.width(28.dp),
+            modifier = Modifier.width(24.dp),
             contentAlignment = Alignment.Center,
         ) {
             Box(
                 modifier = Modifier
-                    .width(14.dp)
+                    .width(12.dp)
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(CorusColors.Skeleton)
@@ -933,10 +933,11 @@ fun SkeletonTrendingFilmRow() {
         }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
-        // Poster (48 × 72 matches real AsyncImage size)
+        // Poster (33 × 44 matches real AsyncImage size)
         Box(
             modifier = Modifier
-                .size(width = CorusSpacing.albumArtSearch, height = 72.dp)
+                .width(33.dp)
+                .height(44.dp)
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
                 .background(CorusColors.Skeleton)
         )

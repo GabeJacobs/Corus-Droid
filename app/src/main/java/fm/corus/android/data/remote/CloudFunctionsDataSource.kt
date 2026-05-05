@@ -791,10 +791,10 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun generateFeedPlaylist(): PlaylistResult {
-        val result = functions.getHttpsCallable("generateFeedPlaylist").call(
-            mapOf("supportsGating" to true)
-        ).await()
+    suspend fun generateFeedPlaylist(newReleasesOnly: Boolean = false): PlaylistResult {
+        val params = mutableMapOf<String, Any>("supportsGating" to true)
+        if (newReleasesOnly) params["newReleasesOnly"] = true
+        val result = functions.getHttpsCallable("generateFeedPlaylist").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
         return parsePlaylistResponse(data)
     }

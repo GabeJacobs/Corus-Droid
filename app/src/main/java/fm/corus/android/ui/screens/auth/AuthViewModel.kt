@@ -80,6 +80,33 @@ class AuthViewModel @Inject constructor(
     val oauthDisplayName: String?
         get() = firebaseAuth.currentUser?.displayName?.takeIf { it.isNotBlank() }
 
+    /**
+     * Profile photo URL from the OAuth provider (Google). Used to pre-fill the
+     * onboarding avatar — mirrors iOS [AuthService.providerPhotoURL]. Apple does
+     * not return a photo, so this is effectively Google-only.
+     *
+     * Google's CDN URLs include a size segment like `=s96-c`; bump to `=s400-c`
+     * to match the dimension iOS requests via `imageURL(withDimension: 400)`.
+     */
+    val providerPhotoUrl: String?
+        get() {
+            val raw = firebaseAuth.currentUser?.photoUrl?.toString()?.takeIf { it.isNotBlank() }
+                ?: return null
+            return upgradeGooglePhotoUrlSize(raw)
+        }
+
+    companion object {
+        private val GOOGLE_PHOTO_SIZE_SEGMENT = Regex("=s\\d+(-c)?(?=$|[?&])")
+
+        /**
+         * Bumps the size segment of a Google CDN photo URL (e.g. `=s96-c`) to
+         * `=s400-c` to match the dimension iOS requests via
+         * `imageURL(withDimension: 400)`. URLs without the segment pass through.
+         */
+        internal fun upgradeGooglePhotoUrlSize(url: String): String =
+            url.replace(GOOGLE_PHOTO_SIZE_SEGMENT, "=s400-c")
+    }
+
     private var authStateListener: AuthStateListener? = null
 
     fun observeAuthState() {

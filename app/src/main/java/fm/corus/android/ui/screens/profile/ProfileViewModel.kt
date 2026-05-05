@@ -42,7 +42,34 @@ class ProfileViewModel @Inject constructor(
 
     val engagementStates = engagementManager.states
 
+    private val _profile = MutableStateFlow<CymbalUser?>(null)
+    val profile: StateFlow<CymbalUser?> = _profile.asStateFlow()
+
+    // Optimistic avatar preview: set at the start of uploadAvatar and cleared
+    // once the server round-trip completes, so the new avatar appears immediately
+    // without waiting for Firestore + Storage + cache-busted URL reload.
+    private val _pendingAvatarBytes = MutableStateFlow<ByteArray?>(null)
+    val pendingAvatarBytes: StateFlow<ByteArray?> = _pendingAvatarBytes.asStateFlow()
+
+    // Profile posts (tracks + movies together, shared by MUSIC and FILM tabs)
+    private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
+    val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
+
+    // Liked & saved posts are separate lists, loaded lazily
+    private val _likedPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
+    val likedPosts: StateFlow<List<CymbalPost>> = _likedPosts.asStateFlow()
+
+    private val _savedPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
+    val savedPosts: StateFlow<List<CymbalPost>> = _savedPosts.asStateFlow()
+
     init {
+        // Keep _profile in sync with authRepository so edits from EditProfileScreen
+        // (which refresh authRepository._userProfile) are reflected without a manual reload.
+        viewModelScope.launch {
+            authRepository.userProfile.collect { user ->
+                if (user != null) _profile.value = user
+            }
+        }
         // Auto-refresh profile when a new post is created
         viewModelScope.launch {
             postCreationEvent.events.collect {
@@ -93,26 +120,6 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    private val _profile = MutableStateFlow<CymbalUser?>(null)
-    val profile: StateFlow<CymbalUser?> = _profile.asStateFlow()
-
-    // Optimistic avatar preview: set at the start of uploadAvatar and cleared
-    // once the server round-trip completes, so the new avatar appears immediately
-    // without waiting for Firestore + Storage + cache-busted URL reload.
-    private val _pendingAvatarBytes = MutableStateFlow<ByteArray?>(null)
-    val pendingAvatarBytes: StateFlow<ByteArray?> = _pendingAvatarBytes.asStateFlow()
-
-    // Profile posts (tracks + movies together, shared by MUSIC and FILM tabs)
-    private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
-    val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
-
-    // Liked & saved posts are separate lists, loaded lazily
-    private val _likedPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
-    val likedPosts: StateFlow<List<CymbalPost>> = _likedPosts.asStateFlow()
-
-    private val _savedPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
-    val savedPosts: StateFlow<List<CymbalPost>> = _savedPosts.asStateFlow()
-
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -143,6 +150,11 @@ class ProfileViewModel @Inject constructor(
     val hasMore: StateFlow<Map<Int, Boolean>> = _hasMore.asStateFlow()
 
     private var postsLastTimestamp: Long? = null
+    // Separate film-only cursor — segment 1 paginates with mediaType="movie",
+    // so it can't share the mixed-media cursor used by segment 0 (the shared
+    // cursor advances past films into music-only territory and pagination
+    // returns no films, leaving the tab stuck on the featured post).
+    private var filmsLastTimestamp: Long? = null
     private var likedOffset: Int = 0
     private var savedOffset: Int = 0
 
@@ -207,19 +219,26 @@ class ProfileViewModel @Inject constructor(
 
     fun refreshProfile() {
         hasLoaded = true
-        // Only reset the film-fetch flag if there's actually something to re-fetch.
-        // The counter (when available) is authoritative; fall back to the free
-        // guard for older backends without the field.
+        // Whether to clear hasFetchedFilmPage. If we're already on the Films
+        // tab, we run the movie-only fetch inline below and swap in fresh
+        // posts silently — clearing the flag would flip filmFetchPending true
+        // and flash the skeleton over the existing grid (music doesn't have
+        // an equivalent flag, so its grid swaps silently). Skip the clear
+        // also when we're confident films are zero (counter says 0 or all
+        // posts are loaded and none are movies) — same reason: avoid an
+        // empty-state-to-skeleton-to-empty-state flicker. In all other
+        // cases (refreshing from a non-film tab, films unknown), clear so
+        // the next Films tab visit refetches.
+        val onFilmsTab = _currentSegment.value == 1
         val knownZeroFilms = _profile.value?.movieCount == 0
-        val certainlyZeroFilms = knownZeroFilms ||
-            (!(_hasMore.value[0] ?: true) && _posts.value.none { it.mediaType == MediaType.MOVIE })
-        if (!certainlyZeroFilms) {
+        val allPostsLoaded = _hasMore.value[0] != true
+        val noFilmsCached = _posts.value.none { it.mediaType == fm.corus.android.data.model.MediaType.MOVIE }
+        if (!(onFilmsTab || knownZeroFilms || (allPostsLoaded && noFilmsCached))) {
             _hasFetchedFilmPage.value = false
         }
         viewModelScope.launch {
             _isLoading.value = true
             _isRefreshing.value = true
-            val onFilmsTab = _currentSegment.value == 1
             try {
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
@@ -233,11 +252,17 @@ class ProfileViewModel @Inject constructor(
                 val merged = page + movieSupplement.filter { m -> page.none { it.id == m.id } }
                 _posts.value = merged
                 if (page.isNotEmpty()) postsLastTimestamp = page.last().timestamp.time
+                filmsLastTimestamp = if (onFilmsTab && movieSupplement.isNotEmpty()) {
+                    movieSupplement.last().timestamp.time
+                } else null
                 if (onFilmsTab) _hasFetchedFilmPage.value = true
                 val serverHasMore = page.size >= PAGE_SIZE
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
                     this[0] = serverHasMore
-                    this[1] = serverHasMore
+                    // When refreshing on the Films tab we did a movie-only fetch — use
+                    // its size to decide film hasMore. Otherwise leave it open so the
+                    // next Films tab visit triggers loadFilmPageIfNeeded().
+                    this[1] = if (onFilmsTab) movieSupplement.size >= PAGE_SIZE else true
                 }
                 merged.forEach { post ->
                     engagementManager.initState(
@@ -354,22 +379,32 @@ class ProfileViewModel @Inject constructor(
     fun loadFilmPageIfNeeded() {
         if (_hasFetchedFilmPage.value || _isLoadingFilms.value) return
         val userId = authRepository.currentUserId ?: return
-        val cachedMovieCount = _posts.value.count { it.mediaType == MediaType.MOVIE }
-        val hasAnyMovies = cachedMovieCount > 0
-        val hasMoreMixed = _hasMore.value[0] ?: true
-        // Prefer the counter (authoritative); fall back to the "all posts loaded,
-        // none are films" free guard for older backends without the field.
-        val movieCount = _profile.value?.movieCount
-        val knownZeroFilms = movieCount == 0
-        val cachedAllFilms = movieCount != null && cachedMovieCount >= movieCount
-        if (knownZeroFilms || cachedAllFilms || (!hasMoreMixed && !hasAnyMovies)) {
+        // Synchronous "we know there are zero films" short-circuit (matches
+        // iOS). Skip the fetch and mark the page fetched so the empty state
+        // renders immediately, no skeleton flash. Two signals:
+        //   1. movieCount == 0 (counter is authoritative when present)
+        //   2. The initial posts page returned everything (hasMore[0] is
+        //      false) and no movies are cached. Covers fresh users whose
+        //      movieCount field hasn't been initialized yet (still null) and
+        //      music-only users with < PAGE_SIZE posts.
+        // Drift on a non-zero counter only delays new films appearing until
+        // next refresh, which we accept to avoid the new-user skeleton flash.
+        val knownZeroFilms = _profile.value?.movieCount == 0
+        val allPostsLoaded = _hasMore.value[0] != true
+        val noFilmsCached = _posts.value.none { it.mediaType == fm.corus.android.data.model.MediaType.MOVIE }
+        if (knownZeroFilms || (allPostsLoaded && noFilmsCached)) {
             _hasFetchedFilmPage.value = true
             return
         }
-        // Use isLoadingFilms as the in-flight guard (re-entrancy is blocked by
-        // the early return above) so the skeleton stays up while the fetch is
-        // running, even when one or more films are already cached from the
-        // recency-sorted initial page.
+        // The denormalized movieCount on the user doc can drift (the backend
+        // ships a backfillMediaCounts repair job for exactly this reason), so
+        // we don't trust any *non-zero* value to short-circuit the film-only
+        // fetch. The fetch is a single callable; running it once per Film tab
+        // visit is cheap and keeps the displayed list authoritative regardless
+        // of counter state. Use isLoadingFilms as the in-flight guard
+        // (re-entrancy is blocked by the early return above) so the skeleton
+        // stays up while the fetch is running, even when one or more films
+        // are already cached from the recency-sorted initial page.
         _isLoadingFilms.value = true
         viewModelScope.launch {
             try {
@@ -394,6 +429,10 @@ class ProfileViewModel @Inject constructor(
                         )
                     }
                     engagementManager.checkLikeStatuses(additions.map { it.id }, userId)
+                }
+                if (movies.isNotEmpty()) filmsLastTimestamp = movies.last().timestamp.time
+                _hasMore.value = _hasMore.value.toMutableMap().apply {
+                    this[1] = movies.size >= PAGE_SIZE
                 }
                 _hasFetchedFilmPage.value = true
             } catch (e: Exception) {
@@ -460,7 +499,7 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 when (segment) {
-                    0, 1 -> {
+                    0 -> {
                         val cursor = postsLastTimestamp
                         if (cursor != null) {
                             val newPosts = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = cursor)
@@ -472,11 +511,52 @@ class ProfileViewModel @Inject constructor(
                             }
                             _hasMore.value = _hasMore.value.toMutableMap().apply {
                                 this[0] = newPosts.size >= PAGE_SIZE
-                                this[1] = newPosts.size >= PAGE_SIZE
                             }
                         } else {
                             _hasMore.value = _hasMore.value.toMutableMap().apply {
                                 this[0] = false
+                            }
+                        }
+                    }
+                    1 -> {
+                        // Wait for the film-only fetch to populate the cursor; without
+                        // it we'd either short-circuit hasMore[1] to false or, worse,
+                        // paginate a mixed-media stream that the UI filters down to nothing.
+                        val ready = _hasFetchedFilmPage.value && !_isLoadingFilms.value
+                        val cursor = if (ready) filmsLastTimestamp else null
+                        if (!ready) {
+                            // No-op: leave hasMore[1] true so the next scroll retries.
+                        } else if (cursor != null) {
+                            val newPosts = cloudFunctions.getProfilePosts(
+                                userId, userId,
+                                limit = PAGE_SIZE,
+                                lastTimestamp = cursor,
+                                mediaType = "movie",
+                            )
+                            val existingIds = _posts.value.mapTo(HashSet()) { it.id }
+                            val unique = newPosts.filter { it.id !in existingIds }
+                            if (unique.isNotEmpty()) {
+                                _posts.value = _posts.value + unique
+                                unique.forEach { post ->
+                                    engagementManager.initState(
+                                        postId = post.id,
+                                        likeCount = post.likeCount,
+                                        commentCount = post.commentCount,
+                                        repostCount = post.repostCount,
+                                        isLiked = post.isLiked,
+                                        isSaved = false,
+                                    )
+                                }
+                                engagementManager.checkLikeStatuses(unique.map { it.id }, userId)
+                            }
+                            if (newPosts.isNotEmpty()) {
+                                filmsLastTimestamp = newPosts.last().timestamp.time
+                            }
+                            _hasMore.value = _hasMore.value.toMutableMap().apply {
+                                this[1] = newPosts.size >= PAGE_SIZE
+                            }
+                        } else {
+                            _hasMore.value = _hasMore.value.toMutableMap().apply {
                                 this[1] = false
                             }
                         }

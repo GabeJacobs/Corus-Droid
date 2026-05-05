@@ -1103,16 +1103,6 @@ private fun ComposeModeContent(
             )
         }
 
-        // Comments-audience picker. Hidden when the flag is off so the
-        // compose layout matches today's UI exactly until the rollout.
-        if (commentControlsOnPosts) {
-            fm.corus.android.ui.components.CommentsAudiencePicker(
-                selection = commentsAudience,
-                onSelect = onCommentsAudienceChange,
-                modifier = Modifier.padding(top = CorusSpacing.xs),
-            )
-        }
-
         // ── Mention suggestions ──
         if (mentionSuggestions.isNotEmpty()) {
             Card(
@@ -1157,6 +1147,14 @@ private fun ComposeModeContent(
             }
         }
         } // end else (text mode)
+
+        if (commentControlsOnPosts) {
+            fm.corus.android.ui.components.CommentsAudiencePicker(
+                selection = commentsAudience,
+                onSelect = onCommentsAudienceChange,
+                modifier = Modifier.padding(top = CorusSpacing.xs),
+            )
+        }
 
         // ── Post button — "SET YOUR CORUS →" like iOS ──
         Button(

@@ -29,6 +29,7 @@ enum class PaywallSource(val subtitle: String, val analyticsName: String) {
     PLAYLIST_LIMIT("Unlock playlist generation.", "playlist_limit"),
     SAVE_LIMIT("Unlock unlimited saves.", "save_cap"),
     SETTINGS("Support Corus. Get Perks.", "settings"),
+    NEW_RELEASE_FILTER("Unlock new release feeds.", "new_release_filter"),
 }
 
 @HiltViewModel
