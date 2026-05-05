@@ -64,8 +64,14 @@ class CommentsViewModel @Inject constructor(
      * comment; non-null is the reason the composer is hidden. Mirrors web's
      * `useCanComment` and iOS's `commentBlockReason` short-circuits.
      *
-     * - Flag off, missing field, "everyone" audience, viewer == author: allow.
-     * - "off": always blocked (except author).
+     * We deliberately don't gate on `commentControlsOnPosts` here: once a
+     * post on the wire carries `commentsAudience`, the server enforces it
+     * regardless of the viewer's feature-flag state, so the client must too
+     * — otherwise the viewer sees a composer and gets a permission-denied
+     * on submit.
+     *
+     * - Missing field, "everyone" audience, viewer == author: allow.
+     * - "off": always blocked (including author).
      * - "followers": blocked unless the viewer follows the author.
      * - "following": blocked unless the author follows the viewer.
      *
@@ -97,7 +103,6 @@ class CommentsViewModel @Inject constructor(
         edgeExists: Boolean?,
     ): fm.corus.android.ui.components.CommentsBlockReason? {
         if (post == null) return null
-        if (!remoteConfigService.commentControlsOnPosts) return null
         val audience = post.commentsAudience ?: return null
         if (audience == fm.corus.android.data.model.CommentsAudience.EVERYONE) return null
         val viewerId = authRepository.currentUserId
@@ -128,7 +133,6 @@ class CommentsViewModel @Inject constructor(
      *    cache can't answer this, so we hit Firestore.
      */
     private fun refreshFollowGate(post: CymbalPost) {
-        if (!remoteConfigService.commentControlsOnPosts) return
         val audience = post.commentsAudience ?: return
         if (audience != fm.corus.android.data.model.CommentsAudience.FOLLOWERS &&
             audience != fm.corus.android.data.model.CommentsAudience.FOLLOWING) return
