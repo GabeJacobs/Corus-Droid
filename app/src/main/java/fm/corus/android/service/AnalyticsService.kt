@@ -9,6 +9,12 @@ import javax.inject.Singleton
 class AnalyticsService @Inject constructor(
     private val analytics: FirebaseAnalytics,
 ) {
+    init {
+        // Mirrors iOS (`app_platform=ios`) and the web app so GA4 reports
+        // can split web vs. iOS vs. Android cleanly.
+        analytics.setUserProperty("app_platform", "android")
+    }
+
     // MARK: - User Identity
 
     fun setUserId(userId: String?) {

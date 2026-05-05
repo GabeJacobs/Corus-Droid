@@ -586,6 +586,7 @@ private fun SuggestedUsersContent(
     val context = LocalContext.current
     val tasteMatchesTitle = stringResource(fm.corus.android.R.string.search_taste_matches_title)
     val mutualConnectionsTitle = stringResource(fm.corus.android.R.string.search_mutual_connections_title)
+    val popularOnCorusTitle = stringResource(fm.corus.android.R.string.search_popular_title)
     val newOnCorusTitle = stringResource(fm.corus.android.R.string.search_new_title)
     val fromContactsSubtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts)
     val joinedFormat = fm.corus.android.R.string.suggested_users_joined_format
@@ -750,6 +751,7 @@ private fun SuggestedUsersContent(
                 isFollowed = { id -> viewModel.isFollowed(id) },
                 onUserTap = { user -> onNavigateToUser(user.id) },
                 onFollowTap = { user -> viewModel.toggleFollow(user) },
+                onSeeAll = { onNavigateToSuggestedUsers(popularOnCorusTitle, false, "popular") },
             )
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
@@ -1633,8 +1635,10 @@ private fun HashtagRow(
     onToggleFollow: () -> Unit,
 ) {
     val viewModel: SearchViewModel = hiltViewModel()
+    // Seed from the ViewModel's preview cache so a tab-switch round-trip
+    // doesn't flash the shimmer skeleton on already-loaded hashtags.
     var preview by remember(hashtag.id) {
-        mutableStateOf<fm.corus.android.data.remote.FirestoreDataSource.HashtagPreview?>(null)
+        mutableStateOf(viewModel.cachedHashtagPreview(hashtag.name))
     }
     LaunchedEffect(hashtag.id) {
         if (preview == null) {

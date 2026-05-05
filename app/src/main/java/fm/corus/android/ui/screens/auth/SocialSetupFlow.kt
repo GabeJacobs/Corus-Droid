@@ -370,9 +370,11 @@ private fun FollowFriendsScreen(
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val isFinishing by viewModel.isFinishing.collectAsState()
-    val previewingUserId by viewModel.previewingUserId.collectAsState()
-    val isPreviewLoading by viewModel.isPreviewLoading.collectAsState()
-    val nowPlayingState by viewModel.nowPlayingState.collectAsState()
+    val previewSheetUser by viewModel.previewSheetUser.collectAsState()
+    val previewSheetPosts by viewModel.previewSheetPosts.collectAsState()
+    val previewSheetIsLoading by viewModel.previewSheetIsLoading.collectAsState()
+    val previewSheetIsLoadingMore by viewModel.previewSheetIsLoadingMore.collectAsState()
+    val previewSheetHasMore by viewModel.previewSheetHasMore.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
     val scrollDismissConnection = remember {
         object : NestedScrollConnection {
@@ -419,9 +421,6 @@ private fun FollowFriendsScreen(
                 searchResults = searchResults,
                 isSearching = isSearching,
                 isFinishing = isFinishing,
-                previewingUserId = previewingUserId,
-                isPreviewLoading = isPreviewLoading,
-                nowPlayingState = nowPlayingState,
                 keyboardController = keyboardController,
                 scrollDismissConnection = scrollDismissConnection,
                 onSeeAll = { destination ->
@@ -431,6 +430,21 @@ private fun FollowFriendsScreen(
                 onFinished = finishWithPushPrompt,
             )
         }
+    }
+
+    previewSheetUser?.let { sheetUser ->
+        UserPreviewSheet(
+            user = sheetUser,
+            posts = previewSheetPosts,
+            isLoading = previewSheetIsLoading,
+            isLoadingMore = previewSheetIsLoadingMore,
+            hasMore = previewSheetHasMore,
+            isFollowed = followedIds.contains(sheetUser.id),
+            nowPlaying = viewModel.nowPlayingManagerInstance,
+            onFollow = { viewModel.toggleFollow(sheetUser.id) },
+            onLoadMore = { viewModel.loadMorePreviewPosts() },
+            onDismiss = { viewModel.closeUserPreview() },
+        )
     }
 }
 
@@ -445,9 +459,6 @@ private fun FollowFriendsMainContent(
     searchResults: List<CymbalUser>,
     isSearching: Boolean,
     isFinishing: Boolean,
-    previewingUserId: String?,
-    isPreviewLoading: Boolean,
-    nowPlayingState: fm.corus.android.domain.NowPlayingState,
     keyboardController: androidx.compose.ui.platform.SoftwareKeyboardController?,
     scrollDismissConnection: NestedScrollConnection,
     onSeeAll: (SeeAllDestination) -> Unit,
@@ -513,10 +524,8 @@ private fun FollowFriendsMainContent(
                         OnboardingUserRow(
                             user = user,
                             isFollowed = followedIds.contains(user.id),
-                            isPreviewLoading = previewingUserId == user.id && isPreviewLoading,
-                            isPreviewPlaying = previewingUserId == user.id && nowPlayingState.isPlaying,
                             onFollow = { viewModel.toggleFollow(user.id) },
-                            onTap = { viewModel.playUserPreview(user.id) },
+                            onTap = { viewModel.openUserPreview(user) },
                         )
                     }
                 }
@@ -538,10 +547,8 @@ private fun FollowFriendsMainContent(
                                 user = user,
                                 subtitle = stringResource(id = R.string.search_subtitle_from_contacts),
                                 isFollowed = followedIds.contains(user.id),
-                                isPreviewLoading = previewingUserId == user.id && isPreviewLoading,
-                                isPreviewPlaying = previewingUserId == user.id && nowPlayingState.isPlaying,
                                 onFollow = { viewModel.toggleFollow(user.id) },
-                                onTap = { viewModel.playUserPreview(user.id) },
+                                onTap = { viewModel.openUserPreview(user) },
                             )
                         }
                     } else if (contactsSynced) {
@@ -580,7 +587,7 @@ private fun FollowFriendsMainContent(
                     HorizontalPopularUsersRail(
                         excludeIds = emptySet(),
                         isFollowed = { id -> followedIds.contains(id) },
-                        onUserTap = { user -> viewModel.playUserPreview(user.id) },
+                        onUserTap = { user -> viewModel.openUserPreview(user) },
                         onFollowTap = { user -> viewModel.toggleFollow(user.id) },
                     )
                 }
@@ -727,17 +734,9 @@ private fun OnboardingUserRow(
     user: CymbalUser,
     subtitle: String? = null,
     isFollowed: Boolean,
-    isPreviewLoading: Boolean = false,
-    isPreviewPlaying: Boolean = false,
     onFollow: () -> Unit,
     onTap: (() -> Unit)? = null,
 ) {
-    val overlayAlpha by animateFloatAsState(
-        targetValue = if (isPreviewLoading || isPreviewPlaying) 0.4f else 0f,
-        animationSpec = tween(200),
-        label = "overlay-alpha",
-    )
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -745,32 +744,7 @@ private fun OnboardingUserRow(
             .padding(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Avatar with play/loading overlay (matching iOS)
-        Box(contentAlignment = Alignment.Center) {
-            UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium)
-            // Dark scrim
-            Box(
-                modifier = Modifier
-                    .size(CorusSpacing.avatarMedium)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = overlayAlpha)),
-            )
-            // Loading spinner or pause icon
-            if (isPreviewLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp,
-                )
-            } else if (isPreviewPlaying) {
-                Icon(
-                    imageVector = Icons.Filled.Pause,
-                    contentDescription = stringResource(id = R.string.post_detail_cd_pause),
-                    tint = Color.White,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
-        }
+        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(

@@ -401,17 +401,9 @@ class FirestoreDataSource @Inject constructor(
         // onPostCreatedFanoutFeedPointers Cloud Function via the idempotent
         // helper. Doing it here would double-count cymbalCount.
 
-        // If this is a repost (attribution toggle on), bump the original post's
-        // repostCount so the original poster's engagement row updates. Matches
-        // iOS DatabaseService.createPost.
-        val originalPostId = data["repostedFromPostId"] as? String
-        if (!originalPostId.isNullOrEmpty()) {
-            try {
-                firestore.collection("posts").document(originalPostId)
-                    .update("repostCount", FieldValue.increment(1))
-                    .await()
-            } catch (_: Exception) { }
-        }
+        // repostCount on the original post is bumped server-side by the
+        // onPostCreated cloud function — incrementing here too would
+        // double-count. Matches iOS DatabaseService.createPost.
 
         return docRef.id
     }

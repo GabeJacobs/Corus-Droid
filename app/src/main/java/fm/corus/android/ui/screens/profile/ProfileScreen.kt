@@ -91,6 +91,7 @@ import java.io.File
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
+    tabActivationTrigger: Int = 0,
     openStylePicker: Boolean = false,
     onStylePickerConsumed: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
@@ -205,6 +206,15 @@ fun ProfileScreen(
         if (scrollToTopTrigger > lastScrollTrigger) {
             gridState.animateScrollToItem(0)
             lastScrollTrigger = scrollToTopTrigger
+        }
+    }
+
+    // Featured-post like-count refresh on tab activation. The trigger is bumped
+    // by MainTabScreen each time the profile tab is selected; the viewModel
+    // applies a 60s throttle so frequent tab-switching doesn't spam reads.
+    LaunchedEffect(tabActivationTrigger) {
+        if (tabActivationTrigger > 0) {
+            viewModel.refreshFeaturedPostsIfStale()
         }
     }
 

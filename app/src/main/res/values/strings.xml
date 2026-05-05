@@ -165,6 +165,9 @@
     <string name="feed_empty_curated_music">or follow some curated music bots</string>
     <string name="feed_empty_curated_film">or some curated film bots</string>
     <string name="feed_empty_see_all">See all</string>
+    <string name="feed_offline_title">Couldn\'t connect</string>
+    <string name="feed_offline_subtitle">Check your internet connection and try again.</string>
+    <string name="feed_offline_retry">Retry</string>
     <string name="feed_toast_failed_send_post">Failed to send post</string>
     <string name="feed_toast_post_reported">Post reported</string>
     <string name="feed_toast_failed_report">Failed to report post</string>

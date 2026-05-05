@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -34,14 +35,12 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
-import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
-import fm.corus.android.ui.components.HorizontalPopularUsersRail
+import fm.corus.android.ui.components.PopularUsersInfiniteGrid
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.SkeletonPostCard
-import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -81,6 +80,8 @@ fun FeedScreen(
     val hasLoaded by viewModel.hasLoaded.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
+    val isConnected by viewModel.isConnected.collectAsState()
+    val lastLoadFailed by viewModel.lastLoadFailed.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
     val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     val feedMediaFilter by viewModel.feedMediaFilter.collectAsState()
@@ -173,6 +174,59 @@ fun FeedScreen(
                 }
             }
 
+            // Offline empty state — when the load failed or we have no
+            // connection, show a "couldn't connect" panel instead of the
+            // invite-friends / new-releases empty states. Mirrors iOS
+            // FeedView.offlineEmptyState.
+            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && (lastLoadFailed || !isConnected) -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    header()
+                    Spacer(modifier = Modifier.height(60.dp))
+                    Icon(
+                        imageVector = Icons.Filled.WifiOff,
+                        contentDescription = null,
+                        tint = CorusColors.Tertiary,
+                        modifier = Modifier.size(36.dp),
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    Text(
+                        text = stringResource(R.string.feed_offline_title),
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    Text(
+                        text = stringResource(R.string.feed_offline_subtitle),
+                        style = CorusFont.caption,
+                        color = CorusColors.Tertiary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                    Button(
+                        onClick = {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                            viewModel.loadFeed(refresh = true)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.feed_offline_retry),
+                            style = CorusFont.button,
+                            color = CorusColors.Background,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+                }
+            }
+
             // Empty state — only after a load settles with no posts
             posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedFilter.newReleasesOnly -> {
                 Column(
@@ -221,69 +275,60 @@ fun FeedScreen(
             }
 
             posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
+                val inviteShareText = stringResource(R.string.feed_empty_invite_share_text)
+                val inviteChooser = stringResource(R.string.feed_empty_invite_chooser)
+                Column(modifier = Modifier.fillMaxSize()) {
                     header()
-                    Spacer(modifier = Modifier.height(40.dp))
-
-                    // Invite friends section
-                    Text(
-                        text = stringResource(R.string.feed_empty_invite_title),
-                        style = CorusFont.songTitleLarge,
-                        color = CorusColors.Text,
-                        textAlign = TextAlign.Center,
-                    )
-
-                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
-
-                    Text(
-                        text = stringResource(R.string.feed_empty_invite_subtitle),
-                        style = CorusFont.body,
-                        color = CorusColors.Secondary,
-                        textAlign = TextAlign.Center,
-                    )
-
-                    Spacer(modifier = Modifier.height(CorusSpacing.lg))
-
-                    val inviteShareText = stringResource(R.string.feed_empty_invite_share_text)
-                    val inviteChooser = stringResource(R.string.feed_empty_invite_chooser)
-                    Button(
-                        onClick = {
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, inviteShareText)
-                                type = "text/plain"
-                            }
-                            context.startActivity(Intent.createChooser(sendIntent, inviteChooser))
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = CorusColors.Accent,
-                        ),
-                        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.feed_empty_invite_button),
-                            style = CorusFont.button,
-                            color = CorusColors.Background,
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(CorusSpacing.xl))
-
-                    // Popular on Corus — paginated horizontal rail of real users.
-                    // Replaces the old Curated Music/Film Bots empty-state sections.
-                    HorizontalPopularUsersRail(
+                    PopularUsersInfiniteGrid(
                         excludeIds = emptySet(),
                         isFollowed = { id -> followedBotIds.contains(id) },
                         onUserTap = { user -> onNavigateToUser(user) },
                         onFollowTap = { user -> viewModel.toggleBotFollow(user) },
+                        modifier = Modifier.weight(1f),
+                        topContent = {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Spacer(modifier = Modifier.height(40.dp))
+                                Text(
+                                    text = stringResource(R.string.feed_empty_invite_title),
+                                    style = CorusFont.songTitleLarge,
+                                    color = CorusColors.Text,
+                                    textAlign = TextAlign.Center,
+                                )
+                                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                                Text(
+                                    text = stringResource(R.string.feed_empty_invite_subtitle),
+                                    style = CorusFont.body,
+                                    color = CorusColors.Secondary,
+                                    textAlign = TextAlign.Center,
+                                )
+                                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                                Button(
+                                    onClick = {
+                                        val sendIntent = Intent().apply {
+                                            action = Intent.ACTION_SEND
+                                            putExtra(Intent.EXTRA_TEXT, inviteShareText)
+                                            type = "text/plain"
+                                        }
+                                        context.startActivity(Intent.createChooser(sendIntent, inviteChooser))
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CorusColors.Accent,
+                                    ),
+                                    shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.feed_empty_invite_button),
+                                        style = CorusFont.button,
+                                        color = CorusColors.Background,
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(CorusSpacing.xl))
+                            }
+                        },
                     )
-
-                    Spacer(modifier = Modifier.height(CorusSpacing.xxl))
                 }
             }
 

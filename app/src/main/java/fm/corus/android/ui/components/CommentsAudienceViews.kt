@@ -11,7 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.HowToReg
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.SpeakerNotesOff
 import androidx.compose.material3.DropdownMenu
@@ -165,14 +165,14 @@ enum class CommentsBlockReason { OFF, FOLLOWERS, FOLLOWING }
 
 private fun CommentsAudience.icon(): ImageVector = when (this) {
     CommentsAudience.EVERYONE -> Icons.Outlined.Public
-    CommentsAudience.FOLLOWERS -> Icons.Outlined.Person
+    CommentsAudience.FOLLOWERS -> Icons.Outlined.HowToReg
     CommentsAudience.FOLLOWING -> Icons.Outlined.Group
     CommentsAudience.OFF -> Icons.Outlined.SpeakerNotesOff
 }
 
 private fun CommentsBlockReason.icon(): ImageVector = when (this) {
     CommentsBlockReason.OFF -> Icons.Outlined.SpeakerNotesOff
-    CommentsBlockReason.FOLLOWERS -> Icons.Outlined.Person
+    CommentsBlockReason.FOLLOWERS -> Icons.Outlined.HowToReg
     CommentsBlockReason.FOLLOWING -> Icons.Outlined.Group
 }
 

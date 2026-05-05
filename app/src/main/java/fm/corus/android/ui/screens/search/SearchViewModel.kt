@@ -104,6 +104,13 @@ class SearchViewModel @Inject constructor(
     private val hashtagSearchCache = mutableMapOf<String, List<CymbalHashtag>>()
     private val hashtagPreviewCache = mutableMapOf<String, FirestoreDataSource.HashtagPreview>()
 
+    /** Synchronous read of the in-memory preview cache. Returned by reference
+     *  so a row can seed its initial state without an extra suspend hop —
+     *  prevents the shimmer flash when the user leaves the hashtags tab and
+     *  returns (the row is recomposed but the cache survives). */
+    fun cachedHashtagPreview(tag: String): FirestoreDataSource.HashtagPreview? =
+        hashtagPreviewCache[tag.lowercase()]
+
     /** Cached fetch of `(album-art mosaic, live count)` for a hashtag.
      *  Used by the hashtag rows so each row only hits Firestore once per
      *  session. Mirrors iOS `DatabaseService.fetchHashtagPreview`. */

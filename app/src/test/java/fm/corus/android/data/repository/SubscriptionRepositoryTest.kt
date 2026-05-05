@@ -205,6 +205,110 @@ class SubscriptionRepositoryTest {
         assertFalse(repo.postCountLoaded.value)
     }
 
+    // ── refreshPostLimitIfNeeded (foreground throttle) ──
+
+    @Test
+    fun `refreshPostLimitIfNeeded skips for verified users`() = runTest {
+        repo.updateVerifiedStatus(true)
+
+        repo.refreshPostLimitIfNeeded()
+
+        // Verified users bypass the soft limit entirely — no point hitting the server.
+        verify(cloudFunctions, org.mockito.kotlin.never()).checkCanPost()
+    }
+
+    @Test
+    fun `refreshPostLimitIfNeeded calls server for free users on first foreground`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenReturn(
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 1, dailyLimit = 3)
+        )
+
+        repo.refreshPostLimitIfNeeded()
+
+        verify(cloudFunctions).checkCanPost()
+        assertEquals(1, repo.recentPostCount.value)
+    }
+
+    @Test
+    fun `refreshPostLimitIfNeeded throttles repeat calls within the window`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenReturn(
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = 3)
+        )
+
+        // First call lands; subsequent calls inside the throttle window are dropped
+        // so rapid background/foreground flips don't spam checkCanPost.
+        repo.refreshPostLimitIfNeeded(now = 1_000_000L)
+        repo.refreshPostLimitIfNeeded(now = 1_000_000L + SubscriptionRepository.POST_LIMIT_REFRESH_THROTTLE_MS - 1)
+
+        verify(cloudFunctions, org.mockito.kotlin.times(1)).checkCanPost()
+    }
+
+    @Test
+    fun `refreshPostLimitIfNeeded refreshes again once the throttle window elapses`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenReturn(
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = 3)
+        )
+
+        repo.refreshPostLimitIfNeeded(now = 1_000_000L)
+        repo.refreshPostLimitIfNeeded(now = 1_000_000L + SubscriptionRepository.POST_LIMIT_REFRESH_THROTTLE_MS + 1)
+
+        verify(cloudFunctions, org.mockito.kotlin.times(2)).checkCanPost()
+    }
+
+    // ── decrementPostCount (post-deletion) ──
+
+    @Test
+    fun `decrementPostCount frees a slot when the deleted post is within the 24h window`() {
+        // Simulate the bug repro: 3 posts in 24h, hitting the soft limit.
+        repeat(3) { repo.incrementPostCount() }
+        assertFalse(repo.canPost)
+
+        // Delete one that was created an hour ago — should free a slot immediately
+        // without needing an app restart or a server round trip.
+        val oneHourAgo = java.util.Date(System.currentTimeMillis() - 60L * 60L * 1000L)
+        repo.decrementPostCount(oneHourAgo)
+
+        assertEquals(2, repo.recentPostCount.value)
+        assertTrue(repo.canPost)
+    }
+
+    @Test
+    fun `decrementPostCount does not touch recentPostCount for posts outside the window`() {
+        repeat(3) { repo.incrementPostCount() }
+
+        // Server only counts the rolling 24h window, so deleting an old post
+        // shouldn't decrement — otherwise the local count drifts below the server's.
+        val twoDaysAgo = java.util.Date(System.currentTimeMillis() - 2L * SubscriptionRepository.ROLLING_WINDOW_MS)
+        repo.decrementPostCount(twoDaysAgo)
+
+        assertEquals(3, repo.recentPostCount.value)
+        // totalPostCount still drops because that's lifetime, not windowed.
+        assertEquals(2, repo.totalPostCount.value)
+    }
+
+    @Test
+    fun `decrementPostCount clamps at zero so concurrent deletes never go negative`() {
+        // No posts incremented — count is already 0.
+        val now = java.util.Date()
+        repo.decrementPostCount(now)
+        repo.decrementPostCount(now)
+
+        assertEquals(0, repo.recentPostCount.value)
+        assertEquals(0, repo.totalPostCount.value)
+    }
+
+    @Test
+    fun `decrementPostCount with null timestamp leaves recentPostCount alone`() {
+        // Cache miss path in PostRepository.deletePost passes null — be conservative
+        // and let the next refreshPostLimit reconcile rather than guessing.
+        repeat(3) { repo.incrementPostCount() }
+
+        repo.decrementPostCount(null)
+
+        assertEquals(3, repo.recentPostCount.value)
+        assertEquals(2, repo.totalPostCount.value)
+    }
+
     // ── PurchaseOutcome ──
 
     @Test

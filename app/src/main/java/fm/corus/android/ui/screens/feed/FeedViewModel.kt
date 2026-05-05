@@ -25,6 +25,7 @@ import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.PostMenuActions
 import fm.corus.android.ui.components.ToastManager
@@ -54,8 +55,17 @@ class FeedViewModel @Inject constructor(
     override val analyticsService: AnalyticsService,
     private val postCreationEvent: PostCreationEvent,
     private val postDeletionEvent: PostDeletionEvent,
+    networkMonitor: NetworkMonitor,
     @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
+
+    /** Live network connectivity. Mirrors iOS `NetworkMonitor.isConnected`. */
+    val isConnected: StateFlow<Boolean> = networkMonitor.isConnected
+
+    /** True when the most recent feed load threw — used to drive the
+     *  offline empty state. Cleared on the next successful load. */
+    private val _lastLoadFailed = MutableStateFlow(false)
+    val lastLoadFailed: StateFlow<Boolean> = _lastLoadFailed.asStateFlow()
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
@@ -215,7 +225,10 @@ class FeedViewModel @Inject constructor(
 
             // Check actual like status from Firestore (backend doesn't return isLiked)
             engagementManager.checkLikeStatuses(newPosts.map { it.id }, userId)
-        } catch (_: Exception) { }
+            _lastLoadFailed.value = false
+        } catch (_: Exception) {
+            _lastLoadFailed.value = true
+        }
 
         _isLoading.value = false
         _isRefreshing.value = false

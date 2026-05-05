@@ -70,15 +70,25 @@ class SocialSetupViewModel @Inject constructor(
     private val _isFinishing = MutableStateFlow(false)
     val isFinishing: StateFlow<Boolean> = _isFinishing.asStateFlow()
 
-    // ── Preview Playback ──
+    // ── User Preview Sheet ──
 
-    /** The user ID whose preview is currently loading or playing. */
-    private val _previewingUserId = MutableStateFlow<String?>(null)
-    val previewingUserId: StateFlow<String?> = _previewingUserId.asStateFlow()
+    /** The user being previewed in the half-sheet, or null when closed. */
+    private val _previewSheetUser = MutableStateFlow<CymbalUser?>(null)
+    val previewSheetUser: StateFlow<CymbalUser?> = _previewSheetUser.asStateFlow()
 
-    /** True while the preview track is being resolved (fetching posts / looking up URL). */
-    private val _isPreviewLoading = MutableStateFlow(false)
-    val isPreviewLoading: StateFlow<Boolean> = _isPreviewLoading.asStateFlow()
+    private val _previewSheetPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
+    val previewSheetPosts: StateFlow<List<CymbalPost>> = _previewSheetPosts.asStateFlow()
+
+    private val _previewSheetIsLoading = MutableStateFlow(false)
+    val previewSheetIsLoading: StateFlow<Boolean> = _previewSheetIsLoading.asStateFlow()
+
+    private val _previewSheetIsLoadingMore = MutableStateFlow(false)
+    val previewSheetIsLoadingMore: StateFlow<Boolean> = _previewSheetIsLoadingMore.asStateFlow()
+
+    private val _previewSheetHasMore = MutableStateFlow(true)
+    val previewSheetHasMore: StateFlow<Boolean> = _previewSheetHasMore.asStateFlow()
+
+    val nowPlayingManagerInstance: NowPlayingManager get() = nowPlayingManager
 
     val nowPlayingState: StateFlow<NowPlayingState> = nowPlayingManager.state
 
@@ -181,48 +191,66 @@ class SocialSetupViewModel @Inject constructor(
         }
     }
 
-    fun playUserPreview(userId: String) {
+    /** Open the user-preview half-sheet for [user] and start fetching their posts. */
+    fun openUserPreview(user: CymbalUser) {
         val viewerId = authRepository.currentUserId ?: return
-
-        // If same user is already playing, toggle pause
-        if (_previewingUserId.value == userId && nowPlayingManager.isPlaying) {
-            nowPlayingManager.togglePlayPause()
-            return
-        }
-        // If same user is paused, resume
-        if (_previewingUserId.value == userId && nowPlayingManager.currentTrackId != null) {
-            nowPlayingManager.togglePlayPause()
-            return
-        }
-
-        _previewingUserId.value = userId
-        _isPreviewLoading.value = true
+        _previewSheetUser.value = user
+        _previewSheetPosts.value = emptyList()
+        _previewSheetHasMore.value = true
+        _previewSheetIsLoading.value = true
         viewModelScope.launch {
             try {
-                val posts = postRepository.getProfilePosts(userId, viewerId, limit = 5)
-                val post = posts.firstOrNull { it.isTrack } ?: run {
-                    _isPreviewLoading.value = false
-                    _previewingUserId.value = null
-                    return@launch
-                }
-                val track = post.track
-                nowPlayingManager.play(
-                    trackId = track.id,
-                    trackName = track.name,
-                    artistName = track.artistName,
-                    albumArtURL = track.albumArtURL,
-                    previewUrl = track.previewUrl,
+                val posts = postRepository.getProfilePosts(
+                    userId = user.id,
+                    viewerId = viewerId,
+                    limit = PREVIEW_PAGE_SIZE,
                 )
+                _previewSheetPosts.value = posts
+                _previewSheetHasMore.value = posts.size == PREVIEW_PAGE_SIZE
             } catch (_: Exception) {
-                _previewingUserId.value = null
+                _previewSheetHasMore.value = false
             }
-            _isPreviewLoading.value = false
+            _previewSheetIsLoading.value = false
         }
     }
 
-    fun stopPreview() {
+    /** Fetch the next page of preview posts for the open sheet. */
+    fun loadMorePreviewPosts() {
+        val user = _previewSheetUser.value ?: return
+        val viewerId = authRepository.currentUserId ?: return
+        if (_previewSheetIsLoadingMore.value || !_previewSheetHasMore.value) return
+        val cursor = _previewSheetPosts.value.lastOrNull()?.timestamp?.time ?: return
+        _previewSheetIsLoadingMore.value = true
+        viewModelScope.launch {
+            try {
+                val next = postRepository.getProfilePosts(
+                    userId = user.id,
+                    viewerId = viewerId,
+                    limit = PREVIEW_PAGE_SIZE,
+                    lastTimestamp = cursor,
+                )
+                val existingIds = _previewSheetPosts.value.map { it.id }.toSet()
+                val deduped = next.filter { it.id !in existingIds }
+                _previewSheetPosts.value = _previewSheetPosts.value + deduped
+                _previewSheetHasMore.value = next.size == PREVIEW_PAGE_SIZE
+            } catch (_: Exception) {
+                _previewSheetHasMore.value = false
+            }
+            _previewSheetIsLoadingMore.value = false
+        }
+    }
+
+    fun closeUserPreview() {
+        _previewSheetUser.value = null
+        _previewSheetPosts.value = emptyList()
+        _previewSheetIsLoading.value = false
+        _previewSheetIsLoadingMore.value = false
+        _previewSheetHasMore.value = true
         nowPlayingManager.stop()
-        _previewingUserId.value = null
+    }
+
+    private companion object {
+        private const val PREVIEW_PAGE_SIZE = 15
     }
 
     /** Remembers that we've shown the push-permission prompt so the MainTab fallback

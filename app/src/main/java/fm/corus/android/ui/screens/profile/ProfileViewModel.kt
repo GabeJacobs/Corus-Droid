@@ -156,6 +156,16 @@ class ProfileViewModel @Inject constructor(
     // Reset by refreshProfile() so pull-to-refresh still fetches.
     private var hasLoaded = false
 
+    // Throttle window for tab-activation refreshes of the featured post(s).
+    // Stamped by loadProfile/refreshProfile so a freshly-loaded screen doesn't
+    // immediately refetch on entry.
+    private var lastFeaturedRefreshAt: Long = 0L
+
+    // Clock seam — overridden in tests so the throttle window can be exercised
+    // without sleeping. Production uses System.currentTimeMillis.
+    @androidx.annotation.VisibleForTesting
+    var clock: () -> Long = System::currentTimeMillis
+
     private val PAGE_SIZE = 30
     fun loadProfile() {
         if (hasLoaded) return
@@ -187,6 +197,7 @@ class ProfileViewModel @Inject constructor(
                     )
                 }
                 engagementManager.checkLikeStatuses(page.map { it.id }, userId)
+                lastFeaturedRefreshAt = clock()
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "loadProfile failed", e)
             }
@@ -239,6 +250,7 @@ class ProfileViewModel @Inject constructor(
                     )
                 }
                 engagementManager.checkLikeStatuses(merged.map { it.id }, userId)
+                lastFeaturedRefreshAt = clock()
                 // Reset lazy-loaded segments so they reload on next visit
                 likedLoaded = false
                 savedLoaded = false
@@ -258,6 +270,50 @@ class ProfileViewModel @Inject constructor(
             when (_currentSegment.value) {
                 2 -> loadLikedPosts()
                 3 -> loadSavedPosts()
+            }
+        }
+    }
+
+    /**
+     * Cheap refresh of the featured posts' engagement counts, fired when the
+     * user re-enters the profile tab. Throttled — stamped by loadProfile and
+     * refreshProfile so a freshly-loaded screen doesn't immediately refetch,
+     * and frequent tab-switching can't spam Firestore.
+     *
+     * Now-stamp is set BEFORE the async fetches so flapping/network failures
+     * don't cause repeated retries within the throttle window. Pull-to-refresh
+     * remains the user-visible recovery path.
+     */
+    fun refreshFeaturedPostsIfStale(minIntervalMs: Long = 60_000L) {
+        val now = clock()
+        if (lastFeaturedRefreshAt != 0L && now - lastFeaturedRefreshAt < minIntervalMs) return
+        val userId = authRepository.currentUserId ?: return
+        val currentPosts = _posts.value
+        val latestTrack = currentPosts.firstOrNull { it.mediaType == MediaType.TRACK }
+        val latestMovie = currentPosts.firstOrNull { it.mediaType == MediaType.MOVIE }
+        val ids = listOfNotNull(latestTrack?.id, latestMovie?.id).distinct()
+        if (ids.isEmpty()) return
+
+        lastFeaturedRefreshAt = now
+
+        viewModelScope.launch {
+            ids.forEach { postId ->
+                launch {
+                    try {
+                        val updated = cloudFunctions.getPostDetail(postId, userId) ?: return@launch
+                        _posts.value = _posts.value.map { if (it.id == updated.id) updated else it }
+                        engagementManager.initState(
+                            postId = updated.id,
+                            likeCount = updated.likeCount,
+                            commentCount = updated.commentCount,
+                            repostCount = updated.repostCount,
+                            isLiked = updated.isLiked,
+                            isSaved = false,
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("ProfileViewModel", "refreshFeaturedPostsIfStale failed for $postId", e)
+                    }
+                }
             }
         }
     }

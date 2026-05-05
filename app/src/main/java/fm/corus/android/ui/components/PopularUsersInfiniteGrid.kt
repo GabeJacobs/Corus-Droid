@@ -1,29 +1,27 @@
 package fm.corus.android.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,26 +52,27 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Horizontally-scrolling, paginated rail of popular real users.
+ * Vertically-scrolling, paginated 2-column grid of popular real users.
  *
- * Shown in place of the old Curated Music Bots / Film Bots / Popular sections
- * on the search-root, social-setup onboarding, and feed empty-state screens.
- * The card UI ([TasteMatchCard]) is identical to the one bots used; previews
- * are populated by fetching each user's last few posts.
+ * Mirrors the iOS `PopularUsersInfiniteGrid` used in onboarding and the
+ * empty-feed state: the entire screen scrolls as a single surface, the grid
+ * hands paging off to the user's scroll, and skeleton cards fill the trailing
+ * row while another page is in flight.
  *
- * Bots are still queryable via search results — they're filtered out of this
- * rail by [UserRepository.fetchPopularUsersPaginated], not blocked anywhere
- * else.
+ * Pass non-grid content (e.g. the empty-feed "invite friends" section) via
+ * [topContent] — it's rendered as a full-span row above the section header so
+ * the whole page lives inside one scrollable.
  */
 @Composable
-fun HorizontalPopularUsersRail(
+fun PopularUsersInfiniteGrid(
     excludeIds: Set<String>,
     isFollowed: (String) -> Boolean,
     onUserTap: (CymbalUser) -> Unit,
     onFollowTap: (CymbalUser) -> Unit,
     modifier: Modifier = Modifier,
-    onSeeAll: (() -> Unit)? = null,
-    viewModel: PopularUsersRailViewModel = hiltViewModel(),
+    state: LazyGridState = rememberLazyGridState(),
+    topContent: (@Composable () -> Unit)? = null,
+    viewModel: PopularUsersInfiniteGridViewModel = hiltViewModel(),
 ) {
     val matches by viewModel.matches.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -83,55 +82,58 @@ fun HorizontalPopularUsersRail(
         viewModel.loadInitial(excludeIds)
     }
 
-    val listState = rememberLazyListState()
-    LaunchedEffect(listState, endReached, isLoading) {
+    LaunchedEffect(state, endReached, isLoading) {
         snapshotFlow {
-            val info = listState.layoutInfo
+            val info = state.layoutInfo
             val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
             last to info.totalItemsCount
         }
             .distinctUntilChanged()
             .collect { (lastVisible, total) ->
-                if (!endReached && !isLoading && total > 0 && lastVisible >= total - 3) {
+                if (!endReached && !isLoading && total > 0 && lastVisible >= total - 4) {
                     viewModel.loadMore(excludeIds)
                 }
             }
     }
 
-    androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxWidth()) {
-        Header(onSeeAll = onSeeAll)
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        state = state,
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(
+            start = CorusSpacing.lg,
+            end = CorusSpacing.lg,
+            bottom = CorusSpacing.xxl,
+        ),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+    ) {
+        if (topContent != null) {
+            item(span = { GridItemSpan(maxLineSpan) }, key = "top") {
+                topContent()
+            }
+        }
+
+        item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
+            SectionHeader()
+        }
 
         if (matches.isEmpty() && isLoading) {
-            SkeletonRow()
-        } else if (matches.isNotEmpty()) {
-            LazyRow(
-                state = listState,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-            ) {
-                items(matches, key = { it.user.id }) { match ->
-                    TasteMatchCard(
-                        match = match,
-                        isFollowing = isFollowed(match.user.id),
-                        onUserTap = { onUserTap(match.user) },
-                        onFollowTap = { onFollowTap(match.user) },
-                        modifier = Modifier.width(CARD_WIDTH),
-                    )
-                }
-                if (isLoading) {
-                    item("loading") {
-                        Box(
-                            modifier = Modifier.size(width = 48.dp, height = CARD_WIDTH),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = CorusColors.Accent,
-                                strokeWidth = 2.dp,
-                            )
-                        }
-                    }
+            items(4, key = { "skeleton-initial-$it" }) {
+                SkeletonTasteMatchCard()
+            }
+        } else {
+            items(matches, key = { it.user.id }) { match ->
+                TasteMatchCard(
+                    match = match,
+                    isFollowing = isFollowed(match.user.id),
+                    onUserTap = { onUserTap(match.user) },
+                    onFollowTap = { onFollowTap(match.user) },
+                )
+            }
+            if (isLoading && matches.isNotEmpty()) {
+                items(2, key = { "skeleton-more-$it" }) {
+                    SkeletonTasteMatchCard()
                 }
             }
         }
@@ -139,11 +141,11 @@ fun HorizontalPopularUsersRail(
 }
 
 @Composable
-private fun Header(onSeeAll: (() -> Unit)? = null) {
-    androidx.compose.foundation.layout.Row(
+private fun SectionHeader() {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            .padding(vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -158,38 +160,13 @@ private fun Header(onSeeAll: (() -> Unit)? = null) {
             style = CorusFont.sectionHeader,
             color = CorusColors.Secondary,
         )
-        Spacer(modifier = Modifier.weight(1f))
-        if (onSeeAll != null) {
-            TextButton(onClick = onSeeAll) {
-                Text(
-                    stringResource(fm.corus.android.R.string.search_see_all),
-                    style = CorusFont.captionMedium,
-                    color = CorusColors.Accent,
-                )
-            }
-        }
     }
 }
-
-@Composable
-private fun SkeletonRow() {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
-        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-    ) {
-        items(4) {
-            SkeletonTasteMatchCard(modifier = Modifier.width(CARD_WIDTH))
-        }
-    }
-}
-
-private val CARD_WIDTH = 220.dp
 
 // ── ViewModel ──
 
 @HiltViewModel
-class PopularUsersRailViewModel @Inject constructor(
+class PopularUsersInfiniteGridViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
@@ -220,7 +197,7 @@ class PopularUsersRailViewModel @Inject constructor(
         viewModelScope.launch { fetchPage(excludeIds) }
     }
 
-    /** Public for test injection: reset the rail (e.g. after sign-out). */
+    /** Public for test injection: reset the grid (e.g. after sign-out). */
     fun reset() {
         _matches.value = emptyList()
         _isLoading.value = false
@@ -247,8 +224,6 @@ class PopularUsersRailViewModel @Inject constructor(
                 return
             }
 
-            // Advance cursor before any awaits below so a concurrent loadMore
-            // (already gated on isLoading) won't replay this page.
             afterDocId = users.lastOrNull()?.id ?: afterDocId
 
             val newMatches = matchesWithPreviews(users)
@@ -261,9 +236,6 @@ class PopularUsersRailViewModel @Inject constructor(
         }
     }
 
-    /** Fetches up to 4 recent posts per user in parallel and synthesizes the
-     *  [MusicMatchData] previews that [TasteMatchCard] uses to render its
-     *  2x2 album-art grid. */
     private suspend fun matchesWithPreviews(users: List<CymbalUser>): List<SuggestedUserMatch> {
         val viewerId = authRepository.currentUserId ?: return users.map { SuggestedUserMatch(it) }
         return coroutineScope {

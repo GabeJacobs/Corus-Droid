@@ -22,7 +22,6 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
-import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.extractMentions
@@ -58,7 +57,6 @@ class ComposeViewModel @Inject constructor(
     private val exploreRepository: ExploreRepository,
     val nowPlayingManager: NowPlayingManager,
     private val postCreationEvent: PostCreationEvent,
-    private val engagementManager: PostEngagementManager,
     private val hapticManager: HapticManager,
     private val remoteConfigService: RemoteConfigService,
 ) : ViewModel() {
@@ -485,10 +483,10 @@ class ComposeViewModel @Inject constructor(
                 // Mirrors iOS ComposeView post-created haptic (track & film branches).
                 hapticManager.notification(HapticManager.NotificationType.SUCCESS)
 
-                // Repost side-effects — optimistic repostCount bump on the
-                // original post card + notification to the original poster.
+                // Repost side-effect: notification to the original poster.
+                // The repostCount is incremented by the `onPostCreated` cloud
+                // function — bumping it client-side would double-count.
                 if (includeRepost && originalPostId != null) {
-                    engagementManager.incrementRepostCount(originalPostId)
                     if (!originalUserId.isNullOrEmpty() && originalUserId != userId) {
                         try {
                             postRepository.createNotification(

@@ -44,7 +44,14 @@ class MainActivity : ComponentActivity() {
 
         lifecycle.addObserver(LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && FirebaseAuth.getInstance().currentUser != null) {
-                lifecycleScope.launch { subscriptionRepository.checkStatus() }
+                lifecycleScope.launch {
+                    subscriptionRepository.checkStatus()
+                    // Catches the time-rolloff case: user posted N times, left
+                    // the app open overnight, comes back after the oldest post
+                    // aged out. Skipped for paid/verified users and throttled
+                    // to one call per POST_LIMIT_REFRESH_THROTTLE_MS.
+                    subscriptionRepository.refreshPostLimitIfNeeded()
+                }
             }
         })
 

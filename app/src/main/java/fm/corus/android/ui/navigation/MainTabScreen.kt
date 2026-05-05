@@ -203,6 +203,11 @@ fun MainTabScreen(
     val notificationsScrollToTop = remember { mutableIntStateOf(0) }
     val profileScrollToTop = remember { mutableIntStateOf(0) }
 
+    // Tab-activation trigger: increments every time the profile tab is selected
+    // (including re-taps) so the profile screen can fire a cheap, throttled
+    // refresh of the featured post(s)' engagement counts.
+    val profileTabActivation = remember { mutableIntStateOf(0) }
+
     // Handle notification tap navigation
     val notificationDestination = pendingNotificationDestination?.collectAsState()?.value
     LaunchedEffect(notificationDestination) {
@@ -299,6 +304,9 @@ fun MainTabScreen(
                         if (tab == CorusTab.NOTIFICATIONS && selectedTab != CorusTab.NOTIFICATIONS) {
                             viewModel.onActivityTabEntered()
                         }
+                        if (tab == CorusTab.PROFILE) {
+                            profileTabActivation.intValue++
+                        }
                         selectedTab = tab
                     }
                 },
@@ -334,6 +342,7 @@ fun MainTabScreen(
                     navController = profileNavController,
                     mainTabViewModel = viewModel,
                     scrollToTopTrigger = profileScrollToTop.intValue,
+                    tabActivationTrigger = profileTabActivation.intValue,
                     onOpenCompose = { mediaType ->
                         if (viewModel.subscriptionRepository.canPost) {
                             composeViewModel.reset()

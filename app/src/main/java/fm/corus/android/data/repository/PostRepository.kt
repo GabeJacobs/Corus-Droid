@@ -14,6 +14,7 @@ class PostRepository @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val firestoreDataSource: FirestoreDataSource,
     private val storageDataSource: FirebaseStorageDataSource,
+    private val subscriptionRepository: SubscriptionRepository,
 ) {
     // ── In-memory post cache (for instant caption display in sheets) ──
 
@@ -143,7 +144,10 @@ class PostRepository @Inject constructor(
     }
 
     suspend fun deletePost(postId: String, userId: String) {
+        val cachedTimestamp = postCache[postId]?.timestamp
         firestoreDataSource.deletePost(postId, userId)
+        postCache.remove(postId)
+        subscriptionRepository.decrementPostCount(cachedTimestamp)
     }
 
     // ── Engagement ──

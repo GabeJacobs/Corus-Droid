@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -53,6 +54,15 @@ class SubscriptionRepository @Inject constructor(
          */
         const val DEFAULT_DAILY_POST_LIMIT = 3
         const val DAILY_POST_LIMIT_HARD = 400
+        const val ROLLING_WINDOW_MS = 24L * 60L * 60L * 1000L
+        /**
+         * Minimum gap between server-driven post-limit refreshes from the
+         * foreground hook. Throttles `refreshPostLimitIfNeeded` so rapid
+         * background/foreground flips don't spam `checkCanPost`. Long enough
+         * that a single tab-switch doesn't matter, short enough that the
+         * rolling 24h window catches up after a real wait.
+         */
+        const val POST_LIMIT_REFRESH_THROTTLE_MS = 5L * 60L * 1000L
         private const val PREF_IS_CLUB_MEMBER = "cached_isClubMember"
         private const val PREF_IS_VERIFIED = "cached_isVerified"
         private const val PREF_DAILY_POST_LIMIT = "cached_dailyPostLimit"
@@ -78,6 +88,11 @@ class SubscriptionRepository @Inject constructor(
     // While false, callers should treat canPost as unverified and ask the server before posting.
     private val _postCountLoaded = MutableStateFlow(false)
     val postCountLoaded: StateFlow<Boolean> = _postCountLoaded.asStateFlow()
+
+    // Wall-clock time of the last successful checkCanPost round trip.
+    // In-memory only — fine because we always refresh on the next compose
+    // entry / app restart anyway.
+    private var lastPostLimitRefreshAt: Long = 0L
 
     // Rolling 24h post limit returned by the server (Remote Config-driven).
     // Cached in SharedPreferences so the gate behaves consistently across
@@ -130,6 +145,22 @@ class SubscriptionRepository @Inject constructor(
         _totalPostCount.value++
     }
 
+    /**
+     * Optimistically decrement after a successful delete so the paywall frees
+     * up a posting slot immediately. Posts older than the 24h rolling window
+     * aren't counted by the server, so deleting them must not decrement
+     * [recentPostCount] — only [totalPostCount] always drops. Server is still
+     * the source of truth; [refreshPostLimit] reconciles on next round trip.
+     */
+    fun decrementPostCount(postTimestamp: Date?, now: Long = System.currentTimeMillis()) {
+        _totalPostCount.value = (_totalPostCount.value - 1).coerceAtLeast(0)
+        if (postTimestamp == null) return
+        val age = now - postTimestamp.time
+        if (age in 0..ROLLING_WINDOW_MS) {
+            _recentPostCount.value = (_recentPostCount.value - 1).coerceAtLeast(0)
+        }
+    }
+
     /** Ask the server for the rolling 24h post count and cache the result. */
     suspend fun refreshPostLimit() {
         try {
@@ -137,7 +168,20 @@ class SubscriptionRepository @Inject constructor(
             _recentPostCount.value = result.recentCount
             applyDailyLimit(result.dailyLimit)
             _postCountLoaded.value = true
+            lastPostLimitRefreshAt = System.currentTimeMillis()
         } catch (_: Exception) { }
+    }
+
+    /**
+     * Foreground-friendly variant: skip when the user has full access (the gate
+     * doesn't apply to them) and when we've refreshed recently. Keeps the
+     * on-resume hook from spamming `checkCanPost` for paid users or rapid
+     * app-switch flips.
+     */
+    suspend fun refreshPostLimitIfNeeded(now: Long = System.currentTimeMillis()) {
+        if (hasFullAccess) return
+        if (now - lastPostLimitRefreshAt < POST_LIMIT_REFRESH_THROTTLE_MS) return
+        refreshPostLimit()
     }
 
     /**
@@ -151,6 +195,7 @@ class SubscriptionRepository @Inject constructor(
             _recentPostCount.value = result.recentCount
             applyDailyLimit(result.dailyLimit)
             _postCountLoaded.value = true
+            lastPostLimitRefreshAt = System.currentTimeMillis()
             result.canPost
         } catch (_: Exception) {
             true
@@ -211,6 +256,7 @@ class SubscriptionRepository @Inject constructor(
         _recentPostCount.value = 0
         _totalPostCount.value = 0
         _postCountLoaded.value = false
+        lastPostLimitRefreshAt = 0L
         Purchases.sharedInstance.updatedCustomerInfoListener = null
         try { Purchases.sharedInstance.logOut() } catch (_: Exception) { }
     }

@@ -19,7 +19,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,18 +87,13 @@ fun TasteMatchCard(
                     .aspectRatio(1f)
                     .clip(gridShape),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs)) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
-                    ) {
+                // Edge-to-edge — matches iOS `gap = 0` in TasteMatchCard.
+                Column {
+                    Row(modifier = Modifier.weight(1f)) {
                         GridTile(url = previewImages.getOrNull(0), modifier = Modifier.weight(1f).fillMaxHeight())
                         GridTile(url = previewImages.getOrNull(1), modifier = Modifier.weight(1f).fillMaxHeight())
                     }
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
-                    ) {
+                    Row(modifier = Modifier.weight(1f)) {
                         GridTile(url = previewImages.getOrNull(2), modifier = Modifier.weight(1f).fillMaxHeight())
                         GridTile(url = previewImages.getOrNull(3), modifier = Modifier.weight(1f).fillMaxHeight())
                     }
@@ -146,24 +140,13 @@ fun TasteMatchCard(
                 // Match flavor text
                 val flavorText = buildMatchFlavorText(matchData)
                 if (flavorText.isNotBlank()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (matchData?.isHighMatch == true) {
-                            Icon(
-                                Icons.Filled.AutoAwesome,
-                                contentDescription = null,
-                                tint = CorusColors.Accent,
-                                modifier = Modifier.size(10.dp),
-                            )
-                            Spacer(modifier = Modifier.width(CorusSpacing.xs))
-                        }
-                        Text(
-                            text = flavorText,
-                            style = CorusFont.caption,
-                            color = CorusColors.Secondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    Text(
+                        text = flavorText,
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
@@ -232,19 +215,17 @@ private fun PreviewButton(
 
 @Composable
 private fun GridTile(url: String?, modifier: Modifier = Modifier) {
+    // Tiles abut flush — outer parent Box clips with gridShape, so per-tile
+    // rounding would only create unwanted gaps inside the rounded card.
     if (url != null) {
         AsyncImage(
             model = url,
             contentDescription = null,
-            modifier = modifier.clip(RoundedCornerShape(2.dp)),
+            modifier = modifier,
             contentScale = ContentScale.Crop,
         )
     } else {
-        Box(
-            modifier = modifier
-                .clip(RoundedCornerShape(2.dp))
-                .background(CorusColors.Divider),
-        )
+        Box(modifier = modifier.background(CorusColors.Divider))
     }
 }
 

@@ -289,7 +289,7 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
 }
 
 @Composable
-fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0, onOpenCompose: (String) -> Unit = {}) {
+fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0, tabActivationTrigger: Int = 0, onOpenCompose: (String) -> Unit = {}) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
@@ -307,6 +307,7 @@ fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
                 .get<Boolean>("open_style_picker") == true
             ProfileScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
+                tabActivationTrigger = tabActivationTrigger,
                 openStylePicker = openStylePicker,
                 onStylePickerConsumed = {
                     backStackEntry.savedStateHandle.remove<Boolean>("open_style_picker")

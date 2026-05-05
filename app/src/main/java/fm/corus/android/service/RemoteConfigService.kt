@@ -97,10 +97,14 @@ class RemoteConfigService @Inject constructor(
      */
     val commentControlsOnPosts: Boolean
         get() {
-            if (BuildConfig.DEBUG && devPrefs.contains("comment_controls_on_posts")) {
-                return devPrefs.getBoolean("comment_controls_on_posts", false)
-            }
-            return remoteConfig.getBoolean("comment_controls_on_posts")
+            // ⚠️ TEMPORARY TEST OVERRIDE — REVERT BEFORE MERGE.
+            // Forced ON to test the per-post comments-audience gate locally.
+            // Restore the block below to flip back to Remote Config control.
+            return true
+            // if (BuildConfig.DEBUG && devPrefs.contains("comment_controls_on_posts")) {
+            //     return devPrefs.getBoolean("comment_controls_on_posts", false)
+            // }
+            // return remoteConfig.getBoolean("comment_controls_on_posts")
         }
 
     suspend fun fetchAndActivate() {
