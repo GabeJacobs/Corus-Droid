@@ -74,6 +74,9 @@ class ProfileFeedViewModel @Inject constructor(
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     val engagementStates = engagementManager.states
     val currentUserProfile = authRepository.userProfile
 
@@ -205,6 +208,78 @@ class ProfileFeedViewModel @Inject constructor(
 
     fun loadMore() {
         viewModelScope.launch { loadMoreSuspending() }
+    }
+
+    /**
+     * Re-fetches the first page so engagement counts (likes, comments, reposts)
+     * reflect the latest server state. Replaces the post list rather than
+     * appending, and re-seeds engagement listeners.
+     */
+    fun refresh() {
+        if (!initialized) return
+        viewModelScope.launch {
+            val viewerId = authRepository.currentUserId ?: return@launch
+            _isRefreshing.value = true
+            try {
+                val (newPosts, newHasMore) = when (source) {
+                    ProfileFeedSource.SONGS, ProfileFeedSource.FILMS -> {
+                        val allNew = cloudFunctions.getProfilePosts(
+                            userId = userId,
+                            viewerId = viewerId,
+                            limit = PAGE_SIZE,
+                            lastTimestamp = null,
+                        )
+                        val mediaType = if (source == ProfileFeedSource.SONGS) MediaType.TRACK else MediaType.MOVIE
+                        val filtered = allNew.filter { it.mediaType == mediaType }.map { enrichPost(it) }
+                        filtered to (allNew.size >= PAGE_SIZE)
+                    }
+                    ProfileFeedSource.LIKES -> {
+                        val fetched = cloudFunctions.getLikedPosts(
+                            userId = userId,
+                            viewerId = viewerId,
+                            limit = PAGE_SIZE,
+                            offset = 0,
+                        )
+                        fetched to (fetched.size >= PAGE_SIZE)
+                    }
+                    ProfileFeedSource.SAVES -> {
+                        val fetched = cloudFunctions.getSavedPosts(
+                            userId = userId,
+                            limit = PAGE_SIZE,
+                            offset = 0,
+                        )
+                        fetched to (fetched.size >= PAGE_SIZE)
+                    }
+                    ProfileFeedSource.HASHTAG -> {
+                        val page = cloudFunctions.getHashtagPosts(
+                            hashtag = hashtag,
+                            pageSize = PAGE_SIZE,
+                            beforeMs = null,
+                        )
+                        page.posts to page.hasMore
+                    }
+                }
+                _posts.value = newPosts
+                _hasMore.value = newHasMore
+                newPosts.forEach { post ->
+                    engagementManager.initState(
+                        postId = post.id,
+                        likeCount = post.likeCount,
+                        commentCount = post.commentCount,
+                        repostCount = post.repostCount,
+                        isLiked = post.isLiked,
+                        isSaved = false,
+                    )
+                    if (activeListenerPostIds.add(post.id)) {
+                        engagementManager.startListening(post.id)
+                    }
+                }
+                if (newPosts.isNotEmpty()) {
+                    engagementManager.checkLikeStatuses(newPosts.map { it.id }, viewerId)
+                }
+            } catch (_: Exception) { }
+            _isRefreshing.value = false
+        }
     }
 
     private suspend fun loadMoreSuspending() {

@@ -131,13 +131,18 @@ class SuggestedUsersListViewModel @Inject constructor(
             val excludeIds = followingIds + uid
             mutuals = firestoreDataSource.fetchFriendsOfFriends(uid, excludeIds, limit = 50)
         }
-        return mutuals.map { (user, names) ->
-            SuggestedUserMatch(
-                user = user,
-                matchData = null,
-                suggestionReason = SuggestionReason(mutualNames = names),
-            )
-        }
+        return mutuals
+            .sortedByDescending { it.mutualCount }
+            .map { mc ->
+                SuggestedUserMatch(
+                    user = mc.user,
+                    matchData = null,
+                    suggestionReason = SuggestionReason(
+                        mutualNames = mc.mutualUsernames,
+                        mutualCount = mc.mutualCount,
+                    ),
+                )
+            }
     }
 
     private suspend fun loadPopularUsersPage(uid: String, afterDocId: String?): List<SuggestedUserMatch> {

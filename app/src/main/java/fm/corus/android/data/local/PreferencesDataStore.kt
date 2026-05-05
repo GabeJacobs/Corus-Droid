@@ -205,6 +205,24 @@ class PreferencesDataStore @Inject constructor(
         val HAS_REQUESTED_PUSH_PERMISSION = booleanPreferencesKey("has_requested_push_permission")
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
         val AUTOPLAY_NEXT_SONG = booleanPreferencesKey("autoplay_next_song")
+        val TRENDING_SONGS_WINDOW = stringPreferencesKey("trending_songs_window")
+        val TRENDING_FILMS_WINDOW = stringPreferencesKey("trending_films_window")
+    }
+
+    val trendingSongsWindow: Flow<String> = dataStore.data.map { prefs ->
+        prefs[TRENDING_SONGS_WINDOW] ?: "month"
+    }
+
+    suspend fun setTrendingSongsWindow(value: String) {
+        dataStore.edit { it[TRENDING_SONGS_WINDOW] = value }
+    }
+
+    val trendingFilmsWindow: Flow<String> = dataStore.data.map { prefs ->
+        prefs[TRENDING_FILMS_WINDOW] ?: "month"
+    }
+
+    suspend fun setTrendingFilmsWindow(value: String) {
+        dataStore.edit { it[TRENDING_FILMS_WINDOW] = value }
     }
 
     val autoplayNextSong: Flow<Boolean> = dataStore.data.map { prefs ->

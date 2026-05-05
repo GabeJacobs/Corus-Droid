@@ -15,6 +15,7 @@ import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.SuggestionReason
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
+import fm.corus.android.data.model.TrendingWindow
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -134,22 +136,75 @@ class SearchViewModel @Inject constructor(
     private val _isTrendingMoviesLoading = MutableStateFlow(true)
     val isTrendingMoviesLoading: StateFlow<Boolean> = _isTrendingMoviesLoading.asStateFlow()
 
+    // Selected time window per tab. Persisted in DataStore so the user's
+    // last choice survives app restarts. Songs and films are independent.
+    val trendingSongsWindow: StateFlow<TrendingWindow> =
+        preferencesDataStore.trendingSongsWindow
+            .map { TrendingWindow.fromKey(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+
+    val trendingFilmsWindow: StateFlow<TrendingWindow> =
+        preferencesDataStore.trendingFilmsWindow
+            .map { TrendingWindow.fromKey(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+
+    fun setTrendingSongsWindow(window: TrendingWindow) {
+        viewModelScope.launch {
+            preferencesDataStore.setTrendingSongsWindow(window.key)
+            // Flash the skeleton briefly so the user gets feedback that the
+            // selection registered, even when the new list is in-cache. The
+            // delay ensures Compose actually paints the loading state — without
+            // it, the loading flag flips true→false in the same frame and the
+            // skeleton never appears. Matches the iOS/web behavior.
+            _isTrendingLoading.value = true
+            _trendingSongs.value = emptyList()
+            val start = System.currentTimeMillis()
+            val fetched = try {
+                exploreRepository.fetchTrendingSongs(window)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to switch trending songs window", e)
+                emptyList()
+            }
+            val elapsed = System.currentTimeMillis() - start
+            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
+            }
+            _trendingSongs.value = fetched
+            _isTrendingLoading.value = false
+        }
+    }
+
+    fun setTrendingFilmsWindow(window: TrendingWindow) {
+        viewModelScope.launch {
+            preferencesDataStore.setTrendingFilmsWindow(window.key)
+            _isTrendingMoviesLoading.value = true
+            _trendingMovies.value = emptyList()
+            val start = System.currentTimeMillis()
+            val fetched = try {
+                exploreRepository.fetchTrendingMovies(window)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to switch trending films window", e)
+                emptyList()
+            }
+            val elapsed = System.currentTimeMillis() - start
+            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
+            }
+            _trendingMovies.value = fetched
+            _isTrendingMoviesLoading.value = false
+        }
+    }
+
+    companion object {
+        private const val TRENDING_WINDOW_MIN_DISPLAY_MS = 280L
+    }
+
     // Suggestions
     private val _suggestedMatches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
     val suggestedMatches: StateFlow<List<SuggestedUserMatch>> = _suggestedMatches.asStateFlow()
 
     private val _isSuggestedLoading = MutableStateFlow(true)
     val isSuggestedLoading: StateFlow<Boolean> = _isSuggestedLoading.asStateFlow()
-
-    // Bots
-    private val _curatedMusicBots = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
-    val curatedMusicBots: StateFlow<List<SuggestedUserMatch>> = _curatedMusicBots.asStateFlow()
-
-    private val _curatedFilmBots = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
-    val curatedFilmBots: StateFlow<List<SuggestedUserMatch>> = _curatedFilmBots.asStateFlow()
-
-    private val _isBotsLoading = MutableStateFlow(true)
-    val isBotsLoading: StateFlow<Boolean> = _isBotsLoading.asStateFlow()
 
     // Follow state
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
@@ -174,13 +229,6 @@ class SearchViewModel @Inject constructor(
 
     val contactsSyncStatus: StateFlow<String> = preferencesDataStore.contactsSyncStatus
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "notAsked")
-
-    // Popular users
-    private val _popularUsers = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val popularUsers: StateFlow<List<CymbalUser>> = _popularUsers.asStateFlow()
-
-    private val _isPopularLoading = MutableStateFlow(true)
-    val isPopularLoading: StateFlow<Boolean> = _isPopularLoading.asStateFlow()
 
     // New on Corus (recently joined)
     private val _newUsers = MutableStateFlow<List<CymbalUser>>(emptyList())
@@ -237,11 +285,14 @@ class SearchViewModel @Inject constructor(
                         mutuals = firestoreDataSource.fetchFriendsOfFriends(uid, excludeIds, limit = 20)
                     }
                     Log.d("SearchVM", "Mutual connections loaded: ${mutuals.size}")
-                    mutuals.map { (user, names) ->
+                    mutuals.map { mc ->
                         SuggestedUserMatch(
-                            user = user,
+                            user = mc.user,
                             matchData = null,
-                            suggestionReason = SuggestionReason(mutualNames = names),
+                            suggestionReason = SuggestionReason(
+                                mutualNames = mc.mutualUsernames,
+                                mutualCount = mc.mutualCount,
+                            ),
                         )
                     }
                 } catch (e: Exception) {
@@ -283,7 +334,7 @@ class SearchViewModel @Inject constructor(
         }
         viewModelScope.launch {
             try {
-                _trendingSongs.value = exploreRepository.fetchTrendingSongs()
+                _trendingSongs.value = exploreRepository.fetchTrendingSongs(trendingSongsWindow.value)
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load trending songs", e)
             }
@@ -291,34 +342,14 @@ class SearchViewModel @Inject constructor(
         }
         viewModelScope.launch {
             try {
-                _trendingMovies.value = exploreRepository.fetchTrendingMovies()
+                _trendingMovies.value = exploreRepository.fetchTrendingMovies(trendingFilmsWindow.value)
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load trending movies", e)
             }
             _isTrendingMoviesLoading.value = false
         }
-        viewModelScope.launch {
-            try {
-                val musicBots = cloudFunctions.getBotSuggestions(uid, botType = "music")
-                Log.d("SearchVM", "Music bots loaded: ${musicBots.size}")
-                _curatedMusicBots.value = musicBots
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to load music bots", e)
-            }
-            try {
-                val filmBots = cloudFunctions.getBotSuggestions(uid, botType = "film")
-                Log.d("SearchVM", "Film bots loaded: ${filmBots.size}")
-                _curatedFilmBots.value = filmBots
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to load film bots", e)
-            }
-            _isBotsLoading.value = false
-        }
-        // Match iOS: seed following IDs before firing the popular/new fetches so their
-        // server-side excludeIds actually exclude already-followed users. Without this
-        // prefetch, those calls race the followingIds collector and return mostly
-        // already-followed users, which the UI filter then strips — leaving <=2
-        // displayable rows and hiding the NEW ON CORUS "See All" button.
+        // Match iOS: seed following IDs before firing the new-users fetch so its
+        // server-side excludeIds actually exclude already-followed users.
         viewModelScope.launch {
             try {
                 userRepository.prefetchFollowingSet(uid)
@@ -326,27 +357,9 @@ class SearchViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to prefetch following set", e)
             }
-            loadPopularUsers()
             loadNewUsers()
         }
         refreshFollowedHashtags()
-    }
-
-    private fun loadPopularUsers() {
-        val uid = authRepository.currentUserId ?: return
-        viewModelScope.launch {
-            try {
-                val popular = userRepository.fetchPopularUsers(
-                    limit = 10,
-                    excludeIds = _followingIds.value + _localFollowedIds.value + uid,
-                )
-                Log.d("SearchVM", "Popular users loaded: ${popular.size}")
-                _popularUsers.value = popular
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to load popular users", e)
-            }
-            _isPopularLoading.value = false
-        }
     }
 
     private fun loadNewUsers() {

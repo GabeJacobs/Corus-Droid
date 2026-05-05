@@ -148,6 +148,10 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Following ──
 
+    // followingCount / followerCount are reconciled by the
+    // reconcileFollowingCountOnWrite / reconcileFollowerCountOnWrite cloud
+    // functions, which use count() on the subcollection as the source of
+    // truth. Clients only write the subcollection docs.
     suspend fun followUser(userId: String, targetUserId: String) {
         val batch = firestore.batch()
         batch.set(
@@ -159,14 +163,6 @@ class FirestoreDataSource @Inject constructor(
             firestore.collection("users_v2").document(targetUserId)
                 .collection("followers").document(userId),
             mapOf("createdAt" to FieldValue.serverTimestamp())
-        )
-        batch.update(
-            firestore.collection("users_v2").document(userId),
-            "followingCount", FieldValue.increment(1)
-        )
-        batch.update(
-            firestore.collection("users_v2").document(targetUserId),
-            "followerCount", FieldValue.increment(1)
         )
         batch.commit().await()
     }
@@ -180,14 +176,6 @@ class FirestoreDataSource @Inject constructor(
         batch.delete(
             firestore.collection("users_v2").document(targetUserId)
                 .collection("followers").document(userId)
-        )
-        batch.update(
-            firestore.collection("users_v2").document(userId),
-            "followingCount", FieldValue.increment(-1)
-        )
-        batch.update(
-            firestore.collection("users_v2").document(targetUserId),
-            "followerCount", FieldValue.increment(-1)
         )
         batch.commit().await()
     }
@@ -793,45 +781,68 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Trending Songs (from trending_cache/songs, matching iOS) ──
 
+    /** Picks the items array for the requested window from a trending_cache
+     *  doc, falling back to the legacy `items` field when the new shape isn't
+     *  present yet (rollout window before the next BE refresh tick). */
     @Suppress("UNCHECKED_CAST")
-    suspend fun fetchTrendingSongs(limit: Int = 20): List<TrendingSong> {
+    private fun pickWindowItems(
+        data: Map<String, Any?>,
+        window: TrendingWindow,
+    ): List<Map<String, Any?>> {
+        val bucket = data[window.key] as? Map<String, Any?>
+        val windowed = bucket?.get("items") as? List<Map<String, Any?>>
+        if (windowed != null) return windowed
+        return (data["items"] as? List<Map<String, Any?>>).orEmpty()
+    }
+
+    private fun parseTrendingSong(item: Map<String, Any?>): TrendingSong? {
+        val trackId = item["trackId"] as? String ?: return null
+        return TrendingSong(
+            id = trackId,
+            rank = (item["rank"] as? Number)?.toInt() ?: 0,
+            track = CymbalTrack.fromMap(item),
+            cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseTrendingMovie(item: Map<String, Any?>): TrendingMovie? {
+        val movieId = item["movieId"] as? String ?: return null
+        return TrendingMovie(
+            id = movieId,
+            rank = (item["rank"] as? Number)?.toInt() ?: 0,
+            movieId = movieId,
+            movieTitle = item["movieTitle"] as? String ?: "",
+            directorName = item["directorName"] as? String ?: "",
+            releaseYear = item["releaseYear"] as? String ?: "",
+            posterURL = item["posterURL"] as? String,
+            posterLargeURL = item["posterLargeURL"] as? String,
+            tmdbWebURL = item["tmdbWebURL"] as? String ?: "",
+            trailerURL = item["trailerURL"] as? String,
+            movieOverview = item["movieOverview"] as? String ?: "",
+            movieRating = (item["movieRating"] as? Number)?.toDouble() ?: 0.0,
+            movieCast = (item["movieCast"] as? List<String>) ?: emptyList(),
+            cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+        )
+    }
+
+    /** Reads the trending-songs cache once and returns all three windows.
+     *  The repository uses this to populate per-window cache entries from
+     *  a single Firestore read so window switching is free. */
+    suspend fun fetchTrendingSongsByWindow(limit: Int = 20): Map<TrendingWindow, List<TrendingSong>> {
         val doc = firestore.collection("trending_cache").document("songs").get().await()
-        val items = doc.data?.get("items") as? List<Map<String, Any?>> ?: return emptyList()
-        return items.take(limit).mapNotNull { item ->
-            val trackId = item["trackId"] as? String ?: return@mapNotNull null
-            TrendingSong(
-                id = trackId,
-                rank = (item["rank"] as? Number)?.toInt() ?: 0,
-                track = CymbalTrack.fromMap(item),
-                cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
-            )
+        val data = doc.data ?: return emptyMap()
+        return TrendingWindow.values().associateWith { window ->
+            pickWindowItems(data, window).take(limit).mapNotNull { parseTrendingSong(it) }
         }
     }
 
-    // ── Trending Movies (from trending_cache/movies, matching iOS) ──
-
-    @Suppress("UNCHECKED_CAST")
-    suspend fun fetchTrendingMovies(limit: Int = 20): List<TrendingMovie> {
+    /** Same shape as `fetchTrendingSongsByWindow` but for movies. */
+    suspend fun fetchTrendingMoviesByWindow(limit: Int = 20): Map<TrendingWindow, List<TrendingMovie>> {
         val doc = firestore.collection("trending_cache").document("movies").get().await()
-        val items = doc.data?.get("items") as? List<Map<String, Any?>> ?: return emptyList()
-        return items.take(limit).mapNotNull { item ->
-            val movieId = item["movieId"] as? String ?: return@mapNotNull null
-            TrendingMovie(
-                id = movieId,
-                rank = (item["rank"] as? Number)?.toInt() ?: 0,
-                movieId = movieId,
-                movieTitle = item["movieTitle"] as? String ?: "",
-                directorName = item["directorName"] as? String ?: "",
-                releaseYear = item["releaseYear"] as? String ?: "",
-                posterURL = item["posterURL"] as? String,
-                posterLargeURL = item["posterLargeURL"] as? String,
-                tmdbWebURL = item["tmdbWebURL"] as? String ?: "",
-                trailerURL = item["trailerURL"] as? String,
-                movieOverview = item["movieOverview"] as? String ?: "",
-                movieRating = (item["movieRating"] as? Number)?.toDouble() ?: 0.0,
-                movieCast = (item["movieCast"] as? List<String>) ?: emptyList(),
-                cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
-            )
+        val data = doc.data ?: return emptyMap()
+        return TrendingWindow.values().associateWith { window ->
+            pickWindowItems(data, window).take(limit).mapNotNull { parseTrendingMovie(it) }
         }
     }
 
@@ -1032,8 +1043,17 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Mutual connections (precomputed) ──
 
+    /** A precomputed mutual-connection row: the candidate user, up to 5 sample
+     *  names of friends-of-friends who follow them, and the full overlap count
+     *  used for ranking. */
+    data class MutualConnection(
+        val user: CymbalUser,
+        val mutualUsernames: List<String>,
+        val mutualCount: Int,
+    )
+
     @Suppress("UNCHECKED_CAST")
-    suspend fun fetchPrecomputedMutualConnections(userId: String, limit: Int = 20): List<Pair<CymbalUser, List<String>>> {
+    suspend fun fetchPrecomputedMutualConnections(userId: String, limit: Int = 20): List<MutualConnection> {
         val snapshot = firestore.collection("users_v2").document(userId)
             .collection("mutual_connections")
             .orderBy("mutualCount", Query.Direction.DESCENDING)
@@ -1046,7 +1066,8 @@ class FirestoreDataSource @Inject constructor(
             val userData = userDoc.data ?: return@mapNotNull null
             val user = CymbalUser.fromMap(doc.id, userData)
             val names = (data["mutualNames"] as? List<String>).orEmpty()
-            user to names
+            val count = (data["mutualCount"] as? Number)?.toInt() ?: names.size
+            MutualConnection(user, names, count)
         }
     }
 
@@ -1059,7 +1080,7 @@ class FirestoreDataSource @Inject constructor(
         currentUserId: String,
         excludeIds: Set<String>,
         limit: Int = 20,
-    ): List<Pair<CymbalUser, List<String>>> = coroutineScope {
+    ): List<MutualConnection> = coroutineScope {
         // Get the users we follow (cap at 50, most recent first)
         val followingSnapshot = firestore.collection("users_v2").document(currentUserId)
             .collection("following")
@@ -1106,9 +1127,9 @@ class FirestoreDataSource @Inject constructor(
             .mapNotNull { (id, usernames) ->
                 val user = userById[id] ?: return@mapNotNull null
                 if (user.isBot) return@mapNotNull null
-                user to usernames.toList()
+                MutualConnection(user, usernames.toList(), usernames.size)
             }
-            .sortedByDescending { it.second.size }
+            .sortedByDescending { it.mutualCount }
             .take(limit)
     }
 

@@ -124,6 +124,7 @@ fun SinglePostCommentsScreen(
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
     val isSearchingMentions by viewModel.isSearchingMentions.collectAsState()
     val editingComment by viewModel.editingComment.collectAsState()
+    val commentBlockReason by viewModel.commentBlockReason.collectAsState()
     var reportingComment by remember { mutableStateOf<CymbalComment?>(null) }
     var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -189,6 +190,24 @@ fun SinglePostCommentsScreen(
         },
         bottomBar = {
             Column {
+                // Audience-locked notice. When the viewer can't write a new
+                // comment, swap the composer for an inline notice — but only
+                // when they're not editing one of their own existing comments
+                // (editing the user's own content is always allowed).
+                val lockReason = commentBlockReason
+                if (lockReason != null && editingComment == null) {
+                    val post = viewModel.post.collectAsState().value
+                    fm.corus.android.ui.components.CommentsLockedNotice(
+                        reason = lockReason,
+                        authorUsername = post?.user?.username,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(CorusColors.Background)
+                            .navigationBarsPadding()
+                            .imePadding(),
+                    )
+                    return@Column
+                }
                 // Mention suggestions
                 MentionSuggestionsList(
                     users = mentionSuggestions.take(4),
@@ -608,6 +627,7 @@ fun SinglePostCommentsScreen(
                         likedCommentIds = likedCommentIds,
                         currentUserId = viewModel.currentUserId,
                         highlightedCommentId = activeHighlightId,
+                        canReply = commentBlockReason == null,
                         onLike = { viewModel.toggleCommentLike(postId, comment.id) },
                         onLikeLongPress = { onNavigateToCommentLikes(comment.id) },
                         onReply = {
@@ -679,6 +699,10 @@ private fun SingleCommentRow(
     currentUserId: String?,
     highlightedCommentId: String? = null,
     nowPlaying: fm.corus.android.domain.NowPlayingManager? = null,
+    /** Inherited from the screen-level audience gate. False hides the
+     *  Reply text on this row + on its child replies, so blocked viewers
+     *  don't open a composer that would fail at submit. */
+    canReply: Boolean = true,
     onLike: () -> Unit,
     onLikeLongPress: () -> Unit,
     onReply: () -> Unit,
@@ -712,6 +736,7 @@ private fun SingleCommentRow(
             isLiked = isLiked,
             isReply = false,
             highlightColor = commentHighlightColor,
+            canReply = canReply,
             onUserTap = onUserTap,
             onLike = onLike,
             onLikeLongPress = onLikeLongPress,
@@ -740,6 +765,7 @@ private fun SingleCommentRow(
                 isLiked = likedCommentIds.contains(reply.id),
                 isReply = true,
                 highlightColor = replyHighlightColor,
+                canReply = canReply,
                 onUserTap = { onReplyUserTap(reply.user.id) },
                 onLike = { onReplyLike(reply.id) },
                 onLikeLongPress = { onReplyLikeLongPress(reply.id) },
@@ -766,6 +792,10 @@ private fun CommentContentRow(
     isLiked: Boolean,
     isReply: Boolean,
     highlightColor: Color,
+    /** When false, the inline "Reply" link is hidden — viewer can't write
+     *  a new reply on this post. Inherited from the screen-level audience
+     *  gate via SingleCommentRow / ReplyRow. */
+    canReply: Boolean = true,
     onUserTap: () -> Unit,
     onLike: () -> Unit,
     onLikeLongPress: () -> Unit,
@@ -954,13 +984,15 @@ private fun CommentContentRow(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(CorusSpacing.xs))
-            Text(
-                stringResource(R.string.comments_reply),
-                style = CorusFont.captionMedium,
-                color = CorusColors.Secondary,
-                modifier = Modifier.clickable(onClick = onReply),
-            )
+            if (canReply) {
+                Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                Text(
+                    stringResource(R.string.comments_reply),
+                    style = CorusFont.captionMedium,
+                    color = CorusColors.Secondary,
+                    modifier = Modifier.clickable(onClick = onReply),
+                )
+            }
         }
 
         Row(

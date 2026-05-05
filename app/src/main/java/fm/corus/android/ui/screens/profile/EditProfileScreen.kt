@@ -45,6 +45,7 @@ fun EditProfileScreen(
     val username by viewModel.username.collectAsState()
     val bio by viewModel.bio.collectAsState()
     val website by viewModel.website.collectAsState()
+    val featuredTab by viewModel.featuredTab.collectAsState()
     val usernameState by viewModel.usernameState.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val saveError by viewModel.saveError.collectAsState()
@@ -52,12 +53,13 @@ fun EditProfileScreen(
     val profile by viewModel.profile.collectAsState()
 
     // Derive canSave reactively from collected states so Compose can observe changes
-    val canSave = remember(displayName, username, bio, website, profile, usernameState, isSaving) {
+    val canSave = remember(displayName, username, bio, website, featuredTab, profile, usernameState, isSaving) {
         val p = profile ?: return@remember false
         val hasChanges = displayName != p.displayName ||
                 username != p.username ||
                 bio != p.bio ||
-                website != (p.website ?: "")
+                website != (p.website ?: "") ||
+                featuredTab != p.featuredTab
         if (!hasChanges) return@remember false
         if (displayName.isBlank()) return@remember false
         if (username != p.username && usernameState != EditProfileViewModel.UsernameState.AVAILABLE) return@remember false
@@ -347,6 +349,31 @@ fun EditProfileScreen(
                     tint = CorusColors.Tertiary,
                     modifier = Modifier.size(20.dp),
                 )
+            }
+
+            HorizontalDivider(color = CorusColors.Divider)
+
+            // Featured Tab picker — controls whether this user's profile leads
+            // with Music or Film when viewed by anyone (including themselves).
+            Column {
+                Text(
+                    stringResource(R.string.edit_profile_field_featured_tab),
+                    style = CorusFont.sectionHeader,
+                    color = CorusColors.Secondary,
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    val options = listOf("music" to R.string.profile_tab_music, "film" to R.string.profile_tab_film)
+                    options.forEachIndexed { index, (value, labelRes) ->
+                        SegmentedButton(
+                            selected = featuredTab == value,
+                            onClick = { viewModel.updateFeaturedTab(value) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                        ) {
+                            Text(stringResource(labelRes))
+                        }
+                    }
+                }
             }
         }
     }

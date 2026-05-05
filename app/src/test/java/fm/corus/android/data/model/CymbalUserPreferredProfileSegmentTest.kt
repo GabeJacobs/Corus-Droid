@@ -11,6 +11,7 @@ class CymbalUserPreferredProfileSegmentTest {
         movieCount: Int? = null,
         isBot: Boolean = false,
         botType: String? = null,
+        featuredTab: String = "music",
     ) = CymbalUser(
         id = "u1",
         username = "alice",
@@ -19,6 +20,7 @@ class CymbalUserPreferredProfileSegmentTest {
         movieCount = movieCount,
         isBot = isBot,
         botType = botType,
+        featuredTab = featuredTab,
     )
 
     @Test
@@ -98,5 +100,58 @@ class CymbalUserPreferredProfileSegmentTest {
         val u = user(trackCount = 3, movieCount = 0).copy(cymbalCount = 3)
         // Posts page hasn't loaded yet but counters say music.
         assertEquals(0, u.preferredProfileSegmentFromPosts(emptyList(), hasMore = true))
+    }
+
+    // ── featuredTab=film: leads with Film, falls back to Music when empty ──
+
+    @Test
+    fun `featuredTab film puts Film at slot 0 when films exist`() {
+        assertEquals(0, user(trackCount = 5, movieCount = 1, featuredTab = "film").preferredProfileSegment)
+        assertEquals(0, user(trackCount = 0, movieCount = 1, featuredTab = "film").preferredProfileSegment)
+        assertEquals(0, user(trackCount = 0, movieCount = 0, featuredTab = "film").preferredProfileSegment)
+    }
+
+    @Test
+    fun `featuredTab film falls back to slot 1 (Music) when no films but tracks exist`() {
+        assertEquals(1, user(trackCount = 3, movieCount = 0, featuredTab = "film").preferredProfileSegment)
+    }
+
+    @Test
+    fun `featuredTab film bots still default to 0`() {
+        assertEquals(
+            0,
+            user(trackCount = 5, movieCount = 0, isBot = true, botType = "music", featuredTab = "film")
+                .preferredProfileSegment,
+        )
+    }
+
+    @Test
+    fun `derived path with featuredTab film flips to slot 1 when only tracks loaded`() {
+        val u = user(trackCount = null, movieCount = null, featuredTab = "film").copy(cymbalCount = 1)
+        val posts = listOf(post(MediaType.TRACK))
+        assertEquals(1, u.preferredProfileSegmentFromPosts(posts, hasMore = false))
+    }
+
+    @Test
+    fun `derived path with featuredTab film keeps slot 0 when films are present`() {
+        val u = user(trackCount = null, movieCount = null, featuredTab = "film").copy(cymbalCount = 2)
+        val posts = listOf(post(MediaType.TRACK, "p1"), post(MediaType.MOVIE, "p2"))
+        assertEquals(0, u.preferredProfileSegmentFromPosts(posts, hasMore = false))
+    }
+
+    // ── fromMap defaulting ──
+
+    @Test
+    fun `fromMap defaults featuredTab to music when missing`() {
+        val u = CymbalUser.fromMap("u1", mapOf("username" to "alice", "displayName" to "Alice"))
+        assertEquals("music", u.featuredTab)
+    }
+
+    @Test
+    fun `fromMap accepts film and rejects garbage`() {
+        val film = CymbalUser.fromMap("u1", mapOf("username" to "a", "displayName" to "A", "featuredTab" to "film"))
+        assertEquals("film", film.featuredTab)
+        val junk = CymbalUser.fromMap("u1", mapOf("username" to "a", "displayName" to "A", "featuredTab" to "wat"))
+        assertEquals("music", junk.featuredTab)
     }
 }

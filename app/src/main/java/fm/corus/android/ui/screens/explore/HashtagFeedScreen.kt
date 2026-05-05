@@ -196,7 +196,12 @@ fun HashtagFeedScreen(
                     }
                 }
             } else {
-                items(posts, key = { it.id }) { post ->
+                // distinctBy guards the LazyGrid against duplicate ids
+                // (paginated server data can occasionally overlap) —
+                // duplicates would crash SubcomposeLayout with
+                // "Key … was already used".
+                val gridPosts = posts.distinctBy { it.id }
+                items(gridPosts, key = { it.id }) { post ->
                     AsyncImage(
                         model = post.displayImageLargeURL ?: post.displayImageURL,
                         contentDescription = post.displayTitle,

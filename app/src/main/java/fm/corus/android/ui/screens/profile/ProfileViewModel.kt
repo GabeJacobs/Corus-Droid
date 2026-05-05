@@ -296,19 +296,25 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun loadFilmPageIfNeeded() {
-        if (_hasFetchedFilmPage.value) return
+        if (_hasFetchedFilmPage.value || _isLoadingFilms.value) return
         val userId = authRepository.currentUserId ?: return
-        val hasAnyMovies = _posts.value.any { it.mediaType == MediaType.MOVIE }
+        val cachedMovieCount = _posts.value.count { it.mediaType == MediaType.MOVIE }
+        val hasAnyMovies = cachedMovieCount > 0
         val hasMoreMixed = _hasMore.value[0] ?: true
         // Prefer the counter (authoritative); fall back to the "all posts loaded,
         // none are films" free guard for older backends without the field.
-        val knownZeroFilms = _profile.value?.movieCount == 0
-        if (knownZeroFilms || (!hasMoreMixed && !hasAnyMovies)) {
+        val movieCount = _profile.value?.movieCount
+        val knownZeroFilms = movieCount == 0
+        val cachedAllFilms = movieCount != null && cachedMovieCount >= movieCount
+        if (knownZeroFilms || cachedAllFilms || (!hasMoreMixed && !hasAnyMovies)) {
             _hasFetchedFilmPage.value = true
             return
         }
-        _hasFetchedFilmPage.value = true
-        if (!hasAnyMovies) _isLoadingFilms.value = true
+        // Use isLoadingFilms as the in-flight guard (re-entrancy is blocked by
+        // the early return above) so the skeleton stays up while the fetch is
+        // running, even when one or more films are already cached from the
+        // recency-sorted initial page.
+        _isLoadingFilms.value = true
         viewModelScope.launch {
             try {
                 val movies = cloudFunctions.getProfilePosts(
@@ -333,9 +339,9 @@ class ProfileViewModel @Inject constructor(
                     }
                     engagementManager.checkLikeStatuses(additions.map { it.id }, userId)
                 }
+                _hasFetchedFilmPage.value = true
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "loadFilmPageIfNeeded failed", e)
-                _hasFetchedFilmPage.value = false
             }
             _isLoadingFilms.value = false
         }

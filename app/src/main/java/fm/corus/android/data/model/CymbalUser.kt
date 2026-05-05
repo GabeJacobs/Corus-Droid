@@ -27,6 +27,7 @@ data class CymbalUser(
     val rainEffect: String = "off",
     val snowEffect: String = "off",
     val discoEffect: String = "off",
+    val featuredTab: String = "music",
     val artistsInCommonCount: Int? = null,
     val deletionStatus: String? = null,
     val lastPostedAt: Date? = null,
@@ -52,7 +53,15 @@ data class CymbalUser(
             if (isBot) return 0
             val tracks = trackCount ?: return null
             val movies = movieCount ?: return null
-            return if (tracks == 0 && movies > 0) 1 else 0
+            // Index is into the *displayed* tab order: slot 0 is the user's
+            // featured side, slot 1 is the other primary side. Edge-case
+            // fallback flips to slot 1 when the featured side has no posts
+            // but the other side does.
+            return if (featuredTab == "film") {
+                if (movies == 0 && tracks > 0) 1 else 0
+            } else {
+                if (tracks == 0 && movies > 0) 1 else 0
+            }
         }
 
     /**
@@ -79,7 +88,11 @@ data class CymbalUser(
         if (!sawEverything) return null
         val hasTrack = loadedPosts.any { it.mediaType == MediaType.TRACK }
         val hasMovie = loadedPosts.any { it.mediaType == MediaType.MOVIE }
-        return if (!hasTrack && hasMovie) 1 else 0
+        return if (featuredTab == "film") {
+            if (!hasMovie && hasTrack) 1 else 0
+        } else {
+            if (!hasTrack && hasMovie) 1 else 0
+        }
     }
 
     fun withArtistsInCommonCount(count: Int?): CymbalUser =
@@ -111,6 +124,7 @@ data class CymbalUser(
             rainEffect = data["rainEffect"] as? String ?: "off",
             snowEffect = data["snowEffect"] as? String ?: "off",
             discoEffect = data["discoEffect"] as? String ?: "off",
+            featuredTab = (data["featuredTab"] as? String)?.takeIf { it == "film" || it == "music" } ?: "music",
             artistsInCommonCount = (data["artistsInCommonCount"] as? Number)?.toInt(),
             deletionStatus = data["deletionStatus"] as? String,
             lastPostedAt = (data["lastPostedAt"] as? com.google.firebase.Timestamp)?.toDate(),

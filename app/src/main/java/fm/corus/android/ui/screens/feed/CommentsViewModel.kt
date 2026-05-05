@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,8 +30,11 @@ import fm.corus.android.ui.components.extractMentions
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -53,6 +57,75 @@ class CommentsViewModel @Inject constructor(
 
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport
+
+    /**
+     * Per-post comments-audience gate, derived from the loaded post and the
+     * viewer's relationship to the author. `null` means the viewer can
+     * comment; non-null is the reason the composer is hidden. Mirrors web's
+     * `useCanComment` and iOS's `commentBlockReason` short-circuits.
+     *
+     * - Flag off, missing field, "everyone" audience, viewer == author: allow.
+     * - "off": always blocked (except author).
+     * - "followers": blocked unless the viewer follows the author. While the
+     *   relationship is still resolving, we treat the viewer as blocked so
+     *   we don't flash a composer that may disappear once the lookup lands.
+     */
+    private val _isFollowingAuthor = MutableStateFlow<Boolean?>(null)
+    /// Lazy so initialization runs *after* `_post` is constructed below —
+    /// referencing `_post` in a property initializer at this position would
+    /// otherwise dereference an uninitialized field.
+    val commentBlockReason: StateFlow<fm.corus.android.ui.components.CommentsBlockReason?> by lazy {
+        combine(_post, _isFollowingAuthor) { post, followsAuthor ->
+            computeCommentBlockReason(post, followsAuthor)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null,
+        )
+    }
+
+    /**
+     * Author exemption nuance: for OFF, EVERYONE is blocked (matches
+     * IG/Threads — the author can re-enable comments if they want to
+     * participate). For FOLLOWERS, the author is implicitly in their own
+     * audience and keeps posting access on their own thread.
+     */
+    private fun computeCommentBlockReason(
+        post: CymbalPost?,
+        followsAuthor: Boolean?,
+    ): fm.corus.android.ui.components.CommentsBlockReason? {
+        if (post == null) return null
+        if (!remoteConfigService.commentControlsOnPosts) return null
+        val audience = post.commentsAudience ?: return null
+        if (audience == fm.corus.android.data.model.CommentsAudience.EVERYONE) return null
+        val viewerId = authRepository.currentUserId
+        val isAuthor = viewerId != null && viewerId == post.user.id
+        return when (audience) {
+            fm.corus.android.data.model.CommentsAudience.EVERYONE -> null
+            fm.corus.android.data.model.CommentsAudience.OFF ->
+                fm.corus.android.ui.components.CommentsBlockReason.OFF
+            fm.corus.android.data.model.CommentsAudience.FOLLOWERS -> when {
+                isAuthor -> null
+                followsAuthor == true -> null
+                else -> fm.corus.android.ui.components.CommentsBlockReason.FOLLOWERS
+            }
+        }
+    }
+
+    /**
+     * Resolves whether the current viewer follows the post author. Cheap —
+     * the user repository keeps a cached set of who-I-follow that's loaded
+     * at sign-in. Falls back to a Firestore read only when the cache miss
+     * matters (i.e. flag on + followers-only post + not the author).
+     */
+    private fun refreshFollowGate(post: CymbalPost) {
+        if (!remoteConfigService.commentControlsOnPosts) return
+        if (post.commentsAudience != fm.corus.android.data.model.CommentsAudience.FOLLOWERS) return
+        val viewerId = authRepository.currentUserId ?: return
+        if (viewerId == post.user.id) return
+        // Fast path: in-memory cache populated at sign-in.
+        _isFollowingAuthor.value = userRepository.isFollowing(post.user.id)
+    }
 
     // ── Pending attachment state for the composer ──
     private val _pendingSong = MutableStateFlow<CommentAttachedSong?>(null)
@@ -144,6 +217,7 @@ class CommentsViewModel @Inject constructor(
         val cached = postRepository.getCachedPost(postId)
         if (cached != null && _post.value == null) {
             _post.value = cached
+            refreshFollowGate(cached)
         }
 
         val userId = authRepository.currentUserId ?: return
@@ -152,6 +226,7 @@ class CommentsViewModel @Inject constructor(
                 val loadedPost = postRepository.getPostDetail(postId, userId)
                 _post.value = loadedPost
                 if (loadedPost != null) {
+                    refreshFollowGate(loadedPost)
                     engagementManager.initState(
                         postId = loadedPost.id,
                         likeCount = loadedPost.likeCount,

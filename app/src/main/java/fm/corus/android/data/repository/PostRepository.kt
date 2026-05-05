@@ -33,8 +33,9 @@ class PostRepository @Inject constructor(
         lastTimestamp: Long? = null,
         onePerFollower: Boolean = false,
         mediaType: MediaType? = null,
+        newReleasesOnly: Boolean = false,
     ): CloudFunctionsDataSource.FeedPage {
-        return cloudFunctions.getFeedPage(userId, pageSize, lastTimestamp, onePerFollower, mediaType)
+        return cloudFunctions.getFeedPage(userId, pageSize, lastTimestamp, onePerFollower, mediaType, newReleasesOnly)
             .also { cachePosts(it.posts) }
     }
 

@@ -131,7 +131,6 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
-                onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
                 onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
             )
         }
@@ -189,7 +188,6 @@ fun SearchNavGraph(navController: NavHostController, mainTabViewModel: MainTabVi
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
                 onNavigateToFilm = { route -> navController.navigate(route) },
-                onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
                 onNavigateToSuggestedUsers = { title, useRowLayout, source -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout, source)) },
                 onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
@@ -620,7 +618,6 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { route -> navController.navigate(route) },
-            onNavigateToBotList = { botType -> navController.navigate(BotListRoute(botType)) },
             onNavigateToSuggestedUsers = { title, useRowLayout, source -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout, source)) },
             onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },

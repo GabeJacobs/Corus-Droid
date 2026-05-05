@@ -46,6 +46,9 @@ class EditProfileViewModel @Inject constructor(
     private val _website = MutableStateFlow("")
     val website: StateFlow<String> = _website.asStateFlow()
 
+    private val _featuredTab = MutableStateFlow("music")
+    val featuredTab: StateFlow<String> = _featuredTab.asStateFlow()
+
     private val _usernameState = MutableStateFlow(UsernameState.IDLE)
     val usernameState: StateFlow<UsernameState> = _usernameState.asStateFlow()
 
@@ -79,6 +82,7 @@ class EditProfileViewModel @Inject constructor(
     private var originalDisplayName = ""
     private var originalBio = ""
     private var originalWebsite = ""
+    private var originalFeaturedTab = "music"
     private var usernameCheckJob: Job? = null
 
     enum class UsernameState {
@@ -96,10 +100,12 @@ class EditProfileViewModel @Inject constructor(
                     _username.value = user.username
                     _bio.value = user.bio
                     _website.value = user.website ?: ""
+                    _featuredTab.value = if (user.featuredTab == "film") "film" else "music"
                     originalDisplayName = user.displayName
                     originalUsername = user.username
                     originalBio = user.bio
                     originalWebsite = user.website ?: ""
+                    originalFeaturedTab = _featuredTab.value
 
                     // Load style selections from user profile
                     _styleSelections.value = StyleSelections(
@@ -175,13 +181,18 @@ class EditProfileViewModel @Inject constructor(
         _website.value = value
     }
 
+    fun updateFeaturedTab(value: String) {
+        _featuredTab.value = if (value == "film") "film" else "music"
+    }
+
     val hasChanges: Boolean
         get() {
             val p = _profile.value ?: return false
             return _displayName.value != p.displayName ||
                     _username.value != p.username ||
                     _bio.value != p.bio ||
-                    _website.value != (p.website ?: "")
+                    _website.value != (p.website ?: "") ||
+                    _featuredTab.value != p.featuredTab
         }
 
     val hasUnsavedChanges: Boolean
@@ -190,7 +201,8 @@ class EditProfileViewModel @Inject constructor(
             return _displayName.value != originalDisplayName ||
                     _username.value != originalUsername ||
                     _bio.value != originalBio ||
-                    _website.value != originalWebsite
+                    _website.value != originalWebsite ||
+                    _featuredTab.value != originalFeaturedTab
         }
 
     fun clearSaveError() {
@@ -228,6 +240,7 @@ class EditProfileViewModel @Inject constructor(
                 }
                 if (_bio.value != p.bio) fields["bio"] = _bio.value
                 if (_website.value != (p.website ?: "")) fields["website"] = _website.value
+                if (_featuredTab.value != p.featuredTab) fields["featuredTab"] = _featuredTab.value
 
                 userRepository.updateUserProfile(userId, fields)
                 analyticsService.logEditProfileSaved()

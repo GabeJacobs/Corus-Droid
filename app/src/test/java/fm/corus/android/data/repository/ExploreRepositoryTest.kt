@@ -2,6 +2,7 @@ package fm.corus.android.data.repository
 
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.TrendingSong
+import fm.corus.android.data.model.TrendingWindow
 import fm.corus.android.data.remote.FirestoreDataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -22,31 +23,49 @@ class ExploreRepositoryTest {
     // same cached 5-min-TTL value. Explicit refresh now calls clearCaches().
     @Test
     fun `clearCaches forces next fetch to hit data source`() = runTest {
-        val first = listOf(trendingSong("a"))
-        val second = listOf(trendingSong("b"))
-        whenever(dataSource.fetchTrendingSongs(20))
+        val first = mapOf(TrendingWindow.MONTH to listOf(trendingSong("a")))
+        val second = mapOf(TrendingWindow.MONTH to listOf(trendingSong("b")))
+        whenever(dataSource.fetchTrendingSongsByWindow(20))
             .thenReturn(first)
             .thenReturn(second)
 
-        assertEquals(first, repo.fetchTrendingSongs())
+        assertEquals(first[TrendingWindow.MONTH], repo.fetchTrendingSongs())
         // Without clear, TTL would serve `first` again.
-        assertEquals(first, repo.fetchTrendingSongs())
+        assertEquals(first[TrendingWindow.MONTH], repo.fetchTrendingSongs())
 
         repo.clearCaches()
 
-        assertEquals(second, repo.fetchTrendingSongs())
-        verify(dataSource, org.mockito.kotlin.times(2)).fetchTrendingSongs(20)
+        assertEquals(second[TrendingWindow.MONTH], repo.fetchTrendingSongs())
+        verify(dataSource, org.mockito.kotlin.times(2)).fetchTrendingSongsByWindow(20)
     }
 
     @Test
     fun `second fetch within TTL returns cached value without hitting source`() = runTest {
-        val songs = listOf(trendingSong("a"))
-        whenever(dataSource.fetchTrendingSongs(20)).thenReturn(songs)
+        val songs = mapOf(TrendingWindow.MONTH to listOf(trendingSong("a")))
+        whenever(dataSource.fetchTrendingSongsByWindow(20)).thenReturn(songs)
 
         repo.fetchTrendingSongs()
         repo.fetchTrendingSongs()
 
-        verify(dataSource, org.mockito.kotlin.times(1)).fetchTrendingSongs(20)
+        verify(dataSource, org.mockito.kotlin.times(1)).fetchTrendingSongsByWindow(20)
+    }
+
+    // One Firestore read populates all three windows — switching the
+    // selected window after that should be served from cache, not refetch.
+    @Test
+    fun `switching window after first fetch is served from cache`() = runTest {
+        val all = mapOf(
+            TrendingWindow.WEEK to listOf(trendingSong("w")),
+            TrendingWindow.MONTH to listOf(trendingSong("m")),
+            TrendingWindow.YEAR to listOf(trendingSong("y")),
+        )
+        whenever(dataSource.fetchTrendingSongsByWindow(20)).thenReturn(all)
+
+        assertEquals(all[TrendingWindow.MONTH], repo.fetchTrendingSongs(TrendingWindow.MONTH))
+        assertEquals(all[TrendingWindow.WEEK], repo.fetchTrendingSongs(TrendingWindow.WEEK))
+        assertEquals(all[TrendingWindow.YEAR], repo.fetchTrendingSongs(TrendingWindow.YEAR))
+
+        verify(dataSource, org.mockito.kotlin.times(1)).fetchTrendingSongsByWindow(20)
     }
 
     private fun trendingSong(id: String) = TrendingSong(

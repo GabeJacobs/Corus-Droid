@@ -572,26 +572,41 @@ fun ProfileScreen(
         item(span = { GridItemSpan(3) }, key = "tabs") {
             Column {
                 // ── Segment Control ──
-                val tabs = listOf(
-                    stringResource(fm.corus.android.R.string.profile_tab_music),
-                    stringResource(fm.corus.android.R.string.profile_tab_film),
-                    stringResource(fm.corus.android.R.string.profile_tab_likes),
-                    stringResource(fm.corus.android.R.string.profile_tab_saves),
-                )
+                // Tabs are stored in *displayed* order. When the profile owner
+                // has chosen Film as their featured tab, Film leads and Music
+                // is second. selectedSegment stays in *logical* coords
+                // (0=Music, 1=Film, 2=Likes, 3=Saves) so the existing
+                // when-on-segment dispatch downstream is unchanged. We map
+                // through `tabsOrder` here to translate displayed-tap → logical.
+                val musicLabel = stringResource(fm.corus.android.R.string.profile_tab_music)
+                val filmLabel = stringResource(fm.corus.android.R.string.profile_tab_film)
+                val likesLabel = stringResource(fm.corus.android.R.string.profile_tab_likes)
+                val savesLabel = stringResource(fm.corus.android.R.string.profile_tab_saves)
+                val isFilmFirst = profile?.featuredTab == "film"
+                val tabsOrder = if (isFilmFirst) listOf(1, 0, 2, 3) else listOf(0, 1, 2, 3)
+                val tabs = tabsOrder.map { logical ->
+                    when (logical) {
+                        0 -> musicLabel
+                        1 -> filmLabel
+                        2 -> likesLabel
+                        else -> savesLabel
+                    }
+                }
                 val tabSelectedColor = CorusColors.Text
                 val tabUnselectedColor = CorusColors.Divider
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     tabs.forEachIndexed { index, title ->
-                        val isSelected = selectedSegment == index
+                        val logicalSegment = tabsOrder[index]
+                        val isSelected = selectedSegment == logicalSegment
                         Column(
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable {
-                                    userSelectedSegment = index
+                                    userSelectedSegment = logicalSegment
                                     isFeaturedArtReady = false
-                                    viewModel.loadSegment(index)
+                                    viewModel.loadSegment(logicalSegment)
                                 }
                                 .drawBehind {
                                     val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
@@ -628,72 +643,66 @@ fun ProfileScreen(
                     else -> posts
                 }
 
+                // While the dedicated movie-only fetch is in flight, always
+                // render the FeaturedMoviePosterView shell on the Film tab —
+                // even if one film is already cached from the recency-sorted
+                // initial page — so the view identity stays stable through
+                // the loading→loaded transition (no remount, no shimmer
+                // restart, no frame Image re-decode).
+                val filmFetchPending = selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)
+                val filmFeaturedPost = if (selectedSegment == 1) filteredPosts.firstOrNull() else null
+
                 // ── Featured Post — only for Music/Film tabs (matching iOS) ──
-                // Show skeleton until the featured art image has loaded,
-                // matching the iOS pattern of hiding the real view until ready.
-                if (filteredPosts.isNotEmpty() && selectedSegment <= 1) {
+                if (selectedSegment == 1 && (filmFetchPending || filmFeaturedPost != null)) {
+                    val featuredEngagement = filmFeaturedPost?.let { engagementStates[it.id] }
+                    fm.corus.android.ui.components.FeaturedMoviePosterView(
+                        post = filmFeaturedPost,
+                        frameStyle = currentProfile.frameStyle,
+                        rainIntensity = if (filmFeaturedPost == null) fm.corus.android.data.model.RainIntensity.OFF else currentProfile.rainIntensity,
+                        snowIntensity = if (filmFeaturedPost == null) fm.corus.android.data.model.SnowIntensity.OFF else currentProfile.snowIntensity,
+                        discoIntensity = if (filmFeaturedPost == null) fm.corus.android.data.model.DiscoIntensity.OFF else currentProfile.discoIntensityLevel,
+                        likeCount = featuredEngagement?.likeCount ?: (filmFeaturedPost?.likeCount ?: 0),
+                        isLiked = featuredEngagement?.isLiked ?: (filmFeaturedPost?.isLiked ?: false),
+                        onLikeTap = { filmFeaturedPost?.let { viewModel.toggleLike(it.id) } },
+                        onPostTap = { filmFeaturedPost?.let { navigateToFeed(it.id) } },
+                    )
+                } else if (filteredPosts.isNotEmpty() && selectedSegment == 0) {
                     val featuredPost = filteredPosts.first()
                     if (!isFeaturedArtReady) {
-                        // Render featured view off-screen to trigger image load,
-                        // show skeleton on top (like iOS's .hidden() + ZStack)
+                        // Music featured: render off-screen to trigger image
+                        // load, show skeleton on top (matches iOS .hidden() + ZStack).
                         Box {
                             Box(modifier = Modifier
                                 .fillMaxWidth()
                                 .alpha(0f)
                             ) {
-                                if (featuredPost.mediaType == fm.corus.android.data.model.MediaType.MOVIE) {
-                                    fm.corus.android.ui.components.FeaturedMoviePosterView(
-                                        post = featuredPost,
-                                        frameStyle = currentProfile.frameStyle,
-                                        onArtReady = { isFeaturedArtReady = true },
-                                    )
-                                } else {
-                                    fm.corus.android.ui.components.FeaturedCymbalView(
-                                        post = featuredPost,
-                                        vinylStyle = currentProfile.vinylStyle,
-                                        onArtReady = { isFeaturedArtReady = true },
-                                    )
-                                }
+                                fm.corus.android.ui.components.FeaturedCymbalView(
+                                    post = featuredPost,
+                                    vinylStyle = currentProfile.vinylStyle,
+                                    onArtReady = { isFeaturedArtReady = true },
+                                )
                             }
                             fm.corus.android.ui.components.SkeletonProfileGrid(
-                                isFilmStyle = featuredPost.mediaType == fm.corus.android.data.model.MediaType.MOVIE,
+                                isFilmStyle = false,
                             )
                         }
                     } else {
                         val featuredEngagement = engagementStates[featuredPost.id]
-                        if (featuredPost.mediaType == fm.corus.android.data.model.MediaType.MOVIE) {
-                            fm.corus.android.ui.components.FeaturedMoviePosterView(
-                                post = featuredPost,
-                                frameStyle = currentProfile.frameStyle,
-                                rainIntensity = currentProfile.rainIntensity,
-                                snowIntensity = currentProfile.snowIntensity,
-                                discoIntensity = currentProfile.discoIntensityLevel,
-                                likeCount = featuredEngagement?.likeCount ?: featuredPost.likeCount,
-                                isLiked = featuredEngagement?.isLiked ?: featuredPost.isLiked,
-                                onLikeTap = { viewModel.toggleLike(featuredPost.id) },
-                                onPostTap = { navigateToFeed(featuredPost.id) },
-                            )
-                        } else {
-                            val shouldStagger = !didRevealFromSkeleton
-                            LaunchedEffect(Unit) { didRevealFromSkeleton = true }
-                            fm.corus.android.ui.components.FeaturedCymbalView(
-                                post = featuredPost,
-                                vinylStyle = currentProfile.vinylStyle,
-                                rainIntensity = currentProfile.rainIntensity,
-                                snowIntensity = currentProfile.snowIntensity,
-                                discoIntensity = currentProfile.discoIntensityLevel,
-                                likeCount = featuredEngagement?.likeCount ?: featuredPost.likeCount,
-                                isLiked = featuredEngagement?.isLiked ?: featuredPost.isLiked,
-                                onLikeTap = { viewModel.toggleLike(featuredPost.id) },
-                                onPostTap = { navigateToFeed(featuredPost.id) },
-                                staggerVinyl = shouldStagger,
-                            )
-                        }
+                        val shouldStagger = !didRevealFromSkeleton
+                        LaunchedEffect(Unit) { didRevealFromSkeleton = true }
+                        fm.corus.android.ui.components.FeaturedCymbalView(
+                            post = featuredPost,
+                            vinylStyle = currentProfile.vinylStyle,
+                            rainIntensity = currentProfile.rainIntensity,
+                            snowIntensity = currentProfile.snowIntensity,
+                            discoIntensity = currentProfile.discoIntensityLevel,
+                            likeCount = featuredEngagement?.likeCount ?: featuredPost.likeCount,
+                            isLiked = featuredEngagement?.isLiked ?: featuredPost.isLiked,
+                            onLikeTap = { viewModel.toggleLike(featuredPost.id) },
+                            onPostTap = { navigateToFeed(featuredPost.id) },
+                            staggerVinyl = shouldStagger,
+                        )
                     }
-                } else if (filteredPosts.isEmpty() && selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)) {
-                    // Films pending — show skeleton until we've either fetched the
-                    // movie-only page or determined there are none.
-                    fm.corus.android.ui.components.SkeletonProfileGrid(isFilmStyle = true)
                 } else if (filteredPosts.isEmpty() && !isLoading
                     && !(selectedSegment == 2 && isLoadingLiked)
                     && !(selectedSegment == 3 && isLoadingSaved)
@@ -734,11 +743,33 @@ fun ProfileScreen(
             it.mediaType == if (selectedSegment == 0) fm.corus.android.data.model.MediaType.TRACK
             else fm.corus.android.data.model.MediaType.MOVIE
         }
+        val filmFetchPending = selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)
         val isSegmentLoading = (selectedSegment == 2 && isLoadingLiked && likedPosts.isEmpty())
             || (selectedSegment == 3 && isLoadingSaved && savedPosts.isEmpty())
 
         if (isFeaturedArtLoading) {
-            // SkeletonProfileGrid in the header already covers grid area; emit nothing here
+            // Music featured uses SkeletonProfileGrid in the header which covers the grid; emit nothing.
+        } else if (filmFetchPending) {
+            // FILM tab now uses the in-place FeaturedMoviePosterView shell, so we
+            // need to render grid skeleton cells here (header doesn't cover them).
+            items(6) { index ->
+                val transition = rememberInfiniteTransition(label = "filmSkeletonPulse")
+                val alpha by transition.animateFloat(
+                    initialValue = 0.85f,
+                    targetValue = 0.3f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 750, easing = EaseInOut),
+                        repeatMode = RepeatMode.Reverse,
+                        initialStartOffset = StartOffset(offsetMillis = (index + 3) * 80),
+                    ),
+                    label = "filmSkeletonAlpha",
+                )
+                Box(
+                    modifier = Modifier
+                        .aspectRatio(2f / 3f)
+                        .background(CorusColors.Skeleton.copy(alpha = alpha)),
+                )
+            }
         } else if (isSegmentLoading) {
             // Skeleton grid cells while likes/saves load (matching iOS)
             items(15) { index ->

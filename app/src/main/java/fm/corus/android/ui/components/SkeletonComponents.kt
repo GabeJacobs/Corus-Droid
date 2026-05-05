@@ -571,15 +571,17 @@ fun SkeletonProfileWithAvatar(
 fun SkeletonProfileGrid(
     showFeatured: Boolean = true,
     isFilmStyle: Boolean = false,
+    frameStyle: fm.corus.android.data.model.FrameStyle = fm.corus.android.data.model.FrameStyle.BLACK,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shimmer(),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         if (showFeatured) {
             if (isFilmStyle) {
-                SkeletonFeaturedMoviePoster()
+                // Film featured area renders the real frame asset; shimmer is
+                // applied internally (poster opening + title bars) so the frame
+                // itself isn't shimmered.
+                SkeletonFeaturedMoviePoster(frameStyle = frameStyle)
             } else {
                 SkeletonFeaturedCymbal()
             }
@@ -588,15 +590,17 @@ fun SkeletonProfileGrid(
         // 3-column grid — cells use 2:3 posters for film, 1:1 for music
         val cellCount = if (showFeatured) 6 else 15
         val cellAspect = if (isFilmStyle) 2f / 3f else 1f
-        for (row in 0 until (cellCount + 2) / 3) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                for (col in 0 until 3) {
-                    val index = row * 3 + col
-                    if (index < cellCount) {
-                        SkeletonAlbumGridCell(
-                            modifier = Modifier.weight(1f),
-                            aspectRatio = cellAspect,
-                        )
+        Column(modifier = Modifier.shimmer()) {
+            for (row in 0 until (cellCount + 2) / 3) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    for (col in 0 until 3) {
+                        val index = row * 3 + col
+                        if (index < cellCount) {
+                            SkeletonAlbumGridCell(
+                                modifier = Modifier.weight(1f),
+                                aspectRatio = cellAspect,
+                            )
+                        }
                     }
                 }
             }
@@ -1453,14 +1457,22 @@ private fun SkeletonInfoRow(labelWidth: Dp, valueWidth: Dp) {
     }
 }
 
-// 13b. SkeletonFeaturedMoviePoster — Framed poster skeleton matching FeaturedMoviePosterView
+// 13b. SkeletonFeaturedMoviePoster — Framed poster skeleton matching FeaturedMoviePosterView.
+//
+// Renders the actual frame asset with a shimmering placeholder sitting on top
+// of the frame inside the poster opening, so the loading state matches the
+// loaded layout exactly (the visual transition is just shimmer → poster
+// fade-in).
 @Composable
-fun SkeletonFeaturedMoviePoster() {
+fun SkeletonFeaturedMoviePoster(frameStyle: fm.corus.android.data.model.FrameStyle = fm.corus.android.data.model.FrameStyle.BLACK) {
     // Match FeaturedMoviePosterView section proportions (585 × 482)
     val sectionAspect = 585f / 482f
-    // Frame border ratios (visible dark border around the poster opening)
-    val frameWidthRatio = 245f / 585f
-    val frameHeightRatio = 345f / 482f
+    val posterXRatio = 207.28f / 585f
+    val posterYRatio = 84.85f / 482f
+    val posterWRatio = 184.98f / 585f
+    val posterHRatio = 269.33f / 482f
+
+    val frameDrawable = frameDrawableRes(frameStyle)
 
     Column(
         modifier = Modifier
@@ -1478,23 +1490,37 @@ fun SkeletonFeaturedMoviePoster() {
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(sectionAspect),
-            contentAlignment = Alignment.Center,
         ) {
-            val frameW = maxWidth * frameWidthRatio
-            val frameH = maxHeight * frameHeightRatio
+            val w = maxWidth
+            val h = maxHeight
+
+            // 1) Frame asset (drawn first, behind the shimmer).
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(frameDrawable),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds,
+            )
+
+            // 2) Shimmer on top of the frame, in the poster opening. Uses a
+            //    visible dark-gray base so it shows up against the frame's
+            //    bright white mat (CorusColors.Skeleton washes out there).
             Box(
                 modifier = Modifier
-                    .width(frameW)
-                    .height(frameH)
-                    .background(CorusColors.Skeleton),
+                    .offset(x = w * posterXRatio, y = h * posterYRatio)
+                    .size(width = w * posterWRatio, height = h * posterHRatio)
+                    .shimmer()
+                    .background(Color.Black.copy(alpha = 0.12f)),
             )
         }
         // Title + subtitle bars below, matching SkeletonFeaturedCymbal layout
         Column(
-            modifier = Modifier.padding(
-                horizontal = CorusSpacing.lg,
-                vertical = CorusSpacing.md,
-            ),
+            modifier = Modifier
+                .padding(
+                    horizontal = CorusSpacing.lg,
+                    vertical = CorusSpacing.md,
+                )
+                .shimmer(),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
         ) {
             Box(

@@ -29,6 +29,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
@@ -68,9 +71,11 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
+import fm.corus.android.data.model.TrendingWindow
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FilmSearchResultRow
+import fm.corus.android.ui.components.HorizontalPopularUsersRail
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.SkeletonFilmRow
 import fm.corus.android.ui.components.SkeletonSearchSongRow
@@ -102,7 +107,6 @@ fun SearchScreen(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
-    onNavigateToBotList: (String?) -> Unit = {},
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit = { _, _, _ -> },
     onNavigateToContactFriends: () -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
@@ -117,18 +121,15 @@ fun SearchScreen(
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val isTrendingLoading by viewModel.isTrendingLoading.collectAsState()
     val isTrendingMoviesLoading by viewModel.isTrendingMoviesLoading.collectAsState()
+    val trendingSongsWindow by viewModel.trendingSongsWindow.collectAsState()
+    val trendingFilmsWindow by viewModel.trendingFilmsWindow.collectAsState()
     val suggestedMatches by viewModel.suggestedMatches.collectAsState()
     val isSuggestedLoading by viewModel.isSuggestedLoading.collectAsState()
-    val curatedMusicBots by viewModel.curatedMusicBots.collectAsState()
-    val curatedFilmBots by viewModel.curatedFilmBots.collectAsState()
-    val isBotsLoading by viewModel.isBotsLoading.collectAsState()
     val recentSearchUsers by viewModel.recentSearchUsers.collectAsState()
     val contactMatches by viewModel.contactMatches.collectAsState()
     val isSyncingContacts by viewModel.isSyncingContacts.collectAsState()
     val contactsSyncStatus by viewModel.contactsSyncStatus.collectAsState()
     val showNoContactMatches by viewModel.showNoContactMatches.collectAsState()
-    val popularUsers by viewModel.popularUsers.collectAsState()
-    val isPopularLoading by viewModel.isPopularLoading.collectAsState()
     val newUsers by viewModel.newUsers.collectAsState()
     val hashtagSearchResults by viewModel.hashtagSearchResults.collectAsState()
     val trendingHashtags by viewModel.trendingHashtags.collectAsState()
@@ -207,12 +208,17 @@ fun SearchScreen(
         showUnfollowedMatchesToggle(musicMatchUsers, allFollowedIds)
     }
 
+    // Mutual-connection users sorted by mutual-count DESC. The underlying
+    // suggestion list mixes in music-similarity-ranked users, so the rail
+    // needs this explicit re-sort even though the backend mutualConnections
+    // doc itself is already sorted that way.
     val mutualConnectionUsers = remember(suggestedMatches, allFollowedIds) {
         suggestedMatches
             .filter { !allFollowedIds.contains(it.user.id) }
             .filter { it.matchData?.hasSimilarityData != true && (it.user.artistsInCommonCount ?: 0) == 0 }
             .filter { it.user.cymbalCount > 0 }
             .filter { it.suggestionReason?.mutualNames?.isNotEmpty() == true }
+            .sortedByDescending { it.suggestionReason?.mutualCount ?: 0 }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background).nestedScroll(scrollDismissConnection)) {
@@ -289,20 +295,14 @@ fun SearchScreen(
                                 filterUnfollowedMatches = filterUnfollowedMatches,
                                 onSetFilterUnfollowed = { filterUnfollowedMatches = it },
                                 mutualConnectionUsers = mutualConnectionUsers,
-                                curatedMusicBots = curatedMusicBots,
-                                curatedFilmBots = curatedFilmBots,
                                 contactMatches = contactMatches,
                                 contactsSyncStatus = contactsSyncStatus,
                                 isSyncingContacts = isSyncingContacts,
                                 showNoContactMatches = showNoContactMatches,
-                                popularUsers = popularUsers,
-                                isPopularLoading = isPopularLoading,
                                 newUsers = newUsers,
                                 isSuggestedLoading = isSuggestedLoading,
-                                isBotsLoading = isBotsLoading,
                                 viewModel = viewModel,
                                 onNavigateToUser = onNavigateToUser,
-                                onNavigateToBotList = onNavigateToBotList,
                                 onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
                                 onNavigateToContactFriends = onNavigateToContactFriends,
                             )
@@ -321,6 +321,8 @@ fun SearchScreen(
                                 listState = songsListState,
                                 songs = trendingSongs,
                                 isLoading = isTrendingLoading,
+                                window = trendingSongsWindow,
+                                onWindowChange = { viewModel.setTrendingSongsWindow(it) },
                                 onSongTap = onNavigateToSong,
                                 nowPlaying = viewModel.nowPlayingManager,
                             )
@@ -339,6 +341,8 @@ fun SearchScreen(
                                 listState = filmsListState,
                                 movies = trendingMovies,
                                 isLoading = isTrendingMoviesLoading,
+                                window = trendingFilmsWindow,
+                                onWindowChange = { viewModel.setTrendingFilmsWindow(it) },
                                 onFilmTap = onNavigateToFilm,
                             )
                         }
@@ -568,30 +572,26 @@ private fun SuggestedUsersContent(
     filterUnfollowedMatches: Boolean,
     onSetFilterUnfollowed: (Boolean) -> Unit,
     mutualConnectionUsers: List<SuggestedUserMatch>,
-    curatedMusicBots: List<SuggestedUserMatch>,
-    curatedFilmBots: List<SuggestedUserMatch>,
     contactMatches: List<CymbalUser>,
     contactsSyncStatus: String,
     isSyncingContacts: Boolean,
     showNoContactMatches: Boolean,
-    popularUsers: List<CymbalUser>,
-    isPopularLoading: Boolean,
     newUsers: List<CymbalUser>,
     isSuggestedLoading: Boolean,
-    isBotsLoading: Boolean,
     viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
-    onNavigateToBotList: (String?) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
     onNavigateToContactFriends: () -> Unit,
 ) {
     val context = LocalContext.current
     val tasteMatchesTitle = stringResource(fm.corus.android.R.string.search_taste_matches_title)
     val mutualConnectionsTitle = stringResource(fm.corus.android.R.string.search_mutual_connections_title)
-    val popularOnCorusTitle = stringResource(fm.corus.android.R.string.search_popular_title)
     val newOnCorusTitle = stringResource(fm.corus.android.R.string.search_new_title)
     val fromContactsSubtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts)
     val joinedFormat = fm.corus.android.R.string.suggested_users_joined_format
+    val railExcludeIds = remember(viewModel.currentUserId) {
+        viewModel.currentUserId?.let { setOf(it) } ?: emptySet()
+    }
 
     val contactPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -743,39 +743,19 @@ private fun SuggestedUsersContent(
             item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         }
 
-        // ── Popular on Corus ──
-        if (popularUsers.isNotEmpty()) {
-            item {
-                SectionHeader(
-                    icon = "trending",
-                    title = stringResource(fm.corus.android.R.string.search_section_popular),
-                    showSeeAll = popularUsers.size > 2,
-                    onSeeAll = { onNavigateToSuggestedUsers(popularOnCorusTitle, true, "popular") },
-                )
-            }
-            items(popularUsers.take(2), key = { "popular-${it.id}" }) { user ->
-                SuggestedUserRow(
-                    user = user,
-                    subtitle = context.resources.getQuantityString(fm.corus.android.R.plurals.search_followers_count, user.followerCount, user.followerCount),
-                    isFollowed = viewModel.isFollowed(user.id),
-                    onTap = { onNavigateToUser(user.id) },
-                    onFollow = { viewModel.toggleFollow(user) },
-                )
-            }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
-        } else if (isPopularLoading) {
-            item {
-                SectionHeader(icon = "trending", title = stringResource(fm.corus.android.R.string.search_section_popular))
-            }
-            items(2) { SkeletonUserRow() }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+        // ── Popular on Corus — paginated horizontal rail of real users ──
+        item {
+            HorizontalPopularUsersRail(
+                excludeIds = railExcludeIds,
+                isFollowed = { id -> viewModel.isFollowed(id) },
+                onUserTap = { user -> onNavigateToUser(user.id) },
+                onFollowTap = { user -> viewModel.toggleFollow(user) },
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
 
         // ── New on Corus ──
-        val seenNewIds = buildSet {
-            mutualConnectionUsers.forEach { add(it.user.id) }
-            popularUsers.take(2).forEach { add(it.id) }
-        }
+        val seenNewIds = buildSet { mutualConnectionUsers.forEach { add(it.user.id) } }
         val displayNewUsers = newUsers.filter {
             !seenNewIds.contains(it.id) && !viewModel.isFollowed(it.id)
         }
@@ -800,40 +780,8 @@ private fun SuggestedUsersContent(
             item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         }
 
-        // ── Curated Music Bots ──
-        if (curatedMusicBots.isNotEmpty()) {
-            item {
-                SectionHeader(
-                    icon = "bot",
-                    title = stringResource(fm.corus.android.R.string.search_section_curated_music_bots),
-                    showSeeAll = curatedMusicBots.size > 4,
-                    onSeeAll = { onNavigateToBotList("music") },
-                )
-            }
-            item {
-                BotGrid(bots = curatedMusicBots.take(4), viewModel = viewModel, onNavigateToUser = onNavigateToUser)
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            }
-        }
-
-        // ── Curated Film Bots ──
-        if (curatedFilmBots.isNotEmpty()) {
-            item {
-                SectionHeader(
-                    icon = "bot",
-                    title = stringResource(fm.corus.android.R.string.search_section_curated_film_bots),
-                    showSeeAll = curatedFilmBots.size > 4,
-                    onSeeAll = { onNavigateToBotList("film") },
-                )
-            }
-            item {
-                BotGrid(bots = curatedFilmBots.take(4), viewModel = viewModel, onNavigateToUser = onNavigateToUser)
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            }
-        }
-
         // ── Invite friends ──
-        if (!isSuggestedLoading && !isBotsLoading && !isPopularLoading) {
+        if (!isSuggestedLoading) {
         item {
             Column(
                 modifier = Modifier
@@ -1151,28 +1099,39 @@ private fun TrendingSongsContent(
     listState: LazyListState = rememberLazyListState(),
     songs: List<TrendingSong>,
     isLoading: Boolean,
+    window: TrendingWindow,
+    onWindowChange: (TrendingWindow) -> Unit,
     onSongTap: (CymbalTrack) -> Unit,
     nowPlaying: fm.corus.android.domain.NowPlayingManager,
 ) {
+    val header: @Composable () -> Unit = {
+        TrendingHeader(iconName = "music", window = window, onWindowChange = onWindowChange)
+    }
     if (isLoading) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
-            item { SectionHeader(icon = "music", title = stringResource(fm.corus.android.R.string.search_section_trending_this_month)) }
+            item { header() }
             items(5) { SkeletonTrendingSongRow() }
         }
         return
     }
     if (songs.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(modifier = Modifier.height(80.dp))
-                Text("\uD83C\uDFB5", style = CorusFont.songTitleLarge, modifier = Modifier.padding(bottom = CorusSpacing.sm))
-                Text(stringResource(fm.corus.android.R.string.search_nothing_trending), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
-                Text(stringResource(fm.corus.android.R.string.search_post_some_songs), style = CorusFont.body, color = CorusColors.Tertiary)
+        // Keep the header with its picker visible so the user can pick a
+        // different window when one is empty (e.g. nothing trending this week).
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+            item { header() }
+            item {
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("\uD83C\uDFB5", style = CorusFont.songTitleLarge, modifier = Modifier.padding(bottom = CorusSpacing.sm))
+                        Text(stringResource(fm.corus.android.R.string.search_nothing_trending), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.R.string.search_post_some_songs), style = CorusFont.body, color = CorusColors.Tertiary)
+                    }
+                }
             }
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
-            item { SectionHeader(icon = "music", title = stringResource(fm.corus.android.R.string.search_section_trending_this_month)) }
+            item { header() }
             itemsIndexed(songs) { index, song ->
                 TrendingSongRow(song = song, nowPlaying = nowPlaying, onClick = { onSongTap(song.track) })
                 if (index < songs.lastIndex) {
@@ -1224,27 +1183,36 @@ private fun TrendingFilmsContent(
     listState: LazyListState = rememberLazyListState(),
     movies: List<TrendingMovie>,
     isLoading: Boolean,
+    window: TrendingWindow,
+    onWindowChange: (TrendingWindow) -> Unit,
     onFilmTap: (FilmDetailRoute) -> Unit,
 ) {
+    val header: @Composable () -> Unit = {
+        TrendingHeader(iconName = "film", window = window, onWindowChange = onWindowChange)
+    }
     if (isLoading) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
-            item { SectionHeader(icon = "film", title = stringResource(fm.corus.android.R.string.search_section_trending_this_month)) }
+            item { header() }
             items(10) { SkeletonTrendingFilmRow() }
         }
         return
     }
     if (movies.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(modifier = Modifier.height(80.dp))
-                Text("\uD83C\uDFAC", style = CorusFont.songTitleLarge, modifier = Modifier.padding(bottom = CorusSpacing.sm))
-                Text(stringResource(fm.corus.android.R.string.search_no_trending_films), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
-                Text(stringResource(fm.corus.android.R.string.search_post_some_films), style = CorusFont.body, color = CorusColors.Tertiary)
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+            item { header() }
+            item {
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("\uD83C\uDFAC", style = CorusFont.songTitleLarge, modifier = Modifier.padding(bottom = CorusSpacing.sm))
+                        Text(stringResource(fm.corus.android.R.string.search_no_trending_films), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.R.string.search_post_some_films), style = CorusFont.body, color = CorusColors.Tertiary)
+                    }
+                }
             }
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
-            item { SectionHeader(icon = "film", title = stringResource(fm.corus.android.R.string.search_section_trending_this_month)) }
+            item { header() }
             itemsIndexed(movies) { index, movie ->
                 TrendingFilmRow(movie = movie, onClick = {
                     onFilmTap(FilmDetailRoute(
@@ -1262,6 +1230,94 @@ private fun TrendingFilmsContent(
                 }
             }
         }
+    }
+}
+
+/** Section header for trending content. The whole phrase
+ *  ("TRENDING THIS WEEK ▾") is one tappable Row anchoring a DropdownMenu, so
+ *  the picker can never visually disjoin from the surrounding text — they
+ *  re-render as one unit even during pull-to-refresh / state changes. Mirrors
+ *  the iOS `trendingSectionHeader`. */
+@Composable
+private fun TrendingHeader(
+    iconName: String,
+    window: TrendingWindow,
+    onWindowChange: (TrendingWindow) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val iconVector = when (iconName) {
+        "music" -> Icons.Filled.MusicNote
+        "film" -> Icons.Filled.Movie
+        else -> null
+    }
+    val windowLabelRes = when (window) {
+        TrendingWindow.WEEK -> fm.corus.android.R.string.search_trending_window_week
+        TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month
+        TrendingWindow.YEAR -> fm.corus.android.R.string.search_trending_window_year
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = CorusSpacing.lg, end = CorusSpacing.lg, top = CorusSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (iconVector != null) {
+            Icon(
+                imageVector = iconVector,
+                contentDescription = null,
+                tint = CorusColors.Accent,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        }
+        Box {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable { expanded = true }
+                    .padding(vertical = 2.dp),
+            ) {
+                Text(
+                    text = stringResource(fm.corus.android.R.string.search_section_trending_this) + " ",
+                    style = CorusFont.sectionHeader,
+                    color = CorusColors.Secondary,
+                )
+                Text(
+                    text = stringResource(windowLabelRes),
+                    style = CorusFont.sectionHeader,
+                    color = CorusColors.Text,
+                )
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = stringResource(fm.corus.android.R.string.search_trending_window_aria),
+                    tint = CorusColors.Secondary,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                TrendingWindow.values().forEach { option ->
+                    val optionLabelRes = when (option) {
+                        TrendingWindow.WEEK -> fm.corus.android.R.string.search_trending_window_week
+                        TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month
+                        TrendingWindow.YEAR -> fm.corus.android.R.string.search_trending_window_year
+                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(optionLabelRes)) },
+                        onClick = {
+                            expanded = false
+                            if (option != window) onWindowChange(option)
+                        },
+                        trailingIcon = if (option == window) {
+                            { Icon(Icons.Filled.Check, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(16.dp)) }
+                        } else null,
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.weight(1f))
     }
 }
 
@@ -1432,38 +1488,6 @@ internal fun formatMutualFollowersText(context: android.content.Context, names: 
             val others = names.size - 2
             val othersText = context.resources.getQuantityString(fm.corus.android.R.plurals.search_others_count, others, others)
             context.getString(fm.corus.android.R.string.search_followed_by_many_format, names[0], names[1], othersText)
-        }
-    }
-}
-
-// ── Bot Grid (2-column layout matching iOS) ──
-
-@Composable
-private fun BotGrid(
-    bots: List<SuggestedUserMatch>,
-    viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
-) {
-    val rows = bots.chunked(2)
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-    ) {
-        rows.forEach { rowBots ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md)) {
-                rowBots.forEach { match ->
-                    TasteMatchCard(
-                        match = match,
-                        isFollowing = viewModel.isFollowed(match.user.id),
-                        onUserTap = { onNavigateToUser(match.user.id) },
-                        onFollowTap = { viewModel.toggleFollow(match.user) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (rowBots.size < 2) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
         }
     }
 }

@@ -1,7 +1,9 @@
 package fm.corus.android.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import com.valentinilk.shimmer.shimmer
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,18 +52,39 @@ import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
+/** Drawable id for the user's frame style, theme-aware. */
+@Composable
+internal fun frameDrawableRes(frameStyle: FrameStyle): Int {
+    val isDark = LocalCorusDarkTheme.current
+    return remember(frameStyle, isDark) {
+        when (frameStyle) {
+            FrameStyle.BLACK -> if (isDark) R.drawable.frame_black_dark else R.drawable.frame_black
+            FrameStyle.WHITE -> if (isDark) R.drawable.frame_white_dark else R.drawable.frame_white
+            FrameStyle.RED -> if (isDark) R.drawable.frame_red_dark else R.drawable.frame_red
+            FrameStyle.BLUE -> if (isDark) R.drawable.frame_blue_dark else R.drawable.frame_blue
+            FrameStyle.GREEN -> if (isDark) R.drawable.frame_green_dark else R.drawable.frame_green
+        }
+    }
+}
+
 /**
  * Featured movie post with frame overlay, matching iOS FeaturedMoviePosterView.
+ *
+ * `post` is nullable so this same composable can render the loading state
+ * (frame + shimmer + placeholder metadata) and the loaded state. Keeping the
+ * same composable position across the transition preserves view identity, so
+ * the frame Image and the poster shimmer don't restart their animations when
+ * the post arrives — only the bottom metadata row transitions.
  */
 @Composable
 fun FeaturedMoviePosterView(
-    post: CymbalPost,
+    post: CymbalPost?,
     frameStyle: FrameStyle,
     rainIntensity: RainIntensity = RainIntensity.OFF,
     snowIntensity: SnowIntensity = SnowIntensity.OFF,
     discoIntensity: DiscoIntensity = DiscoIntensity.OFF,
-    likeCount: Int = post.likeCount,
-    isLiked: Boolean = post.isLiked,
+    likeCount: Int = post?.likeCount ?: 0,
+    isLiked: Boolean = post?.isLiked ?: false,
     onLikeTap: () -> Unit = {},
     onTrailerTap: () -> Unit = {},
     onPostTap: () -> Unit = {},
@@ -72,15 +95,7 @@ fun FeaturedMoviePosterView(
     // drawable-night qualifier because the appearance toggle (System/Light/Dark)
     // can force dark while the OS Configuration is still in light uiMode.
     val isDark = LocalCorusDarkTheme.current
-    val frameDrawable = remember(frameStyle, isDark) {
-        when (frameStyle) {
-            FrameStyle.BLACK -> if (isDark) R.drawable.frame_black_dark else R.drawable.frame_black
-            FrameStyle.WHITE -> if (isDark) R.drawable.frame_white_dark else R.drawable.frame_white
-            FrameStyle.RED -> if (isDark) R.drawable.frame_red_dark else R.drawable.frame_red
-            FrameStyle.BLUE -> if (isDark) R.drawable.frame_blue_dark else R.drawable.frame_blue
-            FrameStyle.GREEN -> if (isDark) R.drawable.frame_green_dark else R.drawable.frame_green
-        }
-    }
+    val frameDrawable = frameDrawableRes(frameStyle)
 
     // Frame dimensions from Figma (585x482 canvas)
     val sectionAspect = 585f / 482f
@@ -108,24 +123,26 @@ fun FeaturedMoviePosterView(
                     ),
                 ),
             )
-            .pointerInput(post.id, isLiked) {
-                detectTapGestures(
-                    onTap = { onPostTap() },
-                    onDoubleTap = {
-                        // Mirrors iOS FeaturedMoviePosterView.doubleTapLike haptic.
-                        haptics.impact(HapticManager.ImpactStyle.MEDIUM)
-                        if (!isLiked) onLikeTap()
-                        showDoubleTapHeart = true
-                        scope.launch {
-                            heartScale.snapTo(0f)
-                            heartAlpha.snapTo(1f)
-                            heartScale.animateTo(1f, animationSpec = tween(300))
-                            delay(400)
-                            heartAlpha.animateTo(0f, animationSpec = tween(300))
-                            showDoubleTapHeart = false
-                        }
-                    },
-                )
+            .let { mod ->
+                if (post == null) mod else mod.pointerInput(post.id, isLiked) {
+                    detectTapGestures(
+                        onTap = { onPostTap() },
+                        onDoubleTap = {
+                            // Mirrors iOS FeaturedMoviePosterView.doubleTapLike haptic.
+                            haptics.impact(HapticManager.ImpactStyle.MEDIUM)
+                            if (!isLiked) onLikeTap()
+                            showDoubleTapHeart = true
+                            scope.launch {
+                                heartScale.snapTo(0f)
+                                heartAlpha.snapTo(1f)
+                                heartScale.animateTo(1f, animationSpec = tween(300))
+                                delay(400)
+                                heartAlpha.animateTo(0f, animationSpec = tween(300))
+                                showDoubleTapHeart = false
+                            }
+                        },
+                    )
+                }
             },
     ) {
         val w = maxWidth
@@ -146,25 +163,50 @@ fun FeaturedMoviePosterView(
                 contentScale = ContentScale.FillBounds,
             )
 
-            // Poster
-            val posterUrl = post.displayImageLargeURL ?: post.displayImageURL
-            if (posterUrl != null) {
-                val ctx = LocalContext.current
-                val posterRequest = remember(posterUrl) {
-                    ImageRequest.Builder(ctx)
-                        .data(posterUrl)
-                        .crossfade(false)
-                        .build()
-                }
-                AsyncImage(
-                    model = posterRequest,
-                    contentDescription = null,
+            // Poster opening — the shimmer is *always* rendered (not gated on
+            // a URL) so its animation doesn't restart when `post` arrives.
+            // The AsyncImage fades in over the shimmer once the bytes load.
+            val posterUrl = post?.displayImageLargeURL ?: post?.displayImageURL
+            Box(
+                modifier = Modifier
+                    .offset(x = w * posterXRatio, y = h * posterYRatio)
+                    .size(width = w * posterWRatio, height = h * posterHRatio),
+            ) {
+                Box(
                     modifier = Modifier
-                        .offset(x = w * posterXRatio, y = h * posterYRatio)
-                        .size(width = w * posterWRatio, height = h * posterHRatio),
-                    contentScale = ContentScale.Crop,
-                    onSuccess = { onArtReady() },
+                        .fillMaxSize()
+                        .shimmer()
+                        .background(Color.Black.copy(alpha = 0.12f)),
                 )
+                if (posterUrl != null) {
+                    val ctx = LocalContext.current
+                    val posterRequest = remember(posterUrl) {
+                        ImageRequest.Builder(ctx)
+                            .data(posterUrl)
+                            .crossfade(false)
+                            .build()
+                    }
+                    var posterLoaded by remember(posterUrl) { mutableStateOf(false) }
+                    var posterFromCache by remember(posterUrl) { mutableStateOf(false) }
+                    val posterAlpha by androidx.compose.animation.core.animateFloatAsState(
+                        targetValue = if (posterLoaded) 1f else 0f,
+                        animationSpec = if (posterFromCache) tween(durationMillis = 0) else tween(durationMillis = 220),
+                        label = "featuredPosterFade",
+                    )
+                    AsyncImage(
+                        model = posterRequest,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(posterAlpha),
+                        contentScale = ContentScale.Crop,
+                        onSuccess = { state ->
+                            posterFromCache = state.result.dataSource == coil3.decode.DataSource.MEMORY_CACHE
+                            posterLoaded = true
+                            onArtReady()
+                        },
+                    )
+                }
             }
 
             // Glass overlay (screen blend — matches iOS .blendMode(.screen)).
@@ -184,21 +226,23 @@ fun FeaturedMoviePosterView(
                 )
             }
 
-            // Weather / disco effects overlay
-            if (rainIntensity != RainIntensity.OFF) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(Color.Black.copy(alpha = if (rainIntensity == RainIntensity.HEAVY) 0.15f else 0.10f)),
-                )
-                RainEffectView(intensity = rainIntensity, modifier = Modifier.matchParentSize())
-            }
-            if (snowIntensity != SnowIntensity.OFF) {
-                Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.06f)))
-                SnowEffectView(intensity = snowIntensity, modifier = Modifier.matchParentSize())
-            }
-            if (discoIntensity != DiscoIntensity.OFF) {
-                DiscoEffectView(intensity = discoIntensity, modifier = Modifier.matchParentSize())
+            // Weather / disco effects overlay — only meaningful with a post.
+            if (post != null) {
+                if (rainIntensity != RainIntensity.OFF) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(Color.Black.copy(alpha = if (rainIntensity == RainIntensity.HEAVY) 0.15f else 0.10f)),
+                    )
+                    RainEffectView(intensity = rainIntensity, modifier = Modifier.matchParentSize())
+                }
+                if (snowIntensity != SnowIntensity.OFF) {
+                    Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.06f)))
+                    SnowEffectView(intensity = snowIntensity, modifier = Modifier.matchParentSize())
+                }
+                if (discoIntensity != DiscoIntensity.OFF) {
+                    DiscoEffectView(intensity = discoIntensity, modifier = Modifier.matchParentSize())
+                }
             }
 
             // Double-tap-to-like heart overlay
@@ -216,7 +260,9 @@ fun FeaturedMoviePosterView(
             }
         }
 
-        // Movie info + engagement row — overlaid at the bottom of the gradient
+        // Movie info + engagement row — real metadata when post is loaded,
+        // shimmer placeholders sized to match when the post hasn't arrived.
+        if (post != null) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -274,6 +320,35 @@ fun FeaturedMoviePosterView(
                         .height(22.dp)
                         .clickable(onClick = onTrailerTap),
                 )
+            }
+        }
+        } else {
+            // Loading shell — shimmer bars sized to match the real metadata
+            // row's heights so the swap is just a content change, not a
+            // layout shift.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomStart)
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs)) {
+                    Box(
+                        modifier = Modifier
+                            .width(130.dp)
+                            .height(14.dp)
+                            .shimmer()
+                            .background(CorusColors.Skeleton),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(90.dp)
+                            .height(11.dp)
+                            .shimmer()
+                            .background(CorusColors.Skeleton),
+                    )
+                }
             }
         }
     }

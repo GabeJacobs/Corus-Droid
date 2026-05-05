@@ -15,6 +15,25 @@ data class CymbalMovie(
     val releaseDate: String? = null,
 )
 
+/** Time window the trending cache aggregates over.
+ *
+ *  The Firestore cache doc stores one ranked list per window plus a legacy
+ *  `items` field that mirrors the month list for back-compat with older
+ *  builds (rollout window before the next BE refresh tick).
+ */
+enum class TrendingWindow(val key: String) {
+    WEEK("week"),
+    MONTH("month"),
+    YEAR("year");
+
+    companion object {
+        val DEFAULT: TrendingWindow = MONTH
+
+        fun fromKey(value: String?): TrendingWindow =
+            values().firstOrNull { it.key == value } ?: DEFAULT
+    }
+}
+
 data class TrendingSong(
     val id: String,
     val rank: Int,

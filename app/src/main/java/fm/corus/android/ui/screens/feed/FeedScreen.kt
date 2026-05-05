@@ -11,6 +11,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -28,10 +32,12 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.HorizontalPopularUsersRail
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.SkeletonPostCard
@@ -56,7 +62,6 @@ fun FeedScreen(
     onNavigateToHashtag: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
-    onNavigateToBotList: (String?) -> Unit = {},
     onRepost: (CymbalPost) -> Unit = {},
 ) {
     val posts by viewModel.filteredPosts.collectAsState()
@@ -79,10 +84,8 @@ fun FeedScreen(
     val engagementStates by viewModel.engagementStates.collectAsState()
     val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     val feedMediaFilter by viewModel.feedMediaFilter.collectAsState()
-    val curatedMusicBots by viewModel.curatedMusicBots.collectAsState()
-    val curatedFilmBots by viewModel.curatedFilmBots.collectAsState()
+    val feedFilter by viewModel.feedFilter.collectAsState()
     val followedBotIds by viewModel.followedBotIds.collectAsState()
-    val isBotsLoading by viewModel.isBotsLoading.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val context = LocalContext.current
@@ -109,7 +112,6 @@ fun FeedScreen(
     LaunchedEffect(Unit) {
         if (allPosts.isEmpty()) {
             viewModel.loadFeed()
-            viewModel.loadBotSuggestions()
         }
     }
 
@@ -130,10 +132,10 @@ fun FeedScreen(
         FeedHeader(
             showPlaylistButton = posts.isNotEmpty() && feedMediaFilter != MediaType.MOVIE,
             isGeneratingPlaylist = isGeneratingPlaylist,
-            feedMediaFilter = feedMediaFilter,
+            feedFilter = feedFilter,
             filterMenuExpanded = filterMenuExpanded,
             onFilterMenuExpandedChange = { filterMenuExpanded = it },
-            onSetFilter = { viewModel.setFeedMediaFilter(it) },
+            onSetFilter = { viewModel.setFeedFilter(it) },
             onGeneratePlaylist = {
                 val isApple = musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC
                 val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
@@ -172,6 +174,52 @@ fun FeedScreen(
             }
 
             // Empty state — only after a load settles with no posts
+            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedFilter.newReleasesOnly -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    header()
+                    Spacer(modifier = Modifier.height(60.dp))
+                    Icon(
+                        imageVector = Icons.Filled.LocalFireDepartment,
+                        contentDescription = null,
+                        tint = CorusColors.Tertiary,
+                        modifier = Modifier.size(36.dp),
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    Text(
+                        text = stringResource(R.string.feed_empty_new_releases_title),
+                        style = CorusFont.body,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    Text(
+                        text = stringResource(R.string.feed_empty_new_releases_subtitle),
+                        style = CorusFont.caption,
+                        color = CorusColors.Tertiary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                    Button(
+                        onClick = { viewModel.setFeedFilter(FeedFilter.ALL) },
+                        colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.feed_empty_new_releases_show_all),
+                            style = CorusFont.button,
+                            color = CorusColors.Background,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+                }
+            }
+
             posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing -> {
                 Column(
                     modifier = Modifier
@@ -226,51 +274,14 @@ fun FeedScreen(
 
                     Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
-                    // Curated music bots section
-                    if (curatedMusicBots.isNotEmpty()) {
-                        DividerSectionHeader(text = stringResource(R.string.feed_empty_curated_music))
-                        Spacer(modifier = Modifier.height(CorusSpacing.md))
-                        FeedBotGrid(
-                            bots = curatedMusicBots.take(2),
-                            followedIds = followedBotIds,
-                            viewModel = viewModel,
-                            onNavigateToUser = onNavigateToUser,
-                        )
-                        if (curatedMusicBots.size > 2) {
-                            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                            TextButton(onClick = { onNavigateToBotList("music") }) {
-                                Text(
-                                    text = stringResource(R.string.feed_empty_see_all),
-                                    style = CorusFont.buttonSmall,
-                                    color = CorusColors.Accent,
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-                    }
-
-                    // Curated film bots section
-                    if (curatedFilmBots.isNotEmpty()) {
-                        DividerSectionHeader(text = stringResource(R.string.feed_empty_curated_film))
-                        Spacer(modifier = Modifier.height(CorusSpacing.md))
-                        FeedBotGrid(
-                            bots = curatedFilmBots.take(2),
-                            followedIds = followedBotIds,
-                            viewModel = viewModel,
-                            onNavigateToUser = onNavigateToUser,
-                        )
-                        if (curatedFilmBots.size > 2) {
-                            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                            TextButton(onClick = { onNavigateToBotList("film") }) {
-                                Text(
-                                    text = stringResource(R.string.feed_empty_see_all),
-                                    style = CorusFont.buttonSmall,
-                                    color = CorusColors.Accent,
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-                    }
+                    // Popular on Corus — paginated horizontal rail of real users.
+                    // Replaces the old Curated Music/Film Bots empty-state sections.
+                    HorizontalPopularUsersRail(
+                        excludeIds = emptySet(),
+                        isFollowed = { id -> followedBotIds.contains(id) },
+                        onUserTap = { user -> onNavigateToUser(user) },
+                        onFollowTap = { user -> viewModel.toggleBotFollow(user) },
+                    )
 
                     Spacer(modifier = Modifier.height(CorusSpacing.xxl))
                 }
@@ -498,45 +509,6 @@ private fun DividerSectionHeader(text: String) {
 }
 
 /**
- * 2-column grid of bot cards for the empty feed state.
- */
-@Composable
-private fun FeedBotGrid(
-    bots: List<SuggestedUserMatch>,
-    followedIds: Set<String>,
-    viewModel: FeedViewModel,
-    onNavigateToUser: (CymbalUser) -> Unit,
-) {
-    val rows = bots.chunked(2)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.xxl),
-        verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-    ) {
-        rows.forEach { rowBots ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-            ) {
-                rowBots.forEach { match ->
-                    TasteMatchCard(
-                        match = match,
-                        isFollowing = followedIds.contains(match.user.id),
-                        onUserTap = { onNavigateToUser(match.user) },
-                        onFollowTap = { viewModel.toggleBotFollow(match.user) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (rowBots.size < 2) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
-
-/**
  * Feed top bar — centered "corus" logo, filter menu on the left,
  * playlist button on the right. Rendered as the first item of the
  * scrolling list so it scrolls away with content (matching iOS).
@@ -545,10 +517,10 @@ private fun FeedBotGrid(
 private fun FeedHeader(
     showPlaylistButton: Boolean,
     isGeneratingPlaylist: Boolean,
-    feedMediaFilter: MediaType?,
+    feedFilter: FeedFilter,
     filterMenuExpanded: Boolean,
     onFilterMenuExpandedChange: (Boolean) -> Unit,
-    onSetFilter: (MediaType?) -> Unit,
+    onSetFilter: (FeedFilter) -> Unit,
     onGeneratePlaylist: () -> Unit,
 ) {
     Box(
@@ -586,39 +558,96 @@ private fun FeedHeader(
             }
         }
 
-        Box(modifier = Modifier.align(Alignment.CenterStart)) {
-            IconButton(onClick = { onFilterMenuExpandedChange(true) }) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.List,
-                    contentDescription = stringResource(R.string.feed_cd_filter),
-                    tint = if (feedMediaFilter != null) CorusColors.Accent else CorusColors.Secondary,
-                )
+        Row(
+            modifier = Modifier.align(Alignment.CenterStart),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box {
+                IconButton(onClick = { onFilterMenuExpandedChange(true) }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.List,
+                        contentDescription = stringResource(R.string.feed_cd_filter),
+                        tint = if (!feedFilter.isAll) CorusColors.Accent else CorusColors.Secondary,
+                    )
+                }
+                DropdownMenu(
+                    expanded = filterMenuExpanded,
+                    onDismissRequest = { onFilterMenuExpandedChange(false) },
+                ) {
+                    val activeCheckmark: @Composable () -> Unit = {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = stringResource(R.string.common_selected),
+                            tint = CorusColors.Accent,
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.feed_filter_all)) },
+                        trailingIcon = if (feedFilter == FeedFilter.ALL) activeCheckmark else null,
+                        onClick = {
+                            onSetFilter(FeedFilter.ALL)
+                            onFilterMenuExpandedChange(false)
+                        },
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.feed_filter_music)) },
+                        trailingIcon = if (feedFilter == FeedFilter.MUSIC) activeCheckmark else null,
+                        onClick = {
+                            onSetFilter(FeedFilter.MUSIC)
+                            onFilterMenuExpandedChange(false)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.feed_filter_film)) },
+                        trailingIcon = if (feedFilter == FeedFilter.FILM) activeCheckmark else null,
+                        onClick = {
+                            onSetFilter(FeedFilter.FILM)
+                            onFilterMenuExpandedChange(false)
+                        },
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.feed_filter_music_new_releases)) },
+                        trailingIcon = if (feedFilter == FeedFilter.MUSIC_NEW_RELEASES) activeCheckmark else null,
+                        onClick = {
+                            onSetFilter(FeedFilter.MUSIC_NEW_RELEASES)
+                            onFilterMenuExpandedChange(false)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.feed_filter_film_new_releases)) },
+                        trailingIcon = if (feedFilter == FeedFilter.FILM_NEW_RELEASES) activeCheckmark else null,
+                        onClick = {
+                            onSetFilter(FeedFilter.FILM_NEW_RELEASES)
+                            onFilterMenuExpandedChange(false)
+                        },
+                    )
+                }
             }
-            DropdownMenu(
-                expanded = filterMenuExpanded,
-                onDismissRequest = { onFilterMenuExpandedChange(false) },
-            ) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.feed_filter_all)) },
-                    onClick = {
-                        onSetFilter(null)
-                        onFilterMenuExpandedChange(false)
-                    },
+            // Indicator icon next to the filter button. Same purple as the
+            // existing NEW RELEASE badge for the new-releases filters; accent
+            // blue for the plain media-type filters.
+            when (feedFilter) {
+                FeedFilter.MUSIC -> Icon(
+                    imageVector = Icons.Filled.MusicNote,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(20.dp),
                 )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.feed_filter_music)) },
-                    onClick = {
-                        onSetFilter(MediaType.TRACK)
-                        onFilterMenuExpandedChange(false)
-                    },
+                FeedFilter.FILM -> Icon(
+                    imageVector = Icons.Filled.Movie,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(20.dp),
                 )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.feed_filter_film)) },
-                    onClick = {
-                        onSetFilter(MediaType.MOVIE)
-                        onFilterMenuExpandedChange(false)
-                    },
+                FeedFilter.MUSIC_NEW_RELEASES, FeedFilter.FILM_NEW_RELEASES -> Icon(
+                    imageVector = Icons.Filled.LocalFireDepartment,
+                    contentDescription = null,
+                    tint = androidx.compose.ui.graphics.Color(0.62f, 0.35f, 0.95f),
+                    modifier = Modifier.size(20.dp),
                 )
+                FeedFilter.ALL -> {}
             }
         }
     }

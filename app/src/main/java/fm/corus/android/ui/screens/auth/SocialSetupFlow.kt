@@ -58,8 +58,7 @@ import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
-import fm.corus.android.ui.components.SkeletonSectionHeader
-import fm.corus.android.ui.components.TasteMatchCard
+import fm.corus.android.ui.components.HorizontalPopularUsersRail
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
@@ -365,9 +364,6 @@ private fun FollowFriendsScreen(
 
     val contactMatches by viewModel.contactMatches.collectAsState()
     val contactsSynced by viewModel.contactsSynced.collectAsState()
-    val popularUsers by viewModel.popularUsers.collectAsState()
-    val musicBots by viewModel.musicBotMatches.collectAsState()
-    val filmBots by viewModel.filmBotMatches.collectAsState()
     val isLoading by viewModel.isLoadingSuggestions.collectAsState()
     val followedIds by viewModel.followedIds.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -390,7 +386,6 @@ private fun FollowFriendsScreen(
     }
 
     var showSeeAll by remember { mutableStateOf<SeeAllDestination?>(null) }
-    var filmBotPreviewMatch by remember { mutableStateOf<SuggestedUserMatch?>(null) }
 
     AnimatedContent(
         targetState = showSeeAll,
@@ -409,16 +404,8 @@ private fun FollowFriendsScreen(
             OnboardingSeeAllScreen(
                 destination = destination,
                 contactMatches = contactMatches,
-                popularUsers = popularUsers,
-                musicBots = musicBots,
-                filmBots = filmBots,
                 followedIds = followedIds,
-                previewingUserId = previewingUserId,
-                isPreviewLoading = isPreviewLoading,
-                isPreviewPlaying = nowPlayingState.isPlaying,
                 onFollow = { viewModel.toggleFollow(it) },
-                onMusicBotTap = { userId -> viewModel.playUserPreview(userId) },
-                onFilmBotTap = { userId -> filmBotPreviewMatch = filmBots.find { it.user.id == userId } },
                 onBack = { showSeeAll = null },
             )
         } else {
@@ -426,9 +413,6 @@ private fun FollowFriendsScreen(
                 viewModel = viewModel,
                 contactMatches = contactMatches,
                 contactsSynced = contactsSynced,
-                popularUsers = popularUsers,
-                musicBots = musicBots,
-                filmBots = filmBots,
                 isLoading = isLoading,
                 followedIds = followedIds,
                 searchQuery = searchQuery,
@@ -444,20 +428,9 @@ private fun FollowFriendsScreen(
                     viewModel.analyticsService.logOnboardingSeeAllTapped(destination.analyticsName)
                     showSeeAll = destination
                 },
-                onFilmBotTap = { userId -> filmBotPreviewMatch = filmBots.find { it.user.id == userId } },
                 onFinished = finishWithPushPrompt,
             )
         }
-    }
-
-    if (filmBotPreviewMatch != null) {
-        FilmBotPreviewSheet(
-            match = filmBotPreviewMatch!!,
-            isFollowed = followedIds.contains(filmBotPreviewMatch!!.user.id),
-            onFollow = { viewModel.toggleFollow(filmBotPreviewMatch!!.user.id) },
-            onDismiss = { filmBotPreviewMatch = null },
-            viewModel = viewModel,
-        )
     }
 }
 
@@ -466,9 +439,6 @@ private fun FollowFriendsMainContent(
     viewModel: SocialSetupViewModel,
     contactMatches: List<CymbalUser>,
     contactsSynced: Boolean,
-    popularUsers: List<CymbalUser>,
-    musicBots: List<SuggestedUserMatch>,
-    filmBots: List<SuggestedUserMatch>,
     isLoading: Boolean,
     followedIds: Set<String>,
     searchQuery: String,
@@ -481,7 +451,6 @@ private fun FollowFriendsMainContent(
     keyboardController: androidx.compose.ui.platform.SoftwareKeyboardController?,
     scrollDismissConnection: NestedScrollConnection,
     onSeeAll: (SeeAllDestination) -> Unit,
-    onFilmBotTap: (String) -> Unit,
     onFinished: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().navigationBarsPadding().nestedScroll(scrollDismissConnection)) {
@@ -605,103 +574,15 @@ private fun FollowFriendsMainContent(
                     }
                 }
 
-                // Popular on Corus — with skeleton header + rows matching iOS
-                if (isLoading) {
-                    item { SkeletonSectionHeader() }
-                    items(4) { SkeletonUserRow() }
-                } else if (popularUsers.isNotEmpty()) {
-                    item {
-                        OnboardingSectionHeader(
-                            title = stringResource(id = R.string.social_setup_section_popular),
-                            showSeeAll = popularUsers.size > 4,
-                            onSeeAll = { onSeeAll(SeeAllDestination.POPULAR) },
-                        )
-                    }
-                    items(popularUsers.take(4), key = { "popular-${it.id}" }) { user ->
-                        OnboardingUserRow(
-                            user = user,
-                            subtitle = stringResource(id = R.string.search_followers_count_format, user.followerCount),
-                            isFollowed = followedIds.contains(user.id),
-                            isPreviewLoading = previewingUserId == user.id && isPreviewLoading,
-                            isPreviewPlaying = previewingUserId == user.id && nowPlayingState.isPlaying,
-                            onFollow = { viewModel.toggleFollow(user.id) },
-                            onTap = { viewModel.playUserPreview(user.id) },
-                        )
-                    }
-                }
-
-                // Music Bots
-                if (musicBots.isNotEmpty() || isLoading) {
-                    item {
-                        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-                        Text(
-                            stringResource(id = R.string.feed_empty_curated_music),
-                            style = CorusFont.caption,
-                            color = CorusColors.Tertiary,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = CorusSpacing.md),
-                        )
-                    }
-                    item {
-                        OnboardingBotGrid(
-                            bots = musicBots.take(6),
-                            isLoading = isLoading,
-                            followedIds = followedIds,
-                            onFollow = { viewModel.toggleFollow(it) },
-                            onUserTap = { userId -> viewModel.playUserPreview(userId) },
-                            showPreviewButton = true,
-                            previewingUserId = previewingUserId,
-                            isPreviewLoading = isPreviewLoading,
-                            isPreviewPlaying = nowPlayingState.isPlaying,
-                        )
-                        if (musicBots.size > 6) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                TextButton(
-                                    onClick = { onSeeAll(SeeAllDestination.MUSIC_BOTS) },
-                                ) {
-                                    Text(stringResource(id = R.string.feed_empty_see_all), style = CorusFont.captionMedium, color = CorusColors.Accent)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Film Bots
-                if (filmBots.isNotEmpty() || isLoading) {
-                    item {
-                        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-                        Text(
-                            stringResource(id = R.string.feed_empty_curated_film),
-                            style = CorusFont.caption,
-                            color = CorusColors.Tertiary,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = CorusSpacing.md),
-                        )
-                    }
-                    item {
-                        OnboardingBotGrid(
-                            bots = filmBots.take(6),
-                            isLoading = isLoading,
-                            followedIds = followedIds,
-                            onFollow = { viewModel.toggleFollow(it) },
-                            onUserTap = { userId -> onFilmBotTap(userId) },
-                        )
-                        if (filmBots.size > 6) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                TextButton(
-                                    onClick = { onSeeAll(SeeAllDestination.FILM_BOTS) },
-                                ) {
-                                    Text(stringResource(id = R.string.feed_empty_see_all), style = CorusFont.captionMedium, color = CorusColors.Accent)
-                                }
-                            }
-                        }
-                    }
+                // Popular on Corus — paginated horizontal rail of real users.
+                // Replaces the old Popular + Curated Music/Film Bots sections.
+                item {
+                    HorizontalPopularUsersRail(
+                        excludeIds = emptySet(),
+                        isFollowed = { id -> followedIds.contains(id) },
+                        onUserTap = { user -> viewModel.playUserPreview(user.id) },
+                        onFollowTap = { user -> viewModel.toggleFollow(user.id) },
+                    )
                 }
             }
         }
@@ -733,9 +614,6 @@ private fun FollowFriendsMainContent(
 
 enum class SeeAllDestination(val titleRes: Int, val analyticsName: String) {
     FRIENDS(R.string.social_setup_seeall_friends, "friends"),
-    POPULAR(R.string.social_setup_seeall_popular, "popular"),
-    MUSIC_BOTS(R.string.social_setup_seeall_music_bots, "musicBots"),
-    FILM_BOTS(R.string.social_setup_seeall_film_bots, "filmBots"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -743,16 +621,8 @@ enum class SeeAllDestination(val titleRes: Int, val analyticsName: String) {
 private fun OnboardingSeeAllScreen(
     destination: SeeAllDestination,
     contactMatches: List<CymbalUser>,
-    popularUsers: List<CymbalUser>,
-    musicBots: List<SuggestedUserMatch>,
-    filmBots: List<SuggestedUserMatch>,
     followedIds: Set<String>,
-    previewingUserId: String?,
-    isPreviewLoading: Boolean,
-    isPreviewPlaying: Boolean,
     onFollow: (String) -> Unit,
-    onMusicBotTap: (String) -> Unit,
-    onFilmBotTap: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -777,44 +647,6 @@ private fun OnboardingSeeAllScreen(
                             subtitle = stringResource(id = R.string.search_subtitle_from_contacts),
                             isFollowed = followedIds.contains(user.id),
                             onFollow = { onFollow(user.id) },
-                        )
-                    }
-                }
-            }
-            SeeAllDestination.POPULAR -> {
-                LazyColumn(modifier = Modifier.padding(padding)) {
-                    items(popularUsers, key = { it.id }) { user ->
-                        OnboardingUserRow(
-                            user = user,
-                            subtitle = stringResource(id = R.string.search_followers_count_format, user.followerCount),
-                            isFollowed = followedIds.contains(user.id),
-                            onFollow = { onFollow(user.id) },
-                        )
-                    }
-                }
-            }
-            SeeAllDestination.MUSIC_BOTS, SeeAllDestination.FILM_BOTS -> {
-                val bots = if (destination == SeeAllDestination.MUSIC_BOTS) musicBots else filmBots
-                val isMusic = destination == SeeAllDestination.MUSIC_BOTS
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier.padding(padding),
-                    contentPadding = PaddingValues(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.sm),
-                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-                    verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-                ) {
-                    items(bots, key = { it.user.id }) { match ->
-                        TasteMatchCard(
-                            match = match,
-                            isFollowing = followedIds.contains(match.user.id),
-                            onFollowTap = { onFollow(match.user.id) },
-                            onUserTap = {
-                                if (isMusic) onMusicBotTap(match.user.id)
-                                else onFilmBotTap(match.user.id)
-                            },
-                            showPreviewButton = isMusic,
-                            isPreviewLoading = isMusic && isPreviewLoading && previewingUserId == match.user.id,
-                            isPreviewing = isMusic && isPreviewPlaying && previewingUserId == match.user.id,
                         )
                     }
                 }
@@ -980,62 +812,6 @@ private fun OnboardingUserRow(
 }
 
 @Composable
-private fun OnboardingBotGrid(
-    bots: List<SuggestedUserMatch>,
-    isLoading: Boolean,
-    followedIds: Set<String>,
-    onFollow: (String) -> Unit,
-    onUserTap: (String) -> Unit,
-    showPreviewButton: Boolean = false,
-    previewingUserId: String? = null,
-    isPreviewLoading: Boolean = false,
-    isPreviewPlaying: Boolean = false,
-) {
-    val columns = 2
-    val rows = if (isLoading) 2 else (bots.size + columns - 1) / columns
-    Column(modifier = Modifier.padding(horizontal = CorusSpacing.xxl)) {
-        for (row in 0 until rows) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-            ) {
-                for (col in 0 until columns) {
-                    val idx = row * columns + col
-                    if (isLoading) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(0.75f)
-                                .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
-                                .background(CorusColors.CardBackground),
-                        )
-                    } else if (idx < bots.size) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            val botUserId = bots[idx].user.id
-                            val isThisPreviewing = previewingUserId == botUserId
-                            TasteMatchCard(
-                                match = bots[idx],
-                                isFollowing = followedIds.contains(botUserId),
-                                onFollowTap = { onFollow(botUserId) },
-                                onUserTap = { onUserTap(botUserId) },
-                                showPreviewButton = showPreviewButton,
-                                isPreviewLoading = isThisPreviewing && isPreviewLoading,
-                                isPreviewing = isThisPreviewing && isPreviewPlaying && !isPreviewLoading,
-                            )
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-            if (row < rows - 1) {
-                Spacer(modifier = Modifier.height(CorusSpacing.md))
-            }
-        }
-    }
-}
-
-@Composable
 private fun SkeletonUserRow() {
     Row(
         modifier = Modifier
@@ -1077,130 +853,3 @@ private fun SkeletonUserRow() {
     }
 }
 
-// ═══════════════════════════════════════════════
-// FILM BOT PREVIEW SHEET
-// ═══════════════════════════════════════════════
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FilmBotPreviewSheet(
-    match: SuggestedUserMatch,
-    isFollowed: Boolean,
-    onFollow: () -> Unit,
-    onDismiss: () -> Unit,
-    viewModel: SocialSetupViewModel,
-) {
-    val posts by viewModel.filmBotPosts.collectAsState()
-    val isLoadingPosts by viewModel.isLoadingFilmBotPosts.collectAsState()
-
-    LaunchedEffect(match.user.id) {
-        viewModel.loadFilmBotPosts(match.user.id)
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
-        containerColor = CorusColors.Background,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-    ) {
-        CorusSystemBars()
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = CorusSpacing.xxxl),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            // Avatar
-            UserAvatarView(avatarURL = match.user.avatarURL, displayName = match.user.displayName, size = 64.dp)
-            Spacer(modifier = Modifier.height(CorusSpacing.md))
-
-            // Username + flair badge
-            UsernameWithFlair(
-                username = match.user.username,
-                isVerified = match.user.isVerified,
-                isClubMember = match.user.isClubMember,
-                flairStyle = match.user.flairStyle,
-                isBot = match.user.isBot,
-                style = CorusFont.bodyMedium,
-            )
-
-            // Bio
-            if (match.user.bio.isNotBlank()) {
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                Text(
-                    match.user.bio,
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
-                )
-            }
-
-            // Follow button
-            Spacer(modifier = Modifier.height(CorusSpacing.md))
-            Button(
-                onClick = onFollow,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isFollowed) CorusColors.CardBackground else CorusColors.Accent,
-                    contentColor = if (isFollowed) CorusColors.Text else Color.White,
-                ),
-                shape = RoundedCornerShape(50),
-                contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
-            ) {
-                Text(if (isFollowed) stringResource(id = R.string.search_button_following) else stringResource(id = R.string.search_button_follow), style = CorusFont.buttonSmall)
-            }
-
-            Spacer(modifier = Modifier.height(CorusSpacing.xxl))
-
-            // Poster grid
-            if (isLoadingPosts) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 400.dp),
-                    contentPadding = PaddingValues(horizontal = CorusSpacing.sm),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    items(9) {
-                        Box(
-                            modifier = Modifier
-                                .aspectRatio(2f / 3f)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(CorusColors.CardBackground),
-                        )
-                    }
-                }
-            } else if (posts.isEmpty()) {
-                Text(
-                    stringResource(id = R.string.other_profile_empty_no_films),
-                    style = CorusFont.body,
-                    color = CorusColors.Secondary,
-                    modifier = Modifier.padding(CorusSpacing.xxl),
-                )
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 400.dp),
-                    contentPadding = PaddingValues(horizontal = CorusSpacing.sm),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    items(posts) { post ->
-                        AsyncImage(
-                            model = post.posterURL ?: post.displayImageURL,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .aspectRatio(2f / 3f)
-                                .clip(RoundedCornerShape(4.dp)),
-                            contentScale = ContentScale.Crop,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}

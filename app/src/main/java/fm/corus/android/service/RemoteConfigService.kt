@@ -1,8 +1,11 @@
 package fm.corus.android.service
 
+import android.content.Context
 import android.util.Log
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
+import dagger.hilt.android.qualifiers.ApplicationContext
+import fm.corus.android.BuildConfig
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -10,7 +13,14 @@ import javax.inject.Singleton
 @Singleton
 class RemoteConfigService @Inject constructor(
     private val remoteConfig: FirebaseRemoteConfig,
+    @ApplicationContext private val context: Context,
 ) {
+    /// Dev override store. SharedPreferences-backed so toggles persist
+    /// across app restarts. Reads only happen in DEBUG builds — see
+    /// `commentControlsOnPosts` getter. Never read in release.
+    private val devPrefs by lazy {
+        context.getSharedPreferences("corus_dev_flags", Context.MODE_PRIVATE)
+    }
     // Existing flags
     val movieModeEnabled: Boolean
         get() = remoteConfig.getBoolean("movie_mode")
@@ -67,6 +77,32 @@ class RemoteConfigService @Inject constructor(
     val soundcloudEnabled: Boolean
         get() = remoteConfig.getBoolean("soundcloud_enabled")
 
+    /**
+     * Per-post comments-audience picker (Everyone / Followers / Off).
+     * Keep this OFF until web + iOS + Android all ship the gate — otherwise
+     * users on a client without the UI will tap Comment on a restricted
+     * post and hit a permission-denied error. Server rules enforce
+     * regardless of this flag.
+     *
+     * Dev override (DEBUG builds only): set via adb. The override is
+     * persisted in the `corus_dev_flags` SharedPreferences file under key
+     * `comment_controls_on_posts`. Quickest way to flip from a terminal:
+     *
+     *   adb shell run-as fm.corus.android.debug sh -c \\
+     *     "echo '<?xml version=\\"1.0\\" encoding=\\"utf-8\\" standalone=\\"yes\\" ?>
+     *      <map><boolean name=\\"comment_controls_on_posts\\" value=\\"true\\" /></map>' \\
+     *      > /data/data/fm.corus.android.debug/shared_prefs/corus_dev_flags.xml"
+     *
+     * Then force-stop the app and relaunch. Stripped from release builds.
+     */
+    val commentControlsOnPosts: Boolean
+        get() {
+            if (BuildConfig.DEBUG && devPrefs.contains("comment_controls_on_posts")) {
+                return devPrefs.getBoolean("comment_controls_on_posts", false)
+            }
+            return remoteConfig.getBoolean("comment_controls_on_posts")
+        }
+
     suspend fun fetchAndActivate() {
         try {
             val settings = FirebaseRemoteConfigSettings.Builder()
@@ -91,6 +127,7 @@ class RemoteConfigService @Inject constructor(
                     "save_cap_limit" to 25L,
                     "save_cap_warning_at" to 23L,
                     "soundcloud_enabled" to false,
+                    "comment_controls_on_posts" to false,
                 )
             ).await()
             val activated = remoteConfig.fetchAndActivate().await()

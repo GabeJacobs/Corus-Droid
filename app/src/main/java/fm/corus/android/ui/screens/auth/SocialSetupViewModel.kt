@@ -52,16 +52,7 @@ class SocialSetupViewModel @Inject constructor(
 
     // ── Follow Friends ──
 
-    private val _popularUsers = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val popularUsers: StateFlow<List<CymbalUser>> = _popularUsers.asStateFlow()
-
-    private val _musicBotMatches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
-    val musicBotMatches: StateFlow<List<SuggestedUserMatch>> = _musicBotMatches.asStateFlow()
-
-    private val _filmBotMatches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
-    val filmBotMatches: StateFlow<List<SuggestedUserMatch>> = _filmBotMatches.asStateFlow()
-
-    private val _isLoadingSuggestions = MutableStateFlow(true)
+    private val _isLoadingSuggestions = MutableStateFlow(false)
     val isLoadingSuggestions: StateFlow<Boolean> = _isLoadingSuggestions.asStateFlow()
 
     private val _followedIds = MutableStateFlow<Set<String>>(emptySet())
@@ -78,14 +69,6 @@ class SocialSetupViewModel @Inject constructor(
 
     private val _isFinishing = MutableStateFlow(false)
     val isFinishing: StateFlow<Boolean> = _isFinishing.asStateFlow()
-
-    // ── Film Bot Preview ──
-
-    private val _filmBotPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
-    val filmBotPosts: StateFlow<List<CymbalPost>> = _filmBotPosts.asStateFlow()
-
-    private val _isLoadingFilmBotPosts = MutableStateFlow(false)
-    val isLoadingFilmBotPosts: StateFlow<Boolean> = _isLoadingFilmBotPosts.asStateFlow()
 
     // ── Preview Playback ──
 
@@ -146,25 +129,11 @@ class SocialSetupViewModel @Inject constructor(
         return numbers.toList()
     }
 
+    /** Kept as a no-op so existing call sites (notably SocialSetupFlow.kt) don't
+     *  break — popular users now load via the embedded HorizontalPopularUsersRail
+     *  composable, and bots are no longer surfaced in onboarding. */
     fun loadSuggestions() {
-        val userId = authRepository.currentUserId ?: return
-        viewModelScope.launch {
-            _isLoadingSuggestions.value = true
-            try {
-                // Match iOS: fetch popular users from Firestore directly (not cloud function)
-                // so new users with no taste data still see popular accounts.
-                val popularDeferred = async {
-                    userRepository.fetchPopularUsers(limit = 15, excludeIds = setOf(userId))
-                }
-                val musicBotsDeferred = async { cloudFunctions.getBotSuggestions(userId, botType = "music") }
-                val filmBotsDeferred = async { cloudFunctions.getBotSuggestions(userId, botType = "film") }
-
-                _popularUsers.value = popularDeferred.await()
-                _musicBotMatches.value = musicBotsDeferred.await()
-                _filmBotMatches.value = filmBotsDeferred.await()
-            } catch (_: Exception) { }
-            _isLoadingSuggestions.value = false
-        }
+        // intentionally empty
     }
 
     fun searchUsers(query: String) {
@@ -203,18 +172,6 @@ class SocialSetupViewModel @Inject constructor(
                 // Revert
                 _followedIds.value = if (isFollowed) _followedIds.value + userId else _followedIds.value - userId
             }
-        }
-    }
-
-    fun loadFilmBotPosts(userId: String) {
-        val viewerId = authRepository.currentUserId ?: return
-        viewModelScope.launch {
-            _isLoadingFilmBotPosts.value = true
-            try {
-                val posts = postRepository.getProfilePosts(userId, viewerId, limit = 15)
-                _filmBotPosts.value = posts.filter { it.isMovie }
-            } catch (_: Exception) { }
-            _isLoadingFilmBotPosts.value = false
         }
     }
 

@@ -81,7 +81,17 @@ data class MusicMatchData(
     }
 }
 
-data class SuggestionReason(val mutualNames: List<String> = emptyList())
+data class SuggestionReason(
+    val mutualNames: List<String> = emptyList(),
+    /**
+     * Total number of mutual followers (the underlying overlap-set size).
+     * `mutualNames` is capped at 5 sample names server-side, so this carries
+     * the full count for client-side ordering of the Mutual Connections rail.
+     * Defaults to `mutualNames.size` for back-compat with payloads that don't
+     * ship the field yet.
+     */
+    val mutualCount: Int = mutualNames.size,
+)
 
 data class SuggestedUserMatch(
     val user: CymbalUser,

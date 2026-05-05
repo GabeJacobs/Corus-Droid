@@ -52,6 +52,7 @@ class CloudFunctionsDataSource @Inject constructor(
         lastTimestamp: Long? = null,
         onePerFollower: Boolean = false,
         mediaType: MediaType? = null,
+        newReleasesOnly: Boolean = false,
     ): FeedPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
@@ -60,6 +61,7 @@ class CloudFunctionsDataSource @Inject constructor(
         )
         lastTimestamp?.let { params["beforeMs"] = it }
         mediaType?.let { params["mediaType"] = it.value }
+        if (newReleasesOnly) params["newReleasesOnly"] = true
 
         val result = functions.getHttpsCallable("getFeedPage").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return FeedPage(emptyList(), false)
@@ -682,9 +684,14 @@ class CloudFunctionsDataSource @Inject constructor(
                 )
             } else null
 
-            // Mutual names are inline in the row
+            // Mutual-connection metadata is inline in the row. `mutualCount`
+            // is the full overlap-set size; `mutualNames` is the (≤ 5) sample
+            // list. Falls back to names.size for back-compat with older payloads.
             val mutualNames = (row["mutualNames"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-            val reason = if (mutualNames.isNotEmpty()) SuggestionReason(mutualNames) else null
+            val mutualCount = (row["mutualCount"] as? Number)?.toInt() ?: mutualNames.size
+            val reason = if (mutualNames.isNotEmpty())
+                SuggestionReason(mutualNames = mutualNames, mutualCount = mutualCount)
+            else null
 
             SuggestedUserMatch(user = user, matchData = matchData, suggestionReason = reason)
         }

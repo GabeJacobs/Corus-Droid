@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.ToastManager
@@ -50,6 +53,7 @@ fun ProfileFeedScreen(
     val posts by viewModel.posts.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
     val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
@@ -124,11 +128,21 @@ fun ProfileFeedScreen(
             )
         },
     ) { padding ->
-        LazyColumn(
-            state = listState,
+        val haptics = LocalHapticManager.current
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                // Mirrors iOS ProfileFeedView.refreshable haptic.
+                haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                viewModel.refresh()
+            },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = padding.calculateTopPadding()),
+        ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
         ) {
             itemsIndexed(
@@ -231,6 +245,7 @@ fun ProfileFeedScreen(
                     }
                 }
             }
+        }
         }
     }
 

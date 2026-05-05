@@ -9,6 +9,7 @@ import android.util.Log
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.remote.CloudFunctionsDataSource
@@ -59,12 +60,24 @@ class FeedViewModel @Inject constructor(
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
 
-    private val _feedMediaFilter = MutableStateFlow<MediaType?>(null)
-    val feedMediaFilter: StateFlow<MediaType?> = _feedMediaFilter.asStateFlow()
+    private val _feedFilter = MutableStateFlow(FeedFilter.ALL)
+    val feedFilter: StateFlow<FeedFilter> = _feedFilter.asStateFlow()
+    // Back-compat for existing observers — derived from _feedFilter.
+    val feedMediaFilter: StateFlow<MediaType?> = _feedFilter
+        .let { upstream ->
+            kotlinx.coroutines.flow.MutableStateFlow(upstream.value.mediaType).also { mirror ->
+                viewModelScope.launch { upstream.collect { mirror.value = it.mediaType } }
+            }
+        }
+        .asStateFlow()
 
     // Filtering happens server-side in getFeedPage; _posts already reflects the active filter.
-    // Kept as a StateFlow so existing UI observers don't need to change.
-    val filteredPosts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
+    // For the new-releases filter we additionally apply a client-side
+    // defense-in-depth check using `isNewRelease()` so the user never sees a
+    // post that crossed the threshold mid-flight.
+    val filteredPosts: StateFlow<List<CymbalPost>> = combine(_posts, _feedFilter) { posts, filter ->
+        if (filter.newReleasesOnly) posts.filter { it.isNewRelease() } else posts
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _isLoading = MutableStateFlow(false)
     private val _hasLoaded = MutableStateFlow(false)
@@ -97,21 +110,13 @@ class FeedViewModel @Inject constructor(
 
     private var shareSearchJob: Job? = null
 
-    // ── Curated bots (empty feed) ──
-    private val _curatedMusicBots = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
-    val curatedMusicBots: StateFlow<List<SuggestedUserMatch>> = _curatedMusicBots.asStateFlow()
-
-    private val _curatedFilmBots = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
-    val curatedFilmBots: StateFlow<List<SuggestedUserMatch>> = _curatedFilmBots.asStateFlow()
-
-    private val _isBotsLoading = MutableStateFlow(true)
-    val isBotsLoading: StateFlow<Boolean> = _isBotsLoading.asStateFlow()
-
-    // Follow state for bot cards
+    // ── Empty-feed follow tracking ──
+    // Used by the empty-state HorizontalPopularUsersRail; the rail itself
+    // owns the popular-users list, but we mirror local follow state here
+    // so the card buttons reflect taps optimistically.
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     private val _localFollowedIds = MutableStateFlow<Set<String>>(emptySet())
 
-    // Union of remote-observed + local-optimistic follow IDs, observable from Compose.
     val followedBotIds: StateFlow<Set<String>> =
         combine(_followingIds, _localFollowedIds) { remote, local -> remote + local }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
@@ -120,6 +125,11 @@ class FeedViewModel @Inject constructor(
     private val activeListenerPostIds = mutableSetOf<String>()
 
     init {
+        // Mirror the global following set so the empty-state rail's follow
+        // pills reflect users the viewer already follows from elsewhere.
+        viewModelScope.launch {
+            userRepository.followingIds.collect { ids -> _followingIds.value = ids }
+        }
         // Auto-refresh feed when a new post is created
         viewModelScope.launch {
             postCreationEvent.events.collect {
@@ -169,7 +179,8 @@ class FeedViewModel @Inject constructor(
                 userId = userId,
                 pageSize = 7,
                 lastTimestamp = if (refresh) null else lastTimestamp,
-                mediaType = _feedMediaFilter.value,
+                mediaType = _feedFilter.value.mediaType,
+                newReleasesOnly = _feedFilter.value.newReleasesOnly,
             )
 
             val newPosts = page.posts
@@ -211,15 +222,30 @@ class FeedViewModel @Inject constructor(
         _hasLoaded.value = true
     }
 
-    fun setFeedMediaFilter(filter: MediaType?) {
-        if (_feedMediaFilter.value == filter) return
-        _feedMediaFilter.value = filter
+    fun setFeedFilter(filter: FeedFilter) {
+        if (_feedFilter.value == filter) return
+        _feedFilter.value = filter
         // Server-side filter changed — reset the paginated feed and re-fetch
         // so the returned page matches the new filter.
         lastTimestamp = null
         _posts.value = emptyList()
         _hasMore.value = true
         loadFeed(refresh = true)
+    }
+
+    /**
+     * Legacy entrypoint preserved so any non-screen call sites (e.g. tests)
+     * can still narrow by media type without going through the new enum.
+     * Internally maps to the corresponding FeedFilter value, preserving the
+     * "new releases" half of the state if it was already set.
+     */
+    fun setFeedMediaFilter(filter: MediaType?) {
+        val target = when (filter) {
+            null -> FeedFilter.ALL
+            MediaType.TRACK -> if (_feedFilter.value.newReleasesOnly) FeedFilter.MUSIC_NEW_RELEASES else FeedFilter.MUSIC
+            MediaType.MOVIE -> if (_feedFilter.value.newReleasesOnly) FeedFilter.FILM_NEW_RELEASES else FeedFilter.FILM
+        }
+        setFeedFilter(target)
     }
 
     fun playPreview(post: fm.corus.android.data.model.CymbalPost) {
@@ -423,32 +449,6 @@ class FeedViewModel @Inject constructor(
 
     fun isPostSaved(postId: String): Boolean {
         return engagementManager.getState(postId)?.isSaved ?: false
-    }
-
-    // ── Curated bots ──
-
-    fun loadBotSuggestions() {
-        val uid = authRepository.currentUserId ?: return
-        viewModelScope.launch {
-            userRepository.followingIds.collect { ids ->
-                _followingIds.value = ids
-            }
-        }
-        viewModelScope.launch {
-            try {
-                val musicBots = cloudFunctions.getBotSuggestions(uid, botType = "music")
-                _curatedMusicBots.value = musicBots
-            } catch (e: Exception) {
-                Log.e("FeedVM", "Failed to load music bots", e)
-            }
-            try {
-                val filmBots = cloudFunctions.getBotSuggestions(uid, botType = "film")
-                _curatedFilmBots.value = filmBots
-            } catch (e: Exception) {
-                Log.e("FeedVM", "Failed to load film bots", e)
-            }
-            _isBotsLoading.value = false
-        }
     }
 
     fun toggleBotFollow(user: CymbalUser) {

@@ -46,6 +46,10 @@ data class CymbalPost(
     val movieRating: Double? = null,
     val movieCast: List<String>? = null,
     val movieReleaseDate: String? = null,
+    /** Per-post comments-audience setting. `null` (or `EVERYONE`) means
+     *  anyone can comment — back-compat with posts written before the
+     *  feature shipped, since the field is omitted on those docs. */
+    val commentsAudience: CommentsAudience? = null,
 ) {
     val isMovie: Boolean get() = mediaType == MediaType.MOVIE
     val isTrack: Boolean get() = mediaType == MediaType.TRACK
@@ -209,7 +213,31 @@ data class CymbalPost(
                 movieRating = (data["movieRating"] as? Number)?.toDouble(),
                 movieCast = data["movieCast"] as? List<String>,
                 movieReleaseDate = (data["movieReleaseDate"] as? String)?.ifEmpty { null },
+                commentsAudience = CommentsAudience.parse(data["commentsAudience"]),
             )
+        }
+    }
+}
+
+/**
+ * Per-post comments-audience setting. Wire format is the raw lowercase
+ * string (`"everyone" | "followers" | "off"`); legacy posts that pre-date
+ * the feature have no field and are treated as `EVERYONE` everywhere.
+ */
+enum class CommentsAudience(val wire: String) {
+    EVERYONE("everyone"),
+    FOLLOWERS("followers"),
+    OFF("off");
+
+    companion object {
+        /**
+         * Lenient parse from a Firestore field — unknown / null / wrong-type
+         * values fall back to `null` (= treat as everyone). The reader's job
+         * is to never block legitimate comments because of a bad config write.
+         */
+        fun parse(raw: Any?): CommentsAudience? {
+            val s = raw as? String ?: return null
+            return values().firstOrNull { it.wire == s }
         }
     }
 }

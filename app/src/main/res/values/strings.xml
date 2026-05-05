@@ -150,8 +150,13 @@
     <string name="feed_cd_more_options">More options</string>
     <string name="feed_cd_back">Back</string>
     <string name="feed_filter_all">All</string>
-    <string name="feed_filter_music">Music</string>
-    <string name="feed_filter_film">Film</string>
+    <string name="feed_filter_music">Music Only</string>
+    <string name="feed_filter_film">Film Only</string>
+    <string name="feed_filter_music_new_releases">New Music Releases</string>
+    <string name="feed_filter_film_new_releases">New Film Releases</string>
+    <string name="feed_empty_new_releases_title">No new releases yet</string>
+    <string name="feed_empty_new_releases_subtitle">Check back later for more new releases from people you follow.</string>
+    <string name="feed_empty_new_releases_show_all">Show all posts</string>
     <string name="feed_empty_invite_title">corus is fun with\njust a few friends.</string>
     <string name="feed_empty_invite_subtitle">know someone with good taste?</string>
     <string name="feed_empty_invite_button">invite friends</string>
@@ -357,6 +362,7 @@
     <string name="edit_profile_field_username">USERNAME</string>
     <string name="edit_profile_field_bio">BIO</string>
     <string name="edit_profile_field_website">WEBSITE</string>
+    <string name="edit_profile_field_featured_tab">FEATURED TAB</string>
     <string name="edit_profile_username_taken">Username is taken</string>
     <string name="edit_profile_username_invalid">Letters, numbers, underscores, periods only</string>
     <string name="edit_profile_cd_available">Available</string>
@@ -418,6 +424,11 @@
     <string name="search_section_curated_music_bots">CURATED MUSIC BOTS</string>
     <string name="search_section_curated_film_bots">CURATED FILM BOTS</string>
     <string name="search_section_trending_this_month">TRENDING THIS MONTH</string>
+    <string name="search_section_trending_this">TRENDING THIS</string>
+    <string name="search_trending_window_week">WEEK</string>
+    <string name="search_trending_window_month">MONTH</string>
+    <string name="search_trending_window_year">YEAR</string>
+    <string name="search_trending_window_aria">Trending time window</string>
     <string name="search_see_all">See All</string>
     <string name="search_taste_matches_title">Taste Matches</string>
     <string name="search_mutual_connections_title">Mutual Connections</string>
@@ -852,4 +863,14 @@
     <!-- Full screen image -->
     <string name="full_screen_image_cd">Full screen image</string>
     <string name="full_screen_image_cd_close">Close</string>
+
+    <!-- Comments audience -->
+    <string name="comments_audience_everyone">Everyone can comment</string>
+    <string name="comments_audience_followers">Followers only</string>
+    <string name="comments_audience_off">Comments off</string>
+    <string name="comments_locked_off">Comments are turned off</string>
+    <string name="comments_locked_followers_known">Only @%1$s\'s followers can comment.</string>
+    <string name="comments_locked_followers_unknown">Only the author\'s followers can comment.</string>
+    <string name="comments_locked_follow_cta">Follow</string>
+    <string name="comments_locked_following_cta">Following…</string>
 </resources>

@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.TMDBApiService
@@ -108,7 +109,7 @@ class FeedMediaTypeFilterTest {
 
     @Test
     fun `loadFeed forwards active mediaType filter to backend`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -124,12 +125,13 @@ class FeedMediaTypeFilterTest {
             lastTimestamp = anyOrNull(),
             onePerFollower = any(),
             mediaType = eq(MediaType.MOVIE),
+            newReleasesOnly = eq(false),
         )
     }
 
     @Test
     fun `setFeedMediaFilter resets pagination so new filter fetches from the top`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -147,6 +149,68 @@ class FeedMediaTypeFilterTest {
             lastTimestamp = eq(null),
             onePerFollower = any(),
             mediaType = anyOrNull(),
+            newReleasesOnly = any(),
+        )
+    }
+
+    @Test
+    fun `Music - New Releases forwards mediaType=TRACK and newReleasesOnly=true`() = runTest(testDispatcher) {
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
+
+        val viewModel = vm()
+        viewModel.setFeedFilter(FeedFilter.MUSIC_NEW_RELEASES)
+        advanceUntilIdle()
+
+        // The combined filter must reach the backend as both params; without
+        // newReleasesOnly the server would return the regular Music feed.
+        verify(postRepository).getFeedPage(
+            userId = eq("user1"),
+            pageSize = any(),
+            lastTimestamp = anyOrNull(),
+            onePerFollower = any(),
+            mediaType = eq(MediaType.TRACK),
+            newReleasesOnly = eq(true),
+        )
+    }
+
+    @Test
+    fun `Film - New Releases forwards mediaType=MOVIE and newReleasesOnly=true`() = runTest(testDispatcher) {
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
+
+        val viewModel = vm()
+        viewModel.setFeedFilter(FeedFilter.FILM_NEW_RELEASES)
+        advanceUntilIdle()
+
+        verify(postRepository).getFeedPage(
+            userId = eq("user1"),
+            pageSize = any(),
+            lastTimestamp = anyOrNull(),
+            onePerFollower = any(),
+            mediaType = eq(MediaType.MOVIE),
+            newReleasesOnly = eq(true),
+        )
+    }
+
+    @Test
+    fun `All clears both mediaType and newReleasesOnly`() = runTest(testDispatcher) {
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
+
+        val viewModel = vm()
+        viewModel.setFeedFilter(FeedFilter.MUSIC_NEW_RELEASES)
+        advanceUntilIdle()
+        viewModel.setFeedFilter(FeedFilter.ALL)
+        advanceUntilIdle()
+
+        verify(postRepository).getFeedPage(
+            userId = any(),
+            pageSize = any(),
+            lastTimestamp = anyOrNull(),
+            onePerFollower = any(),
+            mediaType = eq(null),
+            newReleasesOnly = eq(false),
         )
     }
 }

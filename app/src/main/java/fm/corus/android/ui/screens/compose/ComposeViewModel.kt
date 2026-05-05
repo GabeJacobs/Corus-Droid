@@ -170,6 +170,17 @@ class ComposeViewModel @Inject constructor(
     private val _showRepostAttribution = MutableStateFlow(true)
     val showRepostAttribution: StateFlow<Boolean> = _showRepostAttribution.asStateFlow()
 
+    // Comments-audience picker state. Defaults to EVERYONE so the first
+    // post a user composes after the flag flips on doesn't accidentally
+    // ship restricted — they have to actively choose to lock it down.
+    private val _commentsAudience = MutableStateFlow(fm.corus.android.data.model.CommentsAudience.EVERYONE)
+    val commentsAudience: StateFlow<fm.corus.android.data.model.CommentsAudience> = _commentsAudience.asStateFlow()
+    fun setCommentsAudience(audience: fm.corus.android.data.model.CommentsAudience) {
+        _commentsAudience.value = audience
+    }
+    /// Exposed so the compose screen can decide whether to render the picker.
+    val commentControlsOnPosts: Boolean get() = remoteConfigService.commentControlsOnPosts
+
     // Trophy celebration state
     private val _showTrophy = MutableStateFlow(false)
     val showTrophy: StateFlow<Boolean> = _showTrophy.asStateFlow()
@@ -398,6 +409,16 @@ class ComposeViewModel @Inject constructor(
                     data["repostedFromUsername"] = originalUsername ?: ""
                 }
 
+                // Comments-audience setting. Only stamp the field for restrictive
+                // audiences — omitting it for "everyone" (or when the flag is
+                // off) keeps the doc shape identical to legacy posts so older
+                // clients read the post exactly as before.
+                val pickedAudience = _commentsAudience.value
+                if (remoteConfigService.commentControlsOnPosts &&
+                    pickedAudience != fm.corus.android.data.model.CommentsAudience.EVERYONE) {
+                    data["commentsAudience"] = pickedAudience.wire
+                }
+
                 var isFirstPoster = false
 
                 // The stored isFirstPoster is also recomputed authoritatively by the
@@ -609,6 +630,7 @@ class ComposeViewModel @Inject constructor(
         _repostedFromUserId.value = null
         _repostedFromUsername.value = null
         _showRepostAttribution.value = true
+        _commentsAudience.value = fm.corus.android.data.model.CommentsAudience.EVERYONE
         cachedTracks = emptyList()
         cachedMovies = emptyList()
     }

@@ -46,6 +46,9 @@ fun TasteMatchCard(
     showPreviewButton: Boolean = false,
     isPreviewLoading: Boolean = false,
     isPreviewing: Boolean = false,
+    /** Overrides the auto-derived flavor text. Used by the Popular rail to
+     *  show "X followers" and by Mutual Connections to show "via @user1, …". */
+    subtitle: String? = null,
 ) {
     val user = match.user
     val matchData = match.matchData

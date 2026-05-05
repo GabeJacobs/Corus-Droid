@@ -101,6 +101,7 @@ fun ComposeScreen(
     val isLoadingPreSelection by viewModel.isLoadingPreSelection.collectAsState()
     val repostedFromUsername by viewModel.repostedFromUsername.collectAsState()
     val showRepostAttribution by viewModel.showRepostAttribution.collectAsState()
+    val commentsAudience by viewModel.commentsAudience.collectAsState()
     var mediaType by remember { mutableStateOf(if (movieModeEnabled) MediaType.MOVIE else MediaType.TRACK) }
     var searchQuery by remember { mutableStateOf("") }
     var caption by remember { mutableStateOf(TextFieldValue("")) }
@@ -278,6 +279,9 @@ fun ComposeScreen(
                         repostedFromUsername = repostedFromUsername,
                         showRepostAttribution = showRepostAttribution,
                         onShowRepostAttributionChange = { viewModel.setShowRepostAttribution(it) },
+                        commentControlsOnPosts = viewModel.commentControlsOnPosts,
+                        commentsAudience = commentsAudience,
+                        onCommentsAudienceChange = viewModel::setCommentsAudience,
                     )
                 } else {
                     // Pre-selected track/movie is loading — show empty placeholder
@@ -901,6 +905,9 @@ private fun ComposeModeContent(
     repostedFromUsername: String? = null,
     showRepostAttribution: Boolean = true,
     onShowRepostAttributionChange: (Boolean) -> Unit = {},
+    commentControlsOnPosts: Boolean = false,
+    commentsAudience: fm.corus.android.data.model.CommentsAudience = fm.corus.android.data.model.CommentsAudience.EVERYONE,
+    onCommentsAudienceChange: (fm.corus.android.data.model.CommentsAudience) -> Unit = {},
 ) {
     val imageURL = if (mediaType == MediaType.TRACK) (selectedTrack?.albumArtLargeURL ?: selectedTrack?.albumArtURL) else selectedMovie?.posterURL
     val title = if (mediaType == MediaType.TRACK) selectedTrack?.name.orEmpty() else selectedMovie?.title.orEmpty()
@@ -1093,6 +1100,16 @@ private fun ComposeModeContent(
                     .fillMaxWidth()
                     .padding(top = CorusSpacing.xs),
                 textAlign = TextAlign.End,
+            )
+        }
+
+        // Comments-audience picker. Hidden when the flag is off so the
+        // compose layout matches today's UI exactly until the rollout.
+        if (commentControlsOnPosts) {
+            fm.corus.android.ui.components.CommentsAudiencePicker(
+                selection = commentsAudience,
+                onSelect = onCommentsAudienceChange,
+                modifier = Modifier.padding(top = CorusSpacing.xs),
             )
         }
 
