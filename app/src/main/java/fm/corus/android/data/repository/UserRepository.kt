@@ -72,6 +72,16 @@ class UserRepository @Inject constructor(
 
     fun isFollowing(userId: String): Boolean = _followingIds.value.contains(userId)
 
+    /**
+     * Asks Firestore whether `askerId` follows `targetId`. Use only when the
+     * answer is for *another* user's following set (e.g. comments-audience
+     * `FOLLOWING` gate, where we need to know whether the post AUTHOR follows
+     * the VIEWER). For the local user's own following set, use the cached
+     * [isFollowing] above instead — it avoids a network round-trip.
+     */
+    suspend fun doesUserFollow(askerId: String, targetId: String): Boolean =
+        firestoreDataSource.isFollowing(askerId, targetId)
+
     // ── Profile (with TTL cache, matching iOS) ──
 
     suspend fun fetchUserProfile(uid: String): CymbalUser? {

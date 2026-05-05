@@ -867,10 +867,13 @@
     <!-- Comments audience -->
     <string name="comments_audience_everyone">Everyone can comment</string>
     <string name="comments_audience_followers">Followers only</string>
+    <string name="comments_audience_following">Accounts you follow</string>
     <string name="comments_audience_off">Comments off</string>
     <string name="comments_locked_off">Comments are turned off</string>
     <string name="comments_locked_followers_known">Only @%1$s\'s followers can comment.</string>
     <string name="comments_locked_followers_unknown">Only the author\'s followers can comment.</string>
+    <string name="comments_locked_authorfollow_known">Only people @%1$s follows can comment.</string>
+    <string name="comments_locked_authorfollow_unknown">Only people the author follows can comment.</string>
     <string name="comments_locked_follow_cta">Follow</string>
     <string name="comments_locked_following_cta">Following…</string>
 </resources>

@@ -221,12 +221,19 @@ data class CymbalPost(
 
 /**
  * Per-post comments-audience setting. Wire format is the raw lowercase
- * string (`"everyone" | "followers" | "off"`); legacy posts that pre-date
- * the feature have no field and are treated as `EVERYONE` everywhere.
+ * string (`"everyone" | "followers" | "following" | "off"`); legacy posts
+ * that pre-date the feature have no field and are treated as `EVERYONE`
+ * everywhere.
+ *
+ *  - EVERYONE: anyone signed in
+ *  - FOLLOWERS: viewer must follow the author (the author's followers)
+ *  - FOLLOWING: author must follow the viewer (accounts the author follows)
+ *  - OFF: no one, including the author
  */
 enum class CommentsAudience(val wire: String) {
     EVERYONE("everyone"),
     FOLLOWERS("followers"),
+    FOLLOWING("following"),
     OFF("off");
 
     companion object {

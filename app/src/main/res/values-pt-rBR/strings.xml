@@ -836,10 +836,13 @@
     <!-- Comments audience picker (compose) and locked notice (comments sheet) -->
     <string name="comments_audience_everyone">Todos podem comentar</string>
     <string name="comments_audience_followers">Apenas seguidores</string>
+    <string name="comments_audience_following">Contas que você segue</string>
     <string name="comments_audience_off">Comentários desativados</string>
     <string name="comments_locked_off">Os comentários estão desativados</string>
     <string name="comments_locked_followers_known">Apenas os seguidores de @%1$s podem comentar.</string>
     <string name="comments_locked_followers_unknown">Apenas os seguidores do autor podem comentar.</string>
+    <string name="comments_locked_authorfollow_known">Apenas as pessoas que @%1$s segue podem comentar.</string>
+    <string name="comments_locked_authorfollow_unknown">Apenas as pessoas que o autor segue podem comentar.</string>
     <string name="comments_locked_follow_cta">Seguir</string>
     <string name="comments_locked_following_cta">Seguindo…</string>
 </resources>

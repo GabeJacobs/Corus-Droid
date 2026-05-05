@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.SpeakerNotesOff
@@ -82,6 +83,7 @@ fun CommentsAudiencePicker(
             listOf(
                 CommentsAudience.EVERYONE,
                 CommentsAudience.FOLLOWERS,
+                CommentsAudience.FOLLOWING,
                 CommentsAudience.OFF,
             ).forEach { option ->
                 DropdownMenuItem(
@@ -134,6 +136,11 @@ fun CommentsLockedNotice(
         } else {
             stringResource(R.string.comments_locked_followers_unknown)
         }
+        CommentsBlockReason.FOLLOWING -> if (authorUsername != null) {
+            stringResource(R.string.comments_locked_authorfollow_known, authorUsername)
+        } else {
+            stringResource(R.string.comments_locked_authorfollow_unknown)
+        }
     }
     Row(
         modifier = modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -154,21 +161,24 @@ fun CommentsLockedNotice(
     }
 }
 
-enum class CommentsBlockReason { OFF, FOLLOWERS }
+enum class CommentsBlockReason { OFF, FOLLOWERS, FOLLOWING }
 
 private fun CommentsAudience.icon(): ImageVector = when (this) {
     CommentsAudience.EVERYONE -> Icons.Outlined.Public
     CommentsAudience.FOLLOWERS -> Icons.Outlined.Person
+    CommentsAudience.FOLLOWING -> Icons.Outlined.Group
     CommentsAudience.OFF -> Icons.Outlined.SpeakerNotesOff
 }
 
 private fun CommentsBlockReason.icon(): ImageVector = when (this) {
     CommentsBlockReason.OFF -> Icons.Outlined.SpeakerNotesOff
     CommentsBlockReason.FOLLOWERS -> Icons.Outlined.Person
+    CommentsBlockReason.FOLLOWING -> Icons.Outlined.Group
 }
 
 private fun CommentsAudience.summaryStringRes(): Int = when (this) {
     CommentsAudience.EVERYONE -> R.string.comments_audience_everyone
     CommentsAudience.FOLLOWERS -> R.string.comments_audience_followers
+    CommentsAudience.FOLLOWING -> R.string.comments_audience_following
     CommentsAudience.OFF -> R.string.comments_audience_off
 }
