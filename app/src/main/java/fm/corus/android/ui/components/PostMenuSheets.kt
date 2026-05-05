@@ -4,7 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -79,7 +81,7 @@ fun PostMenuSheets(
 
     // ── Share Post Bottom Sheet ──
     sharePost?.let { post ->
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val shareSearchResults by actions.shareSearchResults.collectAsState()
         val recentShareContacts by actions.recentShareContacts.collectAsState()
         val isShareSearching by actions.isShareSearching.collectAsState()
@@ -95,6 +97,7 @@ fun PostMenuSheets(
             containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            contentWindowInsets = { WindowInsets.systemBars },
         ) {
             CorusSystemBars()
             BackHandler { onSharePostChange(null) }

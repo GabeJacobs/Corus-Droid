@@ -77,15 +77,6 @@ fun SharePostSheet(
 
     val isSearchActive = isSearchFocused || searchQuery.isNotBlank()
 
-    // Expand sheet when search is active, collapse when done
-    LaunchedEffect(isSearchActive) {
-        if (isSearchActive) {
-            sheetState.expand()
-        } else {
-            sheetState.partialExpand()
-        }
-    }
-
     // Auto-reset copied confirmation after 4 seconds
     LaunchedEffect(showCopied) {
         if (showCopied) {

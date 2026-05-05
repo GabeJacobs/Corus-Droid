@@ -129,12 +129,14 @@ class MutualConnectionsCardRailViewModel @Inject constructor(
                             postRepository.getProfilePosts(user.id, viewerId, limit = 12)
                         }.getOrDefault(emptyList())
 
+                        // Prefer the high-res field — the 2x2 grid tiles are big
+                        // enough on phones that the thumbnail-sized URL renders blurry.
                         val trackPreviews = posts.filter { it.isTrack }.map {
                             SharedTrackPreview(
                                 trackId = it.track.id,
                                 trackName = it.track.name,
                                 artistName = it.track.artistName,
-                                albumArtURL = it.track.albumArtURL,
+                                albumArtURL = it.track.albumArtLargeURL ?: it.track.albumArtURL,
                                 posterURL = null,
                                 isMovie = false,
                             )
@@ -144,7 +146,7 @@ class MutualConnectionsCardRailViewModel @Inject constructor(
                                 movieId = it.movieId.orEmpty(),
                                 movieTitle = it.movieTitle.orEmpty(),
                                 directorName = it.directorName.orEmpty(),
-                                posterURL = it.posterURL,
+                                posterURL = it.posterLargeURL ?: it.posterURL,
                             )
                         }
                         // Preserve the original suggestionReason so the
