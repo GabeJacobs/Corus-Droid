@@ -398,6 +398,7 @@
     <string name="search_section_mutual_connections">CONEXÕES MÚTUAS</string>
     <string name="search_section_popular">POPULAR NO CORUS</string>
     <string name="search_section_new">NOVOS NO CORUS</string>
+    <string name="search_section_club_members">MEMBROS DO CORUS CLUB</string>
     <string name="search_section_curated_music_bots">BOTS DE MÚSICA SELECIONADOS</string>
     <string name="search_section_curated_film_bots">BOTS DE FILMES SELECIONADOS</string>
     <string name="search_section_trending_this_month">EM ALTA ESTE MÊS</string>
@@ -406,6 +407,7 @@
     <string name="search_mutual_connections_title">Conexões em comum</string>
     <string name="search_popular_title">Populares no Corus</string>
     <string name="search_new_title">Novos no Corus</string>
+    <string name="search_club_members_title">Membros do Corus Club</string>
     <string name="search_filter_all">Todos</string>
     <string name="search_filter_unfollowed">Não Seguidos</string>
     <string name="search_subtitle_from_contacts">Dos seus contatos</string>
@@ -452,6 +454,7 @@
     <string name="suggested_users_default_title">Combinações de Gosto</string>
     <string name="suggested_users_empty">Nenhuma sugestão disponível</string>
     <string name="suggested_users_joined_format">Entrou há %1$s</string>
+    <string name="suggested_users_member_since_format">Membro há %1$s</string>
 
     <!-- Notifications: message templates (mirrors iOS localizedMessage by type) -->
     <string name="notif_msg_like">curtiu seu %s.</string>

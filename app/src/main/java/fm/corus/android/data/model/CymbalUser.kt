@@ -32,6 +32,12 @@ data class CymbalUser(
     val deletionStatus: String? = null,
     val lastPostedAt: Date? = null,
     val createdAt: Date? = null,
+    /**
+     * First-activation timestamp for the Corus Club subscription. Set on
+     * initial trial/purchase and only cleared on cancel — not bumped by
+     * renewals — so it represents the user's *original* sign-up.
+     */
+    val clubMemberSince: Date? = null,
 ) {
     val vinylStyle: VinylStyle get() = VinylStyle.from(vinylColor)
     val frameStyle: FrameStyle get() = FrameStyle.from(frameColor)
@@ -129,6 +135,7 @@ data class CymbalUser(
             deletionStatus = data["deletionStatus"] as? String,
             lastPostedAt = (data["lastPostedAt"] as? com.google.firebase.Timestamp)?.toDate(),
             createdAt = (data["createdAt"] as? com.google.firebase.Timestamp)?.toDate(),
+            clubMemberSince = (data["clubMemberSince"] as? com.google.firebase.Timestamp)?.toDate(),
         )
     }
 }

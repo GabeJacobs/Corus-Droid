@@ -12,6 +12,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.DisplayNameValidator
 import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -212,7 +213,10 @@ class EditProfileViewModel @Inject constructor(
     val canSave: Boolean
         get() {
             if (!hasChanges) return false
-            if (_displayName.value.isBlank()) return false
+            // Grandfather: if displayName is unchanged from the server value,
+            // allow save regardless of whether it would pass the new visible-char rule.
+            val displayNameChanged = _displayName.value != originalDisplayName
+            if (displayNameChanged && !DisplayNameValidator.hasVisibleCharacter(_displayName.value)) return false
             if (_username.value != originalUsername && _usernameState.value != UsernameState.AVAILABLE) return false
             if (_isSaving.value) return false
             return true

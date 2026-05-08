@@ -74,6 +74,7 @@ import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.ClubMembersCardRail
 import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.HorizontalPopularUsersRail
 import fm.corus.android.ui.components.MutualConnectionsCardRail
@@ -134,6 +135,7 @@ fun SearchScreen(
     val contactsSyncStatus by viewModel.contactsSyncStatus.collectAsState()
     val showNoContactMatches by viewModel.showNoContactMatches.collectAsState()
     val newUsers by viewModel.newUsers.collectAsState()
+    val clubMembers by viewModel.clubMembers.collectAsState()
     val hashtagSearchResults by viewModel.hashtagSearchResults.collectAsState()
     val trendingHashtags by viewModel.trendingHashtags.collectAsState()
     val isTrendingHashtagsLoading by viewModel.isTrendingHashtagsLoading.collectAsState()
@@ -303,6 +305,7 @@ fun SearchScreen(
                                 isSyncingContacts = isSyncingContacts,
                                 showNoContactMatches = showNoContactMatches,
                                 newUsers = newUsers,
+                                clubMembers = clubMembers,
                                 isSuggestedLoading = isSuggestedLoading,
                                 viewModel = viewModel,
                                 onNavigateToUser = onNavigateToUser,
@@ -580,6 +583,7 @@ private fun SuggestedUsersContent(
     isSyncingContacts: Boolean,
     showNoContactMatches: Boolean,
     newUsers: List<CymbalUser>,
+    clubMembers: List<CymbalUser>,
     isSuggestedLoading: Boolean,
     viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
@@ -591,8 +595,10 @@ private fun SuggestedUsersContent(
     val mutualConnectionsTitle = stringResource(fm.corus.android.R.string.search_mutual_connections_title)
     val popularOnCorusTitle = stringResource(fm.corus.android.R.string.search_popular_title)
     val newOnCorusTitle = stringResource(fm.corus.android.R.string.search_new_title)
+    val clubMembersTitle = stringResource(fm.corus.android.R.string.search_club_members_title)
     val fromContactsSubtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts)
     val joinedFormat = fm.corus.android.R.string.suggested_users_joined_format
+    val memberSinceFormat = fm.corus.android.R.string.suggested_users_member_since_format
     val railExcludeIds = remember(viewModel.currentUserId) {
         viewModel.currentUserId?.let { setOf(it) } ?: emptySet()
     }
@@ -723,6 +729,44 @@ private fun SuggestedUsersContent(
             }
         }
 
+        // ── Popular on Corus — paginated horizontal rail of real users ──
+        item {
+            HorizontalPopularUsersRail(
+                excludeIds = railExcludeIds,
+                isFollowed = { id -> viewModel.isFollowed(id) },
+                onUserTap = { user -> onNavigateToUser(user.id) },
+                onFollowTap = { user -> viewModel.toggleFollow(user) },
+                onSeeAll = { onNavigateToSuggestedUsers(popularOnCorusTitle, false, "popular") },
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        }
+
+        // ── Corus Club Members ──
+        // Horizontal rail of TasteMatchCards ordered by initial sign-up
+        // (most recent first). Mirrors web; placement matches iOS.
+        if (clubMembers.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    icon = "club",
+                    title = stringResource(fm.corus.android.R.string.search_section_club_members),
+                    showSeeAll = true,
+                    onSeeAll = { onNavigateToSuggestedUsers(clubMembersTitle, false, "clubMembers") },
+                )
+            }
+            item {
+                ClubMembersCardRail(
+                    users = clubMembers,
+                    isFollowed = { id -> viewModel.isFollowed(id) },
+                    onUserTap = { user -> onNavigateToUser(user.id) },
+                    onFollowTap = { user -> viewModel.toggleFollow(user) },
+                    memberSinceLabel = { date ->
+                        context.getString(memberSinceFormat, DateUtils.relativeTime(context, date))
+                    },
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            }
+        }
+
         // ── Mutual Connections section ──
         // Horizontal rail of TasteMatchCards (2x2 album-art) — matches iOS
         // SearchView.mutualConnectionsSection / MutualConnectionsCardGrid.
@@ -744,18 +788,6 @@ private fun SuggestedUsersContent(
                 )
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
-        }
-
-        // ── Popular on Corus — paginated horizontal rail of real users ──
-        item {
-            HorizontalPopularUsersRail(
-                excludeIds = railExcludeIds,
-                isFollowed = { id -> viewModel.isFollowed(id) },
-                onUserTap = { user -> onNavigateToUser(user.id) },
-                onFollowTap = { user -> viewModel.toggleFollow(user) },
-                onSeeAll = { onNavigateToSuggestedUsers(popularOnCorusTitle, false, "popular") },
-            )
-            Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
 
         // ── New on Corus ──
@@ -929,6 +961,17 @@ private fun SectionHeader(
         if (iconVector != null) {
             Icon(
                 imageVector = iconVector,
+                contentDescription = null,
+                tint = CorusColors.Accent,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        } else if (icon == "club") {
+            // Match web/iOS: brand the section with the Corus club mark.
+            Icon(
+                painter = androidx.compose.ui.res.painterResource(
+                    fm.corus.android.R.drawable.corus_club_vector
+                ),
                 contentDescription = null,
                 tint = CorusColors.Accent,
                 modifier = Modifier.size(16.dp),

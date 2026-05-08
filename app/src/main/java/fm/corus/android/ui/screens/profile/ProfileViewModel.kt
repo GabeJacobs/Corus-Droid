@@ -62,6 +62,40 @@ class ProfileViewModel @Inject constructor(
     private val _savedPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val savedPosts: StateFlow<List<CymbalPost>> = _savedPosts.asStateFlow()
 
+    // All MutableStateFlow backing fields must be declared before `init` —
+    // viewModelScope.launch uses Dispatchers.Main.immediate, so the launches
+    // below run synchronously up to first suspension and StateFlow.collect
+    // emits its current value eagerly. A null backing field at that point
+    // crashes with NPE on .setValue. (Crashlytics 96b87ad5.)
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _isLoadingLiked = MutableStateFlow(false)
+    val isLoadingLiked: StateFlow<Boolean> = _isLoadingLiked.asStateFlow()
+
+    private val _isLoadingSaved = MutableStateFlow(false)
+    val isLoadingSaved: StateFlow<Boolean> = _isLoadingSaved.asStateFlow()
+
+    private val _isLoadingFilms = MutableStateFlow(false)
+    val isLoadingFilms: StateFlow<Boolean> = _isLoadingFilms.asStateFlow()
+
+    private val _hasFetchedFilmPage = MutableStateFlow(false)
+    val hasFetchedFilmPage: StateFlow<Boolean> = _hasFetchedFilmPage.asStateFlow()
+
+    private val _isSavingStyle = MutableStateFlow(false)
+    val isSavingStyle: StateFlow<Boolean> = _isSavingStyle.asStateFlow()
+
+    private val _currentSegment = MutableStateFlow(0)
+
+    private val _hasMore = MutableStateFlow(mapOf(0 to true, 1 to true, 2 to true, 3 to true))
+    val hasMore: StateFlow<Map<Int, Boolean>> = _hasMore.asStateFlow()
+
     init {
         // Keep _profile in sync with authRepository so edits from EditProfileScreen
         // (which refresh authRepository._userProfile) are reflected without a manual reload.
@@ -119,35 +153,6 @@ class ProfileViewModel @Inject constructor(
             nowPlayingManager.generateProfilePlaylist(userId, source)
         }
     }
-
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    private val _isRefreshing = MutableStateFlow(false)
-    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
-
-    private val _isLoadingMore = MutableStateFlow(false)
-    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
-
-    private val _isLoadingLiked = MutableStateFlow(false)
-    val isLoadingLiked: StateFlow<Boolean> = _isLoadingLiked.asStateFlow()
-
-    private val _isLoadingSaved = MutableStateFlow(false)
-    val isLoadingSaved: StateFlow<Boolean> = _isLoadingSaved.asStateFlow()
-
-    private val _isLoadingFilms = MutableStateFlow(false)
-    val isLoadingFilms: StateFlow<Boolean> = _isLoadingFilms.asStateFlow()
-
-    private val _hasFetchedFilmPage = MutableStateFlow(false)
-    val hasFetchedFilmPage: StateFlow<Boolean> = _hasFetchedFilmPage.asStateFlow()
-
-    private val _isSavingStyle = MutableStateFlow(false)
-    val isSavingStyle: StateFlow<Boolean> = _isSavingStyle.asStateFlow()
-
-    private val _currentSegment = MutableStateFlow(0)
-
-    private val _hasMore = MutableStateFlow(mapOf(0 to true, 1 to true, 2 to true, 3 to true))
-    val hasMore: StateFlow<Map<Int, Boolean>> = _hasMore.asStateFlow()
 
     private var postsLastTimestamp: Long? = null
     // Separate film-only cursor — segment 1 paginates with mediaType="movie",

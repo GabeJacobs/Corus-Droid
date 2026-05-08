@@ -244,6 +244,13 @@ class SearchViewModel @Inject constructor(
     private val _isNewUsersLoading = MutableStateFlow(true)
     val isNewUsersLoading: StateFlow<Boolean> = _isNewUsersLoading.asStateFlow()
 
+    // Corus Club Members (most recently signed up first)
+    private val _clubMembers = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val clubMembers: StateFlow<List<CymbalUser>> = _clubMembers.asStateFlow()
+
+    private val _isClubMembersLoading = MutableStateFlow(true)
+    val isClubMembersLoading: StateFlow<Boolean> = _isClubMembersLoading.asStateFlow()
+
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -365,6 +372,7 @@ class SearchViewModel @Inject constructor(
                 Log.e("SearchVM", "Failed to prefetch following set", e)
             }
             loadNewUsers()
+            loadClubMembers()
         }
         refreshFollowedHashtags()
     }
@@ -383,6 +391,23 @@ class SearchViewModel @Inject constructor(
                 Log.e("SearchVM", "Failed to load new users", e)
             }
             _isNewUsersLoading.value = false
+        }
+    }
+
+    private fun loadClubMembers() {
+        val uid = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                val members = userRepository.fetchClubMembers(
+                    limit = 8,
+                    excludeIds = setOf(uid),
+                )
+                Log.d("SearchVM", "Club members loaded: ${members.size}")
+                _clubMembers.value = members
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load club members", e)
+            }
+            _isClubMembersLoading.value = false
         }
     }
 

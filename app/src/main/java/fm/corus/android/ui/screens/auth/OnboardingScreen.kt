@@ -47,6 +47,7 @@ import android.graphics.BitmapFactory
 import java.io.ByteArrayOutputStream
 import java.net.URL
 import fm.corus.android.R
+import fm.corus.android.domain.DisplayNameValidator
 import fm.corus.android.domain.UsernameValidator
 import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.SelfieCaptureScreen
@@ -169,7 +170,7 @@ fun OnboardingScreen(
     }
 
     val canSubmit = usernameAvailable == true
-            && displayName.trim().isNotEmpty()
+            && DisplayNameValidator.hasVisibleCharacter(displayName)
             && !isLoading
 
     val scrollState = rememberScrollState()

@@ -236,6 +236,40 @@ class ProfileViewModelTest {
     }
 
     @Test
+    fun `construction succeeds when authRepository userProfile is already non-null`() = runTest {
+        // Regression: init { } launches a coroutine that collects authRepository.userProfile
+        // (a StateFlow), and an event from postCreationEvent eventually calls refreshProfile()
+        // — which touches _isLoading, _currentSegment, _hasMore, _hasFetchedFilmPage,
+        // _isRefreshing. Those fields used to be declared *after* the init block, so during
+        // init they were null. With Dispatchers.Main.immediate (viewModelScope's default),
+        // the launches dispatch synchronously, and a StateFlow with a non-null current
+        // value emits eagerly to a fresh collector. On a logged-in user that race produced
+        // `NullPointerException: ... MutableStateFlow.setValue ... null object reference`
+        // during construction. (Crashlytics 96b87ad5.)
+        val creationEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        authRepository = mock {
+            on { currentUserId } doReturn "user1"
+            on { userProfile } doReturn MutableStateFlow<CymbalUser?>(makeUser())
+        }
+        postCreationEvent = mock { on { events } doReturn creationEvents }
+        whenever(cloudFunctions.getProfilePosts(any(), any(), any(), any(), any()))
+            .thenReturn(emptyList())
+
+        // Construction itself must not throw — this is the actual regression assertion.
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // And the post-creation → refreshProfile path must complete cleanly, since it
+        // exercises every MutableStateFlow that was previously declared after init.
+        creationEvents.tryEmit(Unit)
+        advanceUntilIdle()
+
+        // Sanity: refreshProfile ran and settled the loading flags.
+        assertEquals(false, viewModel.isLoading.value)
+        assertEquals(false, viewModel.isRefreshing.value)
+    }
+
+    @Test
     fun `uploadAvatar exposes pending bytes synchronously before the upload runs`() = runTest {
         whenever(userRepository.uploadAvatar(any(), any())).thenReturn("https://example.com/a.jpg")
         val viewModel = createViewModel()

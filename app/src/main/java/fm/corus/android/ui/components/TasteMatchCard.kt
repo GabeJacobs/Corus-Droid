@@ -246,7 +246,7 @@ private fun GridTile(url: String?, modifier: Modifier = Modifier) {
                 painter = painterResource(fm.corus.android.R.drawable.logo_no_background),
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(CorusColors.Tertiary),
-                modifier = Modifier.fillMaxSize(0.45f),
+                modifier = Modifier.fillMaxSize(0.38f),
             )
         }
     }

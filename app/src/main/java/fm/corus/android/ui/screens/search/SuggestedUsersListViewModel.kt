@@ -78,6 +78,7 @@ class SuggestedUsersListViewModel @Inject constructor(
                         "mutualConnections" -> loadMutualConnections(uid)
                         "popular" -> loadPopularUsersPage(uid, afterDocId = null)
                         "new" -> loadNewUsersPage(uid, afterDocId = null)
+                        "clubMembers" -> loadClubMembers(uid)
                         else -> userRepository.getSuggestedUsers(uid)
                     }
                     _suggestions.value = initial
@@ -98,6 +99,7 @@ class SuggestedUsersListViewModel @Inject constructor(
                     "mutualConnections" -> loadMutualConnections(uid)
                     "popular" -> loadPopularUsersPage(uid, afterDocId = null)
                     "new" -> loadNewUsersPage(uid, afterDocId = null)
+                    "clubMembers" -> loadClubMembers(uid)
                     else -> userRepository.getSuggestedUsers(uid)
                 }
                 _suggestions.value = initial
@@ -214,6 +216,20 @@ class SuggestedUsersListViewModel @Inject constructor(
             afterDocId = afterDocId,
         )
         return users.map { SuggestedUserMatch(user = it, matchData = null, suggestionReason = null) }
+    }
+
+    /**
+     * Full Club Members See-All list. Capped at 100 most-recent sign-ups
+     * intentionally — we don't want the full active-member count to be
+     * trivially screenshottable. Cards render the same 2x2 album-art preview
+     * as the inline rail, so we enrich with recent posts.
+     */
+    private suspend fun loadClubMembers(uid: String): List<SuggestedUserMatch> {
+        val users = userRepository.fetchClubMembers(
+            limit = 100,
+            excludeIds = setOf(uid),
+        )
+        return matchesWithPostPreviews(users, viewerId = uid)
     }
 
     fun isFollowed(userId: String): Boolean {
