@@ -122,6 +122,11 @@ class FirestoreDataSource @Inject constructor(
     // ── Users ──
 
     suspend fun fetchUserProfile(uid: String): CymbalUser? {
+        // Banned users disappear from every viewer except themselves. Self-
+        // lookups still resolve (so the banned user can read their own
+        // banned_users doc); every other code path treats them as missing.
+        val callerUid = firebaseAuth.currentUser?.uid
+        if (uid != callerUid && cachedBannedSet.contains(uid)) return null
         val doc = firestore.collection("users_v2").document(uid).get().await()
         if (!doc.exists()) return null
         val data = doc.data ?: return null
@@ -1216,6 +1221,10 @@ class FirestoreDataSource @Inject constructor(
             .limit(1)
             .get().await()
         val doc = snapshot.documents.firstOrNull() ?: return null
+        // A direct username lookup (e.g. paste-link-into-search) for a banned
+        // account returns "user not found" instead of the profile.
+        val callerUid = firebaseAuth.currentUser?.uid
+        if (doc.id != callerUid && cachedBannedSet.contains(doc.id)) return null
         val data = doc.data ?: return null
         return CymbalUser.fromMap(doc.id, data)
     }
