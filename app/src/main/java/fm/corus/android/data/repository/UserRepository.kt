@@ -70,6 +70,18 @@ class UserRepository @Inject constructor(
         _blockedIds.value = firestoreDataSource.fetchBlockedIds(userId)
     }
 
+    /**
+     * Subscribe to the global banned-users denylist. Idempotent — safe to
+     * call repeatedly. The listener stays active for the app lifetime so
+     * banned-author content disappears within seconds of an admin ban.
+     */
+    fun startBannedUsersListener() {
+        firestoreDataSource.startBannedUsersListener()
+    }
+
+    fun isUserBannedLocally(uid: String): Boolean =
+        firestoreDataSource.isUserBannedLocally(uid)
+
     fun isFollowing(userId: String): Boolean = _followingIds.value.contains(userId)
 
     /**
@@ -305,6 +317,12 @@ class UserRepository @Inject constructor(
         excludeIds: Set<String> = emptySet(),
         afterDocId: String? = null,
     ): List<CymbalUser> = firestoreDataSource.fetchNewUsersPaginated(limit, excludeIds, afterDocId)
+
+    // ── Corus Club Members ──
+
+    suspend fun fetchClubMembers(limit: Int = 6, excludeIds: Set<String> = emptySet()): List<CymbalUser> {
+        return firestoreDataSource.fetchClubMembers(limit, excludeIds)
+    }
 
     // ── Search ──
 

@@ -73,6 +73,52 @@ class FirestoreDataSource @Inject constructor(
         }
     }
 
+    // ── Banned-users live cache ──
+    //
+    // Live snapshot of `banned_users` so banned authors disappear from local
+    // UI within seconds of an admin ban (and reappear on unban). Mirrors the
+    // backend `getBannedUserIds()` and the iOS `cachedBannedSet` so all
+    // three layers agree on what's hidden. The collection is small — one
+    // doc per banned user — so a long-lived snapshot listener is cheap.
+
+    @Volatile
+    private var cachedBannedSet: Set<String> = emptySet()
+    private var bannedUsersListener: ListenerRegistration? = null
+
+    /**
+     * Subscribe to the global banned_users denylist. Idempotent — call once
+     * at app startup (or on sign-in). The live listener keeps
+     * [cachedBannedSet] in sync without polling.
+     */
+    fun startBannedUsersListener() {
+        if (bannedUsersListener != null) return
+        bannedUsersListener = firestore.collection("banned_user_ids")
+            .addSnapshotListener { snap, err ->
+                if (err != null) {
+                    Log.w("FirestoreDataSource", "banned_users listener error", err)
+                    return@addSnapshotListener
+                }
+                cachedBannedSet = snap?.documents?.map { it.id }?.toSet() ?: emptySet()
+            }
+    }
+
+    fun stopBannedUsersListener() {
+        bannedUsersListener?.remove()
+        bannedUsersListener = null
+        cachedBannedSet = emptySet()
+    }
+
+    /** O(1) lookup against the live banned-users set. */
+    fun isUserBannedLocally(uid: String): Boolean = cachedBannedSet.contains(uid)
+
+    /**
+     * Drops items whose author is in the banned set. Reuse at any call site
+     * that produces user-authored content from a direct Firestore query
+     * that bypasses the cloud-function filter.
+     */
+    fun <T> filterBannedAuthors(items: List<T>, authorId: (T) -> String?): List<T> =
+        filterBannedAuthorsPure(items, cachedBannedSet, authorId)
+
     // ── Users ──
 
     suspend fun fetchUserProfile(uid: String): CymbalUser? {
@@ -847,10 +893,11 @@ class FirestoreDataSource @Inject constructor(
             .whereLessThan("username", lowered + "\uf8ff")
             .limit(limit.toLong())
             .get().await()
-        return snapshot.documents.mapNotNull { doc ->
+        val users = snapshot.documents.mapNotNull { doc ->
             val data = doc.data ?: return@mapNotNull null
             CymbalUser.fromMap(doc.id, data)
         }
+        return filterBannedAuthors(users) { it.id }
     }
 
     /** Search users whose searchTokens array contains the given (already-lowercased) token. */
@@ -859,10 +906,11 @@ class FirestoreDataSource @Inject constructor(
             .whereArrayContains("searchTokens", token)
             .limit(limit.toLong())
             .get().await()
-        return snapshot.documents.mapNotNull { doc ->
+        val users = snapshot.documents.mapNotNull { doc ->
             val data = doc.data ?: return@mapNotNull null
             CymbalUser.fromMap(doc.id, data)
         }
+        return filterBannedAuthors(users) { it.id }
     }
 
     // ── Popular Users ──
@@ -875,6 +923,7 @@ class FirestoreDataSource @Inject constructor(
                 .whereIn(FieldPath.documentId(), chunk)
                 .get().await()
             snapshot.documents.forEach { doc ->
+                if (cachedBannedSet.contains(doc.id)) return@forEach
                 val data = doc.data ?: return@forEach
                 users.add(CymbalUser.fromMap(doc.id, data))
             }
@@ -893,6 +942,7 @@ class FirestoreDataSource @Inject constructor(
         val twoWeeksAgo = System.currentTimeMillis() - (14L * 24 * 60 * 60 * 1000)
         return snapshot.documents.mapNotNull { doc ->
             if (excludeIds.contains(doc.id)) return@mapNotNull null
+            if (cachedBannedSet.contains(doc.id)) return@mapNotNull null
             val data = doc.data ?: return@mapNotNull null
             val user = CymbalUser.fromMap(doc.id, data)
             // Client-side filtering matching iOS: no bots, active users only
@@ -929,6 +979,7 @@ class FirestoreDataSource @Inject constructor(
         val users = mutableListOf<CymbalUser>()
         for (doc in snapshot.documents) {
             if (excludeIds.contains(doc.id)) continue
+            if (cachedBannedSet.contains(doc.id)) continue
             val data = doc.data ?: continue
             val user = CymbalUser.fromMap(doc.id, data)
             if (user.isBot) continue
@@ -951,6 +1002,7 @@ class FirestoreDataSource @Inject constructor(
             .get().await()
         return snapshot.documents.mapNotNull { doc ->
             if (excludeIds.contains(doc.id)) return@mapNotNull null
+            if (cachedBannedSet.contains(doc.id)) return@mapNotNull null
             val data = doc.data ?: return@mapNotNull null
             val user = CymbalUser.fromMap(doc.id, data)
             if (user.isBot) return@mapNotNull null
@@ -981,6 +1033,7 @@ class FirestoreDataSource @Inject constructor(
         val users = mutableListOf<CymbalUser>()
         for (doc in snapshot.documents) {
             if (excludeIds.contains(doc.id)) continue
+            if (cachedBannedSet.contains(doc.id)) continue
             val data = doc.data ?: continue
             val user = CymbalUser.fromMap(doc.id, data)
             if (user.isBot) continue
@@ -990,6 +1043,36 @@ class FirestoreDataSource @Inject constructor(
             if (users.size >= limit) break
         }
         return users
+    }
+
+    /**
+     * Active Corus Club members, ordered by initial sign-up date (newest
+     * first). `clubMemberSince` is set on first activation (trial or
+     * purchase) and is preserved across renewals — only cleared on cancel —
+     * so this orders by the *original* sign-up, not by renewal time.
+     *
+     * Avoids needing a composite Firestore index by fetching all active
+     * members (`isClubMember == true`) and sorting client-side. The active
+     * set is small enough that a single bounded read is fine; we cap the
+     * underlying fetch at 500 documents.
+     */
+    suspend fun fetchClubMembers(limit: Int = 6, excludeIds: Set<String> = emptySet()): List<CymbalUser> {
+        val snapshot = firestore.collection("users_v2")
+            .whereEqualTo("isClubMember", true)
+            .limit(500)
+            .get().await()
+        return snapshot.documents
+            .mapNotNull { doc ->
+                if (excludeIds.contains(doc.id)) return@mapNotNull null
+                if (cachedBannedSet.contains(doc.id)) return@mapNotNull null
+                val data = doc.data ?: return@mapNotNull null
+                val user = CymbalUser.fromMap(doc.id, data)
+                if (user.isBot) return@mapNotNull null
+                if (hiddenUsernames.contains(user.username)) return@mapNotNull null
+                user
+            }
+            .sortedByDescending { it.clubMemberSince ?: it.createdAt ?: java.util.Date(0) }
+            .take(limit)
     }
 
     // ── Comment Likes ──
@@ -1329,4 +1412,19 @@ class FirestoreDataSource @Inject constructor(
         val doc = firestore.collection("postSubscriptions").document(docId).get().await()
         return doc.exists()
     }
+}
+
+/**
+ * Pure logic for [FirestoreDataSource.filterBannedAuthors]. Top-level so it
+ * can be exercised by unit tests without constructing the singleton or
+ * touching Firestore. Items with a `null` author id are preserved (we don't
+ * have enough information to ban them).
+ */
+internal fun <T> filterBannedAuthorsPure(
+    items: List<T>,
+    bannedIds: Set<String>,
+    authorId: (T) -> String?,
+): List<T> {
+    if (bannedIds.isEmpty()) return items
+    return items.filter { authorId(it)?.let(bannedIds::contains) != true }
 }
