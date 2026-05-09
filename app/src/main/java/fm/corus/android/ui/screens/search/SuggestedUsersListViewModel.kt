@@ -223,13 +223,25 @@ class SuggestedUsersListViewModel @Inject constructor(
      * intentionally — we don't want the full active-member count to be
      * trivially screenshottable. Cards render the same 2x2 album-art preview
      * as the inline rail, so we enrich with recent posts.
+     *
+     * Bias unfollowed members to the top of the grid so brand-new sign-ups
+     * the viewer can still follow surface first. We compute "followed" once
+     * here against a snapshot of the current following set; without that
+     * snapshot, tapping Follow would immediately shuffle the just-followed
+     * card to the back of the grid mid-scroll. Each subgroup keeps the
+     * server's `clubMemberSince desc` order. Mirrors iOS
+     * `ClubMembersListView.orderedMatches`.
      */
     private suspend fun loadClubMembers(uid: String): List<SuggestedUserMatch> {
         val users = userRepository.fetchClubMembers(
             limit = 100,
             excludeIds = setOf(uid),
         )
-        return matchesWithPostPreviews(users, viewerId = uid)
+        val enriched = matchesWithPostPreviews(users, viewerId = uid)
+        val followedSnapshot = _followingIds.value + _localFollowedIds.value
+        val unfollowed = enriched.filter { it.user.id !in followedSnapshot }
+        val followed = enriched.filter { it.user.id in followedSnapshot }
+        return unfollowed + followed
     }
 
     fun isFollowed(userId: String): Boolean {

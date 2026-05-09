@@ -53,14 +53,25 @@ class FeedViewModel @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val tmdbApiService: TMDBApiService,
     val nowPlayingManager: NowPlayingManager,
+    val feedScrollRouter: fm.corus.android.domain.FeedScrollRouter,
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
     private val postCreationEvent: PostCreationEvent,
     private val postDeletionEvent: PostDeletionEvent,
     networkMonitor: NetworkMonitor,
+    private val preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
+
+    /**
+     * Mirrors iOS @AppStorage("feedFollowsNowPlaying"). When true, the feed
+     * scrolls to the now-playing post on song changes (gated further by the
+     * UI layer on tab/sub-screen visibility and a tap-marker on
+     * NowPlayingManager).
+     */
+    val feedFollowsNowPlaying: StateFlow<Boolean> = preferencesDataStore.feedFollowsNowPlaying
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     /** Live network connectivity. Mirrors iOS `NetworkMonitor.isConnected`. */
     val isConnected: StateFlow<Boolean> = networkMonitor.isConnected
@@ -273,6 +284,10 @@ class FeedViewModel @Inject constructor(
     }
 
     fun playPreview(post: fm.corus.android.data.model.CymbalPost) {
+        // Mark this as a user-initiated play so the feed's auto-scroll
+        // handler skips the resulting sourcePostId change — the user
+        // already sees this card (they just tapped it).
+        nowPlayingManager.lastUserInitiatedSourcePostId = post.id
         viewModelScope.launch {
             val trackPosts = filteredPosts.value.filter { it.mediaType == MediaType.TRACK }
             val queue = trackPosts.map { it.toQueuedTrack() }

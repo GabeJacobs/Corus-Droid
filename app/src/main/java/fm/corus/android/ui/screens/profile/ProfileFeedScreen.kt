@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,6 +40,13 @@ fun ProfileFeedScreen(
     initialPostId: String,
     /** Set when [segment] == 4 (hashtag feed). The lowercased tag name. */
     hashtag: String = "",
+    /**
+     * True when the tab hosting this ProfileFeedScreen is currently
+     * selected. Mini-player tap-to-scroll only registers while this is
+     * true so a background tab's ProfileFeedScreen doesn't claim a tap
+     * that should reach the visible feed instead.
+     */
+    isContainingTabSelected: Boolean = true,
     viewModel: ProfileFeedViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -58,6 +66,7 @@ fun ProfileFeedScreen(
     val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
+    val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -91,6 +100,56 @@ fun ProfileFeedScreen(
             }
             hasScrolledToInitial = true
         }
+    }
+
+    // Mini-player tap shortcut: register a scroll handler so a tap on the
+    // mini-player while this screen is foreground scrolls to the post here
+    // instead of pushing a redundant PostDetail page. Mirrors iOS
+    // .profileFeedScrollToPost / ActiveProfileFeedHandle. Only registers
+    // while the containing tab is selected — a background tab's
+    // ProfileFeedScreen must not claim a tap meant for the visible feed.
+    val currentPostsForRouter by rememberUpdatedState(posts)
+    val routerScope = scope
+    val profileFeedScrollHandler = remember<(String) -> Boolean>(listState) {
+        handler@ { postId ->
+            val idx = currentPostsForRouter.indexOfFirst { it.id == postId }
+            if (idx < 0) return@handler false
+            routerScope.launch { listState.animateScrollToItem(index = idx) }
+            true
+        }
+    }
+    DisposableEffect(isContainingTabSelected, profileFeedScrollHandler) {
+        if (isContainingTabSelected) {
+            viewModel.feedScrollRouter.handler = profileFeedScrollHandler
+        }
+        onDispose {
+            if (viewModel.feedScrollRouter.handler === profileFeedScrollHandler) {
+                viewModel.feedScrollRouter.handler = null
+            }
+        }
+    }
+
+    // Auto-scroll the feed to the now-playing post on song changes. Mirrors
+    // iOS ProfileFeedView.onChange(of: nowPlaying.currentSourcePostId).
+    // Skip the first composition (matches iOS .onChange semantics).
+    var hasInitializedFollowScroll by remember { mutableStateOf(false) }
+    LaunchedEffect(nowPlayingState.sourcePostId) {
+        val newPostId = nowPlayingState.sourcePostId
+        if (!hasInitializedFollowScroll) {
+            hasInitializedFollowScroll = true
+            return@LaunchedEffect
+        }
+        if (newPostId == null) return@LaunchedEffect
+        if (!feedFollowsNowPlaying) return@LaunchedEffect
+        // Skip when the user just tapped this card to play it.
+        val tapMarker = viewModel.nowPlayingManager.lastUserInitiatedSourcePostId
+        if (tapMarker == newPostId) {
+            viewModel.nowPlayingManager.lastUserInitiatedSourcePostId = null
+            return@LaunchedEffect
+        }
+        val index = posts.indexOfFirst { it.id == newPostId }
+        if (index < 0) return@LaunchedEffect
+        listState.animateScrollToItem(index = index)
     }
 
     // Pagination: load more when within 3 items of end

@@ -133,6 +133,16 @@ class NowPlayingManager @Inject constructor(
     private val _state = MutableStateFlow(NowPlayingState())
     val state: StateFlow<NowPlayingState> = _state.asStateFlow()
 
+    /**
+     * One-shot signal: set to a post id when the user explicitly taps album
+     * art on a feed card to start/toggle playback. Read & cleared by feeds'
+     * auto-scroll-to-now-playing handlers so we don't re-center on a card the
+     * user just tapped (it's already on screen). Mirrors iOS
+     * NowPlayingManager.lastUserInitiatedSourcePostId.
+     */
+    @Volatile
+    var lastUserInitiatedSourcePostId: String? = null
+
     private val _loadingTrackId = MutableStateFlow<String?>(null)
     val loadingTrackId: StateFlow<String?> = _loadingTrackId.asStateFlow()
 

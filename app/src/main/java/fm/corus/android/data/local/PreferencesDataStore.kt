@@ -205,6 +205,7 @@ class PreferencesDataStore @Inject constructor(
         val HAS_REQUESTED_PUSH_PERMISSION = booleanPreferencesKey("has_requested_push_permission")
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
         val AUTOPLAY_NEXT_SONG = booleanPreferencesKey("autoplay_next_song")
+        val FEED_FOLLOWS_NOW_PLAYING = booleanPreferencesKey("feed_follows_now_playing")
         val TRENDING_SONGS_WINDOW = stringPreferencesKey("trending_songs_window")
         val TRENDING_FILMS_WINDOW = stringPreferencesKey("trending_films_window")
     }
@@ -231,6 +232,19 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setAutoplayNextSong(value: Boolean) {
         dataStore.edit { it[AUTOPLAY_NEXT_SONG] = value }
+    }
+
+    /**
+     * When enabled, the feed (and a profile/hashtag feed if currently visible)
+     * scrolls to the post for the song that just started playing. Mirrors iOS
+     * @AppStorage("feedFollowsNowPlaying"). Default ON.
+     */
+    val feedFollowsNowPlaying: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[FEED_FOLLOWS_NOW_PLAYING] ?: true
+    }
+
+    suspend fun setFeedFollowsNowPlaying(value: Boolean) {
+        dataStore.edit { it[FEED_FOLLOWS_NOW_PLAYING] = value }
     }
 
     val feedOnePerFollower: Flow<Boolean> = dataStore.data.map { prefs ->

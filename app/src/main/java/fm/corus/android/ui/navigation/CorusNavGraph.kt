@@ -91,7 +91,12 @@ private fun rememberNavigateToUserByUsername(navController: NavHostController): 
 }
 
 @Composable
-fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
+fun FeedNavGraph(
+    navController: NavHostController,
+    mainTabViewModel: MainTabViewModel,
+    scrollToTopTrigger: Int = 0,
+    isFeedTabSelected: Boolean = true,
+) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
@@ -107,6 +112,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
         composable<FeedTabRoute> {
             FeedScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
+                isAtRoot = isFeedTabSelected,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { user ->
                     navController.navigate(OtherProfileRoute(
@@ -134,7 +140,7 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
                 onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it }, isContainingTabSelected = isFeedTabSelected)
     }
 
     commentPostId?.let { postId ->
@@ -169,7 +175,12 @@ fun FeedNavGraph(navController: NavHostController, mainTabViewModel: MainTabView
 }
 
 @Composable
-fun SearchNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
+fun SearchNavGraph(
+    navController: NavHostController,
+    mainTabViewModel: MainTabViewModel,
+    scrollToTopTrigger: Int = 0,
+    isContainingTabSelected: Boolean = true,
+) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
@@ -193,7 +204,7 @@ fun SearchNavGraph(navController: NavHostController, mainTabViewModel: MainTabVi
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
     }
 
     commentPostId?.let { postId ->
@@ -228,7 +239,12 @@ fun SearchNavGraph(navController: NavHostController, mainTabViewModel: MainTabVi
 }
 
 @Composable
-fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0) {
+fun NotificationsNavGraph(
+    navController: NavHostController,
+    mainTabViewModel: MainTabViewModel,
+    scrollToTopTrigger: Int = 0,
+    isContainingTabSelected: Boolean = true,
+) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
@@ -254,7 +270,7 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
                 },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
     }
 
     commentPostId?.let { postId ->
@@ -289,7 +305,14 @@ fun NotificationsNavGraph(navController: NavHostController, mainTabViewModel: Ma
 }
 
 @Composable
-fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabViewModel, scrollToTopTrigger: Int = 0, tabActivationTrigger: Int = 0, onOpenCompose: (String) -> Unit = {}) {
+fun ProfileNavGraph(
+    navController: NavHostController,
+    mainTabViewModel: MainTabViewModel,
+    scrollToTopTrigger: Int = 0,
+    tabActivationTrigger: Int = 0,
+    onOpenCompose: (String) -> Unit = {},
+    isContainingTabSelected: Boolean = true,
+) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
@@ -324,7 +347,7 @@ fun ProfileNavGraph(navController: NavHostController, mainTabViewModel: MainTabV
                 onOpenCompose = onOpenCompose,
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it })
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
     }
 
     commentPostId?.let { postId ->
@@ -367,6 +390,13 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     navigateToUserByUsername: (String) -> Unit,
     onShowComments: (String) -> Unit = {},
     onShowLikes: (String) -> Unit = {},
+    /**
+     * True when the tab that owns this NavGraph is currently selected. Used
+     * by feed-style destinations (ProfileFeedScreen) to gate registration
+     * of the mini-player tap-to-scroll handler so a background tab's
+     * ProfileFeedScreen doesn't claim a tap meant for the visible feed.
+     */
+    isContainingTabSelected: Boolean = true,
 ) {
     composable<PostDetailRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<PostDetailRoute>()
@@ -392,6 +422,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             segment = route.segment,
             initialPostId = route.initialPostId,
             hashtag = route.hashtag,
+            isContainingTabSelected = isContainingTabSelected,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToUserByUsername = navigateToUserByUsername,

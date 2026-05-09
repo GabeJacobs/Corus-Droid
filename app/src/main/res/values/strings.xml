@@ -40,6 +40,8 @@
     <string name="settings_section_general">GENERAL</string>
     <string name="settings_row_autoplay_title">Autoplay Next Song</string>
     <string name="settings_row_autoplay_subtitle">Automatically play the next song when one finishes</string>
+    <string name="settings_row_feed_follows_now_playing_title">Auto-Scroll To Now Playing</string>
+    <string name="settings_row_feed_follows_now_playing_subtitle">Scroll the feed to each new song as it plays</string>
     <string name="settings_row_haptics">Haptics</string>
     <string name="settings_row_haptics_subtitle">Vibration feedback on interactions</string>
     <string name="settings_section_notifications_messaging">NOTIFICATIONS &amp; MESSAGING</string>

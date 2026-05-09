@@ -11,9 +11,11 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -30,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -38,9 +41,15 @@ import fm.corus.android.ui.theme.CorusSpacing
 fun MiniPlayerBar(
     nowPlayingManager: NowPlayingManager,
     onTrackTap: (() -> Unit)? = null,
+    engagementManager: PostEngagementManager? = null,
+    onLikeTap: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val state by nowPlayingManager.state.collectAsState()
+    val engagementStates = engagementManager?.states?.collectAsState()?.value ?: emptyMap()
+    val isCurrentTrackLiked = state.sourcePostId
+        ?.let { engagementStates[it]?.isLiked }
+        ?: false
     val context = LocalContext.current
 
     AnimatedVisibility(
@@ -86,12 +95,10 @@ fun MiniPlayerBar(
                     Column(
                         verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
                     ) {
-                        Text(
+                        MarqueeText(
                             text = state.trackName,
                             style = CorusFont.username,
                             color = CorusColors.Text,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = state.artistName,
@@ -101,6 +108,26 @@ fun MiniPlayerBar(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                }
+
+                // Like (heart) — only when the current track has a source post.
+                if (state.sourcePostId != null && onLikeTap != null) {
+                    Icon(
+                        imageVector = if (isCurrentTrackLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = stringResource(R.string.post_card_cd_like),
+                        modifier = Modifier
+                            // Extra breathing room before the heart so the
+                            // title/artist text doesn't crowd it. Matches the
+                            // larger visual gap on iOS.
+                            .padding(start = CorusSpacing.sm)
+                            .size(22.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onLikeTap,
+                            ),
+                        tint = if (isCurrentTrackLiked) CorusColors.Like else CorusColors.Text,
+                    )
                 }
 
                 // Play/Pause
@@ -123,7 +150,6 @@ fun MiniPlayerBar(
                     imageVector = Icons.Filled.SkipNext,
                     contentDescription = stringResource(R.string.mini_player_cd_next),
                     modifier = Modifier
-                        .padding(start = CorusSpacing.xs)
                         .size(28.dp)
                         .then(
                             if (state.hasNext) Modifier.clickable(
@@ -140,7 +166,6 @@ fun MiniPlayerBar(
                 if (isSoundCloud) {
                     SoundCloudAdaptiveLogo(
                         modifier = Modifier
-                            .padding(start = CorusSpacing.xs)
                             .size(22.dp)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
@@ -158,7 +183,6 @@ fun MiniPlayerBar(
                         painter = painterResource(fm.corus.android.R.drawable.spotify_logo),
                         contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
                         modifier = Modifier
-                            .padding(start = CorusSpacing.xs)
                             .size(22.dp)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },

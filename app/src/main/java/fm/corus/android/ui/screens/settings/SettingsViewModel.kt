@@ -35,6 +35,13 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { preferencesDataStore.setAutoplayNextSong(value) }
     }
 
+    val feedFollowsNowPlaying: StateFlow<Boolean> = preferencesDataStore.feedFollowsNowPlaying
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun setFeedFollowsNowPlaying(value: Boolean) {
+        viewModelScope.launch { preferencesDataStore.setFeedFollowsNowPlaying(value) }
+    }
+
     /**
      * Persist the user's language preference to Firestore so the backend can send
      * push notifications in their preferred language. Mirrors iOS DatabaseService.updateLanguage.

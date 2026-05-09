@@ -157,6 +157,12 @@ fun TasteMatchCard(
                         text = flavorText,
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
+                        // `minLines = 2` reserves space for two lines so cards
+                        // in a 2-up grid stay the same height whether the
+                        // subtitle wraps to one or two lines. Without it,
+                        // 1-line subtitles produced visibly short cards next
+                        // to 2-line ones.
+                        minLines = 2,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )

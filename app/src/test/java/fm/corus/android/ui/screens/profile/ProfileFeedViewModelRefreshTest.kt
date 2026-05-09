@@ -103,8 +103,12 @@ class ProfileFeedViewModelRefreshTest {
         postDeletionEvent = postDeletionEvent,
         tmdbApiService = tmdbApiService,
         nowPlayingManager = nowPlayingManager,
+        feedScrollRouter = fm.corus.android.domain.FeedScrollRouter(),
         remoteConfig = remoteConfig,
         analyticsService = analyticsService,
+        preferencesDataStore = mock {
+            on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
+        },
     )
 
     private fun makePost(id: String, mediaType: MediaType = MediaType.TRACK): CymbalPost = CymbalPost(

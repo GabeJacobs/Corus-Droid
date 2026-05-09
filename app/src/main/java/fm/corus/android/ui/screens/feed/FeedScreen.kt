@@ -22,6 +22,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +53,14 @@ import fm.corus.android.ui.theme.CorusSystemBars
 fun FeedScreen(
     viewModel: FeedViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
+    /**
+     * True when the user is currently looking at the feed root (i.e. the
+     * feed tab is selected and no detail screen is on top — Navigation
+     * Compose only composes this screen when at the start destination, so
+     * upstream just forwards the selected-tab check). Gates auto-scroll
+     * to now-playing.
+     */
+    isAtRoot: Boolean = true,
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToUser: (CymbalUser) -> Unit = {},
     onNavigateToUserById: (String) -> Unit = {},
@@ -89,6 +98,7 @@ fun FeedScreen(
     val followedBotIds by viewModel.followedBotIds.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
+    val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val context = LocalContext.current
     var filterMenuExpanded by remember { mutableStateOf(false) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -138,6 +148,63 @@ fun FeedScreen(
             listState.animateScrollToItem(0)
             lastScrollTrigger = scrollToTopTrigger
         }
+    }
+
+    // Mini-player tap shortcut: register a scroll handler so a tap on the
+    // mini-player while the user is at feed root scrolls to the post here
+    // instead of pushing a single-post detail page. Mirrors iOS
+    // .feedScrollToPost. The handler is a stable closure that reads the
+    // latest posts/listState via rememberUpdatedState; we only register
+    // while `isAtRoot` (the FEED tab is selected and we're at the start
+    // destination) and use reference equality to avoid clobbering another
+    // screen's handler on cleanup.
+    val currentPostsForRouter by rememberUpdatedState(posts)
+    val routerScope = scope
+    val feedScrollHandler = remember<(String) -> Boolean>(listState) {
+        handler@ { postId ->
+            val idx = currentPostsForRouter.indexOfFirst { it.id == postId }
+            if (idx < 0) return@handler false
+            // +1 because index 0 in the LazyColumn is the FeedHeader
+            routerScope.launch { listState.animateScrollToItem(index = idx + 1) }
+            true
+        }
+    }
+    DisposableEffect(isAtRoot, feedScrollHandler) {
+        if (isAtRoot) {
+            viewModel.feedScrollRouter.handler = feedScrollHandler
+        }
+        onDispose {
+            if (viewModel.feedScrollRouter.handler === feedScrollHandler) {
+                viewModel.feedScrollRouter.handler = null
+            }
+        }
+    }
+
+    // Auto-scroll the feed to the now-playing post on song changes. Mirrors
+    // iOS FeedView.onChange(of: nowPlaying.currentSourcePostId). Skip the
+    // first composition (matches iOS .onChange semantics — only react to
+    // changes, not the initial value).
+    var hasInitializedFollowScroll by remember { mutableStateOf(false) }
+    LaunchedEffect(nowPlayingState.sourcePostId) {
+        val newPostId = nowPlayingState.sourcePostId
+        if (!hasInitializedFollowScroll) {
+            hasInitializedFollowScroll = true
+            return@LaunchedEffect
+        }
+        if (newPostId == null) return@LaunchedEffect
+        if (!feedFollowsNowPlaying) return@LaunchedEffect
+        if (!isAtRoot) return@LaunchedEffect
+        // Skip when the user just tapped this card to play it — they're
+        // already looking at it. The marker is a one-shot, so consume it.
+        val tapMarker = viewModel.nowPlayingManager.lastUserInitiatedSourcePostId
+        if (tapMarker == newPostId) {
+            viewModel.nowPlayingManager.lastUserInitiatedSourcePostId = null
+            return@LaunchedEffect
+        }
+        val index = posts.indexOfFirst { it.id == newPostId }
+        if (index < 0) return@LaunchedEffect
+        // +1 because index 0 in the LazyColumn is the FeedHeader (filter row)
+        listState.animateScrollToItem(index = index + 1)
     }
 
     val header: @Composable () -> Unit = {

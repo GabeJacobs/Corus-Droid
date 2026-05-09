@@ -63,13 +63,23 @@ fun ClubMembersCardRail(
         viewModel.enrichAll(users)
     }
 
+    // Bias the rail toward unfollowed members so high-follow viewers still
+    // see new sign-ups they don't yet follow at the front. Each subgroup
+    // keeps the server's `clubMemberSince desc` order. Mirrors iOS
+    // `HorizontalClubMembersRail.displayMatches`.
+    val orderedUsers = run {
+        val unfollowed = users.filter { !isFollowed(it.id) }
+        val followed = users.filter { isFollowed(it.id) }
+        (unfollowed + followed).take(VISIBLE_CAP)
+    }
+
     val cardWidth = horizontalRailCardWidth()
     LazyRow(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
-        items(users, key = { it.id }) { user ->
+        items(orderedUsers, key = { it.id }) { user ->
             val enrichedMatch = enriched[user.id]
             AnimatedContent(
                 targetState = enrichedMatch != null,
@@ -92,6 +102,11 @@ fun ClubMembersCardRail(
         }
     }
 }
+
+/** Visible cap in the rail. The fetch pool is bigger so the
+ *  unfollowed-first reorder still has unfollowed members to pull from when
+ *  the viewer follows most of the active club. */
+private const val VISIBLE_CAP = 12
 
 @HiltViewModel
 class ClubMembersCardRailViewModel @Inject constructor(

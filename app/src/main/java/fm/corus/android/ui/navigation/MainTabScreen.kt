@@ -239,11 +239,22 @@ fun MainTabScreen(
             Column {
                 MiniPlayerBar(
                     nowPlayingManager = viewModel.nowPlayingManager,
+                    engagementManager = viewModel.postEngagementManager,
+                    onLikeTap = { viewModel.toggleLikeForCurrentTrack() },
                     onTrackTap = {
                         val state = viewModel.nowPlayingManager.state.value
                         val navController = navControllers[selectedTab] ?: return@MiniPlayerBar
                         val postId = state.sourcePostId
                         val trackId = state.trackId
+                        // Already-on-feed shortcut: if a feed-style screen is
+                        // currently visible at root and has the now-playing
+                        // post loaded, scroll to it in place instead of
+                        // pushing a redundant single-post detail page.
+                        // Mirrors iOS .feedScrollToPost / .profileFeedScrollToPost.
+                        if (postId != null) {
+                            val handled = viewModel.feedScrollRouter.handler?.invoke(postId) == true
+                            if (handled) return@MiniPlayerBar
+                        }
                         when {
                             postId != null -> navController.navigate(PostDetailRoute(postId))
                             trackId != null -> {
@@ -329,13 +340,28 @@ fun MainTabScreen(
             // Keep all tab NavHosts alive but only show the selected one.
             // This preserves scroll position and back stack per tab.
             TabContent(visible = selectedTab == CorusTab.FEED) {
-                FeedNavGraph(navController = feedNavController, mainTabViewModel = viewModel, scrollToTopTrigger = feedScrollToTop.intValue)
+                FeedNavGraph(
+                    navController = feedNavController,
+                    mainTabViewModel = viewModel,
+                    scrollToTopTrigger = feedScrollToTop.intValue,
+                    isFeedTabSelected = selectedTab == CorusTab.FEED,
+                )
             }
             TabContent(visible = selectedTab == CorusTab.EXPLORE) {
-                SearchNavGraph(navController = searchNavController, mainTabViewModel = viewModel, scrollToTopTrigger = searchScrollToTop.intValue)
+                SearchNavGraph(
+                    navController = searchNavController,
+                    mainTabViewModel = viewModel,
+                    scrollToTopTrigger = searchScrollToTop.intValue,
+                    isContainingTabSelected = selectedTab == CorusTab.EXPLORE,
+                )
             }
             TabContent(visible = selectedTab == CorusTab.NOTIFICATIONS) {
-                NotificationsNavGraph(navController = notificationsNavController, mainTabViewModel = viewModel, scrollToTopTrigger = notificationsScrollToTop.intValue)
+                NotificationsNavGraph(
+                    navController = notificationsNavController,
+                    mainTabViewModel = viewModel,
+                    scrollToTopTrigger = notificationsScrollToTop.intValue,
+                    isContainingTabSelected = selectedTab == CorusTab.NOTIFICATIONS,
+                )
             }
             TabContent(visible = selectedTab == CorusTab.PROFILE) {
                 ProfileNavGraph(
@@ -343,6 +369,7 @@ fun MainTabScreen(
                     mainTabViewModel = viewModel,
                     scrollToTopTrigger = profileScrollToTop.intValue,
                     tabActivationTrigger = profileTabActivation.intValue,
+                    isContainingTabSelected = selectedTab == CorusTab.PROFILE,
                     onOpenCompose = { mediaType ->
                         if (viewModel.subscriptionRepository.canPost) {
                             composeViewModel.reset()

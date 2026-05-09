@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.domain.NowPlayingManager
@@ -30,8 +31,22 @@ class MainTabViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
     private val unreadCountsRepository: UnreadCountsRepository,
     val postEngagementManager: fm.corus.android.domain.PostEngagementManager,
+    private val authRepository: AuthRepository,
     private val analyticsService: fm.corus.android.service.AnalyticsService,
+    val feedScrollRouter: fm.corus.android.domain.FeedScrollRouter,
 ) : ViewModel() {
+
+    /**
+     * Toggle the like state of the post that originated the currently-playing
+     * track, mirroring the iOS mini-player heart button. No-ops if the current
+     * track has no source post (e.g. a queued track surfaced outside the feed)
+     * or if the user is signed out.
+     */
+    fun toggleLikeForCurrentTrack() {
+        val postId = nowPlayingManager.state.value.sourcePostId ?: return
+        val userId = authRepository.currentUserId ?: return
+        postEngagementManager.toggleLike(postId, userId)
+    }
 
     fun logPaywallShown(source: String) = analyticsService.logPaywallShown(source)
     fun logSaveWarningTapped(remaining: Int) = analyticsService.logSaveWarningToastTapped(remaining)

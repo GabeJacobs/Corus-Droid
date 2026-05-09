@@ -27,8 +27,10 @@ import fm.corus.android.ui.components.ToastManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -57,9 +59,18 @@ class ProfileFeedViewModel @Inject constructor(
     private val postDeletionEvent: PostDeletionEvent,
     private val tmdbApiService: TMDBApiService,
     val nowPlayingManager: NowPlayingManager,
+    val feedScrollRouter: fm.corus.android.domain.FeedScrollRouter,
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
+    private val preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore,
 ) : ViewModel(), PostMenuActions {
+
+    /**
+     * Mirrors iOS @AppStorage("feedFollowsNowPlaying"). Same key as
+     * FeedViewModel; ProfileFeedScreen reuses this to gate auto-scroll.
+     */
+    val feedFollowsNowPlaying: StateFlow<Boolean> = preferencesDataStore.feedFollowsNowPlaying
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     override suspend fun fetchBackCover(postId: String): String? {
         return postRepository.fetchBackCover(postId)
@@ -420,6 +431,7 @@ class ProfileFeedViewModel @Inject constructor(
     }
 
     fun playPreview(post: CymbalPost) {
+        nowPlayingManager.lastUserInitiatedSourcePostId = post.id
         viewModelScope.launch {
             val trackPosts = _posts.value.filter { it.mediaType == MediaType.TRACK }
             val queue = trackPosts.map { it.toQueuedTrack() }

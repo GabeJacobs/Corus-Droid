@@ -149,6 +149,7 @@ class PostDetailViewModel @Inject constructor(
     }
 
     fun playPreview(post: CymbalPost) {
+        nowPlayingManager.lastUserInitiatedSourcePostId = post.id
         viewModelScope.launch {
             nowPlayingManager.play(
                 trackId = post.track.id,

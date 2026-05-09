@@ -398,8 +398,12 @@ class SearchViewModel @Inject constructor(
         val uid = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
+                // Fetch a generous pool so the rail's "unfollowed first"
+                // reorder still has unfollowed members to pull from when the
+                // viewer follows most of the active club. Active members are
+                // bounded server-side, so this is cheap.
                 val members = userRepository.fetchClubMembers(
-                    limit = 8,
+                    limit = 50,
                     excludeIds = setOf(uid),
                 )
                 Log.d("SearchVM", "Club members loaded: ${members.size}")

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.AllInclusive
+import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.Notifications
@@ -147,6 +148,7 @@ fun SettingsScreen(
     // General toggles
     var hapticsEnabled by remember { mutableStateOf(true) }
     val autoplayNextSong by settingsViewModel.autoplayNextSong.collectAsState()
+    val feedFollowsNowPlaying by settingsViewModel.feedFollowsNowPlaying.collectAsState()
 
     // Messaging
     var whoCanMessageMe by remember { mutableStateOf("Everyone") }
@@ -249,6 +251,14 @@ fun SettingsScreen(
                 subtitle = stringResource(R.string.settings_row_autoplay_subtitle),
                 checked = autoplayNextSong,
                 onCheckedChange = { settingsViewModel.setAutoplayNextSong(it) },
+            )
+
+            SettingsToggleRow(
+                icon = Icons.Filled.GpsFixed,
+                title = stringResource(R.string.settings_row_feed_follows_now_playing_title),
+                subtitle = stringResource(R.string.settings_row_feed_follows_now_playing_subtitle),
+                checked = feedFollowsNowPlaying,
+                onCheckedChange = { settingsViewModel.setFeedFollowsNowPlaying(it) },
             )
 
             // Hide on devices without a vibrator (some tablets, Android TV, emulators) —
