@@ -3,12 +3,19 @@ package fm.corus.android.ui.components
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -23,19 +30,31 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.domain.ScrubberClock
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import kotlinx.coroutines.delay
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
 fun MiniPlayerBar(
@@ -58,6 +77,7 @@ fun MiniPlayerBar(
         exit = fadeOut(),
         modifier = modifier,
     ) {
+      Box {
         Column {
             HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
             Row(
@@ -207,5 +227,178 @@ fun MiniPlayerBar(
             }
             HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
         }
+        // Scrubber overlay sits straddling the top edge of the bar (knob
+        // half above, half below). Drag gesture is attached to the strip
+        // itself, not the parent — so it never competes with the buttons in
+        // the row below. Mirrors the iOS MiniPlayerBar scrubber.
+        ScrubberOverlay(
+            nowPlayingManager = nowPlayingManager,
+            hasActiveTrack = state.hasActiveTrack,
+            trackId = state.trackId,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth(),
+        )
+      }
+    }
+}
+
+private val knobSize = 10.dp
+private val lineHeight = 2.5.dp
+
+@Composable
+private fun ScrubberOverlay(
+    nowPlayingManager: NowPlayingManager,
+    hasActiveTrack: Boolean,
+    trackId: String?,
+    modifier: Modifier = Modifier,
+) {
+    val time by ScrubberClock.time.collectAsState()
+    val duration by ScrubberClock.duration.collectAsState()
+    val canScrub = duration > 0L && hasActiveTrack
+    val playbackFraction = if (duration > 0L) {
+        (time.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+    } else 0f
+
+    var isScrubbing by remember { mutableStateOf(false) }
+    var scrubFraction by remember { mutableStateOf(0f) }
+    var pendingFraction by remember { mutableStateOf<Float?>(null) }
+    var isKnobVisible by remember { mutableStateOf(false) }
+    var widthPx by remember { mutableStateOf(0) }
+
+    val displayedFraction = when {
+        isScrubbing -> scrubFraction
+        pendingFraction != null -> pendingFraction!!
+        else -> playbackFraction
+    }
+
+    // Smooth tween between 250ms polling ticks; immediate while dragging.
+    val animatedFraction by animateFloatAsState(
+        targetValue = displayedFraction,
+        animationSpec = if (isScrubbing) snap() else tween(
+            durationMillis = 250,
+            easing = LinearEasing,
+        ),
+        label = "scrubber-fraction",
+    )
+
+    val knobAlpha by animateFloatAsState(
+        targetValue = if (isKnobVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "scrubber-knob",
+    )
+
+    // Knob visibility: appears on touch, lingers ~1s after release.
+    LaunchedEffect(isScrubbing) {
+        if (isScrubbing) {
+            isKnobVisible = true
+        } else if (isKnobVisible) {
+            delay(1000L)
+            isKnobVisible = false
+        }
+    }
+
+    // Pre-seek hold release: when live time catches up to within ~2% of the
+    // pending scrub target, drop the hold so the scrubber resumes following
+    // live playback. Mirrors iOS pendingSeekFraction onChange watcher.
+    LaunchedEffect(time, pendingFraction) {
+        val pending = pendingFraction ?: return@LaunchedEffect
+        if (duration > 0L && abs(playbackFraction - pending) < 0.02f) {
+            pendingFraction = null
+        }
+    }
+
+    // Safety: drop the pre-seek hold after 2s in case live time never catches
+    // up (e.g., seek completion didn't update the clock).
+    LaunchedEffect(pendingFraction) {
+        if (pendingFraction == null) return@LaunchedEffect
+        delay(2000L)
+        pendingFraction = null
+    }
+
+    // Track-change cleanup: drop any held scrub state so the scrubber
+    // immediately follows the new track instead of staying frozen.
+    LaunchedEffect(trackId) {
+        pendingFraction = null
+        isScrubbing = false
+    }
+
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val knobSizePx = with(density) { knobSize.toPx() }
+
+    Box(
+        modifier = modifier
+            .height(knobSize)
+            // Center the knob on the top edge of the mini player by lifting
+            // the strip up by knobSize/2.
+            .offset(y = -knobSize / 2)
+            .alpha(if (canScrub) 1f else 0f)
+            .onSizeChanged { widthPx = it.width }
+            .pointerInput(canScrub) {
+                if (!canScrub) return@pointerInput
+                // Horizontal-only drag detection: the gesture only engages once
+                // the user has moved past the platform's horizontal touch slop,
+                // so vertical "scroll the feed" drags on the strip are
+                // ignored, and pure taps don't commit a phantom seek.
+                detectHorizontalDragGestures(
+                    onDragStart = { offset ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isScrubbing = true
+                        scrubFraction = if (widthPx > 0) {
+                            (offset.x / widthPx).coerceIn(0f, 1f)
+                        } else 0f
+                    },
+                    onDragEnd = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (duration > 0L) {
+                            pendingFraction = scrubFraction
+                            nowPlayingManager.seek((scrubFraction * duration).toLong())
+                        }
+                        isScrubbing = false
+                    },
+                    onDragCancel = { isScrubbing = false },
+                    onHorizontalDrag = { change, _ ->
+                        if (widthPx > 0) {
+                            scrubFraction = (change.position.x / widthPx).coerceIn(0f, 1f)
+                        }
+                        change.consume()
+                    },
+                )
+            },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        // Track line (full width, behind everything)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(lineHeight)
+                .clip(CircleShape)
+                .background(CorusColors.Divider),
+        )
+        // Filled progress
+        val fillWidthPx = (animatedFraction * widthPx).coerceAtLeast(0f)
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(0, 0) }
+                .width(with(density) { fillWidthPx.toDp() })
+                .height(lineHeight)
+                .clip(CircleShape)
+                .background(CorusColors.Secondary),
+        )
+        // Knob
+        val knobX = (animatedFraction * widthPx - knobSizePx / 2f).coerceIn(
+            -knobSizePx / 2f,
+            (widthPx - knobSizePx / 2f).coerceAtLeast(-knobSizePx / 2f),
+        )
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(knobX.roundToInt(), 0) }
+                .size(knobSize)
+                .alpha(knobAlpha)
+                .clip(CircleShape)
+                .background(CorusColors.Secondary)
+                .zIndex(1f),
+        )
     }
 }

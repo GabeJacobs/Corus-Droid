@@ -22,11 +22,13 @@ import fm.corus.android.service.CorusPlaybackService
 import fm.corus.android.ui.components.ToastManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.SocketTimeoutException
@@ -121,6 +123,44 @@ class NowPlayingManager @Inject constructor(
     var mediaSession: MediaSession? = null
         private set
     private var foregroundServiceStarted: Boolean = false
+
+    /**
+     * Polling coroutine that pumps ExoPlayer's `currentPosition` into the
+     * [ScrubberClock] every 250ms while audio is actually playing. Started by
+     * the player's `onIsPlayingChanged(true)` and stopped on pause / end /
+     * release. Mirrors the iOS AVPlayer periodic time observer + MusicKit
+     * polling timer (which on Android collapses to a single source).
+     */
+    private var positionJob: Job? = null
+
+    private fun startPositionPolling() {
+        positionJob?.cancel()
+        positionJob = managerScope.launch {
+            while (isActive) {
+                val p = player?.currentPosition?.coerceAtLeast(0L) ?: 0L
+                val d = (player?.duration ?: 0L).takeIf { it > 0L } ?: 0L
+                ScrubberClock.update(p, d)
+                delay(250L)
+            }
+        }
+    }
+
+    private fun stopPositionPolling(resetClock: Boolean) {
+        positionJob?.cancel()
+        positionJob = null
+        if (resetClock) ScrubberClock.reset()
+    }
+
+    /**
+     * Seek the active player to [toMs]. Called by the mini-player scrubber on
+     * release. Updates [ScrubberClock] eagerly so the scrubber doesn't flash
+     * back to the pre-seek position before the next poll lands.
+     */
+    fun seek(toMs: Long) {
+        val clamped = toMs.coerceAtLeast(0L)
+        player?.seekTo(clamped)
+        ScrubberClock.setTime(clamped)
+    }
 
     // Read by the persistent ForwardingPlayer's getAvailableCommands to
     // gate the scrubber per source. Spotify/Apple previews are 30s clips
@@ -482,6 +522,10 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun skipToNext() {
+        // Snap scrubber to 0 instantly so it doesn't briefly tween forward
+        // on the outgoing track while the next one is loading. Mirrors the
+        // iOS resetScrubberPosition() behavior.
+        ScrubberClock.reset()
         advanceToNext()
     }
 
@@ -530,8 +574,31 @@ class NowPlayingManager @Inject constructor(
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
                         _state.value = _state.value.copy(isPlaying = false)
+                        stopPositionPolling(resetClock = false)
+                        // Snap scrubber to 0 — same behavior as iOS song-end:
+                        // line stays visible at fraction 0 if there's no
+                        // auto-advance, and gets immediately overwritten by
+                        // the new track's first poll if there is one.
+                        ScrubberClock.setTime(0L)
                         handlePlaybackEnded()
+                    } else if (playbackState == Player.STATE_READY) {
+                        if (player?.playWhenReady == true) startPositionPolling()
                     }
+                }
+
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (isPlaying) startPositionPolling()
+                    else stopPositionPolling(resetClock = false)
+                }
+
+                override fun onMediaItemTransition(
+                    mediaItem: MediaItem?,
+                    reason: Int,
+                ) {
+                    // Track change — snap clock to 0 so the scrubber doesn't
+                    // briefly tween from the outgoing track's position into
+                    // the new one's. Polling will refill it on the next tick.
+                    ScrubberClock.reset()
                 }
             })
         }
@@ -640,6 +707,7 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun stop() {
+        stopPositionPolling(resetClock = true)
         mediaSession?.release()
         mediaSession = null
         player?.release()
