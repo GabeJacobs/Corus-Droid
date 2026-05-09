@@ -1,10 +1,15 @@
 package fm.corus.android.ui.screens.search
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -42,9 +47,15 @@ fun SuggestedUsersListScreen(
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
     onLoadMore: () -> Unit = {},
-    isFollowed: (String) -> Boolean = { false },
+    // Pass the followed-id set (not a lambda) so this screen recomposes when
+    // the viewer follows/unfollows someone — a captured-viewModel lambda is
+    // stable and would cause the Follow buttons to visually freeze.
+    followedIds: Set<String> = emptySet(),
     onFollow: (CymbalUser) -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
+    /** Visible-range hook used by clubMembers to lazily enrich the 2x2
+     *  album-art previews. Other sources ignore this. */
+    onVisibleRangeChange: (Int, Int) -> Unit = { _, _ -> },
     onBack: () -> Unit = {},
 ) {
     val resolvedTitle = title ?: stringResource(fm.corus.android.R.string.suggested_users_default_title)
@@ -104,7 +115,7 @@ fun SuggestedUsersListScreen(
                     SuggestedUserRow(
                         user = match.user,
                         subtitle = subtitleForRow(context, match, source),
-                        isFollowed = isFollowed(match.user.id),
+                        isFollowed = match.user.id in followedIds,
                         onTap = { onNavigateToUser(match.user.id) },
                         onFollow = { onFollow(match.user) },
                     )
@@ -117,7 +128,23 @@ fun SuggestedUsersListScreen(
                 }
             }
         } else {
+            val gridState = rememberLazyGridState()
+            // For clubMembers we lazily enrich preview images for the visible
+            // window; report the range to the ViewModel whenever it changes.
+            if (source == "clubMembers") {
+                val firstVisible by remember { derivedStateOf { gridState.firstVisibleItemIndex } }
+                val lastVisible by remember {
+                    derivedStateOf {
+                        gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index
+                            ?: gridState.firstVisibleItemIndex
+                    }
+                }
+                LaunchedEffect(firstVisible, lastVisible, matches.size) {
+                    onVisibleRangeChange(firstVisible, lastVisible)
+                }
+            }
             LazyVerticalGrid(
+                state = gridState,
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(start = CorusSpacing.lg, end = CorusSpacing.lg, bottom = CorusSpacing.lg),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
@@ -125,13 +152,27 @@ fun SuggestedUsersListScreen(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 gridItemsIndexed(matches, key = { _, m -> m.id }) { index, match ->
-                    TasteMatchCard(
-                        match = match,
-                        isFollowing = isFollowed(match.user.id),
-                        onUserTap = { onNavigateToUser(match.user.id) },
-                        onFollowTap = { onFollow(match.user) },
-                        subtitle = subtitleForRow(context, match, source),
-                    )
+                    // For clubMembers, matches arrive without album-art previews
+                    // and get enriched as they scroll into view; show a skeleton
+                    // tile until then so card heights stay stable.
+                    val showSkeleton = source == "clubMembers" && match.matchData == null
+                    AnimatedContent(
+                        targetState = showSkeleton,
+                        transitionSpec = { fadeIn() togetherWith fadeOut() },
+                        label = "clubMemberCardEnrich",
+                    ) { skeleton ->
+                        if (skeleton) {
+                            SkeletonTasteMatchCard()
+                        } else {
+                            TasteMatchCard(
+                                match = match,
+                                isFollowing = match.user.id in followedIds,
+                                onUserTap = { onNavigateToUser(match.user.id) },
+                                onFollowTap = { onFollow(match.user) },
+                                subtitle = subtitleForRow(context, match, source),
+                            )
+                        }
+                    }
                     if (index == matches.lastIndex && hasMore && !isLoadingMore) {
                         LaunchedEffect(index) { onLoadMore() }
                     }

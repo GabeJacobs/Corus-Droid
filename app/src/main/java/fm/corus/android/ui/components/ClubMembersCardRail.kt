@@ -50,7 +50,11 @@ import javax.inject.Inject
 @Composable
 fun ClubMembersCardRail(
     users: List<CymbalUser>,
-    isFollowed: (String) -> Boolean,
+    // Pass the followed-id set (not a lambda) so this rail recomposes when
+    // the viewer follows/unfollows someone — a captured-viewModel lambda is
+    // treated as stable and would let Compose skip the rail, leaving the
+    // Follow buttons visually stuck on the old state.
+    followedIds: Set<String>,
     onUserTap: (CymbalUser) -> Unit,
     onFollowTap: (CymbalUser) -> Unit,
     memberSinceLabel: (Date) -> String,
@@ -68,8 +72,8 @@ fun ClubMembersCardRail(
     // keeps the server's `clubMemberSince desc` order. Mirrors iOS
     // `HorizontalClubMembersRail.displayMatches`.
     val orderedUsers = run {
-        val unfollowed = users.filter { !isFollowed(it.id) }
-        val followed = users.filter { isFollowed(it.id) }
+        val unfollowed = users.filter { it.id !in followedIds }
+        val followed = users.filter { it.id in followedIds }
         (unfollowed + followed).take(VISIBLE_CAP)
     }
 
@@ -89,7 +93,7 @@ fun ClubMembersCardRail(
                 if (ready && enrichedMatch != null) {
                     TasteMatchCard(
                         match = enrichedMatch,
-                        isFollowing = isFollowed(user.id),
+                        isFollowing = user.id in followedIds,
                         onUserTap = { onUserTap(user) },
                         onFollowTap = { onFollowTap(user) },
                         subtitle = user.clubMemberSince?.let(memberSinceLabel).orEmpty(),

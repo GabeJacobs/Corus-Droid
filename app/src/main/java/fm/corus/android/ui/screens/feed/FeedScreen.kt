@@ -359,7 +359,7 @@ fun FeedScreen(
                     header()
                     PopularUsersInfiniteGrid(
                         excludeIds = emptySet(),
-                        isFollowed = { id -> followedBotIds.contains(id) },
+                        followedIds = followedBotIds,
                         onUserTap = { user -> onNavigateToUser(user) },
                         onFollowTap = { user -> viewModel.toggleBotFollow(user) },
                         modifier = Modifier.weight(1f),

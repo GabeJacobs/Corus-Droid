@@ -738,8 +738,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             isRefreshing = isRefreshing,
             onRefresh = { viewModel.refresh() },
             onLoadMore = { viewModel.loadMore() },
-            isFollowed = { followedIds.contains(it) },
+            followedIds = followedIds,
             onFollow = { viewModel.toggleFollow(it) },
+            onVisibleRangeChange = { start, end -> viewModel.ensureClubMembersEnriched(start, end) },
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
         )

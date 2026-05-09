@@ -160,12 +160,12 @@ private fun createSnowflake(
 
     when (layer) {
         SnowLayer.FOREGROUND -> {
-            speed = if (isBlizzard) Random.nextFloat() * 22f + 35f else Random.nextFloat() * 40f + 40f  // 40-80 or 35-57
+            speed = if (isBlizzard) Random.nextFloat() * 22f + 35f else Random.nextFloat() * 36f + 36f  // 36-72 or 35-57
             radius = Random.nextFloat() * 2.5f + 2.0f  // 2.0-4.5
             opacity = Random.nextFloat() * 0.35f + 0.5f // 0.5-0.85
         }
         SnowLayer.BACKGROUND -> {
-            speed = if (isBlizzard) Random.nextFloat() * 13f + 22f else Random.nextFloat() * 25f + 20f  // 20-45 or 22-35
+            speed = if (isBlizzard) Random.nextFloat() * 13f + 22f else Random.nextFloat() * 22f + 18f  // 18-40 or 22-35
             radius = Random.nextFloat() * 1.3f + 1.2f  // 1.2-2.5
             opacity = Random.nextFloat() * 0.25f + 0.25f // 0.25-0.5
         }

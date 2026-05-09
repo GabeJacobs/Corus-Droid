@@ -64,6 +64,14 @@ class SuggestedUsersListViewModel @Inject constructor(
     private val pageSize = 20
     private val isPaginated: Boolean get() = source == "popular" || source == "new"
 
+    /** Ids currently being enriched with post previews (clubMembers only).
+     *  Mutated only from the main dispatcher via viewModelScope, so no lock. */
+    private val inFlightEnrichmentIds = mutableSetOf<String>()
+
+    /** Eager prefetch count for clubMembers — enough to fill the first ~6
+     *  rows of the 2-up grid above the fold on common phone sizes. */
+    private val clubMembersEagerPrefetch = 12
+
     init {
         val uid = authRepository.currentUserId
         if (uid != null) {
@@ -85,6 +93,9 @@ class SuggestedUsersListViewModel @Inject constructor(
                     _hasMore.value = isPaginated && initial.size >= pageSize
                 } catch (_: Exception) { }
                 _isLoading.value = false
+                if (source == "clubMembers") {
+                    ensureClubMembersEnriched(0, clubMembersEagerPrefetch - 1)
+                }
             }
         }
     }
@@ -106,6 +117,10 @@ class SuggestedUsersListViewModel @Inject constructor(
                 _hasMore.value = isPaginated && initial.size >= pageSize
             } catch (_: Exception) { }
             _isRefreshing.value = false
+            if (source == "clubMembers") {
+                inFlightEnrichmentIds.clear()
+                ensureClubMembersEnriched(0, clubMembersEagerPrefetch - 1)
+            }
         }
     }
 
@@ -221,8 +236,13 @@ class SuggestedUsersListViewModel @Inject constructor(
     /**
      * Full Club Members See-All list. Capped at 100 most-recent sign-ups
      * intentionally — we don't want the full active-member count to be
-     * trivially screenshottable. Cards render the same 2x2 album-art preview
-     * as the inline rail, so we enrich with recent posts.
+     * trivially screenshottable.
+     *
+     * Returns un-enriched matches (matchData = null) so the user list paints
+     * immediately. The 2x2 album-art previews are loaded lazily by
+     * [ensureClubMembersEnriched]: the screen requests enrichment for the
+     * visible window plus a small prefetch margin, and [init] kicks off the
+     * first [clubMembersEagerPrefetch] cards as soon as the user list lands.
      *
      * Bias unfollowed members to the top of the grid so brand-new sign-ups
      * the viewer can still follow surface first. We compute "followed" once
@@ -237,11 +257,47 @@ class SuggestedUsersListViewModel @Inject constructor(
             limit = 100,
             excludeIds = setOf(uid),
         )
-        val enriched = matchesWithPostPreviews(users, viewerId = uid)
         val followedSnapshot = _followingIds.value + _localFollowedIds.value
-        val unfollowed = enriched.filter { it.user.id !in followedSnapshot }
-        val followed = enriched.filter { it.user.id in followedSnapshot }
-        return unfollowed + followed
+        val unfollowed = users.filter { it.id !in followedSnapshot }
+        val followed = users.filter { it.id in followedSnapshot }
+        return (unfollowed + followed).map {
+            SuggestedUserMatch(user = it, matchData = null, suggestionReason = null)
+        }
+    }
+
+    /** Lazily enriches the matches in the given visible-index window with the
+     *  2x2 album-art previews that drive [TasteMatchCard]. The screen calls
+     *  this whenever the LazyVerticalGrid's visible range changes; we add a
+     *  small forward prefetch so the next row is ready by the time it scrolls
+     *  in. Skips entries already enriched or in-flight, so repeated calls
+     *  during scrolling are cheap. */
+    fun ensureClubMembersEnriched(visibleStart: Int, visibleEnd: Int) {
+        if (source != "clubMembers") return
+        val uid = authRepository.currentUserId ?: return
+        val list = _suggestions.value
+        if (list.isEmpty()) return
+        val from = visibleStart.coerceAtLeast(0)
+        // Forward prefetch — enrich the next ~6 cards past what's on screen
+        // so they don't pop in mid-scroll.
+        val to = (visibleEnd + 6).coerceAtMost(list.lastIndex)
+        if (from > to) return
+        val targets = (from..to).mapNotNull { i ->
+            val m = list[i]
+            if (m.matchData == null && m.user.id !in inFlightEnrichmentIds) m.user else null
+        }
+        if (targets.isEmpty()) return
+        targets.forEach { inFlightEnrichmentIds += it.id }
+
+        viewModelScope.launch {
+            try {
+                val enriched = matchesWithPostPreviews(targets, viewerId = uid)
+                val byId = enriched.associateBy { it.user.id }
+                _suggestions.value = _suggestions.value.map { existing ->
+                    byId[existing.user.id] ?: existing
+                }
+            } catch (_: Exception) { }
+            targets.forEach { inFlightEnrichmentIds -= it.id }
+        }
     }
 
     fun isFollowed(userId: String): Boolean {

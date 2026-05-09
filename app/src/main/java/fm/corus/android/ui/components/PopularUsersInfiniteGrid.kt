@@ -66,7 +66,10 @@ import javax.inject.Inject
 @Composable
 fun PopularUsersInfiniteGrid(
     excludeIds: Set<String>,
-    isFollowed: (String) -> Boolean,
+    // Pass the followed-id set (not a lambda) so this grid recomposes when
+    // the viewer follows/unfollows someone — see ClubMembersCardRail for the
+    // skippable-composable rationale.
+    followedIds: Set<String>,
     onUserTap: (CymbalUser) -> Unit,
     onFollowTap: (CymbalUser) -> Unit,
     modifier: Modifier = Modifier,
@@ -126,7 +129,7 @@ fun PopularUsersInfiniteGrid(
             items(matches, key = { it.user.id }) { match ->
                 TasteMatchCard(
                     match = match,
-                    isFollowing = isFollowed(match.user.id),
+                    isFollowing = match.user.id in followedIds,
                     onUserTap = { onUserTap(match.user) },
                     onFollowTap = { onFollowTap(match.user) },
                     subtitle = followerCountSubtitle(match.user.followerCount),

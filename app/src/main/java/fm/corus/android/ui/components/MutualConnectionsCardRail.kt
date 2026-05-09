@@ -49,7 +49,10 @@ import javax.inject.Inject
 @Composable
 fun MutualConnectionsCardRail(
     matches: List<SuggestedUserMatch>,
-    isFollowed: (String) -> Boolean,
+    // Pass the followed-id set (not a lambda) so this rail recomposes when
+    // the viewer follows/unfollows someone — see ClubMembersCardRail for the
+    // skippable-composable rationale.
+    followedIds: Set<String>,
     onUserTap: (CymbalUser) -> Unit,
     onFollowTap: (CymbalUser) -> Unit,
     modifier: Modifier = Modifier,
@@ -77,7 +80,7 @@ fun MutualConnectionsCardRail(
                 if (ready && enrichedMatch != null) {
                     TasteMatchCard(
                         match = enrichedMatch,
-                        isFollowing = isFollowed(match.user.id),
+                        isFollowing = match.user.id in followedIds,
                         onUserTap = { onUserTap(match.user) },
                         onFollowTap = { onFollowTap(match.user) },
                         subtitle = mutualFollowersSubtitle(match.suggestionReason?.mutualNames.orEmpty()),

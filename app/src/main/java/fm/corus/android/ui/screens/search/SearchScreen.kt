@@ -306,6 +306,7 @@ fun SearchScreen(
                                 showNoContactMatches = showNoContactMatches,
                                 newUsers = newUsers,
                                 clubMembers = clubMembers,
+                                allFollowedIds = allFollowedIds,
                                 isSuggestedLoading = isSuggestedLoading,
                                 viewModel = viewModel,
                                 onNavigateToUser = onNavigateToUser,
@@ -584,6 +585,7 @@ private fun SuggestedUsersContent(
     showNoContactMatches: Boolean,
     newUsers: List<CymbalUser>,
     clubMembers: List<CymbalUser>,
+    allFollowedIds: Set<String>,
     isSuggestedLoading: Boolean,
     viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
@@ -733,7 +735,7 @@ private fun SuggestedUsersContent(
         item {
             HorizontalPopularUsersRail(
                 excludeIds = railExcludeIds,
-                isFollowed = { id -> viewModel.isFollowed(id) },
+                followedIds = allFollowedIds,
                 onUserTap = { user -> onNavigateToUser(user.id) },
                 onFollowTap = { user -> viewModel.toggleFollow(user) },
                 onSeeAll = { onNavigateToSuggestedUsers(popularOnCorusTitle, false, "popular") },
@@ -756,7 +758,7 @@ private fun SuggestedUsersContent(
             item {
                 ClubMembersCardRail(
                     users = clubMembers,
-                    isFollowed = { id -> viewModel.isFollowed(id) },
+                    followedIds = allFollowedIds,
                     onUserTap = { user -> onNavigateToUser(user.id) },
                     onFollowTap = { user -> viewModel.toggleFollow(user) },
                     memberSinceLabel = { date ->
@@ -782,7 +784,7 @@ private fun SuggestedUsersContent(
             item {
                 MutualConnectionsCardRail(
                     matches = mutualConnectionUsers,
-                    isFollowed = { id -> viewModel.isFollowed(id) },
+                    followedIds = allFollowedIds,
                     onUserTap = { user -> onNavigateToUser(user.id) },
                     onFollowTap = { user -> viewModel.toggleFollow(user) },
                 )

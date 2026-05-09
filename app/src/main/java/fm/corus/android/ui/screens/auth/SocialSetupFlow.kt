@@ -536,7 +536,7 @@ private fun FollowFriendsMainContent(
             // so the entire surface scrolls together.
             PopularUsersInfiniteGrid(
                 excludeIds = emptySet(),
-                isFollowed = { id -> followedIds.contains(id) },
+                followedIds = followedIds,
                 onUserTap = { user -> viewModel.openUserPreview(user) },
                 onFollowTap = { user -> viewModel.toggleFollow(user.id) },
                 modifier = Modifier.weight(1f),
