@@ -65,7 +65,9 @@ fun MiniPlayerBar(
                     .fillMaxWidth()
                     .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                // 11dp gap between controls — a hair more than `sm` (8dp), tuned
+                // to feel close to the iOS mini-player spacing.
+                horizontalArrangement = Arrangement.spacedBy(11.dp),
             ) {
                 // Album art + track info (tappable)
                 Row(

@@ -48,7 +48,7 @@ fun MarqueeText(
     style: TextStyle,
     color: Color,
     modifier: Modifier = Modifier,
-    pointsPerSecond: Float = 12f,
+    pointsPerSecond: Float = 18f,
     endpointPauseMs: Long = 2_500L,
     fadeWidth: Dp = 2.dp,
 ) {
@@ -67,7 +67,13 @@ fun MarqueeText(
     var containerWidthPx by remember { mutableFloatStateOf(0f) }
     val fadePx = with(density) { fadeWidth.toPx() }
 
-    val overflows by remember {
+    // Key on (text, style) — same keys as `textWidthPx` above. Without this,
+    // the derivedStateOf's closure captures the *first* composition's
+    // textWidthPx Float (Floats aren't tracked State, so derivedStateOf only
+    // re-runs when containerWidthPx changes), and a song change leaves the
+    // overflow check measuring against the *previous* track's width — that's
+    // why the second song would render with "…" instead of marquee-scrolling.
+    val overflows by remember(text, style) {
         derivedStateOf { containerWidthPx > 0f && textWidthPx > containerWidthPx + 0.5f }
     }
     val shouldAnimate = overflows && !reduceMotion
