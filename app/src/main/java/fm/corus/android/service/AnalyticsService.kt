@@ -5,6 +5,20 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Canonical identifier for each section on the People search page.
+ * Kept in sync with iOS (`SearchSection` enum) and Web (`SearchSection` union)
+ * so cross-platform analytics queries can compare sections directly.
+ */
+enum class SearchSection(val value: String) {
+    TasteMatches("taste_matches"),
+    MutualConnections("mutual_connections"),
+    FriendsOnCorus("friends_on_corus"),
+    Popular("popular"),
+    ClubMembers("club_members"),
+    NewOnCorus("new_on_corus"),
+}
+
 @Singleton
 class AnalyticsService @Inject constructor(
     private val analytics: FirebaseAnalytics,
@@ -135,7 +149,19 @@ class AnalyticsService @Inject constructor(
     fun logTrendingSongTapped(trackId: String, rank: Int) = logEvent("trending_song_tapped", mapOf("track_id" to trackId, "rank" to rank))
     fun logTrendingHashtagTapped(hashtagName: String) = logEvent("trending_hashtag_tapped", mapOf("hashtag_name" to hashtagName))
     fun logSearchFilterChanged(filter: String) = logEvent("search_filter_changed", mapOf("filter" to filter))
+    fun logFeedFilterChanged(filter: String) = logEvent("feed_filter_changed", mapOf("filter" to filter))
     fun logDeepLinkOpened(linkType: String) = logEvent("deep_link_opened", mapOf("link_type" to linkType))
+
+    // Cross-section search-page events. Pair with `logMusicMatchTapped` for Taste Matches
+    // (both fire on that section so similarity_score stays available).
+    fun logSearchSectionUserTapped(section: SearchSection, userId: String) =
+        logEvent("search_section_user_tapped", mapOf("section" to section.value, "user_id" to userId))
+    fun logSearchSectionUserFollowed(section: SearchSection, targetUserId: String) =
+        logEvent("search_section_user_followed", mapOf("section" to section.value, "target_user_id" to targetUserId))
+    fun logSearchSectionUserUnfollowed(section: SearchSection, targetUserId: String) =
+        logEvent("search_section_user_unfollowed", mapOf("section" to section.value, "target_user_id" to targetUserId))
+    fun logSearchSectionSeeAllTapped(section: SearchSection) =
+        logEvent("search_section_see_all_tapped", mapOf("section" to section.value))
 
     // MARK: - Profile Events
 

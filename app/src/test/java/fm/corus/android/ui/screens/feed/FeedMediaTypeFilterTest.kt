@@ -203,6 +203,31 @@ class FeedMediaTypeFilterTest {
     }
 
     @Test
+    fun `setFeedFilter logs feed_filter_changed with canonical analytics value`() = runTest(testDispatcher) {
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
+
+        val viewModel = vm()
+        viewModel.setFeedFilter(FeedFilter.MUSIC_NEW_RELEASES)
+        advanceUntilIdle()
+
+        verify(analyticsService).logFeedFilterChanged(eq("music_new_releases"))
+    }
+
+    @Test
+    fun `setFeedFilter does not log when filter is unchanged`() = runTest(testDispatcher) {
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
+
+        val viewModel = vm()
+        // Default state is ALL — selecting ALL again should be a no-op for analytics.
+        viewModel.setFeedFilter(FeedFilter.ALL)
+        advanceUntilIdle()
+
+        org.mockito.kotlin.verify(analyticsService, org.mockito.kotlin.never()).logFeedFilterChanged(any())
+    }
+
+    @Test
     fun `All clears both mediaType and newReleasesOnly`() = runTest(testDispatcher) {
         whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))

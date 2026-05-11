@@ -25,4 +25,19 @@ enum class FeedFilter {
     /** Whether the server-side new-releases filter should be applied. */
     val newReleasesOnly: Boolean
         get() = this == MUSIC_NEW_RELEASES || this == FILM_NEW_RELEASES
+
+    /**
+     * Stable, cross-platform value sent as the `filter` parameter of the
+     * `feed_filter_changed` analytics event. Must match the iOS `analyticsValue`
+     * and the Web `feedFilterToAnalyticsValue` output so GA4 reports can compare
+     * platforms.
+     */
+    val analyticsValue: String
+        get() = when (this) {
+            ALL -> "all"
+            MUSIC -> "music"
+            FILM -> "film"
+            MUSIC_NEW_RELEASES -> "music_new_releases"
+            FILM_NEW_RELEASES -> "film_new_releases"
+        }
 }

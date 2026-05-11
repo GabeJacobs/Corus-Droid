@@ -23,6 +23,10 @@ fun ContactFriendsListScreen(
     users: List<CymbalUser>,
     isFollowed: (String) -> Boolean = { false },
     onFollow: (CymbalUser) -> Unit = {},
+    /** Fired before [onNavigateToUser] so analytics can attribute taps from
+     *  the FriendsOnCorus see-all destination. Default no-op keeps this a
+     *  pure UI screen. */
+    onUserTapped: (String) -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
     onBack: () -> Unit = {},
 ) {
@@ -59,7 +63,10 @@ fun ContactFriendsListScreen(
                         user = user,
                         subtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts),
                         isFollowed = isFollowed(user.id),
-                        onTap = { onNavigateToUser(user.id) },
+                        onTap = {
+                            onUserTapped(user.id)
+                            onNavigateToUser(user.id)
+                        },
                         onFollow = { onFollow(user) },
                     )
                 }

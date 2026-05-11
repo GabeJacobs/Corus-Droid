@@ -52,6 +52,10 @@ fun SuggestedUsersListScreen(
     // stable and would cause the Follow buttons to visually freeze.
     followedIds: Set<String> = emptySet(),
     onFollow: (CymbalUser) -> Unit = {},
+    /** Fired before [onNavigateToUser] so the analytics event captures *which*
+     *  see-all section the tap came from. The default no-op makes this a
+     *  pure UI screen — analytics wiring lives at the navigation-graph layer. */
+    onUserTapped: (String) -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
     /** Visible-range hook used by clubMembers to lazily enrich the 2x2
      *  album-art previews. Other sources ignore this. */
@@ -116,7 +120,10 @@ fun SuggestedUsersListScreen(
                         user = match.user,
                         subtitle = subtitleForRow(context, match, source),
                         isFollowed = match.user.id in followedIds,
-                        onTap = { onNavigateToUser(match.user.id) },
+                        onTap = {
+                            onUserTapped(match.user.id)
+                            onNavigateToUser(match.user.id)
+                        },
                         onFollow = { onFollow(match.user) },
                     )
                     if (index == matches.lastIndex && hasMore && !isLoadingMore) {
@@ -167,7 +174,10 @@ fun SuggestedUsersListScreen(
                             TasteMatchCard(
                                 match = match,
                                 isFollowing = match.user.id in followedIds,
-                                onUserTap = { onNavigateToUser(match.user.id) },
+                                onUserTap = {
+                                    onUserTapped(match.user.id)
+                                    onNavigateToUser(match.user.id)
+                                },
                                 onFollowTap = { onFollow(match.user) },
                                 subtitle = subtitleForRow(context, match, source),
                             )

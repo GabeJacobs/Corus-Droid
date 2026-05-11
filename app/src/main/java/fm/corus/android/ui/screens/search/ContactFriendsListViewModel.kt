@@ -7,6 +7,8 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.SearchSection
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +20,7 @@ class ContactFriendsListViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val authRepository: AuthRepository,
     private val firestoreDataSource: FirestoreDataSource,
+    private val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
     private val _contacts = MutableStateFlow<List<CymbalUser>>(emptyList())
@@ -60,6 +63,13 @@ class ContactFriendsListViewModel @Inject constructor(
     fun toggleFollow(user: CymbalUser) {
         val uid = authRepository.currentUserId ?: return
         val isCurrentlyFollowed = isFollowed(user.id)
+        // This screen only ever shows the FriendsOnCorus section, so the
+        // section is fixed.
+        if (isCurrentlyFollowed) {
+            analyticsService.logSearchSectionUserUnfollowed(SearchSection.FriendsOnCorus, user.id)
+        } else {
+            analyticsService.logSearchSectionUserFollowed(SearchSection.FriendsOnCorus, user.id)
+        }
         viewModelScope.launch {
             if (isCurrentlyFollowed) {
                 _localFollowedIds.value = _localFollowedIds.value - user.id
@@ -74,5 +84,10 @@ class ContactFriendsListViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /** Fire `search_section_user_tapped` for the FriendsOnCorus see-all list. */
+    fun logUserTapped(userId: String) {
+        analyticsService.logSearchSectionUserTapped(SearchSection.FriendsOnCorus, userId)
     }
 }

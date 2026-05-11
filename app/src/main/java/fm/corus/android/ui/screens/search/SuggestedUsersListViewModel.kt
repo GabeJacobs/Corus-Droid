@@ -15,6 +15,8 @@ import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.SearchSection
 import fm.corus.android.ui.navigation.SuggestedUsersListRoute
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -34,10 +36,23 @@ class SuggestedUsersListViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val firestoreDataSource: FirestoreDataSource,
     private val postRepository: PostRepository,
+    private val analyticsService: AnalyticsService,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     val source: String = savedStateHandle.toRoute<SuggestedUsersListRoute>().source
+
+    /** Map the legacy `source` route param onto the canonical [SearchSection]
+     *  used in cross-platform analytics. Returns null for unknown sources so
+     *  we never emit garbage. */
+    private val analyticsSection: SearchSection? = when (source) {
+        "tasteMatches" -> SearchSection.TasteMatches
+        "mutualConnections" -> SearchSection.MutualConnections
+        "popular" -> SearchSection.Popular
+        "clubMembers" -> SearchSection.ClubMembers
+        "new" -> SearchSection.NewOnCorus
+        else -> null
+    }
 
     private val _suggestions = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
     val suggestions: StateFlow<List<SuggestedUserMatch>> = _suggestions.asStateFlow()
@@ -307,6 +322,16 @@ class SuggestedUsersListViewModel @Inject constructor(
     fun toggleFollow(user: CymbalUser) {
         val uid = authRepository.currentUserId ?: return
         val isCurrentlyFollowed = isFollowed(user.id)
+        // Fire the section-aware analytics event before the network call so the
+        // event reflects the user's intent regardless of whether the request
+        // ultimately persists.
+        analyticsSection?.let { section ->
+            if (isCurrentlyFollowed) {
+                analyticsService.logSearchSectionUserUnfollowed(section, user.id)
+            } else {
+                analyticsService.logSearchSectionUserFollowed(section, user.id)
+            }
+        }
         viewModelScope.launch {
             if (isCurrentlyFollowed) {
                 _localFollowedIds.value = _localFollowedIds.value - user.id
@@ -320,6 +345,15 @@ class SuggestedUsersListViewModel @Inject constructor(
                     _localFollowedIds.value = _localFollowedIds.value - user.id
                 }
             }
+        }
+    }
+
+    /** Fire `search_section_user_tapped` with the section derived from
+     *  [source]. Called by [SuggestedUsersListScreen] when the user taps a
+     *  card or row in the destination list. */
+    fun logUserTapped(userId: String) {
+        analyticsSection?.let {
+            analyticsService.logSearchSectionUserTapped(it, userId)
         }
     }
 }

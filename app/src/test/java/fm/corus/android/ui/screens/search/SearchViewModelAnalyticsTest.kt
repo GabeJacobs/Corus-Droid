@@ -1,7 +1,7 @@
 package fm.corus.android.ui.screens.search
 
 import fm.corus.android.data.local.PreferencesDataStore
-import fm.corus.android.data.model.CymbalHashtag
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
@@ -12,19 +12,16 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
+import fm.corus.android.service.SearchSection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -32,19 +29,19 @@ import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
-import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 /**
- * Tests for the hashtag-search additions to SearchViewModel:
- *  - blank prefix never hits Firestore
- *  - debounce coalesces fast typing into a single backend call
- *  - results are cached so a repeat query is served from memory
- *  - trending hashtags are loaded only once across multiple tab activations
+ * Verifies that SearchViewModel.toggleFollow forwards the section to
+ * AnalyticsService and that helper logging methods round-trip correctly.
+ *
+ * The section vocabulary is the user-visible measurement on the People-search
+ * page — getting it wrong means the dashboard breaks silently. Worth a unit
+ * test rather than relying on QA to spot a missing event in DebugView.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class SearchViewModelHashtagTest {
+class SearchViewModelAnalyticsTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -60,11 +57,17 @@ class SearchViewModelHashtagTest {
     private lateinit var analyticsService: AnalyticsService
     private lateinit var nowPlayingManager: NowPlayingManager
 
+    private val sampleUser = CymbalUser(
+        id = "u-1",
+        username = "alice",
+        displayName = "Alice",
+    )
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         firestoreDataSource = mock()
-        authRepository = mock { on { currentUserId } doReturn "uid1" }
+        authRepository = mock { on { currentUserId } doReturn "viewer" }
         userRepository = mock {
             on { followingIds } doReturn MutableStateFlow(emptySet())
         }
@@ -101,69 +104,68 @@ class SearchViewModelHashtagTest {
     )
 
     @Test
-    fun `blank query does not hit firestore`() = runTest(testDispatcher) {
+    fun `toggleFollow with section fires followed event when previously unfollowed`() = runTest(testDispatcher) {
         val vm = createViewModel()
-        vm.search("", tab = 3)
+        vm.toggleFollow(sampleUser, SearchSection.TasteMatches)
         advanceUntilIdle()
-        verify(firestoreDataSource, never()).searchHashtagsByPrefix(any(), any())
-        assertTrue(vm.hashtagSearchResults.value.isEmpty())
+        verify(analyticsService).logSearchSectionUserFollowed(eq(SearchSection.TasteMatches), eq("u-1"))
+        verify(analyticsService, never()).logSearchSectionUserUnfollowed(any(), any())
     }
 
     @Test
-    fun `whitespace-only query does not hit firestore`() = runTest(testDispatcher) {
+    fun `toggleFollow with section fires unfollowed event when previously followed`() = runTest(testDispatcher) {
+        // Seed the local follow set by following first, then verify the second
+        // tap fires the unfollow event with the same section value.
+        whenever(userRepository.followUser(any(), any())).thenReturn(Unit)
         val vm = createViewModel()
-        vm.search("   ", tab = 3)
+        vm.toggleFollow(sampleUser, SearchSection.Popular) // follow
         advanceUntilIdle()
-        verify(firestoreDataSource, never()).searchHashtagsByPrefix(any(), any())
+        vm.toggleFollow(sampleUser, SearchSection.Popular) // unfollow
+        advanceUntilIdle()
+        verify(analyticsService).logSearchSectionUserFollowed(eq(SearchSection.Popular), eq("u-1"))
+        verify(analyticsService).logSearchSectionUserUnfollowed(eq(SearchSection.Popular), eq("u-1"))
     }
 
     @Test
-    fun `debounce coalesces fast typing into one backend call`() = runTest(testDispatcher) {
-        whenever(firestoreDataSource.searchHashtagsByPrefix(any(), any()))
-            .thenReturn(listOf(CymbalHashtag(id = "music", name = "music", cymbalCount = 5)))
+    fun `toggleFollow without section fires no analytics`() = runTest(testDispatcher) {
         val vm = createViewModel()
-
-        // Three keystrokes within the debounce window — only the last query should reach Firestore.
-        vm.search("m", tab = 3)
-        advanceTimeBy(50)
-        vm.search("mu", tab = 3)
-        advanceTimeBy(50)
-        vm.search("mus", tab = 3)
+        vm.toggleFollow(sampleUser, section = null)
         advanceUntilIdle()
-
-        verify(firestoreDataSource, times(1)).searchHashtagsByPrefix(eq("mus"), any())
+        verify(analyticsService, never()).logSearchSectionUserFollowed(any(), any())
+        verify(analyticsService, never()).logSearchSectionUserUnfollowed(any(), any())
     }
 
     @Test
-    fun `repeated query is served from cache`() = runTest(testDispatcher) {
-        whenever(firestoreDataSource.searchHashtagsByPrefix(any(), any()))
-            .thenReturn(listOf(CymbalHashtag(id = "music", name = "music", cymbalCount = 5)))
+    fun `logSearchSectionUserTapped delegates to analytics service with correct section`() {
         val vm = createViewModel()
-
-        vm.search("music", tab = 3)
-        advanceUntilIdle()
-        vm.search("music", tab = 3)
-        advanceUntilIdle()
-
-        // Backend hit exactly once; the second call comes from the in-memory cache.
-        verify(firestoreDataSource, times(1)).searchHashtagsByPrefix(eq("music"), any())
-        assertEquals(1, vm.hashtagSearchResults.value.size)
+        vm.logSearchSectionUserTapped(SearchSection.MutualConnections, "u-2")
+        verify(analyticsService).logSearchSectionUserTapped(eq(SearchSection.MutualConnections), eq("u-2"))
     }
 
     @Test
-    fun `trending hashtags load only once across multiple tab activations`() = runTest(testDispatcher) {
-        whenever(firestoreDataSource.fetchTrendingHashtags(any()))
-            .thenReturn(listOf(CymbalHashtag(id = "trend", name = "trend", cymbalCount = 99)))
+    fun `logSearchSectionSeeAllTapped delegates to analytics service`() {
         val vm = createViewModel()
+        vm.logSearchSectionSeeAllTapped(SearchSection.NewOnCorus)
+        verify(analyticsService).logSearchSectionSeeAllTapped(eq(SearchSection.NewOnCorus))
+    }
 
-        vm.setActiveTab(3)
-        advanceUntilIdle()
-        vm.setActiveTab(0)
-        vm.setActiveTab(3)
-        advanceUntilIdle()
-
-        verify(firestoreDataSource, times(1)).fetchTrendingHashtags(any())
-        assertEquals(1, vm.trendingHashtags.value.size)
-        assertFalse(vm.isTrendingHashtagsLoading.value)
+    @Test
+    fun `every SearchSection has the canonical wire value`() {
+        // Lock the cross-platform section vocabulary in place. Changing any of
+        // these values silently breaks dashboards that join across iOS, Android
+        // and web, so any rename forces a deliberate test update.
+        val expected = mapOf(
+            SearchSection.TasteMatches to "taste_matches",
+            SearchSection.MutualConnections to "mutual_connections",
+            SearchSection.FriendsOnCorus to "friends_on_corus",
+            SearchSection.Popular to "popular",
+            SearchSection.ClubMembers to "club_members",
+            SearchSection.NewOnCorus to "new_on_corus",
+        )
+        for ((section, wire) in expected) {
+            assert(section.value == wire) {
+                "SearchSection.$section.value was '${section.value}', expected '$wire'"
+            }
+        }
     }
 }

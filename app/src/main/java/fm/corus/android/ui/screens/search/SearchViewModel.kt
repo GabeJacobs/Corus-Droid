@@ -24,7 +24,9 @@ import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
+import fm.corus.android.service.SearchSection
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -48,6 +50,7 @@ class SearchViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
     private val firestoreDataSource: FirestoreDataSource,
     private val remoteConfigService: RemoteConfigService,
+    private val analyticsService: AnalyticsService,
     val nowPlayingManager: NowPlayingManager,
 ) : ViewModel() {
 
@@ -619,9 +622,20 @@ class SearchViewModel @Inject constructor(
 
     // ── Follow ──
 
-    fun toggleFollow(user: CymbalUser) {
+    fun toggleFollow(user: CymbalUser, section: SearchSection? = null) {
         val uid = authRepository.currentUserId ?: return
         val isFollowed = _localFollowedIds.value.contains(user.id) || _followingIds.value.contains(user.id)
+        // Fire analytics from the optimistic-flip side so the event matches what
+        // the user just *did*, not what eventually persists if the network call
+        // fails. The catch blocks below revert in-memory state, but we don't
+        // double-fire an "undo" event — the original tap is what matters.
+        if (section != null) {
+            if (isFollowed) {
+                analyticsService.logSearchSectionUserUnfollowed(section, user.id)
+            } else {
+                analyticsService.logSearchSectionUserFollowed(section, user.id)
+            }
+        }
         viewModelScope.launch {
             if (isFollowed) {
                 _localFollowedIds.value = _localFollowedIds.value - user.id
@@ -640,5 +654,21 @@ class SearchViewModel @Inject constructor(
 
     fun isFollowed(userId: String): Boolean {
         return _localFollowedIds.value.contains(userId) || _followingIds.value.contains(userId)
+    }
+
+    // ── Search-page section analytics ──
+    // Composable callers don't have direct access to AnalyticsService, so route
+    // through the ViewModel. Keeps `SearchScreen.kt` free of service references.
+
+    fun logSearchSectionUserTapped(section: SearchSection, userId: String) {
+        analyticsService.logSearchSectionUserTapped(section, userId)
+    }
+
+    fun logSearchSectionSeeAllTapped(section: SearchSection) {
+        analyticsService.logSearchSectionSeeAllTapped(section)
+    }
+
+    fun logMusicMatchTapped(userId: String, similarityScore: Double) {
+        analyticsService.logMusicMatchTapped(userId, similarityScore)
     }
 }

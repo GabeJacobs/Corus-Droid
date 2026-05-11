@@ -259,6 +259,7 @@ class FeedViewModel @Inject constructor(
             _newReleaseFilterPaywall.value = PaywallSource.NEW_RELEASE_FILTER
             return
         }
+        analyticsService.logFeedFilterChanged(filter.analyticsValue)
         _feedFilter.value = filter
         // Server-side filter changed — reset the paginated feed and re-fetch
         // so the returned page matches the new filter.

@@ -740,6 +740,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onLoadMore = { viewModel.loadMore() },
             followedIds = followedIds,
             onFollow = { viewModel.toggleFollow(it) },
+            onUserTapped = { userId -> viewModel.logUserTapped(userId) },
             onVisibleRangeChange = { start, end -> viewModel.ensureClubMembersEnriched(start, end) },
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
@@ -762,6 +763,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 users = contacts,
                 isFollowed = { viewModel.isFollowed(it) },
                 onFollow = { viewModel.toggleFollow(it) },
+                onUserTapped = { userId -> viewModel.logUserTapped(userId) },
                 onBack = { navController.popBackStack() },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             )

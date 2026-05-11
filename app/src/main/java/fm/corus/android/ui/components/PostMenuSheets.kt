@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.screens.feed.EditCaptionSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -151,7 +152,7 @@ fun PostMenuSheets(
                 onDismiss = { onMenuPostChange(null) },
                 onViewSongPage = { onNavigateToSong(post.track) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
-                showBackCoverOption = actions.remoteConfig.vinylFlipEnabled && !post.isMovie,
+                showBackCoverOption = actions.remoteConfig.vinylFlipEnabled && !post.isMovie && post.track.source != TrackSource.SOUNDCLOUD,
                 isBackCoverFlipped = backCoverStateFor(post.id).isFlipped,
                 onViewBackCover = {
                     val state = backCoverStateFor(post.id)

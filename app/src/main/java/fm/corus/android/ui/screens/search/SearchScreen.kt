@@ -73,6 +73,8 @@ import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
 import fm.corus.android.domain.HapticManager
+import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.SearchSection
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ClubMembersCardRail
 import fm.corus.android.ui.components.FilmSearchResultRow
@@ -654,7 +656,10 @@ private fun SuggestedUsersContent(
                     icon = "contacts",
                     title = stringResource(fm.corus.android.R.string.search_section_friends_on_corus),
                     showSeeAll = contactMatches.size > 3,
-                    onSeeAll = onNavigateToContactFriends,
+                    onSeeAll = {
+                        viewModel.logSearchSectionSeeAllTapped(SearchSection.FriendsOnCorus)
+                        onNavigateToContactFriends()
+                    },
                 )
             }
             items(contactMatches.take(3), key = { "contact-${it.id}" }) { user ->
@@ -662,8 +667,11 @@ private fun SuggestedUsersContent(
                     user = user,
                     subtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts),
                     isFollowed = viewModel.isFollowed(user.id),
-                    onTap = { onNavigateToUser(user.id) },
-                    onFollow = { viewModel.toggleFollow(user) },
+                    onTap = {
+                        viewModel.logSearchSectionUserTapped(SearchSection.FriendsOnCorus, user.id)
+                        onNavigateToUser(user.id)
+                    },
+                    onFollow = { viewModel.toggleFollow(user, SearchSection.FriendsOnCorus) },
                 )
             }
             item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
@@ -697,7 +705,10 @@ private fun SuggestedUsersContent(
                     icon = "sparkles",
                     title = stringResource(fm.corus.android.R.string.search_section_taste_matches),
                     showSeeAll = filteredMusicMatchUsers.size > 2,
-                    onSeeAll = { onNavigateToSuggestedUsers(tasteMatchesTitle, false, "tasteMatches") },
+                    onSeeAll = {
+                        viewModel.logSearchSectionSeeAllTapped(SearchSection.TasteMatches)
+                        onNavigateToSuggestedUsers(tasteMatchesTitle, false, "tasteMatches")
+                    },
                     trailingAction = if (showUnfollowedMatchesToggle) {
                         {
                             TasteMatchFilterMenu(
@@ -721,8 +732,14 @@ private fun SuggestedUsersContent(
                         TasteMatchCard(
                             match = match,
                             isFollowing = viewModel.isFollowed(match.user.id),
-                            onUserTap = { onNavigateToUser(match.user.id) },
-                            onFollowTap = { viewModel.toggleFollow(match.user) },
+                            onUserTap = {
+                                // Keep music_match_tapped (carries similarity_score, unique to this section)
+                                viewModel.logMusicMatchTapped(match.user.id, match.matchData?.similarityScore ?: 0.0)
+                                // Also fire the unified event so cross-section comparisons work.
+                                viewModel.logSearchSectionUserTapped(SearchSection.TasteMatches, match.user.id)
+                                onNavigateToUser(match.user.id)
+                            },
+                            onFollowTap = { viewModel.toggleFollow(match.user, SearchSection.TasteMatches) },
                             modifier = Modifier.width(cardWidth),
                         )
                     }
@@ -736,9 +753,15 @@ private fun SuggestedUsersContent(
             HorizontalPopularUsersRail(
                 excludeIds = railExcludeIds,
                 followedIds = allFollowedIds,
-                onUserTap = { user -> onNavigateToUser(user.id) },
-                onFollowTap = { user -> viewModel.toggleFollow(user) },
-                onSeeAll = { onNavigateToSuggestedUsers(popularOnCorusTitle, false, "popular") },
+                onUserTap = { user ->
+                    viewModel.logSearchSectionUserTapped(SearchSection.Popular, user.id)
+                    onNavigateToUser(user.id)
+                },
+                onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.Popular) },
+                onSeeAll = {
+                    viewModel.logSearchSectionSeeAllTapped(SearchSection.Popular)
+                    onNavigateToSuggestedUsers(popularOnCorusTitle, false, "popular")
+                },
             )
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
@@ -752,15 +775,21 @@ private fun SuggestedUsersContent(
                     icon = "club",
                     title = stringResource(fm.corus.android.R.string.search_section_club_members),
                     showSeeAll = true,
-                    onSeeAll = { onNavigateToSuggestedUsers(clubMembersTitle, false, "clubMembers") },
+                    onSeeAll = {
+                        viewModel.logSearchSectionSeeAllTapped(SearchSection.ClubMembers)
+                        onNavigateToSuggestedUsers(clubMembersTitle, false, "clubMembers")
+                    },
                 )
             }
             item {
                 ClubMembersCardRail(
                     users = clubMembers,
                     followedIds = allFollowedIds,
-                    onUserTap = { user -> onNavigateToUser(user.id) },
-                    onFollowTap = { user -> viewModel.toggleFollow(user) },
+                    onUserTap = { user ->
+                        viewModel.logSearchSectionUserTapped(SearchSection.ClubMembers, user.id)
+                        onNavigateToUser(user.id)
+                    },
+                    onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.ClubMembers) },
                     memberSinceLabel = { date ->
                         context.getString(memberSinceFormat, DateUtils.relativeTime(context, date))
                     },
@@ -778,15 +807,21 @@ private fun SuggestedUsersContent(
                     icon = "people",
                     title = stringResource(fm.corus.android.R.string.search_section_mutual_connections),
                     showSeeAll = mutualConnectionUsers.size > 2,
-                    onSeeAll = { onNavigateToSuggestedUsers(mutualConnectionsTitle, true, "mutualConnections") },
+                    onSeeAll = {
+                        viewModel.logSearchSectionSeeAllTapped(SearchSection.MutualConnections)
+                        onNavigateToSuggestedUsers(mutualConnectionsTitle, true, "mutualConnections")
+                    },
                 )
             }
             item {
                 MutualConnectionsCardRail(
                     matches = mutualConnectionUsers,
                     followedIds = allFollowedIds,
-                    onUserTap = { user -> onNavigateToUser(user.id) },
-                    onFollowTap = { user -> viewModel.toggleFollow(user) },
+                    onUserTap = { user ->
+                        viewModel.logSearchSectionUserTapped(SearchSection.MutualConnections, user.id)
+                        onNavigateToUser(user.id)
+                    },
+                    onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.MutualConnections) },
                 )
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
@@ -803,7 +838,10 @@ private fun SuggestedUsersContent(
                     icon = "new",
                     title = stringResource(fm.corus.android.R.string.search_section_new),
                     showSeeAll = displayNewUsers.size > 3,
-                    onSeeAll = { onNavigateToSuggestedUsers(newOnCorusTitle, true, "new") },
+                    onSeeAll = {
+                        viewModel.logSearchSectionSeeAllTapped(SearchSection.NewOnCorus)
+                        onNavigateToSuggestedUsers(newOnCorusTitle, true, "new")
+                    },
                 )
             }
             items(displayNewUsers.take(3), key = { "new-${it.id}" }) { user ->
@@ -811,8 +849,11 @@ private fun SuggestedUsersContent(
                     user = user,
                     subtitle = user.createdAt?.let { context.getString(joinedFormat, DateUtils.relativeTime(context, it)) },
                     isFollowed = viewModel.isFollowed(user.id),
-                    onTap = { onNavigateToUser(user.id) },
-                    onFollow = { viewModel.toggleFollow(user) },
+                    onTap = {
+                        viewModel.logSearchSectionUserTapped(SearchSection.NewOnCorus, user.id)
+                        onNavigateToUser(user.id)
+                    },
+                    onFollow = { viewModel.toggleFollow(user, SearchSection.NewOnCorus) },
                 )
             }
             item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }

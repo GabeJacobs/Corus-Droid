@@ -294,39 +294,40 @@ class FirestoreDataSource @Inject constructor(
     // ── Likes ──
 
     suspend fun likePost(userId: String, postId: String) = withAuthRetry {
-        val batch = firestore.batch()
-        batch.set(
-            firestore.collection("posts").document(postId)
-                .collection("likes").document(userId),
-            mapOf("createdAt" to FieldValue.serverTimestamp())
-        )
-        batch.set(
-            firestore.collection("users_v2").document(userId)
-                .collection("liked").document(postId),
-            mapOf("createdAt" to FieldValue.serverTimestamp())
-        )
-        batch.update(
-            firestore.collection("posts").document(postId),
-            "likeCount", FieldValue.increment(1)
-        )
-        batch.commit().await()
+        val likeRef = firestore.collection("posts").document(postId)
+            .collection("likes").document(userId)
+        val userLikeRef = firestore.collection("users_v2").document(userId)
+            .collection("liked").document(postId)
+        val postRef = firestore.collection("posts").document(postId)
+
+        // Read-then-conditional-write inside a transaction so a phantom-commit retry
+        // (server committed but client got an auth/network error in the response)
+        // observes the existing like marker and skips a second increment.
+        firestore.runTransaction { txn ->
+            val existing = txn.get(likeRef)
+            if (existing.exists()) return@runTransaction null
+            txn.set(likeRef, mapOf("createdAt" to FieldValue.serverTimestamp()))
+            txn.set(userLikeRef, mapOf("createdAt" to FieldValue.serverTimestamp()))
+            txn.update(postRef, "likeCount", FieldValue.increment(1))
+            null
+        }.await()
     }
 
     suspend fun unlikePost(userId: String, postId: String) = withAuthRetry {
-        val batch = firestore.batch()
-        batch.delete(
-            firestore.collection("posts").document(postId)
-                .collection("likes").document(userId)
-        )
-        batch.delete(
-            firestore.collection("users_v2").document(userId)
-                .collection("liked").document(postId)
-        )
-        batch.update(
-            firestore.collection("posts").document(postId),
-            "likeCount", FieldValue.increment(-1)
-        )
-        batch.commit().await()
+        val likeRef = firestore.collection("posts").document(postId)
+            .collection("likes").document(userId)
+        val userLikeRef = firestore.collection("users_v2").document(userId)
+            .collection("liked").document(postId)
+        val postRef = firestore.collection("posts").document(postId)
+
+        firestore.runTransaction { txn ->
+            val existing = txn.get(likeRef)
+            if (!existing.exists()) return@runTransaction null
+            txn.delete(likeRef)
+            txn.delete(userLikeRef)
+            txn.update(postRef, "likeCount", FieldValue.increment(-1))
+            null
+        }.await()
     }
 
     suspend fun isPostLiked(userId: String, postId: String): Boolean {
