@@ -13,6 +13,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.SuggestionReason
+import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
@@ -96,9 +97,12 @@ class SearchViewModel @Inject constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
-    // Trending hashtags + cache for prefix search
-    private val _trendingHashtags = MutableStateFlow<List<CymbalHashtag>>(emptyList())
-    val trendingHashtags: StateFlow<List<CymbalHashtag>> = _trendingHashtags.asStateFlow()
+    // Windowed trending hashtags + cache for prefix search. The values are
+    // TrendingHashtag (with windowed cymbalCount + followerCount denormalized
+    // off `trending_cache/hashtags`) so the row subtitle can render
+    // "N coruses · M followers" without a per-row Firestore read.
+    private val _trendingHashtags = MutableStateFlow<List<TrendingHashtag>>(emptyList())
+    val trendingHashtags: StateFlow<List<TrendingHashtag>> = _trendingHashtags.asStateFlow()
 
     private val _isTrendingHashtagsLoading = MutableStateFlow(true)
     val isTrendingHashtagsLoading: StateFlow<Boolean> = _isTrendingHashtagsLoading.asStateFlow()
@@ -158,6 +162,11 @@ class SearchViewModel @Inject constructor(
             .map { TrendingWindow.fromKey(it) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
 
+    val trendingHashtagsWindow: StateFlow<TrendingWindow> =
+        preferencesDataStore.trendingHashtagsWindow
+            .map { TrendingWindow.fromKey(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+
     fun setTrendingSongsWindow(window: TrendingWindow) {
         viewModelScope.launch {
             preferencesDataStore.setTrendingSongsWindow(window.key)
@@ -202,6 +211,27 @@ class SearchViewModel @Inject constructor(
             }
             _trendingMovies.value = fetched
             _isTrendingMoviesLoading.value = false
+        }
+    }
+
+    fun setTrendingHashtagsWindow(window: TrendingWindow) {
+        viewModelScope.launch {
+            preferencesDataStore.setTrendingHashtagsWindow(window.key)
+            _isTrendingHashtagsLoading.value = true
+            _trendingHashtags.value = emptyList()
+            val start = System.currentTimeMillis()
+            val fetched = try {
+                firestoreDataSource.fetchTrendingHashtagsWindowed(window, limit = 20)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to switch trending hashtags window", e)
+                emptyList()
+            }
+            val elapsed = System.currentTimeMillis() - start
+            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
+            }
+            _trendingHashtags.value = fetched
+            _isTrendingHashtagsLoading.value = false
         }
     }
 
@@ -493,7 +523,9 @@ class SearchViewModel @Inject constructor(
         hasLoadedTrendingHashtags = true
         viewModelScope.launch {
             try {
-                _trendingHashtags.value = firestoreDataSource.fetchTrendingHashtags(limit = 20)
+                val window = trendingHashtagsWindow.value
+                _trendingHashtags.value =
+                    firestoreDataSource.fetchTrendingHashtagsWindowed(window, limit = 20)
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load trending hashtags", e)
                 hasLoadedTrendingHashtags = false
@@ -513,9 +545,13 @@ class SearchViewModel @Inject constructor(
         }
     }
 
-    fun toggleHashtagFollow(tag: CymbalHashtag) {
+    fun toggleHashtagFollow(tag: CymbalHashtag) = toggleHashtagFollowByName(tag.name)
+
+    /** Name-only variant so trending rows (which carry `TrendingHashtag`, not
+     *  `CymbalHashtag`) can share the same optimistic-toggle plumbing. */
+    fun toggleHashtagFollowByName(name: String) {
         val uid = authRepository.currentUserId ?: return
-        val key = tag.name.lowercase()
+        val key = name.lowercase()
         val current = _followedHashtagNames.value
         val wasFollowing = current.contains(key)
         // Optimistic update.
@@ -523,9 +559,9 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 if (wasFollowing) {
-                    firestoreDataSource.unfollowHashtag(uid, tag.name)
+                    firestoreDataSource.unfollowHashtag(uid, name)
                 } else {
-                    firestoreDataSource.followHashtag(uid, tag.name)
+                    firestoreDataSource.followHashtag(uid, name)
                 }
             } catch (e: Exception) {
                 Log.e("SearchVM", "toggleHashtagFollow failed for $key", e)

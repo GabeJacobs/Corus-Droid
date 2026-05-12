@@ -101,6 +101,8 @@ fun PostCard(
     onRepostedFromUserTap: (userId: String?, username: String) -> Unit = { _, _ -> },
     onCommentUserTap: (CymbalUser) -> Unit = {},
     hideComments: Boolean = false,
+    showsTapHint: Boolean = false,
+    onAlbumArtTap: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val heartScale = remember { Animatable(0f) }
@@ -110,6 +112,34 @@ fun PostCard(
     var showUnavailableToast by remember(post.id) { mutableStateOf(false) }
     val flipState = backCoverFlipState
     val haptics = LocalHapticManager.current
+
+    // Tap-hint pulse: only runs when showsTapHint and there is no playback yet.
+    val hintActive = showsTapHint && post.isTrack && !post.track.unavailable
+            && !isPreviewPlaying && !isPreviewLoading
+    val hintIconAlpha = remember { Animatable(0f) }
+    val hintIconScale = remember { Animatable(0.85f) }
+    LaunchedEffect(hintActive) {
+        if (!hintActive) {
+            hintIconAlpha.snapTo(0f)
+            hintIconScale.snapTo(0.85f)
+            return@LaunchedEffect
+        }
+        val fadeIn = 450
+        val fadeOut = 450
+        val rest = 120L
+        kotlinx.coroutines.delay(450) // wait for image fade-in
+        while (true) {
+            kotlinx.coroutines.coroutineScope {
+                launch { hintIconAlpha.animateTo(1f, tween(fadeIn)) }
+                launch { hintIconScale.animateTo(1f, tween(fadeIn)) }
+            }
+            kotlinx.coroutines.coroutineScope {
+                launch { hintIconAlpha.animateTo(0f, tween(fadeOut)) }
+                launch { hintIconScale.animateTo(0.85f, tween(fadeOut)) }
+            }
+            kotlinx.coroutines.delay(rest)
+        }
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -270,6 +300,7 @@ fun PostCard(
                                 },
                                 onTap = {
                                     if (flipState.isLoading) return@detectTapGestures
+                                    if (post.isTrack) onAlbumArtTap()
                                     when {
                                         post.isTrack && post.track.unavailable -> {
                                             showUnavailableToast = true
@@ -488,6 +519,38 @@ fun PostCard(
                             }
                         }
                     }
+                }
+            }
+
+            // Tap-to-play hint (first feed post for new accounts only).
+            if (hintActive) {
+                Box(contentAlignment = Alignment.Center) {
+                    // Soft shadow underlay so the white triangle reads on light covers.
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.Black.copy(alpha = 0.45f),
+                        modifier = Modifier
+                            .size(72.dp)
+                            .offset(y = 3.dp)
+                            .graphicsLayer {
+                                alpha = hintIconAlpha.value
+                                scaleX = hintIconScale.value
+                                scaleY = hintIconScale.value
+                            },
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(72.dp)
+                            .graphicsLayer {
+                                alpha = hintIconAlpha.value
+                                scaleX = hintIconScale.value
+                                scaleY = hintIconScale.value
+                            },
+                    )
                 }
             }
 

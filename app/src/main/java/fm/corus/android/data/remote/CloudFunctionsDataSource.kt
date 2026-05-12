@@ -130,6 +130,7 @@ class CloudFunctionsDataSource @Inject constructor(
     data class ProfileData(
         val user: CymbalUser?,
         val posts: List<CymbalPost>,
+        val match: MusicMatchData? = null,
     )
 
     /**
@@ -155,7 +156,19 @@ class CloudFunctionsDataSource @Inject constructor(
         val user = userMap?.let { CymbalUser.fromMap(it["id"] as? String ?: "", it) }
         val postDicts = data["posts"] as? List<Map<String, Any?>> ?: emptyList()
         val posts = postDicts.map { CymbalPost.fromCloudData(it) }
-        return ProfileData(user, posts)
+        val matchMap = data["match"] as? Map<String, Any?>
+        val match = matchMap?.let {
+            val parsed = MusicMatchData.fromMap(it)
+            // Mirror iOS: return null when there's nothing to render so the
+            // teaser stays hidden without per-field checks at the call site.
+            if (parsed.sharedTrackPreviews.isEmpty()
+                && parsed.sharedMoviePreviews.isEmpty()
+                && parsed.sharedArtists == 0
+                && parsed.sharedArtistNames.isEmpty()
+                && parsed.sharedDirectorNames.isEmpty()
+            ) null else parsed
+        }
+        return ProfileData(user, posts, match)
     }
 
     @Suppress("UNCHECKED_CAST")

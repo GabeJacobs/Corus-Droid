@@ -42,6 +42,20 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** 2026-05-10 00:00 UTC — the moment the album-art tap hint shipped. Accounts
+ *  created on or after this instant see the one-time hint on the first feed
+ *  post; older accounts never see it. */
+internal val ALBUM_ART_HINT_CUTOFF_MS: Long =
+    java.time.LocalDate.of(2026, 5, 10)
+        .atStartOfDay(java.time.ZoneOffset.UTC)
+        .toInstant()
+        .toEpochMilli()
+
+internal fun isNewAlbumArtHintAccount(creationTimestampMs: Long?): Boolean {
+    val created = creationTimestampMs ?: return false
+    return created >= ALBUM_ART_HINT_CUTOFF_MS
+}
+
 @HiltViewModel
 class FeedViewModel @Inject constructor(
     private val postRepository: PostRepository,
@@ -122,6 +136,35 @@ class FeedViewModel @Inject constructor(
 
     val engagementStates = engagementManager.states
     val currentUserProfile = authRepository.userProfile
+
+    /**
+     * One-time tap-to-play hint on the first feed post's album art. Mirrors iOS
+     * AlbumArtView showsTapHint. Only newly-signed-up accounts see it, and only
+     * until they tap any album art once.
+     */
+    val hasTappedAlbumArt: StateFlow<Boolean> = preferencesDataStore.hasTappedAlbumArt
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    /**
+     * True if the signed-in Firebase account was created on or after the
+     * feature launch cutoff. Existing users (creationDate < cutoff) never see
+     * the hint — they've already learned the gesture.
+     */
+    val isNewAccount: StateFlow<Boolean> = authRepository.currentUser
+        .let { upstream ->
+            kotlinx.coroutines.flow.MutableStateFlow(
+                isNewAlbumArtHintAccount(upstream.value?.metadata?.creationTimestamp)
+            ).also { mirror ->
+                viewModelScope.launch {
+                    upstream.collect { mirror.value = isNewAlbumArtHintAccount(it?.metadata?.creationTimestamp) }
+                }
+            }
+        }
+        .asStateFlow()
+
+    fun markAlbumArtTapped() {
+        viewModelScope.launch { preferencesDataStore.setHasTappedAlbumArt() }
+    }
 
     // ── Share search state ──
     private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())

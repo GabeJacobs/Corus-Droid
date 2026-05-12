@@ -69,6 +69,7 @@ import fm.corus.android.ui.navigation.FilmDetailRoute
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
@@ -141,6 +142,7 @@ fun SearchScreen(
     val hashtagSearchResults by viewModel.hashtagSearchResults.collectAsState()
     val trendingHashtags by viewModel.trendingHashtags.collectAsState()
     val isTrendingHashtagsLoading by viewModel.isTrendingHashtagsLoading.collectAsState()
+    val trendingHashtagsWindow by viewModel.trendingHashtagsWindow.collectAsState()
     val followedHashtagNames by viewModel.followedHashtagNames.collectAsState()
 
     val activeTabIndex by viewModel.activeTab.collectAsState()
@@ -372,8 +374,10 @@ fun SearchScreen(
                                 hashtags = trendingHashtags,
                                 isLoading = isTrendingHashtagsLoading,
                                 followedHashtagNames = followedHashtagNames,
+                                window = trendingHashtagsWindow,
+                                onWindowChange = { viewModel.setTrendingHashtagsWindow(it) },
                                 onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
-                                onToggleFollow = { tag -> viewModel.toggleHashtagFollow(tag) },
+                                onToggleFollow = { tag -> viewModel.toggleHashtagFollowByName(tag.name) },
                             )
                         }
                     }
@@ -1333,17 +1337,30 @@ private fun TrendingHeader(
     iconName: String,
     window: TrendingWindow,
     onWindowChange: (TrendingWindow) -> Unit,
+    /** Optional noun to inject between "TRENDING" and "THIS" — e.g. "hashtags"
+     *  renders "TRENDING HASHTAGS THIS WEEK ▾". Omit for songs/films (header
+     *  reads just "TRENDING THIS WEEK ▾"); the surrounding tab already says
+     *  Songs/Films. */
+    noun: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val iconVector = when (iconName) {
         "music" -> Icons.Filled.MusicNote
         "film" -> Icons.Filled.Movie
+        "hashtag" -> Icons.Filled.Tag
         else -> null
     }
     val windowLabelRes = when (window) {
         TrendingWindow.WEEK -> fm.corus.android.R.string.search_trending_window_week
         TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month
         TrendingWindow.YEAR -> fm.corus.android.R.string.search_trending_window_year
+    }
+    val prefixText = if (!noun.isNullOrEmpty()) {
+        stringResource(fm.corus.android.R.string.search_section_trending) +
+            " " + noun.uppercase() + " " +
+            stringResource(fm.corus.android.R.string.search_section_trending_this_suffix) + " "
+    } else {
+        stringResource(fm.corus.android.R.string.search_section_trending_this) + " "
     }
     Row(
         modifier = Modifier
@@ -1368,7 +1385,7 @@ private fun TrendingHeader(
                     .padding(vertical = 2.dp),
             ) {
                 Text(
-                    text = stringResource(fm.corus.android.R.string.search_section_trending_this) + " ",
+                    text = prefixText,
                     style = CorusFont.sectionHeader,
                     color = CorusColors.Secondary,
                 )
@@ -1587,60 +1604,67 @@ internal fun formatMutualFollowersText(context: android.content.Context, names: 
 @Composable
 private fun TrendingHashtagsContent(
     listState: LazyListState = rememberLazyListState(),
-    hashtags: List<CymbalHashtag>,
+    hashtags: List<TrendingHashtag>,
     isLoading: Boolean,
     followedHashtagNames: Set<String>,
-    onHashtagTap: (CymbalHashtag) -> Unit,
-    onToggleFollow: (CymbalHashtag) -> Unit,
+    window: TrendingWindow,
+    onWindowChange: (TrendingWindow) -> Unit,
+    onHashtagTap: (TrendingHashtag) -> Unit,
+    onToggleFollow: (TrendingHashtag) -> Unit,
 ) {
-    if (isLoading) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl),
-        ) {
-            item {
-                SectionHeader(
-                    icon = "",
-                    title = stringResource(fm.corus.android.R.string.search_section_trending_hashtags),
-                )
-            }
+    val postNoun = stringResource(fm.corus.android.R.string.post_noun)
+    val postNounPlural = stringResource(fm.corus.android.R.string.post_noun_plural)
+    val followerWord = stringResource(fm.corus.android.R.string.hashtag_followers)
+    val followerSingular = followerWord.removeSuffix("s")
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl),
+    ) {
+        item {
+            TrendingHeader(
+                iconName = "hashtag",
+                window = window,
+                onWindowChange = onWindowChange,
+                noun = "hashtags",
+            )
+        }
+        if (isLoading) {
             items(8) { SkeletonSearchSongRow() }
-        }
-        return
-    }
-    if (hashtags.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(modifier = Modifier.height(80.dp))
-                Text(
-                    text = "#",
-                    style = CorusFont.songTitleLarge,
-                    color = CorusColors.Tertiary,
-                    modifier = Modifier.padding(bottom = CorusSpacing.sm),
-                )
-                Text(
-                    stringResource(fm.corus.android.R.string.search_no_trending_hashtags),
-                    style = CorusFont.bodyMedium,
-                    color = CorusColors.Secondary,
-                )
-            }
-        }
-    } else {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl),
-        ) {
+        } else if (hashtags.isEmpty()) {
             item {
-                SectionHeader(
-                    icon = "",
-                    title = stringResource(fm.corus.android.R.string.search_section_trending_hashtags),
-                )
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(top = 80.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "#",
+                            style = CorusFont.songTitleLarge,
+                            color = CorusColors.Tertiary,
+                            modifier = Modifier.padding(bottom = CorusSpacing.sm),
+                        )
+                        Text(
+                            stringResource(fm.corus.android.R.string.search_no_trending_hashtags),
+                            style = CorusFont.bodyMedium,
+                            color = CorusColors.Secondary,
+                        )
+                    }
+                }
             }
+        } else {
             itemsIndexed(hashtags) { index, tag ->
+                val noun = if (tag.cymbalCount == 1) postNoun else postNounPlural
+                val subtitle = if (tag.followerCount > 0) {
+                    val fNoun = if (tag.followerCount == 1) followerSingular else followerWord
+                    "${tag.cymbalCount} $noun · ${tag.followerCount} $fNoun"
+                } else {
+                    "${tag.cymbalCount} $noun"
+                }
                 HashtagRow(
-                    hashtag = tag,
+                    name = tag.name,
+                    fallbackCount = tag.cymbalCount,
+                    subtitleOverride = subtitle,
                     isFollowing = followedHashtagNames.contains(tag.name.lowercase()),
                     onClick = { onHashtagTap(tag) },
                     onToggleFollow = { onToggleFollow(tag) },
@@ -1698,7 +1722,8 @@ private fun HashtagSearchResultsList(
         ) {
             itemsIndexed(hashtags) { index, tag ->
                 HashtagRow(
-                    hashtag = tag,
+                    name = tag.name,
+                    fallbackCount = tag.cymbalCount,
                     isFollowing = followedHashtagNames.contains(tag.name.lowercase()),
                     onClick = { onHashtagTap(tag) },
                     onToggleFollow = { onToggleFollow(tag) },
@@ -1717,37 +1742,44 @@ private fun HashtagSearchResultsList(
 
 @Composable
 private fun HashtagRow(
-    hashtag: CymbalHashtag,
+    name: String,
+    fallbackCount: Int,
     isFollowing: Boolean,
     onClick: () -> Unit,
     onToggleFollow: () -> Unit,
+    /** Trending rows pass a precomposed subtitle ("N coruses · M followers").
+     *  Search-result rows omit it and the row falls back to the live count
+     *  fetched via `fetchHashtagPreview`. */
+    subtitleOverride: String? = null,
 ) {
     val viewModel: SearchViewModel = hiltViewModel()
     // Seed from the ViewModel's preview cache so a tab-switch round-trip
     // doesn't flash the shimmer skeleton on already-loaded hashtags.
-    var preview by remember(hashtag.id) {
-        mutableStateOf(viewModel.cachedHashtagPreview(hashtag.name))
+    var preview by remember(name) {
+        mutableStateOf(viewModel.cachedHashtagPreview(name))
     }
-    LaunchedEffect(hashtag.id) {
+    LaunchedEffect(name) {
         if (preview == null) {
             preview = runCatching {
-                viewModel.fetchHashtagPreview(hashtag.name)
+                viewModel.fetchHashtagPreview(name)
             }.getOrNull() ?: fm.corus.android.data.remote.FirestoreDataSource.HashtagPreview(
                 coverArt = emptyList(),
-                totalCount = hashtag.cymbalCount,
+                totalCount = fallbackCount,
             )
         }
     }
-    // Hide the row entirely once preview loads with zero matching posts.
-    // Stops phantom hashtags (orphan docs, drift, deleted-post cleanup) from
-    // cluttering search results.
-    if (preview != null && (preview?.totalCount ?: 0) == 0) return
+    // Hide phantom hashtags (orphan docs, drift, deleted-post cleanup). For
+    // trending rows the parent already gates on cymbalCount > 0 so we only
+    // hide search-result rows here.
+    if (subtitleOverride == null && preview != null && (preview?.totalCount ?: 0) == 0) return
 
     val liveCount = preview?.totalCount
-    val noun = stringResource(
+    val fallbackNoun = stringResource(
         if (liveCount == 1) fm.corus.android.R.string.post_noun
         else fm.corus.android.R.string.post_noun_plural
     )
+    val subtitle: String? = subtitleOverride
+        ?: liveCount?.let { "$it $fallbackNoun" }
 
     Row(
         modifier = Modifier
@@ -1768,15 +1800,15 @@ private fun HashtagRow(
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
         ) {
             Text(
-                text = "#${hashtag.name}",
+                text = "#$name",
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (liveCount != null) {
+            if (subtitle != null) {
                 Text(
-                    text = "$liveCount $noun",
+                    text = subtitle,
                     style = CorusFont.caption,
                     color = CorusColors.Secondary,
                 )

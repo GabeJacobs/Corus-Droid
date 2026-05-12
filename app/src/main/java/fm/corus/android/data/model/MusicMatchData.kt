@@ -1,5 +1,21 @@
 package fm.corus.android.data.model
 
+/**
+ * How a shared preview came to be — used to distinguish "both of you posted
+ * this song/film" from "the target posted a song by an artist you both like."
+ */
+enum class SharedPreviewKind {
+    /** Pass 1: same trackId / movieId on both users. */
+    SHARED_SONG,
+    /** Pass 2: same artist/director, target's post fills in. */
+    SHARED_ARTIST;
+
+    companion object {
+        fun fromWire(raw: String?): SharedPreviewKind =
+            if (raw == "sharedArtist") SHARED_ARTIST else SHARED_SONG
+    }
+}
+
 data class SharedTrackPreview(
     val trackId: String,
     val trackName: String,
@@ -7,6 +23,8 @@ data class SharedTrackPreview(
     val albumArtURL: String? = null,
     val posterURL: String? = null,
     val isMovie: Boolean = false,
+    val postId: String? = null,
+    val kind: SharedPreviewKind = SharedPreviewKind.SHARED_SONG,
 ) {
     val displayImageURL: String? get() = if (isMovie) posterURL else albumArtURL
 }
@@ -16,6 +34,8 @@ data class SharedMoviePreview(
     val movieTitle: String,
     val directorName: String,
     val posterURL: String? = null,
+    val postId: String? = null,
+    val kind: SharedPreviewKind = SharedPreviewKind.SHARED_SONG,
 )
 
 data class MusicMatchData(
@@ -31,6 +51,8 @@ data class MusicMatchData(
     val mutualFollows: Int = 0,
     val sharedTrackPreviews: List<SharedTrackPreview> = emptyList(),
     val sharedMoviePreviews: List<SharedMoviePreview> = emptyList(),
+    val sharedArtistNames: List<String> = emptyList(),
+    val sharedDirectorNames: List<String> = emptyList(),
 ) {
     val hasSimilarityData: Boolean
         get() = totalSharedTracks > 0 || sharedArtists > 0 || adjacentArtists > 0 ||
@@ -51,6 +73,8 @@ data class MusicMatchData(
                     albumArtURL = it["albumArtURL"] as? String,
                     posterURL = it["posterURL"] as? String,
                     isMovie = it["isMovie"] as? Boolean ?: false,
+                    postId = it["postId"] as? String,
+                    kind = SharedPreviewKind.fromWire(it["kind"] as? String),
                 )
             } ?: emptyList()
 
@@ -60,8 +84,15 @@ data class MusicMatchData(
                     movieTitle = it["movieTitle"] as? String ?: "",
                     directorName = it["directorName"] as? String ?: "",
                     posterURL = it["posterURL"] as? String,
+                    postId = it["postId"] as? String,
+                    kind = SharedPreviewKind.fromWire(it["kind"] as? String),
                 )
             } ?: emptyList()
+
+            val artistNames = (data["sharedArtistNames"] as? List<*>)
+                ?.mapNotNull { it as? String } ?: emptyList()
+            val directorNames = (data["sharedDirectorNames"] as? List<*>)
+                ?.mapNotNull { it as? String } ?: emptyList()
 
             return MusicMatchData(
                 similarityScore = (data["similarityScore"] as? Number)?.toDouble() ?: 0.0,
@@ -76,6 +107,8 @@ data class MusicMatchData(
                 mutualFollows = (data["mutualFollows"] as? Number)?.toInt() ?: 0,
                 sharedTrackPreviews = trackPreviews,
                 sharedMoviePreviews = moviePreviews,
+                sharedArtistNames = artistNames,
+                sharedDirectorNames = directorNames,
             )
         }
     }

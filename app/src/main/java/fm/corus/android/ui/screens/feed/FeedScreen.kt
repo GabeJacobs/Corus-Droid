@@ -97,6 +97,8 @@ fun FeedScreen(
     val feedFilter by viewModel.feedFilter.collectAsState()
     val followedBotIds by viewModel.followedBotIds.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
+    val hasTappedAlbumArt by viewModel.hasTappedAlbumArt.collectAsState()
+    val isNewAccount by viewModel.isNewAccount.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val context = LocalContext.current
@@ -194,6 +196,11 @@ fun FeedScreen(
         if (newPostId == null) return@LaunchedEffect
         if (!feedFollowsNowPlaying) return@LaunchedEffect
         if (!isAtRoot) return@LaunchedEffect
+        // Don't yank the feed out from under a finger that's actively
+        // scrolling (or a fling that's still decelerating). Checked before
+        // we kick off our own animateScrollToItem, so this only reflects
+        // user-driven motion.
+        if (listState.isScrollInProgress) return@LaunchedEffect
         // Skip when the user just tapped this card to play it — they're
         // already looking at it. The marker is a one-shot, so consume it.
         val tapMarker = viewModel.nowPlayingManager.lastUserInitiatedSourcePostId
@@ -508,6 +515,8 @@ fun FeedScreen(
                             },
                             onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                             backCoverFlipState = backCoverStateFor(post.id),
+                            showsTapHint = index == 0 && isNewAccount && !hasTappedAlbumArt,
+                            onAlbumArtTap = { viewModel.markAlbumArtTapped() },
                         )
                         HorizontalDivider(
                             color = CorusColors.Divider,

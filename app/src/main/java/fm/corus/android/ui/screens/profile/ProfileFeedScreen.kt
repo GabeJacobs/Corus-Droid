@@ -141,6 +141,11 @@ fun ProfileFeedScreen(
         }
         if (newPostId == null) return@LaunchedEffect
         if (!feedFollowsNowPlaying) return@LaunchedEffect
+        // Don't yank the feed out from under a finger that's actively
+        // scrolling (or a fling that's still decelerating). Checked before
+        // we kick off our own animateScrollToItem, so this only reflects
+        // user-driven motion.
+        if (listState.isScrollInProgress) return@LaunchedEffect
         // Skip when the user just tapped this card to play it.
         val tapMarker = viewModel.nowPlayingManager.lastUserInitiatedSourcePostId
         if (tapMarker == newPostId) {

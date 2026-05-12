@@ -203,15 +203,17 @@ class PreferencesDataStore @Inject constructor(
         val HAS_SEEN_FIRST_POST_PAYWALL = booleanPreferencesKey("has_seen_first_post_paywall")
         val HAS_SEEN_TENTH_POST_PAYWALL = booleanPreferencesKey("has_seen_tenth_post_paywall")
         val HAS_REQUESTED_PUSH_PERMISSION = booleanPreferencesKey("has_requested_push_permission")
+        val HAS_TAPPED_ALBUM_ART = booleanPreferencesKey("has_tapped_album_art")
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
         val AUTOPLAY_NEXT_SONG = booleanPreferencesKey("autoplay_next_song")
         val FEED_FOLLOWS_NOW_PLAYING = booleanPreferencesKey("feed_follows_now_playing")
         val TRENDING_SONGS_WINDOW = stringPreferencesKey("trending_songs_window")
         val TRENDING_FILMS_WINDOW = stringPreferencesKey("trending_films_window")
+        val TRENDING_HASHTAGS_WINDOW = stringPreferencesKey("trending_hashtags_window")
     }
 
     val trendingSongsWindow: Flow<String> = dataStore.data.map { prefs ->
-        prefs[TRENDING_SONGS_WINDOW] ?: "month"
+        prefs[TRENDING_SONGS_WINDOW] ?: "week"
     }
 
     suspend fun setTrendingSongsWindow(value: String) {
@@ -219,11 +221,19 @@ class PreferencesDataStore @Inject constructor(
     }
 
     val trendingFilmsWindow: Flow<String> = dataStore.data.map { prefs ->
-        prefs[TRENDING_FILMS_WINDOW] ?: "month"
+        prefs[TRENDING_FILMS_WINDOW] ?: "week"
     }
 
     suspend fun setTrendingFilmsWindow(value: String) {
         dataStore.edit { it[TRENDING_FILMS_WINDOW] = value }
+    }
+
+    val trendingHashtagsWindow: Flow<String> = dataStore.data.map { prefs ->
+        prefs[TRENDING_HASHTAGS_WINDOW] ?: "week"
+    }
+
+    suspend fun setTrendingHashtagsWindow(value: String) {
+        dataStore.edit { it[TRENDING_HASHTAGS_WINDOW] = value }
     }
 
     val autoplayNextSong: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -301,6 +311,14 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setHasRequestedPushPermission() {
         dataStore.edit { it[HAS_REQUESTED_PUSH_PERMISSION] = true }
+    }
+
+    val hasTappedAlbumArt: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[HAS_TAPPED_ALBUM_ART] ?: false
+    }
+
+    suspend fun setHasTappedAlbumArt() {
+        dataStore.edit { it[HAS_TAPPED_ALBUM_ART] = true }
     }
 
     // ── Recent Searches (stored as JSON array of user objects) ──

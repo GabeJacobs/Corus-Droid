@@ -91,6 +91,7 @@ fun CommentsBottomSheet(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
+    onNavigateToHashtag: (String) -> Unit = {},
 ) {
     val viewModel: CommentsViewModel = hiltViewModel()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -117,6 +118,7 @@ fun CommentsBottomSheet(
             onNavigateToUser = onNavigateToUser,
             onNavigateToSong = onNavigateToSong,
             onNavigateToFilm = onNavigateToFilm,
+            onNavigateToHashtag = onNavigateToHashtag,
             autoFocusInput = true,
         )
     }
@@ -131,6 +133,7 @@ fun CommentsSheet(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
+    onNavigateToHashtag: (String) -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -153,6 +156,7 @@ fun CommentsSheet(
                 onNavigateToUser = onNavigateToUser,
                 onNavigateToSong = onNavigateToSong,
                 onNavigateToFilm = onNavigateToFilm,
+                onNavigateToHashtag = onNavigateToHashtag,
             )
         }
     }
@@ -167,6 +171,7 @@ private fun CommentsSheetContent(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
+    onNavigateToHashtag: (String) -> Unit = {},
     autoFocusInput: Boolean = false,
 ) {
     val comments by viewModel.comments.collectAsState()
@@ -205,6 +210,11 @@ private fun CommentsSheetContent(
             val userId = viewModel.resolveUsernameToId(username)
             if (userId != null) onNavigateToUser(userId)
         }
+    }
+    val handleHashtagTap: (String) -> Unit = { hashtag ->
+        val tag = hashtag.removePrefix("#")
+        viewModel.analyticsService.logTrendingHashtagTapped(tag)
+        onNavigateToHashtag(tag)
     }
 
     LaunchedEffect(sendError) {
@@ -381,6 +391,7 @@ private fun CommentsSheetContent(
                             timestamp = post?.timestamp,
                             onUserTap = { post?.user?.id?.let { onNavigateToUser(it) } },
                             onMentionTap = handleMentionTap,
+                            onHashtagTap = handleHashtagTap,
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = CorusSpacing.lg),
@@ -410,6 +421,7 @@ private fun CommentsSheetContent(
                             onReportTap = { reportingComment = comment },
                             onBlockTap = { viewModel.blockUser(comment.user.id) },
                             onMentionTap = handleMentionTap,
+                            onHashtagTap = handleHashtagTap,
                             onNavigateToSong = onNavigateToSong,
                             onNavigateToFilm = onNavigateToFilm,
                         )
@@ -437,6 +449,7 @@ private fun CommentsSheetContent(
                                 onReportTap = { reportingComment = reply },
                                 onBlockTap = { viewModel.blockUser(reply.user.id) },
                                 onMentionTap = handleMentionTap,
+                                onHashtagTap = handleHashtagTap,
                                 onNavigateToSong = onNavigateToSong,
                                 onNavigateToFilm = onNavigateToFilm,
                             )
@@ -696,6 +709,7 @@ private fun CaptionRow(
     timestamp: java.util.Date?,
     onUserTap: () -> Unit = {},
     onMentionTap: (String) -> Unit = {},
+    onHashtagTap: (String) -> Unit = {},
 ) {
     if (user == null) return
     Row(
@@ -751,6 +765,7 @@ private fun CaptionRow(
                 text = annotatedCaption,
                 style = CorusFont.body.copy(fontSize = 15.sp),
                 onMentionTap = onMentionTap,
+                onHashtagTap = onHashtagTap,
             )
         }
     }
@@ -773,6 +788,7 @@ private fun CommentRow(
     onReportTap: () -> Unit = {},
     onBlockTap: () -> Unit = {},
     onMentionTap: (String) -> Unit = {},
+    onHashtagTap: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
 ) {
@@ -942,6 +958,7 @@ private fun CommentRow(
                     text = annotatedText,
                     style = CorusFont.body.copy(fontSize = 15.sp),
                     onMentionTap = onMentionTap,
+                    onHashtagTap = onHashtagTap,
                 )
             }
 

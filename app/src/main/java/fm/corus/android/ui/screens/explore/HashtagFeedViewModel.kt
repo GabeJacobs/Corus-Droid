@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.HashtagContributor
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
@@ -44,9 +45,32 @@ class HashtagFeedViewModel @Inject constructor(
     private val _isTogglingFollow = MutableStateFlow(false)
     val isTogglingFollow: StateFlow<Boolean> = _isTogglingFollow.asStateFlow()
 
+    // Aggregates from `hashtags/{tag}` — gated by `hasLoadedAggregates` so the
+    // 3-stat row doesn't flash "0 followers / 0 contributors" on first paint.
+    private val _followerCount = MutableStateFlow(0)
+    val followerCount: StateFlow<Int> = _followerCount.asStateFlow()
+
+    private val _contributorCount = MutableStateFlow(0)
+    val contributorCount: StateFlow<Int> = _contributorCount.asStateFlow()
+
+    private val _recentCount = MutableStateFlow(0)
+    val recentCount: StateFlow<Int> = _recentCount.asStateFlow()
+
+    private val _hasLoadedAggregates = MutableStateFlow(false)
+    val hasLoadedAggregates: StateFlow<Boolean> = _hasLoadedAggregates.asStateFlow()
+
+    // Gates the posts stat so it shows a skeleton instead of "0 coruses"
+    // until the first page returns with the real totalCount.
+    private val _hasLoadedPostsPage = MutableStateFlow(false)
+    val hasLoadedPostsPage: StateFlow<Boolean> = _hasLoadedPostsPage.asStateFlow()
+
+    private val _topContributors = MutableStateFlow<List<HashtagContributor>>(emptyList())
+    val topContributors: StateFlow<List<HashtagContributor>> = _topContributors.asStateFlow()
+
     private var lastTimestamp: Long? = null
     private var currentHashtag: String? = null
     private var hasInitiatedFollowLoad = false
+    private var hasInitiatedAggregateLoad = false
 
     fun loadHashtagPosts(hashtag: String, refresh: Boolean = false) {
         authRepository.currentUserId ?: return
@@ -70,6 +94,7 @@ class HashtagFeedViewModel @Inject constructor(
                 _totalCount.value = page.totalCount
                 _hasMore.value = page.hasMore
                 if (page.posts.isNotEmpty()) lastTimestamp = page.posts.last().timestamp.time
+                _hasLoadedPostsPage.value = true
             } catch (_: Exception) {
                 _loadError.value = "Couldn't load posts"
             }
@@ -105,6 +130,10 @@ class HashtagFeedViewModel @Inject constructor(
             _isTogglingFollow.value = true
             val wasFollowing = _isFollowing.value
             _isFollowing.value = !wasFollowing
+            // Optimistic count bump — server triggers will reconcile, but
+            // waiting for round-trip leaves the stats stale for a beat.
+            _followerCount.value = (_followerCount.value + if (wasFollowing) -1 else 1)
+                .coerceAtLeast(0)
             try {
                 if (wasFollowing) {
                     firestoreDataSource.unfollowHashtag(uid, hashtag)
@@ -113,8 +142,34 @@ class HashtagFeedViewModel @Inject constructor(
                 }
             } catch (_: Exception) {
                 _isFollowing.value = wasFollowing
+                _followerCount.value = (_followerCount.value + if (wasFollowing) 1 else -1)
+                    .coerceAtLeast(0)
             }
             _isTogglingFollow.value = false
+        }
+    }
+
+    /** Fetch aggregates + facepile data from `hashtags/{tag}`. Mirrors iOS
+     *  `loadHashtagAggregates` + `loadTopContributors`. */
+    fun loadAggregatesAndContributors(hashtag: String) {
+        if (hasInitiatedAggregateLoad) return
+        hasInitiatedAggregateLoad = true
+        viewModelScope.launch {
+            try {
+                val agg = firestoreDataSource.fetchHashtag(hashtag)
+                if (agg != null) {
+                    _followerCount.value = agg.followerCount.coerceAtLeast(_followerCount.value)
+                    _contributorCount.value = agg.contributorCount
+                    _recentCount.value = agg.recentCount
+                }
+            } catch (_: Exception) { }
+            try {
+                _topContributors.value =
+                    firestoreDataSource.fetchTopHashtagContributors(hashtag, limit = 6)
+            } catch (_: Exception) { }
+            // Mark loaded even on error so the redacted placeholders disappear —
+            // zero is the correct value for a tag with no aggregates.
+            _hasLoadedAggregates.value = true
         }
     }
 }

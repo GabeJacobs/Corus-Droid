@@ -9,6 +9,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.model.MusicMatchData
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
@@ -95,6 +96,11 @@ class OtherProfileViewModel @Inject constructor(
     private val _isSubscribedToNotifications = MutableStateFlow(false)
     val isSubscribedToNotifications: StateFlow<Boolean> = _isSubscribedToNotifications.asStateFlow()
 
+    // Taste-match payload alongside the target user — drives the profile teaser
+    // pill and the detail sheet. Null when there's no overlap (or on own-profile).
+    private val _matchData = MutableStateFlow<MusicMatchData?>(null)
+    val matchData: StateFlow<MusicMatchData?> = _matchData.asStateFlow()
+
     val currentUserId: String? get() = authRepository.currentUserId
 
     val engagementStates = engagementManager.states
@@ -141,6 +147,7 @@ class OtherProfileViewModel @Inject constructor(
                     val data = postRepository.getProfileData(userId = userId, pageSize = PAGE_SIZE)
                     if (data.user != null) {
                         _profile.value = data.user
+                        _matchData.value = data.match
                         data.posts
                     } else {
                         _profile.value = userRepository.fetchUserProfile(userId)

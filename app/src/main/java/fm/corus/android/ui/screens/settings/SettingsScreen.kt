@@ -16,8 +16,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Feedback
 import androidx.compose.material.icons.outlined.Group
@@ -223,6 +223,25 @@ fun SettingsScreen(
                 )
             }
 
+            // ── Section: Invite ──
+            SectionHeader(stringResource(R.string.settings_section_invite))
+
+            val inviteShareText = stringResource(R.string.settings_share_app_text)
+            val inviteShareChooser = stringResource(R.string.settings_share_app_chooser)
+            SettingsNavRow(
+                icon = Icons.Filled.PersonAdd,
+                title = stringResource(R.string.settings_row_invite_friends),
+                subtitle = stringResource(R.string.settings_row_invite_friends_subtitle),
+                onClick = {
+                    val sendIntent = android.content.Intent().apply {
+                        action = android.content.Intent.ACTION_SEND
+                        putExtra(android.content.Intent.EXTRA_TEXT, inviteShareText)
+                        type = "text/plain"
+                    }
+                    context.startActivity(android.content.Intent.createChooser(sendIntent, inviteShareChooser))
+                },
+            )
+
             // ── Section: Appearance ──
             SectionHeader(stringResource(R.string.settings_section_appearance))
 
@@ -356,23 +375,6 @@ fun SettingsScreen(
 
             // ── Section: Support ──
             SectionHeader(stringResource(R.string.settings_section_support))
-
-            val context = LocalContext.current
-            val shareAppText = stringResource(R.string.settings_share_app_text)
-            val shareAppChooser = stringResource(R.string.settings_share_app_chooser)
-
-            SettingsNavRow(
-                icon = Icons.Filled.Share,
-                title = stringResource(R.string.settings_row_share_app),
-                onClick = {
-                    val sendIntent = android.content.Intent().apply {
-                        action = android.content.Intent.ACTION_SEND
-                        putExtra(android.content.Intent.EXTRA_TEXT, shareAppText)
-                        type = "text/plain"
-                    }
-                    context.startActivity(android.content.Intent.createChooser(sendIntent, shareAppChooser))
-                },
-            )
 
             SettingsNavRow(
                 icon = Icons.Outlined.Feedback,

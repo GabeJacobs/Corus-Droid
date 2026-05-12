@@ -10,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import fm.corus.android.ui.screens.explore.HashtagFeedScreen
+import fm.corus.android.ui.screens.explore.HashtagPeopleListScreen
 import fm.corus.android.ui.screens.feed.CommentLikesScreen
 import fm.corus.android.ui.screens.feed.CommentsBottomSheet
 import fm.corus.android.ui.screens.feed.CommentsSheet
@@ -159,6 +160,10 @@ fun FeedNavGraph(
                 commentPostId = null
                 navController.navigate(FilmDetailRoute(movie.id))
             },
+            onNavigateToHashtag = { hashtag ->
+                commentPostId = null
+                navController.navigate(HashtagFeedRoute(hashtag))
+            },
         )
     }
 
@@ -222,6 +227,10 @@ fun SearchNavGraph(
             onNavigateToFilm = { movie ->
                 commentPostId = null
                 navController.navigate(FilmDetailRoute(movie.id))
+            },
+            onNavigateToHashtag = { hashtag ->
+                commentPostId = null
+                navController.navigate(HashtagFeedRoute(hashtag))
             },
         )
     }
@@ -288,6 +297,10 @@ fun NotificationsNavGraph(
             onNavigateToFilm = { movie ->
                 commentPostId = null
                 navController.navigate(FilmDetailRoute(movie.id))
+            },
+            onNavigateToHashtag = { hashtag ->
+                commentPostId = null
+                navController.navigate(HashtagFeedRoute(hashtag))
             },
         )
     }
@@ -365,6 +378,10 @@ fun ProfileNavGraph(
             onNavigateToFilm = { movie ->
                 commentPostId = null
                 navController.navigate(FilmDetailRoute(movie.id))
+            },
+            onNavigateToHashtag = { hashtag ->
+                commentPostId = null
+                navController.navigate(HashtagFeedRoute(hashtag))
             },
         )
     }
@@ -461,6 +478,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToMessages = { threadId, otherUserId ->
                 navController.navigate(MessageThreadRoute(threadId, otherUserId))
             },
+            onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
         )
     }
 
@@ -491,6 +509,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 onNavigateToMessages = { threadId, otherUserId ->
                     navController.navigate(MessageThreadRoute(threadId, otherUserId))
                 },
+                onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             )
         }
     }
@@ -552,6 +571,22 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                     )
                 )
             },
+            onNavigateToHashtagFollowers = { tag ->
+                navController.navigate(HashtagPeopleRoute(tag, isFollowers = true))
+            },
+            onNavigateToHashtagContributors = { tag ->
+                navController.navigate(HashtagPeopleRoute(tag, isFollowers = false))
+            },
+        )
+    }
+
+    composable<HashtagPeopleRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<HashtagPeopleRoute>()
+        HashtagPeopleListScreen(
+            hashtag = route.hashtag,
+            isFollowers = route.isFollowers,
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { uid -> navController.navigate(OtherProfileRoute(uid)) },
         )
     }
 

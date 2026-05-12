@@ -37,6 +37,9 @@
     <string name="settings_section_corus_club">CORUS CLUB</string>
     <string name="settings_row_join_club">Entrar no Corus Club</string>
     <string name="settings_row_join_club_subtitle">Selo verificado, publicações ilimitadas e mais</string>
+    <string name="settings_section_invite">CONVIDAR</string>
+    <string name="settings_row_invite_friends">Convidar Amigos</string>
+    <string name="settings_row_invite_friends_subtitle">Convide seus amigos para usar o Corus com você</string>
     <string name="settings_section_general">GERAL</string>
     <string name="settings_row_autoplay_title">Reproduzir Próxima Música Automaticamente</string>
     <string name="settings_row_autoplay_subtitle">Tocar a próxima música automaticamente quando uma terminar</string>
@@ -60,7 +63,6 @@
     <string name="settings_row_sign_out">Sair</string>
     <string name="settings_row_delete_account">Excluir Conta</string>
     <string name="settings_section_support">SUPORTE</string>
-    <string name="settings_row_share_app">Compartilhar App</string>
     <string name="settings_share_app_text">Confira o Corus — compartilhe seu gosto musical e cinematográfico! https://corus.fm</string>
     <string name="settings_share_app_chooser">Compartilhar Corus</string>
     <string name="settings_row_send_feedback">Enviar Feedback</string>

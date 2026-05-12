@@ -67,6 +67,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class ProfileByUsernameRoute(val username: String)
 @Serializable data class FollowListRoute(val userId: String, val isFollowers: Boolean)
 @Serializable data class HashtagFeedRoute(val hashtag: String)
+@Serializable data class HashtagPeopleRoute(val hashtag: String, val isFollowers: Boolean)
 @Serializable data class EditProfileRoute(val userId: String)
 @Serializable object SearchRoute
 @Serializable data class EditCaptionRoute(val postId: String, val initialCaption: String, val albumArtURL: String? = null)

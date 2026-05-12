@@ -75,6 +75,8 @@ import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.SkeletonProfileGrid
 import fm.corus.android.ui.components.SkeletonProfileView
 import fm.corus.android.ui.components.SkeletonProfileWithAvatar
+import fm.corus.android.ui.components.TasteMatchSheet
+import fm.corus.android.ui.components.TasteMatchTeaser
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -104,6 +106,7 @@ fun OtherProfileScreen(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToFollowList: (String, Boolean) -> Unit = { _, _ -> },
     onNavigateToMessages: (String, String) -> Unit = { _, _ -> },
+    onNavigateToPost: (postId: String) -> Unit = {},
 ) {
     val profile by viewModel.profile.collectAsState()
     val posts by viewModel.posts.collectAsState()
@@ -114,6 +117,9 @@ fun OtherProfileScreen(
     val isBlocked by viewModel.isBlocked.collectAsState()
     val isMuted by viewModel.isMuted.collectAsState()
     val isSubscribedToNotifications by viewModel.isSubscribedToNotifications.collectAsState()
+    val matchData by viewModel.matchData.collectAsState()
+    var showMatchSheet by remember { mutableStateOf(false) }
+    val isOwnProfile = viewModel.currentUserId == userId
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -802,6 +808,16 @@ fun OtherProfileScreen(
                         }
                     }
 
+                    val match = matchData
+                    if (!isOwnProfile && match != null) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.md))
+                        TasteMatchTeaser(
+                            match = match,
+                            onClick = { showMatchSheet = true },
+                            modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
                     // Segment control — bots only show their content type (no tabs)
@@ -1092,6 +1108,18 @@ fun OtherProfileScreen(
                     androidx.compose.material3.Text("Cancel")
                 }
             },
+        )
+    }
+
+    // Taste-match detail sheet. Tapping a tile dismisses the sheet and routes
+    // to the target's post via the nav-graph-supplied onNavigateToPost handler.
+    val match = matchData
+    if (showMatchSheet && match != null) {
+        TasteMatchSheet(
+            username = profile?.username ?: initialUsername.orEmpty(),
+            match = match,
+            onDismiss = { showMatchSheet = false },
+            onSelectPost = { postId -> onNavigateToPost(postId) },
         )
     }
 }

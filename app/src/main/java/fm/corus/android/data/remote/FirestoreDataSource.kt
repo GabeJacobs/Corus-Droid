@@ -643,6 +643,100 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Hashtags ──
 
+    /** Windowed trending hashtag list, reading from the pre-ranked
+     *  `trending_cache/hashtags` cache doc built by `refreshTrendingCache`.
+     *  Mirrors `fetchTrendingSongs`/`fetchTrendingMovies` so swapping the
+     *  window doesn't re-aggregate. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchTrendingHashtagsWindowed(
+        window: TrendingWindow = TrendingWindow.DEFAULT,
+        limit: Int = 20,
+    ): List<TrendingHashtag> {
+        val doc = firestore.collection("trending_cache").document("hashtags")
+            .get().await()
+        val data = doc.data ?: return emptyList()
+        val items = pickWindowItems(data, window)
+        return items.take(limit).mapIndexedNotNull { i, item ->
+            val name = item["name"] as? String ?: return@mapIndexedNotNull null
+            if (name.isEmpty()) return@mapIndexedNotNull null
+            TrendingHashtag(
+                id = name,
+                rank = (item["rank"] as? Number)?.toInt() ?: (i + 1),
+                name = name,
+                cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+                followerCount = (item["followerCount"] as? Number)?.toInt() ?: 0,
+            )
+        }
+    }
+
+    /** Authoritative aggregates from `hashtags/{tag}`. Returns null if the
+     *  doc doesn't exist (legacy tag that hasn't been touched by any
+     *  trigger). */
+    suspend fun fetchHashtag(tag: String): CymbalHashtag? {
+        val key = tag.lowercase()
+        val doc = firestore.collection("hashtags").document(key).get().await()
+        if (!doc.exists()) return null
+        val data = doc.data ?: return null
+        return decodeHashtag(doc.id, data)
+    }
+
+    /** Top contributors for the facepile. Ordered by `lastPostedAt` desc so
+     *  the recently-active authors show first. Reads denormalized profile
+     *  fields written by the `onHashtagPostsChanged` trigger. */
+    suspend fun fetchTopHashtagContributors(tag: String, limit: Int = 6): List<HashtagContributor> {
+        val key = tag.lowercase()
+        val snap = firestore.collection("hashtags").document(key)
+            .collection("contributors")
+            .orderBy("lastPostedAt", Query.Direction.DESCENDING)
+            .limit(limit.toLong())
+            .get().await()
+        return snap.documents.mapNotNull { doc ->
+            val data = doc.data ?: return@mapNotNull null
+            decodeContributor(doc.id, data)
+        }
+    }
+
+    /** Paginated contributor uids for the "Contributors of #tag" list. The
+     *  caller hydrates full user profiles via `fetchUsersByIds`. */
+    suspend fun fetchHashtagContributorIds(
+        tag: String,
+        limit: Int = 30,
+        after: DocumentSnapshot? = null,
+    ): Pair<List<String>, DocumentSnapshot?> {
+        val key = tag.lowercase()
+        var q = firestore.collection("hashtags").document(key)
+            .collection("contributors")
+            .orderBy("lastPostedAt", Query.Direction.DESCENDING)
+            .limit(limit.toLong())
+        if (after != null) q = q.startAfter(after)
+        val snap = q.get().await()
+        return snap.documents.map { it.id } to snap.documents.lastOrNull()
+    }
+
+    /** Paginated follower uids for the "Followers of #tag" list. Uses a
+     *  collectionGroup query on `hashtagsFollowed` — each match's parent
+     *  path is `users_v2/{uid}/hashtagsFollowed/{tag}`. Requires the
+     *  single-field collectionGroup index on `hashtagsFollowed.tag` plus
+     *  the recursive-wildcard read rule. */
+    suspend fun fetchHashtagFollowerIds(
+        tag: String,
+        limit: Int = 30,
+        after: DocumentSnapshot? = null,
+    ): Pair<List<String>, DocumentSnapshot?> {
+        val key = tag.lowercase()
+        var q: com.google.firebase.firestore.Query = firestore
+            .collectionGroup("hashtagsFollowed")
+            .whereEqualTo("tag", key)
+            .limit(limit.toLong())
+        if (after != null) q = q.startAfter(after)
+        val snap = q.get().await()
+        val ids = snap.documents.mapNotNull { doc ->
+            val parts = doc.reference.path.split("/")
+            if (parts.size >= 4 && parts[0] == "users_v2") parts[1] else null
+        }
+        return ids to snap.documents.lastOrNull()
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun fetchTrendingHashtags(limit: Int = 10): List<CymbalHashtag> {
         val snapshot = firestore.collection("hashtags")
@@ -651,13 +745,33 @@ class FirestoreDataSource @Inject constructor(
             .get().await()
         return snapshot.documents.mapNotNull { doc ->
             val data = doc.data ?: return@mapNotNull null
-            CymbalHashtag(
-                id = doc.id,
-                name = data["name"] as? String ?: doc.id,
-                cymbalCount = (data["cymbalCount"] as? Number)?.toInt() ?: 0,
-                coverArtURLs = (data["coverArtURLs"] as? List<String>) ?: emptyList(),
-            )
+            decodeHashtag(doc.id, data)
         }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun decodeHashtag(id: String, data: Map<String, Any?>): CymbalHashtag {
+        return CymbalHashtag(
+            id = id,
+            name = data["name"] as? String ?: id,
+            cymbalCount = (data["cymbalCount"] as? Number)?.toInt() ?: 0,
+            coverArtURLs = (data["coverArtURLs"] as? List<String>) ?: emptyList(),
+            followerCount = (data["followerCount"] as? Number)?.toInt() ?: 0,
+            contributorCount = (data["contributorCount"] as? Number)?.toInt() ?: 0,
+            recentCount = (data["recentCount"] as? Number)?.toInt() ?: 0,
+        )
+    }
+
+    private fun decodeContributor(id: String, data: Map<String, Any?>): HashtagContributor {
+        val ts = data["lastPostedAt"] as? com.google.firebase.Timestamp
+        val lastMs = ts?.toDate()?.time ?: 0L
+        return HashtagContributor(
+            id = id,
+            username = data["username"] as? String ?: "",
+            displayName = data["displayName"] as? String ?: "",
+            photoURL = data["photoURL"] as? String,
+            lastPostedAtMs = lastMs,
+        )
     }
 
     /** Follow a hashtag — mirrors the web `followHashtag` exactly: writes

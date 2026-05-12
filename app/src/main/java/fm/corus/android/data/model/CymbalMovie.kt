@@ -27,12 +27,34 @@ enum class TrendingWindow(val key: String) {
     YEAR("year");
 
     companion object {
-        val DEFAULT: TrendingWindow = MONTH
+        val DEFAULT: TrendingWindow = WEEK
 
         fun fromKey(value: String?): TrendingWindow =
             values().firstOrNull { it.key == value } ?: DEFAULT
     }
 }
+
+/** Windowed trending hashtag row. `cymbalCount` is the post count for the
+ *  selected window (week/month/year), not all-time. `followerCount` is
+ *  denormalized onto `trending_cache/hashtags` so the subtitle can render
+ *  "N coruses · M followers" without a per-row Firestore read. */
+data class TrendingHashtag(
+    val id: String,
+    val rank: Int,
+    val name: String,
+    val cymbalCount: Int,
+    val followerCount: Int = 0,
+)
+
+/** One contributor row, denormalized onto `hashtags/{tag}/contributors/{uid}`
+ *  so the facepile + list can read without per-user joins. */
+data class HashtagContributor(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val photoURL: String?,
+    val lastPostedAtMs: Long,
+)
 
 data class TrendingSong(
     val id: String,
