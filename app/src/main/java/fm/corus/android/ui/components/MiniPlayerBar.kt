@@ -3,9 +3,9 @@ package fm.corus.android.ui.components
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -272,17 +272,26 @@ private fun ScrubberOverlay(
         else -> playbackFraction
     }
 
-    // Smooth tween between 250ms polling ticks; immediate while dragging
-    // or when snapping back to 0 on a track change / scrubber reset (which
-    // arrives synchronously via ScrubberClock before trackId updates).
-    val animatedFraction by animateFloatAsState(
-        targetValue = displayedFraction,
-        animationSpec = if (isScrubbing || displayedFraction == 0f) snap() else tween(
-            durationMillis = 250,
-            easing = LinearEasing,
-        ),
-        label = "scrubber-fraction",
-    )
+    // Smooth tween between 250ms polling ticks; immediate snap when the
+    // target moves backward (track change / scrubber reset / cross-source
+    // switch). Snap-on-decrease handles the case where ScrubberClock's
+    // reset() emits (0, 0) but Compose coalesces and only ever observes
+    // the transition from the outgoing fraction to the next track's first
+    // polled fraction — never the intermediate 0 — so an equality check
+    // against 0 wouldn't fire.
+    val animatable = remember { Animatable(displayedFraction) }
+    LaunchedEffect(displayedFraction, isScrubbing) {
+        when {
+            isScrubbing || displayedFraction < animatable.value ->
+                animatable.snapTo(displayedFraction)
+            else ->
+                animatable.animateTo(
+                    targetValue = displayedFraction,
+                    animationSpec = tween(durationMillis = 250, easing = LinearEasing),
+                )
+        }
+    }
+    val animatedFraction = animatable.value
 
     val knobAlpha by animateFloatAsState(
         targetValue = if (isKnobVisible) 1f else 0f,
@@ -323,6 +332,18 @@ private fun ScrubberOverlay(
     LaunchedEffect(trackId) {
         pendingFraction = null
         isScrubbing = false
+    }
+
+    // Reset cleanup: ScrubberClock.reset() lands before trackId updates
+    // (skipToNext resets synchronously; the new state flow only fires after
+    // the loading coroutine sets _state). Without this, a user-seek pending
+    // hold would survive into the gap and freeze displayedFraction at the
+    // previous track's drag position until the new track started playing.
+    LaunchedEffect(duration) {
+        if (duration == 0L) {
+            pendingFraction = null
+            isScrubbing = false
+        }
     }
 
     val haptic = LocalHapticFeedback.current

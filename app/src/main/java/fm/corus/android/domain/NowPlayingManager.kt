@@ -527,6 +527,11 @@ class NowPlayingManager @Inject constructor(
         // Snap scrubber to 0 instantly so it doesn't briefly tween forward
         // on the outgoing track while the next one is loading. Mirrors the
         // iOS resetScrubberPosition() behavior.
+        // Stop polling first so the outgoing track's position-polling
+        // coroutine can't push another (advancing) update into ScrubberClock
+        // between reset() and the next track actually being loaded — that
+        // straggler tick would briefly drag the scrubber forward.
+        stopPositionPolling(resetClock = false)
         ScrubberClock.reset()
         advanceToNext()
     }
