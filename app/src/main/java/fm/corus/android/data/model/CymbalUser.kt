@@ -39,12 +39,21 @@ data class CymbalUser(
      */
     val clubMemberSince: Date? = null,
 ) {
-    val vinylStyle: VinylStyle get() = VinylStyle.from(vinylColor)
-    val frameStyle: FrameStyle get() = FrameStyle.from(frameColor)
-    val flairStyle: FlairStyle get() = FlairStyle.from(profileFlair)
-    val rainIntensity: RainIntensity get() = RainIntensity.from(rainEffect)
-    val snowIntensity: SnowIntensity get() = SnowIntensity.from(snowEffect)
-    val discoIntensityLevel: DiscoIntensity get() = DiscoIntensity.from(discoEffect)
+    val hasClubAccess: Boolean get() = isClubMember || isVerified
+
+    val rawVinylStyle: VinylStyle get() = VinylStyle.from(vinylColor)
+    val rawFrameStyle: FrameStyle get() = FrameStyle.from(frameColor)
+    val rawFlairStyle: FlairStyle get() = FlairStyle.from(profileFlair)
+    val rawRainIntensity: RainIntensity get() = RainIntensity.from(rainEffect)
+    val rawSnowIntensity: SnowIntensity get() = SnowIntensity.from(snowEffect)
+    val rawDiscoIntensityLevel: DiscoIntensity get() = DiscoIntensity.from(discoEffect)
+
+    val vinylStyle: VinylStyle get() = if (hasClubAccess) rawVinylStyle else VinylStyle.BLACK
+    val frameStyle: FrameStyle get() = if (hasClubAccess) rawFrameStyle else FrameStyle.BLACK
+    val flairStyle: FlairStyle get() = if (hasClubAccess) rawFlairStyle else FlairStyle.CHECKMARK
+    val rainIntensity: RainIntensity get() = if (hasClubAccess) rawRainIntensity else RainIntensity.OFF
+    val snowIntensity: SnowIntensity get() = if (hasClubAccess) rawSnowIntensity else SnowIntensity.OFF
+    val discoIntensityLevel: DiscoIntensity get() = if (hasClubAccess) rawDiscoIntensityLevel else DiscoIntensity.OFF
     val isMusicBot: Boolean get() = isBot && botType == "music"
     val isFilmBot: Boolean get() = isBot && botType == "film"
 

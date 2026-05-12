@@ -84,6 +84,7 @@ fun MutualConnectionsCardRail(
                         onUserTap = { onUserTap(match.user) },
                         onFollowTap = { onFollowTap(match.user) },
                         subtitle = mutualFollowersSubtitle(match.suggestionReason?.mutualNames.orEmpty()),
+                        subtitleLines = 1,
                         modifier = Modifier.width(cardWidth),
                     )
                 } else {

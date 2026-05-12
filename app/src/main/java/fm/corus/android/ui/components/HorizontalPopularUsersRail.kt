@@ -3,27 +3,17 @@ package fm.corus.android.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,7 +31,6 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.ui.theme.CorusColors
-import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.horizontalRailCardWidth
 import kotlinx.coroutines.async
@@ -105,7 +94,12 @@ fun HorizontalPopularUsersRail(
     val cardWidth = horizontalRailCardWidth()
 
     androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxWidth()) {
-        Header(onSeeAll = onSeeAll)
+        fm.corus.android.ui.screens.search.SectionHeader(
+            icon = "fire",
+            title = "POPULAR ON CORUS",
+            showSeeAll = onSeeAll != null,
+            onSeeAll = onSeeAll ?: {},
+        )
 
         if (matches.isEmpty() && isLoading) {
             SkeletonRow(cardWidth = cardWidth)
@@ -154,39 +148,6 @@ internal fun followerCountSubtitle(count: Int): String {
         else -> count.toString()
     }
     return "$formatted ${if (count == 1) "follower" else "followers"}"
-}
-
-@Composable
-private fun Header(onSeeAll: (() -> Unit)? = null) {
-    androidx.compose.foundation.layout.Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.LocalFireDepartment,
-            contentDescription = null,
-            tint = CorusColors.Accent,
-            modifier = Modifier.size(16.dp),
-        )
-        Spacer(modifier = Modifier.width(CorusSpacing.sm))
-        Text(
-            text = "POPULAR ON CORUS",
-            style = CorusFont.sectionHeader,
-            color = CorusColors.Secondary,
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        if (onSeeAll != null) {
-            TextButton(onClick = onSeeAll) {
-                Text(
-                    stringResource(fm.corus.android.R.string.search_see_all),
-                    style = CorusFont.captionMedium,
-                    color = CorusColors.Accent,
-                )
-            }
-        }
-    }
 }
 
 @Composable

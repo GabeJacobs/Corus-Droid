@@ -134,12 +134,14 @@ class FirestoreDataSource @Inject constructor(
     }
 
     suspend fun createUserProfile(uid: String, username: String, displayName: String, email: String) {
-        val searchTokens = generateSearchTokens(displayName)
         val data = mapOf(
             "uid" to uid,
             "username" to username.lowercase(),
             "displayName" to displayName,
-            "searchTokens" to searchTokens,
+            // searchTokens is server-owned (regenerateSearchTokensOnUserWrite
+            // populates it from displayName within ~1s); send an empty list
+            // to satisfy the create rule's `is list` shape check.
+            "searchTokens" to emptyList<String>(),
             "email" to email,
             "bio" to "",
             "avatarURL" to "",
@@ -170,18 +172,6 @@ class FirestoreDataSource @Inject constructor(
             "createdAt" to FieldValue.serverTimestamp(),
         )
         firestore.collection("users_v2").document(uid).set(data).await()
-    }
-
-    /** Generate prefix search tokens for a display name (matches iOS searchTokens logic). */
-    private fun generateSearchTokens(displayName: String): List<String> {
-        val words = displayName.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
-        val tokens = mutableSetOf<String>()
-        for (word in words) {
-            for (i in 1..word.length) {
-                tokens.add(word.substring(0, i))
-            }
-        }
-        return tokens.toList()
     }
 
     suspend fun updateUserProfile(uid: String, fields: Map<String, Any?>) {

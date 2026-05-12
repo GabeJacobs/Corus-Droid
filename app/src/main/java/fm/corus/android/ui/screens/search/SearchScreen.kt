@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
@@ -982,7 +983,7 @@ private fun NoContactMatchesCard() {
 }
 
 @Composable
-private fun SectionHeader(
+internal fun SectionHeader(
     icon: String,
     title: String,
     showSeeAll: Boolean = false,
@@ -992,7 +993,7 @@ private fun SectionHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = CorusSpacing.lg, end = CorusSpacing.lg, top = CorusSpacing.xs),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val iconVector = when (icon) {
@@ -1003,6 +1004,7 @@ private fun SectionHeader(
             "contacts" -> Icons.Filled.Contacts
             "bot" -> Icons.Filled.SmartToy
             "hashtag" -> Icons.Filled.Tag
+            "fire" -> Icons.Filled.LocalFireDepartment
             else -> null
         }
         if (iconVector != null) {
@@ -1010,18 +1012,19 @@ private fun SectionHeader(
                 imageVector = iconVector,
                 contentDescription = null,
                 tint = CorusColors.Accent,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(24.dp),
             )
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
         } else if (icon == "club") {
-            // Match web/iOS: brand the section with the Corus club mark.
+            // Match web/iOS: brand the section with the Corus logo mark — same
+            // asset used for the club-member flair badge.
             Icon(
                 painter = androidx.compose.ui.res.painterResource(
-                    fm.corus.android.R.drawable.corus_club_vector
+                    fm.corus.android.R.drawable.logo_no_background
                 ),
                 contentDescription = null,
                 tint = CorusColors.Accent,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(24.dp),
             )
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
         }
@@ -1032,9 +1035,12 @@ private fun SectionHeader(
         }
         Spacer(modifier = Modifier.weight(1f))
         if (showSeeAll) {
-            TextButton(onClick = onSeeAll) {
-                Text(stringResource(fm.corus.android.R.string.search_see_all), style = CorusFont.captionMedium, color = CorusColors.Accent)
-            }
+            Text(
+                stringResource(fm.corus.android.R.string.search_see_all),
+                style = CorusFont.captionMedium,
+                color = CorusColors.Accent,
+                modifier = Modifier.clickable(onClick = onSeeAll),
+            )
         }
     }
 }

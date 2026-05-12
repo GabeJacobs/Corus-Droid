@@ -232,16 +232,9 @@ class EditProfileViewModel @Inject constructor(
                 val p = _profile.value!!
 
                 if (_displayName.value != p.displayName) fields["displayName"] = _displayName.value
-                if (_username.value != p.username) {
-                    fields["username"] = _username.value
-                    // Generate search tokens
-                    val tokens = mutableListOf<String>()
-                    val name = _username.value.lowercase()
-                    for (i in 1..name.length) {
-                        tokens.add(name.substring(0, i))
-                    }
-                    fields["searchTokens"] = tokens
-                }
+                if (_username.value != p.username) fields["username"] = _username.value
+                // searchTokens are regenerated server-side by
+                // regenerateSearchTokensOnUserWrite within ~1s of this update.
                 if (_bio.value != p.bio) fields["bio"] = _bio.value
                 if (_website.value != (p.website ?: "")) fields["website"] = _website.value
                 if (_featuredTab.value != p.featuredTab) fields["featuredTab"] = _featuredTab.value
