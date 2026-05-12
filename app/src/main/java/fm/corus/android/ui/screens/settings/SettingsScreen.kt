@@ -791,13 +791,19 @@ private fun <T> DropdownSettingsRow(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = Modifier.fillMaxWidth()) {
-        SettingsNavRow(
-            icon = icon,
-            title = title,
-            subtitle = subtitle,
-            trailingText = labelFor(selected),
-            onClick = { expanded = true },
-        )
+        // SettingsNavRow emits Row + HorizontalDivider as siblings. A bare Box
+        // stacks children (TopStart by default), which puts the divider on top
+        // of the row instead of below it. Wrap in Column to preserve the
+        // intended vertical flow.
+        Column(modifier = Modifier.fillMaxWidth()) {
+            SettingsNavRow(
+                icon = icon,
+                title = title,
+                subtitle = subtitle,
+                trailingText = labelFor(selected),
+                onClick = { expanded = true },
+            )
+        }
         Box(modifier = Modifier.align(Alignment.BottomEnd)) {
         DropdownMenu(
             expanded = expanded,

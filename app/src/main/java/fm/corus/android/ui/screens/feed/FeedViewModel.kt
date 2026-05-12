@@ -143,7 +143,7 @@ class FeedViewModel @Inject constructor(
      * until they tap any album art once.
      */
     val hasTappedAlbumArt: StateFlow<Boolean> = preferencesDataStore.hasTappedAlbumArt
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /**
      * True if the signed-in Firebase account was created on or after the

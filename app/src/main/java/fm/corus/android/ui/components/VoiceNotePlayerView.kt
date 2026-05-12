@@ -1,6 +1,11 @@
 package fm.corus.android.ui.components
 
+import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaPlayer
+import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -18,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -26,6 +32,61 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.net.URL
+
+/**
+ * Wraps Android's audio-focus API so the voice-note player auto-pauses when
+ * another app (e.g. Spotify) starts playing music.
+ */
+private class VoiceNoteAudioFocus(
+    private val context: Context,
+    private val onPause: () -> Unit,
+) {
+    private val audioManager =
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val listener = AudioManager.OnAudioFocusChangeListener { change ->
+        if (change == AudioManager.AUDIOFOCUS_LOSS ||
+            change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ||
+            change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK
+        ) {
+            onPause()
+        }
+    }
+    private var request: AudioFocusRequest? = null
+
+    fun request(): Boolean {
+        val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val r = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build(),
+                )
+                .setOnAudioFocusChangeListener(listener)
+                .build()
+            request = r
+            audioManager.requestAudioFocus(r)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                listener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN,
+            )
+        }
+        return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    }
+
+    fun abandon() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            request?.let { audioManager.abandonAudioFocusRequest(it) }
+            request = null
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(listener)
+        }
+    }
+}
 
 /**
  * Plays a voice note from a URL. Downloads on first play, then caches in memory.
@@ -68,6 +129,15 @@ fun VoiceNotePlayerView(
     var duration by remember { mutableFloatStateOf(0f) }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
 
+    val context = LocalContext.current
+    val audioFocus = remember {
+        VoiceNoteAudioFocus(context.applicationContext) {
+            player?.takeIf { it.isPlaying }?.pause()
+            isPlaying = false
+            VoiceNotePlayerManager.clearIfActive(voiceNoteURL)
+        }
+    }
+
     // Timer for progress updates
     LaunchedEffect(isPlaying) {
         while (isPlaying) {
@@ -85,6 +155,7 @@ fun VoiceNotePlayerView(
         onDispose {
             VoiceNotePlayerManager.clearIfActive(voiceNoteURL)
             player?.release()
+            audioFocus.abandon()
         }
     }
 
@@ -126,16 +197,19 @@ fun VoiceNotePlayerView(
                         if (isPlaying) {
                             player?.pause()
                             isPlaying = false
+                            audioFocus.abandon()
                             VoiceNotePlayerManager.clearIfActive(voiceNoteURL)
                         } else {
                             // Resume — stop any other active player first
                             VoiceNotePlayerManager.stopActivePlayer()
                             onPlaybackStarted?.invoke()
+                            audioFocus.request()
                             player?.start()
                             isPlaying = true
                             VoiceNotePlayerManager.registerActivePlayer(voiceNoteURL) {
                                 player?.pause()
                                 isPlaying = false
+                                audioFocus.abandon()
                             }
                         }
                     } else {
@@ -144,8 +218,15 @@ fun VoiceNotePlayerView(
                         onPlaybackStarted?.invoke()
                         isLoading = true
                         val mp = MediaPlayer()
+                        mp.setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .build(),
+                        )
                         mp.setOnPreparedListener {
                             duration = it.duration.toFloat() / 1000f
+                            audioFocus.request()
                             it.start()
                             isPlaying = true
                             isLoading = false
@@ -153,16 +234,19 @@ fun VoiceNotePlayerView(
                             VoiceNotePlayerManager.registerActivePlayer(voiceNoteURL) {
                                 mp.pause()
                                 isPlaying = false
+                                audioFocus.abandon()
                             }
                         }
                         mp.setOnCompletionListener {
                             isPlaying = false
                             currentTime = 0f
                             it.seekTo(0)
+                            audioFocus.abandon()
                             VoiceNotePlayerManager.clearIfActive(voiceNoteURL)
                         }
                         mp.setOnErrorListener { _, _, _ ->
                             isLoading = false
+                            audioFocus.abandon()
                             VoiceNotePlayerManager.clearIfActive(voiceNoteURL)
                             true
                         }

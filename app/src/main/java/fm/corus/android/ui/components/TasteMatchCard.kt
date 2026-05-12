@@ -51,6 +51,10 @@ fun TasteMatchCard(
     /** Overrides the auto-derived flavor text. Used by the Popular rail to
      *  show "X followers" and by Mutual Connections to show "via @user1, …". */
     subtitle: String? = null,
+    /** Fixed line count reserved for the subtitle. Defaults to 2 so cards in
+     *  a grid stay the same height when subtitles wrap variably; pass 1 from
+     *  rails whose subtitle is guaranteed to fit on one line. */
+    subtitleLines: Int = 2,
 ) {
     val user = match.user
     val matchData = match.matchData
@@ -157,13 +161,8 @@ fun TasteMatchCard(
                         text = flavorText,
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
-                        // `minLines = 2` reserves space for two lines so cards
-                        // in a 2-up grid stay the same height whether the
-                        // subtitle wraps to one or two lines. Without it,
-                        // 1-line subtitles produced visibly short cards next
-                        // to 2-line ones.
-                        minLines = 2,
-                        maxLines = 2,
+                        minLines = subtitleLines,
+                        maxLines = subtitleLines,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }

@@ -133,6 +133,7 @@ fun PopularUsersInfiniteGrid(
                     onUserTap = { onUserTap(match.user) },
                     onFollowTap = { onFollowTap(match.user) },
                     subtitle = followerCountSubtitle(match.user.followerCount),
+                    subtitleLines = 1,
                 )
             }
             if (isLoading && matches.isNotEmpty()) {

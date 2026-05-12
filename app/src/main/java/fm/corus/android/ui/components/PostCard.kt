@@ -1,7 +1,9 @@
 package fm.corus.android.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -124,18 +126,18 @@ fun PostCard(
             hintIconScale.snapTo(0.85f)
             return@LaunchedEffect
         }
-        val fadeIn = 450
-        val fadeOut = 450
-        val rest = 120L
+        val fadeIn = 600
+        val fadeOut = 600
+        val rest = 150L
         kotlinx.coroutines.delay(450) // wait for image fade-in
         while (true) {
             kotlinx.coroutines.coroutineScope {
-                launch { hintIconAlpha.animateTo(1f, tween(fadeIn)) }
-                launch { hintIconScale.animateTo(1f, tween(fadeIn)) }
+                launch { hintIconAlpha.animateTo(1f, tween(fadeIn, easing = EaseInOut)) }
+                launch { hintIconScale.animateTo(1f, tween(fadeIn, easing = EaseInOut)) }
             }
             kotlinx.coroutines.coroutineScope {
-                launch { hintIconAlpha.animateTo(0f, tween(fadeOut)) }
-                launch { hintIconScale.animateTo(0.85f, tween(fadeOut)) }
+                launch { hintIconAlpha.animateTo(0f, tween(fadeOut, easing = EaseInOut)) }
+                launch { hintIconScale.animateTo(0.85f, tween(fadeOut, easing = EaseInOut)) }
             }
             kotlinx.coroutines.delay(rest)
         }
@@ -525,14 +527,15 @@ fun PostCard(
             // Tap-to-play hint (first feed post for new accounts only).
             if (hintActive) {
                 Box(contentAlignment = Alignment.Center) {
-                    // Soft shadow underlay so the white triangle reads on light covers.
+                    // Soft blurred shadow so the white triangle reads on light covers.
                     Icon(
                         imageVector = Icons.Filled.PlayArrow,
                         contentDescription = null,
                         tint = Color.Black.copy(alpha = 0.45f),
                         modifier = Modifier
-                            .size(72.dp)
-                            .offset(y = 3.dp)
+                            .size(56.dp)
+                            .offset(y = 6.dp)
+                            .blur(14.dp)
                             .graphicsLayer {
                                 alpha = hintIconAlpha.value
                                 scaleX = hintIconScale.value
@@ -544,7 +547,7 @@ fun PostCard(
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier
-                            .size(72.dp)
+                            .size(56.dp)
                             .graphicsLayer {
                                 alpha = hintIconAlpha.value
                                 scaleX = hintIconScale.value

@@ -123,6 +123,7 @@ fun HorizontalPopularUsersRail(
                         onUserTap = { onUserTap(match.user) },
                         onFollowTap = { onFollowTap(match.user) },
                         subtitle = followerCountSubtitle(match.user.followerCount),
+                        subtitleLines = 1,
                         modifier = Modifier.width(cardWidth),
                     )
                 }

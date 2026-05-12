@@ -272,19 +272,17 @@ private fun ScrubberOverlay(
         else -> playbackFraction
     }
 
-    // Smooth tween between 250ms polling ticks; immediate while dragging.
-    // Keyed on trackId so a track change re-initializes the animation at the
-    // new fraction (0) instead of tweening from the previous track's position.
-    val animatedFraction by key(trackId) {
-        animateFloatAsState(
-            targetValue = displayedFraction,
-            animationSpec = if (isScrubbing) snap() else tween(
-                durationMillis = 250,
-                easing = LinearEasing,
-            ),
-            label = "scrubber-fraction",
-        )
-    }
+    // Smooth tween between 250ms polling ticks; immediate while dragging
+    // or when snapping back to 0 on a track change / scrubber reset (which
+    // arrives synchronously via ScrubberClock before trackId updates).
+    val animatedFraction by animateFloatAsState(
+        targetValue = displayedFraction,
+        animationSpec = if (isScrubbing || displayedFraction == 0f) snap() else tween(
+            durationMillis = 250,
+            easing = LinearEasing,
+        ),
+        label = "scrubber-fraction",
+    )
 
     val knobAlpha by animateFloatAsState(
         targetValue = if (isKnobVisible) 1f else 0f,

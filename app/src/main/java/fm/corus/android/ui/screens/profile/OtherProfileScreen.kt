@@ -404,13 +404,14 @@ fun OtherProfileScreen(
                                                     if (hintFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
                                                     else Modifier.background(CorusColors.Accent)
                                                 )
-                                                .padding(vertical = 6.dp, horizontal = 36.dp),
+                                                .padding(vertical = 6.dp, horizontal = 20.dp),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Text(
                                                 text = if (hintFollowing) stringResource(fm.corus.android.R.string.other_profile_button_following) else stringResource(fm.corus.android.R.string.other_profile_button_follow),
                                                 style = CorusFont.button,
                                                 color = if (hintFollowing) CorusColors.Secondary else Color.White,
+                                                maxLines = 1,
                                             )
                                         }
 
@@ -435,6 +436,7 @@ fun OtherProfileScreen(
                                                     text = stringResource(fm.corus.android.R.string.profile_button_playlist),
                                                     style = CorusFont.button,
                                                     color = CorusColors.Secondary,
+                                                    maxLines = 1,
                                                 )
                                             }
                                         }

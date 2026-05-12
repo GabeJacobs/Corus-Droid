@@ -7,6 +7,8 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import androidx.annotation.VisibleForTesting
 import androidx.core.content.ContextCompat
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -569,7 +571,20 @@ class NowPlayingManager @Inject constructor(
     private fun ensurePlayerAndSession(): ExoPlayer {
         player?.let { return it }
 
-        val exo = ExoPlayer.Builder(context).build().apply {
+        val exo = ExoPlayer.Builder(context)
+            // Tell media3 to manage Android audio focus on our behalf: request it
+            // on play, release on stop/pause, and auto-pause when another app
+            // (e.g. Spotify) takes focus. Also auto-pause when the route becomes
+            // noisy (headphones unplugged).
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build(),
+                /* handleAudioFocus = */ true,
+            )
+            .setHandleAudioBecomingNoisy(true)
+            .build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {

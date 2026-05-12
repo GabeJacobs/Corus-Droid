@@ -21,6 +21,7 @@ import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.MusicServicePreference
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -46,6 +47,7 @@ class AuthViewModel @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val unreadCountsRepository: UnreadCountsRepository,
     private val musicServicePreference: MusicServicePreference,
+    private val nowPlayingManager: NowPlayingManager,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -334,6 +336,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             analyticsService.logSignOut()
             subscriptionRepository.logoutUser()
+            nowPlayingManager.stop()
             authRepository.signOut()
             userRepository.clearCaches()
             exploreRepository.clearCaches()
@@ -473,6 +476,7 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun completeAccountDeletion() {
+        nowPlayingManager.stop()
         userRepository.clearCaches()
         exploreRepository.clearCaches()
         engagementManager.clearAll()
