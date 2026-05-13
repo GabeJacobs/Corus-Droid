@@ -10,11 +10,13 @@ import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +36,7 @@ class ProfileViewModel @Inject constructor(
     private val engagementManager: PostEngagementManager,
     private val postCreationEvent: PostCreationEvent,
     private val postDeletionEvent: PostDeletionEvent,
+    private val commentEditedEvent: CommentEditedEvent,
     private val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
@@ -118,6 +121,13 @@ class ProfileViewModel @Inject constructor(
                 _posts.value = _posts.value.filter { it.id != deletedId }
                 _likedPosts.value = _likedPosts.value.filter { it.id != deletedId }
                 _savedPosts.value = _savedPosts.value.filter { it.id != deletedId }
+            }
+        }
+        viewModelScope.launch {
+            commentEditedEvent.events.collect { payload ->
+                _posts.value = applyCommentEditToPosts(_posts.value, payload)
+                _likedPosts.value = applyCommentEditToPosts(_likedPosts.value, payload)
+                _savedPosts.value = applyCommentEditToPosts(_savedPosts.value, payload)
             }
         }
     }

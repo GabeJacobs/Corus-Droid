@@ -21,6 +21,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.ui.screens.subscription.PaywallSource
+import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
@@ -56,6 +57,31 @@ internal fun isNewAlbumArtHintAccount(creationTimestampMs: Long?): Boolean {
     return created >= ALBUM_ART_HINT_CUTOFF_MS
 }
 
+/** Patches the matching post's preview-comments entry with the edited text so
+ *  recycled post cards re-bind to fresh text instead of the stale denormalized
+ *  `previewComments` snapshot on the post doc. Server-side
+ *  `onCommentUpdatedUpdatePreview` eventually rewrites the doc; this avoids
+ *  waiting for the next fetch. Returns the original list unchanged if no post
+ *  carries a matching preview entry. */
+internal fun applyCommentEditToPosts(
+    posts: List<CymbalPost>,
+    payload: CommentEditedEvent.Payload,
+): List<CymbalPost> {
+    var didChange = false
+    val updated = posts.map { post ->
+        if (post.id != payload.postId) return@map post
+        val previews = post.comments
+        if (previews.none { it.id == payload.commentId }) return@map post
+        didChange = true
+        post.copy(
+            comments = previews.map { c ->
+                if (c.id == payload.commentId) c.copy(text = payload.newText, editedAt = java.util.Date()) else c
+            }
+        )
+    }
+    return if (didChange) updated else posts
+}
+
 @HiltViewModel
 class FeedViewModel @Inject constructor(
     private val postRepository: PostRepository,
@@ -73,6 +99,7 @@ class FeedViewModel @Inject constructor(
     override val analyticsService: AnalyticsService,
     private val postCreationEvent: PostCreationEvent,
     private val postDeletionEvent: PostDeletionEvent,
+    private val commentEditedEvent: CommentEditedEvent,
     networkMonitor: NetworkMonitor,
     private val preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore,
     @ApplicationContext private val context: Context,
@@ -211,6 +238,11 @@ class FeedViewModel @Inject constructor(
         viewModelScope.launch {
             postDeletionEvent.events.collect { deletedId ->
                 _posts.value = _posts.value.filter { it.id != deletedId }
+            }
+        }
+        viewModelScope.launch {
+            commentEditedEvent.events.collect { payload ->
+                _posts.value = applyCommentEditToPosts(_posts.value, payload)
             }
         }
         // Keep NowPlayingManager's queue in sync with the paginated feed so the

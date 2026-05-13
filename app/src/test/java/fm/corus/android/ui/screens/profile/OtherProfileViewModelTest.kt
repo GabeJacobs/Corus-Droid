@@ -101,6 +101,7 @@ class OtherProfileViewModelTest {
         engagementManager = engagementManager,
         subscriptionRepository = subscriptionRepository,
         postDeletionEvent = postDeletionEvent,
+        commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
     )
 
     private fun makeUser(id: String, cymbalCount: Int): CymbalUser = CymbalUser(

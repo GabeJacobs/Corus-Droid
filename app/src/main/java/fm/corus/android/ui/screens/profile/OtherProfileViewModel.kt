@@ -15,10 +15,12 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +38,7 @@ class OtherProfileViewModel @Inject constructor(
     private val engagementManager: PostEngagementManager,
     private val subscriptionRepository: SubscriptionRepository,
     private val postDeletionEvent: PostDeletionEvent,
+    private val commentEditedEvent: CommentEditedEvent,
 ) : ViewModel() {
 
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
@@ -44,6 +47,11 @@ class OtherProfileViewModel @Inject constructor(
         viewModelScope.launch {
             postDeletionEvent.events.collect { deletedId ->
                 _posts.value = _posts.value.filter { it.id != deletedId }
+            }
+        }
+        viewModelScope.launch {
+            commentEditedEvent.events.collect { payload ->
+                _posts.value = applyCommentEditToPosts(_posts.value, payload)
             }
         }
     }

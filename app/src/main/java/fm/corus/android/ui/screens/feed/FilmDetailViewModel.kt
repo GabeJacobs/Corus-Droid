@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,10 +17,19 @@ import javax.inject.Inject
 class FilmDetailViewModel @Inject constructor(
     private val postRepository: PostRepository,
     val nowPlayingManager: NowPlayingManager,
+    private val commentEditedEvent: CommentEditedEvent,
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            commentEditedEvent.events.collect { payload ->
+                _posts.value = applyCommentEditToPosts(_posts.value, payload)
+            }
+        }
+    }
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()

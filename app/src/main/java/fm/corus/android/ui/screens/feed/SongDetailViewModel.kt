@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,10 +19,19 @@ class SongDetailViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val nowPlayingManager: NowPlayingManager,
     val analyticsService: AnalyticsService,
+    private val commentEditedEvent: CommentEditedEvent,
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            commentEditedEvent.events.collect { payload ->
+                _posts.value = applyCommentEditToPosts(_posts.value, payload)
+            }
+        }
+    }
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()

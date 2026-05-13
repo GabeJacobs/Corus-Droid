@@ -92,6 +92,7 @@ class ProfileViewModelTest {
         engagementManager = engagementManager,
         postCreationEvent = postCreationEvent,
         postDeletionEvent = postDeletionEvent,
+        commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
         analyticsService = analyticsService,
         musicServicePreference = mock(),
     )

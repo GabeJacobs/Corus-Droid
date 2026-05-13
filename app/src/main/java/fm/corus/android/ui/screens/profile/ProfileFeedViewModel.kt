@@ -16,10 +16,12 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.QueuedTrack
+import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.PostMenuActions
@@ -57,6 +59,7 @@ class ProfileFeedViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val engagementManager: PostEngagementManager,
     private val postDeletionEvent: PostDeletionEvent,
+    private val commentEditedEvent: CommentEditedEvent,
     private val tmdbApiService: TMDBApiService,
     val nowPlayingManager: NowPlayingManager,
     val feedScrollRouter: fm.corus.android.domain.FeedScrollRouter,
@@ -141,6 +144,11 @@ class ProfileFeedViewModel @Inject constructor(
         viewModelScope.launch {
             postDeletionEvent.events.collect { deletedId ->
                 _posts.value = _posts.value.filter { it.id != deletedId }
+            }
+        }
+        viewModelScope.launch {
+            commentEditedEvent.events.collect { payload ->
+                _posts.value = applyCommentEditToPosts(_posts.value, payload)
             }
         }
     }

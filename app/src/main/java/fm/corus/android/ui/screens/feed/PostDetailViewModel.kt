@@ -13,6 +13,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
@@ -36,6 +37,7 @@ class PostDetailViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val engagementManager: PostEngagementManager,
     private val postDeletionEvent: PostDeletionEvent,
+    private val commentEditedEvent: CommentEditedEvent,
     val nowPlayingManager: NowPlayingManager,
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
@@ -57,6 +59,31 @@ class PostDetailViewModel @Inject constructor(
 
     private val _comments = MutableStateFlow<List<CymbalComment>>(emptyList())
     val comments: StateFlow<List<CymbalComment>> = _comments.asStateFlow()
+
+    init {
+        // The inline comment list seeds from the denormalized `comments` field on
+        // the post doc until the full subcollection load completes — patch both
+        // so an edit shows up before/after the load races.
+        viewModelScope.launch {
+            commentEditedEvent.events.collect { payload ->
+                _post.value?.let { current ->
+                    if (current.id == payload.postId &&
+                        current.comments.any { it.id == payload.commentId }) {
+                        _post.value = current.copy(
+                            comments = current.comments.map { c ->
+                                if (c.id == payload.commentId) c.copy(text = payload.newText, editedAt = java.util.Date()) else c
+                            }
+                        )
+                    }
+                }
+                if (_comments.value.any { it.id == payload.commentId }) {
+                    _comments.value = _comments.value.map { c ->
+                        if (c.id == payload.commentId) c.copy(text = payload.newText, editedAt = java.util.Date()) else c
+                    }
+                }
+            }
+        }
+    }
 
     val engagementStates = engagementManager.states
     val currentUserProfile = authRepository.userProfile

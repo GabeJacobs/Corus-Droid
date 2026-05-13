@@ -19,6 +19,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
@@ -46,6 +47,7 @@ class CommentsViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val engagementManager: PostEngagementManager,
     private val postDeletionEvent: PostDeletionEvent,
+    private val commentEditedEvent: CommentEditedEvent,
     val nowPlayingManager: NowPlayingManager,
     private val remoteConfigService: RemoteConfigService,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
@@ -532,6 +534,12 @@ class CommentsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 postRepository.editComment(postId, commentId, trimmed)
+                // Only emit if it was a top-level comment — preview comments on
+                // the post card only show top-level entries (replies are
+                // filtered by the backend's sanitizePreviewComments).
+                if (editing.parentCommentId == null) {
+                    commentEditedEvent.notifyCommentEdited(postId, commentId, trimmed)
+                }
             } catch (_: Exception) {
                 // Revert on failure
                 updateCommentInPlace(editing)
