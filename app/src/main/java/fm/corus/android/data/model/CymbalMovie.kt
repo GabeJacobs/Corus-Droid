@@ -4,6 +4,12 @@ data class CymbalMovie(
     val id: String,
     val title: String,
     val directorName: String = "",
+    /**
+     * Per-director TMDB IDs from the search response. Used by ID-based taste
+     * matching for film co-directors (e.g. the Coen brothers as one credit).
+     * Empty for results decoded from older data.
+     */
+    val directorIds: List<String> = emptyList(),
     val year: String = "",
     val posterURL: String? = null,
     val posterLargeURL: String? = null,

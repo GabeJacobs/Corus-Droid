@@ -206,11 +206,11 @@ class PostRepository @Inject constructor(
     // ── Engagement Helpers ──
 
     suspend fun likeComment(userId: String, postId: String, commentId: String) {
-        firestoreDataSource.likeComment(userId, postId, commentId)
+        cloudFunctions.likeComment(postId, commentId)
     }
 
     suspend fun unlikeComment(userId: String, postId: String, commentId: String) {
-        firestoreDataSource.unlikeComment(userId, postId, commentId)
+        cloudFunctions.unlikeComment(postId, commentId)
     }
 
     suspend fun isCommentLiked(userId: String, postId: String, commentId: String): Boolean {

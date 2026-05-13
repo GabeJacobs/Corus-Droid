@@ -270,14 +270,27 @@ fun PostCard(
         val cameraDistancePx = with(density) { 12.dp.toPx() } * 100f
         val showFront = flipRotation <= 90f
 
+        // Only attach `graphicsLayer` when there's an actual rotation to
+        // render. The modifier promotes this Box to its own RenderNode every
+        // time it's present — paying that cost on every visible card while
+        // scrolling, even though virtually no card is ever flipped, is the
+        // same anti-pattern we removed on iOS (`rotation3DEffect` always-on).
+        // When `flipRotation == 0f`, the transform would be identity anyway.
+        val needsFlipLayer = flipRotation != 0f
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(aspectRatio)
-                .graphicsLayer {
-                    rotationY = flipRotation
-                    cameraDistance = cameraDistancePx
-                },
+                .then(
+                    if (needsFlipLayer) {
+                        Modifier.graphicsLayer {
+                            rotationY = flipRotation
+                            cameraDistance = cameraDistancePx
+                        }
+                    } else {
+                        Modifier
+                    }
+                ),
             contentAlignment = Alignment.Center,
         ) {
             if (showFront) {

@@ -8,6 +8,7 @@ import fm.corus.android.data.repository.GifRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
@@ -56,6 +57,7 @@ class CommentsViewModelLikePreloadTest {
     private val engagementManager = mock<PostEngagementManager>()
     private val postDeletionEvent = mock<PostDeletionEvent>()
     private val commentEditedEvent = mock<CommentEditedEvent>()
+    private val commentDeletedEvent = mock<CommentDeletedEvent>()
     private val nowPlayingManager = mock<NowPlayingManager>()
     private val remoteConfig = mock<RemoteConfigService>()
     private val gifRepo = mock<GifRepository>()
@@ -144,6 +146,7 @@ class CommentsViewModelLikePreloadTest {
         engagementManager = engagementManager,
         postDeletionEvent = postDeletionEvent,
         commentEditedEvent = commentEditedEvent,
+        commentDeletedEvent = commentDeletedEvent,
         nowPlayingManager = nowPlayingManager,
         remoteConfigService = remoteConfig,
         gifRepository = gifRepo,

@@ -88,7 +88,15 @@ data class TMDBMovieDetails(
     val videos: TMDBVideos? = null,
 ) {
     val directorName: String
-        get() = credits?.crew?.firstOrNull { it.job == "Director" }?.name ?: ""
+        get() = credits?.crew?.filter { it.job == "Director" }?.joinToString(", ") { it.name } ?: ""
+
+    /**
+     * Per-director TMDB IDs from the credits crew. Used by ID-based taste
+     * matching for film co-directors (e.g. the Coen brothers as one credit).
+     * Empty when the credits payload is missing or contains no Director rows.
+     */
+    val directorIds: List<String>
+        get() = credits?.crew?.filter { it.job == "Director" }?.map { it.id.toString() } ?: emptyList()
 
     val castNames: List<String>
         get() = credits?.cast?.take(10)?.map { it.name } ?: emptyList()

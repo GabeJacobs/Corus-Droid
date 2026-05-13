@@ -610,24 +610,10 @@ class CommentsViewModel @Inject constructor(
                 if (isCurrentlyLiked) {
                     postRepository.unlikeComment(userId, postId, commentId)
                 } else {
+                    // The `onCommentLikeCreated` trigger creates the
+                    // comment_like notification server-side, so we don't
+                    // duplicate it here. Matches iOS + Web.
                     postRepository.likeComment(userId, postId, commentId)
-                    // Send comment_like notification (matches iOS)
-                    try {
-                        val comment = _comments.value.find { it.id == commentId }
-                            ?: _repliesByParent.value.values.flatten().find { it.id == commentId }
-                        val commentOwnerId = comment?.user?.id
-                        val post = postRepository.getCachedPost(postId)
-                        if (commentOwnerId != null) {
-                            postRepository.createNotification(
-                                type = "comment_like",
-                                fromUserId = userId,
-                                toUserId = commentOwnerId,
-                                postId = postId,
-                                postAlbumArtURL = post?.displayImageURL,
-                                commentId = commentId,
-                            )
-                        }
-                    } catch (_: Exception) { }
                 }
             } catch (_: Exception) {
                 // Revert optimistic update on failure

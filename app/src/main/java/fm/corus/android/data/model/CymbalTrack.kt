@@ -15,6 +15,14 @@ data class CymbalTrack(
     val id: String,
     val name: String,
     val artistName: String,
+    /**
+     * Per-artist Spotify IDs from the search response. Empty for SoundCloud tracks
+     * (no artist-ID concept) and for tracks decoded from older data that pre-dates
+     * the ID migration. Used by ID-based taste matching to sidestep the multi-
+     * artist credit collision (e.g. "Sufjan Stevens" never matched
+     * "Sufjan Stevens, My Brightest Diamond" under string equality).
+     */
+    val artistIds: List<String> = emptyList(),
     val albumName: String,
     val albumArtURL: String? = null,
     val albumArtLargeURL: String? = null,
@@ -62,10 +70,14 @@ data class CymbalTrack(
             val rawSpotifyWebURL = data["spotifyWebURL"] as? String ?: ""
             // Don't synthesize Spotify URLs for SoundCloud tracks — those IDs
             // aren't in Spotify's catalog and would 404 on tap.
+            @Suppress("UNCHECKED_CAST")
+            val rawArtistIds = (data["artistIds"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotEmpty() }
+                ?: emptyList()
             return CymbalTrack(
                 id = data["trackId"] as? String ?: data["id"] as? String ?: "",
                 name = data["trackName"] as? String ?: data["name"] as? String ?: "",
                 artistName = data["artistName"] as? String ?: "",
+                artistIds = rawArtistIds,
                 albumName = data["albumName"] as? String ?: "",
                 albumArtURL = data["albumArtURL"] as? String ?: data["albumArtThumbnailURL"] as? String,
                 albumArtLargeURL = data["albumArtLargeURL"] as? String,

@@ -40,6 +40,7 @@ class TMDBRepository @Inject constructor(
             id = details.id.toString(),
             title = details.title,
             directorName = director,
+            directorIds = details.directorIds,
             year = details.releaseYear,
             posterURL = TMDBApiService.posterURL(details.posterPath),
             posterLargeURL = TMDBApiService.posterLargeURL(details.posterPath),

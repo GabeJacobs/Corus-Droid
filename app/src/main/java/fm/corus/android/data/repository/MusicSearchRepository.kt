@@ -40,10 +40,14 @@ class MusicSearchRepository @Inject constructor(
         val name = d["name"] as? String ?: return null
         val artistName = d["artistName"] as? String ?: return null
         val source = TrackSource.fromRaw(d["source"] as? String)
+        @Suppress("UNCHECKED_CAST")
+        val artistIds = (d["artistIds"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotEmpty() }
+            ?: emptyList()
         return CymbalTrack(
             id = id,
             name = name,
             artistName = artistName,
+            artistIds = artistIds,
             albumName = d["albumName"] as? String ?: "",
             albumArtURL = (d["albumArtURL"] as? String)?.ifEmpty { null },
             albumArtLargeURL = (d["albumArtLargeURL"] as? String)?.ifEmpty { null },

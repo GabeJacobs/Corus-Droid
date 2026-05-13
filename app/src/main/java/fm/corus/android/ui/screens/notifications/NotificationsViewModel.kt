@@ -360,25 +360,11 @@ class NotificationsViewModel @Inject constructor(
                 if (wasLiked) {
                     postRepository.unlikeComment(userId, postId, commentId)
                 } else {
+                    // The `onCommentLikeCreated` trigger creates the
+                    // comment_like notification server-side (including the
+                    // self-like skip), so we don't duplicate it here. Matches
+                    // iOS + Web.
                     postRepository.likeComment(userId, postId, commentId)
-                    // Send comment_like notification to the comment owner.
-                    // The comment owner is whoever the notification was originally
-                    // *from* for COMMENT/REPLY/MENTION (they wrote the comment).
-                    // For COMMENT_LIKE, the current user wrote the comment, so
-                    // we skip (can't like-notify yourself).
-                    if (notification.type != fm.corus.android.data.model.NotificationType.COMMENT_LIKE) {
-                        try {
-                            val post = postRepository.getCachedPost(postId)
-                            postRepository.createNotification(
-                                type = "comment_like",
-                                fromUserId = userId,
-                                toUserId = notification.fromUser.id,
-                                postId = postId,
-                                postAlbumArtURL = post?.displayImageURL,
-                                commentId = commentId,
-                            )
-                        } catch (_: Exception) { }
-                    }
                 }
             } catch (_: Exception) {
                 // Revert on failure

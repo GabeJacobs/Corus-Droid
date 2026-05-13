@@ -325,6 +325,7 @@ class ComposeViewModel @Inject constructor(
                 id = original.movieId ?: "",
                 title = original.movieTitle ?: "",
                 directorName = original.directorName ?: "",
+                directorIds = original.directorIds,
                 year = original.releaseYear ?: "",
                 posterURL = original.posterURL,
                 posterLargeURL = original.posterLargeURL,
@@ -412,6 +413,11 @@ class ComposeViewModel @Inject constructor(
                         "trackId" to track.id,
                         "trackName" to track.name,
                         "artistName" to track.artistName,
+                        // Per-artist Spotify IDs from the search response. Persisted on
+                        // the post doc so the backend matcher can intersect by stable
+                        // ID rather than the credit string ("Sufjan Stevens" vs
+                        // "Sufjan Stevens, My Brightest Diamond"). Empty for SoundCloud.
+                        "artistIds" to track.artistIds,
                         "albumName" to track.albumName,
                         "albumArtURL" to (track.albumArtURL ?: ""),
                         "albumArtLargeURL" to (track.albumArtLargeURL ?: ""),
@@ -433,6 +439,8 @@ class ComposeViewModel @Inject constructor(
                         "movieId" to movie.id,
                         "movieTitle" to movie.title,
                         "directorName" to movie.directorName,
+                        // Per-director TMDB IDs (when available on the search result).
+                        "directorIds" to movie.directorIds,
                         "releaseYear" to movie.year,
                         "posterURL" to (movie.posterURL ?: ""),
                         "posterLargeURL" to (movie.posterLargeURL ?: ""),

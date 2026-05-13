@@ -10,6 +10,8 @@ data class CommentAttachedSong(
     val trackId: String,
     val trackName: String,
     val artistName: String,
+    /** Per-artist Spotify IDs from the search response. Empty for SoundCloud / pre-backfill data. */
+    val artistIds: List<String> = emptyList(),
     val albumName: String = "",
     val albumArtURL: String? = null,
     val albumArtLargeURL: String? = null,
@@ -27,6 +29,7 @@ data class CommentAttachedSong(
         id = trackId,
         name = trackName,
         artistName = artistName,
+        artistIds = artistIds,
         albumName = albumName,
         albumArtURL = albumArtURL,
         albumArtLargeURL = albumArtLargeURL,
@@ -42,6 +45,7 @@ data class CommentAttachedSong(
         put("trackId", trackId)
         put("trackName", trackName)
         put("artistName", artistName)
+        if (artistIds.isNotEmpty()) put("artistIds", artistIds)
         put("albumName", albumName)
         put("spotifyURI", spotifyURI)
         put("spotifyWebURL", spotifyWebURL)
@@ -57,6 +61,7 @@ data class CommentAttachedSong(
             trackId = track.id,
             trackName = track.name,
             artistName = track.artistName,
+            artistIds = track.artistIds,
             albumName = track.albumName,
             albumArtURL = track.albumArtURL,
             albumArtLargeURL = track.albumArtLargeURL,
@@ -73,10 +78,14 @@ data class CommentAttachedSong(
             if (trackId.isEmpty()) return null
             val trackName = data["trackName"] as? String ?: return null
             val artistName = data["artistName"] as? String ?: return null
+            @Suppress("UNCHECKED_CAST")
+            val artistIds = (data["artistIds"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotEmpty() }
+                ?: emptyList()
             return CommentAttachedSong(
                 trackId = trackId,
                 trackName = trackName,
                 artistName = artistName,
+                artistIds = artistIds,
                 albumName = data["albumName"] as? String ?: "",
                 albumArtURL = data["albumArtURL"] as? String,
                 albumArtLargeURL = data["albumArtLargeURL"] as? String,
@@ -98,6 +107,8 @@ data class CommentAttachedFilm(
     val movieId: String,
     val movieTitle: String,
     val directorName: String = "",
+    /** Per-director TMDB IDs from the search response. Empty for legacy data. */
+    val directorIds: List<String> = emptyList(),
     val releaseYear: String = "",
     val posterURL: String? = null,
     val posterLargeURL: String? = null,
@@ -110,6 +121,7 @@ data class CommentAttachedFilm(
         id = movieId,
         title = movieTitle,
         directorName = directorName,
+        directorIds = directorIds,
         year = releaseYear,
         posterURL = posterURL,
         posterLargeURL = posterLargeURL,
@@ -120,6 +132,7 @@ data class CommentAttachedFilm(
         put("movieId", movieId)
         put("movieTitle", movieTitle)
         put("directorName", directorName)
+        if (directorIds.isNotEmpty()) put("directorIds", directorIds)
         put("releaseYear", releaseYear)
         put("tmdbWebURL", tmdbWebURL)
         if (!posterURL.isNullOrEmpty()) put("posterURL", posterURL)
@@ -131,6 +144,7 @@ data class CommentAttachedFilm(
             movieId = movie.id,
             movieTitle = movie.title,
             directorName = movie.directorName,
+            directorIds = movie.directorIds,
             releaseYear = movie.year,
             posterURL = movie.posterURL,
             posterLargeURL = movie.posterLargeURL,
@@ -142,10 +156,14 @@ data class CommentAttachedFilm(
             val movieId = data["movieId"] as? String ?: return null
             if (movieId.isEmpty()) return null
             val movieTitle = data["movieTitle"] as? String ?: return null
+            @Suppress("UNCHECKED_CAST")
+            val directorIds = (data["directorIds"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotEmpty() }
+                ?: emptyList()
             return CommentAttachedFilm(
                 movieId = movieId,
                 movieTitle = movieTitle,
                 directorName = data["directorName"] as? String ?: "",
+                directorIds = directorIds,
                 releaseYear = data["releaseYear"] as? String ?: "",
                 posterURL = data["posterURL"] as? String,
                 posterLargeURL = data["posterLargeURL"] as? String,

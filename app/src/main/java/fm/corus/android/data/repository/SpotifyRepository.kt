@@ -15,6 +15,7 @@ class SpotifyRepository @Inject constructor(
         if (item.isEmpty()) return null
         val artists = item["artists"] as? List<Map<String, Any?>> ?: emptyList()
         val artistName = artists.joinToString(", ") { it["name"] as? String ?: "" }
+        val artistIds = artists.mapNotNull { it["id"] as? String }.filter { it.isNotEmpty() }
         val album = item["album"] as? Map<String, Any?> ?: emptyMap()
         val images = album["images"] as? List<Map<String, Any?>> ?: emptyList()
         val thumbnailURL = images.minByOrNull { (it["width"] as? Number)?.toInt() ?: Int.MAX_VALUE }?.get("url") as? String
@@ -24,6 +25,7 @@ class SpotifyRepository @Inject constructor(
             id = item["id"] as? String ?: "",
             name = item["name"] as? String ?: "",
             artistName = artistName,
+            artistIds = artistIds,
             albumName = album["name"] as? String ?: "",
             albumArtURL = thumbnailURL,
             albumArtLargeURL = largeURL,
@@ -45,6 +47,7 @@ class SpotifyRepository @Inject constructor(
         return items.map { item ->
             val artists = item["artists"] as? List<Map<String, Any?>> ?: emptyList()
             val artistName = artists.joinToString(", ") { it["name"] as? String ?: "" }
+            val artistIds = artists.mapNotNull { it["id"] as? String }.filter { it.isNotEmpty() }
             val album = item["album"] as? Map<String, Any?> ?: emptyMap()
             val images = album["images"] as? List<Map<String, Any?>> ?: emptyList()
             val thumbnailURL = images.minByOrNull { (it["width"] as? Number)?.toInt() ?: Int.MAX_VALUE }?.get("url") as? String
@@ -55,6 +58,7 @@ class SpotifyRepository @Inject constructor(
                 id = item["id"] as? String ?: "",
                 name = item["name"] as? String ?: "",
                 artistName = artistName,
+                artistIds = artistIds,
                 albumName = album["name"] as? String ?: "",
                 albumArtURL = thumbnailURL,
                 albumArtLargeURL = largeURL,

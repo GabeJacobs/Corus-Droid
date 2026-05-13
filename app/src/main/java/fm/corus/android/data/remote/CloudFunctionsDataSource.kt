@@ -261,6 +261,16 @@ class CloudFunctionsDataSource @Inject constructor(
             .call(mapOf("postId" to postId)).await()
     }
 
+    suspend fun likeComment(postId: String, commentId: String) {
+        functions.getHttpsCallable("likeComment")
+            .call(mapOf("postId" to postId, "commentId" to commentId)).await()
+    }
+
+    suspend fun unlikeComment(postId: String, commentId: String) {
+        functions.getHttpsCallable("unlikeComment")
+            .call(mapOf("postId" to postId, "commentId" to commentId)).await()
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun reconcileSavesCount(): Int {
         val result = functions.getHttpsCallable("reconcileSavesCount")
@@ -399,6 +409,7 @@ class CloudFunctionsDataSource @Inject constructor(
         trackId: String? = null,
         trackName: String? = null,
         artistName: String? = null,
+        artistIds: List<String>? = null,
         albumName: String? = null,
         albumArtURL: String? = null,
         albumArtLargeURL: String? = null,
@@ -413,6 +424,7 @@ class CloudFunctionsDataSource @Inject constructor(
         movieId: String? = null,
         movieTitle: String? = null,
         directorName: String? = null,
+        directorIds: List<String>? = null,
         releaseYear: String? = null,
         posterURL: String? = null,
         posterLargeURL: String? = null,
@@ -433,6 +445,7 @@ class CloudFunctionsDataSource @Inject constructor(
         trackId?.let { params["trackId"] = it }
         trackName?.let { params["trackName"] = it }
         artistName?.let { params["artistName"] = it }
+        artistIds?.takeIf { it.isNotEmpty() }?.let { params["artistIds"] = it }
         albumName?.let { params["albumName"] = it }
         albumArtURL?.let { params["albumArtURL"] = it }
         albumArtLargeURL?.let { params["albumArtLargeURL"] = it }
@@ -447,6 +460,7 @@ class CloudFunctionsDataSource @Inject constructor(
         movieId?.let { params["movieId"] = it }
         movieTitle?.let { params["movieTitle"] = it }
         directorName?.let { params["directorName"] = it }
+        directorIds?.takeIf { it.isNotEmpty() }?.let { params["directorIds"] = it }
         releaseYear?.let { params["releaseYear"] = it }
         posterURL?.let { params["posterURL"] = it }
         posterLargeURL?.let { params["posterLargeURL"] = it }

@@ -37,6 +37,8 @@ data class CymbalPost(
     val movieId: String? = null,
     val movieTitle: String? = null,
     val directorName: String? = null,
+    /** Per-director TMDB IDs from the post doc. Empty for legacy posts. */
+    val directorIds: List<String> = emptyList(),
     val releaseYear: String? = null,
     val posterURL: String? = null,
     val posterLargeURL: String? = null,
@@ -204,6 +206,8 @@ data class CymbalPost(
                 movieId = data["movieId"] as? String,
                 movieTitle = data["movieTitle"] as? String,
                 directorName = data["directorName"] as? String,
+                directorIds = (data["directorIds"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotEmpty() }
+                    ?: emptyList(),
                 releaseYear = data["releaseYear"] as? String,
                 posterURL = data["posterURL"] as? String,
                 posterLargeURL = data["posterLargeURL"] as? String,
