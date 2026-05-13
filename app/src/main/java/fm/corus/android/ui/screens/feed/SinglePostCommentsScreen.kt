@@ -571,6 +571,7 @@ fun SinglePostCommentsScreen(
                             }
                         },
                         onLikesTap = { onNavigateToLikes(p.id) },
+                        onLikerTap = { liker -> onNavigateToUser(liker.id) },
                         onMentionTap = { username ->
                             scope.launch {
                                 val userId = viewModel.resolveUsernameToId(username.removePrefix("@"))

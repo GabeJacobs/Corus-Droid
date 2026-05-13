@@ -116,14 +116,36 @@ class PostRepository @Inject constructor(
     }
 
     // ── Create Post ──
+    //
+    // Server-driven path: the `createPost` Cloud Function callable atomically
+    // validates the rolling 24h post limit and writes the doc. Over-limit
+    // surfaces as PostLimitReachedException (caller maps to paywall);
+    // RESOURCE_EXHAUSTED is no longer a silent-delete window.
+    //
+    // Voice note flow: we used to upload after the doc was created (so the
+    // server-driven cleanup path could find a postId-keyed blob to delete on
+    // failure). Through the callable we have to upload first because the doc
+    // ID is server-assigned; we key the blob to a fresh UUID instead. Voice
+    // notes uploaded for posts that the server rejects are acceptable garbage
+    // — small files, rare path, can be swept by a follow-up cleanup job.
 
-    suspend fun createPost(userId: String, data: Map<String, Any>, voiceNoteData: ByteArray? = null): String {
-        val postId = firestoreDataSource.createPost(userId, data)
-        if (voiceNoteData != null) {
-            val url = storageDataSource.uploadVoiceNote(userId, postId, voiceNoteData)
-            firestoreDataSource.updatePostVoiceNoteURL(postId, url)
+    suspend fun createPost(
+        payload: Map<String, Any?>,
+        voiceNoteData: ByteArray? = null,
+    ): CloudFunctionsDataSource.CreatePostResult {
+        val voiceNoteURL: String? = if (voiceNoteData != null) {
+            val uid = payload["__voiceUserId"] as? String
+                ?: throw IllegalArgumentException("voiceNoteData requires __voiceUserId in payload")
+            val voiceId = java.util.UUID.randomUUID().toString()
+            storageDataSource.uploadVoiceNote(uid, voiceId, voiceNoteData)
+        } else {
+            null
         }
-        return postId
+        val effective = payload.toMutableMap().apply {
+            remove("__voiceUserId")
+            if (voiceNoteURL != null) put("voiceNoteURL", voiceNoteURL)
+        }
+        return cloudFunctions.createPost(effective)
     }
 
     suspend fun updateCaption(postId: String, caption: String) {
@@ -153,11 +175,11 @@ class PostRepository @Inject constructor(
     // ── Engagement ──
 
     suspend fun likePost(userId: String, postId: String) {
-        firestoreDataSource.likePost(userId, postId)
+        cloudFunctions.likePost(postId)
     }
 
     suspend fun unlikePost(userId: String, postId: String) {
-        firestoreDataSource.unlikePost(userId, postId)
+        cloudFunctions.unlikePost(postId)
     }
 
     suspend fun isPostLiked(userId: String, postId: String): Boolean {
@@ -193,6 +215,14 @@ class PostRepository @Inject constructor(
 
     suspend fun isCommentLiked(userId: String, postId: String, commentId: String): Boolean {
         return firestoreDataSource.isCommentLiked(userId, postId, commentId)
+    }
+
+    suspend fun checkCommentLikesBatch(
+        userId: String,
+        postId: String,
+        commentIds: List<String>,
+    ): Set<String> {
+        return firestoreDataSource.checkCommentLikesBatch(userId, postId, commentIds)
     }
 
     suspend fun fetchPostLikers(postId: String, limit: Int = 20, lastTimestamp: Long? = null): fm.corus.android.data.remote.FirestoreDataSource.LikersPage {

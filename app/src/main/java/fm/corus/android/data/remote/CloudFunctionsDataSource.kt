@@ -243,6 +243,24 @@ class CloudFunctionsDataSource @Inject constructor(
         return (data["savesCount"] as? Number)?.toInt() ?: 0
     }
 
+    // ── Likes ──
+    // Server-side: the `likePost`/`unlikePost` callables atomically write
+    // the like doc, the user's `liked` entry, and bump `posts.likeCount`,
+    // then synchronously refresh `recentLikers` before returning. This
+    // closes the ~10–20s trigger-aggregation window during which a fresh
+    // refetch could return `isLiked=true` alongside a `recentLikers`
+    // preview that omits the current user.
+
+    suspend fun likePost(postId: String) {
+        functions.getHttpsCallable("likePost")
+            .call(mapOf("postId" to postId)).await()
+    }
+
+    suspend fun unlikePost(postId: String) {
+        functions.getHttpsCallable("unlikePost")
+            .call(mapOf("postId" to postId)).await()
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun reconcileSavesCount(): Int {
         val result = functions.getHttpsCallable("reconcileSavesCount")
@@ -830,5 +848,66 @@ class CloudFunctionsDataSource @Inject constructor(
             recentCount = (data["recentCount"] as? Number)?.toInt() ?: 0,
             dailyLimit = (data["dailyLimit"] as? Number)?.toInt(),
         )
+    }
+
+    // ── createPost callable ──
+    //
+    // Server-driven post creation. Atomically validates the rolling 24h limit
+    // and writes the post + hashtag increments in a single WriteBatch.
+    // Replaces FirestoreDataSource.createPost so the silent-delete branch in
+    // onPostCreatedFanoutFeedPointers never has to fire for clients on this
+    // path. Mirrors iOS PostService and the Web `createPostViaCallable`.
+
+    data class CreatePostResult(
+        val postId: String,
+        val recentCount: Int,
+        val dailyLimit: Int,
+        val isFirstPoster: Boolean,
+    )
+
+    /** Thrown when the server rejects a post for limit reasons. Compose
+     *  surfaces this as the paywall (or the hard-cap alert when [hardCap] is
+     *  true). Mirrors iOS `PostService.CreatePostError.postLimitReached`. */
+    class PostLimitReachedException(
+        val recentCount: Int,
+        val dailyLimit: Int,
+        val hardCap: Boolean,
+    ) : Exception("POST_LIMIT_REACHED")
+
+    /** Thrown when the repost original no longer exists. */
+    class RepostOriginalMissingException : Exception("REPOST_ORIGINAL_MISSING")
+
+    /** Thrown when the account is banned/suspended. */
+    class PostingBannedException : Exception("POSTING_BANNED")
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun createPost(payload: Map<String, Any?>): CreatePostResult {
+        try {
+            val result = functions.getHttpsCallable("createPost").call(payload).await()
+            val data = result.getData() as? Map<String, Any?> ?: emptyMap()
+            return CreatePostResult(
+                postId = data["postId"] as? String ?: "",
+                recentCount = (data["recentCount"] as? Number)?.toInt() ?: 0,
+                dailyLimit = (data["dailyLimit"] as? Number)?.toInt() ?: 3,
+                isFirstPoster = data["isFirstPoster"] as? Boolean ?: false,
+            )
+        } catch (e: com.google.firebase.functions.FirebaseFunctionsException) {
+            when (e.code) {
+                com.google.firebase.functions.FirebaseFunctionsException.Code.RESOURCE_EXHAUSTED -> {
+                    val details = e.details as? Map<String, Any?>
+                    val recent = (details?.get("recentCount") as? Number)?.toInt() ?: 0
+                    val limit = (details?.get("dailyLimit") as? Number)?.toInt() ?: 3
+                    val hardCap = details?.get("hardCap") as? Boolean ?: false
+                    throw PostLimitReachedException(recent, limit, hardCap)
+                }
+                com.google.firebase.functions.FirebaseFunctionsException.Code.NOT_FOUND -> {
+                    throw RepostOriginalMissingException()
+                }
+                com.google.firebase.functions.FirebaseFunctionsException.Code.FAILED_PRECONDITION -> {
+                    throw PostingBannedException()
+                }
+                else -> throw e
+            }
+        }
     }
 }

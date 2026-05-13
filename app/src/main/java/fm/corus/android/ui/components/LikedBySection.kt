@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.domain.reconcileRecentLikers
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -39,21 +40,17 @@ fun LikedBySection(
     likers: List<CymbalUser>,
     likeCount: Int,
     onLikesTap: () -> Unit = {},
+    onLikerTap: (CymbalUser) -> Unit = {},
     modifier: Modifier = Modifier,
     currentUser: CymbalUser? = null,
     isLiked: Boolean = false,
 ) {
     if (likeCount <= 0) return
 
-    // Build an optimistic likers list that reflects the current user's like state
+    // Build a likers list that reflects the current user's known like state
+    // so the heart's filled state and the "Liked by" subtitle never disagree.
     val effectiveLikers = remember(likers, currentUser, isLiked) {
-        if (currentUser == null) return@remember likers
-        val currentUserInList = likers.any { it.id == currentUser.id }
-        when {
-            isLiked && !currentUserInList -> listOf(currentUser) + likers
-            !isLiked && currentUserInList -> likers.filter { it.id != currentUser.id }
-            else -> likers
-        }
+        reconcileRecentLikers(likers, isLikedByCurrentUser = isLiked, currentUser = currentUser)
     }
 
     if (effectiveLikers.isEmpty()) return
@@ -63,10 +60,13 @@ fun LikedBySection(
     val visibleLikers = effectiveLikers.take(3)
     val avatarStackWidth = avatarSize + (avatarOverlap * maxOf(visibleLikers.size - 1, 0))
 
+    val isSingleLiker = likeCount == 1
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onLikesTap)
+            .clickable(onClick = {
+                if (isSingleLiker) onLikerTap(effectiveLikers.first()) else onLikesTap()
+            })
             .padding(horizontal = CorusSpacing.lg)
             .padding(bottom = CorusSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,

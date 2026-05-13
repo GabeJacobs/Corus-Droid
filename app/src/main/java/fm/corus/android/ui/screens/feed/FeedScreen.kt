@@ -468,6 +468,7 @@ fun FeedScreen(
                             },
                             onCommentTap = { onNavigateToComments(post.id) },
                             onLikesTap = { onNavigateToLikes(post.id) },
+                            onLikerTap = { liker -> onNavigateToUser(liker) },
                             onRepostTap = { onRepost(post) },
                             onShareTap = { sharePost = post },
                             onMenuTap = { menuPost = post },

@@ -93,6 +93,7 @@ fun PostCard(
     onMenuTap: () -> Unit = {},
     onSpotifyTap: () -> Unit = {},
     onLikesTap: () -> Unit = {},
+    onLikerTap: (CymbalUser) -> Unit = {},
     onMentionTap: (String) -> Unit = {},
     onHashtagTap: (String) -> Unit = {},
     trackPostCount: Int = post.trackPostCount ?: 0,
@@ -843,6 +844,7 @@ fun PostCard(
             likers = post.likers,
             likeCount = likeCount,
             onLikesTap = onLikesTap,
+            onLikerTap = onLikerTap,
             currentUser = currentUser,
             isLiked = isLiked,
         )

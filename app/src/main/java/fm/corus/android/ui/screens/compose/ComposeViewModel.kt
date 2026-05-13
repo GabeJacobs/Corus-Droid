@@ -11,6 +11,7 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
+import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.PostRepository
@@ -368,113 +369,91 @@ class ComposeViewModel @Inject constructor(
         _error.value = null
 
         viewModelScope.launch {
-            // Safety net: verify post limit with the server before submitting.
-            // Mirrors iOS ComposeView.postCymbal — if the count hasn't been loaded yet,
-            // ask the server now; otherwise trust the cached count.
-            if (!subscriptionRepository.postCountLoaded.value) {
-                val allowed = subscriptionRepository.checkCanPostFromServer()
-                if (!allowed) {
-                    _showPostLimitPaywall.value = true
-                    _isPosting.value = false
-                    return@launch
-                }
-            } else if (!subscriptionRepository.canPost) {
-                _showPostLimitPaywall.value = true
-                _isPosting.value = false
-                return@launch
-            }
-
             try {
-                val data = mutableMapOf<String, Any>()
-                data["caption"] = caption.ifBlank { "" }
-                data["mediaType"] = mediaType.value
+                // Build the callable payload. The server validates the rolling
+                // 24h limit atomically inside `createPost`, so no separate
+                // pre-flight is needed — over-limit throws
+                // PostLimitReachedException below.
+                val payload = mutableMapOf<String, Any?>()
+                payload["mediaType"] = mediaType.value
+                payload["caption"] = caption
 
-                // Parse hashtags from caption
+                // Hashtags parsed from caption; server normalizes again on its
+                // side so this is best-effort (and matches iOS / Web parity).
                 val hashtagRegex = Regex("#(\\w+)")
-                val hashtags = hashtagRegex.findAll(caption).map { it.groupValues[1] }.toList()
-                data["hashtags"] = hashtags
+                payload["hashtags"] = hashtagRegex.findAll(caption).map { it.groupValues[1] }.toList()
 
-                // Repost metadata — only included when the attribution toggle is on.
-                // Mirrors iOS ComposeView: toggling attribution off drops the repost
-                // relationship entirely, creating an independent post.
-                val includeRepost = _showRepostAttribution.value
-                val originalPostId = _repostedFromPostId.value
-                val originalUserId = _repostedFromUserId.value
-                val originalUsername = _repostedFromUsername.value
-                if (includeRepost && originalPostId != null) {
-                    data["repostedFromPostId"] = originalPostId
-                    data["repostedFromUserId"] = originalUserId ?: ""
-                    data["repostedFromUsername"] = originalUsername ?: ""
-                }
-
-                // Comments-audience setting. Only stamp the field for restrictive
-                // audiences — omitting it for "everyone" (or when the flag is
-                // off) keeps the doc shape identical to legacy posts so older
-                // clients read the post exactly as before.
+                // Comments-audience: only stamp restrictive values; "everyone"
+                // is the implicit default and we omit the field for legacy
+                // doc-shape compatibility.
                 val pickedAudience = _commentsAudience.value
                 if (remoteConfigService.commentControlsOnPosts &&
                     pickedAudience != fm.corus.android.data.model.CommentsAudience.EVERYONE) {
-                    data["commentsAudience"] = pickedAudience.wire
+                    payload["commentsAudience"] = pickedAudience.wire
                 }
 
-                var isFirstPoster = false
+                // Repost metadata — only included when the attribution toggle
+                // is on. If the user toggled attribution off, the post is
+                // independent: no repost subobject is sent and the server
+                // doesn't stamp the parent.
+                val includeRepost = _showRepostAttribution.value
+                val originalPostId = _repostedFromPostId.value
+                val originalUserId = _repostedFromUserId.value
+                if (includeRepost && originalPostId != null) {
+                    payload["repost"] = mapOf(
+                        "originalPostId" to originalPostId,
+                        "showAttribution" to true,
+                    )
+                }
 
-                // The stored isFirstPoster is also recomputed authoritatively by the
-                // assignFirstPosterOnPostCreate Firestore trigger (see backend/functions/index.js)
-                // so a racy client-side count here is self-correcting within seconds.
                 if (mediaType == MediaType.TRACK) {
                     val track = _selectedTrack.value ?: throw Exception("No track selected")
-
-                    val priorPostCount = try {
-                        postRepository.fetchUniquePosterCountByTrack(track)
-                    } catch (_: Exception) { 0 }
-                    isFirstPoster = priorPostCount == 0
-
-                    data["trackId"] = track.id
-                    data["trackName"] = track.name
-                    data["artistName"] = track.artistName
-                    data["albumName"] = track.albumName
-                    data["albumArtURL"] = track.albumArtURL ?: ""
-                    data["albumArtLargeURL"] = track.albumArtLargeURL ?: ""
-                    data["spotifyURI"] = track.spotifyURI
-                    data["spotifyWebURL"] = track.spotifyWebURL
-                    data["durationMs"] = track.durationMs
-                    data["isFirstPoster"] = isFirstPoster
-                    data["previewUrl"] = track.previewUrl ?: ""
-                    data["isrc"] = track.isrc ?: ""
-                    data["trackReleaseDate"] = track.releaseDate ?: ""
-                    data["trackReleaseDatePrecision"] = track.releaseDatePrecision ?: ""
-                    data["trackSource"] = track.source.raw
+                    val trackMap = mutableMapOf<String, Any?>(
+                        "trackId" to track.id,
+                        "trackName" to track.name,
+                        "artistName" to track.artistName,
+                        "albumName" to track.albumName,
+                        "albumArtURL" to (track.albumArtURL ?: ""),
+                        "albumArtLargeURL" to (track.albumArtLargeURL ?: ""),
+                        "durationMs" to track.durationMs,
+                        "trackSource" to track.source.raw,
+                    )
+                    track.isrc?.let { trackMap["isrc"] = it }
+                    track.releaseDate?.let { trackMap["trackReleaseDate"] = it }
+                    track.releaseDatePrecision?.let { trackMap["trackReleaseDatePrecision"] = it }
+                    track.previewUrl?.let { trackMap["previewUrl"] = it }
                     if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
-                        data["soundcloudId"] = track.soundcloudId ?: ""
-                        data["soundcloudPermalinkUrl"] = track.soundcloudPermalinkUrl ?: ""
+                        trackMap["soundcloudId"] = track.soundcloudId ?: ""
+                        trackMap["soundcloudPermalinkUrl"] = track.soundcloudPermalinkUrl ?: ""
                     }
+                    payload["track"] = trackMap
                 } else {
                     val movie = _selectedMovie.value ?: throw Exception("No movie selected")
-
-                    val priorMoviePostCount = try {
-                        postRepository.fetchUniquePosterCountByMovie(movie.id)
-                    } catch (_: Exception) { 0 }
-                    isFirstPoster = priorMoviePostCount == 0
-
-                    data["movieId"] = movie.id
-                    data["movieTitle"] = movie.title
-                    data["directorName"] = movie.directorName
-                    data["releaseYear"] = movie.year
-                    data["movieReleaseDate"] = movie.releaseDate ?: ""
-                    data["posterURL"] = movie.posterURL ?: ""
-                    data["posterLargeURL"] = movie.posterLargeURL ?: ""
-                    data["tmdbWebURL"] = movie.tmdbWebURL
-                    data["movieOverview"] = movie.overview
-                    data["movieRating"] = movie.rating
-                    data["movieCast"] = movie.cast
-                    data["isFirstPoster"] = isFirstPoster
-                    data["trailerURL"] = movie.trailerURL ?: ""
-                    // Also set albumArtURL to posterURL for backwards compat (notifications use this field)
-                    data["albumArtURL"] = movie.posterURL ?: ""
+                    val movieMap = mutableMapOf<String, Any?>(
+                        "movieId" to movie.id,
+                        "movieTitle" to movie.title,
+                        "directorName" to movie.directorName,
+                        "releaseYear" to movie.year,
+                        "posterURL" to (movie.posterURL ?: ""),
+                        "posterLargeURL" to (movie.posterLargeURL ?: ""),
+                        "movieOverview" to movie.overview,
+                        "movieRating" to movie.rating,
+                        "movieCast" to movie.cast,
+                        "tmdbWebURL" to movie.tmdbWebURL,
+                    )
+                    movie.releaseDate?.let { movieMap["movieReleaseDate"] = it }
+                    movie.trailerURL?.let { movieMap["trailerURL"] = it }
+                    payload["movie"] = movieMap
                 }
 
-                val newPostId = postRepository.createPost(userId, data, voiceNoteData)
+                // Carry voice-uploader uid through the repository so it can
+                // upload to Storage before invoking the callable. Sentinel key
+                // is stripped by the repository.
+                if (voiceNoteData != null) {
+                    payload["__voiceUserId"] = userId
+                }
+
+                val result = postRepository.createPost(payload, voiceNoteData)
                 analyticsService.logPostCreated(mediaType.value)
                 subscriptionRepository.incrementPostCount()
                 authRepository.bumpCymbalCount(1)
@@ -483,43 +462,12 @@ class ComposeViewModel @Inject constructor(
                 // Mirrors iOS ComposeView post-created haptic (track & film branches).
                 hapticManager.notification(HapticManager.NotificationType.SUCCESS)
 
-                // Repost side-effect: notification to the original poster.
-                // The repostCount is incremented by the `onPostCreated` cloud
-                // function — bumping it client-side would double-count.
-                if (includeRepost && originalPostId != null) {
-                    if (!originalUserId.isNullOrEmpty() && originalUserId != userId) {
-                        try {
-                            postRepository.createNotification(
-                                type = "repost",
-                                fromUserId = userId,
-                                toUserId = originalUserId,
-                                postId = newPostId,
-                                postAlbumArtURL = data["albumArtURL"] as? String,
-                            )
-                        } catch (_: Exception) { }
-                    }
-                }
+                // Repost notification + tag notifications are created by the
+                // `onPostCreatedNotifyTagsAndRepost` Cloud Function trigger,
+                // not the client — they would double-fire if we also wrote
+                // them here. Same on iOS.
 
-                // Send tag notifications for @mentions in caption (matches iOS)
-                val albumArtURL = data["albumArtURL"] as? String
-                    ?: data["albumArtThumbnailURL"] as? String
-                val mentionedUsernames = extractMentions(caption)
-                for (username in mentionedUsernames) {
-                    try {
-                        val mentionedUser = userRepository.fetchUserByUsername(username) ?: continue
-                        if (mentionedUser.id == userId) continue
-                        postRepository.createNotification(
-                            type = "tag",
-                            fromUserId = userId,
-                            toUserId = mentionedUser.id,
-                            postId = newPostId,
-                            postAlbumArtURL = albumArtURL,
-                        )
-                    } catch (_: Exception) { }
-                }
-
-                if (isFirstPoster) {
-                    // Build a lightweight CymbalPost for the trophy celebration
+                if (result.isFirstPoster) {
                     val track = _selectedTrack.value
                     val movie = _selectedMovie.value
                     _trophyPost.value = CymbalPost(
@@ -538,6 +486,19 @@ class ComposeViewModel @Inject constructor(
                 } else {
                     _postSuccess.value = true
                 }
+            } catch (e: CloudFunctionsDataSource.PostLimitReachedException) {
+                // Server hit. The callable returned recentCount + dailyLimit,
+                // but the SubscriptionRepository already tracks these via its
+                // own refresh; just open the paywall (or hard-cap alert).
+                if (e.hardCap) {
+                    _error.value = "You've reached the daily posting cap. Try again tomorrow."
+                } else {
+                    _showPostLimitPaywall.value = true
+                }
+            } catch (e: CloudFunctionsDataSource.RepostOriginalMissingException) {
+                _error.value = "That post is no longer available."
+            } catch (e: CloudFunctionsDataSource.PostingBannedException) {
+                _error.value = "Posting is blocked by your account permissions right now."
             } catch (e: Exception) {
                 Log.e("ComposeViewModel", "createPost failed", e)
                 _error.value = "Something went wrong. Please try again."

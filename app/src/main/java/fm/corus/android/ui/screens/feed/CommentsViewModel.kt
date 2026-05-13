@@ -309,6 +309,7 @@ class CommentsViewModel @Inject constructor(
             _pendingSong.value = null
             _pendingFilm.value = null
             _replyingTo.value = null
+            _likedCommentIds.value = emptySet()
         }
         viewModelScope.launch {
             _isLoading.value = true
@@ -320,6 +321,21 @@ class CommentsViewModel @Inject constructor(
 
                 _comments.value = topLevel
                 _repliesByParent.value = replies
+
+                // Preload which of these comments the current user has already
+                // liked so the heart renders filled on first open. Without this,
+                // the heart always appears empty and tapping it triggers another
+                // server-side likeCount increment even though our like doc is
+                // just being overwritten.
+                val userId = authRepository.currentUserId
+                if (userId != null && allComments.isNotEmpty()) {
+                    val liked = postRepository.checkCommentLikesBatch(
+                        userId = userId,
+                        postId = postId,
+                        commentIds = allComments.map { it.id },
+                    )
+                    _likedCommentIds.value = liked
+                }
             } catch (_: Exception) { }
             _isLoading.value = false
         }

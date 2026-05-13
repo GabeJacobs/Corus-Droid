@@ -1187,35 +1187,40 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Comment Likes ──
 
-    suspend fun likeComment(userId: String, postId: String, commentId: String) {
-        val batch = firestore.batch()
-        batch.set(
-            firestore.collection("posts").document(postId)
-                .collection("comments").document(commentId)
-                .collection("likes").document(userId),
-            mapOf("createdAt" to FieldValue.serverTimestamp())
-        )
-        batch.update(
-            firestore.collection("posts").document(postId)
-                .collection("comments").document(commentId),
-            "likeCount", FieldValue.increment(1)
-        )
-        batch.commit().await()
+    suspend fun likeComment(userId: String, postId: String, commentId: String) = withAuthRetry {
+        val likeRef = firestore.collection("posts").document(postId)
+            .collection("comments").document(commentId)
+            .collection("likes").document(userId)
+        val commentRef = firestore.collection("posts").document(postId)
+            .collection("comments").document(commentId)
+
+        // Same idempotency pattern as likePost: read existing inside the txn
+        // so a repeat call (re-open after the liked-state didn't load, phantom
+        // retry, etc.) doesn't double-increment likeCount while the like doc
+        // is just overwritten.
+        firestore.runTransaction { txn ->
+            val existing = txn.get(likeRef)
+            if (existing.exists()) return@runTransaction null
+            txn.set(likeRef, mapOf("createdAt" to FieldValue.serverTimestamp()))
+            txn.update(commentRef, "likeCount", FieldValue.increment(1))
+            null
+        }.await()
     }
 
-    suspend fun unlikeComment(userId: String, postId: String, commentId: String) {
-        val batch = firestore.batch()
-        batch.delete(
-            firestore.collection("posts").document(postId)
-                .collection("comments").document(commentId)
-                .collection("likes").document(userId)
-        )
-        batch.update(
-            firestore.collection("posts").document(postId)
-                .collection("comments").document(commentId),
-            "likeCount", FieldValue.increment(-1)
-        )
-        batch.commit().await()
+    suspend fun unlikeComment(userId: String, postId: String, commentId: String) = withAuthRetry {
+        val likeRef = firestore.collection("posts").document(postId)
+            .collection("comments").document(commentId)
+            .collection("likes").document(userId)
+        val commentRef = firestore.collection("posts").document(postId)
+            .collection("comments").document(commentId)
+
+        firestore.runTransaction { txn ->
+            val existing = txn.get(likeRef)
+            if (!existing.exists()) return@runTransaction null
+            txn.delete(likeRef)
+            txn.update(commentRef, "likeCount", FieldValue.increment(-1))
+            null
+        }.await()
     }
 
     suspend fun isCommentLiked(userId: String, postId: String, commentId: String): Boolean {
@@ -1224,6 +1229,25 @@ class FirestoreDataSource @Inject constructor(
             .collection("likes").document(userId)
             .get().await()
         return doc.exists()
+    }
+
+    /** Mirrors iOS `checkCommentLikesBatch` — returns the set of commentIds the
+     *  user has already liked. Used to populate the liked-state when a
+     *  comments sheet opens, so the heart appears correctly without the user
+     *  having to tap. */
+    suspend fun checkCommentLikesBatch(
+        userId: String,
+        postId: String,
+        commentIds: List<String>,
+    ): Set<String> = coroutineScope {
+        if (commentIds.isEmpty()) return@coroutineScope emptySet()
+        commentIds.map { commentId ->
+            async {
+                try {
+                    if (isCommentLiked(userId, postId, commentId)) commentId else null
+                } catch (_: Exception) { null }
+            }
+        }.awaitAll().filterNotNull().toSet()
     }
 
     // ── Mutual connections (precomputed) ──

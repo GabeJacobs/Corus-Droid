@@ -273,6 +273,7 @@ fun PostDetailScreen(
                                     viewModel.analyticsService.logLikesListViewed(currentPost.id)
                                     onNavigateToLikes(currentPost.id)
                                 },
+                                onLikerTap = { liker -> onNavigateToUser(liker.id) },
                                 currentUser = currentUserProfile,
                                 isLiked = isLiked,
                             )
