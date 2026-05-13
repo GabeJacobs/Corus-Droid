@@ -21,6 +21,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.ui.screens.subscription.PaywallSource
+import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
@@ -82,6 +83,26 @@ internal fun applyCommentEditToPosts(
     return if (didChange) updated else posts
 }
 
+/** Removes the deleted comment from any post's preview snapshot so a recycled
+ *  PostCard doesn't keep rendering it (which would make the delete look like
+ *  it silently failed). Returns the original list unchanged if no post carries
+ *  a matching preview entry. */
+internal fun applyCommentDeleteToPosts(
+    posts: List<CymbalPost>,
+    payload: CommentDeletedEvent.Payload,
+): List<CymbalPost> {
+    var didChange = false
+    val updated = posts.map { post ->
+        if (post.id != payload.postId) return@map post
+        val previews = post.comments
+        val filtered = previews.filter { it.id != payload.commentId }
+        if (filtered.size == previews.size) return@map post
+        didChange = true
+        post.copy(comments = filtered)
+    }
+    return if (didChange) updated else posts
+}
+
 @HiltViewModel
 class FeedViewModel @Inject constructor(
     private val postRepository: PostRepository,
@@ -100,6 +121,7 @@ class FeedViewModel @Inject constructor(
     private val postCreationEvent: PostCreationEvent,
     private val postDeletionEvent: PostDeletionEvent,
     private val commentEditedEvent: CommentEditedEvent,
+    private val commentDeletedEvent: CommentDeletedEvent,
     networkMonitor: NetworkMonitor,
     private val preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore,
     @ApplicationContext private val context: Context,
@@ -243,6 +265,11 @@ class FeedViewModel @Inject constructor(
         viewModelScope.launch {
             commentEditedEvent.events.collect { payload ->
                 _posts.value = applyCommentEditToPosts(_posts.value, payload)
+            }
+        }
+        viewModelScope.launch {
+            commentDeletedEvent.events.collect { payload ->
+                _posts.value = applyCommentDeleteToPosts(_posts.value, payload)
             }
         }
         // Keep NowPlayingManager's queue in sync with the paginated feed so the

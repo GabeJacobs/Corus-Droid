@@ -102,6 +102,7 @@ class ProfileFeedViewModelRefreshTest {
         engagementManager = engagementManager,
         postDeletionEvent = postDeletionEvent,
         commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
+        commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
         tmdbApiService = tmdbApiService,
         nowPlayingManager = nowPlayingManager,
         feedScrollRouter = fm.corus.android.domain.FeedScrollRouter(),

@@ -100,6 +100,7 @@ class ProfileViewModelFeaturedRefreshTest {
         postCreationEvent = postCreationEvent,
         postDeletionEvent = postDeletionEvent,
         commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
+        commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
         analyticsService = analyticsService,
         musicServicePreference = org.mockito.kotlin.mock(),
     ).also { it.clock = { fakeNow } }

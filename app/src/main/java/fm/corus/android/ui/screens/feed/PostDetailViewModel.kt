@@ -13,6 +13,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
@@ -38,6 +39,7 @@ class PostDetailViewModel @Inject constructor(
     private val engagementManager: PostEngagementManager,
     private val postDeletionEvent: PostDeletionEvent,
     private val commentEditedEvent: CommentEditedEvent,
+    private val commentDeletedEvent: CommentDeletedEvent,
     val nowPlayingManager: NowPlayingManager,
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
@@ -80,6 +82,21 @@ class PostDetailViewModel @Inject constructor(
                     _comments.value = _comments.value.map { c ->
                         if (c.id == payload.commentId) c.copy(text = payload.newText, editedAt = java.util.Date()) else c
                     }
+                }
+            }
+        }
+        viewModelScope.launch {
+            commentDeletedEvent.events.collect { payload ->
+                _post.value?.let { current ->
+                    if (current.id == payload.postId &&
+                        current.comments.any { it.id == payload.commentId }) {
+                        _post.value = current.copy(
+                            comments = current.comments.filter { it.id != payload.commentId }
+                        )
+                    }
+                }
+                if (_comments.value.any { it.id == payload.commentId }) {
+                    _comments.value = _comments.value.filter { it.id != payload.commentId }
                 }
             }
         }

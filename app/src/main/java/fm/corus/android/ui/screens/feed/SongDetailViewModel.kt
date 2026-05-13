@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
@@ -20,6 +21,7 @@ class SongDetailViewModel @Inject constructor(
     private val nowPlayingManager: NowPlayingManager,
     val analyticsService: AnalyticsService,
     private val commentEditedEvent: CommentEditedEvent,
+    private val commentDeletedEvent: CommentDeletedEvent,
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
@@ -29,6 +31,11 @@ class SongDetailViewModel @Inject constructor(
         viewModelScope.launch {
             commentEditedEvent.events.collect { payload ->
                 _posts.value = applyCommentEditToPosts(_posts.value, payload)
+            }
+        }
+        viewModelScope.launch {
+            commentDeletedEvent.events.collect { payload ->
+                _posts.value = applyCommentDeleteToPosts(_posts.value, payload)
             }
         }
     }

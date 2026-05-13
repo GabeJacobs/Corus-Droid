@@ -106,6 +106,7 @@ class FeedMediaTypeFilterTest {
         postCreationEvent = postCreationEvent,
         postDeletionEvent = postDeletionEvent,
         commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
+        commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
         musicServicePreference = mock(),
         networkMonitor = mock {
             on { isConnected } doReturn MutableStateFlow(true)

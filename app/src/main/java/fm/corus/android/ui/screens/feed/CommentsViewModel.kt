@@ -19,6 +19,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
@@ -48,6 +49,7 @@ class CommentsViewModel @Inject constructor(
     private val engagementManager: PostEngagementManager,
     private val postDeletionEvent: PostDeletionEvent,
     private val commentEditedEvent: CommentEditedEvent,
+    private val commentDeletedEvent: CommentDeletedEvent,
     val nowPlayingManager: NowPlayingManager,
     private val remoteConfigService: RemoteConfigService,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
@@ -519,6 +521,9 @@ class CommentsViewModel @Inject constructor(
     }
 
     fun deleteComment(commentId: String) {
+        // Capture top-level-ness before mutating local state so we know whether
+        // to broadcast (only top-level deletes affect post.previewComments).
+        val wasTopLevel = _comments.value.any { it.id == commentId }
         viewModelScope.launch {
             try {
                 postRepository.deleteComment(postId, commentId)
@@ -527,6 +532,9 @@ class CommentsViewModel @Inject constructor(
                 _comments.value = _comments.value.filter { it.id != commentId }
                 _repliesByParent.value = _repliesByParent.value.mapValues { (_, replies) ->
                     replies.filter { it.id != commentId }
+                }
+                if (wasTopLevel) {
+                    commentDeletedEvent.notifyCommentDeleted(postId, commentId)
                 }
             } catch (_: Exception) { }
         }

@@ -4,6 +4,7 @@ import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -82,6 +83,54 @@ class ApplyCommentEditToPostsTest {
         val patched = applyCommentEditToPosts(
             listOf(keep, target),
             CommentEditedEvent.Payload("p1", "c1", "new"),
+        )
+        assertSame(keep, patched[0])
+    }
+
+    // ── applyCommentDeleteToPosts ──
+
+    @Test
+    fun `delete removes matching preview comment`() {
+        val posts = listOf(
+            post("p1", listOf(comment("c1", "first"), comment("c2", "second"))),
+            post("p2", listOf(comment("c3", "unrelated"))),
+        )
+        val patched = applyCommentDeleteToPosts(
+            posts,
+            CommentDeletedEvent.Payload(postId = "p1", commentId = "c1"),
+        )
+        assertEquals(1, patched[0].comments.size)
+        assertEquals("c2", patched[0].comments[0].id)
+        assertEquals("unrelated", patched[1].comments[0].text)
+    }
+
+    @Test
+    fun `delete returns same list when post does not match`() {
+        val posts = listOf(post("p1", listOf(comment("c1", "x"))))
+        val patched = applyCommentDeleteToPosts(
+            posts,
+            CommentDeletedEvent.Payload("p_other", "c1"),
+        )
+        assertSame(posts, patched)
+    }
+
+    @Test
+    fun `delete returns same list when comment is not in preview`() {
+        val posts = listOf(post("p1", listOf(comment("c1", "x"))))
+        val patched = applyCommentDeleteToPosts(
+            posts,
+            CommentDeletedEvent.Payload("p1", "c_not_in_preview"),
+        )
+        assertSame(posts, patched)
+    }
+
+    @Test
+    fun `delete leaves other posts untouched by identity`() {
+        val keep = post("p_keep", listOf(comment("c_other", "other")))
+        val target = post("p1", listOf(comment("c1", "x")))
+        val patched = applyCommentDeleteToPosts(
+            listOf(keep, target),
+            CommentDeletedEvent.Payload("p1", "c1"),
         )
         assertSame(keep, patched[0])
     }
