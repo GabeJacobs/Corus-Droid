@@ -7,6 +7,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.hasStubMetadata
+import fm.corus.android.data.model.mergeMissing
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.TrendingMovie
@@ -408,7 +410,22 @@ class ComposeViewModel @Inject constructor(
                 }
 
                 if (mediaType == MediaType.TRACK) {
-                    val track = _selectedTrack.value ?: throw Exception("No track selected")
+                    val rawTrack = _selectedTrack.value ?: throw Exception("No track selected")
+                    // Stub-track entry points (DM share, comment attachment, Now
+                    // Playing) hand us a CymbalTrack with empty albumName /
+                    // durationMs / isrc / releaseDate. Re-fetch the canonical
+                    // Spotify metadata before posting so the doc lands complete.
+                    // Network failures fall back to the raw track — the server-
+                    // side stampNewReleaseFieldOnPostCreate trigger is the
+                    // final backstop.
+                    val track = if (rawTrack.hasStubMetadata()) {
+                        runCatching { spotifyRepository.getTrack(rawTrack.id) }
+                            .getOrNull()
+                            ?.let { rawTrack.mergeMissing(it) }
+                            ?: rawTrack
+                    } else {
+                        rawTrack
+                    }
                     val trackMap = mutableMapOf<String, Any?>(
                         "trackId" to track.id,
                         "trackName" to track.name,
