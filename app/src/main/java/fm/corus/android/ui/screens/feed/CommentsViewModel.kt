@@ -230,7 +230,6 @@ class CommentsViewModel @Inject constructor(
     val currentUserProfile = authRepository.userProfile
 
     private var postId: String = ""
-    private var _currentUserProfile: CymbalUser? = null
     private var listeningPostId: String? = null
 
     private val _editingComment = MutableStateFlow<CymbalComment?>(null)
@@ -361,10 +360,12 @@ class CommentsViewModel @Inject constructor(
             val parentId = replyTo?.parentCommentId ?: replyTo?.id
             val replyToUserId = replyTo?.user?.id
 
-            // Build optimistic comment
-            val userProfile = _currentUserProfile
+            // Build optimistic comment. Read fresh from authRepository so we never
+            // render the previous user's identity after a logout/login — this VM is
+            // hosted outside the NavHost in CorusNavGraph, so its instance (and any
+            // private caches) persist across auth changes.
+            val userProfile = authRepository.userProfile.value
                 ?: try { userRepository.fetchUserProfile(userId) } catch (_: Exception) { null }
-            _currentUserProfile = userProfile
 
             val isFallback = text.isBlank() && (attachedSong != null || attachedFilm != null)
             val optimisticText = when {
@@ -460,9 +461,8 @@ class CommentsViewModel @Inject constructor(
             val parentId = replyTo?.parentCommentId ?: replyTo?.id
             val replyToUserId = replyTo?.user?.id
 
-            val userProfile = _currentUserProfile
+            val userProfile = authRepository.userProfile.value
                 ?: try { userRepository.fetchUserProfile(userId) } catch (_: Exception) { null }
-            _currentUserProfile = userProfile
 
             val tempId = "temp_${System.currentTimeMillis()}"
             val optimisticComment = CymbalComment(

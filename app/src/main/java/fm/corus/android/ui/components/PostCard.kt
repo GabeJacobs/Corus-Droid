@@ -874,10 +874,14 @@ fun PostCard(
                     .padding(bottom = CorusSpacing.xs),
             )
         } else if (!post.caption.isNullOrBlank()) {
+            // Drop the caption cap from 3 → 2 lines when a comment preview will
+            // render, so the preview is never squeezed out by a long caption.
+            val willShowCommentPreview = !hideComments && post.comments.isNotEmpty()
+            val captionMaxLines = if (willShowCommentPreview) 2 else 3
             ExpandableCaptionText(
                 username = post.user.username,
                 caption = post.caption,
-                maxCollapsedLines = 3,
+                maxCollapsedLines = captionMaxLines,
                 onMentionTap = { onMentionTap(it) },
                 onHashtagTap = { onHashtagTap(it) },
                 onUsernameTap = onUserTap,

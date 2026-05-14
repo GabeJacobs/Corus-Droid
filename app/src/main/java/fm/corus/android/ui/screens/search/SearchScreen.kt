@@ -133,6 +133,7 @@ fun SearchScreen(
     val trendingFilmsWindow by viewModel.trendingFilmsWindow.collectAsState()
     val suggestedMatches by viewModel.suggestedMatches.collectAsState()
     val isSuggestedLoading by viewModel.isSuggestedLoading.collectAsState()
+    val isTasteMatchPolling by viewModel.isTasteMatchPolling.collectAsState()
     val recentSearchUsers by viewModel.recentSearchUsers.collectAsState()
     val contactMatches by viewModel.contactMatches.collectAsState()
     val isSyncingContacts by viewModel.isSyncingContacts.collectAsState()
@@ -313,6 +314,7 @@ fun SearchScreen(
                                 clubMembers = clubMembers,
                                 allFollowedIds = allFollowedIds,
                                 isSuggestedLoading = isSuggestedLoading,
+                                isTasteMatchPolling = isTasteMatchPolling,
                                 viewModel = viewModel,
                                 onNavigateToUser = onNavigateToUser,
                                 onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
@@ -594,6 +596,7 @@ private fun SuggestedUsersContent(
     clubMembers: List<CymbalUser>,
     allFollowedIds: Set<String>,
     isSuggestedLoading: Boolean,
+    isTasteMatchPolling: Boolean,
     viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
@@ -688,7 +691,7 @@ private fun SuggestedUsersContent(
         }
 
         // ── Taste Matches section ──
-        if (isSuggestedLoading && musicMatchUsers.isEmpty()) {
+        if ((isSuggestedLoading || isTasteMatchPolling) && musicMatchUsers.isEmpty()) {
             item {
                 SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
             }

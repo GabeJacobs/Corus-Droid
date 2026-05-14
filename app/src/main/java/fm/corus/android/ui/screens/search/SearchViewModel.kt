@@ -246,6 +246,13 @@ class SearchViewModel @Inject constructor(
     private val _isSuggestedLoading = MutableStateFlow(true)
     val isSuggestedLoading: StateFlow<Boolean> = _isSuggestedLoading.asStateFlow()
 
+    // True while the cold-start poll (after an initial empty taste-match
+    // response) is still running. Keeps the music-matches skeleton up for up
+    // to ~3s in case the backend's eager recompute fired on a recent post is
+    // still in flight.
+    private val _isTasteMatchPolling = MutableStateFlow(false)
+    val isTasteMatchPolling: StateFlow<Boolean> = _isTasteMatchPolling.asStateFlow()
+
     // Follow state
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     val followingIds: StateFlow<Set<String>> = _followingIds.asStateFlow()
@@ -378,6 +385,7 @@ class SearchViewModel @Inject constructor(
 
             _suggestedMatches.value = merged
             _isSuggestedLoading.value = false
+            pollTasteMatchesIfMissing(uid)
         }
         viewModelScope.launch {
             try {
@@ -409,6 +417,46 @@ class SearchViewModel @Inject constructor(
         }
         refreshFollowedHashtags()
     }
+
+    // Cold-start poll: if the initial fetch returned no taste matches, the
+    // backend's eager recompute (fired by a recent post create) may still be
+    // in flight. Refetch up to ~3s before giving up.
+    private suspend fun pollTasteMatchesIfMissing(uid: String) {
+        if (_suggestedMatches.value.any { it.hasTasteMatch() }) return
+
+        _isTasteMatchPolling.value = true
+        try {
+            repeat(4) {
+                delay(750L)
+                val fresh = try {
+                    cloudFunctions.getSuggestedUsers(uid)
+                } catch (e: Exception) {
+                    Log.w("SearchVM", "Taste-match poll attempt failed", e)
+                    return@repeat
+                }
+                if (fresh.none { it.hasTasteMatch() }) return@repeat
+
+                // Merge fresh music matches over the existing social suggestions.
+                val seenIds = mutableSetOf<String>()
+                val merged = mutableListOf<SuggestedUserMatch>()
+                for (match in fresh) {
+                    if (!seenIds.add(match.user.id)) continue
+                    merged.add(match)
+                }
+                for (match in _suggestedMatches.value) {
+                    if (!seenIds.add(match.user.id)) continue
+                    merged.add(match)
+                }
+                _suggestedMatches.value = merged
+                return
+            }
+        } finally {
+            _isTasteMatchPolling.value = false
+        }
+    }
+
+    private fun SuggestedUserMatch.hasTasteMatch(): Boolean =
+        matchData?.hasSimilarityData == true || (user.artistsInCommonCount ?: 0) > 0
 
     private fun loadNewUsers() {
         val uid = authRepository.currentUserId ?: return

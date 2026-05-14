@@ -488,6 +488,7 @@ class ComposeViewModel @Inject constructor(
                         directorName = movie?.directorName,
                         posterURL = movie?.posterURL,
                         posterLargeURL = movie?.posterLargeURL,
+                        movieReleaseDate = movie?.releaseDate,
                         isFirstPoster = true,
                     )
                     _showTrophy.value = true
