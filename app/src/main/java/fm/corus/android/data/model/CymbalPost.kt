@@ -123,11 +123,30 @@ data class CymbalPost(
     companion object {
         @Suppress("UNCHECKED_CAST")
         fun fromCloudData(data: Map<String, Any?>): CymbalPost {
-            val userData = data["user"] as? Map<String, Any?> ?: emptyMap()
-            val userId = userData["id"] as? String
-                ?: data["userId"] as? String  // fallback to top-level userId
+            // Author resolution order (Phase 1 denorm rollout):
+            //   1. Full `user` block from the server callable — populated by
+            //      `hydratePostAuthorsForDocs` on the backend, which uses the
+            //      denormalized `author` block on the post doc when present
+            //      and falls back to `batchGetUsers` only for legacy posts.
+            //      This is the production path post-rollout.
+            //   2. Top-level `author` denorm block — used when a caller
+            //      bypasses the callable hydration (future direct-Firestore
+            //      paths). Mirrors the iOS DatabaseService fallback.
+            //   3. Empty userData — Past-rollout legacy posts that haven't
+            //      hit the one-time backfill yet. The CymbalUser stub will
+            //      still render but with empty fields; the feed filters such
+            //      posts server-side.
+            val userMap = data["user"] as? Map<String, Any?>
+            val userId = (userMap?.get("id") as? String)
+                ?: (data["userId"] as? String)
                 ?: ""
-            val user = CymbalUser.fromMap(userId, userData)
+            val user: CymbalUser = if (userMap != null) {
+                CymbalUser.fromMap(userId, userMap)
+            } else {
+                val authorBlock = data["author"] as? Map<String, Any?>
+                CymbalUser.fromAuthorPreview(userId, authorBlock)
+                    ?: CymbalUser.fromMap(userId, emptyMap())
+            }
 
             val mediaTypeStr = data["mediaType"] as? String
             val mediaType = MediaType.from(mediaTypeStr)

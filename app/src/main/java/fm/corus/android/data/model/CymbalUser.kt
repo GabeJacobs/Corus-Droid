@@ -114,6 +114,37 @@ data class CymbalUser(
         copy(artistsInCommonCount = count)
 
     companion object {
+        /**
+         * Synthesizes a [CymbalUser] from a post's denormalized `author` block.
+         * Field set mirrors `buildAuthorPreview()` in the backend
+         * (`Corus-Web/backend/functions/postCreate.js`). Counts /
+         * customization not carried on the preview get safe defaults — feed
+         * rendering doesn't read those, and surfaces that do (profile pages,
+         * customization sheets) fetch the user doc directly.
+         *
+         * Returns null when the block is missing or empty (no username AND
+         * no displayName), so callers can fall back to a per-uid fetch for
+         * legacy posts not yet covered by the one-time backfill.
+         */
+        fun fromAuthorPreview(uid: String, data: Map<String, Any?>?): CymbalUser? {
+            if (data == null) return null
+            val username = data["username"] as? String ?: ""
+            val displayName = data["displayName"] as? String ?: ""
+            if (username.isEmpty() && displayName.isEmpty()) return null
+            return CymbalUser(
+                id = uid,
+                username = username,
+                displayName = displayName,
+                avatarURL = data["avatarURL"] as? String,
+                avatarThumbURL = data["avatarThumbURL"] as? String,
+                isVerified = data["isVerified"] as? Boolean ?: false,
+                isClubMember = data["isClubMember"] as? Boolean ?: false,
+                isBot = data["isBot"] as? Boolean ?: false,
+                botType = data["botType"] as? String,
+                profileFlair = data["profileFlair"] as? String ?: "checkmark",
+            )
+        }
+
         fun fromMap(id: String, data: Map<String, Any?>): CymbalUser = CymbalUser(
             id = id,
             username = data["username"] as? String ?: "",

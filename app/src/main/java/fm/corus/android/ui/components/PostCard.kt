@@ -107,6 +107,16 @@ fun PostCard(
     showsTapHint: Boolean = false,
     onAlbumArtTap: () -> Unit = {},
 ) {
+    // For the viewer's own posts, overlay the live profile from
+    // AuthRepository.userProfile (passed in as `currentUser`) on top of the
+    // denormalized author stamped on the post doc. Keeps a fresh
+    // name/avatar/flair/badge change reflected on the user's own feed and
+    // detail screens immediately — the backend `backfillPostAuthorOnUserUpdate`
+    // trigger propagates the same change to other viewers within a few seconds.
+    val displayUser: CymbalUser = remember(currentUser, post.user) {
+        if (currentUser != null && currentUser.id == post.user.id) currentUser
+        else post.user
+    }
     val scope = rememberCoroutineScope()
     val heartScale = remember { Animatable(0f) }
     val heartAlpha = remember { Animatable(0f) }
@@ -154,9 +164,9 @@ fun PostCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             UserAvatarView(
-                avatarURL = post.user.avatarURL,
-                avatarThumbURL = post.user.avatarThumbURL,
-                displayName = post.user.displayName,
+                avatarURL = displayUser.avatarURL,
+                avatarThumbURL = displayUser.avatarThumbURL,
+                displayName = displayUser.displayName,
                 size = 28.dp,
                 modifier = Modifier.clickable(onClick = onUserTap),
             )
@@ -170,11 +180,11 @@ fun PostCard(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 UsernameWithFlair(
-                    username = post.user.username,
-                    isBot = post.user.isBot,
-                    isVerified = post.user.isVerified,
-                    isClubMember = post.user.isClubMember,
-                    flairStyle = post.user.flairStyle,
+                    username = displayUser.username,
+                    isBot = displayUser.isBot,
+                    isVerified = displayUser.isVerified,
+                    isClubMember = displayUser.isClubMember,
+                    flairStyle = displayUser.flairStyle,
                     isFirstPoster = post.isFirstPoster,
                     isNewRelease = post.isNewRelease(),
                     style = CorusFont.username,
@@ -866,7 +876,7 @@ fun PostCard(
         if (!post.voiceNoteURL.isNullOrBlank()) {
             VoiceNotePlayerView(
                 voiceNoteURL = post.voiceNoteURL!!,
-                username = post.user.username,
+                username = displayUser.username,
                 onUsernameTap = onUserTap,
                 onPlaybackStarted = onVoiceNotePlayed,
                 modifier = Modifier
@@ -879,7 +889,7 @@ fun PostCard(
             val willShowCommentPreview = !hideComments && post.comments.isNotEmpty()
             val captionMaxLines = if (willShowCommentPreview) 2 else 3
             ExpandableCaptionText(
-                username = post.user.username,
+                username = displayUser.username,
                 caption = post.caption,
                 maxCollapsedLines = captionMaxLines,
                 onMentionTap = { onMentionTap(it) },
