@@ -47,6 +47,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -103,6 +104,18 @@ fun ProfileScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+
+    // Responsive header spacing — see OtherProfileScreen for rationale.
+    val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
+    val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
+    val playlistHPad = if (isWideHeader) CorusSpacing.xxl else CorusSpacing.md
+    val headerAvatarSize = if (isWideHeader) CorusSpacing.avatarLarge else 68.dp
+    // Avatar + username sit slightly inside the screen's outer margin —
+    // matches OtherProfileScreen for visual consistency.
+    val avatarHPad = headerHPad + 8.dp
+    val usernameStartPad = avatarHPad
+    val usernameEndPad = avatarHPad
+
     val profile by viewModel.profile.collectAsState()
     val pendingAvatarBytes by viewModel.pendingAvatarBytes.collectAsState()
     val posts by viewModel.posts.collectAsState()
@@ -317,7 +330,7 @@ fun ProfileScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.lg),
+                        .padding(horizontal = avatarHPad),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // Large circular avatar with long-press context menu
@@ -325,7 +338,7 @@ fun ProfileScreen(
                         UserAvatarView(
                             avatarURL = currentProfile.avatarURL,
                             displayName = currentProfile.displayName,
-                            size = CorusSpacing.avatarLarge,
+                            size = headerAvatarSize,
                             modifier = Modifier.combinedClickable(
                                 onClick = { showAvatarMenu = true },
                                 onLongClick = { showAvatarMenu = true },
@@ -475,7 +488,7 @@ fun ProfileScreen(
                                             }
                                         }
                                     }
-                                    .padding(horizontal = CorusSpacing.md),
+                                    .padding(horizontal = playlistHPad),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 // Always render label to preserve button width
@@ -523,7 +536,7 @@ fun ProfileScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 28.dp, end = CorusSpacing.lg),
+                        .padding(start = usernameStartPad, end = usernameEndPad),
                 ) {
                     // @username with badges
                     UsernameWithFlair(

@@ -213,11 +213,32 @@ fun SearchScreen(
     var filterUnfollowedMatches by rememberSaveable { mutableStateOf(true) }
     val allFollowedIds = remember(followingIds, localFollowedIds) { followingIds + localFollowedIds }
     val filteredMusicMatchUsers = remember(musicMatchUsers, filterUnfollowedMatches, allFollowedIds) {
-        filteredMusicMatchUsers(filterUnfollowedMatches, musicMatchUsers, allFollowedIds)
+        filteredUnfollowedUsers(filterUnfollowedMatches, musicMatchUsers, allFollowedIds)
     }
     val showUnfollowedMatchesToggle = remember(musicMatchUsers, allFollowedIds) {
-        showUnfollowedMatchesToggle(musicMatchUsers, allFollowedIds)
+        shouldShowUnfollowedFilter(musicMatchUsers, allFollowedIds)
     }
+
+    // Popular-on-Corus filter — mirrors taste matches but uses a *snapshot* of
+    // followed ids so following someone via the rail doesn't make their card
+    // disappear immediately. Snapshot is refreshed only when followingIds first
+    // populates or when the user re-toggles the filter.
+    var filterUnfollowedPopular by rememberSaveable { mutableStateOf(true) }
+    var popularFilterSnapshot by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var hasPrimedPopularSnapshot by remember { mutableStateOf(false) }
+    LaunchedEffect(followingIds) {
+        if (!hasPrimedPopularSnapshot && followingIds.isNotEmpty()) {
+            popularFilterSnapshot = followingIds
+            hasPrimedPopularSnapshot = true
+        }
+    }
+    val onSetFilterUnfollowedPopular: (Boolean) -> Unit = { enabled ->
+        filterUnfollowedPopular = enabled
+        popularFilterSnapshot = followingIds
+        hasPrimedPopularSnapshot = true
+    }
+    val popularRailFilterFollowedIds = if (filterUnfollowedPopular) popularFilterSnapshot else emptySet()
+    val showUnfollowedPopularToggle = allFollowedIds.isNotEmpty()
 
     // Mutual-connection users sorted by mutual-count DESC. The underlying
     // suggestion list mixes in music-similarity-ranked users, so the rail
@@ -305,6 +326,10 @@ fun SearchScreen(
                                 showUnfollowedMatchesToggle = showUnfollowedMatchesToggle,
                                 filterUnfollowedMatches = filterUnfollowedMatches,
                                 onSetFilterUnfollowed = { filterUnfollowedMatches = it },
+                                popularRailFilterFollowedIds = popularRailFilterFollowedIds,
+                                showUnfollowedPopularToggle = showUnfollowedPopularToggle,
+                                filterUnfollowedPopular = filterUnfollowedPopular,
+                                onSetFilterUnfollowedPopular = onSetFilterUnfollowedPopular,
                                 mutualConnectionUsers = mutualConnectionUsers,
                                 contactMatches = contactMatches,
                                 contactsSyncStatus = contactsSyncStatus,
@@ -587,6 +612,10 @@ private fun SuggestedUsersContent(
     showUnfollowedMatchesToggle: Boolean,
     filterUnfollowedMatches: Boolean,
     onSetFilterUnfollowed: (Boolean) -> Unit,
+    popularRailFilterFollowedIds: Set<String>,
+    showUnfollowedPopularToggle: Boolean,
+    filterUnfollowedPopular: Boolean,
+    onSetFilterUnfollowedPopular: (Boolean) -> Unit,
     mutualConnectionUsers: List<SuggestedUserMatch>,
     contactMatches: List<CymbalUser>,
     contactsSyncStatus: String,
@@ -719,9 +748,10 @@ private fun SuggestedUsersContent(
                     },
                     trailingAction = if (showUnfollowedMatchesToggle) {
                         {
-                            TasteMatchFilterMenu(
-                                filterUnfollowedMatches = filterUnfollowedMatches,
+                            UnfollowedUsersFilterMenu(
+                                filterUnfollowed = filterUnfollowedMatches,
                                 onSetFilterUnfollowed = onSetFilterUnfollowed,
+                                contentDescription = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches),
                             )
                         }
                     } else null,
@@ -758,6 +788,7 @@ private fun SuggestedUsersContent(
 
         // ── Popular on Corus — paginated horizontal rail of real users ──
         item {
+            val popularFilterCd = stringResource(fm.corus.android.R.string.search_cd_filter_popular_users)
             HorizontalPopularUsersRail(
                 excludeIds = railExcludeIds,
                 followedIds = allFollowedIds,
@@ -770,6 +801,16 @@ private fun SuggestedUsersContent(
                     viewModel.logSearchSectionSeeAllTapped(SearchSection.Popular)
                     onNavigateToSuggestedUsers(popularOnCorusTitle, false, "popular")
                 },
+                filterFollowedIds = popularRailFilterFollowedIds,
+                trailingAction = if (showUnfollowedPopularToggle) {
+                    {
+                        UnfollowedUsersFilterMenu(
+                            filterUnfollowed = filterUnfollowedPopular,
+                            onSetFilterUnfollowed = onSetFilterUnfollowedPopular,
+                            contentDescription = popularFilterCd,
+                        )
+                    }
+                } else null,
             )
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
@@ -1049,9 +1090,10 @@ internal fun SectionHeader(
 }
 
 @Composable
-private fun TasteMatchFilterMenu(
-    filterUnfollowedMatches: Boolean,
+internal fun UnfollowedUsersFilterMenu(
+    filterUnfollowed: Boolean,
     onSetFilterUnfollowed: (Boolean) -> Unit,
+    contentDescription: String,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
@@ -1060,13 +1102,13 @@ private fun TasteMatchFilterMenu(
             modifier = Modifier.size(24.dp),
         ) {
             Icon(
-                imageVector = if (filterUnfollowedMatches) {
+                imageVector = if (filterUnfollowed) {
                     Icons.Filled.FilterAlt
                 } else {
                     Icons.Outlined.FilterAlt
                 },
-                contentDescription = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches),
-                tint = if (filterUnfollowedMatches) CorusColors.Accent else CorusColors.Tertiary,
+                contentDescription = contentDescription,
+                tint = if (filterUnfollowed) CorusColors.Accent else CorusColors.Tertiary,
                 modifier = Modifier.size(16.dp),
             )
         }
@@ -1080,7 +1122,7 @@ private fun TasteMatchFilterMenu(
                     onSetFilterUnfollowed(false)
                     expanded = false
                 },
-                leadingIcon = if (!filterUnfollowedMatches) {
+                leadingIcon = if (!filterUnfollowed) {
                     { Icon(Icons.Filled.Check, contentDescription = null) }
                 } else null,
             )
@@ -1090,7 +1132,7 @@ private fun TasteMatchFilterMenu(
                     onSetFilterUnfollowed(true)
                     expanded = false
                 },
-                leadingIcon = if (filterUnfollowedMatches) {
+                leadingIcon = if (filterUnfollowed) {
                     { Icon(Icons.Filled.Check, contentDescription = null) }
                 } else null,
             )

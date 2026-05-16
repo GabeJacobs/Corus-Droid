@@ -2,20 +2,26 @@ package fm.corus.android.ui.screens.search
 
 import fm.corus.android.data.model.SuggestedUserMatch
 
-internal fun filteredMusicMatchUsers(
+/**
+ * Generic "hide already-followed users" filter used by both the Taste Matches
+ * section and the Popular on Corus rail. If every user is already followed,
+ * falls back to the unfiltered list so the rail isn't empty.
+ */
+internal fun filteredUnfollowedUsers(
     enabled: Boolean,
-    musicMatchUsers: List<SuggestedUserMatch>,
+    users: List<SuggestedUserMatch>,
     followedIds: Set<String>,
 ): List<SuggestedUserMatch> {
-    if (!enabled) return musicMatchUsers
-    val filtered = musicMatchUsers.filter { it.user.id !in followedIds }
-    return if (filtered.isEmpty()) musicMatchUsers else filtered
+    if (!enabled) return users
+    val filtered = users.filter { it.user.id !in followedIds }
+    return if (filtered.isEmpty()) users else filtered
 }
 
-internal fun showUnfollowedMatchesToggle(
-    musicMatchUsers: List<SuggestedUserMatch>,
+/** Toggle is only worth showing when the section contains both followed and unfollowed users. */
+internal fun shouldShowUnfollowedFilter(
+    users: List<SuggestedUserMatch>,
     followedIds: Set<String>,
 ): Boolean {
-    val followedCount = musicMatchUsers.count { it.user.id in followedIds }
-    return followedCount > 0 && followedCount < musicMatchUsers.size
+    val followedCount = users.count { it.user.id in followedIds }
+    return followedCount > 0 && followedCount < users.size
 }

@@ -66,6 +66,11 @@ fun HorizontalPopularUsersRail(
     onFollowTap: (CymbalUser) -> Unit,
     modifier: Modifier = Modifier,
     onSeeAll: (() -> Unit)? = null,
+    // Snapshot of follow ids the filter should hide. Empty = filter off.
+    // Snapshot (not live `followedIds`) so a fresh follow via this rail
+    // doesn't make the card vanish — see SearchScreen for the snapshot lifecycle.
+    filterFollowedIds: Set<String> = emptySet(),
+    trailingAction: (@Composable () -> Unit)? = null,
     viewModel: PopularUsersRailViewModel = hiltViewModel(),
 ) {
     val matches by viewModel.matches.collectAsState()
@@ -75,6 +80,12 @@ fun HorizontalPopularUsersRail(
     LaunchedEffect(excludeIds) {
         viewModel.loadInitial(excludeIds)
     }
+
+    val displayedMatches = fm.corus.android.ui.screens.search.filteredUnfollowedUsers(
+        enabled = filterFollowedIds.isNotEmpty(),
+        users = matches,
+        followedIds = filterFollowedIds,
+    )
 
     val listState = rememberLazyListState()
     LaunchedEffect(listState, endReached, isLoading) {
@@ -99,18 +110,19 @@ fun HorizontalPopularUsersRail(
             title = "POPULAR ON CORUS",
             showSeeAll = onSeeAll != null,
             onSeeAll = onSeeAll ?: {},
+            trailingAction = trailingAction,
         )
 
-        if (matches.isEmpty() && isLoading) {
+        if (displayedMatches.isEmpty() && isLoading) {
             SkeletonRow(cardWidth = cardWidth)
-        } else if (matches.isNotEmpty()) {
+        } else if (displayedMatches.isNotEmpty()) {
             LazyRow(
                 state = listState,
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                items(matches, key = { it.user.id }) { match ->
+                items(displayedMatches, key = { it.user.id }) { match ->
                     TasteMatchCard(
                         match = match,
                         isFollowing = match.user.id in followedIds,

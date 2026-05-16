@@ -413,6 +413,7 @@
     <string name="search_cd_clear">Clear</string>
     <string name="search_cd_remove">Remove</string>
     <string name="search_cd_filter_taste_matches">Filter taste matches</string>
+    <string name="search_cd_filter_popular_users">Filter popular users</string>
     <string name="search_placeholder_users">Search by username</string>
     <string name="search_placeholder_songs">Search for a song</string>
     <string name="search_placeholder_films">Search for a film</string>

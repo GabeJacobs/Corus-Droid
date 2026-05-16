@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -347,15 +348,22 @@ fun SkeletonSuggestedUserRow() {
 // 1. SkeletonProfileView — Full profile header
 @Composable
 fun SkeletonProfileView() {
+    val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
+    val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
+    val headerAvatarSize = if (isWideHeader) CorusSpacing.avatarLarge else 68.dp
+    val avatarHPad = headerHPad + 8.dp
+    val usernameStartPad = avatarHPad
+    val usernameEndPad = avatarHPad
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .shimmer(),
     ) {
-        // Display name
+        // Display name — vertical footprint matches CorusFont.displayName line height
         Box(
             modifier = Modifier
-                .padding(top = CorusSpacing.xs)
+                .padding(vertical = 4.dp)
                 .align(Alignment.CenterHorizontally)
                 .width(140.dp)
                 .height(16.dp)
@@ -363,19 +371,17 @@ fun SkeletonProfileView() {
                 .background(CorusColors.Skeleton)
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.md))
-
         // Avatar + stats row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                .padding(horizontal = avatarHPad, vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Avatar (72dp circle)
+            // Avatar circle — size matches the real header
             Box(
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(headerAvatarSize)
                     .clip(CircleShape)
                     .background(CorusColors.Skeleton)
             )
@@ -393,27 +399,39 @@ fun SkeletonProfileView() {
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                 ) {
                     repeat(3) {
+                        // Stat placeholder — wrapper boxes match the real Text line
+                        // heights (stat 18sp ≈ 24dp, statLabel 11sp ≈ 14dp) so the
+                        // overall column height matches the loaded header exactly.
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(
-                                modifier = Modifier
-                                    .width(28.dp)
-                                    .height(14.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(CorusColors.Skeleton)
-                            )
-                            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                                modifier = Modifier.height(24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(28.dp)
+                                        .height(14.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(CorusColors.Skeleton)
+                                )
+                            }
                             Box(
-                                modifier = Modifier
-                                    .width(44.dp)
-                                    .height(10.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(CorusColors.Skeleton)
-                            )
+                                modifier = Modifier.height(14.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(44.dp)
+                                        .height(10.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(CorusColors.Skeleton)
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(CorusSpacing.md))
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
                 // Edit profile button bar
                 Box(
@@ -427,10 +445,12 @@ fun SkeletonProfileView() {
             }
         }
 
+        Spacer(modifier = Modifier.height(6.dp))
+
         // Username + bio
         Column(
             modifier = Modifier
-                .padding(start = 28.dp, end = CorusSpacing.lg),
+                .padding(start = usernameStartPad, end = usernameEndPad),
         ) {
             Box(
                 modifier = Modifier
@@ -459,14 +479,21 @@ fun SkeletonProfileWithAvatar(
     avatarURL: String?,
     avatarThumbURL: String? = null,
 ) {
+    val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
+    val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
+    val headerAvatarSize = if (isWideHeader) CorusSpacing.avatarLarge else 68.dp
+    val avatarHPad = headerHPad + 8.dp
+    val usernameStartPad = avatarHPad
+    val usernameEndPad = avatarHPad
+
     Column(
         modifier = Modifier
             .fillMaxWidth(),
     ) {
-        // Display name shimmer
+        // Display name shimmer — vertical footprint matches CorusFont.displayName line height
         Box(
             modifier = Modifier
-                .padding(top = CorusSpacing.xs)
+                .padding(vertical = 4.dp)
                 .align(Alignment.CenterHorizontally)
                 .width(140.dp)
                 .height(16.dp)
@@ -475,20 +502,18 @@ fun SkeletonProfileWithAvatar(
                 .background(CorusColors.Skeleton)
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.md))
-
         // Avatar + stats row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                .padding(horizontal = avatarHPad, vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Real avatar (pre-loaded from feed)
             UserAvatarView(
                 avatarURL = avatarURL,
                 avatarThumbURL = avatarThumbURL,
-                size = CorusSpacing.avatarLarge,
+                size = headerAvatarSize,
             )
 
             Spacer(modifier = Modifier.width(CorusSpacing.md))
@@ -505,27 +530,37 @@ fun SkeletonProfileWithAvatar(
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                 ) {
                     repeat(3) {
+                        // See SkeletonProfileView — same line-height matching.
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(
-                                modifier = Modifier
-                                    .width(28.dp)
-                                    .height(14.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(CorusColors.Skeleton)
-                            )
-                            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                                modifier = Modifier.height(24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(28.dp)
+                                        .height(14.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(CorusColors.Skeleton)
+                                )
+                            }
                             Box(
-                                modifier = Modifier
-                                    .width(44.dp)
-                                    .height(10.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(CorusColors.Skeleton)
-                            )
+                                modifier = Modifier.height(14.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(44.dp)
+                                        .height(10.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(CorusColors.Skeleton)
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(CorusSpacing.md))
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
                 // Follow button bar
                 Box(
@@ -539,10 +574,12 @@ fun SkeletonProfileWithAvatar(
             }
         }
 
+        Spacer(modifier = Modifier.height(6.dp))
+
         // Username + bio shimmer
         Column(
             modifier = Modifier
-                .padding(start = 28.dp, end = CorusSpacing.lg)
+                .padding(start = usernameStartPad, end = usernameEndPad)
                 .shimmer(),
         ) {
             Box(

@@ -20,9 +20,9 @@ class TasteMatchFilterTest {
     @Test
     fun `filter disabled returns original list unchanged`() {
         val matches = listOf(match("a"), match("b"), match("c"))
-        val result = filteredMusicMatchUsers(
+        val result = filteredUnfollowedUsers(
             enabled = false,
-            musicMatchUsers = matches,
+            users = matches,
             followedIds = setOf("a"),
         )
         assertSame(matches, result)
@@ -31,9 +31,9 @@ class TasteMatchFilterTest {
     @Test
     fun `filter enabled drops already-followed matches`() {
         val matches = listOf(match("a"), match("b"), match("c"))
-        val result = filteredMusicMatchUsers(
+        val result = filteredUnfollowedUsers(
             enabled = true,
-            musicMatchUsers = matches,
+            users = matches,
             followedIds = setOf("a", "c"),
         )
         assertEquals(listOf("b"), result.map { it.user.id })
@@ -42,9 +42,9 @@ class TasteMatchFilterTest {
     @Test
     fun `filter enabled with all followed falls back to full list`() {
         val matches = listOf(match("a"), match("b"))
-        val result = filteredMusicMatchUsers(
+        val result = filteredUnfollowedUsers(
             enabled = true,
-            musicMatchUsers = matches,
+            users = matches,
             followedIds = setOf("a", "b"),
         )
         assertEquals(listOf("a", "b"), result.map { it.user.id })
@@ -53,23 +53,23 @@ class TasteMatchFilterTest {
     @Test
     fun `toggle hidden when none followed`() {
         val matches = listOf(match("a"), match("b"))
-        assertFalse(showUnfollowedMatchesToggle(matches, followedIds = emptySet()))
+        assertFalse(shouldShowUnfollowedFilter(matches, followedIds = emptySet()))
     }
 
     @Test
     fun `toggle hidden when all followed`() {
         val matches = listOf(match("a"), match("b"))
-        assertFalse(showUnfollowedMatchesToggle(matches, followedIds = setOf("a", "b")))
+        assertFalse(shouldShowUnfollowedFilter(matches, followedIds = setOf("a", "b")))
     }
 
     @Test
     fun `toggle shown when mix of followed and unfollowed`() {
         val matches = listOf(match("a"), match("b"), match("c"))
-        assertTrue(showUnfollowedMatchesToggle(matches, followedIds = setOf("a")))
+        assertTrue(shouldShowUnfollowedFilter(matches, followedIds = setOf("a")))
     }
 
     @Test
     fun `toggle hidden when match list is empty`() {
-        assertFalse(showUnfollowedMatchesToggle(emptyList(), followedIds = setOf("a")))
+        assertFalse(shouldShowUnfollowedFilter(emptyList(), followedIds = setOf("a")))
     }
 }

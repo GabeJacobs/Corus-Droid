@@ -110,6 +110,7 @@ class SearchViewModel @Inject constructor(
     private var hasLoadedTrendingHashtags = false
     private val hashtagSearchCache = mutableMapOf<String, List<CymbalHashtag>>()
     private val hashtagPreviewCache = mutableMapOf<String, FirestoreDataSource.HashtagPreview>()
+    private val userSearchCache = mutableMapOf<String, List<CymbalUser>>()
 
     /** Synchronous read of the in-memory preview cache. Returned by reference
      *  so a row can seed its initial state without an extra suspend hop —
@@ -523,12 +524,40 @@ class SearchViewModel @Inject constructor(
             _isSearching.value = true
         }
 
+        // Adaptive debounce matching iOS SearchView: shorter delays as the query
+        // grows, since longer queries are more specific and the user has already
+        // committed to them. Short queries get a longer wait so we don't fire on
+        // every keystroke as the user types out the first few letters.
+        val debounceMs = when (query.length) {
+            1 -> 400L
+            2 -> 300L
+            in 3..5 -> 200L
+            else -> 150L
+        }
+
+        // Serve the Users tab from cache instantly on a hit and skip the network
+        // round-trip — covers the common backspace-and-retype pattern (e.g.
+        // "aiden" → "aide" → "aiden"). Matches iOS SearchView.userSearchCache.
+        if (tab == 0) {
+            val cached = userSearchCache[query.lowercase().trim()]
+            if (cached != null) {
+                _userSearchResults.value = cached
+                _isSearching.value = false
+                return
+            }
+        }
+
         searchJob = viewModelScope.launch {
-            delay(if (query.length <= 2) 500L else 300L)
+            delay(debounceMs)
             _isSearching.value = true
             try {
                 when (tab) {
-                    0 -> _userSearchResults.value = userRepository.searchUsers(query.lowercase().trim())
+                    0 -> {
+                        val key = query.lowercase().trim()
+                        val results = userRepository.searchUsers(key)
+                        userSearchCache[key] = results
+                        _userSearchResults.value = results
+                    }
                     1 -> _songSearchResults.value = musicSearchRepository.search(
                         query,
                         includeSoundCloud = remoteConfigService.soundcloudEnabled,

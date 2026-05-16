@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -108,6 +109,22 @@ fun OtherProfileScreen(
     onNavigateToMessages: (String, String) -> Unit = { _, _ -> },
     onNavigateToPost: (postId: String) -> Unit = {},
 ) {
+    // Responsive header spacing: wider phones (~Pixel 9 Pro) get a more generous
+    // inset; narrower phones (~Galaxy S) keep the original tighter layout so the
+    // PLAYLIST/FOLLOW labels never truncate and the avatar aligns with the
+    // taste-match pill below it.
+    val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
+    val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
+    val followHPad = if (isWideHeader) 28.dp else 20.dp
+    val playlistHPad = if (isWideHeader) CorusSpacing.xxl else CorusSpacing.md
+    val headerAvatarSize = if (isWideHeader) CorusSpacing.avatarLarge else 68.dp
+    // Avatar + username + bio sit slightly inside the taste-match pill's left
+    // edge — matches iOS.
+    val avatarHPad = headerHPad + 8.dp
+    val usernameStartPad = avatarHPad
+    val usernameEndPad = avatarHPad
+    val pillHPad = headerHPad - 4.dp
+
     val profile by viewModel.profile.collectAsState()
     val posts by viewModel.posts.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -363,14 +380,14 @@ fun OtherProfileScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                                    .padding(horizontal = avatarHPad, vertical = CorusSpacing.md),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 UserAvatarView(
                                     avatarURL = initialAvatarURL,
                                     avatarThumbURL = initialAvatarThumbURL,
                                     displayName = initialDisplayName,
-                                    size = CorusSpacing.avatarLarge,
+                                    size = headerAvatarSize,
                                 )
 
                                 Spacer(modifier = Modifier.width(CorusSpacing.md))
@@ -404,7 +421,7 @@ fun OtherProfileScreen(
                                                     if (hintFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
                                                     else Modifier.background(CorusColors.Accent)
                                                 )
-                                                .padding(vertical = 6.dp, horizontal = 20.dp),
+                                                .padding(vertical = 6.dp, horizontal = followHPad),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Text(
@@ -419,7 +436,7 @@ fun OtherProfileScreen(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(50))
                                                 .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
-                                                .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
+                                                .padding(vertical = 6.dp, horizontal = playlistHPad),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Row(
@@ -444,11 +461,13 @@ fun OtherProfileScreen(
                                 }
                             }
 
+                            Spacer(modifier = Modifier.height(6.dp))
+
                             // Username + Bio
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = 28.dp, end = CorusSpacing.lg),
+                                    .padding(start = usernameStartPad, end = usernameEndPad),
                             ) {
                                 UsernameWithFlair(
                                     username = initialUsername,
@@ -620,13 +639,13 @@ fun OtherProfileScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                            .padding(horizontal = avatarHPad, vertical = CorusSpacing.md),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         UserAvatarView(
                             avatarURL = currentProfile.avatarURL,
                             displayName = currentProfile.displayName,
-                            size = CorusSpacing.avatarLarge,
+                            size = headerAvatarSize,
                             modifier = Modifier.clickable { showAvatarFullScreen = true },
                         )
 
@@ -656,7 +675,8 @@ fun OtherProfileScreen(
 
                             Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-                            // Follow button + Playlist button
+                            // Follow button + Playlist button — hidden on own profile (matches iOS)
+                            if (!isOwnProfile) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
@@ -671,7 +691,7 @@ fun OtherProfileScreen(
                                             else Modifier.background(CorusColors.Accent)
                                         )
                                         .clickable { viewModel.toggleFollow(userId) }
-                                        .padding(vertical = 6.dp, horizontal = 20.dp),
+                                        .padding(vertical = 6.dp, horizontal = followHPad),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(
@@ -719,7 +739,7 @@ fun OtherProfileScreen(
                                                 }
                                             }
                                         }
-                                        .padding(vertical = 6.dp, horizontal = CorusSpacing.md),
+                                        .padding(vertical = 6.dp, horizontal = playlistHPad),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     // Always render label to preserve button width
@@ -754,14 +774,17 @@ fun OtherProfileScreen(
                                     }
                                 }
                             }
+                            }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Username + Bio + Website
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 28.dp, end = CorusSpacing.lg),
+                            .padding(start = usernameStartPad, end = usernameEndPad),
                     ) {
                         UsernameWithFlair(
                             username = currentProfile.username,
@@ -816,7 +839,7 @@ fun OtherProfileScreen(
                         TasteMatchTeaser(
                             match = match,
                             onClick = { showMatchSheet = true },
-                            modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                            modifier = Modifier.padding(horizontal = pillHPad),
                         )
                     }
 

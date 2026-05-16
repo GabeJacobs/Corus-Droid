@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
+import com.valentinilk.shimmer.shimmer
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.MessageDeliveryStatus
@@ -761,17 +762,29 @@ private fun MessageBubble(
                 }
 
                 // Image content
-                if (message.type == MessageType.IMAGE && message.mediaURL != null) {
-                    ShimmerAsyncImage(
-                        model = message.mediaURL,
-                        contentDescription = stringResource(id = R.string.messaging_thread_cd_shared_image),
-                        modifier = Modifier
-                            .widthIn(max = 240.dp)
-                            .heightIn(max = 300.dp)
-                            .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
-                            .clickable { onImageTap(message.mediaURL!!) },
-                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                    )
+                if (message.type == MessageType.IMAGE) {
+                    if (message.mediaURL != null) {
+                        ShimmerAsyncImage(
+                            model = message.mediaURL,
+                            contentDescription = stringResource(id = R.string.messaging_thread_cd_shared_image),
+                            modifier = Modifier
+                                .widthIn(max = 240.dp)
+                                .heightIn(max = 300.dp)
+                                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                                .clickable { onImageTap(message.mediaURL!!) },
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                        )
+                    } else {
+                        // Pending upload — show a shimmering skeleton so the bubble has
+                        // image-like dimensions while the photo finishes uploading.
+                        Box(
+                            modifier = Modifier
+                                .size(width = 200.dp, height = 240.dp)
+                                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                                .shimmer()
+                                .background(CorusColors.Skeleton),
+                        )
+                    }
                     if (!message.text.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
                     }
