@@ -148,21 +148,19 @@ class UserRepository @Inject constructor(
 
     // ── Follow ──
 
+    // Server-driven: the `followUser` callable enforces the rolling 24h follow
+    // cap and writes the same two Firestore docs. On a limit hit, callers
+    // receive a `CloudFunctionsDataSource.FollowLimitReachedException` and
+    // should show a top toast. The follow notification is now created
+    // server-side by `onFollowCreatedNotify`, so we no longer need a separate
+    // notification write here.
     suspend fun followUser(userId: String, targetUserId: String) {
-        firestoreDataSource.followUser(userId, targetUserId)
+        cloudFunctions.followUser(targetUserId)
         _followingIds.value = _followingIds.value + targetUserId
-        // Send follow notification (matches iOS)
-        try {
-            firestoreDataSource.createNotification(
-                type = "follow",
-                fromUserId = userId,
-                toUserId = targetUserId,
-            )
-        } catch (_: Exception) { }
     }
 
     suspend fun unfollowUser(userId: String, targetUserId: String) {
-        firestoreDataSource.unfollowUser(userId, targetUserId)
+        cloudFunctions.unfollowUser(targetUserId)
         _followingIds.value = _followingIds.value - targetUserId
         _unfollowEvents.tryEmit(targetUserId)
     }

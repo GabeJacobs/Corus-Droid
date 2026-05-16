@@ -313,7 +313,11 @@ fun MessageThreadScreen(
                         bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
                         viewModel.toggleReaction(threadId, message.id, emoji)
                     },
-                    onImageTap = { url -> fullScreenImageUrl = url },
+                    onImageTap = { url ->
+                        if (reactionTarget == null) {
+                            fullScreenImageUrl = url
+                        }
+                    },
                     onRetry = { viewModel.retrySendMessage(message.id) },
                     onNavigateToSong = onNavigateToSong,
                     onNavigateToFilm = onNavigateToFilm,

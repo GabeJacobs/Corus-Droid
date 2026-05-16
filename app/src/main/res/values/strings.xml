@@ -354,6 +354,9 @@
     <string name="other_profile_muted">Muted</string>
     <string name="other_profile_unmuted_format">@%1$s\'s posts unmuted</string>
     <string name="other_profile_unmuted">Unmuted</string>
+    <string name="follow_limit_reached_hours">You\'ve reached today\'s follow limit (%1$d). You can follow more in about %2$d hours.</string>
+    <string name="follow_limit_reached_minutes">You\'ve reached today\'s follow limit (%1$d). You can follow more in about %2$d minutes.</string>
+    <string name="follow_limit_reached_soon">You\'ve reached today\'s follow limit (%1$d). You can follow more in a moment.</string>
 
     <!-- Edit Profile -->
     <string name="edit_profile_screen_title">Edit Profile</string>
@@ -623,6 +626,8 @@
     <string name="messaging_list_new_message_title">New Message</string>
     <string name="messaging_list_search_placeholder">Search username</string>
     <string name="messaging_list_no_suggestions">No suggestions</string>
+    <string name="messaging_list_inbox_search_placeholder">Search messages</string>
+    <string name="messaging_list_no_matches">No matches</string>
 
     <!-- Notifications (activity feed) -->
     <string name="notifications_activity_title">Activity</string>

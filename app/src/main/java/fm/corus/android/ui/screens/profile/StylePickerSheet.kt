@@ -107,6 +107,7 @@ fun StylePickerSheet(
     hasTrackPosts: Boolean,
     hasMoviePosts: Boolean,
     isClubMember: Boolean,
+    stylePack1Enabled: Boolean,
     isSaving: Boolean,
     initialPage: Int = 0,
     onSave: (StyleSelections) -> Unit,
@@ -118,7 +119,7 @@ fun StylePickerSheet(
     val pages = remember(hasTrackPosts, hasMoviePosts) {
         buildList {
             if (hasTrackPosts) add(StylePage.VINYL)
-            // DISCO hidden to match iOS
+            // DISCO hidden — disco effect is still WIP
             if (hasMoviePosts) add(StylePage.FRAME)
             add(StylePage.FLAIR)
             if (hasTrackPosts) add(StylePage.RAIN)
@@ -185,11 +186,13 @@ fun StylePickerSheet(
                     selected = draft.vinylColor,
                     onSelect = { draft = draft.copy(vinylColor = it) },
                     latestTrackPost = latestTrackPost,
+                    stylePack1Enabled = stylePack1Enabled,
                 )
                 StylePage.FRAME -> FrameColorPickerPage(
                     selected = draft.frameColor,
                     onSelect = { draft = draft.copy(frameColor = it) },
                     latestMoviePost = latestMoviePost,
+                    stylePack1Enabled = stylePack1Enabled,
                 )
                 StylePage.FLAIR -> FlairPickerPage(
                     selected = draft.profileFlair,
@@ -298,7 +301,11 @@ private fun VinylColorPickerPage(
     selected: VinylStyle,
     onSelect: (VinylStyle) -> Unit,
     latestTrackPost: CymbalPost?,
+    stylePack1Enabled: Boolean,
 ) {
+    val visibleStyles = remember(stylePack1Enabled) {
+        VinylStyle.entries.filter { !it.requiresStylePack1 || stylePack1Enabled }
+    }
     val scrollState = rememberScrollState()
 
     Column(
@@ -330,7 +337,7 @@ private fun VinylColorPickerPage(
             modifier = Modifier.padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
-            VinylStyle.entries.forEach { style ->
+            visibleStyles.forEach { style ->
                 StyleOptionCard(
                     previewColor = style.previewColor,
                     previewShape = CircleShape,
@@ -435,7 +442,11 @@ private fun FrameColorPickerPage(
     selected: FrameStyle,
     onSelect: (FrameStyle) -> Unit,
     latestMoviePost: CymbalPost?,
+    stylePack1Enabled: Boolean,
 ) {
+    val visibleStyles = remember(stylePack1Enabled) {
+        FrameStyle.entries.filter { !it.requiresStylePack1 || stylePack1Enabled }
+    }
     val scrollState = rememberScrollState()
 
     Column(
@@ -467,7 +478,7 @@ private fun FrameColorPickerPage(
             modifier = Modifier.padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
-            FrameStyle.entries.forEach { style ->
+            visibleStyles.forEach { style ->
                 StyleOptionCard(
                     previewColor = style.previewColor,
                     previewShape = RoundedCornerShape(4.dp),

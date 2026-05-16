@@ -897,6 +897,7 @@ fun ProfileScreen(
                 hasTrackPosts = trackPosts.isNotEmpty(),
                 hasMoviePosts = moviePosts.isNotEmpty(),
                 isClubMember = hasFullAccess,
+                stylePack1Enabled = viewModel.stylePack1Enabled,
                 isSaving = isSavingStyle,
                 initialPage = styleInitialPage,
                 onSave = { selections ->

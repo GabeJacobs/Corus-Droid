@@ -12,6 +12,17 @@ enum class VinylStyle(val value: String) {
     RED("red"),
     BLUE("blue"),
     GREEN("green");
+    // TODO: style_pack_1 vinyl colors — add new entries here, return true from
+    // `requiresStylePack1` for them, and add cases to every `when` below
+    // (displayName, previewColor, label fractions). `from()` already falls back
+    // to BLACK on unknown values, so old clients are safe.
+
+    /// True for vinyl colors gated behind the `style_pack_1_enabled`
+    /// Remote Config flag.
+    val requiresStylePack1: Boolean
+        get() = when (this) {
+            BLACK, CLEAR, RED_MATTE, PURPLE, WHITE, GOLD, RED, BLUE, GREEN -> false
+        }
 
     val displayName: String
         get() = when (this) {

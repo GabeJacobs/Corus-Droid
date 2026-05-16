@@ -25,3 +25,13 @@ fun reconcileRecentLikers(
     val others = likers.filter { it.id != currentUser.id }
     return if (isLikedByCurrentUser) listOf(currentUser) + others else others
 }
+
+/**
+ * When [liker] is the signed-in user, returns the live [currentUser] copy
+ * so server-denormalized previews can't show the user their own stale
+ * displayName/username/avatar after a profile edit.
+ */
+fun freshenIfSelf(liker: CymbalUser, currentUser: CymbalUser?): CymbalUser {
+    if (currentUser == null || currentUser.id != liker.id) return liker
+    return currentUser
+}

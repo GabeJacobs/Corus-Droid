@@ -188,38 +188,12 @@ class FirestoreDataSource @Inject constructor(
     }
 
     // ── Following ──
-
-    // followingCount / followerCount are reconciled by the
-    // reconcileFollowingCountOnWrite / reconcileFollowerCountOnWrite cloud
-    // functions, which use count() on the subcollection as the source of
-    // truth. Clients only write the subcollection docs.
-    suspend fun followUser(userId: String, targetUserId: String) {
-        val batch = firestore.batch()
-        batch.set(
-            firestore.collection("users_v2").document(userId)
-                .collection("following").document(targetUserId),
-            mapOf("createdAt" to FieldValue.serverTimestamp())
-        )
-        batch.set(
-            firestore.collection("users_v2").document(targetUserId)
-                .collection("followers").document(userId),
-            mapOf("createdAt" to FieldValue.serverTimestamp())
-        )
-        batch.commit().await()
-    }
-
-    suspend fun unfollowUser(userId: String, targetUserId: String) {
-        val batch = firestore.batch()
-        batch.delete(
-            firestore.collection("users_v2").document(userId)
-                .collection("following").document(targetUserId)
-        )
-        batch.delete(
-            firestore.collection("users_v2").document(targetUserId)
-                .collection("followers").document(userId)
-        )
-        batch.commit().await()
-    }
+    //
+    // followUser / unfollowUser are now server-driven (CloudFunctionsDataSource)
+    // so the backend can enforce the rolling 24h follow cap. The Firestore
+    // docs the callable writes are identical to what this datasource used to
+    // write, so reconcileFollowingCountOnWrite / feed-fanout / notification
+    // triggers all keep working unchanged.
 
     suspend fun isFollowing(userId: String, targetUserId: String): Boolean {
         val doc = firestore.collection("users_v2").document(userId)

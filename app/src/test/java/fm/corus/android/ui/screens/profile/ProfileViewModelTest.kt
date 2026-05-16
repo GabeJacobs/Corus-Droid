@@ -96,6 +96,7 @@ class ProfileViewModelTest {
         commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
         analyticsService = analyticsService,
         musicServicePreference = mock(),
+        remoteConfigService = mock(),
     )
 
     private fun makeUser(id: String = "user1", movieCount: Int? = null) = CymbalUser(

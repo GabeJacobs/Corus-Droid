@@ -17,6 +17,7 @@ import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
 import kotlinx.coroutines.Job
@@ -41,10 +42,13 @@ class ProfileViewModel @Inject constructor(
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
     private val analyticsService: AnalyticsService,
+    private val remoteConfigService: RemoteConfigService,
 ) : ViewModel() {
 
     val isClubMember = subscriptionRepository.isClubMember
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
+
+    val stylePack1Enabled: Boolean get() = remoteConfigService.stylePack1Enabled
 
     val engagementStates = engagementManager.states
 

@@ -379,7 +379,7 @@ class OtherProfileViewModel @Inject constructor(
                 } else {
                     userRepository.followUser(currentUserId, userId)
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 _isFollowing.value = wasFollowing
                 _profile.value = _profile.value?.copy(
                     followerCount = if (wasFollowing) {
@@ -388,8 +388,22 @@ class OtherProfileViewModel @Inject constructor(
                         maxOf(0, (_profile.value?.followerCount ?: 1) - 1)
                     }
                 )
+                if (e is CloudFunctionsDataSource.FollowLimitReachedException) {
+                    ToastManager.show(buildFollowLimitMessage(e))
+                }
             }
         }
+    }
+
+    private fun buildFollowLimitMessage(
+        e: CloudFunctionsDataSource.FollowLimitReachedException,
+    ): String = when (val d = describeFollowLimitRetry(e.retryAfterSeconds)) {
+        is FollowLimitDuration.Hours ->
+            context.getString(R.string.follow_limit_reached_hours, e.dailyLimit, d.count)
+        is FollowLimitDuration.Minutes ->
+            context.getString(R.string.follow_limit_reached_minutes, e.dailyLimit, d.count)
+        FollowLimitDuration.Soon ->
+            context.getString(R.string.follow_limit_reached_soon, e.dailyLimit)
     }
 
     fun blockUser(userId: String) {

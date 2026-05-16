@@ -216,6 +216,17 @@ class CloudFunctionsDataSource @Inject constructor(
     /** Thrown when the server rejects a save because the user has hit the free cap. */
     class SaveCapReachedException(val savesCount: Int) : Exception("SAVE_CAP_REACHED")
 
+    /**
+     * Thrown when the server rejects a follow because the user has hit the
+     * rolling 24h follow cap. `retryAfterSeconds` is when the next slot
+     * opens (the oldest event in the window ages out). UI maps this to a
+     * top-anchored toast.
+     */
+    class FollowLimitReachedException(
+        val dailyLimit: Int,
+        val retryAfterSeconds: Int,
+    ) : Exception("FOLLOW_LIMIT_REACHED")
+
     @Suppress("UNCHECKED_CAST")
     suspend fun savePost(postId: String): SavePostResult {
         try {
@@ -269,6 +280,35 @@ class CloudFunctionsDataSource @Inject constructor(
     suspend fun unlikeComment(postId: String, commentId: String) {
         functions.getHttpsCallable("unlikeComment")
             .call(mapOf("postId" to postId, "commentId" to commentId)).await()
+    }
+
+    // ── Follow / Unfollow ──
+    // Server-side: the `followUser` callable enforces a rolling 24h follow
+    // cap, then writes the same two Firestore docs the old client-side
+    // batch wrote, so every existing trigger keeps working untouched. On
+    // limit hit, `FirebaseFunctionsException.Code.RESOURCE_EXHAUSTED` is
+    // mapped to `FollowLimitReachedException` here so UI can match it.
+    suspend fun followUser(targetUserId: String) {
+        try {
+            functions.getHttpsCallable("followUser")
+                .call(mapOf("targetUserId" to targetUserId)).await()
+        } catch (e: com.google.firebase.functions.FirebaseFunctionsException) {
+            if (e.code == com.google.firebase.functions.FirebaseFunctionsException.Code.RESOURCE_EXHAUSTED) {
+                val details = e.details as? Map<*, *>
+                val dailyLimit = (details?.get("dailyLimit") as? Number)?.toInt() ?: 400
+                val retryAfterSeconds = (details?.get("retryAfterSeconds") as? Number)?.toInt() ?: 0
+                throw FollowLimitReachedException(
+                    dailyLimit = dailyLimit,
+                    retryAfterSeconds = retryAfterSeconds,
+                )
+            }
+            throw e
+        }
+    }
+
+    suspend fun unfollowUser(targetUserId: String) {
+        functions.getHttpsCallable("unfollowUser")
+            .call(mapOf("targetUserId" to targetUserId)).await()
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -848,7 +888,10 @@ class CloudFunctionsDataSource @Inject constructor(
 
     data class CheckCanPostResult(
         val canPost: Boolean,
+        /** 24h rolling count. Only meaningful for free-tier users; 0 for subscribers. */
         val recentCount: Int,
+        /** 6h rolling count for the hard-cap check. Only meaningful for subscribers; 0 for free-tier. */
+        val recentCountHard: Int,
         val dailyLimit: Int?,
     )
 
@@ -856,10 +899,11 @@ class CloudFunctionsDataSource @Inject constructor(
     suspend fun checkCanPost(): CheckCanPostResult {
         val result = functions.getHttpsCallable("checkCanPost").call().await()
         val data = result.getData() as? Map<String, Any?>
-            ?: return CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = null)
+            ?: return CheckCanPostResult(canPost = true, recentCount = 0, recentCountHard = 0, dailyLimit = null)
         return CheckCanPostResult(
             canPost = data["canPost"] as? Boolean ?: true,
             recentCount = (data["recentCount"] as? Number)?.toInt() ?: 0,
+            recentCountHard = (data["recentCountHard"] as? Number)?.toInt() ?: 0,
             dailyLimit = (data["dailyLimit"] as? Number)?.toInt(),
         )
     }
@@ -875,6 +919,7 @@ class CloudFunctionsDataSource @Inject constructor(
     data class CreatePostResult(
         val postId: String,
         val recentCount: Int,
+        val recentCountHard: Int,
         val dailyLimit: Int,
         val isFirstPoster: Boolean,
     )
@@ -902,6 +947,7 @@ class CloudFunctionsDataSource @Inject constructor(
             return CreatePostResult(
                 postId = data["postId"] as? String ?: "",
                 recentCount = (data["recentCount"] as? Number)?.toInt() ?: 0,
+                recentCountHard = (data["recentCountHard"] as? Number)?.toInt() ?: 0,
                 dailyLimit = (data["dailyLimit"] as? Number)?.toInt() ?: 3,
                 isFirstPoster = data["isFirstPoster"] as? Boolean ?: false,
             )

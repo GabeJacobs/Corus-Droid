@@ -102,6 +102,45 @@ class SubscriptionRepositoryTest {
         assertFalse(repo.isHardCapped)
     }
 
+    @Test
+    fun `hard cap constant is 250 in a 6h window`() {
+        assertEquals(250, SubscriptionRepository.DAILY_POST_LIMIT_HARD)
+        assertEquals(6L * 60L * 60L * 1000L, SubscriptionRepository.HARD_CAP_WINDOW_MS)
+    }
+
+    @Test
+    fun `refreshPostLimit hydrates recentPostCountHard from server`() = runTest {
+        whenever(cloudFunctions.checkCanPost()).thenReturn(
+            CloudFunctionsDataSource.CheckCanPostResult(
+                canPost = true, recentCount = 0, recentCountHard = 42, dailyLimit = 3
+            )
+        )
+
+        repo.refreshPostLimit()
+
+        assertEquals(42, repo.recentPostCountHard.value)
+    }
+
+    @Test
+    fun `decrementPostCount only frees hard-cap slot when post is within the 6h window`() {
+        // Two posts simulated: optimistically populate both counters.
+        repeat(2) { repo.incrementPostCount() }
+
+        // A post created 5 hours ago is inside both the 24h and 6h windows.
+        val fiveHoursAgo = java.util.Date(System.currentTimeMillis() - 5L * 60L * 60L * 1000L)
+        repo.decrementPostCount(fiveHoursAgo)
+        assertEquals(1, repo.recentPostCount.value)
+        assertEquals(1, repo.recentPostCountHard.value)
+
+        // A post from 10 hours ago is inside 24h but outside 6h — only the
+        // 24h counter should drop; the hard-cap counter must stay put or we'd
+        // free a hard-cap slot the server hasn't.
+        val tenHoursAgo = java.util.Date(System.currentTimeMillis() - 10L * 60L * 60L * 1000L)
+        repo.decrementPostCount(tenHoursAgo)
+        assertEquals(0, repo.recentPostCount.value)
+        assertEquals(1, repo.recentPostCountHard.value)
+    }
+
     // ── postCountLoaded / server refresh ──
 
     @Test
@@ -112,7 +151,7 @@ class SubscriptionRepositoryTest {
     @Test
     fun `refreshPostLimit populates recentPostCount and marks loaded`() = runTest {
         whenever(cloudFunctions.checkCanPost()).thenReturn(
-            CloudFunctionsDataSource.CheckCanPostResult(canPost = false, recentCount = 3, dailyLimit = 3)
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = false, recentCount = 3, recentCountHard = 0, dailyLimit = 3)
         )
 
         repo.refreshPostLimit()
@@ -125,7 +164,7 @@ class SubscriptionRepositoryTest {
     @Test
     fun `refreshPostLimit adopts server dailyLimit and persists it`() = runTest {
         whenever(cloudFunctions.checkCanPost()).thenReturn(
-            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = 5)
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, recentCountHard = 0, dailyLimit = 5)
         )
 
         repo.refreshPostLimit()
@@ -137,7 +176,7 @@ class SubscriptionRepositoryTest {
     @Test
     fun `canPost respects server-driven limit`() = runTest {
         whenever(cloudFunctions.checkCanPost()).thenReturn(
-            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = 5)
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, recentCountHard = 0, dailyLimit = 5)
         )
         repo.refreshPostLimit()
 
@@ -160,7 +199,7 @@ class SubscriptionRepositoryTest {
     @Test
     fun `null or non-positive dailyLimit from server is ignored`() = runTest {
         whenever(cloudFunctions.checkCanPost()).thenReturn(
-            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = null)
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, recentCountHard = 0, dailyLimit = null)
         )
 
         val before = repo.dailyPostLimit.value
@@ -168,7 +207,7 @@ class SubscriptionRepositoryTest {
         assertEquals(before, repo.dailyPostLimit.value)
 
         whenever(cloudFunctions.checkCanPost()).thenReturn(
-            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = 0)
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, recentCountHard = 0, dailyLimit = 0)
         )
         repo.refreshPostLimit()
         assertEquals(before, repo.dailyPostLimit.value)
@@ -186,7 +225,7 @@ class SubscriptionRepositoryTest {
     @Test
     fun `checkCanPostFromServer returns server value and caches count`() = runTest {
         whenever(cloudFunctions.checkCanPost()).thenReturn(
-            CloudFunctionsDataSource.CheckCanPostResult(canPost = false, recentCount = 4, dailyLimit = 3)
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = false, recentCount = 4, recentCountHard = 0, dailyLimit = 3)
         )
 
         val allowed = repo.checkCanPostFromServer()
@@ -220,7 +259,7 @@ class SubscriptionRepositoryTest {
     @Test
     fun `refreshPostLimitIfNeeded calls server for free users on first foreground`() = runTest {
         whenever(cloudFunctions.checkCanPost()).thenReturn(
-            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 1, dailyLimit = 3)
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 1, recentCountHard = 0, dailyLimit = 3)
         )
 
         repo.refreshPostLimitIfNeeded()
@@ -232,7 +271,7 @@ class SubscriptionRepositoryTest {
     @Test
     fun `refreshPostLimitIfNeeded throttles repeat calls within the window`() = runTest {
         whenever(cloudFunctions.checkCanPost()).thenReturn(
-            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = 3)
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, recentCountHard = 0, dailyLimit = 3)
         )
 
         // First call lands; subsequent calls inside the throttle window are dropped
@@ -246,7 +285,7 @@ class SubscriptionRepositoryTest {
     @Test
     fun `refreshPostLimitIfNeeded refreshes again once the throttle window elapses`() = runTest {
         whenever(cloudFunctions.checkCanPost()).thenReturn(
-            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, dailyLimit = 3)
+            CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, recentCountHard = 0, dailyLimit = 3)
         )
 
         repo.refreshPostLimitIfNeeded(now = 1_000_000L)

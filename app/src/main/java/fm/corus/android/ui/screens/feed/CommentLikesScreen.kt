@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.domain.freshenIfSelf
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -85,6 +86,7 @@ fun CommentLikesContent(
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val followingIds by viewModel.followingIds.collectAsState()
     val followerIds by viewModel.followerIds.collectAsState()
+    val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(postId, commentId) {
@@ -182,8 +184,9 @@ fun CommentLikesContent(
                     }
                 }
             } else {
-                items(filteredLikers, key = { it.id }) { user ->
-                    val isSelf = user.id == viewModel.currentUserId
+                items(filteredLikers, key = { it.id }) { rawUser ->
+                    val isSelf = rawUser.id == viewModel.currentUserId
+                    val user = freshenIfSelf(rawUser, currentUserProfile)
                     val isFollowing = followingIds.contains(user.id)
                     val isFollower = followerIds.contains(user.id)
 

@@ -36,6 +36,7 @@ class CommentLikesViewModel @Inject constructor(
     val followerIds: StateFlow<Set<String>> = _followerIds.asStateFlow()
 
     val currentUserId: String? get() = authRepository.currentUserId
+    val currentUserProfile = authRepository.userProfile
 
     private var postId: String = ""
     private var commentId: String = ""

@@ -53,8 +53,15 @@ class SubscriptionRepository @Inject constructor(
          * before the first `checkCanPost` response.
          */
         const val DEFAULT_DAILY_POST_LIMIT = 3
+        /** Absolute ceiling on posts in a rolling 6h window — applies to everyone,
+         *  including subscribers. Kept in sync with backend `DAILY_POST_LIMIT_HARD`. */
         const val DAILY_POST_LIMIT_HARD = 400
+        /** Threshold at which the "approaching cap" warning popup fires. Kept in
+         *  sync with backend `DAILY_POST_LIMIT_WARN_AT`. */
+        const val DAILY_POST_LIMIT_WARN_AT = 390
         const val ROLLING_WINDOW_MS = 24L * 60L * 60L * 1000L
+        /** Length of the hard-cap window. Kept in sync with backend `HARD_CAP_WINDOW_MS`. */
+        const val HARD_CAP_WINDOW_MS = 6L * 60L * 60L * 1000L
         /**
          * Minimum gap between server-driven post-limit refreshes from the
          * foreground hook. Throttles `refreshPostLimitIfNeeded` so rapid
@@ -66,6 +73,11 @@ class SubscriptionRepository @Inject constructor(
         private const val PREF_IS_CLUB_MEMBER = "cached_isClubMember"
         private const val PREF_IS_VERIFIED = "cached_isVerified"
         private const val PREF_DAILY_POST_LIMIT = "cached_dailyPostLimit"
+        private const val PREF_LAST_APPROACHING_CAP_WARNING_AT = "lastApproachingCapWarningAt"
+
+        // 5h throttle (< the 6h hard-cap window) so the warning re-fires the
+        // next time the user crosses the threshold in a fresh window.
+        private const val APPROACHING_CAP_WARNING_THROTTLE_MS = 5L * 60L * 60L * 1000L
     }
 
     private val _isClubMember = MutableStateFlow(prefs.getBoolean(PREF_IS_CLUB_MEMBER, false))
@@ -80,6 +92,11 @@ class SubscriptionRepository @Inject constructor(
     // Posts created in the rolling 24h window (mirrors iOS SubscriptionService).
     private val _recentPostCount = MutableStateFlow(0)
     val recentPostCount: StateFlow<Int> = _recentPostCount.asStateFlow()
+
+    // Posts created in the rolling 6h hard-cap window. Only meaningful for
+    // subscribers — free-tier users can't reach the hard cap.
+    private val _recentPostCountHard = MutableStateFlow(0)
+    val recentPostCountHard: StateFlow<Int> = _recentPostCountHard.asStateFlow()
 
     private val _totalPostCount = MutableStateFlow(0)
     val totalPostCount: StateFlow<Int> = _totalPostCount.asStateFlow()
@@ -113,12 +130,12 @@ class SubscriptionRepository @Inject constructor(
     val canPost: Boolean
         get() {
             if (!remoteConfig.corusClubEnabled) return true
-            if (_recentPostCount.value >= DAILY_POST_LIMIT_HARD) return false
+            if (_recentPostCountHard.value >= DAILY_POST_LIMIT_HARD) return false
             return hasFullAccess || _recentPostCount.value < _dailyPostLimit.value
         }
 
     val isHardCapped: Boolean
-        get() = _recentPostCount.value >= DAILY_POST_LIMIT_HARD
+        get() = _recentPostCountHard.value >= DAILY_POST_LIMIT_HARD
 
     /** Mirror of users_v2/{uid}.savesCount. Hydrated at profile load and updated after each save/unsave. */
     private val _savesCount = MutableStateFlow(0)
@@ -142,8 +159,30 @@ class SubscriptionRepository @Inject constructor(
 
     fun incrementPostCount() {
         _recentPostCount.value++
+        _recentPostCountHard.value++
         _totalPostCount.value++
     }
+
+    /**
+     * Whether to show the "approaching cap" warning popup right now. Returns
+     * true at most once per [APPROACHING_CAP_WARNING_THROTTLE_MS] — marks the
+     * SharedPreferences timestamp atomically so a caller can simply act on the
+     * boolean without juggling its own state. Only meaningful for users who
+     * can actually reach the hard cap (subscribers / full-access). The caller
+     * is responsible for the hasFullAccess gate.
+     */
+    fun shouldShowApproachingCapWarning(now: Long = System.currentTimeMillis()): Boolean {
+        val count = _recentPostCountHard.value
+        if (count < DAILY_POST_LIMIT_WARN_AT || count >= DAILY_POST_LIMIT_HARD) return false
+        val last = prefs.getLong(PREF_LAST_APPROACHING_CAP_WARNING_AT, 0L)
+        if (now - last < APPROACHING_CAP_WARNING_THROTTLE_MS) return false
+        prefs.edit().putLong(PREF_LAST_APPROACHING_CAP_WARNING_AT, now).apply()
+        return true
+    }
+
+    /** Posts remaining before the hard cap, clamped to ≥ 0. */
+    val approachingCapRemaining: Int
+        get() = (DAILY_POST_LIMIT_HARD - _recentPostCountHard.value).coerceAtLeast(0)
 
     /**
      * Optimistically decrement after a successful delete so the paywall frees
@@ -159,6 +198,9 @@ class SubscriptionRepository @Inject constructor(
         if (age in 0..ROLLING_WINDOW_MS) {
             _recentPostCount.value = (_recentPostCount.value - 1).coerceAtLeast(0)
         }
+        if (age in 0..HARD_CAP_WINDOW_MS) {
+            _recentPostCountHard.value = (_recentPostCountHard.value - 1).coerceAtLeast(0)
+        }
     }
 
     /** Ask the server for the rolling 24h post count and cache the result. */
@@ -166,6 +208,7 @@ class SubscriptionRepository @Inject constructor(
         try {
             val result = cloudFunctions.checkCanPost()
             _recentPostCount.value = result.recentCount
+            _recentPostCountHard.value = result.recentCountHard
             applyDailyLimit(result.dailyLimit)
             _postCountLoaded.value = true
             lastPostLimitRefreshAt = System.currentTimeMillis()
@@ -193,6 +236,7 @@ class SubscriptionRepository @Inject constructor(
         return try {
             val result = cloudFunctions.checkCanPost()
             _recentPostCount.value = result.recentCount
+            _recentPostCountHard.value = result.recentCountHard
             applyDailyLimit(result.dailyLimit)
             _postCountLoaded.value = true
             lastPostLimitRefreshAt = System.currentTimeMillis()

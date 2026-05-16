@@ -91,11 +91,14 @@ class ComposePostLimitTest {
             on { postCountLoaded } doReturn MutableStateFlow(true)
             on { hasFullAccessFlow } doReturn MutableStateFlow(false)
             on { recentPostCount } doReturn MutableStateFlow(0)
+            on { recentPostCountHard } doReturn MutableStateFlow(0)
             on { totalPostCount } doReturn MutableStateFlow(0)
             on { isClubMember } doReturn MutableStateFlow(false)
             on { isVerified } doReturn MutableStateFlow(false)
             on { dailyPostLimit } doReturn MutableStateFlow(3)
             on { savesCount } doReturn MutableStateFlow(0)
+            on { hasFullAccess } doReturn false
+            on { shouldShowApproachingCapWarning(any()) } doReturn false
         }
         exploreRepository = mock()
         nowPlayingManager = mock()
@@ -148,7 +151,7 @@ class ComposePostLimitTest {
     }
 
     @Test
-    fun `createPost surfaces hard cap with explanatory error, not paywall`() = runTest(testDispatcher) {
+    fun `createPost surfaces hard cap as Cooldown dialog, not paywall`() = runTest(testDispatcher) {
         whenever(postRepository.createPost(any(), any())).thenAnswer {
             throw CloudFunctionsDataSource.PostLimitReachedException(
                 recentCount = 400,
@@ -163,10 +166,56 @@ class ComposePostLimitTest {
         advanceUntilIdle()
 
         assertFalse("Paywall should not open at the hard cap", vm.showPostLimitPaywall.value)
-        assertEquals(
-            "You've reached the daily posting cap. Try again tomorrow.",
-            vm.error.value,
+        assertTrue("Hard cap dialog should be shown", vm.showHardCapAlert.value)
+        assertNull("Generic error should not be set", vm.error.value)
+    }
+
+    @Test
+    fun `paid user crossing approaching-cap threshold fires the warning`() = runTest(testDispatcher) {
+        // Mock a paid user whose latest post crossed the warn threshold; the
+        // repository's throttle decides whether to fire and is mocked to true.
+        whenever(subscriptionRepository.hasFullAccess).thenReturn(true)
+        whenever(subscriptionRepository.shouldShowApproachingCapWarning(any())).thenReturn(true)
+        whenever(subscriptionRepository.approachingCapRemaining).thenReturn(10)
+        whenever(postRepository.createPost(any(), any())).thenReturn(
+            CloudFunctionsDataSource.CreatePostResult(
+                postId = "p1",
+                recentCount = 0,
+                recentCountHard = 390,
+                dailyLimit = 3,
+                isFirstPoster = false,
+            )
         )
+
+        val vm = viewModel()
+        vm.selectPreloadedTrack(track)
+        vm.createPost(caption = "", mediaType = MediaType.TRACK)
+        advanceUntilIdle()
+
+        assertTrue("Approaching-cap warning should fire", vm.showApproachingCapAlert.value)
+        assertEquals(10, vm.approachingCapRemaining.value)
+    }
+
+    @Test
+    fun `paid user below threshold does not fire the warning`() = runTest(testDispatcher) {
+        whenever(subscriptionRepository.hasFullAccess).thenReturn(true)
+        whenever(subscriptionRepository.shouldShowApproachingCapWarning(any())).thenReturn(false)
+        whenever(postRepository.createPost(any(), any())).thenReturn(
+            CloudFunctionsDataSource.CreatePostResult(
+                postId = "p1",
+                recentCount = 0,
+                recentCountHard = 100,
+                dailyLimit = 3,
+                isFirstPoster = false,
+            )
+        )
+
+        val vm = viewModel()
+        vm.selectPreloadedTrack(track)
+        vm.createPost(caption = "", mediaType = MediaType.TRACK)
+        advanceUntilIdle()
+
+        assertFalse("Warning should not fire below threshold", vm.showApproachingCapAlert.value)
     }
 
     @Test

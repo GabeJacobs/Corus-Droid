@@ -95,6 +95,9 @@ fun ComposeScreen(
     val showTrophy by viewModel.showTrophy.collectAsState()
     val trophyPost by viewModel.trophyPost.collectAsState()
     val showPostLimitPaywall by viewModel.showPostLimitPaywall.collectAsState()
+    val showHardCapAlert by viewModel.showHardCapAlert.collectAsState()
+    val showApproachingCapAlert by viewModel.showApproachingCapAlert.collectAsState()
+    val approachingCapRemaining by viewModel.approachingCapRemaining.collectAsState()
     val trendingSongs by viewModel.trendingSongs.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val isLoadingTrending by viewModel.isLoadingTrending.collectAsState()
@@ -307,6 +310,35 @@ fun ComposeScreen(
             post = currentTrophyPost,
             visible = showTrophy,
             onDismiss = { viewModel.dismissTrophy() },
+        )
+    }
+
+    // Hard cap (6h ceiling, applies to subscribers too) — "You're on a roll."
+    if (showHardCapAlert) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissHardCapAlert() },
+            title = { Text("You're on a roll.") },
+            text = { Text("The Corus servers need a cooldown. Come back in 6 hours to post more.") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissHardCapAlert() }) { Text("OK") }
+            },
+        )
+    }
+
+    // Approaching cap — paid users only, throttled to once per 6h window.
+    if (showApproachingCapAlert) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissApproachingCapAlert() },
+            title = { Text("You're on a roll.") },
+            text = {
+                Text(
+                    "The Corus servers will need a cooldown soon. " +
+                        "$approachingCapRemaining posts left before a 6-hour break.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissApproachingCapAlert() }) { Text("Got it") }
+            },
         )
     }
 

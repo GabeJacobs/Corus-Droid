@@ -72,6 +72,28 @@ class ComposeViewModel @Inject constructor(
         _showPostLimitPaywall.value = false
     }
 
+    // Hard-cap "Cooldown time" dialog (6h ceiling — applies to subscribers too,
+    // so we don't open the upgrade paywall here).
+    private val _showHardCapAlert = MutableStateFlow(false)
+    val showHardCapAlert: StateFlow<Boolean> = _showHardCapAlert.asStateFlow()
+
+    fun dismissHardCapAlert() {
+        _showHardCapAlert.value = false
+    }
+
+    // "Approaching cap" warning dialog, fired once per cooldown window when a
+    // paid user crosses DAILY_POST_LIMIT_WARN_AT so they aren't blindsided by
+    // the hard cap.
+    private val _showApproachingCapAlert = MutableStateFlow(false)
+    val showApproachingCapAlert: StateFlow<Boolean> = _showApproachingCapAlert.asStateFlow()
+
+    private val _approachingCapRemaining = MutableStateFlow(0)
+    val approachingCapRemaining: StateFlow<Int> = _approachingCapRemaining.asStateFlow()
+
+    fun dismissApproachingCapAlert() {
+        _showApproachingCapAlert.value = false
+    }
+
     // Trending songs & movies — declared before `init` because the init block
     // launches coroutines that write to these flows. With Dispatchers.Main.immediate,
     // a suspend repo call that completes without truly suspending will run the
@@ -484,6 +506,16 @@ class ComposeViewModel @Inject constructor(
                 authRepository.bumpCymbalCount(1)
                 postCreationEvent.notifyPostCreated()
 
+                // Paid users: warn when they're approaching the 6h hard cap so
+                // it doesn't come out of nowhere. Throttled inside the
+                // repository so subsequent posts in the same window are silent.
+                if (subscriptionRepository.hasFullAccess &&
+                    subscriptionRepository.shouldShowApproachingCapWarning()
+                ) {
+                    _approachingCapRemaining.value = subscriptionRepository.approachingCapRemaining
+                    _showApproachingCapAlert.value = true
+                }
+
                 // Mirrors iOS ComposeView post-created haptic (track & film branches).
                 hapticManager.notification(HapticManager.NotificationType.SUCCESS)
 
@@ -515,9 +547,9 @@ class ComposeViewModel @Inject constructor(
             } catch (e: CloudFunctionsDataSource.PostLimitReachedException) {
                 // Server hit. The callable returned recentCount + dailyLimit,
                 // but the SubscriptionRepository already tracks these via its
-                // own refresh; just open the paywall (or hard-cap alert).
+                // own refresh; just open the paywall (or hard-cap dialog).
                 if (e.hardCap) {
-                    _error.value = "You've reached the daily posting cap. Try again tomorrow."
+                    _showHardCapAlert.value = true
                 } else {
                     _showPostLimitPaywall.value = true
                 }

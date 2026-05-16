@@ -424,7 +424,9 @@ fun CymbalClubOfferSheet(
             modifier = Modifier.padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
         ) {
-            FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+            if (source != PaywallSource.FIRST_POST) {
+                FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+            }
             FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
             FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
             FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))

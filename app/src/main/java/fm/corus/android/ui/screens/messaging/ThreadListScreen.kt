@@ -33,6 +33,17 @@ import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.DateUtils
 import kotlinx.coroutines.launch
 
+internal fun filterInboxThreads(threads: List<CymbalThread>, query: String): List<CymbalThread> {
+    val q = query.trim()
+    if (q.isEmpty()) return threads
+    val ql = q.lowercase()
+    return threads.filter { thread ->
+        (thread.otherUser?.username?.lowercase()?.contains(ql) == true) ||
+            (thread.otherUser?.displayName?.lowercase()?.contains(ql) == true) ||
+            thread.lastMessageText.lowercase().contains(ql)
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadListScreen(
@@ -43,7 +54,12 @@ fun ThreadListScreen(
     val threads by viewModel.threads.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     var showNewMessagePicker by remember { mutableStateOf(false) }
+    var inboxSearchText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+
+    val filteredThreads = remember(threads, inboxSearchText) {
+        filterInboxThreads(threads, inboxSearchText)
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadThreads()
@@ -77,21 +93,34 @@ fun ThreadListScreen(
 
         HorizontalDivider(color = CorusColors.Divider)
 
-        if (isLoading && threads.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = CorusColors.Accent)
-            }
-        } else if (threads.isEmpty()) {
+        if (!isLoading && threads.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(stringResource(id = R.string.messaging_list_empty), style = CorusFont.body, color = CorusColors.Secondary)
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(threads, key = { it.id }) { thread ->
-                    ThreadRow(
-                        thread = thread,
-                        onClick = { onThreadTap(thread.id, thread.otherUserId) },
-                    )
+            InboxSearchBar(
+                value = inboxSearchText,
+                onValueChange = { inboxSearchText = it },
+                onClear = { inboxSearchText = "" },
+            )
+            HorizontalDivider(color = CorusColors.Divider)
+
+            if (isLoading && threads.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = CorusColors.Accent)
+                }
+            } else if (filteredThreads.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(stringResource(id = R.string.messaging_list_no_matches), style = CorusFont.body, color = CorusColors.Secondary)
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(filteredThreads, key = { it.id }) { thread ->
+                        ThreadRow(
+                            thread = thread,
+                            onClick = { onThreadTap(thread.id, thread.otherUserId) },
+                        )
+                    }
                 }
             }
         }
@@ -309,6 +338,58 @@ private fun UserPickerRow(user: CymbalUser, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+    }
+}
+
+@Composable
+private fun InboxSearchBar(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onClear: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CorusColors.CardBackground)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.Search,
+            contentDescription = stringResource(id = R.string.search_cd_search),
+            tint = CorusColors.Tertiary,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Box(modifier = Modifier.weight(1f)) {
+            if (value.isEmpty()) {
+                Text(
+                    stringResource(id = R.string.messaging_list_inbox_search_placeholder),
+                    style = CorusFont.body,
+                    color = CorusColors.Tertiary,
+                )
+            }
+            androidx.compose.foundation.text.BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (value.isNotEmpty()) {
+            IconButton(
+                onClick = onClear,
+                modifier = Modifier.size(24.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(id = R.string.search_cd_clear),
+                    tint = CorusColors.Tertiary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
     }
 }

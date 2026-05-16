@@ -103,6 +103,7 @@ class ProfileViewModelFeaturedRefreshTest {
         commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
         analyticsService = analyticsService,
         musicServicePreference = org.mockito.kotlin.mock(),
+        remoteConfigService = org.mockito.kotlin.mock(),
     ).also { it.clock = { fakeNow } }
 
     private fun makePost(id: String, mediaType: MediaType = MediaType.TRACK, likeCount: Int = 0): CymbalPost = CymbalPost(

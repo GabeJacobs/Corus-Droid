@@ -53,4 +53,24 @@ class RecentLikersTest {
         val result = reconcileRecentLikers(listOf(alice, bob, me), isLikedByCurrentUser = true, currentUser = me)
         assertEquals("alice and bob keep their relative order", listOf(me, alice, bob), result)
     }
+
+    // freshenIfSelf: prevents the signed-in user from seeing their own stale
+    // displayName/username in server-supplied liker lists after a profile edit.
+
+    @Test fun `freshenIfSelf swaps stale self entry for live current user`() {
+        val staleMe = CymbalUser(id = "me", username = "old_handle", displayName = "Old Name")
+        val liveMe = CymbalUser(id = "me", username = "new_handle", displayName = "New Name")
+        val result = freshenIfSelf(staleMe, currentUser = liveMe)
+        assertSame(liveMe, result)
+    }
+
+    @Test fun `freshenIfSelf leaves other users untouched`() {
+        val result = freshenIfSelf(alice, currentUser = me)
+        assertSame(alice, result)
+    }
+
+    @Test fun `freshenIfSelf is a no-op when current user is unknown`() {
+        val result = freshenIfSelf(alice, currentUser = null)
+        assertSame(alice, result)
+    }
 }

@@ -82,6 +82,7 @@ class ComposeTrophyPostReleaseDateTest {
             onBlocking { createPost(any(), anyOrNull()) } doReturn CloudFunctionsDataSource.CreatePostResult(
                 postId = "new_post_id",
                 recentCount = 1,
+                recentCountHard = 1,
                 dailyLimit = 3,
                 isFirstPoster = true,
             )
