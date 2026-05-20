@@ -135,7 +135,7 @@ fun FeedbackFormScreen(
             ) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = CorusColors.Text.copy(alpha = 0.85f),
+                    color = Color.Black.copy(alpha = 0.85f),
                 ) {
                     Column(
                         modifier = Modifier.padding(CorusSpacing.xxl),
@@ -159,7 +159,7 @@ fun FeedbackFormScreen(
             ) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = CorusColors.Text.copy(alpha = 0.85f),
+                    color = Color.Black.copy(alpha = 0.85f),
                 ) {
                     Column(
                         modifier = Modifier.padding(CorusSpacing.xxl),
