@@ -173,7 +173,7 @@
     <string name="feed_offline_subtitle">Check your internet connection and try again.</string>
     <string name="feed_offline_retry">Retry</string>
     <string name="search_service_unavailable_title">Hmm, something\'s off</string>
-    <string name="search_service_unavailable_subtitle">We\'re having trouble reaching our search service right now. Please try again in a few minutes.</string>
+    <string name="search_service_unavailable_subtitle">We\'re having trouble reaching our search service right now. Please try again later.</string>
     <string name="offline_banner_no_connection">No internet connection</string>
     <string name="feed_toast_failed_send_post">Failed to send post</string>
     <string name="feed_toast_post_reported">Post reported</string>
