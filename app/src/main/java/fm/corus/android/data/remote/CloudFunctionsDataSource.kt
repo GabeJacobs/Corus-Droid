@@ -30,6 +30,26 @@ internal fun parseBackCoverResponse(data: Map<String, Any?>?): String? {
 }
 
 /**
+ * Parses a `getForYouFeed` Cloud Function response payload into typed fields.
+ * Kept top-level so it can be unit-tested without mocking FirebaseFunctions.
+ * Returns null fields/defaults when the server sends an unexpected shape so
+ * older clients don't crash on a future response that adds optional keys.
+ */
+@Suppress("UNCHECKED_CAST")
+internal fun parseForYouFeedResponse(
+    data: Map<String, Any?>?,
+): Quadruple<List<Map<String, Any?>>, Boolean, String, Boolean> {
+    if (data == null) return Quadruple(emptyList(), false, "", false)
+    val postsData = (data["posts"] as? List<Map<String, Any?>>) ?: emptyList()
+    val hasMore = data["hasMore"] as? Boolean ?: false
+    val token = data["sessionToken"] as? String ?: ""
+    val fellBack = data["fellBackToFollowing"] as? Boolean ?: false
+    return Quadruple(postsData, hasMore, token, fellBack)
+}
+
+internal data class Quadruple<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
+
+/**
  * Wraps all Firebase callable Cloud Functions.
  * Mirrors the iOS DatabaseService's cloud function calls.
  */
@@ -73,6 +93,49 @@ class CloudFunctionsDataSource @Inject constructor(
         val uniquePosterCount = (data["uniquePosterCount"] as? Number)?.toInt() ?: 0
 
         return FeedPage(posts, hasMore, uniquePosterCount)
+    }
+
+    data class ForYouFeedPage(
+        val posts: List<CymbalPost>,
+        val hasMore: Boolean,
+        val sessionToken: String,
+        val fellBackToFollowing: Boolean,
+    )
+
+    /**
+     * Calls the `getForYouFeed` callable (algorithmically-ranked feed).
+     * `sessionToken == null` starts a fresh session; subsequent pages pass
+     * the token from the first call along with `pageIndex`. `seenPostIds`
+     * is a client-side ring buffer (cap 500) used to suppress already-shown
+     * posts when a session expires mid-scroll.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun getForYouFeed(
+        userId: String,
+        pageSize: Int = 7,
+        sessionToken: String? = null,
+        pageIndex: Int = 0,
+        seenPostIds: List<String> = emptyList(),
+        mediaType: MediaType? = null,
+        newReleasesOnly: Boolean = false,
+    ): ForYouFeedPage {
+        val params = mutableMapOf<String, Any>(
+            "userId" to userId,
+            "pageSize" to pageSize,
+            "pageIndex" to pageIndex,
+        )
+        sessionToken?.takeIf { it.isNotEmpty() }?.let { params["sessionToken"] = it }
+        if (seenPostIds.isNotEmpty()) {
+            params["seenPostIds"] = seenPostIds.take(500)
+        }
+        mediaType?.let { params["mediaType"] = it.value }
+        if (newReleasesOnly) params["newReleasesOnly"] = true
+
+        val result = functions.getHttpsCallable("getForYouFeed").call(params).await()
+        val data = result.getData() as? Map<String, Any?>
+        val parsed = parseForYouFeedResponse(data)
+        val posts = parsed.a.map { CymbalPost.fromCloudData(it) }
+        return ForYouFeedPage(posts, parsed.b, parsed.c, parsed.d)
     }
 
     // ── Post Detail ──

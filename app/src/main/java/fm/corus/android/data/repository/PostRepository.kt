@@ -40,6 +40,20 @@ class PostRepository @Inject constructor(
             .also { cachePosts(it.posts) }
     }
 
+    suspend fun getForYouFeed(
+        userId: String,
+        pageSize: Int = 7,
+        sessionToken: String? = null,
+        pageIndex: Int = 0,
+        seenPostIds: List<String> = emptyList(),
+        mediaType: MediaType? = null,
+        newReleasesOnly: Boolean = false,
+    ): CloudFunctionsDataSource.ForYouFeedPage {
+        return cloudFunctions.getForYouFeed(
+            userId, pageSize, sessionToken, pageIndex, seenPostIds, mediaType, newReleasesOnly
+        ).also { cachePosts(it.posts) }
+    }
+
     // ── Post Detail ──
 
     suspend fun getPostDetail(postId: String, userId: String): CymbalPost? {

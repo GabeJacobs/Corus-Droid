@@ -17,6 +17,7 @@ import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
@@ -43,7 +44,20 @@ class ProfileViewModel @Inject constructor(
     private val commentDeletedEvent: CommentDeletedEvent,
     private val analyticsService: AnalyticsService,
     private val remoteConfigService: RemoteConfigService,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
+
+    init {
+        viewModelScope.launch {
+            networkMonitor.isConnected.collect { connected ->
+                // Auto-retry profile load when the network returns if the previous
+                // attempt failed and nothing is on screen.
+                if (connected && _hasLoadError.value && _profile.value == null) {
+                    retryLoad()
+                }
+            }
+        }
+    }
 
     val isClubMember = subscriptionRepository.isClubMember
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
@@ -82,6 +96,12 @@ class ProfileViewModel @Inject constructor(
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    /** True when [loadProfile] failed AND there's no profile/posts to render. */
+    private val _hasLoadError = MutableStateFlow(false)
+    val hasLoadError: StateFlow<Boolean> = _hasLoadError.asStateFlow()
+
+    val isConnected: StateFlow<Boolean> = networkMonitor.isConnected
 
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
@@ -239,11 +259,22 @@ class ProfileViewModel @Inject constructor(
                 }
                 engagementManager.checkLikeStatuses(page.map { it.id }, userId)
                 lastFeaturedRefreshAt = clock()
+                _hasLoadError.value = false
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "loadProfile failed", e)
+                if (_profile.value == null) {
+                    _hasLoadError.value = true
+                }
             }
             _isLoading.value = false
         }
+    }
+
+    /** Re-run [loadProfile] after a previous failure. */
+    fun retryLoad() {
+        hasLoaded = false
+        _hasLoadError.value = false
+        loadProfile()
     }
 
     fun refreshProfile() {

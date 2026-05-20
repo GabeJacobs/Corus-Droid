@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.feed
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.MusicNote
@@ -101,6 +103,9 @@ fun FeedScreen(
     val isNewAccount by viewModel.isNewAccount.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
+    val feedMode by viewModel.feedMode.collectAsState()
+    val forYouLoadFailed by viewModel.forYouLoadFailed.collectAsState()
+    val forYouEnabled = viewModel.remoteConfig.forYouEnabled
     val context = LocalContext.current
     var filterMenuExpanded by remember { mutableStateOf(false) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -231,6 +236,9 @@ fun FeedScreen(
                     viewModel.generateFeedPlaylist()
                 }
             },
+            forYouEnabled = forYouEnabled,
+            feedMode = feedMode,
+            onSetFeedMode = { viewModel.setFeedMode(it) },
         )
     }
 
@@ -642,6 +650,65 @@ private fun DividerSectionHeader(text: String) {
 }
 
 /**
+ * "corus ▾" — wordmark + chevron that opens a small menu to flip between
+ * Following and For You. Only rendered when `for_you_enabled` is true in
+ * Remote Config (so old builds and flag-off users see the plain wordmark).
+ */
+@Composable
+private fun FeedTitleWithModeMenu(
+    feedMode: String,
+    onSetFeedMode: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            modifier = Modifier.clickable { expanded = true },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.feed_app_title),
+                style = CorusFont.appTitle,
+                color = CorusColors.Text,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Filled.ArrowDropDown,
+                contentDescription = null,
+                tint = CorusColors.Text.copy(alpha = 0.7f),
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            val activeCheckmark: @Composable () -> Unit = {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Following") },
+                trailingIcon = if (feedMode == "following") activeCheckmark else null,
+                onClick = {
+                    onSetFeedMode("following")
+                    expanded = false
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("For You") },
+                trailingIcon = if (feedMode == "forYou") activeCheckmark else null,
+                onClick = {
+                    onSetFeedMode("forYou")
+                    expanded = false
+                },
+            )
+        }
+    }
+}
+
+/**
  * Feed top bar — centered "corus" logo, filter menu on the left,
  * playlist button on the right. Rendered as the first item of the
  * scrolling list so it scrolls away with content (matching iOS).
@@ -655,6 +722,9 @@ private fun FeedHeader(
     onFilterMenuExpandedChange: (Boolean) -> Unit,
     onSetFilter: (FeedFilter) -> Unit,
     onGeneratePlaylist: () -> Unit,
+    forYouEnabled: Boolean = false,
+    feedMode: String = "following",
+    onSetFeedMode: (String) -> Unit = {},
 ) {
     Box(
         modifier = Modifier
@@ -662,11 +732,18 @@ private fun FeedHeader(
             .padding(top = CorusSpacing.sm),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = stringResource(R.string.feed_app_title),
-            style = CorusFont.appTitle,
-            color = CorusColors.Text,
-        )
+        if (forYouEnabled) {
+            FeedTitleWithModeMenu(
+                feedMode = feedMode,
+                onSetFeedMode = onSetFeedMode,
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.feed_app_title),
+                style = CorusFont.appTitle,
+                color = CorusColors.Text,
+            )
+        }
 
         if (showPlaylistButton) {
             IconButton(

@@ -104,6 +104,9 @@ class ProfileViewModelFeaturedRefreshTest {
         analyticsService = analyticsService,
         musicServicePreference = org.mockito.kotlin.mock(),
         remoteConfigService = org.mockito.kotlin.mock(),
+        networkMonitor = org.mockito.kotlin.mock {
+            on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true)
+        },
     ).also { it.clock = { fakeNow } }
 
     private fun makePost(id: String, mediaType: MediaType = MediaType.TRACK, likeCount: Int = 0): CymbalPost = CymbalPost(

@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
@@ -183,6 +184,19 @@ class FeedViewModel @Inject constructor(
 
     private var lastTimestamp: Long? = null
 
+    // ── For You feed state ──
+    // `following` | `forYou`. Persisted in DataStore; only honored when the
+    // `for_you_enabled` Remote Config flag is on. Default `following` so old
+    // builds and users who never opened the toggle behave identically to today.
+    val feedMode: StateFlow<String> = preferencesDataStore.feedMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "following")
+
+    private var forYouSessionToken: String? = null
+    private var forYouPageIndex: Int = 0
+    private var forYouSeenIds: MutableList<String> = mutableListOf()
+    private val _forYouLoadFailed = MutableStateFlow(false)
+    val forYouLoadFailed: StateFlow<Boolean> = _forYouLoadFailed.asStateFlow()
+
     val engagementStates = engagementManager.states
     val currentUserProfile = authRepository.userProfile
 
@@ -245,10 +259,34 @@ class FeedViewModel @Inject constructor(
     private val activeListenerPostIds = mutableSetOf<String>()
 
     init {
+        // Restore For You seen-IDs ring buffer from DataStore on startup so
+        // we suppress already-shown posts after an app restart.
+        viewModelScope.launch {
+            val json = preferencesDataStore.forYouSeenIdsJson.first()
+            runCatching {
+                val arr = org.json.JSONArray(json)
+                val ids = mutableListOf<String>()
+                for (i in 0 until arr.length()) {
+                    val s = arr.optString(i, null)
+                    if (!s.isNullOrEmpty()) ids.add(s)
+                }
+                forYouSeenIds = ids
+            }
+        }
         // Mirror the global following set so the empty-state rail's follow
         // pills reflect users the viewer already follows from elsewhere.
         viewModelScope.launch {
             userRepository.followingIds.collect { ids -> _followingIds.value = ids }
+        }
+        // Auto-retry the feed when the network returns if the previous load
+        // failed and the screen has no posts to show. Mirrors iOS FeedView's
+        // reconnect handler.
+        viewModelScope.launch {
+            isConnected.collect { connected ->
+                if (connected && _lastLoadFailed.value && _posts.value.isEmpty()) {
+                    loadFeed(refresh = true)
+                }
+            }
         }
         // Auto-refresh feed when a new post is created
         viewModelScope.launch {
@@ -304,16 +342,62 @@ class FeedViewModel @Inject constructor(
             _isLoading.value = true
         }
 
-        try {
-            val page = postRepository.getFeedPage(
-                userId = userId,
-                pageSize = 7,
-                lastTimestamp = if (refresh) null else lastTimestamp,
-                mediaType = _feedFilter.value.mediaType,
-                newReleasesOnly = _feedFilter.value.newReleasesOnly,
-            )
+        val useForYou = remoteConfig.forYouEnabled && feedMode.value == "forYou"
 
-            val newPosts = page.posts
+        try {
+            val newPosts: List<CymbalPost>
+            val pageHasMore: Boolean
+            if (useForYou) {
+                if (refresh) {
+                    forYouSessionToken = null
+                    forYouPageIndex = 0
+                }
+                val nextIndex = if (refresh) 0 else forYouPageIndex + (if (forYouSessionToken != null) 1 else 0)
+                val forYouPage = postRepository.getForYouFeed(
+                    userId = userId,
+                    pageSize = 7,
+                    sessionToken = forYouSessionToken,
+                    pageIndex = nextIndex,
+                    seenPostIds = forYouSeenIds.toList(),
+                    mediaType = _feedFilter.value.mediaType,
+                    newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                )
+                if (forYouPage.sessionToken != (forYouSessionToken ?: "") && forYouPage.sessionToken.isNotEmpty()) {
+                    forYouSessionToken = forYouPage.sessionToken
+                    forYouPageIndex = 0
+                } else {
+                    forYouPageIndex = nextIndex
+                }
+                newPosts = forYouPage.posts
+                pageHasMore = forYouPage.hasMore
+                // Update seen-IDs ring buffer (cap 500).
+                for (p in newPosts) {
+                    if (!forYouSeenIds.contains(p.id)) forYouSeenIds.add(p.id)
+                }
+                if (forYouSeenIds.size > 500) {
+                    forYouSeenIds = forYouSeenIds.takeLast(500).toMutableList()
+                }
+                viewModelScope.launch {
+                    runCatching {
+                        val json = org.json.JSONArray(forYouSeenIds).toString()
+                        preferencesDataStore.setForYouSeenIdsJson(json)
+                    }
+                }
+                _forYouLoadFailed.value = false
+            } else {
+                val page = postRepository.getFeedPage(
+                    userId = userId,
+                    pageSize = 7,
+                    lastTimestamp = if (refresh) null else lastTimestamp,
+                    mediaType = _feedFilter.value.mediaType,
+                    newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                )
+                newPosts = page.posts
+                pageHasMore = page.hasMore
+            }
+            // The remaining engagement/state code below was written assuming a
+            // page variable was in scope; we synthesize a parallel pair here so
+            // the rest of the function reads as before.
             newPosts.forEach { post ->
                 engagementManager.initState(
                     postId = post.id,
@@ -323,6 +407,12 @@ class FeedViewModel @Inject constructor(
                     isLiked = post.isLiked,
                     isSaved = false,
                 )
+                // Safety net: the denormalized `commentCount` on the post doc
+                // lags behind the comments subcollection by ~10–20s while the
+                // count-aggregation trigger commits. If the feed payload
+                // includes more preview comments than the badge claims, ratchet
+                // the badge up so it matches what's visibly on screen.
+                engagementManager.reconcileCommentCount(post.id, atLeast = post.comments.size)
             }
 
             if (refresh) {
@@ -331,8 +421,8 @@ class FeedViewModel @Inject constructor(
                 _posts.value = (_posts.value + newPosts).distinctBy { it.id }
             }
 
-            _hasMore.value = page.hasMore
-            if (newPosts.isNotEmpty()) {
+            _hasMore.value = pageHasMore
+            if (newPosts.isNotEmpty() && !useForYou) {
                 lastTimestamp = newPosts.last().timestamp.time
             }
 
@@ -348,6 +438,7 @@ class FeedViewModel @Inject constructor(
             _lastLoadFailed.value = false
         } catch (_: Exception) {
             _lastLoadFailed.value = true
+            if (useForYou) _forYouLoadFailed.value = true
         }
 
         _isLoading.value = false
@@ -384,6 +475,25 @@ class FeedViewModel @Inject constructor(
             MediaType.MOVIE -> if (_feedFilter.value.newReleasesOnly) FeedFilter.FILM_NEW_RELEASES else FeedFilter.FILM
         }
         setFeedFilter(target)
+    }
+
+    /**
+     * Flip between Following ("following") and For You ("forYou"). Persists to
+     * DataStore and resets the For You session state, then refetches. No-op
+     * when the requested mode matches the current value.
+     */
+    fun setFeedMode(mode: String) {
+        if (feedMode.value == mode) return
+        forYouSessionToken = null
+        forYouPageIndex = 0
+        _forYouLoadFailed.value = false
+        lastTimestamp = null
+        _posts.value = emptyList()
+        _hasMore.value = true
+        viewModelScope.launch {
+            preferencesDataStore.setFeedMode(mode)
+            loadFeedSuspending(refresh = true)
+        }
     }
 
     fun playPreview(post: fm.corus.android.data.model.CymbalPost) {

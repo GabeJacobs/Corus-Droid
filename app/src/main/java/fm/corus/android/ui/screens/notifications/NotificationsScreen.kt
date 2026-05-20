@@ -60,6 +60,7 @@ import fm.corus.android.data.model.NotificationType
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
+import fm.corus.android.ui.components.OfflineRetryState
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SkeletonNotificationRow
 import fm.corus.android.ui.components.SongFilmPickerSheet
@@ -83,6 +84,7 @@ fun NotificationsScreen(
     val notifications by viewModel.notifications.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val hasLoadError by viewModel.hasLoadError.collectAsState()
     val hasMoreNotifications by viewModel.hasMoreNotifications.collectAsState()
     val followingIds by viewModel.followingIds.collectAsState()
     val likedCommentIds by viewModel.likedCommentIds.collectAsState()
@@ -157,6 +159,9 @@ fun NotificationsScreen(
                             SkeletonNotificationRow()
                         }
                     }
+                }
+                notifications.isEmpty() && !isLoading && hasLoadError -> {
+                    OfflineRetryState(onRetry = { viewModel.retryLoad() })
                 }
                 notifications.isEmpty() && !isLoading -> {
                     // Empty state

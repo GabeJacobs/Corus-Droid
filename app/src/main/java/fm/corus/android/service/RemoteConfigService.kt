@@ -83,6 +83,12 @@ class RemoteConfigService @Inject constructor(
     val stylePack1Enabled: Boolean
         get() = remoteConfig.getBoolean("style_pack_1_enabled")
 
+    /// Master gate for the algorithmically-ranked "For You" feed mode.
+    /// When false, the chevron toggle next to the Corus wordmark is hidden
+    /// and the feed behaves identically to today (Following-only).
+    val forYouEnabled: Boolean
+        get() = remoteConfig.getBoolean("for_you_enabled")
+
     /**
      * Per-post comments-audience picker (Everyone / Followers / Off).
      * Keep this OFF until web + iOS + Android all ship the gate — otherwise
@@ -140,6 +146,7 @@ class RemoteConfigService @Inject constructor(
                     "comment_controls_on_posts" to false,
                     "new_release_filter_club_only" to false,
                     "style_pack_1_enabled" to false,
+                    "for_you_enabled" to false,
                 )
             ).await()
             val activated = remoteConfig.fetchAndActivate().await()

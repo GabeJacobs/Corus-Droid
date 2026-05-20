@@ -1192,6 +1192,12 @@ private fun ComposeModeContent(
         Button(
             onClick = {
                 keyboardController?.hide()
+                // Tapping "Set your Corus" mid-recording should upload the
+                // take, not error out. stopRecording() is synchronous and
+                // populates audioData before onPost() reads it.
+                if (voiceRecorderState?.isRecording == true) {
+                    voiceRecorderState.stopRecording()
+                }
                 onPost()
             },
             enabled = !isPosting,

@@ -18,6 +18,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.NetworkMonitor
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
@@ -41,8 +42,22 @@ class NotificationsViewModel @Inject constructor(
     private val analyticsService: AnalyticsService,
     private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
+    private val networkMonitor: NetworkMonitor,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    init {
+        viewModelScope.launch {
+            networkMonitor.isConnected.collect { connected ->
+                // Auto-retry the initial load when the network returns if the previous
+                // attempt failed and we have nothing on screen. Mirrors iOS
+                // NotificationsView's reconnect handler.
+                if (connected && _hasLoadError.value && _notifications.value.isEmpty()) {
+                    retryLoad()
+                }
+            }
+        }
+    }
 
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport
@@ -63,6 +78,15 @@ class NotificationsViewModel @Inject constructor(
 
     private val _hasMoreNotifications = MutableStateFlow(true)
     val hasMoreNotifications: StateFlow<Boolean> = _hasMoreNotifications.asStateFlow()
+
+    /** True when [loadNotifications] failed AND there's nothing to render — the
+     *  screen swaps the normal empty state for an offline-retry view. */
+    private val _hasLoadError = MutableStateFlow(false)
+    val hasLoadError: StateFlow<Boolean> = _hasLoadError.asStateFlow()
+
+    val isConnected: StateFlow<Boolean> = networkMonitor.isConnected
+
+    @Volatile private var hasStartedLoading = false
 
     val followingIds: StateFlow<Set<String>> = userRepository.followingIds
 
@@ -123,7 +147,6 @@ class NotificationsViewModel @Inject constructor(
     private val _newNotificationIds = MutableStateFlow<Set<String>>(emptySet())
     val newNotificationIds: StateFlow<Set<String>> = _newNotificationIds.asStateFlow()
 
-    private var hasStartedLoading = false
     /** Captured before updating the user doc so we can flag later-arriving
      * notifications as "new" relative to the previous seen cutoff. */
     private var lastSeenCutoffMs: Long? = null
@@ -169,20 +192,37 @@ class NotificationsViewModel @Inject constructor(
                     mergeNotifications(incoming)
                     _hasMoreNotifications.value = incoming.size >= pageSize
                     _isLoading.value = false
+                    _hasLoadError.value = false
                     loadCommentLikeStatuses(userId)
                 }
             } catch (_: Exception) {
                 // Fallback to one-shot fetch
+                var fellBackOk = false
                 try {
                     val fetched = notificationRepository.getNotifications(userId, limit = pageSize)
                     computeNewIdsOnce(fetched)
                     _notifications.value = fetched
                     _hasMoreNotifications.value = fetched.size >= pageSize
                     loadCommentLikeStatuses(userId)
+                    fellBackOk = true
                 } catch (_: Exception) { }
                 _isLoading.value = false
+                if (fellBackOk) {
+                    _hasLoadError.value = false
+                } else if (_notifications.value.isEmpty()) {
+                    _hasLoadError.value = true
+                }
             }
         }
+    }
+
+    /** Re-run [loadNotifications] after a previous failure. Called from the
+     *  retry button and from the reconnect observer when the network returns. */
+    fun retryLoad() {
+        hasStartedLoading = false
+        _hasLoadError.value = false
+        _isLoading.value = true
+        loadNotifications()
     }
 
     /**

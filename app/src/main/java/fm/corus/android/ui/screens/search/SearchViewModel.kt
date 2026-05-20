@@ -26,6 +26,7 @@ import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.service.SearchSection
 import kotlinx.coroutines.Job
@@ -53,7 +54,35 @@ class SearchViewModel @Inject constructor(
     private val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
     val nowPlayingManager: NowPlayingManager,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
+
+    init {
+        viewModelScope.launch {
+            networkMonitor.isConnected.collect { connected ->
+                // Auto-retry the active search when the network returns if the
+                // previous attempt errored and the current tab has no results.
+                if (!connected || !_searchHasError.value) return@collect
+                val query = _searchQuery.value
+                if (query.isBlank()) return@collect
+                val tab = _activeTab.value
+                val empty = when (tab) {
+                    0 -> _userSearchResults.value.isEmpty()
+                    1 -> _songSearchResults.value.isEmpty()
+                    2 -> _filmSearchResults.value.isEmpty()
+                    3 -> _hashtagSearchResults.value.isEmpty()
+                    else -> false
+                }
+                if (empty) {
+                    search(query, tab)
+                }
+            }
+        }
+    }
+
+    /** True when the most recent [search] threw AND the current tab is empty. */
+    private val _searchHasError = MutableStateFlow(false)
+    val searchHasError: StateFlow<Boolean> = _searchHasError.asStateFlow()
 
     // Tab state
     private val _activeTab = MutableStateFlow(0) // 0=Users, 1=Songs, 2=Films, 3=Hashtags
@@ -581,9 +610,27 @@ class SearchViewModel @Inject constructor(
                         }
                     }
                 }
-            } catch (_: Exception) { }
+                _searchHasError.value = false
+            } catch (_: Exception) {
+                val empty = when (tab) {
+                    0 -> _userSearchResults.value.isEmpty()
+                    1 -> _songSearchResults.value.isEmpty()
+                    2 -> _filmSearchResults.value.isEmpty()
+                    3 -> _hashtagSearchResults.value.isEmpty()
+                    else -> false
+                }
+                if (empty) _searchHasError.value = true
+            }
             _isSearching.value = false
         }
+    }
+
+    /** Manual retry from the offline empty state on SearchScreen. */
+    fun retrySearch() {
+        val query = _searchQuery.value
+        if (query.isBlank()) return
+        _searchHasError.value = false
+        search(query, _activeTab.value)
     }
 
     fun clearSearch() {
@@ -593,6 +640,7 @@ class SearchViewModel @Inject constructor(
         _filmSearchResults.value = emptyList()
         _hashtagSearchResults.value = emptyList()
         _isSearching.value = false
+        _searchHasError.value = false
     }
 
     private fun loadTrendingHashtagsIfNeeded() {

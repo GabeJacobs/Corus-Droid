@@ -97,6 +97,7 @@ class ProfileViewModelTest {
         analyticsService = analyticsService,
         musicServicePreference = mock(),
         remoteConfigService = mock(),
+        networkMonitor = mock { on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true) },
     )
 
     private fun makeUser(id: String = "user1", movieCount: Int? = null) = CymbalUser(

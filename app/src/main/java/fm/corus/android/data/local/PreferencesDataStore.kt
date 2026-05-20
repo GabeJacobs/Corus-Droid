@@ -210,6 +210,9 @@ class PreferencesDataStore @Inject constructor(
         val TRENDING_SONGS_WINDOW = stringPreferencesKey("trending_songs_window")
         val TRENDING_FILMS_WINDOW = stringPreferencesKey("trending_films_window")
         val TRENDING_HASHTAGS_WINDOW = stringPreferencesKey("trending_hashtags_window")
+        // For You feed mode + seen-IDs ring buffer (cap 500, JSON-encoded).
+        val FEED_MODE = stringPreferencesKey("feed_mode")
+        val FOR_YOU_SEEN_IDS = stringPreferencesKey("for_you_seen_ids")
     }
 
     val trendingSongsWindow: Flow<String> = dataStore.data.map { prefs ->
@@ -263,6 +266,33 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setFeedOnePerFollower(value: Boolean) {
         dataStore.edit { it[FEED_ONE_PER_FOLLOWER] = value }
+    }
+
+    /**
+     * Per-device feed mode toggle ("following" | "forYou"). Defaults to
+     * "following" — old builds and users who never tapped the toggle behave
+     * identically to today. Only honored when the `for_you_enabled` Remote
+     * Config flag is true.
+     */
+    val feedMode: Flow<String> = dataStore.data.map { prefs ->
+        prefs[FEED_MODE] ?: "following"
+    }
+
+    suspend fun setFeedMode(value: String) {
+        dataStore.edit { it[FEED_MODE] = value }
+    }
+
+    /**
+     * Ring buffer of recently-served For You post IDs (JSON-encoded array
+     * of strings, capped at 500). Sent to `getForYouFeed` so a fresh
+     * session can suppress already-shown posts.
+     */
+    val forYouSeenIdsJson: Flow<String> = dataStore.data.map { prefs ->
+        prefs[FOR_YOU_SEEN_IDS] ?: "[]"
+    }
+
+    suspend fun setForYouSeenIdsJson(value: String) {
+        dataStore.edit { it[FOR_YOU_SEEN_IDS] = value }
     }
 
     val lastComposeMediaType: Flow<String> = dataStore.data.map { prefs ->

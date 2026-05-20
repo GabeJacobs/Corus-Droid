@@ -851,6 +851,23 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Per-post engagement listener (matching iOS PostEngagementStore) ──
 
+    data class PostCounts(val likeCount: Int, val commentCount: Int, val repostCount: Int)
+
+    /** One-shot read of denormalized counts on a post doc. Cheaper than a full
+     *  cloud-function `getPostDetail` when we only need to refresh badges. */
+    suspend fun fetchPostCounts(postId: String): PostCounts? {
+        return try {
+            val data = firestore.collection("posts").document(postId).get().await().data ?: return null
+            PostCounts(
+                likeCount = (data["likeCount"] as? Number)?.toInt() ?: 0,
+                commentCount = (data["commentCount"] as? Number)?.toInt() ?: 0,
+                repostCount = (data["repostCount"] as? Number)?.toInt() ?: 0,
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun listenForPostUpdates(
         postId: String,
         onUpdate: (likeCount: Int, commentCount: Int, repostCount: Int) -> Unit,

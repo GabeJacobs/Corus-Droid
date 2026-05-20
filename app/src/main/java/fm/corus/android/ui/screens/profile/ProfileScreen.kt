@@ -124,6 +124,7 @@ fun ProfileScreen(
     val likedPosts by viewModel.likedPosts.collectAsState()
     val savedPosts by viewModel.savedPosts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val hasLoadError by viewModel.hasLoadError.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingLiked by viewModel.isLoadingLiked.collectAsState()
     val isLoadingSaved by viewModel.isLoadingSaved.collectAsState()
@@ -206,6 +207,14 @@ fun ProfileScreen(
             fm.corus.android.ui.components.SkeletonProfileView()
             fm.corus.android.ui.components.SkeletonProfileGrid()
         }
+        return
+    }
+
+    if (profile == null && hasLoadError) {
+        fm.corus.android.ui.components.OfflineRetryState(
+            modifier = Modifier.fillMaxSize(),
+            onRetry = { viewModel.retryLoad() },
+        )
         return
     }
 

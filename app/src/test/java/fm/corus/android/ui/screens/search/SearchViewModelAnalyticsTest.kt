@@ -101,6 +101,9 @@ class SearchViewModelAnalyticsTest {
         remoteConfigService = remoteConfigService,
         analyticsService = analyticsService,
         nowPlayingManager = nowPlayingManager,
+        networkMonitor = org.mockito.kotlin.mock {
+            on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true)
+        },
     )
 
     @Test

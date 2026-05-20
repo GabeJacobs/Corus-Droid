@@ -8,6 +8,7 @@ import fm.corus.android.data.repository.NotificationRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.service.NetworkMonitor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,6 +76,7 @@ class NotificationsViewModelTest {
         analyticsService = mock(),
         remoteConfigService = mock(),
         gifRepository = mock(),
+        networkMonitor = mock { on { isConnected } doReturn MutableStateFlow(true) },
         context = mock(),
     )
 
@@ -119,6 +121,7 @@ class NotificationsViewModelTest {
             analyticsService = mock(),
             remoteConfigService = mock(),
             gifRepository = mock(),
+            networkMonitor = mock { on { isConnected } doReturn MutableStateFlow(true) },
             context = mock(),
         )
 

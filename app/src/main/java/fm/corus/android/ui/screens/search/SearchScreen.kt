@@ -150,6 +150,14 @@ fun SearchScreen(
     val activeTabIndex by viewModel.activeTab.collectAsState()
     val activeTab = SearchTab.entries[activeTabIndex]
     val hasSearchQuery = searchQuery.isNotBlank()
+    val searchHasError by viewModel.searchHasError.collectAsState()
+    val currentTabIsEmpty = when (activeTab) {
+        SearchTab.USERS -> userResults.isEmpty()
+        SearchTab.SONGS -> songSearchResults.isEmpty()
+        SearchTab.FILMS -> filmSearchResults.isEmpty()
+        SearchTab.HASHTAGS -> hashtagSearchResults.isEmpty()
+    }
+    val showSearchOfflineRetry = hasSearchQuery && !isSearching && searchHasError && currentTabIsEmpty
     var isSearchFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val showRecentOverlay = isSearchFocused && !hasSearchQuery && activeTab == SearchTab.USERS
@@ -304,7 +312,12 @@ fun SearchScreen(
                 },
                 modifier = Modifier.fillMaxSize(),
             ) {
-                when (activeTab) {
+                if (showSearchOfflineRetry) {
+                    fm.corus.android.ui.components.OfflineRetryState(
+                        modifier = Modifier.fillMaxSize(),
+                        onRetry = { viewModel.retrySearch() },
+                    )
+                } else when (activeTab) {
                     SearchTab.USERS -> {
                         if (hasSearchQuery) {
                             UserSearchResults(

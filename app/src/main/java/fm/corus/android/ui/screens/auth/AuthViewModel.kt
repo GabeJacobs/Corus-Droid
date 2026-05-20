@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuth.AuthStateListener
+import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.PhoneAuthCredential
@@ -24,6 +26,7 @@ import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,6 +51,7 @@ class AuthViewModel @Inject constructor(
     private val unreadCountsRepository: UnreadCountsRepository,
     private val musicServicePreference: MusicServicePreference,
     private val nowPlayingManager: NowPlayingManager,
+    private val networkMonitor: NetworkMonitor,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -74,6 +78,10 @@ class AuthViewModel @Inject constructor(
 
     private val _verificationSent = MutableStateFlow(false)
     val verificationSent: StateFlow<Boolean> = _verificationSent.asStateFlow()
+
+    /** Mirrors [NetworkMonitor.isConnected] so the root composable can drive the
+     *  offline banner without depending on NetworkMonitor directly. */
+    val networkConnected: StateFlow<Boolean> = networkMonitor.isConnected
 
     // Whether this session created a new sign-in (vs app relaunch)
     private var didSignInThisSession = false
@@ -107,11 +115,44 @@ class AuthViewModel @Inject constructor(
          */
         internal fun upgradeGooglePhotoUrlSize(url: String): String =
             url.replace(GOOGLE_PHOTO_SIZE_SEGMENT, "=s400-c")
+
+        /**
+         * Returns true only for FirebaseAuth error codes that mean the cached
+         * Firebase session is definitively unusable — token revoked, account
+         * disabled, account deleted, invalid token. Everything else is treated
+         * as transient.
+         */
+        internal fun isFatalAuthErrorCode(errorCode: String?): Boolean {
+            if (errorCode == null) return false
+            return errorCode == "ERROR_USER_DISABLED" ||
+                errorCode == "ERROR_USER_NOT_FOUND" ||
+                errorCode == "ERROR_INVALID_USER_TOKEN" ||
+                errorCode == "ERROR_USER_TOKEN_EXPIRED"
+        }
+
+        /**
+         * Returns true only for errors that mean the cached Firebase session is
+         * definitively unusable. Everything else (network failures, Firestore
+         * unavailability, ambiguous exceptions) is treated as transient so a
+         * flaky-network launch doesn't silently sign the user out.
+         *
+         * Mirrors the iOS `isFatalAuthError` in `AuthService.swift`.
+         */
+        internal fun isFatalAuthError(error: Throwable): Boolean {
+            if (error is FirebaseAuthInvalidUserException) return true
+            val code = (error as? FirebaseAuthException)?.errorCode
+            return isFatalAuthErrorCode(code)
+        }
     }
 
     private var authStateListener: AuthStateListener? = null
+    /** Set true when [observeAuthState] caught a transient failure during the
+     *  profile/ban reads. The reconnect observer retries the reads when the
+     *  network comes back. */
+    private var needsRefreshAfterReconnect = false
 
     fun observeAuthState() {
+        observeNetworkReconnects()
         val listener = AuthStateListener { auth ->
             viewModelScope.launch {
                 // Suppress auth-state changes while account deletion is in progress
@@ -171,13 +212,68 @@ class AuthViewModel @Inject constructor(
                         _authState.value = AuthState.SignedIn
                     }
                 } catch (e: Exception) {
-                    authRepository.signOut()
-                    _authState.value = AuthState.SignedOut
+                    if (isFatalAuthError(e)) {
+                        // Token revoked, account disabled/deleted, or invalid token — sign out.
+                        authRepository.signOut()
+                        _authState.value = AuthState.SignedOut
+                    } else {
+                        // Transient failure (bad/flaky network, Firestore hiccup, ambiguous error).
+                        // Trust the cached Firebase session and let the user into the app; the
+                        // reconnect observer will retry the profile/ban reads when the network
+                        // recovers.
+                        Log.w("AuthViewModel", "Transient auth-state error; staying signed in", e)
+                        needsRefreshAfterReconnect = true
+                        _authState.value = AuthState.SignedIn
+                    }
                 }
             }
         }
         authStateListener = listener
         firebaseAuth.addAuthStateListener(listener)
+    }
+
+    private fun observeNetworkReconnects() {
+        viewModelScope.launch {
+            networkMonitor.isConnected.collect { connected ->
+                if (!connected) return@collect
+                if (!needsRefreshAfterReconnect) return@collect
+                val user = firebaseAuth.currentUser ?: return@collect
+                try {
+                    val isBanned = authRepository.checkIfUserIsBanned(user.uid)
+                    if (isBanned) {
+                        authRepository.signOut()
+                        _error.value = context.getString(R.string.auth_error_account_suspended)
+                        _authState.value = AuthState.SignedOut
+                        needsRefreshAfterReconnect = false
+                        return@collect
+                    }
+                    val needsOnboarding = authRepository.checkNeedsOnboarding()
+                    if (needsOnboarding && !didSignInThisSession) {
+                        authRepository.signOut()
+                        _authState.value = AuthState.SignedOut
+                        needsRefreshAfterReconnect = false
+                        return@collect
+                    }
+                    if (needsOnboarding) {
+                        _authState.value = AuthState.NeedsOnboarding
+                    } else {
+                        val profile = authRepository.userProfile.value
+                        if (profile != null) {
+                            subscriptionRepository.updateVerifiedStatus(profile.isVerified)
+                            subscriptionRepository.setTotalPostCount(profile.cymbalCount)
+                        }
+                    }
+                    needsRefreshAfterReconnect = false
+                } catch (e: Exception) {
+                    if (isFatalAuthError(e)) {
+                        authRepository.signOut()
+                        _authState.value = AuthState.SignedOut
+                        needsRefreshAfterReconnect = false
+                    }
+                    // Otherwise still transient — leave the flag set and try again on the next reconnect.
+                }
+            }
+        }
     }
 
     override fun onCleared() {

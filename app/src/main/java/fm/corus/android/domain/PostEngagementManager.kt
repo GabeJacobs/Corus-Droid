@@ -348,6 +348,33 @@ class PostEngagementManager @Inject constructor(
         }
     }
 
+    /** Safety net mirroring iOS `PostEngagementStore.reconcileCommentCount`:
+     *  when a rendered preview list shows more comments than the cached badge
+     *  count, ratchet the badge up. Never decreases. */
+    fun reconcileCommentCount(postId: String, atLeast: Int) {
+        if (atLeast <= 0) return
+        _states.update { map ->
+            val current = map[postId] ?: return@update map
+            if (atLeast > current.commentCount) {
+                map + (postId to current.copy(commentCount = atLeast))
+            } else {
+                map
+            }
+        }
+    }
+
+    /** Targeted refresh of a single post's denormalized counts. Called from the
+     *  FCM service when a comment/like/repost notification arrives, so the feed
+     *  badge updates immediately without waiting for pull-to-refresh.
+     *  In-flight markers in `applyListenerUpdate` shape protection — we reuse
+     *  the same guarded write path here. */
+    fun refreshCountsFromServer(postId: String) {
+        scope.launch {
+            val counts = firestoreDataSource.fetchPostCounts(postId) ?: return@launch
+            applyListenerUpdate(postId, counts.likeCount, counts.commentCount, counts.repostCount)
+        }
+    }
+
     /**
      * Check actual like status from Firestore for the given posts.
      * Mirrors iOS PostCard.checkStatus() — the backend doesn't return isLiked,

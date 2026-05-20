@@ -10,10 +10,16 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import dagger.hilt.android.AndroidEntryPoint
 import fm.corus.android.MainActivity
 import fm.corus.android.R
+import fm.corus.android.domain.PostEngagementManager
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class CorusFirebaseMessagingService : FirebaseMessagingService() {
+
+    @Inject lateinit var postEngagementManager: PostEngagementManager
 
     companion object {
         private const val CHANNEL_ID = "corus_default"
@@ -37,6 +43,8 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
         val notification = message.notification
         val data = message.data
 
+        refreshPostCountsIfNeeded(data)
+
         if (notification != null) {
             // System would auto-display this, but we need to attach navigation data.
             // Build a custom notification with a PendingIntent that carries the data payload.
@@ -52,6 +60,21 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
                 body = data["body"] ?: "",
                 data = data,
             )
+        }
+    }
+
+    /** When an engagement-type notification (comment/like/repost/etc.) arrives
+     *  for one of the viewer's posts, eagerly refresh that post's denormalized
+     *  counts so the feed badge updates without waiting for pull-to-refresh.
+     *  Mirrors iOS AppDelegate.refreshPostCountsIfNeeded. */
+    private fun refreshPostCountsIfNeeded(data: Map<String, String>) {
+        val type = data["type"].orEmpty()
+        val postId = data["postId"].orEmpty()
+        if (postId.isEmpty()) return
+        when (type) {
+            "comment", "reply", "mention", "like", "repost" -> {
+                postEngagementManager.refreshCountsFromServer(postId)
+            }
         }
     }
 
