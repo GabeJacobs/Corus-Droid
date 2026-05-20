@@ -26,6 +26,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
@@ -91,6 +93,8 @@ fun ComposeScreen(
     val searchResults by viewModel.searchResults.collectAsState()
     val filmResults by viewModel.filmResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
+    val searchHasError by viewModel.searchHasError.collectAsState()
+    val isConnected by viewModel.isConnected.collectAsState()
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
     val showTrophy by viewModel.showTrophy.collectAsState()
     val trophyPost by viewModel.trophyPost.collectAsState()
@@ -225,6 +229,11 @@ fun ComposeScreen(
                         isSearching = isSearching,
                         searchResults = searchResults,
                         filmResults = filmResults,
+                        searchHasError = searchHasError,
+                        isConnected = isConnected,
+                        onRetrySearch = {
+                            viewModel.search(searchQuery, mediaType)
+                        },
                         onResultClick = { result ->
                             viewModel.selectResult(result, mediaType)
                         },
@@ -381,6 +390,9 @@ private fun SearchModeContent(
     isSearching: Boolean,
     searchResults: List<SearchResultItem>,
     filmResults: List<CymbalMovie>,
+    searchHasError: Boolean,
+    isConnected: Boolean,
+    onRetrySearch: () -> Unit,
     onResultClick: (SearchResultItem) -> Unit,
     onFilmClick: (CymbalMovie) -> Unit,
     onPreviewTap: (String) -> Unit,
@@ -463,6 +475,7 @@ private fun SearchModeContent(
 
         if (searchQuery.isNotEmpty()) {
             // ── Search results ──
+            val currentResultsEmpty = if (mediaType == MediaType.MOVIE) filmResults.isEmpty() else searchResults.isEmpty()
             if (isSearching) {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(8) { index ->
@@ -479,6 +492,25 @@ private fun SearchModeContent(
                         }
                     }
                 }
+            } else if (searchHasError && currentResultsEmpty) {
+                // Same online-vs-offline branching as the Search tab so the
+                // empty state doesn't tell a user with working internet to
+                // check their connection.
+                fm.corus.android.ui.components.OfflineRetryState(
+                    modifier = Modifier.fillMaxSize(),
+                    onRetry = onRetrySearch,
+                    icon = if (isConnected) Icons.Filled.WarningAmber else Icons.Filled.WifiOff,
+                    title = if (isConnected) {
+                        stringResource(fm.corus.android.R.string.search_service_unavailable_title)
+                    } else {
+                        stringResource(fm.corus.android.R.string.feed_offline_title)
+                    },
+                    subtitle = if (isConnected) {
+                        stringResource(fm.corus.android.R.string.search_service_unavailable_subtitle)
+                    } else {
+                        stringResource(fm.corus.android.R.string.feed_offline_subtitle)
+                    },
+                )
             } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (mediaType == MediaType.MOVIE) {

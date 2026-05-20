@@ -26,6 +26,7 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.extractMentions
 import fm.corus.android.ui.components.parseMentionQuery
@@ -62,6 +63,7 @@ class ComposeViewModel @Inject constructor(
     private val postCreationEvent: PostCreationEvent,
     private val hapticManager: HapticManager,
     private val remoteConfigService: RemoteConfigService,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     // Post limit / Cymbal Club
@@ -171,6 +173,18 @@ class ComposeViewModel @Inject constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    /**
+     * True when the most recent [search] threw. Lets ComposeScreen render a
+     * "something's off on our end" empty state instead of silently showing no
+     * results, which is what happens when a `searchSongs` 500 reaches us.
+     */
+    private val _searchHasError = MutableStateFlow(false)
+    val searchHasError: StateFlow<Boolean> = _searchHasError.asStateFlow()
+
+    /** Re-export of networkMonitor.isConnected so ComposeScreen can branch
+     *  between "you're offline" and "our service is down" empty-state copy. */
+    val isConnected: StateFlow<Boolean> = networkMonitor.isConnected
+
     private val _mentionSuggestions = MutableStateFlow<List<CymbalUser>>(emptyList())
     val mentionSuggestions: StateFlow<List<CymbalUser>> = _mentionSuggestions.asStateFlow()
 
@@ -221,6 +235,7 @@ class ComposeViewModel @Inject constructor(
         searchJob = viewModelScope.launch {
             delay(300) // debounce
             _isSearching.value = true
+            _searchHasError.value = false
             try {
                 if (mediaType == MediaType.TRACK) {
                     cachedTracks = musicSearchRepository.search(
@@ -249,6 +264,7 @@ class ComposeViewModel @Inject constructor(
             } catch (_: Exception) {
                 _searchResults.value = emptyList()
                 _filmResults.value = emptyList()
+                _searchHasError.value = true
             }
             _isSearching.value = false
         }

@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
@@ -320,6 +322,7 @@ fun SearchScreen(
                     fm.corus.android.ui.components.OfflineRetryState(
                         modifier = Modifier.fillMaxSize(),
                         onRetry = { viewModel.retrySearch() },
+                        icon = if (isConnected) Icons.Filled.WarningAmber else Icons.Filled.WifiOff,
                         title = if (isConnected) {
                             stringResource(fm.corus.android.R.string.search_service_unavailable_title)
                         } else {
