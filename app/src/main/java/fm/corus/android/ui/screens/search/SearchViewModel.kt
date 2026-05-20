@@ -84,6 +84,13 @@ class SearchViewModel @Inject constructor(
     private val _searchHasError = MutableStateFlow(false)
     val searchHasError: StateFlow<Boolean> = _searchHasError.asStateFlow()
 
+    /**
+     * Surface connectivity to the UI so the empty-error state can pick between
+     * "you're offline" copy and "our service is down" copy. We already had
+     * the monitor available — this just re-exports it for SearchScreen.
+     */
+    val isConnected: StateFlow<Boolean> = networkMonitor.isConnected
+
     // Tab state
     private val _activeTab = MutableStateFlow(0) // 0=Users, 1=Songs, 2=Films, 3=Hashtags
     val activeTab: StateFlow<Int> = _activeTab.asStateFlow()

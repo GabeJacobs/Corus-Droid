@@ -151,6 +151,7 @@ fun SearchScreen(
     val activeTab = SearchTab.entries[activeTabIndex]
     val hasSearchQuery = searchQuery.isNotBlank()
     val searchHasError by viewModel.searchHasError.collectAsState()
+    val isConnected by viewModel.isConnected.collectAsState()
     val currentTabIsEmpty = when (activeTab) {
         SearchTab.USERS -> userResults.isEmpty()
         SearchTab.SONGS -> songSearchResults.isEmpty()
@@ -313,9 +314,22 @@ fun SearchScreen(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 if (showSearchOfflineRetry) {
+                    // When the device is online but search errored, say so —
+                    // pointing the user at their internet is misleading in that
+                    // case. Default offline copy is kept for actual offline.
                     fm.corus.android.ui.components.OfflineRetryState(
                         modifier = Modifier.fillMaxSize(),
                         onRetry = { viewModel.retrySearch() },
+                        title = if (isConnected) {
+                            stringResource(fm.corus.android.R.string.search_service_unavailable_title)
+                        } else {
+                            stringResource(fm.corus.android.R.string.feed_offline_title)
+                        },
+                        subtitle = if (isConnected) {
+                            stringResource(fm.corus.android.R.string.search_service_unavailable_subtitle)
+                        } else {
+                            stringResource(fm.corus.android.R.string.feed_offline_subtitle)
+                        },
                     )
                 } else when (activeTab) {
                     SearchTab.USERS -> {
