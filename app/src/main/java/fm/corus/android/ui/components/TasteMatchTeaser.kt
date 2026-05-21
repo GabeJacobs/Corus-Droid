@@ -46,6 +46,7 @@ import fm.corus.android.data.model.SharedTrackPreview
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 
 /**
  * Profile teaser pill — three overlapping album-art thumbs + shaded Venn icon
@@ -157,6 +158,7 @@ fun TasteMatchSheet(
         containerColor = CorusColors.Background,
         dragHandle = null,
     ) {
+        CorusSystemBars()
         val sharedSongs = match.sharedTrackPreviews.filter { it.kind == SharedPreviewKind.SHARED_SONG }
         val artistFillSongs = match.sharedTrackPreviews.filter { it.kind == SharedPreviewKind.SHARED_ARTIST }
         val sharedFilms = match.sharedMoviePreviews.filter { it.kind == SharedPreviewKind.SHARED_SONG }

@@ -57,29 +57,6 @@ class SearchViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
-    init {
-        viewModelScope.launch {
-            networkMonitor.isConnected.collect { connected ->
-                // Auto-retry the active search when the network returns if the
-                // previous attempt errored and the current tab has no results.
-                if (!connected || !_searchHasError.value) return@collect
-                val query = _searchQuery.value
-                if (query.isBlank()) return@collect
-                val tab = _activeTab.value
-                val empty = when (tab) {
-                    0 -> _userSearchResults.value.isEmpty()
-                    1 -> _songSearchResults.value.isEmpty()
-                    2 -> _filmSearchResults.value.isEmpty()
-                    3 -> _hashtagSearchResults.value.isEmpty()
-                    else -> false
-                }
-                if (empty) {
-                    search(query, tab)
-                }
-            }
-        }
-    }
-
     /** True when the most recent [search] threw AND the current tab is empty. */
     private val _searchHasError = MutableStateFlow(false)
     val searchHasError: StateFlow<Boolean> = _searchHasError.asStateFlow()
@@ -132,6 +109,29 @@ class SearchViewModel @Inject constructor(
 
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            networkMonitor.isConnected.collect { connected ->
+                // Auto-retry the active search when the network returns if the
+                // previous attempt errored and the current tab has no results.
+                if (!connected || !_searchHasError.value) return@collect
+                val query = _searchQuery.value
+                if (query.isBlank()) return@collect
+                val tab = _activeTab.value
+                val empty = when (tab) {
+                    0 -> _userSearchResults.value.isEmpty()
+                    1 -> _songSearchResults.value.isEmpty()
+                    2 -> _filmSearchResults.value.isEmpty()
+                    3 -> _hashtagSearchResults.value.isEmpty()
+                    else -> false
+                }
+                if (empty) {
+                    search(query, tab)
+                }
+            }
+        }
+    }
 
     // Windowed trending hashtags + cache for prefix search. The values are
     // TrendingHashtag (with windowed cymbalCount + followerCount denormalized

@@ -47,18 +47,6 @@ class ProfileViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
-    init {
-        viewModelScope.launch {
-            networkMonitor.isConnected.collect { connected ->
-                // Auto-retry profile load when the network returns if the previous
-                // attempt failed and nothing is on screen.
-                if (connected && _hasLoadError.value && _profile.value == null) {
-                    retryLoad()
-                }
-            }
-        }
-    }
-
     val isClubMember = subscriptionRepository.isClubMember
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
 
@@ -127,6 +115,15 @@ class ProfileViewModel @Inject constructor(
     val hasMore: StateFlow<Map<Int, Boolean>> = _hasMore.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            networkMonitor.isConnected.collect { connected ->
+                // Auto-retry profile load when the network returns if the previous
+                // attempt failed and nothing is on screen.
+                if (connected && _hasLoadError.value && _profile.value == null) {
+                    retryLoad()
+                }
+            }
+        }
         // Keep _profile in sync with authRepository so edits from EditProfileScreen
         // (which refresh authRepository._userProfile) are reflected without a manual reload.
         viewModelScope.launch {

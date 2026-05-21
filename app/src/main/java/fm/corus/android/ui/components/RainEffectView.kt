@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import fm.corus.android.data.model.RainIntensity
@@ -78,10 +79,18 @@ private fun RainCanvas(
         }
     }
 
-    Canvas(modifier = modifier) {
+    Canvas(modifier = modifier.clipToBounds()) {
         val w = size.width
         val h = size.height
         val scale = density
+
+        // Soft fade-in band at the top edge so drops don't visibly "pop in"
+        // when they cross y=0. Mirrors the snow fix — Canvas clips its draws,
+        // so a head at y<0 is invisible until it suddenly draws at y=0.
+        // Wider than snow's band since rain falls much faster.
+        val fadeBand = 50f * scale
+        fun topFade(y: Float): Float =
+            if (y >= fadeBand) 1f else (y / fadeBand).coerceIn(0f, 1f)
 
         if (tick == 1) {
             drops = List(intensity.dropCount) { createRaindrop(w, h, intensity, scale) }
@@ -122,7 +131,7 @@ private fun RainCanvas(
 
         // Draw background drops first
         updated.filter { it.layer == RainLayer.BACKGROUND }.forEach { drop ->
-            val alpha = drop.opacity * 0.5f
+            val alpha = drop.opacity * 0.5f * topFade(drop.y)
             val length = drop.length * 0.7f
             val dx = WIND_DX * length
             val dy = WIND_DY * length
@@ -141,7 +150,7 @@ private fun RainCanvas(
             val dy = WIND_DY * drop.length
 
             drawLine(
-                color = Color.White.copy(alpha = drop.opacity),
+                color = Color.White.copy(alpha = drop.opacity * topFade(drop.y)),
                 start = Offset(drop.x, drop.y),
                 end = Offset(drop.x - dx, drop.y - dy),
                 strokeWidth = 1.5f * scale,
@@ -229,32 +238,32 @@ private fun createRaindrop(
 
     when {
         layer == RainLayer.FOREGROUND && intensity == RainIntensity.LIGHT -> {
-            speed = Random.nextFloat() * 80f + 140f    // 140-220
+            speed = Random.nextFloat() * 64f + 112f     // 112-176
             length = Random.nextFloat() * 8f + 12f      // 12-20
             opacity = Random.nextFloat() * 0.2f + 0.3f  // 0.3-0.5
         }
         layer == RainLayer.FOREGROUND && intensity == RainIntensity.MEDIUM -> {
-            speed = Random.nextFloat() * 130f + 230f    // 230-360
+            speed = Random.nextFloat() * 94f + 166f     // 166-260
             length = Random.nextFloat() * 10f + 16f      // 16-26
             opacity = Random.nextFloat() * 0.25f + 0.4f  // 0.4-0.65
         }
         layer == RainLayer.FOREGROUND -> { // HEAVY
-            speed = Random.nextFloat() * 180f + 320f    // 320-500
+            speed = Random.nextFloat() * 130f + 230f    // 230-360
             length = Random.nextFloat() * 12f + 18f      // 18-30
             opacity = Random.nextFloat() * 0.3f + 0.4f   // 0.4-0.7
         }
         layer == RainLayer.BACKGROUND && intensity == RainIntensity.LIGHT -> {
-            speed = Random.nextFloat() * 70f + 80f      // 80-150
+            speed = Random.nextFloat() * 56f + 64f      // 64-120
             length = Random.nextFloat() * 6f + 8f        // 8-14
             opacity = Random.nextFloat() * 0.15f + 0.15f // 0.15-0.3
         }
         layer == RainLayer.BACKGROUND && intensity == RainIntensity.MEDIUM -> {
-            speed = Random.nextFloat() * 100f + 140f    // 140-240
+            speed = Random.nextFloat() * 72f + 101f     // 101-173
             length = Random.nextFloat() * 8f + 10f       // 10-18
             opacity = Random.nextFloat() * 0.15f + 0.2f  // 0.2-0.35
         }
         else -> { // BACKGROUND HEAVY
-            speed = Random.nextFloat() * 140f + 180f    // 180-320
+            speed = Random.nextFloat() * 100f + 130f    // 130-230
             length = Random.nextFloat() * 8f + 12f       // 12-20
             opacity = Random.nextFloat() * 0.2f + 0.2f   // 0.2-0.4
         }
@@ -264,7 +273,10 @@ private fun createRaindrop(
     val y = if (fullHeight) {
         Random.nextFloat() * height * 1.5f - height * 0.5f
     } else {
-        Random.nextFloat() * -50f - 10f
+        // Spawn well above the canvas so drops stagger in over time instead
+        // of clustering at the top edge — pairs with the topFade band so
+        // they fade in smoothly as they descend into view.
+        Random.nextFloat() * -210f - 40f
     }
 
     return Raindrop(

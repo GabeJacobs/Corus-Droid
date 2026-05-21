@@ -46,19 +46,6 @@ class NotificationsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
-    init {
-        viewModelScope.launch {
-            networkMonitor.isConnected.collect { connected ->
-                // Auto-retry the initial load when the network returns if the previous
-                // attempt failed and we have nothing on screen. Mirrors iOS
-                // NotificationsView's reconnect handler.
-                if (connected && _hasLoadError.value && _notifications.value.isEmpty()) {
-                    retryLoad()
-                }
-            }
-        }
-    }
-
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport
 
@@ -85,6 +72,19 @@ class NotificationsViewModel @Inject constructor(
     val hasLoadError: StateFlow<Boolean> = _hasLoadError.asStateFlow()
 
     val isConnected: StateFlow<Boolean> = networkMonitor.isConnected
+
+    init {
+        viewModelScope.launch {
+            networkMonitor.isConnected.collect { connected ->
+                // Auto-retry the initial load when the network returns if the previous
+                // attempt failed and we have nothing on screen. Mirrors iOS
+                // NotificationsView's reconnect handler.
+                if (connected && _hasLoadError.value && _notifications.value.isEmpty()) {
+                    retryLoad()
+                }
+            }
+        }
+    }
 
     @Volatile private var hasStartedLoading = false
 
