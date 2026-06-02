@@ -10,8 +10,20 @@ class MusicServiceTest {
         assertEquals("TIDAL", MusicService.TIDAL.displayLabel)
     }
 
+    @Test fun `deezer has expected value and label`() {
+        assertEquals("deezer", MusicService.DEEZER.value)
+        assertEquals("Deezer", MusicService.DEEZER.displayLabel)
+    }
+
     @Test fun `fromValue resolves tidal`() {
         assertEquals(MusicService.TIDAL, MusicService.fromValue("tidal"))
+    }
+
+    @Test fun `fromValue resolves deezer`() {
+        // The exact wire string persisted to settings.musicService and shared
+        // with iOS / web. If this regresses, a Deezer user's stored pref would
+        // silently coerce to Spotify on the next fromValue() read.
+        assertEquals(MusicService.DEEZER, MusicService.fromValue("deezer"))
     }
 
     @Test fun `fromValue still resolves existing services`() {

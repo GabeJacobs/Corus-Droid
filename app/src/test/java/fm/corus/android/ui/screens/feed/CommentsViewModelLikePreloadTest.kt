@@ -148,6 +148,8 @@ class CommentsViewModelLikePreloadTest {
         commentEditedEvent = commentEditedEvent,
         commentDeletedEvent = commentDeletedEvent,
         nowPlayingManager = nowPlayingManager,
+        cloudFunctions = mock(),
+        musicServicePreference = mock(),
         remoteConfigService = remoteConfig,
         gifRepository = gifRepo,
         analyticsService = analytics,

@@ -36,6 +36,7 @@ class OtherProfileViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
     val nowPlayingManager: NowPlayingManager,
+    private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     private val engagementManager: PostEngagementManager,
     private val subscriptionRepository: SubscriptionRepository,
@@ -43,6 +44,16 @@ class OtherProfileViewModel @Inject constructor(
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
 ) : ViewModel() {
+
+    /**
+     * Resolve the link-out URL for a Spotify-source track given the viewer's
+     * preferred service (Apple Music / TIDAL / Deezer), for the featured-post
+     * service-logo tap. Returns null for Spotify / no-match. See FeedViewModel.
+     */
+    suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
+        fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(
+            track, musicServicePreference.current.value, cloudFunctions,
+        )
 
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
 

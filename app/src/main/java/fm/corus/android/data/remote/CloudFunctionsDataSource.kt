@@ -945,6 +945,41 @@ class CloudFunctionsDataSource @Inject constructor(
         return data["previewUrl"] as? String
     }
 
+    // ── Music-service link-out resolvers ──────────────────────────────────────
+    // Resolve a Spotify track to its counterpart page URL on another service, for
+    // the post "open in <service>" link-out. Each mirrors `appleMusicLookup` but
+    // returns the catalog page URL (`<service>URL`) rather than the preview. The
+    // backend runs the shared matcher and caches the mapping; returns null on no
+    // match / error so the caller can no-op. Shared param builder keeps the three
+    // identical except for the callable name and the response key.
+    private fun linkOutParams(name: String, artist: String, isrc: String?, spotifyTrackId: String?): Map<String, Any> {
+        val params = mutableMapOf<String, Any>("name" to name, "artist" to artist)
+        if (!isrc.isNullOrBlank()) params["isrc"] = isrc
+        if (!spotifyTrackId.isNullOrBlank()) params["spotifyTrackId"] = spotifyTrackId
+        return params
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun appleMusicLinkOutUrl(name: String, artist: String, isrc: String?, spotifyTrackId: String?): String? {
+        val result = functions.getHttpsCallable("appleMusicLookup").call(linkOutParams(name, artist, isrc, spotifyTrackId)).await()
+        val data = result.getData() as? Map<String, Any?> ?: return null
+        return data["appleMusicURL"] as? String
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun tidalLinkOutUrl(name: String, artist: String, isrc: String?, spotifyTrackId: String?): String? {
+        val result = functions.getHttpsCallable("tidalLookup").call(linkOutParams(name, artist, isrc, spotifyTrackId)).await()
+        val data = result.getData() as? Map<String, Any?> ?: return null
+        return data["tidalURL"] as? String
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun deezerLinkOutUrl(name: String, artist: String, isrc: String?, spotifyTrackId: String?): String? {
+        val result = functions.getHttpsCallable("deezerLookup").call(linkOutParams(name, artist, isrc, spotifyTrackId)).await()
+        val data = result.getData() as? Map<String, Any?> ?: return null
+        return data["deezerURL"] as? String
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun generateFeedPlaylist(newReleasesOnly: Boolean = false): PlaylistResult {
         val params = mutableMapOf<String, Any>("supportsGating" to true)

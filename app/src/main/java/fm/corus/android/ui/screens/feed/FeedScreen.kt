@@ -228,9 +228,12 @@ fun FeedScreen(
             onFilterMenuExpandedChange = { filterMenuExpanded = it },
             onSetFilter = { viewModel.setFeedFilter(it) },
             onGeneratePlaylist = {
-                val isApple = musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                // Playlist generation produces a Spotify playlist, so any
+                // non-Spotify service (Apple Music / TIDAL / Deezer) — and any
+                // SoundCloud track — gets the "Spotify feature" alert first.
+                val isNonSpotify = musicService != fm.corus.android.data.model.MusicService.SPOTIFY
                 val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                if (isApple || hasSoundCloud) {
+                if (isNonSpotify || hasSoundCloud) {
                     showPlaylistAlert = true
                 } else {
                     viewModel.generateFeedPlaylist()
@@ -499,7 +502,7 @@ fun FeedScreen(
                                     if (!url.isNullOrBlank()) {
                                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                                     }
-                                } else {
+                                } else if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
                                     val uri = post.track.spotifyURI
                                     val webUrl = post.track.spotifyWebURL
                                     try {
@@ -513,8 +516,20 @@ fun FeedScreen(
                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)))
                                         }
                                     }
+                                } else {
+                                    // Apple Music / TIDAL / Deezer preference on a
+                                    // Spotify-source post: resolve that service's
+                                    // catalog URL via the backend (network, cached),
+                                    // then open. Mirrors iOS openInMusicService.
+                                    scope.launch {
+                                        val url = viewModel.resolveServiceLinkUrl(post.track)
+                                        if (!url.isNullOrBlank()) {
+                                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                        }
+                                    }
                                 }
                             },
+                            musicService = musicService,
                             onMentionTap = { username -> onNavigateToUserByUsername(username) },
                             onRepostedFromUserTap = { userId, username ->
                                 if (userId != null) onNavigateToUserById(userId)

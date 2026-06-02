@@ -45,6 +45,10 @@ class SocialSetupViewModel @Inject constructor(
     val tidalEnabled: Boolean
         get() = remoteConfigService.tidalEnabled
 
+    /** Whether the Deezer option should appear in the music-service picker. */
+    val deezerEnabled: Boolean
+        get() = remoteConfigService.deezerEnabled
+
     // ── Contact Sync ──
 
     private val _isSyncing = MutableStateFlow(false)

@@ -41,6 +41,8 @@ class PostDetailViewModel @Inject constructor(
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
     val nowPlayingManager: NowPlayingManager,
+    private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
+    val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
     @ApplicationContext private val context: Context,
@@ -49,6 +51,16 @@ class PostDetailViewModel @Inject constructor(
     override suspend fun fetchBackCover(postId: String): String? {
         return postRepository.fetchBackCover(postId)
     }
+
+    /**
+     * Resolve the link-out URL for a Spotify-source track given the viewer's
+     * preferred service (Apple Music / TIDAL / Deezer). Returns null for Spotify
+     * (caller opens the post's own URI) and on no-match / error. See FeedViewModel.
+     */
+    suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
+        fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(
+            track, musicServicePreference.current.value, cloudFunctions,
+        )
 
     private val _post = MutableStateFlow<CymbalPost?>(null)
     val post: StateFlow<CymbalPost?> = _post.asStateFlow()

@@ -92,6 +92,7 @@ fun PostCard(
     onShareTap: () -> Unit = {},
     onMenuTap: () -> Unit = {},
     onSpotifyTap: () -> Unit = {},
+    musicService: fm.corus.android.data.model.MusicService = fm.corus.android.data.model.MusicService.SPOTIFY,
     onLikesTap: () -> Unit = {},
     onLikerTap: (CymbalUser) -> Unit = {},
     onMentionTap: (String) -> Unit = {},
@@ -728,8 +729,10 @@ fun PostCard(
                         contentScale = ContentScale.Fit,
                     )
                 } else {
+                    // Spotify-source post: glyph reflects the viewer's preferred
+                    // service (Spotify / Apple Music / TIDAL / Deezer), mirroring iOS.
                     Image(
-                        painter = painterResource(R.drawable.spotify_logo),
+                        painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(musicService)),
                         contentDescription = cd,
                         modifier = tapModifier,
                         contentScale = ContentScale.Fit,

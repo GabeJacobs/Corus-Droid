@@ -69,7 +69,17 @@ class ProfileFeedViewModel @Inject constructor(
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
     private val preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore,
+    val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
 ) : ViewModel(), PostMenuActions {
+
+    /**
+     * Resolve the link-out URL for a Spotify-source track given the viewer's
+     * preferred service (Apple Music / TIDAL / Deezer). See FeedViewModel.
+     */
+    suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
+        fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(
+            track, musicServicePreference.current.value, cloudFunctions,
+        )
 
     /**
      * Mirrors iOS @AppStorage("feedFollowsNowPlaying"). Same key as

@@ -53,6 +53,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -62,6 +63,8 @@ fun MiniPlayerBar(
     onTrackTap: (() -> Unit)? = null,
     engagementManager: PostEngagementManager? = null,
     onLikeTap: (() -> Unit)? = null,
+    musicService: fm.corus.android.data.model.MusicService = fm.corus.android.data.model.MusicService.SPOTIFY,
+    resolveLinkOut: (suspend () -> String?)? = null,
     modifier: Modifier = Modifier,
 ) {
     val state by nowPlayingManager.state.collectAsState()
@@ -70,6 +73,7 @@ fun MiniPlayerBar(
         ?.let { engagementStates[it]?.isLiked }
         ?: false
     val context = LocalContext.current
+    val linkOutScope = androidx.compose.runtime.rememberCoroutineScope()
 
     AnimatedVisibility(
         visible = state.hasActiveTrack,
@@ -230,8 +234,9 @@ fun MiniPlayerBar(
                             },
                     )
                 } else {
+                    // Spotify-source: glyph reflects the viewer's preferred service.
                     Image(
-                        painter = painterResource(fm.corus.android.R.drawable.spotify_logo),
+                        painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(musicService)),
                         contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
                         modifier = Modifier
                             .size(22.dp)
@@ -239,16 +244,31 @@ fun MiniPlayerBar(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
                             ) {
-                                val uri = state.spotifyURI
-                                val webUrl = state.spotifyWebURL
-                                val opened = if (!uri.isNullOrBlank()) {
-                                    try {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
-                                        true
-                                    } catch (_: Exception) { false }
-                                } else false
-                                if (!opened && !webUrl.isNullOrBlank()) {
-                                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
+                                if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                                    val uri = state.spotifyURI
+                                    val webUrl = state.spotifyWebURL
+                                    val opened = if (!uri.isNullOrBlank()) {
+                                        try {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                                            true
+                                        } catch (_: Exception) { false }
+                                    } else false
+                                    if (!opened && !webUrl.isNullOrBlank()) {
+                                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
+                                    }
+                                } else {
+                                    // Apple Music / TIDAL / Deezer: resolve via host
+                                    // (network, cached) then open. The global overlay
+                                    // (MainTabScreen) shows the spinner meanwhile.
+                                    val resolve = resolveLinkOut
+                                    if (resolve != null) {
+                                        linkOutScope.launch {
+                                            val url = resolve()
+                                            if (!url.isNullOrBlank()) {
+                                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                            }
+                                        }
+                                    }
                                 }
                             },
                     )

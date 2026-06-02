@@ -39,6 +39,10 @@ class SettingsViewModel @Inject constructor(
     val tidalEnabled: Boolean
         get() = remoteConfigService.tidalEnabled
 
+    /** Whether the Deezer option should appear in the music-service picker. */
+    val deezerEnabled: Boolean
+        get() = remoteConfigService.deezerEnabled
+
     /** Persist the user's music-service choice (local cache + Firestore). */
     fun setMusicService(service: MusicService) {
         viewModelScope.launch { musicServicePreference.syncToFirestore(service) }

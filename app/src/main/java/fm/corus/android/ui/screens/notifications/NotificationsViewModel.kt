@@ -90,6 +90,14 @@ class NotificationsViewModel @Inject constructor(
 
     val followingIds: StateFlow<Set<String>> = userRepository.followingIds
 
+    /**
+     * Reverse follow direction: actors who follow the current user. Drives the
+     * "Follow back" vs "Follow" label on contact_joined ("joined Corus!") rows,
+     * where — unlike FOLLOW rows — the relationship isn't implied by the type.
+     */
+    private val _followsMeIds = MutableStateFlow<Set<String>>(emptySet())
+    val followsMeIds: StateFlow<Set<String>> = _followsMeIds.asStateFlow()
+
     private val _likedCommentIds = MutableStateFlow<Set<String>>(emptySet())
     val likedCommentIds: StateFlow<Set<String>> = _likedCommentIds.asStateFlow()
 
@@ -163,6 +171,7 @@ class NotificationsViewModel @Inject constructor(
                 _notifications.value = notificationRepository.getNotifications(userId, limit = pageSize)
                 _hasMoreNotifications.value = _notifications.value.size >= pageSize
                 loadCommentLikeStatuses(userId)
+                loadFollowsMeStatuses(userId)
             } catch (_: Exception) { }
             _isRefreshing.value = false
         }
@@ -194,6 +203,7 @@ class NotificationsViewModel @Inject constructor(
                     _isLoading.value = false
                     _hasLoadError.value = false
                     loadCommentLikeStatuses(userId)
+                    loadFollowsMeStatuses(userId)
                 }
             } catch (_: Exception) {
                 // Fallback to one-shot fetch
@@ -204,6 +214,7 @@ class NotificationsViewModel @Inject constructor(
                     _notifications.value = fetched
                     _hasMoreNotifications.value = fetched.size >= pageSize
                     loadCommentLikeStatuses(userId)
+                    loadFollowsMeStatuses(userId)
                     fellBackOk = true
                 } catch (_: Exception) { }
                 _isLoading.value = false
@@ -321,6 +332,7 @@ class NotificationsViewModel @Inject constructor(
                 _hasMoreNotifications.value = fetched.size >= pageSize && newItems.isNotEmpty()
                 Log.d("Notifications", "loadMore: hasMore=${_hasMoreNotifications.value}, total=${_notifications.value.size}")
                 loadCommentLikeStatuses(userId)
+                loadFollowsMeStatuses(userId)
             } catch (e: Exception) {
                 Log.e("Notifications", "loadMore failed", e)
                 _hasMoreNotifications.value = false
@@ -378,6 +390,30 @@ class NotificationsViewModel @Inject constructor(
             val likedIds = results.filter { it.second }.map { it.first }.toSet()
             if (likedIds.isNotEmpty()) {
                 _likedCommentIds.value = _likedCommentIds.value + likedIds
+            }
+        }
+    }
+
+    /**
+     * Resolves the reverse follow direction for contact_joined ("joined Corus!")
+     * rows — which actors already follow the current user — so their button can
+     * read "Follow back" instead of "Follow" when appropriate. FOLLOW rows don't
+     * need this: the relationship is implied by the notification type.
+     */
+    private fun loadFollowsMeStatuses(userId: String) {
+        val candidateIds = _notifications.value
+            .filter { it.type == fm.corus.android.data.model.NotificationType.CONTACT_JOINED }
+            .map { it.fromUser.id }
+            .filter { it != userId && it !in _followsMeIds.value }
+            .distinct()
+        if (candidateIds.isEmpty()) return
+
+        viewModelScope.launch {
+            val followers = try {
+                userRepository.checkFollowerStatusBatch(userId, candidateIds)
+            } catch (_: Exception) { emptySet() }
+            if (followers.isNotEmpty()) {
+                _followsMeIds.value = _followsMeIds.value + followers
             }
         }
     }

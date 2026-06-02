@@ -47,6 +47,16 @@ class ProfileViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
+    /**
+     * Resolve the link-out URL for a Spotify-source track given the viewer's
+     * preferred service (Apple Music / TIDAL / Deezer), for the featured-post
+     * service-logo tap. Returns null for Spotify / no-match. See FeedViewModel.
+     */
+    suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
+        fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(
+            track, musicServicePreference.current.value, cloudFunctions,
+        )
+
     val isClubMember = subscriptionRepository.isClubMember
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
 

@@ -90,6 +90,17 @@ class RemoteConfigService @Inject constructor(
             // return remoteConfig.getBoolean("tidal_enabled")
         }
 
+    /// Master gate for the Deezer link-out integration (onboarding + settings
+    /// service picker + post link-out). Mirrors `tidalEnabled` / iOS+web
+    /// `deezer_enabled`. Keep OFF until web + iOS + Android all ship.
+    val deezerEnabled: Boolean
+        get() {
+            // ⚠️ TEMPORARY LOCAL TEST OVERRIDE — REVERT BEFORE MERGE.
+            // Forces Deezer on for local testing. Restore the line below for RC control.
+            return true
+            // return remoteConfig.getBoolean("deezer_enabled")
+        }
+
     val newReleaseFilterClubOnly: Boolean
         get() = remoteConfig.getBoolean("new_release_filter_club_only")
 
@@ -164,6 +175,7 @@ class RemoteConfigService @Inject constructor(
                     "save_cap_warning_at" to 23L,
                     "soundcloud_enabled" to false,
                     "tidal_enabled" to false,
+                    "deezer_enabled" to false,
                     "comment_controls_on_posts" to false,
                     "new_release_filter_club_only" to false,
                     "style_pack_1_enabled" to false,

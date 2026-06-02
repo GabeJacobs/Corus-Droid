@@ -304,12 +304,13 @@ fun SettingsScreen(
             SectionHeader(stringResource(R.string.settings_section_general))
 
             val musicService by settingsViewModel.musicServicePreference.current.collectAsState()
-            val musicServiceOptions = remember(settingsViewModel.tidalEnabled) {
+            val musicServiceOptions = remember(settingsViewModel.tidalEnabled, settingsViewModel.deezerEnabled) {
                 buildList {
                     add(MusicService.SPOTIFY)
                     add(MusicService.APPLE_MUSIC)
-                    // TIDAL only appears when its Remote Config gate is on.
+                    // TIDAL / Deezer only appear when their Remote Config gates are on.
                     if (settingsViewModel.tidalEnabled) add(MusicService.TIDAL)
+                    if (settingsViewModel.deezerEnabled) add(MusicService.DEEZER)
                 }
             }
             DropdownSettingsRow(

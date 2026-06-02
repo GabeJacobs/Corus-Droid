@@ -129,6 +129,17 @@ class FeedViewModel @Inject constructor(
 ) : ViewModel(), PostMenuActions {
 
     /**
+     * Resolve the link-out URL for a Spotify-source track given the viewer's
+     * preferred service (Apple Music / TIDAL / Deezer). Returns null for Spotify
+     * (caller opens the post's own URI) and on no-match / error. Network-bound
+     * for Apple/TIDAL/Deezer; cached per-process by MusicServiceLinkOut.
+     */
+    suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
+        fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(
+            track, musicServicePreference.current.value, cloudFunctions,
+        )
+
+    /**
      * Mirrors iOS @AppStorage("feedFollowsNowPlaying"). When true, the feed
      * scrolls to the now-playing post on song changes (gated further by the
      * UI layer on tab/sub-screen visibility and a tap-marker on

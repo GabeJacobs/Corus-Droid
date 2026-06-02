@@ -97,6 +97,7 @@ class OtherProfileViewModelTest {
         postRepository = postRepository,
         authRepository = authRepository,
         nowPlayingManager = nowPlayingManager,
+        cloudFunctions = mock(),
         musicServicePreference = mock(),
         engagementManager = engagementManager,
         subscriptionRepository = subscriptionRepository,

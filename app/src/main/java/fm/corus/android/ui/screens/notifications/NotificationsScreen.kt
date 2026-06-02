@@ -87,6 +87,7 @@ fun NotificationsScreen(
     val hasLoadError by viewModel.hasLoadError.collectAsState()
     val hasMoreNotifications by viewModel.hasMoreNotifications.collectAsState()
     val followingIds by viewModel.followingIds.collectAsState()
+    val followsMeIds by viewModel.followsMeIds.collectAsState()
     val likedCommentIds by viewModel.likedCommentIds.collectAsState()
     val newNotificationIds by viewModel.newNotificationIds.collectAsState()
     val replyingTo by viewModel.replyingToNotification.collectAsState()
@@ -178,6 +179,8 @@ fun NotificationsScreen(
                             NotificationRow(
                                 notification = notification,
                                 isFollowing = followingIds.contains(notification.fromUser.id),
+                                followsMe = notification.type == NotificationType.FOLLOW ||
+                                        followsMeIds.contains(notification.fromUser.id),
                                 isCommentLiked = notification.commentId != null &&
                                         likedCommentIds.contains(notification.commentId),
                                 isNew = newNotificationIds.contains(notification.id),
@@ -395,6 +398,7 @@ private fun NotificationsHeader(
 private fun NotificationRow(
     notification: CymbalNotification,
     isFollowing: Boolean,
+    followsMe: Boolean,
     isCommentLiked: Boolean,
     isNew: Boolean,
     onClick: () -> Unit,
@@ -568,8 +572,8 @@ private fun NotificationRow(
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             val buttonText = when {
                 isFollowing -> stringResource(id = R.string.search_button_following)
-                notification.type == NotificationType.CONTACT_JOINED -> stringResource(id = R.string.search_button_follow)
-                else -> stringResource(id = R.string.likes_button_follow_back)
+                followsMe -> stringResource(id = R.string.likes_button_follow_back)
+                else -> stringResource(id = R.string.search_button_follow)
             }
             Button(
                 onClick = onFollowToggle,

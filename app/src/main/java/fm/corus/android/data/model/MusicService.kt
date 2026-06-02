@@ -7,13 +7,15 @@ package fm.corus.android.data.model
 enum class MusicService(val value: String) {
     SPOTIFY("spotify"),
     APPLE_MUSIC("appleMusic"),
-    TIDAL("tidal");
+    TIDAL("tidal"),
+    DEEZER("deezer");
 
     val displayLabel: String
         get() = when (this) {
             SPOTIFY -> "Spotify"
             APPLE_MUSIC -> "Apple Music"
             TIDAL -> "TIDAL"
+            DEEZER -> "Deezer"
         }
 
     companion object {

@@ -113,6 +113,7 @@ private fun MusicServiceScreen(
 ) {
     var selected by remember { mutableStateOf(MusicService.SPOTIFY) }
     val tidalEnabled = viewModel.tidalEnabled
+    val deezerEnabled = viewModel.deezerEnabled
 
     Column(
         modifier = Modifier
@@ -172,6 +173,19 @@ private fun MusicServiceScreen(
                     accent = CorusColors.TidalTeal,
                     selected = selected == MusicService.TIDAL,
                     onClick = { selected = MusicService.TIDAL },
+                )
+            }
+            // Deezer only appears when its Remote Config gate is on. Link-out
+            // only (preview-only for third-party apps), so no playback subtitle.
+            if (deezerEnabled) {
+                MusicServiceCard(
+                    modifier = Modifier.weight(1f),
+                    logoRes = R.drawable.deezer_logo,
+                    label = MusicService.DEEZER.displayLabel,
+                    subtitle = null,
+                    accent = CorusColors.DeezerPurple,
+                    selected = selected == MusicService.DEEZER,
+                    onClick = { selected = MusicService.DEEZER },
                 )
             }
         }

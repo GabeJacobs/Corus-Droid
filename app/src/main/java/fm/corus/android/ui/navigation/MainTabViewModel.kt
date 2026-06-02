@@ -27,6 +27,8 @@ enum class MilestonePaywallSource {
 @HiltViewModel
 class MainTabViewModel @Inject constructor(
     val nowPlayingManager: NowPlayingManager,
+    private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
+    val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     val subscriptionRepository: SubscriptionRepository,
     private val preferencesDataStore: PreferencesDataStore,
     private val unreadCountsRepository: UnreadCountsRepository,
@@ -42,6 +44,24 @@ class MainTabViewModel @Inject constructor(
      * track has no source post (e.g. a queued track surfaced outside the feed)
      * or if the user is signed out.
      */
+    /**
+     * Resolve the link-out URL for the currently-playing Spotify-source track
+     * given the viewer's preferred service (Apple Music / TIDAL / Deezer), for the
+     * mini-player service-logo tap. Returns null for Spotify / no current track.
+     */
+    suspend fun resolveCurrentServiceLinkUrl(): String? {
+        val s = nowPlayingManager.state.value
+        val trackId = s.trackId ?: return null
+        return fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrlRaw(
+            trackId = trackId,
+            name = s.trackName,
+            artist = s.artistName,
+            isrc = null,
+            service = musicServicePreference.current.value,
+            cloud = cloudFunctions,
+        )
+    }
+
     fun toggleLikeForCurrentTrack() {
         val postId = nowPlayingManager.state.value.sourcePostId ?: return
         val userId = authRepository.currentUserId ?: return

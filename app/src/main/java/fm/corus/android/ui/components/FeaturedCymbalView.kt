@@ -61,6 +61,7 @@ fun FeaturedCymbalView(
     isLiked: Boolean = post.isLiked,
     onLikeTap: () -> Unit = {},
     onSpotifyTap: () -> Unit = {},
+    musicService: fm.corus.android.data.model.MusicService = fm.corus.android.data.model.MusicService.SPOTIFY,
     onPostTap: () -> Unit = {},
     onArtReady: () -> Unit = {},
     staggerVinyl: Boolean = false,
@@ -312,8 +313,9 @@ fun FeaturedCymbalView(
                     contentScale = ContentScale.Fit,
                 )
             } else {
+                // Spotify-source: glyph reflects the viewer's preferred service.
                 Image(
-                    painter = painterResource(R.drawable.spotify_logo),
+                    painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(musicService)),
                     contentDescription = stringResource(R.string.featured_cd_play_spotify),
                     modifier = Modifier
                         .size(21.dp)

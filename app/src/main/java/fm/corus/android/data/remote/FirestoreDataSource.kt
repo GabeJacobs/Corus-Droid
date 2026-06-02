@@ -215,6 +215,25 @@ class FirestoreDataSource @Inject constructor(
         return snapshot.documents.map { it.id }.toSet()
     }
 
+    /**
+     * Returns the subset of [candidateIds] that appear in [userId]'s followers
+     * collection — i.e. which of those users follow [userId]. Batched in chunks
+     * of 30 to respect Firestore's `whereIn` limit. Mirrors iOS
+     * `checkFollowerStatusBatch`.
+     */
+    suspend fun checkFollowerStatusBatch(userId: String, candidateIds: List<String>): Set<String> {
+        if (candidateIds.isEmpty()) return emptySet()
+        val result = mutableSetOf<String>()
+        candidateIds.chunked(30).forEach { chunk ->
+            val snapshot = firestore.collection("users_v2").document(userId)
+                .collection("followers")
+                .whereIn(FieldPath.documentId(), chunk)
+                .get().await()
+            snapshot.documents.forEach { result.add(it.id) }
+        }
+        return result
+    }
+
     data class PaginatedIdsResult(
         val ids: List<String>,
         val lastDocument: DocumentSnapshot?,

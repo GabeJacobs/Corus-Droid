@@ -107,6 +107,7 @@ fun SinglePostCommentsScreen(
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val musicService by viewModel.musicServicePreference.current.collectAsState()
 
     val pendingSong by viewModel.pendingSong.collectAsState()
     val pendingFilm by viewModel.pendingFilm.collectAsState()
@@ -561,15 +562,24 @@ fun SinglePostCommentsScreen(
                                 if (!permalink.isNullOrBlank()) {
                                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
                                 }
-                            } else {
+                            } else if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
                                 val spotifyUri = p.track.spotifyURI
                                 val spotifyWeb = p.track.spotifyWebURL
                                 val uri = spotifyUri.ifBlank { spotifyWeb }
                                 if (uri.isNotBlank()) {
                                     try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
                                 }
+                            } else {
+                                // Apple Music / TIDAL / Deezer: resolve + open (network, cached).
+                                scope.launch {
+                                    val url = viewModel.resolveServiceLinkUrl(p.track)
+                                    if (!url.isNullOrBlank()) {
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                    }
+                                }
                             }
                         },
+                        musicService = musicService,
                         onLikesTap = { onNavigateToLikes(p.id) },
                         onLikerTap = { liker -> onNavigateToUser(liker.id) },
                         onMentionTap = { username ->

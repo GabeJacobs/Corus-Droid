@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.profile
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.StartOffset
@@ -485,12 +487,14 @@ fun ProfileScreen(
                                         if (!hasSongs) {
                                             ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
                                         } else {
-                                            val isApple = musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                                            // Playlist generation is Spotify-only, so any
+                                            // non-Spotify service (Apple/TIDAL/Deezer) gets the alert.
+                                            val isNonSpotify = musicService != fm.corus.android.data.model.MusicService.SPOTIFY
                                             // SoundCloud preflight only meaningful for posts source —
                                             // likes/saves aren't loaded into `posts`.
                                             val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
                                                 && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                                            if (isApple || hasSoundCloud) {
+                                            if (isNonSpotify || hasSoundCloud) {
                                                 showPlaylistAlert = true
                                             } else {
                                                 viewModel.generatePlaylist(playlistSource)
@@ -711,6 +715,7 @@ fun ProfileScreen(
                                 fm.corus.android.ui.components.FeaturedCymbalView(
                                     post = featuredPost,
                                     vinylStyle = currentProfile.vinylStyle,
+                                    musicService = musicService,
                                     onArtReady = { isFeaturedArtReady = true },
                                 )
                             }
@@ -725,12 +730,33 @@ fun ProfileScreen(
                         fm.corus.android.ui.components.FeaturedCymbalView(
                             post = featuredPost,
                             vinylStyle = currentProfile.vinylStyle,
+                            musicService = musicService,
                             rainIntensity = currentProfile.rainIntensity,
                             snowIntensity = currentProfile.snowIntensity,
                             discoIntensity = currentProfile.discoIntensityLevel,
                             likeCount = featuredEngagement?.likeCount ?: featuredPost.likeCount,
                             isLiked = featuredEngagement?.isLiked ?: featuredPost.isLiked,
                             onLikeTap = { viewModel.toggleLike(featuredPost.id) },
+                            onSpotifyTap = {
+                                val track = featuredPost.track
+                                if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
+                                    track.soundcloudPermalinkUrl?.takeIf { it.isNotBlank() }?.let {
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
+                                    }
+                                } else if (track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC) {
+                                    track.appleMusicURL?.takeIf { it.isNotBlank() }?.let {
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
+                                    }
+                                } else if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                                    val uri = track.spotifyURI.ifBlank { track.spotifyWebURL }
+                                    if (uri.isNotBlank()) runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) }
+                                } else {
+                                    decodeScope.launch {
+                                        val url = viewModel.resolveServiceLinkUrl(track)
+                                        if (!url.isNullOrBlank()) runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                    }
+                                }
+                            },
                             onPostTap = { navigateToFeed(featuredPost.id) },
                             staggerVinyl = shouldStagger,
                         )

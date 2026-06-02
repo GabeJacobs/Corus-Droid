@@ -111,6 +111,7 @@ class ProfileFeedViewModelRefreshTest {
         preferencesDataStore = mock {
             on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
         },
+        musicServicePreference = mock(),
     )
 
     private fun makePost(id: String, mediaType: MediaType = MediaType.TRACK): CymbalPost = CymbalPost(

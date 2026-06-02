@@ -51,6 +51,8 @@ class CommentsViewModel @Inject constructor(
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
     val nowPlayingManager: NowPlayingManager,
+    private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
+    val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     private val remoteConfigService: RemoteConfigService,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
     override val analyticsService: AnalyticsService,
@@ -58,6 +60,15 @@ class CommentsViewModel @Inject constructor(
 ) : ViewModel(), PostMenuActions {
 
     override val remoteConfig: RemoteConfigService get() = remoteConfigService
+
+    /**
+     * Resolve the link-out URL for a Spotify-source track given the viewer's
+     * preferred service (Apple Music / TIDAL / Deezer). See FeedViewModel.
+     */
+    suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
+        fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(
+            track, musicServicePreference.current.value, cloudFunctions,
+        )
 
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport

@@ -95,6 +95,7 @@ fun PostDetailScreen(
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val musicService by viewModel.musicServicePreference.current.collectAsState()
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -221,15 +222,26 @@ fun PostDetailScreen(
                                     if (!url.isNullOrBlank()) {
                                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                                     }
-                                } else {
+                                } else if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
                                     val spotifyUri = currentPost.track.spotifyURI
                                     val spotifyWeb = currentPost.track.spotifyWebURL
                                     val uri = spotifyUri.ifBlank { spotifyWeb }
                                     if (uri.isNotBlank()) {
                                         try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
                                     }
+                                } else {
+                                    // Apple Music / TIDAL / Deezer: resolve catalog URL
+                                    // via backend (network, cached), then open. The
+                                    // global overlay (MainTabScreen) shows the spinner.
+                                    scope.launch {
+                                        val url = viewModel.resolveServiceLinkUrl(currentPost.track)
+                                        if (!url.isNullOrBlank()) {
+                                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                        }
+                                    }
                                 }
                             },
+                            musicService = musicService,
                             onTrailerTap = {
                                 currentPost.trailerURL?.let { url ->
                                     viewModel.nowPlayingManager.pause()
@@ -658,6 +670,7 @@ private fun PostDetailSongInfo(
     post: CymbalPost,
     onSongTap: () -> Unit,
     onSpotifyTap: () -> Unit = {},
+    musicService: fm.corus.android.data.model.MusicService = fm.corus.android.data.model.MusicService.SPOTIFY,
     onTrailerTap: () -> Unit = {},
 ) {
     Row(
@@ -735,8 +748,9 @@ private fun PostDetailSongInfo(
                     contentScale = ContentScale.Fit,
                 )
             } else {
+                // Spotify-source: glyph reflects the viewer's preferred service.
                 Image(
-                    painter = painterResource(R.drawable.spotify_logo),
+                    painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(musicService)),
                     contentDescription = stringResource(R.string.post_detail_cd_play_spotify),
                     modifier = Modifier
                         .size(28.dp)

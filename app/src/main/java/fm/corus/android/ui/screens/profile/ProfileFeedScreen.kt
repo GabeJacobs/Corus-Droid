@@ -69,6 +69,7 @@ fun ProfileFeedScreen(
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val musicService by viewModel.musicServicePreference.current.collectAsState()
 
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -252,7 +253,7 @@ fun ProfileFeedScreen(
                             if (!permalink.isNullOrBlank()) {
                                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
                             }
-                        } else {
+                        } else if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
                             val uri = post.track.spotifyURI
                             val webUrl = post.track.spotifyWebURL
                             try {
@@ -266,8 +267,17 @@ fun ProfileFeedScreen(
                                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)))
                                 }
                             }
+                        } else {
+                            // Apple Music / TIDAL / Deezer: resolve + open (network, cached).
+                            scope.launch {
+                                val url = viewModel.resolveServiceLinkUrl(post.track)
+                                if (!url.isNullOrBlank()) {
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                }
+                            }
                         }
                     },
+                    musicService = musicService,
                     onMentionTap = { mentionUsername -> onNavigateToUserByUsername(mentionUsername) },
                     onRepostedFromUserTap = { userId, username ->
                         if (userId != null) onNavigateToUser(userId)

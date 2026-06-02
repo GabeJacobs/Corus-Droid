@@ -169,6 +169,16 @@ class UserRepository @Inject constructor(
         return firestoreDataSource.fetchFollowerIds(userId)
     }
 
+    /**
+     * Returns which of [candidateIds] follow [userId] (the reverse follow
+     * direction), batched server-side. Used to decide "Follow back" vs "Follow"
+     * for contact_joined notifications, where the relationship isn't implied by
+     * the notification type.
+     */
+    suspend fun checkFollowerStatusBatch(userId: String, candidateIds: List<String>): Set<String> {
+        return firestoreDataSource.checkFollowerStatusBatch(userId, candidateIds)
+    }
+
     data class PaginatedUsersResult(
         val users: List<CymbalUser>,
         val lastDocument: DocumentSnapshot?,

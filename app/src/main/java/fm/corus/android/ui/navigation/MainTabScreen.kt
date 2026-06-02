@@ -90,6 +90,8 @@ fun MainTabScreen(
     // Fallback push-permission prompt for users who signed up before the
     // onboarding ask shipped. Matches iOS MainTabView.requestNotificationPermissionIfNeeded.
     val context = LocalContext.current
+    val musicService by viewModel.musicServicePreference.current.collectAsState()
+    val isResolvingLinkOut by fm.corus.android.domain.MusicServiceLinkOut.isResolving.collectAsState()
     val pushPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { _ ->
@@ -241,6 +243,8 @@ fun MainTabScreen(
                     nowPlayingManager = viewModel.nowPlayingManager,
                     engagementManager = viewModel.postEngagementManager,
                     onLikeTap = { viewModel.toggleLikeForCurrentTrack() },
+                    musicService = musicService,
+                    resolveLinkOut = { viewModel.resolveCurrentServiceLinkUrl() },
                     onTrackTap = {
                         val state = viewModel.nowPlayingManager.state.value
                         val navController = navControllers[selectedTab] ?: return@MiniPlayerBar
@@ -442,6 +446,28 @@ fun MainTabScreen(
             .padding(top = 56.dp)
             .align(Alignment.TopCenter),
     )
+
+    // Global link-out loading overlay (parity with iOS MainTabView): a centered
+    // spinner while an Apple Music / TIDAL / Deezer URL resolves from ANY surface
+    // (feed, song page, mini-player). Cache hits / Spotify never trip it.
+    if (isResolvingLinkOut) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.25f),
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                    color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.85f),
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        color = androidx.compose.ui.graphics.Color.White,
+                        modifier = Modifier.padding(28.dp),
+                    )
+                }
+            }
+        }
+    }
 
     } // end outer Box
 }
