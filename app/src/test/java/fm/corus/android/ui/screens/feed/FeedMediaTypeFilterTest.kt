@@ -59,14 +59,22 @@ class FeedMediaTypeFilterTest {
     private lateinit var analyticsService: AnalyticsService
     private lateinit var postCreationEvent: PostCreationEvent
     private lateinit var postDeletionEvent: PostDeletionEvent
+    private lateinit var preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore
+    private lateinit var savedFeedFilter: MutableStateFlow<String>
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        savedFeedFilter = MutableStateFlow("ALL")
+        preferencesDataStore = mock {
+            on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
+            on { feedFilter } doReturn savedFeedFilter
+        }
         postRepository = mock()
         authRepository = mock {
             on { currentUserId } doReturn "user1"
             on { userProfile } doReturn MutableStateFlow<CymbalUser?>(null)
+            on { currentUser } doReturn MutableStateFlow<com.google.firebase.auth.FirebaseUser?>(null)
         }
         engagementManager = mock()
         userRepository = mock {
@@ -111,9 +119,7 @@ class FeedMediaTypeFilterTest {
         networkMonitor = mock {
             on { isConnected } doReturn MutableStateFlow(true)
         },
-        preferencesDataStore = mock {
-            on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
-        },
+        preferencesDataStore = preferencesDataStore,
         context = mock(),
         feedScrollRouter = fm.corus.android.domain.FeedScrollRouter(),
     )
@@ -246,6 +252,44 @@ class FeedMediaTypeFilterTest {
             lastTimestamp = anyOrNull(),
             onePerFollower = any(),
             mediaType = eq(null),
+            newReleasesOnly = eq(false),
+        )
+    }
+
+    @Test
+    fun `setFeedFilter persists the selection so it survives a restart`() = runTest(testDispatcher) {
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
+
+        val viewModel = vm()
+        viewModel.setFeedFilter(FeedFilter.MUSIC)
+        advanceUntilIdle()
+
+        // The enum name is written to DataStore; restoring it on the next launch
+        // is what makes the music/film choice sticky across app restarts.
+        verify(preferencesDataStore).setFeedFilter(eq("MUSIC"))
+    }
+
+    @Test
+    fun `restores persisted filter on init and applies it to the first feed load`() = runTest(testDispatcher) {
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
+        // Simulate a prior session that had selected "Music only".
+        savedFeedFilter.value = FeedFilter.MUSIC.name
+
+        val viewModel = vm()
+        // Screen drives the initial load after construction.
+        viewModel.loadFeed()
+        advanceUntilIdle()
+
+        // Without restoration the first page would be fetched with mediaType=null (ALL),
+        // dropping the user back to the unfiltered feed on every relaunch.
+        verify(postRepository).getFeedPage(
+            userId = eq("user1"),
+            pageSize = any(),
+            lastTimestamp = anyOrNull(),
+            onePerFollower = any(),
+            mediaType = eq(MediaType.TRACK),
             newReleasesOnly = eq(false),
         )
     }

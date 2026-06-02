@@ -216,6 +216,11 @@ fun PostDetailScreen(
                                     if (!permalink.isNullOrBlank()) {
                                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
                                     }
+                                } else if (currentPost.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC) {
+                                    val url = currentPost.track.appleMusicURL
+                                    if (!url.isNullOrBlank()) {
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                    }
                                 } else {
                                     val spotifyUri = currentPost.track.spotifyURI
                                     val spotifyWeb = currentPost.track.spotifyWebURL
@@ -702,9 +707,9 @@ private fun PostDetailSongInfo(
                 )
             }
         } else {
-            // SoundCloud posts must show the SC logo, not the Spotify badge —
-            // the track isn't on Spotify and the badge would be misleading.
-            // PostCard had this guard; PostDetailSongInfo was missing it.
+            // Non-Spotify sources lock to their own brand badge. The track
+            // isn't on Spotify and a Spotify icon would be misleading
+            // (SoundCloud → cloudmark; Apple Music → Apple glyph).
             if (post.track.source == TrackSource.SOUNDCLOUD) {
                 SoundCloudAdaptiveLogo(
                     modifier = Modifier
@@ -715,6 +720,19 @@ private fun PostDetailSongInfo(
                             onClick = onSpotifyTap,
                         ),
                     size = 28.dp,
+                )
+            } else if (post.track.source == TrackSource.APPLEMUSIC) {
+                Image(
+                    painter = painterResource(R.drawable.apple_music_logo),
+                    contentDescription = stringResource(R.string.post_detail_cd_play_spotify),
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onSpotifyTap,
+                        ),
+                    contentScale = ContentScale.Fit,
                 )
             } else {
                 Image(

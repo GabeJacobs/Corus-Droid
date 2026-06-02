@@ -61,6 +61,11 @@ class MusicSearchRepository @Inject constructor(
             source = source,
             soundcloudId = (d["soundcloudId"] as? String)?.ifEmpty { null },
             soundcloudPermalinkUrl = (d["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
+            // Apple-Music-only tracks ship `appleMusicId` directly from
+            // search; the `am:` prefix on `id` is the discriminator the
+            // rest of the app branches on, but carrying the raw id avoids
+            // re-parsing later when constructing Apple Music link-outs.
+            appleMusicId = (d["appleMusicId"] as? String)?.ifEmpty { null },
         )
     }
 }

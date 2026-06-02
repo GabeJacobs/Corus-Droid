@@ -19,6 +19,7 @@ import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.NowPlayingState
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,8 +37,13 @@ class SocialSetupViewModel @Inject constructor(
     private val nowPlayingManager: NowPlayingManager,
     private val musicServicePreference: MusicServicePreference,
     private val preferencesDataStore: PreferencesDataStore,
+    private val remoteConfigService: RemoteConfigService,
     val analyticsService: AnalyticsService,
 ) : ViewModel() {
+
+    /** Whether the TIDAL option should appear in the music-service picker. */
+    val tidalEnabled: Boolean
+        get() = remoteConfigService.tidalEnabled
 
     // ── Contact Sync ──
 

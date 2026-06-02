@@ -57,6 +57,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.ui.components.PopularUsersInfiniteGrid
 import fm.corus.android.ui.components.UserAvatarView
@@ -67,14 +68,14 @@ import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.PushNotificationPermission
 
-private enum class SetupStep { SYNC_CONTACTS, FOLLOW_FRIENDS }
+private enum class SetupStep { MUSIC_SERVICE, SYNC_CONTACTS, FOLLOW_FRIENDS }
 
 @Composable
 fun SocialSetupFlow(
     onFinished: () -> Unit,
     viewModel: SocialSetupViewModel = hiltViewModel(),
 ) {
-    var step by remember { mutableStateOf(SetupStep.SYNC_CONTACTS) }
+    var step by remember { mutableStateOf(SetupStep.MUSIC_SERVICE) }
 
     AnimatedContent(
         targetState = step,
@@ -82,6 +83,10 @@ fun SocialSetupFlow(
         label = "social-setup",
     ) { currentStep ->
         when (currentStep) {
+            SetupStep.MUSIC_SERVICE -> MusicServiceScreen(
+                viewModel = viewModel,
+                onContinue = { step = SetupStep.SYNC_CONTACTS },
+            )
             SetupStep.SYNC_CONTACTS -> SyncContactsScreen(
                 viewModel = viewModel,
                 onContinue = {
@@ -92,6 +97,169 @@ fun SocialSetupFlow(
             SetupStep.FOLLOW_FRIENDS -> FollowFriendsScreen(
                 viewModel = viewModel,
                 onFinished = onFinished,
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════
+// MUSIC SERVICE SCREEN (Choose Your Player)
+// ═══════════════════════════════════════════════
+
+@Composable
+private fun MusicServiceScreen(
+    viewModel: SocialSetupViewModel,
+    onContinue: () -> Unit,
+) {
+    var selected by remember { mutableStateOf(MusicService.SPOTIFY) }
+    val tidalEnabled = viewModel.tidalEnabled
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+            .padding(horizontal = CorusSpacing.xxl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(modifier = Modifier.height(80.dp))
+
+        Text(
+            stringResource(id = R.string.music_service_title),
+            style = CorusFont.appTitle,
+            color = CorusColors.Text,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            stringResource(id = R.string.music_service_subtitle),
+            style = CorusFont.body,
+            color = CorusColors.Secondary,
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
+        ) {
+            MusicServiceCard(
+                modifier = Modifier.weight(1f),
+                logoRes = R.drawable.spotify_logo,
+                label = MusicService.SPOTIFY.displayLabel,
+                subtitle = null,
+                accent = CorusColors.SpotifyGreen,
+                selected = selected == MusicService.SPOTIFY,
+                onClick = { selected = MusicService.SPOTIFY },
+            )
+            MusicServiceCard(
+                modifier = Modifier.weight(1f),
+                logoRes = R.drawable.apple_music_logo,
+                label = MusicService.APPLE_MUSIC.displayLabel,
+                subtitle = stringResource(id = R.string.music_service_full_playback),
+                accent = CorusColors.AppleMusicPink,
+                selected = selected == MusicService.APPLE_MUSIC,
+                onClick = { selected = MusicService.APPLE_MUSIC },
+            )
+            // TIDAL only appears when its Remote Config gate is on (and the
+            // integration has shipped on all clients).
+            if (tidalEnabled) {
+                MusicServiceCard(
+                    modifier = Modifier.weight(1f),
+                    logoRes = R.drawable.tidal_logo,
+                    label = MusicService.TIDAL.displayLabel,
+                    // No "full-length playback" subtitle — TIDAL is preview-only for
+                    // third-party apps; that claim is Apple Music only.
+                    subtitle = null,
+                    accent = CorusColors.TidalTeal,
+                    selected = selected == MusicService.TIDAL,
+                    onClick = { selected = MusicService.TIDAL },
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        Text(
+            stringResource(id = R.string.music_service_more_soon),
+            style = CorusFont.caption,
+            color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        TextButton(onClick = {
+            viewModel.saveMusicService(MusicService.SPOTIFY)
+            onContinue()
+        }) {
+            Text(
+                stringResource(id = R.string.music_service_skip),
+                style = CorusFont.caption,
+                color = CorusColors.Tertiary,
+            )
+        }
+
+        Button(
+            onClick = {
+                viewModel.saveMusicService(selected)
+                onContinue()
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(CorusSpacing.touchTarget),
+            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+        ) {
+            Text(
+                stringResource(id = R.string.music_service_get_started),
+                style = CorusFont.button,
+                color = Color.White,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+    }
+}
+
+@Composable
+private fun MusicServiceCard(
+    modifier: Modifier = Modifier,
+    logoRes: Int,
+    label: String,
+    subtitle: String?,
+    accent: Color,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+            .background(if (selected) accent.copy(alpha = 0.08f) else CorusColors.CardBackground)
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) accent else CorusColors.Divider,
+                shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = CorusSpacing.xxl, horizontal = CorusSpacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Image(
+            painter = painterResource(id = logoRes),
+            contentDescription = label,
+            modifier = Modifier.size(48.dp),
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        Text(
+            label,
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Text,
+            textAlign = TextAlign.Center,
+        )
+        if (subtitle != null) {
+            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+            Text(
+                subtitle,
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                textAlign = TextAlign.Center,
             )
         }
     }

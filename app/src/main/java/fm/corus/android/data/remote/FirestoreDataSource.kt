@@ -133,7 +133,7 @@ class FirestoreDataSource @Inject constructor(
         return CymbalUser.fromMap(uid, data)
     }
 
-    suspend fun createUserProfile(uid: String, username: String, displayName: String, email: String) {
+    suspend fun createUserProfile(uid: String, username: String, displayName: String, email: String, phoneNumber: String = "") {
         val data = mapOf(
             "uid" to uid,
             "username" to username.lowercase(),
@@ -143,6 +143,7 @@ class FirestoreDataSource @Inject constructor(
             // to satisfy the create rule's `is list` shape check.
             "searchTokens" to emptyList<String>(),
             "email" to email,
+            "phoneNumber" to phoneNumber,
             "bio" to "",
             "avatarURL" to "",
             "avatarSkipped" to false,

@@ -58,6 +58,7 @@ object CorusColors {
     val Verified = Color(0xFF2ED573)
     val SpotifyGreen = Color(0xFF1DB954)
     val AppleMusicPink = Color(0xFFFC3C44)
+    val TidalTeal = Color(0xFF33B9C9)
     val Error = Color(0xFFE74C3C)
 
     // ── Adaptive colors (resolved from LocalCorusPalette at composition time) ──

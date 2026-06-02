@@ -37,10 +37,15 @@
     <string name="settings_section_corus_club">CORUS CLUB</string>
     <string name="settings_row_join_club">Join Corus Club</string>
     <string name="settings_row_join_club_subtitle">Verified badge, unlimited posts &amp; more</string>
+    <string name="settings_row_restore_purchases_subtitle">Already a member? Tap to sync your subscription</string>
+    <string name="settings_restore_toast_success">Subscription restored</string>
+    <string name="settings_restore_toast_none">No active subscription found</string>
+    <string name="settings_restore_toast_failed">Couldn\'t restore. Try again.</string>
     <string name="settings_section_invite">INVITE</string>
     <string name="settings_row_invite_friends">Invite Friends</string>
     <string name="settings_row_invite_friends_subtitle">Invite your friends to use Corus with you</string>
     <string name="settings_section_general">GENERAL</string>
+    <string name="settings_row_music_service">Music Service</string>
     <string name="settings_row_autoplay_title">Autoplay Next Song</string>
     <string name="settings_row_autoplay_subtitle">Automatically play the next song when one finishes</string>
     <string name="settings_row_feed_follows_now_playing_title">Autoscroll to Now Playing</string>
@@ -583,6 +588,13 @@
     <string name="onboarding_full_name">Full Name</string>
     <string name="onboarding_terms">By creating an account, you agree to our Terms of Use and Privacy Policy.</string>
     <string name="onboarding_button_continue">CONTINUE</string>
+    <!-- Music-service onboarding (Choose Your Player) -->
+    <string name="music_service_title">Choose Your Player</string>
+    <string name="music_service_subtitle">pick your preferred music service</string>
+    <string name="music_service_more_soon">Stay tuned for support for more streaming services.</string>
+    <string name="music_service_full_playback">Full-length playback for subscribers</string>
+    <string name="music_service_get_started">GET STARTED</string>
+    <string name="music_service_skip">Skip</string>
     <string name="onboarding_dialog_photo_title">Profile Photo</string>
     <string name="onboarding_remove_photo">Remove Photo</string>
     <string name="onboarding_avatar_nudge_title">Add a profile photo?</string>

@@ -213,6 +213,10 @@ class PreferencesDataStore @Inject constructor(
         // For You feed mode + seen-IDs ring buffer (cap 500, JSON-encoded).
         val FEED_MODE = stringPreferencesKey("feed_mode")
         val FOR_YOU_SEEN_IDS = stringPreferencesKey("for_you_seen_ids")
+        // Active home-feed content filter (FeedFilter enum name). Mirrors iOS
+        // @AppStorage("feedFilter"); persists the music/film/new-releases choice
+        // across app restarts.
+        val FEED_FILTER = stringPreferencesKey("feed_filter")
     }
 
     val trendingSongsWindow: Flow<String> = dataStore.data.map { prefs ->
@@ -293,6 +297,19 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setForYouSeenIdsJson(value: String) {
         dataStore.edit { it[FOR_YOU_SEEN_IDS] = value }
+    }
+
+    /**
+     * Persisted home-feed content filter, stored as the FeedFilter enum name
+     * ("ALL" | "MUSIC" | "FILM" | "MUSIC_NEW_RELEASES" | "FILM_NEW_RELEASES").
+     * Defaults to "ALL". Mirrors iOS @AppStorage("feedFilter").
+     */
+    val feedFilter: Flow<String> = dataStore.data.map { prefs ->
+        prefs[FEED_FILTER] ?: "ALL"
+    }
+
+    suspend fun setFeedFilter(value: String) {
+        dataStore.edit { it[FEED_FILTER] = value }
     }
 
     val lastComposeMediaType: Flow<String> = dataStore.data.map { prefs ->

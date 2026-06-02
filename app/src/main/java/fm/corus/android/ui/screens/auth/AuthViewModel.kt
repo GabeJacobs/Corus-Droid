@@ -184,6 +184,18 @@ class AuthViewModel @Inject constructor(
                         return@launch
                     }
 
+                    // Alias the RevenueCat SDK to the Firebase UID BEFORE the
+                    // user can navigate anywhere (onboarding paywalls, club
+                    // upsells, etc.). Otherwise the SDK stays on its anonymous
+                    // ID and any purchase fires against `$RCAnonymousID:...` —
+                    // the inbound RevenueCat webhook explicitly skips those, so
+                    // Firestore's `isClubMember` would never get set and the
+                    // user would be permanently blocked at the free-tier post
+                    // limit despite having a real Play Store subscription.
+                    // Called inline (not in `launch { }`) so it completes
+                    // before the UI transitions out of Loading.
+                    subscriptionRepository.loginUser(user.uid)
+
                     if (needsOnboarding) {
                         _authState.value = AuthState.NeedsOnboarding
                     } else {
@@ -206,7 +218,6 @@ class AuthViewModel @Inject constructor(
                         launch { remoteConfigService.fetchAndActivate() }
                         launch { subscriptionRepository.refreshPostLimit() }
                         launch { musicServicePreference.syncFromFirestore() }
-                        subscriptionRepository.loginUser(user.uid)
                         analyticsService.setUserId(user.uid)
                         unreadCountsRepository.start(user.uid)
                         _authState.value = AuthState.SignedIn

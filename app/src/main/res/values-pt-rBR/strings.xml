@@ -37,6 +37,10 @@
     <string name="settings_section_corus_club">CORUS CLUB</string>
     <string name="settings_row_join_club">Entrar no Corus Club</string>
     <string name="settings_row_join_club_subtitle">Selo verificado, publicações ilimitadas e mais</string>
+    <string name="settings_row_restore_purchases_subtitle">Já é membro? Toque para sincronizar sua assinatura</string>
+    <string name="settings_restore_toast_success">Assinatura restaurada</string>
+    <string name="settings_restore_toast_none">Nenhuma assinatura ativa encontrada</string>
+    <string name="settings_restore_toast_failed">Não foi possível restaurar. Tente novamente.</string>
     <string name="settings_section_invite">CONVIDAR</string>
     <string name="settings_row_invite_friends">Convidar Amigos</string>
     <string name="settings_row_invite_friends_subtitle">Convide seus amigos para usar o Corus com você</string>

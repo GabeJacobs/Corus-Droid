@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Feedback
 import androidx.compose.material.icons.outlined.Group
@@ -37,7 +38,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import fm.corus.android.BuildConfig
 import fm.corus.android.R
+import fm.corus.android.data.model.MusicService
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.ui.LocalHapticManager
@@ -144,6 +147,31 @@ fun SettingsScreen(
     val isClubMember by settingsViewModel.isClubMember.collectAsState()
     val isVerified by settingsViewModel.isVerified.collectAsState()
     val showJoinClub = !isClubMember && !isVerified
+    val restoreInProgress by settingsViewModel.restoreInProgress.collectAsState()
+    val restoreResult by settingsViewModel.restoreResult.collectAsState()
+    val restoreLoadingMessage = stringResource(R.string.club_restore_purchases)
+    val restoreSuccessMessage = stringResource(R.string.settings_restore_toast_success)
+    val restoreNoneMessage = stringResource(R.string.settings_restore_toast_none)
+    val restoreFailedMessage = stringResource(R.string.settings_restore_toast_failed)
+    var restoreLoadingToastId by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(restoreInProgress) {
+        if (restoreInProgress && restoreLoadingToastId == null) {
+            restoreLoadingToastId = ToastManager.showLoading(restoreLoadingMessage)
+        }
+    }
+
+    LaunchedEffect(restoreResult) {
+        val result = restoreResult ?: return@LaunchedEffect
+        val message = when (result) {
+            SettingsViewModel.RestoreResult.Success -> restoreSuccessMessage
+            SettingsViewModel.RestoreResult.NoSubscription -> restoreNoneMessage
+            SettingsViewModel.RestoreResult.Failed -> restoreFailedMessage
+        }
+        restoreLoadingToastId?.let { ToastManager.update(it, message) } ?: ToastManager.show(message)
+        restoreLoadingToastId = null
+        settingsViewModel.clearRestoreResult()
+    }
 
     // General toggles
     var hapticsEnabled by remember { mutableStateOf(true) }
@@ -221,6 +249,17 @@ fun SettingsScreen(
                     color = CorusColors.Divider,
                     modifier = Modifier.padding(horizontal = CorusSpacing.lg),
                 )
+
+                SettingsNavRow(
+                    icon = Icons.Filled.Refresh,
+                    title = stringResource(R.string.club_restore_purchases),
+                    subtitle = stringResource(R.string.settings_row_restore_purchases_subtitle),
+                    onClick = {
+                        if (!restoreInProgress) {
+                            settingsViewModel.restorePurchases()
+                        }
+                    },
+                )
             }
 
             // ── Section: Invite ──
@@ -263,6 +302,24 @@ fun SettingsScreen(
 
             // ── Section: General ──
             SectionHeader(stringResource(R.string.settings_section_general))
+
+            val musicService by settingsViewModel.musicServicePreference.current.collectAsState()
+            val musicServiceOptions = remember(settingsViewModel.tidalEnabled) {
+                buildList {
+                    add(MusicService.SPOTIFY)
+                    add(MusicService.APPLE_MUSIC)
+                    // TIDAL only appears when its Remote Config gate is on.
+                    if (settingsViewModel.tidalEnabled) add(MusicService.TIDAL)
+                }
+            }
+            DropdownSettingsRow(
+                icon = Icons.Filled.MusicNote,
+                title = stringResource(R.string.settings_row_music_service),
+                selected = musicService,
+                options = musicServiceOptions,
+                labelFor = { it.displayLabel },
+                onSelect = { settingsViewModel.setMusicService(it) },
+            )
 
             SettingsToggleRow(
                 icon = Icons.Filled.AllInclusive,

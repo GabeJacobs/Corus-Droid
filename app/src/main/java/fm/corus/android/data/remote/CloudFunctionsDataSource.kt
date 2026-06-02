@@ -672,6 +672,12 @@ class CloudFunctionsDataSource @Inject constructor(
         market: String = "US",
         includeSoundCloud: Boolean = true,
     ): Map<String, Any?> {
+        // `supports` declares which result sources this client can render.
+        // Backend uses it to gate Apple-Music-only catalog results — old
+        // builds without this field get the pre-Apple behavior (Spotify +
+        // SoundCloud only), so shipping this is back-compat-safe. The
+        // server also gates Apple results on a Remote Config flag /
+        // per-UID allowlist; declaring capability here doesn't bypass that.
         val result = functions.getHttpsCallable("searchSongs").call(
             mapOf(
                 "query" to query,
@@ -679,6 +685,7 @@ class CloudFunctionsDataSource @Inject constructor(
                 "limit" to limit,
                 "market" to market,
                 "includeSoundCloud" to includeSoundCloud,
+                "supports" to listOf("spotify", "soundcloud", "applemusic"),
             )
         ).await()
         return result.getData() as? Map<String, Any?> ?: emptyMap()

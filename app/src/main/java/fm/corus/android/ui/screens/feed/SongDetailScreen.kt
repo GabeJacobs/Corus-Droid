@@ -89,6 +89,12 @@ fun SongDetailScreen(
     val effectiveSoundcloudId = songInfo?.track?.soundcloudId ?: soundcloudId
     val effectiveSoundcloudPermalinkUrl = songInfo?.track?.soundcloudPermalinkUrl ?: soundcloudPermalinkUrl
     val isSoundCloud = effectiveSource == TrackSource.SOUNDCLOUD
+    val isAppleMusic = effectiveSource == TrackSource.APPLEMUSIC
+    // Apple Music URL is derived from the appleMusicId on the resolved
+    // track (preferred) or the `am:` prefix on the trackId (fallback).
+    val effectiveAppleMusicURL = songInfo?.track?.appleMusicURL
+        ?: trackId.takeIf { it.startsWith("am:") }?.removePrefix("am:")?.takeIf { it.isNotEmpty() }
+            ?.let { "https://music.apple.com/us/song/$it" }
 
     val isPlayingThisTrack = nowPlayingState.trackId == trackId && nowPlayingState.isPlaying
     val isLoadingThisTrack = previewLoadingTrackId == trackId
@@ -272,6 +278,33 @@ fun SongDetailScreen(
                             )
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
                             Text(stringResource(R.string.song_detail_listen_soundcloud), style = CorusFont.buttonSmall)
+                        }
+                    } else if (isAppleMusic) {
+                        // Listen on Apple Music capsule. Apple-only tracks
+                        // aren't on Spotify so the standard "Play in Spotify"
+                        // CTA would just 404 — surface the Apple Music brand
+                        // affordance instead.
+                        Button(
+                            onClick = {
+                                val url = effectiveAppleMusicURL
+                                if (!url.isNullOrBlank()) {
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                }
+                            },
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black,
+                                contentColor = Color.White,
+                            ),
+                            contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.apple_music_logo),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                            Text(stringResource(R.string.song_detail_play_spotify), style = CorusFont.buttonSmall)
                         }
                     } else {
                         // Play in Spotify capsule

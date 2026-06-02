@@ -154,11 +154,14 @@ class AuthRepository @Inject constructor(
         val uid = auth.currentUser?.uid ?: throw IllegalStateException("No signed-in user")
         val phone = auth.currentUser?.phoneNumber ?: ""
 
+        // `email` stays empty for phone-auth signups — the dedicated
+        // `phoneNumber` field now carries the phone (see contact-sync plan).
         firestoreDataSource.createUserProfile(
             uid = uid,
             username = username,
             displayName = displayName,
-            email = phone,
+            email = "",
+            phoneNumber = phone,
         )
 
         if (avatarData != null) {

@@ -129,6 +129,7 @@ class ComposeTrophyPostReleaseDateTest {
         postCreationEvent,
         hapticManager,
         remoteConfigService,
+        mock { on { isConnected } doReturn MutableStateFlow(true) },
     )
 
     @Test

@@ -19,8 +19,10 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -47,7 +49,7 @@ class SettingsViewModelTest {
             on { autoplayNextSong } doReturn MutableStateFlow(true)
         }
         subscriptionRepo = SubscriptionRepository(mock<CloudFunctionsDataSource>(), remoteConfig, analyticsService, prefs)
-        viewModel = SettingsViewModel(mock<MusicServicePreference>(), subscriptionRepo, preferencesDataStore)
+        viewModel = SettingsViewModel(mock<MusicServicePreference>(), subscriptionRepo, preferencesDataStore, remoteConfig, analyticsService)
     }
 
     @After
@@ -82,5 +84,83 @@ class SettingsViewModelTest {
         subscriptionRepo.updateVerifiedStatus(true)
         val showJoinClub = !viewModel.isClubMember.value && !viewModel.isVerified.value
         assertFalse(showJoinClub)
+    }
+
+    @Test
+    fun `restorePurchases sets in-progress flag while running`() {
+        val mockRepo = mock<SubscriptionRepository> {
+            on { isClubMember } doReturn MutableStateFlow(false)
+            on { isVerified } doReturn MutableStateFlow(false)
+        }
+        val vm = SettingsViewModel(mock<MusicServicePreference>(), mockRepo, mock<PreferencesDataStore> {
+            on { autoplayNextSong } doReturn MutableStateFlow(true)
+        }, remoteConfig, analyticsService)
+
+        vm.restorePurchases()
+        assertTrue(vm.restoreInProgress.value)
+
+        // Capture and invoke the callback to simulate RevenueCat resolving.
+        val captor = argumentCaptor<(Boolean) -> Unit>()
+        verify(mockRepo).restorePurchases(captor.capture())
+        captor.firstValue.invoke(true)
+
+        assertFalse(vm.restoreInProgress.value)
+        org.junit.Assert.assertEquals(SettingsViewModel.RestoreResult.Success, vm.restoreResult.value)
+        verify(analyticsService).logPurchaseRestored()
+    }
+
+    @Test
+    fun `restorePurchases reports no-subscription when repo returns false`() {
+        val mockRepo = mock<SubscriptionRepository> {
+            on { isClubMember } doReturn MutableStateFlow(false)
+            on { isVerified } doReturn MutableStateFlow(false)
+        }
+        val vm = SettingsViewModel(mock<MusicServicePreference>(), mockRepo, mock<PreferencesDataStore> {
+            on { autoplayNextSong } doReturn MutableStateFlow(true)
+        }, remoteConfig, analyticsService)
+
+        vm.restorePurchases()
+        val captor = argumentCaptor<(Boolean) -> Unit>()
+        verify(mockRepo).restorePurchases(captor.capture())
+        captor.firstValue.invoke(false)
+
+        org.junit.Assert.assertEquals(SettingsViewModel.RestoreResult.NoSubscription, vm.restoreResult.value)
+        verify(analyticsService).logPurchaseRestoreFailed(any())
+    }
+
+    @Test
+    fun `restorePurchases is no-op while another restore is already running`() {
+        val mockRepo = mock<SubscriptionRepository> {
+            on { isClubMember } doReturn MutableStateFlow(false)
+            on { isVerified } doReturn MutableStateFlow(false)
+        }
+        val vm = SettingsViewModel(mock<MusicServicePreference>(), mockRepo, mock<PreferencesDataStore> {
+            on { autoplayNextSong } doReturn MutableStateFlow(true)
+        }, remoteConfig, analyticsService)
+
+        vm.restorePurchases()
+        vm.restorePurchases() // second call should be ignored
+
+        verify(mockRepo, org.mockito.kotlin.times(1)).restorePurchases(any())
+    }
+
+    @Test
+    fun `clearRestoreResult resets the result flow`() {
+        val mockRepo = mock<SubscriptionRepository> {
+            on { isClubMember } doReturn MutableStateFlow(false)
+            on { isVerified } doReturn MutableStateFlow(false)
+        }
+        val vm = SettingsViewModel(mock<MusicServicePreference>(), mockRepo, mock<PreferencesDataStore> {
+            on { autoplayNextSong } doReturn MutableStateFlow(true)
+        }, remoteConfig, analyticsService)
+
+        vm.restorePurchases()
+        val captor = argumentCaptor<(Boolean) -> Unit>()
+        verify(mockRepo).restorePurchases(captor.capture())
+        captor.firstValue.invoke(true)
+        assertTrue(vm.restoreResult.value != null)
+
+        vm.clearRestoreResult()
+        org.junit.Assert.assertNull(vm.restoreResult.value)
     }
 }

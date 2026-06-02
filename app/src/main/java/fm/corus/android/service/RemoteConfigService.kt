@@ -77,6 +77,19 @@ class RemoteConfigService @Inject constructor(
     val soundcloudEnabled: Boolean
         get() = remoteConfig.getBoolean("soundcloud_enabled")
 
+    /// Master gate for the TIDAL music-service integration (onboarding + settings
+    /// service picker). Keep OFF until web + iOS + Android all ship — otherwise a
+    /// user could pick TIDAL on one client with no support on another. Mirrors
+    /// iOS/web `tidal_enabled`.
+    val tidalEnabled: Boolean
+        get() {
+            // ⚠️ TEMPORARY LOCAL TEST OVERRIDE — REVERT BEFORE MERGE.
+            // Forces TIDAL on for local testing before the Remote Config key is
+            // created / flipped. Restore the line below for RC control.
+            return true
+            // return remoteConfig.getBoolean("tidal_enabled")
+        }
+
     val newReleaseFilterClubOnly: Boolean
         get() = remoteConfig.getBoolean("new_release_filter_club_only")
 
@@ -87,7 +100,14 @@ class RemoteConfigService @Inject constructor(
     /// When false, the chevron toggle next to the Corus wordmark is hidden
     /// and the feed behaves identically to today (Following-only).
     val forYouEnabled: Boolean
-        get() = remoteConfig.getBoolean("for_you_enabled")
+        get() {
+            // ⚠️ TEMPORARY LOCAL TEST OVERRIDE — REVERT BEFORE MERGE.
+            // Forces the For You chevron + ranked feed on so we can dogfood
+            // without flipping the Remote Config key. Restore the line below
+            // to flip back to RC control.
+            return true
+            // return remoteConfig.getBoolean("for_you_enabled")
+        }
 
     /**
      * Per-post comments-audience picker (Everyone / Followers / Off).
@@ -143,6 +163,7 @@ class RemoteConfigService @Inject constructor(
                     "save_cap_limit" to 25L,
                     "save_cap_warning_at" to 23L,
                     "soundcloud_enabled" to false,
+                    "tidal_enabled" to false,
                     "comment_controls_on_posts" to false,
                     "new_release_filter_club_only" to false,
                     "style_pack_1_enabled" to false,

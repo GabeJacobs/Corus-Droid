@@ -259,6 +259,26 @@ class FeedViewModel @Inject constructor(
     private val activeListenerPostIds = mutableSetOf<String>()
 
     init {
+        // Restore the persisted feed filter on startup so a music/film/new-releases
+        // selection survives an app restart (mirrors iOS @AppStorage("feedFilter")).
+        viewModelScope.launch {
+            val saved = runCatching {
+                FeedFilter.valueOf(preferencesDataStore.feedFilter.first())
+            }.getOrDefault(FeedFilter.ALL)
+            if (saved != _feedFilter.value) {
+                _feedFilter.value = saved
+                // If the screen already kicked off a default (ALL) load before the
+                // async restore landed, redo it so the page matches the restored
+                // filter. When the restore wins the race, the screen's initial
+                // load simply reads the already-correct filter and no refetch runs.
+                if (_hasLoaded.value || _isLoading.value || _isRefreshing.value) {
+                    lastTimestamp = null
+                    _posts.value = emptyList()
+                    _hasMore.value = true
+                    loadFeed(refresh = true)
+                }
+            }
+        }
         // Restore For You seen-IDs ring buffer from DataStore on startup so
         // we suppress already-shown posts after an app restart.
         viewModelScope.launch {
@@ -454,6 +474,8 @@ class FeedViewModel @Inject constructor(
         }
         analyticsService.logFeedFilterChanged(filter.analyticsValue)
         _feedFilter.value = filter
+        // Persist so the selection survives an app restart (mirrors iOS).
+        viewModelScope.launch { preferencesDataStore.setFeedFilter(filter.name) }
         // Server-side filter changed — reset the paginated feed and re-fetch
         // so the returned page matches the new filter.
         lastTimestamp = null

@@ -290,14 +290,26 @@ fun FeaturedCymbalView(
 
             Spacer(modifier = Modifier.width(CorusSpacing.md))
 
-            // Spotify / SoundCloud button (matches PostCard logic)
+            // Spotify / SoundCloud / Apple Music button — non-Spotify
+            // sources lock to their own brand glyph regardless of viewer
+            // preference (matches PostCard / MiniPlayerBar).
             val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
+            val isAppleMusic = post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
             if (isSoundCloud) {
                 SoundCloudAdaptiveLogo(
                     modifier = Modifier
                         .size(21.dp)
                         .clickable(onClick = onSpotifyTap),
                     size = 21.dp,
+                )
+            } else if (isAppleMusic) {
+                Image(
+                    painter = painterResource(R.drawable.apple_music_logo),
+                    contentDescription = stringResource(R.string.featured_cd_play_spotify),
+                    modifier = Modifier
+                        .size(21.dp)
+                        .clickable(onClick = onSpotifyTap),
+                    contentScale = ContentScale.Fit,
                 )
             } else {
                 Image(

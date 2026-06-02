@@ -697,9 +697,13 @@ fun PostCard(
                 }
             } else {
                 val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
+                val isAppleMusic = post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
                 val cd = stringResource(
-                    if (isSoundCloud) R.string.post_card_cd_play_soundcloud
-                    else R.string.post_card_cd_play_spotify
+                    when {
+                        isSoundCloud -> R.string.post_card_cd_play_soundcloud
+                        isAppleMusic -> R.string.post_card_cd_play_spotify // reuse generic "play" copy; brand handled via icon
+                        else -> R.string.post_card_cd_play_spotify
+                    }
                 )
                 val tapModifier = Modifier
                     .size(28.dp)
@@ -712,6 +716,16 @@ fun PostCard(
                     SoundCloudAdaptiveLogo(
                         modifier = tapModifier.semantics { contentDescription = cd },
                         size = 28.dp,
+                    )
+                } else if (isAppleMusic) {
+                    // Apple-Music-only tracks lock to the Apple Music brand
+                    // glyph regardless of viewer preference — same pattern
+                    // as SoundCloud above.
+                    Image(
+                        painter = painterResource(R.drawable.apple_music_logo),
+                        contentDescription = cd,
+                        modifier = tapModifier,
+                        contentScale = ContentScale.Fit,
                     )
                 } else {
                     Image(

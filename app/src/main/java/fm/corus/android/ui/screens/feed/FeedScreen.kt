@@ -489,6 +489,16 @@ fun FeedScreen(
                                     if (!permalink.isNullOrBlank()) {
                                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
                                     }
+                                } else if (post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC) {
+                                    // Apple-only tracks always open in Apple
+                                    // Music, regardless of the viewer's
+                                    // preferred service. URL is derived from
+                                    // the resolved appleMusicId or the
+                                    // `am:`-prefixed trackId.
+                                    val url = post.track.appleMusicURL
+                                    if (!url.isNullOrBlank()) {
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                    }
                                 } else {
                                     val uri = post.track.spotifyURI
                                     val webUrl = post.track.spotifyWebURL
@@ -689,18 +699,18 @@ private fun FeedTitleWithModeMenu(
                 )
             }
             DropdownMenuItem(
-                text = { Text("Following") },
-                trailingIcon = if (feedMode == "following") activeCheckmark else null,
-                onClick = {
-                    onSetFeedMode("following")
-                    expanded = false
-                },
-            )
-            DropdownMenuItem(
                 text = { Text("For You") },
                 trailingIcon = if (feedMode == "forYou") activeCheckmark else null,
                 onClick = {
                     onSetFeedMode("forYou")
+                    expanded = false
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Recent") },
+                trailingIcon = if (feedMode == "following") activeCheckmark else null,
+                onClick = {
+                    onSetFeedMode("following")
                     expanded = false
                 },
             )

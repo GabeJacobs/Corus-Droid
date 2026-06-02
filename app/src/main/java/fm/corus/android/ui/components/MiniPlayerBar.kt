@@ -183,8 +183,13 @@ fun MiniPlayerBar(
                     tint = if (state.hasNext) CorusColors.Text else CorusColors.Tertiary,
                 )
 
-                // Spotify / SoundCloud button (matches the source of the playing track)
+                // Spotify / SoundCloud / Apple Music button (matches the
+                // source of the playing track). Apple-only and SoundCloud
+                // tracks lock to their respective brands regardless of the
+                // viewer's preferred service — they aren't in Spotify's
+                // catalog so "Open in Spotify" would 404.
                 val isSoundCloud = state.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
+                val isAppleMusic = state.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
                 if (isSoundCloud) {
                     SoundCloudAdaptiveLogo(
                         modifier = Modifier
@@ -199,6 +204,30 @@ fun MiniPlayerBar(
                                 }
                             },
                         size = 22.dp,
+                    )
+                } else if (isAppleMusic) {
+                    Image(
+                        painter = painterResource(fm.corus.android.R.drawable.apple_music_logo),
+                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                // Apple-only trackIds carry the `am:` prefix;
+                                // derive the Apple Music id and link straight
+                                // to the song page.
+                                val tid = state.trackId
+                                if (!tid.isNullOrBlank() && tid.startsWith("am:")) {
+                                    val amid = tid.removePrefix("am:")
+                                    if (amid.isNotEmpty()) {
+                                        runCatching {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.apple.com/us/song/$amid")))
+                                        }
+                                    }
+                                }
+                            },
                     )
                 } else {
                     Image(
