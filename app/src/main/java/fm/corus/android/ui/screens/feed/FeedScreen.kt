@@ -106,6 +106,7 @@ fun FeedScreen(
     val feedMode by viewModel.feedMode.collectAsState()
     val forYouLoadFailed by viewModel.forYouLoadFailed.collectAsState()
     val forYouEnabled = viewModel.remoteConfig.forYouEnabled
+    val discoveryFeedEnabled = viewModel.remoteConfig.discoveryFeedEnabled
     val context = LocalContext.current
     var filterMenuExpanded by remember { mutableStateOf(false) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -240,6 +241,7 @@ fun FeedScreen(
                 }
             },
             forYouEnabled = forYouEnabled,
+            discoveryFeedEnabled = discoveryFeedEnabled,
             feedMode = feedMode,
             onSetFeedMode = { viewModel.setFeedMode(it) },
         )
@@ -682,6 +684,8 @@ private fun DividerSectionHeader(text: String) {
 @Composable
 private fun FeedTitleWithModeMenu(
     feedMode: String,
+    forYouEnabled: Boolean,
+    discoveryFeedEnabled: Boolean,
     onSetFeedMode: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -713,14 +717,26 @@ private fun FeedTitleWithModeMenu(
                     tint = CorusColors.Accent,
                 )
             }
-            DropdownMenuItem(
-                text = { Text("For You") },
-                trailingIcon = if (feedMode == "forYou") activeCheckmark else null,
-                onClick = {
-                    onSetFeedMode("forYou")
-                    expanded = false
-                },
-            )
+            if (discoveryFeedEnabled) {
+                DropdownMenuItem(
+                    text = { Text("Discovery") },
+                    trailingIcon = if (feedMode == "discovery") activeCheckmark else null,
+                    onClick = {
+                        onSetFeedMode("discovery")
+                        expanded = false
+                    },
+                )
+            }
+            if (forYouEnabled) {
+                DropdownMenuItem(
+                    text = { Text("For You") },
+                    trailingIcon = if (feedMode == "forYou") activeCheckmark else null,
+                    onClick = {
+                        onSetFeedMode("forYou")
+                        expanded = false
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text("Recent") },
                 trailingIcon = if (feedMode == "following") activeCheckmark else null,
@@ -748,6 +764,7 @@ private fun FeedHeader(
     onSetFilter: (FeedFilter) -> Unit,
     onGeneratePlaylist: () -> Unit,
     forYouEnabled: Boolean = false,
+    discoveryFeedEnabled: Boolean = false,
     feedMode: String = "following",
     onSetFeedMode: (String) -> Unit = {},
 ) {
@@ -757,9 +774,11 @@ private fun FeedHeader(
             .padding(top = CorusSpacing.sm),
         contentAlignment = Alignment.Center,
     ) {
-        if (forYouEnabled) {
+        if (forYouEnabled || discoveryFeedEnabled) {
             FeedTitleWithModeMenu(
                 feedMode = feedMode,
+                forYouEnabled = forYouEnabled,
+                discoveryFeedEnabled = discoveryFeedEnabled,
                 onSetFeedMode = onSetFeedMode,
             )
         } else {

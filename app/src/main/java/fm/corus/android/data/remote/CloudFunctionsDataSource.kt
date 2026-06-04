@@ -109,6 +109,10 @@ class CloudFunctionsDataSource @Inject constructor(
      * is a client-side ring buffer (cap 500) used to suppress already-shown
      * posts when a session expires mid-scroll.
      */
+    /**
+     * `scope` is "forYou" (pool = your follows) or "discovery" (pool = the
+     * whole app). Both use the same ranked callable + pagination machinery.
+     */
     @Suppress("UNCHECKED_CAST")
     suspend fun getForYouFeed(
         userId: String,
@@ -118,11 +122,13 @@ class CloudFunctionsDataSource @Inject constructor(
         seenPostIds: List<String> = emptyList(),
         mediaType: MediaType? = null,
         newReleasesOnly: Boolean = false,
+        scope: String = "forYou",
     ): ForYouFeedPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
             "pageSize" to pageSize,
             "pageIndex" to pageIndex,
+            "scope" to scope,
         )
         sessionToken?.takeIf { it.isNotEmpty() }?.let { params["sessionToken"] = it }
         if (seenPostIds.isNotEmpty()) {
@@ -332,6 +338,17 @@ class CloudFunctionsDataSource @Inject constructor(
 
     suspend fun unlikePost(postId: String) {
         functions.getHttpsCallable("unlikePost")
+            .call(mapOf("postId" to postId)).await()
+    }
+
+    // Records a UNIQUE in-app listener for a corus. Server-side the `recordPlay`
+    // callable writes posts/{postId}/plays/{uid} (lifetime-unique by uid) and
+    // bumps posts.playCount — excluding self-plays and repeat listeners. Plays
+    // are stored but not yet surfaced anywhere; this is the foundation for a
+    // future play-milestone push notification. Best-effort: callers fire-and-
+    // forget and never block playback on the result.
+    suspend fun recordPlay(postId: String) {
+        functions.getHttpsCallable("recordPlay")
             .call(mapOf("postId" to postId)).await()
     }
 

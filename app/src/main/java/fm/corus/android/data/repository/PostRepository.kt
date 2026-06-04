@@ -48,9 +48,10 @@ class PostRepository @Inject constructor(
         seenPostIds: List<String> = emptyList(),
         mediaType: MediaType? = null,
         newReleasesOnly: Boolean = false,
+        scope: String = "forYou",
     ): CloudFunctionsDataSource.ForYouFeedPage {
         return cloudFunctions.getForYouFeed(
-            userId, pageSize, sessionToken, pageIndex, seenPostIds, mediaType, newReleasesOnly
+            userId, pageSize, sessionToken, pageIndex, seenPostIds, mediaType, newReleasesOnly, scope
         ).also { cachePosts(it.posts) }
     }
 

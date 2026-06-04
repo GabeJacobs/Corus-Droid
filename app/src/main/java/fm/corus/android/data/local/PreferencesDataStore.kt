@@ -273,13 +273,14 @@ class PreferencesDataStore @Inject constructor(
     }
 
     /**
-     * Per-device feed mode toggle ("following" | "forYou"). Defaults to
-     * "following" — old builds and users who never tapped the toggle behave
-     * identically to today. Only honored when the `for_you_enabled` Remote
-     * Config flag is true.
+     * Per-device feed mode toggle ("following" | "forYou" | "discovery").
+     * Empty string = the user has never explicitly picked a mode; the
+     * ViewModel resolves the opening mode from Remote Config
+     * (`default_for_you_feed_enabled`) in that case. Once the user taps a
+     * mode it's persisted here and sticks.
      */
     val feedMode: Flow<String> = dataStore.data.map { prefs ->
-        prefs[FEED_MODE] ?: "following"
+        prefs[FEED_MODE] ?: ""
     }
 
     suspend fun setFeedMode(value: String) {

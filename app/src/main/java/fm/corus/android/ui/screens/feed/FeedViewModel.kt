@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
@@ -196,10 +197,18 @@ class FeedViewModel @Inject constructor(
     private var lastTimestamp: Long? = null
 
     // ── For You feed state ──
-    // `following` | `forYou`. Persisted in DataStore; only honored when the
-    // `for_you_enabled` Remote Config flag is on. Default `following` so old
-    // builds and users who never opened the toggle behave identically to today.
+    // Effective feed mode: "following" | "forYou" | "discovery". The stored
+    // value may be empty ("never picked") — in that case we resolve the
+    // opening mode from Remote Config (`default_for_you_feed_enabled`). Once
+    // the user taps a mode it's persisted and wins.
+    private fun resolveFeedMode(stored: String): String = when (stored) {
+        "following", "forYou", "discovery" -> stored
+        else ->
+            if (remoteConfig.defaultForYouFeedEnabled && remoteConfig.forYouEnabled) "forYou"
+            else "following"
+    }
     val feedMode: StateFlow<String> = preferencesDataStore.feedMode
+        .map { resolveFeedMode(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, "following")
 
     private var forYouSessionToken: String? = null
@@ -373,12 +382,18 @@ class FeedViewModel @Inject constructor(
             _isLoading.value = true
         }
 
-        val useForYou = remoteConfig.forYouEnabled && feedMode.value == "forYou"
+        // Ranked feed covers both For You (pool = follows) and Discovery
+        // (pool = whole app). Both hit the same callable with a `scope` arg.
+        val mode = feedMode.value
+        val useRanked =
+            (remoteConfig.forYouEnabled && mode == "forYou") ||
+                (remoteConfig.discoveryFeedEnabled && mode == "discovery")
+        val rankedScope = if (mode == "discovery") "discovery" else "forYou"
 
         try {
             val newPosts: List<CymbalPost>
             val pageHasMore: Boolean
-            if (useForYou) {
+            if (useRanked) {
                 if (refresh) {
                     forYouSessionToken = null
                     forYouPageIndex = 0
@@ -392,6 +407,7 @@ class FeedViewModel @Inject constructor(
                     seenPostIds = forYouSeenIds.toList(),
                     mediaType = _feedFilter.value.mediaType,
                     newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                    scope = rankedScope,
                 )
                 if (forYouPage.sessionToken != (forYouSessionToken ?: "") && forYouPage.sessionToken.isNotEmpty()) {
                     forYouSessionToken = forYouPage.sessionToken
@@ -453,7 +469,7 @@ class FeedViewModel @Inject constructor(
             }
 
             _hasMore.value = pageHasMore
-            if (newPosts.isNotEmpty() && !useForYou) {
+            if (newPosts.isNotEmpty() && !useRanked) {
                 lastTimestamp = newPosts.last().timestamp.time
             }
 
@@ -469,7 +485,7 @@ class FeedViewModel @Inject constructor(
             _lastLoadFailed.value = false
         } catch (_: Exception) {
             _lastLoadFailed.value = true
-            if (useForYou) _forYouLoadFailed.value = true
+            if (useRanked) _forYouLoadFailed.value = true
         }
 
         _isLoading.value = false
