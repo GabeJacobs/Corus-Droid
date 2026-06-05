@@ -123,6 +123,7 @@ class CloudFunctionsDataSource @Inject constructor(
         mediaType: MediaType? = null,
         newReleasesOnly: Boolean = false,
         scope: String = "forYou",
+        isRefresh: Boolean = false,
     ): ForYouFeedPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
@@ -130,6 +131,7 @@ class CloudFunctionsDataSource @Inject constructor(
             "pageIndex" to pageIndex,
             "scope" to scope,
         )
+        if (isRefresh) params["isRefresh"] = true
         sessionToken?.takeIf { it.isNotEmpty() }?.let { params["sessionToken"] = it }
         if (seenPostIds.isNotEmpty()) {
             params["seenPostIds"] = seenPostIds.take(500)

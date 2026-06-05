@@ -411,6 +411,9 @@ class FeedViewModel @Inject constructor(
                     mediaType = _feedFilter.value.mediaType,
                     newReleasesOnly = _feedFilter.value.newReleasesOnly,
                     scope = rankedScope,
+                    // Pull-to-refresh (refresh=true) → boost recency so the
+                    // newest posts lead. First load / pagination doesn't.
+                    isRefresh = refresh,
                 )
                 if (forYouPage.sessionToken != (forYouSessionToken ?: "") && forYouPage.sessionToken.isNotEmpty()) {
                     forYouSessionToken = forYouPage.sessionToken

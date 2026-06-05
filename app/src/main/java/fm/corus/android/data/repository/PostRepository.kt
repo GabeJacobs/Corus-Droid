@@ -49,9 +49,10 @@ class PostRepository @Inject constructor(
         mediaType: MediaType? = null,
         newReleasesOnly: Boolean = false,
         scope: String = "forYou",
+        isRefresh: Boolean = false,
     ): CloudFunctionsDataSource.ForYouFeedPage {
         return cloudFunctions.getForYouFeed(
-            userId, pageSize, sessionToken, pageIndex, seenPostIds, mediaType, newReleasesOnly, scope
+            userId, pageSize, sessionToken, pageIndex, seenPostIds, mediaType, newReleasesOnly, scope, isRefresh
         ).also { cachePosts(it.posts) }
     }
 
@@ -238,6 +239,18 @@ class PostRepository @Inject constructor(
         commentIds: List<String>,
     ): Set<String> {
         return firestoreDataSource.checkCommentLikesBatch(userId, postId, commentIds)
+    }
+
+    /**
+     * Real-time listener on a post's comments subcollection. Mirrors iOS so an
+     * open comments screen keeps comment like counts + heart state fresh.
+     * Caller owns the returned registration and must `.remove()` it.
+     */
+    fun listenForCommentChanges(
+        postId: String,
+        onChange: () -> Unit,
+    ): com.google.firebase.firestore.ListenerRegistration {
+        return firestoreDataSource.listenForCommentChanges(postId, onChange)
     }
 
     suspend fun fetchPostLikers(postId: String, limit: Int = 20, lastTimestamp: Long? = null): fm.corus.android.data.remote.FirestoreDataSource.LikersPage {
