@@ -384,10 +384,13 @@ class FeedViewModel @Inject constructor(
 
         // Ranked feed covers both For You (pool = follows) and Discovery
         // (pool = whole app). Both hit the same callable with a `scope` arg.
+        // Keyed off the resolved/persisted mode, NOT the Remote Config flags:
+        // on a cold launch the flags can briefly read false before RC fetches,
+        // which used to load Recent instead of the user's chosen ranked feed.
+        // A ranked mode can only have been persisted while its flag was on,
+        // and resolveFeedMode already handles the unset case via the RC default.
         val mode = feedMode.value
-        val useRanked =
-            (remoteConfig.forYouEnabled && mode == "forYou") ||
-                (remoteConfig.discoveryFeedEnabled && mode == "discovery")
+        val useRanked = mode == "forYou" || mode == "discovery"
         val rankedScope = if (mode == "discovery") "discovery" else "forYou"
 
         try {
