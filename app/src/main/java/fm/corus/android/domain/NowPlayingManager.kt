@@ -85,6 +85,15 @@ class NowPlayingManager @Inject constructor(
 ) {
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    /**
+     * Corus postIds we've already reported an in-app play for THIS app session.
+     * Avoids re-calling the `recordPlay` callable when the same corus plays
+     * again; the backend is the real dedup (lifetime-unique by uid). Confined
+     * to [managerScope]'s Main dispatcher, so no synchronization is needed.
+     * Resets on cold start.
+     */
+    private val recordedPlayPostIds = mutableSetOf<String>()
+
     @Volatile
     private var autoplayEnabled: Boolean = true
 
@@ -482,6 +491,32 @@ class NowPlayingManager @Inject constructor(
             source = track.source,
             soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
         )
+
+        // This corus is now playing in-app — report a unique play. Reached for
+        // both initial taps and auto-advance (which also routes through here);
+        // the same-track pause/resume path returns early above, so this won't
+        // double-fire on resume.
+        recordPlayIfNeeded(track.sourcePostId)
+    }
+
+    /**
+     * Fire-and-forget: report a UNIQUE in-app play of [postId] to the backend.
+     * Lenient — counts as soon as in-app playback starts. Only the `recordPlay`
+     * callable mutates playCount; self-plays and repeat listeners are filtered
+     * server-side. Never blocks playback or surfaces errors.
+     */
+    private fun recordPlayIfNeeded(postId: String?) {
+        val id = postId ?: return
+        if (!recordedPlayPostIds.add(id)) return // already reported this session
+        managerScope.launch {
+            try {
+                cloudFunctions.recordPlay(id)
+            } catch (e: Exception) {
+                // Best-effort only. Drop the marker so a genuine play can retry
+                // later this session; the backend stays idempotent regardless.
+                recordedPlayPostIds.remove(id)
+            }
+        }
     }
 
     /**

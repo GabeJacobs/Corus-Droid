@@ -32,8 +32,8 @@ object UsernameValidator {
             return Result.Invalid("Username can't end with a period")
         }
 
-        if (input.none { it.isLetterOrDigit() }) {
-            return Result.Invalid("Username must contain at least one letter or number")
+        if (input.none { it.isLetter() }) {
+            return Result.Invalid("Username must contain at least one letter")
         }
 
         return Result.Valid

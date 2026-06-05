@@ -88,6 +88,21 @@ private fun yearlyDetailText(context: Context, pkg: Package?, price: String, mon
     else context.getString(R.string.club_yearly_detail_only_format, monthlyEquivalent)
 }
 
+// Percent saved by the yearly plan vs. 12× the monthly plan, computed live from
+// the RevenueCat prices so remote price changes are reflected. Returns null when
+// prices aren't loaded yet or the discount is negligible (<5%), so the caller
+// shows no badge rather than a stale hardcoded percentage.
+private fun savingsBadge(monthly: Package?, yearly: Package?): String? {
+    val m = monthly?.product?.price?.amountMicros ?: return null
+    val y = yearly?.product?.price?.amountMicros ?: return null
+    if (m <= 0L) return null
+    val yearlyAsMonthly = y / 12.0
+    if (yearlyAsMonthly >= m) return null
+    val pct = Math.round((1.0 - yearlyAsMonthly / m) * 100).toInt()
+    if (pct < 5) return null
+    return "SAVE $pct%"
+}
+
 // --- Full-screen paywall ---
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -172,6 +187,18 @@ fun CymbalClubOfferScreen(
 
             Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
+            if (viewModel.source == PaywallSource.POST_LIMIT) {
+                Text(
+                    text = stringResource(R.string.club_post_limit_eyebrow),
+                    style = CorusFont.caption.copy(
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp),
+                    ),
+                    color = CorusColors.Accent,
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.xs))
+            }
+
             Text(
                 text = stringResource(R.string.club_title),
                 style = CorusFont.appTitle,
@@ -180,8 +207,16 @@ fun CymbalClubOfferScreen(
 
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
+            // Post-limit: surface the trial with its duration when available,
+            // otherwise the source's default subtitle ("Remove posting limits").
+            val trial = trialDurationText(context, selectedPackage)
+            val subtitleText = if (viewModel.source == PaywallSource.POST_LIMIT && trial != null)
+                context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
+            else
+                viewModel.source.subtitle
+
             Text(
-                text = viewModel.source.subtitle,
+                text = subtitleText,
                 style = CorusFont.body,
                 color = CorusColors.Secondary,
                 textAlign = TextAlign.Center,
@@ -196,10 +231,10 @@ fun CymbalClubOfferScreen(
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
                 FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
-                FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
                 FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
                 FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
                 FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
+                FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
             }
 
             Spacer(modifier = Modifier.height(CorusSpacing.md))
@@ -240,7 +275,7 @@ fun CymbalClubOfferScreen(
                     isSelected = selectedPlan == "yearly",
                     onClick = { selectedPlan = "yearly" },
                     modifier = Modifier.weight(1f),
-                    badge = stringResource(R.string.club_plan_save_badge),
+                    badge = savingsBadge(monthlyPackage, yearlyPackage),
                 )
             }
 
@@ -401,6 +436,18 @@ fun CymbalClubOfferSheet(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
+        if (source == PaywallSource.POST_LIMIT) {
+            Text(
+                text = stringResource(R.string.club_post_limit_eyebrow),
+                style = CorusFont.caption.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp),
+                ),
+                color = CorusColors.Accent,
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+        }
+
         Text(
             text = stringResource(R.string.club_title),
             style = CorusFont.appTitle,
@@ -409,8 +456,16 @@ fun CymbalClubOfferSheet(
 
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
+        // Post-limit: surface the trial with its duration when available,
+        // otherwise the source's default subtitle ("Remove posting limits").
+        val trial = trialDurationText(context, selectedPackage)
+        val subtitleText = if (source == PaywallSource.POST_LIMIT && trial != null)
+            context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
+        else
+            source.subtitle
+
         Text(
-            text = source.subtitle,
+            text = subtitleText,
             style = CorusFont.body,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -426,10 +481,10 @@ fun CymbalClubOfferSheet(
             if (source != PaywallSource.FIRST_POST) {
                 FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
             }
-            FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
             FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
             FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
             FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
+            FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
         }
 
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
@@ -469,7 +524,7 @@ fun CymbalClubOfferSheet(
                 isSelected = selectedPlan == "yearly",
                 onClick = { selectedPlan = "yearly" },
                 modifier = Modifier.weight(1f),
-                badge = stringResource(R.string.club_plan_save_badge),
+                badge = savingsBadge(monthlyPackage, yearlyPackage),
             )
         }
 

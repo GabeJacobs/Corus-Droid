@@ -47,6 +47,7 @@ fun EditProfileScreen(
     val website by viewModel.website.collectAsState()
     val featuredTab by viewModel.featuredTab.collectAsState()
     val usernameState by viewModel.usernameState.collectAsState()
+    val usernameInvalidReason by viewModel.usernameInvalidReason.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val saveError by viewModel.saveError.collectAsState()
 
@@ -252,7 +253,7 @@ fun EditProfileScreen(
                     }
                     EditProfileViewModel.UsernameState.INVALID -> {
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                        Text(stringResource(R.string.edit_profile_username_invalid), style = CorusFont.caption, color = CorusColors.Error)
+                        Text(usernameInvalidReason ?: stringResource(R.string.edit_profile_username_invalid), style = CorusFont.caption, color = CorusColors.Error)
                     }
                     else -> {}
                 }

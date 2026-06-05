@@ -14,8 +14,35 @@ class UsernameValidatorTest {
         assertEquals(UsernameValidator.Result.Valid, UsernameValidator.validate("j"))
     }
 
-    @Test fun `single digit is valid`() {
-        assertEquals(UsernameValidator.Result.Valid, UsernameValidator.validate("7"))
+    @Test fun `single digit is invalid - needs a letter`() {
+        val result = UsernameValidator.validate("7")
+        assertTrue(result is UsernameValidator.Result.Invalid)
+        assertEquals(
+            "Username must contain at least one letter",
+            (result as UsernameValidator.Result.Invalid).message,
+        )
+    }
+
+    @Test fun `digits-only is invalid - needs a letter`() {
+        val result = UsernameValidator.validate("123")
+        assertTrue(result is UsernameValidator.Result.Invalid)
+        assertEquals(
+            "Username must contain at least one letter",
+            (result as UsernameValidator.Result.Invalid).message,
+        )
+    }
+
+    @Test fun `digits with underscores and periods but no letter is invalid`() {
+        val result = UsernameValidator.validate("1_2.3")
+        assertTrue(result is UsernameValidator.Result.Invalid)
+        assertEquals(
+            "Username must contain at least one letter",
+            (result as UsernameValidator.Result.Invalid).message,
+        )
+    }
+
+    @Test fun `a single letter among digits is valid`() {
+        assertEquals(UsernameValidator.Result.Valid, UsernameValidator.validate("a1"))
     }
 
     @Test fun `letters numbers underscores periods are valid`() {
@@ -40,11 +67,11 @@ class UsernameValidatorTest {
         )
     }
 
-    @Test fun `only underscore is invalid - needs alphanumeric`() {
+    @Test fun `only underscore is invalid - needs a letter`() {
         val result = UsernameValidator.validate("_")
         assertTrue(result is UsernameValidator.Result.Invalid)
         assertEquals(
-            "Username must contain at least one letter or number",
+            "Username must contain at least one letter",
             (result as UsernameValidator.Result.Invalid).message,
         )
     }

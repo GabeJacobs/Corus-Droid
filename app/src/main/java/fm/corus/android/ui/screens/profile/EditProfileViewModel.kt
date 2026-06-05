@@ -13,6 +13,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.DisplayNameValidator
+import fm.corus.android.domain.UsernameValidator
 import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -52,6 +53,9 @@ class EditProfileViewModel @Inject constructor(
 
     private val _usernameState = MutableStateFlow(UsernameState.IDLE)
     val usernameState: StateFlow<UsernameState> = _usernameState.asStateFlow()
+
+    private val _usernameInvalidReason = MutableStateFlow<String?>(null)
+    val usernameInvalidReason: StateFlow<String?> = _usernameInvalidReason.asStateFlow()
 
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
@@ -140,24 +144,32 @@ class EditProfileViewModel @Inject constructor(
     }
 
     fun updateUsername(value: String) {
-        val cleaned = value.lowercase().filter { it.isLetterOrDigit() || it == '_' || it == '.' }
+        val cleaned = UsernameValidator.clean(value)
         _username.value = cleaned
 
         if (cleaned == originalUsername) {
             _usernameState.value = UsernameState.IDLE
+            _usernameInvalidReason.value = null
             return
         }
 
-        if (cleaned.isEmpty()) {
-            _usernameState.value = UsernameState.INVALID
-            return
-        }
-
-        // Validate format
-        val isValid = cleaned.matches(Regex("^[a-z0-9_.]+$")) && cleaned.length >= 1
-        if (!isValid) {
-            _usernameState.value = UsernameState.INVALID
-            return
+        // Validate format via the shared validator (length, allowed chars, must
+        // contain a letter, period rules) so this screen stays in sync with
+        // onboarding and the dedicated Change Username screen.
+        when (val result = UsernameValidator.validate(cleaned)) {
+            is UsernameValidator.Result.Empty -> {
+                _usernameState.value = UsernameState.INVALID
+                _usernameInvalidReason.value = null
+                return
+            }
+            is UsernameValidator.Result.Invalid -> {
+                _usernameState.value = UsernameState.INVALID
+                _usernameInvalidReason.value = result.message
+                return
+            }
+            is UsernameValidator.Result.Valid -> {
+                _usernameInvalidReason.value = null
+            }
         }
 
         // Debounced availability check

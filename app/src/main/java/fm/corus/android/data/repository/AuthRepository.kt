@@ -15,6 +15,7 @@ import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
+import fm.corus.android.data.local.OnboardingLocalStore
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
@@ -34,6 +35,7 @@ class AuthRepository @Inject constructor(
     private val storageDataSource: FirebaseStorageDataSource,
     private val messaging: FirebaseMessaging,
     private val cloudFunctions: CloudFunctionsDataSource,
+    private val onboardingLocalStore: OnboardingLocalStore,
 ) {
     private val _currentUser = MutableStateFlow<FirebaseUser?>(auth.currentUser)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
@@ -163,6 +165,10 @@ class AuthRepository @Inject constructor(
             email = "",
             phoneNumber = phone,
         )
+
+        // A profile now exists for this uid — record onboarding completion locally
+        // so subsequent cold launches fast-path straight to the feed.
+        onboardingLocalStore.markCompletedOnboarding(uid)
 
         if (avatarData != null) {
             val url = storageDataSource.uploadAvatar(uid, avatarData)

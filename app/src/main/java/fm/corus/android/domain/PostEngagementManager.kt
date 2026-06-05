@@ -18,8 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
@@ -376,26 +374,36 @@ class PostEngagementManager @Inject constructor(
     }
 
     /**
-     * Check actual like status from Firestore for the given posts.
-     * Mirrors iOS PostCard.checkStatus() — the backend doesn't return isLiked,
-     * so we query the likes subcollection directly.
+     * Reconcile like status from Firestore for the given page of posts.
+     *
+     * Resolves all [postIds] in ONE batched `whereIn` query against the viewer's
+     * own `users_v2/{uid}/liked` index (FirestoreDataSource.fetchLikedStates),
+     * which bills only for the liked matches — instead of a per-post
+     * `isPostLiked` read. A 30-post page where the viewer liked 2 costs ~2 reads
+     * instead of 30. The [userId] param is kept for call-site compatibility;
+     * fetchLikedStates derives the uid from auth.
+     *
+     * Optimistic flips (userModified / in-flight / retained) are never clobbered.
+     * A transient failure leaves state untouched; the next refresh reconciles.
      */
     fun checkLikeStatuses(postIds: List<String>, userId: String) {
+        if (postIds.isEmpty()) return
         scope.launch {
-            val results = postIds.map { postId ->
-                async {
-                    postId to (try { postRepository.isPostLiked(userId, postId) } catch (_: Exception) { null })
-                }
-            }.awaitAll()
+            val liked = try {
+                firestoreDataSource.fetchLikedStates(postIds)
+            } catch (_: Exception) {
+                return@launch
+            }
 
             _states.update { map ->
                 var updated = map
-                for ((postId, liked) in results) {
-                    if (liked == null) continue
+                for (postId in postIds) {
                     if (userModifiedPostIds.contains(postId)) continue
+                    if (likeInFlightIds.contains(postId) || isLikeRetained(postId)) continue
                     val current = updated[postId] ?: continue
-                    if (current.isLiked != liked) {
-                        updated = updated + (postId to current.copy(isLiked = liked))
+                    val isLiked = liked.contains(postId)
+                    if (current.isLiked != isLiked) {
+                        updated = updated + (postId to current.copy(isLiked = isLiked))
                     }
                 }
                 updated

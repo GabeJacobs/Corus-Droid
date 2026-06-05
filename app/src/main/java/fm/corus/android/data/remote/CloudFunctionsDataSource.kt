@@ -1019,7 +1019,10 @@ class CloudFunctionsDataSource @Inject constructor(
 
     @Suppress("UNCHECKED_CAST")
     suspend fun checkCanPost(): CheckCanPostResult {
-        val result = functions.getHttpsCallable("checkCanPost").call().await()
+        // Send the device timezone so the server anchors the daily limit to the
+        // user's local calendar day (calendar-day reset).
+        val params = mapOf("timeZone" to java.util.TimeZone.getDefault().id)
+        val result = functions.getHttpsCallable("checkCanPost").call(params).await()
         val data = result.getData() as? Map<String, Any?>
             ?: return CheckCanPostResult(canPost = true, recentCount = 0, recentCountHard = 0, dailyLimit = null)
         return CheckCanPostResult(
@@ -1064,7 +1067,10 @@ class CloudFunctionsDataSource @Inject constructor(
     @Suppress("UNCHECKED_CAST")
     suspend fun createPost(payload: Map<String, Any?>): CreatePostResult {
         try {
-            val result = functions.getHttpsCallable("createPost").call(payload).await()
+            // Send the device timezone so the server anchors the daily limit to
+            // the user's local calendar day (calendar-day reset).
+            val withTz = payload + ("timeZone" to java.util.TimeZone.getDefault().id)
+            val result = functions.getHttpsCallable("createPost").call(withTz).await()
             val data = result.getData() as? Map<String, Any?> ?: emptyMap()
             return CreatePostResult(
                 postId = data["postId"] as? String ?: "",

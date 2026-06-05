@@ -843,7 +843,9 @@
     <string name="club_subtitle_flair_picker">Customize your badge flair and more.</string>
     <string name="club_subtitle_spin_picker">Make your vinyl spin and more.</string>
     <string name="club_subtitle_style_picker">Customize your profile style and more.</string>
-    <string name="club_subtitle_post_limit">Unlock unlimited posts.</string>
+    <string name="club_subtitle_post_limit">Unlock all features</string>
+    <string name="club_subtitle_post_limit_trial_format">Try free for %1$s</string>
+    <string name="club_post_limit_eyebrow">DAILY LIMIT REACHED</string>
     <string name="club_subtitle_first_post">Support Corus. Get Perks.</string>
     <string name="club_subtitle_tenth_post">Support Corus. Get Perks.</string>
     <string name="club_subtitle_playlist_limit">Unlock playlist generation.</string>
@@ -851,14 +853,13 @@
     <string name="club_feature_unlimited">Unlimited posts</string>
     <string name="club_feature_verified">Verified badge</string>
     <string name="club_feature_customization">Profile customization</string>
-    <string name="club_feature_playlists">Generate Spotify playlists</string>
+    <string name="club_feature_playlists">Export playlists</string>
     <string name="club_feature_support">Keep Corus ad-free</string>
-    <string name="club_disclaimer">Corus is built by a small team. Club members help keep Corus ad-free, independent, and growing.</string>
+    <string name="club_disclaimer">Corus is proudly ad-free. Club members help keep Corus independent and sustainable.</string>
     <string name="club_plan_monthly">Monthly</string>
     <string name="club_plan_yearly">Yearly</string>
     <string name="club_plan_monthly_price_format">%1$s/mo</string>
     <string name="club_plan_yearly_price_format">%1$s/yr</string>
-    <string name="club_plan_save_badge">SAVE 58%</string>
     <string name="club_plan_monthly_default_price">$2.99</string>
     <string name="club_plan_yearly_default_price">$19.99</string>
     <string name="club_cta_member">You\'re a member!</string>

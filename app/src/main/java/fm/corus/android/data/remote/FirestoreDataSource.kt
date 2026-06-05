@@ -234,6 +234,29 @@ class FirestoreDataSource @Inject constructor(
         return result
     }
 
+    /**
+     * Returns the subset of [postIds] the current user has liked, read from
+     * their OWN `users_v2/{uid}/liked` index in chunks of 30. Firestore bills a
+     * `whereIn` query only for the docs it returns (the liked ones), so a page
+     * of 30 where the viewer liked 2 costs ~2 reads — not 30 per-card
+     * `likes/{uid}` reads. Used to seed a whole page's like-state at once
+     * (resilient fallback for posts the backend didn't stamp with `isLiked`).
+     */
+    suspend fun fetchLikedStates(postIds: List<String>): Set<String> {
+        val uid = firebaseAuth.currentUser?.uid ?: return emptySet()
+        val ids = postIds.filter { it.isNotEmpty() }.distinct() // `whereIn` rejects dupes
+        if (ids.isEmpty()) return emptySet()
+        val result = mutableSetOf<String>()
+        ids.chunked(30).forEach { chunk ->
+            val snapshot = firestore.collection("users_v2").document(uid)
+                .collection("liked")
+                .whereIn(FieldPath.documentId(), chunk)
+                .get().await()
+            snapshot.documents.forEach { result.add(it.id) }
+        }
+        return result
+    }
+
     data class PaginatedIdsResult(
         val ids: List<String>,
         val lastDocument: DocumentSnapshot?,

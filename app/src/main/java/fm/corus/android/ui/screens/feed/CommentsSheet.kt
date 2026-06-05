@@ -119,7 +119,7 @@ fun CommentsBottomSheet(
             onNavigateToSong = onNavigateToSong,
             onNavigateToFilm = onNavigateToFilm,
             onNavigateToHashtag = onNavigateToHashtag,
-            autoFocusInput = true,
+            autoFocusInput = false,
         )
     }
 }
