@@ -1035,6 +1035,7 @@ private fun SharedTrackContent(
                                 trackName = song.trackName,
                                 artistName = song.artistName,
                                 albumArtURL = song.albumArtURL,
+                                albumArtLargeURL = song.albumArtLargeURL,
                                 previewUrl = song.previewUrl,
                                 spotifyURI = song.spotifyURI,
                                 spotifyWebURL = song.spotifyWebURL,

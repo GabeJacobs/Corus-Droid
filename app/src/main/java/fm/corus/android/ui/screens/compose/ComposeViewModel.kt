@@ -623,6 +623,7 @@ class ComposeViewModel @Inject constructor(
                 trackName = track.name,
                 artistName = track.artistName,
                 albumArtURL = track.albumArtURL,
+                albumArtLargeURL = track.albumArtLargeURL,
                 previewUrl = track.previewUrl,
                 isrc = track.isrc,
                 source = track.source,

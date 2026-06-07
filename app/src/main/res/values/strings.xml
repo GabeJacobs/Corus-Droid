@@ -166,6 +166,9 @@
     <string name="feed_empty_new_releases_title">No new releases yet</string>
     <string name="feed_empty_new_releases_subtitle">Check back later for more new releases from people you follow.</string>
     <string name="feed_empty_new_releases_show_all">Show all posts</string>
+    <string name="feed_empty_favorites_title">No favorites yet</string>
+    <string name="feed_empty_favorites_subtitle">Tap the ☆ on someone\'s profile to add them here.</string>
+    <string name="feed_empty_favorites_button">Back to Following</string>
     <string name="feed_empty_invite_title">corus is fun with\njust a few friends.</string>
     <string name="feed_empty_invite_subtitle">know someone with good taste?</string>
     <string name="feed_empty_invite_button">invite friends</string>
@@ -340,6 +343,10 @@
     <string name="other_profile_cd_stop_notifying">Stop Notifying</string>
     <string name="other_profile_toast_will_notify_format">You\'ll be notified when @%1$s posts</string>
     <string name="other_profile_toast_notifications_off_format">Notifications off for @%1$s</string>
+    <string name="other_profile_cd_add_favorite">Add to Favorites</string>
+    <string name="other_profile_cd_remove_favorite">Remove from Favorites</string>
+    <string name="other_profile_toast_favorite_added_format">Added @%1$s to Favorites</string>
+    <string name="other_profile_toast_favorite_removed_format">Removed @%1$s from Favorites</string>
     <string name="other_profile_menu_view_playlist">View Spotify Playlist</string>
     <string name="other_profile_menu_share_profile">Share Profile</string>
     <string name="other_profile_menu_mute">Mute</string>
@@ -533,6 +540,12 @@
     <string name="notif_msg_contact_joined">joined %s!</string>
     <string name="notif_msg_repost">reposted your %s.</string>
     <string name="notif_msg_taste_match_default">is a new taste match.</string>
+    <string name="notif_msg_favorite">added you to their favorites.</string>
+    <string name="notif_favorite_someone">Someone</string>
+    <string name="notif_favorite_sheet_title">Someone\'s a fan</string>
+    <string name="notif_favorite_sheet_body">Someone added you to their favorites so your posts are easier for them to keep up with. Who it is stays private — even to you.</string>
+    <string name="notif_favorite_sheet_nudge">You can favorite people too — just tap the ☆ on anyone\'s profile.</string>
+    <string name="notif_favorite_sheet_dismiss">Got it</string>
 
     <!-- Tab bar -->
     <string name="tab_feed">Feed</string>
@@ -843,7 +856,7 @@
     <string name="club_subtitle_flair_picker">Customize your badge flair and more.</string>
     <string name="club_subtitle_spin_picker">Make your vinyl spin and more.</string>
     <string name="club_subtitle_style_picker">Customize your profile style and more.</string>
-    <string name="club_subtitle_post_limit">Unlock all features</string>
+    <string name="club_subtitle_post_limit">Unlock all features. Support Corus.</string>
     <string name="club_subtitle_post_limit_trial_format">Try free for %1$s</string>
     <string name="club_post_limit_eyebrow">DAILY LIMIT REACHED</string>
     <string name="club_subtitle_first_post">Support Corus. Get Perks.</string>

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.QueueMusic
@@ -107,6 +108,7 @@ fun FeedScreen(
     val forYouLoadFailed by viewModel.forYouLoadFailed.collectAsState()
     val forYouEnabled = viewModel.remoteConfig.forYouEnabled
     val trendingFeedEnabled = viewModel.remoteConfig.trendingFeedEnabled
+    val favoritesEnabled = viewModel.remoteConfig.favoritesEnabled
     val context = LocalContext.current
     var filterMenuExpanded by remember { mutableStateOf(false) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -242,6 +244,7 @@ fun FeedScreen(
             },
             forYouEnabled = forYouEnabled,
             trendingFeedEnabled = trendingFeedEnabled,
+            favoritesEnabled = favoritesEnabled,
             feedMode = feedMode,
             onSetFeedMode = { viewModel.setFeedMode(it) },
         )
@@ -364,6 +367,53 @@ fun FeedScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.feed_empty_new_releases_show_all),
+                            style = CorusFont.button,
+                            color = CorusColors.Background,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+                }
+            }
+
+            // Favorites mode with no posts — mirrors iOS favoritesEmptyState.
+            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedMode == "favorites" -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    header()
+                    Spacer(modifier = Modifier.height(60.dp))
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription = null,
+                        tint = CorusColors.Tertiary,
+                        modifier = Modifier.size(36.dp),
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    Text(
+                        text = stringResource(R.string.feed_empty_favorites_title),
+                        style = CorusFont.body,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    Text(
+                        text = stringResource(R.string.feed_empty_favorites_subtitle),
+                        style = CorusFont.caption,
+                        color = CorusColors.Tertiary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                    Button(
+                        onClick = { viewModel.setFeedMode("following") },
+                        colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.feed_empty_favorites_button),
                             style = CorusFont.button,
                             color = CorusColors.Background,
                         )
@@ -691,6 +741,7 @@ private fun FeedTitleWithModeMenu(
     feedMode: String,
     forYouEnabled: Boolean,
     trendingFeedEnabled: Boolean,
+    favoritesEnabled: Boolean,
     onSetFeedMode: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -743,13 +794,23 @@ private fun FeedTitleWithModeMenu(
                 )
             }
             DropdownMenuItem(
-                text = { Text("Recent") },
+                text = { Text("Following") },
                 trailingIcon = if (feedMode == "following") activeCheckmark else null,
                 onClick = {
                     onSetFeedMode("following")
                     expanded = false
                 },
             )
+            if (favoritesEnabled) {
+                DropdownMenuItem(
+                    text = { Text("Favorites") },
+                    trailingIcon = if (feedMode == "favorites") activeCheckmark else null,
+                    onClick = {
+                        onSetFeedMode("favorites")
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }
@@ -770,6 +831,7 @@ private fun FeedHeader(
     onGeneratePlaylist: () -> Unit,
     forYouEnabled: Boolean = false,
     trendingFeedEnabled: Boolean = false,
+    favoritesEnabled: Boolean = false,
     feedMode: String = "following",
     onSetFeedMode: (String) -> Unit = {},
 ) {
@@ -779,11 +841,12 @@ private fun FeedHeader(
             .padding(top = CorusSpacing.sm),
         contentAlignment = Alignment.Center,
     ) {
-        if (forYouEnabled || trendingFeedEnabled) {
+        if (forYouEnabled || trendingFeedEnabled || favoritesEnabled) {
             FeedTitleWithModeMenu(
                 feedMode = feedMode,
                 forYouEnabled = forYouEnabled,
                 trendingFeedEnabled = trendingFeedEnabled,
+                favoritesEnabled = favoritesEnabled,
                 onSetFeedMode = onSetFeedMode,
             )
         } else {

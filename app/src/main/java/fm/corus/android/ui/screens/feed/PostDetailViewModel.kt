@@ -212,6 +212,7 @@ class PostDetailViewModel @Inject constructor(
                 trackName = post.track.name,
                 artistName = post.track.artistName,
                 albumArtURL = post.track.albumArtURL,
+                albumArtLargeURL = post.track.albumArtLargeURL,
                 previewUrl = post.track.previewUrl,
                 spotifyURI = post.track.spotifyURI,
                 spotifyWebURL = post.track.spotifyWebURL,

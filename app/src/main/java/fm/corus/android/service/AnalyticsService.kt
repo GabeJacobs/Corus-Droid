@@ -180,6 +180,8 @@ class AnalyticsService @Inject constructor(
     fun logUnblockUser(targetUserId: String) = logEvent("unblock_user", mapOf("target_user_id" to targetUserId))
     fun logMuteUser(targetUserId: String) = logEvent("mute_user", mapOf("target_user_id" to targetUserId))
     fun logUnmuteUser(targetUserId: String) = logEvent("unmute_user", mapOf("target_user_id" to targetUserId))
+    fun logFavoriteAdded(targetUserId: String) = logEvent("favorite_added", mapOf("target_user_id" to targetUserId))
+    fun logFavoriteRemoved(targetUserId: String) = logEvent("favorite_removed", mapOf("target_user_id" to targetUserId))
     fun logReportUser(targetUserId: String) = logEvent("report_user", mapOf("target_user_id" to targetUserId))
     fun logReportPost(postId: String, reason: String) = logEvent("report_post", mapOf("post_id" to postId, "reason" to reason))
     fun logReportComment(commentId: String, reason: String) = logEvent("report_comment", mapOf("comment_id" to commentId, "reason" to reason))

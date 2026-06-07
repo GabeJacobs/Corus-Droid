@@ -203,11 +203,27 @@ class FeedViewModel @Inject constructor(
     // the user taps a mode it's persisted and wins. (A device that persisted
     // the long-gone "discovery" value falls through to the default — that mode
     // never shipped, so no real user is affected.)
-    private fun resolveFeedMode(stored: String): String = when (stored) {
-        "following", "forYou", "trending" -> stored
-        else ->
-            if (remoteConfig.defaultForYouFeedEnabled && remoteConfig.forYouEnabled) "forYou"
-            else "following"
+    private fun resolveFeedMode(stored: String): String {
+        // First resolve the stored / default choice…
+        val resolved = when (stored) {
+            "following", "forYou", "trending", "favorites" -> stored
+            else ->
+                if (remoteConfig.defaultForYouFeedEnabled && remoteConfig.forYouEnabled) "forYou"
+                else "following"
+        }
+        // …then guarantee it's a mode that's actually AVAILABLE. A ranked mode
+        // is only valid while its RC gate is on, but feedMode is device-persisted
+        // and can outlive the flag — e.g. logging into an account where for_you
+        // is off after another picked "forYou", or a default pointing at a
+        // disabled feed. Returning a disabled mode leaves the menu with nothing
+        // selected and loads a feed the user can't switch away from. Following
+        // has no gate, so it's the safe fallback.
+        return when (resolved) {
+            "forYou" -> if (remoteConfig.forYouEnabled) "forYou" else "following"
+            "trending" -> if (remoteConfig.trendingFeedEnabled) "trending" else "following"
+            "favorites" -> if (remoteConfig.favoritesEnabled) "favorites" else "following"
+            else -> "following"
+        }
     }
     val feedMode: StateFlow<String> = preferencesDataStore.feedMode
         .map { resolveFeedMode(it) }
@@ -393,6 +409,7 @@ class FeedViewModel @Inject constructor(
         // and resolveFeedMode already handles the unset case via the RC default.
         val mode = feedMode.value
         val useRanked = mode == "forYou" || mode == "trending"
+        val useFavorites = mode == "favorites"
         val rankedScope = if (mode == "trending") "trending" else "forYou"
 
         try {
@@ -439,6 +456,18 @@ class FeedViewModel @Inject constructor(
                     }
                 }
                 _forYouLoadFailed.value = false
+            } else if (useFavorites) {
+                // Chronological feed limited to favorited users. Paged by
+                // lastTimestamp like Following, but via getFavoritesFeedPage.
+                val page = postRepository.getFavoritesFeedPage(
+                    userId = userId,
+                    pageSize = 7,
+                    lastTimestamp = if (refresh) null else lastTimestamp,
+                    mediaType = _feedFilter.value.mediaType,
+                    newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                )
+                newPosts = page.posts
+                pageHasMore = page.hasMore
             } else {
                 val page = postRepository.getFeedPage(
                     userId = userId,

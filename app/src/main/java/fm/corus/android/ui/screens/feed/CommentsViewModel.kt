@@ -243,6 +243,12 @@ class CommentsViewModel @Inject constructor(
     private var postId: String = ""
     private var listeningPostId: String? = null
 
+    // Real-time comments listener (mirrors iOS). Keeps comment like counts and
+    // heart state fresh while the screen is open instead of showing a snapshot.
+    private var commentsListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var listeningCommentsPostId: String? = null
+    private var commentsReloadJob: Job? = null
+
     private val _editingComment = MutableStateFlow<CymbalComment?>(null)
     val editingComment: StateFlow<CymbalComment?> = _editingComment.asStateFlow()
 
@@ -323,33 +329,72 @@ class CommentsViewModel @Inject constructor(
             _replyingTo.value = null
             _likedCommentIds.value = emptySet()
         }
+        attachCommentsListener(postId)
         viewModelScope.launch {
             _isLoading.value = true
-            try {
-                val allComments = postRepository.getComments(postId)
-                val topLevel = allComments.filter { it.parentCommentId == null }
-                val replies = allComments.filter { it.parentCommentId != null }
-                    .groupBy { it.parentCommentId!! }
-
-                _comments.value = topLevel
-                _repliesByParent.value = replies
-
-                // Preload which of these comments the current user has already
-                // liked so the heart renders filled on first open. Without this,
-                // the heart always appears empty and tapping it triggers another
-                // server-side likeCount increment even though our like doc is
-                // just being overwritten.
-                val userId = authRepository.currentUserId
-                if (userId != null && allComments.isNotEmpty()) {
-                    val liked = postRepository.checkCommentLikesBatch(
-                        userId = userId,
-                        postId = postId,
-                        commentIds = allComments.map { it.id },
-                    )
-                    _likedCommentIds.value = liked
-                }
-            } catch (_: Exception) { }
+            fetchAndApplyComments(postId)
             _isLoading.value = false
+        }
+    }
+
+    /**
+     * Fetch comments + the viewer's liked-set and apply them to state. Shared by
+     * the initial load (which toggles `isLoading`) and the real-time listener's
+     * background reload (which must not flash a spinner over the existing list).
+     */
+    private suspend fun fetchAndApplyComments(postId: String) {
+        try {
+            val allComments = postRepository.getComments(postId)
+            val topLevel = allComments.filter { it.parentCommentId == null }
+            val replies = allComments.filter { it.parentCommentId != null }
+                .groupBy { it.parentCommentId!! }
+
+            _comments.value = topLevel
+            _repliesByParent.value = replies
+
+            // Preload which of these comments the current user has already
+            // liked so the heart renders filled on first open. Without this,
+            // the heart always appears empty and tapping it triggers another
+            // server-side likeCount increment even though our like doc is
+            // just being overwritten.
+            val userId = authRepository.currentUserId
+            if (userId != null && allComments.isNotEmpty()) {
+                val liked = postRepository.checkCommentLikesBatch(
+                    userId = userId,
+                    postId = postId,
+                    commentIds = allComments.map { it.id },
+                )
+                _likedCommentIds.value = liked
+            }
+        } catch (_: Exception) { }
+    }
+
+    /**
+     * Attach a real-time listener on the comments subcollection so likes from
+     * other users (and our own server-confirmed writes) refresh the counts and
+     * heart state live, matching iOS `attachCommentsListener`. Idempotent per
+     * post; the prior listener is torn down when the post changes.
+     */
+    private fun attachCommentsListener(postId: String) {
+        if (listeningCommentsPostId == postId && commentsListener != null) return
+        commentsListener?.remove()
+        listeningCommentsPostId = postId
+        commentsListener = postRepository.listenForCommentChanges(postId) {
+            scheduleCommentsReload(postId)
+        }
+    }
+
+    /**
+     * Coalesce bursts of comment-subcollection changes into one reload, matching
+     * iOS's 150ms debounce so a flurry of writes triggers a single re-fetch.
+     */
+    private fun scheduleCommentsReload(postId: String) {
+        commentsReloadJob?.cancel()
+        commentsReloadJob = viewModelScope.launch {
+            delay(150)
+            if (this@CommentsViewModel.postId == postId) {
+                fetchAndApplyComments(postId)
+            }
         }
     }
 
@@ -701,6 +746,7 @@ class CommentsViewModel @Inject constructor(
                 trackName = post.track.name,
                 artistName = post.track.artistName,
                 albumArtURL = post.track.albumArtURL,
+                albumArtLargeURL = post.track.albumArtLargeURL,
                 previewUrl = post.track.previewUrl,
                 spotifyURI = post.track.spotifyURI,
                 spotifyWebURL = post.track.spotifyWebURL,
@@ -988,5 +1034,9 @@ class CommentsViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         listeningPostId?.let { engagementManager.stopListening(it) }
+        commentsReloadJob?.cancel()
+        commentsListener?.remove()
+        commentsListener = null
+        listeningCommentsPostId = null
     }
 }

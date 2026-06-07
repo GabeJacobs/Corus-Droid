@@ -8,6 +8,7 @@ import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.messaging.FirebaseMessaging
+import fm.corus.android.data.local.OnboardingLocalStore
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
@@ -34,6 +35,7 @@ class AuthRepositoryAppleTest {
     private val storageDataSource = mock<FirebaseStorageDataSource>()
     private val messaging = mock<FirebaseMessaging>()
     private val cloudFunctions = mock<CloudFunctionsDataSource>()
+    private val onboardingLocalStore = mock<OnboardingLocalStore>()
     private val activity = mock<Activity>()
 
     private fun newRepo() = AuthRepository(
@@ -43,6 +45,7 @@ class AuthRepositoryAppleTest {
         storageDataSource,
         messaging,
         cloudFunctions,
+        onboardingLocalStore,
     )
 
     @Test

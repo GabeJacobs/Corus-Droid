@@ -43,6 +43,12 @@ data class QueuedTrack(
     val trackName: String,
     val artistName: String,
     val albumArtURL: String?,
+    /**
+     * High-resolution artwork URL, carried alongside the thumbnail so that
+     * posting a track straight from the mini-player (tap art → Post Song)
+     * writes the full-res image instead of the blurry preview thumbnail.
+     */
+    val albumArtLargeURL: String? = null,
     val previewUrl: String?,
     val spotifyURI: String?,
     val spotifyWebURL: String?,
@@ -65,6 +71,8 @@ data class NowPlayingState(
     val trackName: String = "",
     val artistName: String = "",
     val albumArtURL: String? = null,
+    /** High-res artwork for posting from the mini-player; see [QueuedTrack.albumArtLargeURL]. */
+    val albumArtLargeURL: String? = null,
     val spotifyURI: String? = null,
     val spotifyWebURL: String? = null,
     val isPlaying: Boolean = false,
@@ -378,6 +386,7 @@ class NowPlayingManager @Inject constructor(
         trackName: String,
         artistName: String,
         albumArtURL: String?,
+        albumArtLargeURL: String? = null,
         previewUrl: String?,
         spotifyURI: String? = null,
         spotifyWebURL: String? = null,
@@ -398,6 +407,7 @@ class NowPlayingManager @Inject constructor(
                 trackName = trackName,
                 artistName = artistName,
                 albumArtURL = albumArtURL,
+                albumArtLargeURL = albumArtLargeURL,
                 previewUrl = previewUrl,
                 spotifyURI = spotifyURI,
                 spotifyWebURL = spotifyWebURL,
@@ -483,6 +493,7 @@ class NowPlayingManager @Inject constructor(
             trackName = track.trackName,
             artistName = track.artistName,
             albumArtURL = track.albumArtURL,
+            albumArtLargeURL = track.albumArtLargeURL,
             spotifyURI = track.spotifyURI,
             spotifyWebURL = track.spotifyWebURL,
             isPlaying = true,

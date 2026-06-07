@@ -11,7 +11,8 @@ enum class NotificationType(val value: String) {
     NEW_POST("new_post"),
     REPLY("reply"),
     CONTACT_JOINED("contact_joined"),
-    TASTE_MATCH("taste_match");
+    TASTE_MATCH("taste_match"),
+    FAVORITE("favorite");
 
     val supportsCommentActions: Boolean
         get() = this in listOf(COMMENT, REPLY, MENTION)

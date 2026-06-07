@@ -25,6 +25,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.filled.MusicNote
@@ -137,6 +139,7 @@ fun OtherProfileScreen(
     val isBlocked by viewModel.isBlocked.collectAsState()
     val isMuted by viewModel.isMuted.collectAsState()
     val isSubscribedToNotifications by viewModel.isSubscribedToNotifications.collectAsState()
+    val isFavorite by viewModel.isFavorite.collectAsState()
     val matchData by viewModel.matchData.collectAsState()
     var showMatchSheet by remember { mutableStateOf(false) }
     val isOwnProfile = viewModel.currentUserId == userId
@@ -238,6 +241,31 @@ fun OtherProfileScreen(
                             tint = if (isSubscribedToNotifications) CorusColors.Accent else CorusColors.Text,
                             modifier = Modifier.size(22.dp),
                         )
+                    }
+
+                    // Favorites star button (matching iOS), gated by remote config
+                    if (viewModel.favoritesEnabled) {
+                        IconButton(onClick = {
+                            val username = profile?.username ?: ""
+                            val nowFavorite = viewModel.toggleFavorite(userId)
+                            ToastManager.show(
+                                notifContext.getString(
+                                    if (nowFavorite) fm.corus.android.R.string.other_profile_toast_favorite_added_format
+                                    else fm.corus.android.R.string.other_profile_toast_favorite_removed_format,
+                                    username
+                                )
+                            )
+                        }) {
+                            Icon(
+                                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDescription = stringResource(
+                                    if (isFavorite) fm.corus.android.R.string.other_profile_cd_remove_favorite
+                                    else fm.corus.android.R.string.other_profile_cd_add_favorite
+                                ),
+                                tint = if (isFavorite) CorusColors.Accent else CorusColors.Text,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
                     }
 
                     // Dedicated message button (matching iOS outlined envelope icon)

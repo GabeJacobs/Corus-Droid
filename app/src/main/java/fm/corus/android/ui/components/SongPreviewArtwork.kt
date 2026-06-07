@@ -60,6 +60,7 @@ fun SongPreviewArtwork(
                             trackName = track.name,
                             artistName = track.artistName,
                             albumArtURL = track.albumArtURL,
+                            albumArtLargeURL = track.albumArtLargeURL,
                             previewUrl = track.previewUrl,
                             spotifyURI = track.spotifyURI,
                             spotifyWebURL = track.spotifyWebURL,

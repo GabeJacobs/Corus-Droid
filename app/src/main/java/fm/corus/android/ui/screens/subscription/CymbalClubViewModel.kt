@@ -23,7 +23,7 @@ enum class PaywallSource(val subtitle: String, val analyticsName: String) {
     FLAIR_PICKER("Customize your badge flair and more.", "flair_picker"),
     SPIN_PICKER("Make your vinyl spin and more.", "spin_picker"),
     STYLE_PICKER("Customize your profile style and more.", "style_picker"),
-    POST_LIMIT("Unlock all features", "post_limit"),
+    POST_LIMIT("Unlock all features. Support Corus.", "post_limit"),
     FIRST_POST("Support Corus. Get Perks.", "first_post"),
     TENTH_POST("Support Corus. Get Perks.", "tenth_post"),
     PLAYLIST_LIMIT("Unlock playlist generation.", "playlist_limit"),

@@ -459,6 +459,18 @@ class UserRepository @Inject constructor(
         return firestoreDataSource.isSubscribedToUserPosts(subscriberId, targetUserId)
     }
 
+    suspend fun addFavorite(userId: String, targetId: String) {
+        firestoreDataSource.addFavorite(userId, targetId)
+    }
+
+    suspend fun removeFavorite(userId: String, targetId: String) {
+        firestoreDataSource.removeFavorite(userId, targetId)
+    }
+
+    suspend fun isFavorite(userId: String, targetId: String): Boolean {
+        return firestoreDataSource.isFavorite(userId, targetId)
+    }
+
     fun clearCaches() {
         _followingIds.value = emptySet()
         _blockedIds.value = emptySet()

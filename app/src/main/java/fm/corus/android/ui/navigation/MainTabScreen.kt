@@ -275,6 +275,7 @@ fun MainTabScreen(
                                 navController.navigate(SongDetailRoute(
                                     trackId = trackId,
                                     albumArtURL = state.albumArtURL,
+                                    albumArtLargeURL = state.albumArtLargeURL,
                                     songName = state.trackName,
                                     artistName = state.artistName,
                                     spotifyURI = state.spotifyURI,
@@ -574,7 +575,7 @@ private fun TabItem(
 
     Column(
         modifier = Modifier
-            .height(CorusSpacing.touchTarget)
+            .defaultMinSize(minHeight = CorusSpacing.touchTarget)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

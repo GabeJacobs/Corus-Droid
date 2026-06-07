@@ -10,6 +10,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import fm.corus.android.data.model.*
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.async
@@ -172,7 +173,12 @@ class FirestoreDataSource @Inject constructor(
             "frameColor" to "black",
             "createdAt" to FieldValue.serverTimestamp(),
         )
-        firestore.collection("users_v2").document(uid).set(data).await()
+        // merge so that if a pre-onboarding stub doc already exists for this uid
+        // (e.g. a server-side write persisted fcmToken/timeZone before the
+        // profile was created), we initialize the profile over it instead of
+        // clobbering those server-owned fields. The matching Firestore rule
+        // allows this owner write when the existing doc has no `username` yet.
+        firestore.collection("users_v2").document(uid).set(data, SetOptions.merge()).await()
     }
 
     suspend fun updateUserProfile(uid: String, fields: Map<String, Any?>) {
@@ -926,6 +932,35 @@ class FirestoreDataSource @Inject constructor(
             }
     }
 
+    /**
+     * Real-time listener on a post's comments subcollection, mirroring iOS
+     * `DatabaseService.listenForCommentChanges`. Fires `onChange` whenever a
+     * comment document changes — including comment-like increments, which write
+     * `likeCount` onto the comment doc — so an open comments screen keeps its
+     * like counts and heart state fresh instead of showing a load-time snapshot.
+     *
+     * The initial snapshot is skipped: the screen already loaded comments via
+     * `getComments`, so reacting to the listener's first emission would just
+     * trigger a redundant reload.
+     */
+    fun listenForCommentChanges(
+        postId: String,
+        onChange: () -> Unit,
+    ): ListenerRegistration {
+        var skippedInitial = false
+        return firestore.collection("posts").document(postId)
+            .collection("comments")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                if (!skippedInitial) {
+                    skippedInitial = true
+                    return@addSnapshotListener
+                }
+                if (snapshot.documentChanges.isEmpty()) return@addSnapshotListener
+                onChange()
+            }
+    }
+
     // ── Notifications listener ──
 
     fun observeNotifications(userId: String, limit: Int = 15): Flow<List<CymbalNotification>> = callbackFlow {
@@ -1582,6 +1617,30 @@ class FirestoreDataSource @Inject constructor(
     suspend fun isSubscribedToUserPosts(subscriberId: String, targetUserId: String): Boolean {
         val docId = "${subscriberId}_${targetUserId}"
         val doc = firestore.collection("postSubscriptions").document(docId).get().await()
+        return doc.exists()
+    }
+
+    // ── Favorites ──
+    // Private per-user list at users_v2/{userId}/favorites/{targetId},
+    // mirroring iOS. Presence of the doc == favorited.
+
+    suspend fun addFavorite(userId: String, targetId: String) {
+        firestore.collection("users_v2").document(userId)
+            .collection("favorites").document(targetId)
+            .set(mapOf("createdAt" to FieldValue.serverTimestamp()))
+            .await()
+    }
+
+    suspend fun removeFavorite(userId: String, targetId: String) {
+        firestore.collection("users_v2").document(userId)
+            .collection("favorites").document(targetId)
+            .delete().await()
+    }
+
+    suspend fun isFavorite(userId: String, targetId: String): Boolean {
+        val doc = firestore.collection("users_v2").document(userId)
+            .collection("favorites").document(targetId)
+            .get().await()
         return doc.exists()
     }
 }

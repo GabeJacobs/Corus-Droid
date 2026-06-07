@@ -152,6 +152,7 @@ fun SongDetailScreen(
                                     trackName = displayName ?: "",
                                     artistName = displayArtist ?: "",
                                     albumArtURL = artUrl,
+                                    albumArtLargeURL = songInfo?.track?.albumArtLargeURL ?: albumArtLargeURL,
                                     previewUrl = effectivePreviewUrl,
                                     spotifyURI = effectiveSpotifyURI.ifBlank { null },
                                     spotifyWebURL = effectiveSpotifyWebURL.ifBlank { null },

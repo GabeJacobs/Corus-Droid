@@ -95,6 +95,37 @@ class CloudFunctionsDataSource @Inject constructor(
         return FeedPage(posts, hasMore, uniquePosterCount)
     }
 
+    /**
+     * Chronological feed limited to the users the caller has favorited. Mirrors
+     * [getFeedPage] but hits the `getFavoritesFeedPage` callable, which queries
+     * the caller's `users_v2/{uid}/favorites` subcollection.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun getFavoritesFeedPage(
+        userId: String,
+        pageSize: Int = 7,
+        lastTimestamp: Long? = null,
+        mediaType: MediaType? = null,
+        newReleasesOnly: Boolean = false,
+    ): FeedPage {
+        val params = mutableMapOf<String, Any>(
+            "userId" to userId,
+            "pageSize" to pageSize,
+        )
+        lastTimestamp?.let { params["beforeMs"] = it }
+        mediaType?.let { params["mediaType"] = it.value }
+        if (newReleasesOnly) params["newReleasesOnly"] = true
+
+        val result = functions.getHttpsCallable("getFavoritesFeedPage").call(params).await()
+        val data = result.getData() as? Map<String, Any?> ?: return FeedPage(emptyList(), false)
+
+        val postsData = data["posts"] as? List<Map<String, Any?>> ?: emptyList()
+        val posts = postsData.map { CymbalPost.fromCloudData(it) }
+        val hasMore = data["hasMore"] as? Boolean ?: (posts.size >= pageSize)
+
+        return FeedPage(posts, hasMore)
+    }
+
     data class ForYouFeedPage(
         val posts: List<CymbalPost>,
         val hasMore: Boolean,

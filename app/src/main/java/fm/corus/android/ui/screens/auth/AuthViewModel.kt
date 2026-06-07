@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuth.AuthStateListener
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.PhoneAuthCredential
@@ -17,6 +18,7 @@ import com.google.firebase.auth.PhoneAuthProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
+import fm.corus.android.data.local.OnboardingLocalStore
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.SubscriptionRepository
@@ -52,6 +54,7 @@ class AuthViewModel @Inject constructor(
     private val musicServicePreference: MusicServicePreference,
     private val nowPlayingManager: NowPlayingManager,
     private val networkMonitor: NetworkMonitor,
+    private val onboardingLocalStore: OnboardingLocalStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -63,7 +66,24 @@ class AuthViewModel @Inject constructor(
         data object SignedIn : AuthState()
     }
 
-    private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
+    // Seed the initial state synchronously from local data so a returning,
+    // already-onboarded user renders the feed on the very first frame — native
+    // splash → feed skeleton, never the Loading spinner. The auth-state listener
+    // (started by observeAuthState) then runs the same re-validation in the
+    // background and can eject. A signed-out launch goes straight to the auth
+    // screen; a logged-in-but-not-yet-flagged user (new sign-up, or an existing
+    // user's first launch after this shipped) falls back to Loading and the slow
+    // path, exactly as before.
+    private val _authState = MutableStateFlow<AuthState>(
+        run {
+            val user = firebaseAuth.currentUser
+            when {
+                user == null -> AuthState.SignedOut
+                onboardingLocalStore.hasCompletedOnboarding(user.uid) -> AuthState.SignedIn
+                else -> AuthState.Loading
+            }
+        }
+    )
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
@@ -143,6 +163,16 @@ class AuthViewModel @Inject constructor(
             val code = (error as? FirebaseAuthException)?.errorCode
             return isFatalAuthErrorCode(code)
         }
+
+        /**
+         * Whether a cold launch may skip the blocking auth gate and route straight
+         * to the feed: only when a Firebase session is restored (`hasUser`) AND a
+         * local flag proves this uid already finished onboarding — so we never
+         * flash the feed at a user who actually needs onboarding. Pure, for tests.
+         * Mirrors iOS `AuthService.shouldFastPathLaunch`.
+         */
+        internal fun shouldFastPathLaunch(hasUser: Boolean, hasCompletedOnboardingLocally: Boolean): Boolean =
+            hasUser && hasCompletedOnboardingLocally
     }
 
     private var authStateListener: AuthStateListener? = null
@@ -162,6 +192,23 @@ class AuthViewModel @Inject constructor(
                 if (user == null) {
                     unreadCountsRepository.stop()
                     _authState.value = AuthState.SignedOut
+                    return@launch
+                }
+
+                // Fast path: a returning, already-onboarded user (local flag) is
+                // already on the feed (seeded in the initial state). Re-validate in
+                // the background — ban / profile / RevenueCat alias / warmups — and
+                // eject only if something is wrong. New users and pre-backfill first
+                // launches fall through to the blocking slow path below, unchanged.
+                if (shouldFastPathLaunch(
+                        hasUser = true,
+                        hasCompletedOnboardingLocally = onboardingLocalStore.hasCompletedOnboarding(user.uid),
+                    )
+                ) {
+                    analyticsService.setUserId(user.uid)
+                    unreadCountsRepository.start(user.uid)
+                    _authState.value = AuthState.SignedIn
+                    launch { revalidateInBackground(user) }
                     return@launch
                 }
 
@@ -207,6 +254,11 @@ class AuthViewModel @Inject constructor(
                             subscriptionRepository.updateVerifiedStatus(profile.isVerified)
                             subscriptionRepository.setTotalPostCount(profile.cymbalCount)
                         }
+
+                        // Backfill the local onboarding flag so existing users (who
+                        // onboarded before it existed) fast-path on their next
+                        // launch. One slow launch, then fast forever.
+                        onboardingLocalStore.markCompletedOnboarding(user.uid)
 
                         // Prefetch in parallel
                         launch { userRepository.prefetchFollowingSet(user.uid) }
@@ -283,6 +335,59 @@ class AuthViewModel @Inject constructor(
                     }
                     // Otherwise still transient — leave the flag set and try again on the next reconnect.
                 }
+            }
+        }
+    }
+
+    /**
+     * Background re-validation for the launch fast path: the same checks the slow
+     * path runs (ban, profile hydration, RevenueCat alias, warmups), but it runs
+     * *after* the user is already on the feed and can only **eject** — it never
+     * gates the UI. Mirrors iOS's background path in `handleSignedInUser`.
+     */
+    private suspend fun revalidateInBackground(user: FirebaseUser) {
+        try {
+            if (authRepository.checkIfUserIsBanned(user.uid)) {
+                authRepository.signOut()
+                _error.value = context.getString(R.string.auth_error_account_suspended)
+                _authState.value = AuthState.SignedOut
+                return
+            }
+            if (authRepository.checkNeedsOnboarding()) {
+                // The local flag said onboarded, but the profile is gone (deleted
+                // on another device). Eject rather than flip an established session
+                // into onboarding.
+                authRepository.signOut()
+                _authState.value = AuthState.SignedOut
+                return
+            }
+            val profile = authRepository.userProfile.value
+            if (profile != null) {
+                subscriptionRepository.updateVerifiedStatus(profile.isVerified)
+                subscriptionRepository.setTotalPostCount(profile.cymbalCount)
+            }
+            // RevenueCat alias — backgrounded here (was inline, before SignedIn, on
+            // the slow path). Matches iOS, which has always aliased in its
+            // background warmup; subscription status is read from the
+            // SharedPreferences cache meanwhile, so gating is never wrong.
+            subscriptionRepository.loginUser(user.uid)
+
+            viewModelScope.launch { userRepository.prefetchFollowingSet(user.uid) }
+            viewModelScope.launch { userRepository.prefetchBlockedSet(user.uid) }
+            viewModelScope.launch { userRepository.prefetchMutedSet(user.uid) }
+            userRepository.startBannedUsersListener()
+            viewModelScope.launch { userRepository.prefetchSuggestedMatches(user.uid) }
+            viewModelScope.launch { authRepository.registerFCMToken() }
+            viewModelScope.launch { remoteConfigService.fetchAndActivate() }
+            viewModelScope.launch { subscriptionRepository.refreshPostLimit() }
+            viewModelScope.launch { musicServicePreference.syncFromFirestore() }
+        } catch (e: Exception) {
+            if (isFatalAuthError(e)) {
+                authRepository.signOut()
+                _authState.value = AuthState.SignedOut
+            } else {
+                Log.w("AuthViewModel", "Transient error during background revalidation; staying signed in", e)
+                needsRefreshAfterReconnect = true
             }
         }
     }

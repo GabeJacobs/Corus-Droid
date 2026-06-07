@@ -153,20 +153,24 @@ fun SinglePostCommentsScreen(
         viewModel.loadPost(postId)
     }
 
-    // Scroll to target comment once comments are loaded
+    // Scroll to target comment once comments are loaded.
+    //
+    // The LazyColumn emits ONE item per top-level comment — each row renders its
+    // own replies inline (see SingleCommentRow), so replies are NOT separate
+    // lazy items. We therefore scroll to the row that *contains* the target: the
+    // comment's own row, or its parent's row when the target is a reply. (A flat
+    // index that counted replies as rows would overshoot and land the
+    // highlighted comment off-screen whenever replies exist above it.)
     LaunchedEffect(comments, highlightCommentId) {
         if (highlightCommentId == null || comments.isEmpty() || hasScrolledToTarget) return@LaunchedEffect
-        // Build flat list of IDs in display order to find the index
-        val flatIds = mutableListOf<String>()
-        // Index 0 is the post header item
-        flatIds.add("header")
-        for (comment in comments) {
-            flatIds.add(comment.id)
-            repliesByParent[comment.id]?.forEach { reply -> flatIds.add(reply.id) }
-        }
-        val targetIndex = flatIds.indexOf(highlightCommentId)
-        if (targetIndex >= 0) {
-            listState.animateScrollToItem(targetIndex)
+        val targetRow = comments.indexOfFirst { it.id == highlightCommentId }
+            .takeIf { it >= 0 }
+            ?: comments.indexOfFirst { parent ->
+                repliesByParent[parent.id]?.any { it.id == highlightCommentId } == true
+            }
+        if (targetRow >= 0) {
+            // +1 for the post header item at index 0.
+            listState.animateScrollToItem(targetRow + 1)
             hasScrolledToTarget = true
             activeHighlightId = highlightCommentId
             delay(1500)

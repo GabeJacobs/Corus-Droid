@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -82,6 +83,7 @@ fun NotificationsScreen(
     onNavigateToPostComments: (postId: String, commentId: String) -> Unit = { _, _ -> },
 ) {
     val notifications by viewModel.notifications.collectAsState()
+    var showFavoriteInfo by remember { mutableStateOf(false) }
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val hasLoadError by viewModel.hasLoadError.collectAsState()
@@ -103,6 +105,11 @@ fun NotificationsScreen(
     }
 
     val context = LocalContext.current
+
+    if (showFavoriteInfo) {
+        FavoriteInfoDialog(onDismiss = { showFavoriteInfo = false })
+    }
+
     LaunchedEffect(Unit) {
         viewModel.loadNotifications()
         // Clear any outstanding system-tray notifications so the launcher icon
@@ -186,7 +193,9 @@ fun NotificationsScreen(
                                 isNew = newNotificationIds.contains(notification.id),
                                 onClick = {
                                     viewModel.markNotificationTapped(notification.id)
-                                    if (notification.type == NotificationType.TASTE_MATCH) {
+                                    if (notification.type == NotificationType.FAVORITE) {
+                                        showFavoriteInfo = true
+                                    } else if (notification.type == NotificationType.TASTE_MATCH) {
                                         val isActivity = notification.subtype == "activity_song" ||
                                                 notification.subtype == "activity_film"
                                         val postId = notification.postId
@@ -427,14 +436,31 @@ private fun NotificationRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         verticalAlignment = if (showCommentActions) Alignment.Top else Alignment.CenterVertically,
     ) {
-        // Left: User avatar (36dp — matches iOS avatarMedium) — taps to user profile
-        Box(modifier = Modifier.clickable(onClick = onUserTap)) {
-            UserAvatarView(
-                avatarURL = notification.fromUser.avatarURL,
-                avatarThumbURL = notification.fromUser.avatarThumbURL,
-                displayName = notification.fromUser.displayName,
-                size = CorusSpacing.avatarMedium,
-            )
+        // Left: avatar (taps to profile) — or, for anonymous favorites, a star.
+        if (notification.type == NotificationType.FAVORITE) {
+            Box(
+                modifier = Modifier
+                    .size(CorusSpacing.avatarMedium)
+                    .clip(CircleShape)
+                    .background(CorusColors.Accent.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Star,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        } else {
+            Box(modifier = Modifier.clickable(onClick = onUserTap)) {
+                UserAvatarView(
+                    avatarURL = notification.fromUser.avatarURL,
+                    avatarThumbURL = notification.fromUser.avatarThumbURL,
+                    displayName = notification.fromUser.displayName,
+                    size = CorusSpacing.avatarMedium,
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(CorusSpacing.md))
@@ -450,7 +476,22 @@ private fun NotificationRow(
         val timeString = DateUtils.relativeTime(context, notification.timestamp)
         val timeSuffix = " $timeString"
 
-        val fullAnnotatedText = if (notification.type == NotificationType.TASTE_MATCH) {
+        val fullAnnotatedText = if (notification.type == NotificationType.FAVORITE) {
+            // Anonymous — bold "Someone", no USER annotation (no profile tap).
+            buildAnnotatedString {
+                withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)) {
+                    append(stringResource(id = R.string.notif_favorite_someone))
+                }
+                append(" ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
+                    append(localizedNotificationMessage(notification, context))
+                }
+                append(" ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, color = CorusColors.Secondary)) {
+                    append(timeString)
+                }
+            }
+        } else if (notification.type == NotificationType.TASTE_MATCH) {
             buildTasteMatchAnnotated(notification, timeString)
         } else buildAnnotatedString {
             pushStringAnnotation(tag = "USER", annotation = notification.fromUser.id)
@@ -887,5 +928,67 @@ private fun localizedNotificationMessage(
         NotificationType.CONTACT_JOINED -> context.getString(R.string.notif_msg_contact_joined, appName)
         NotificationType.TASTE_MATCH -> notification.bodyText
             ?: context.getString(R.string.notif_msg_taste_match_default)
+        NotificationType.FAVORITE -> context.getString(R.string.notif_msg_favorite)
     }
+}
+
+/**
+ * Explainer shown when an anonymous "Someone added you to their favorites" row
+ * is tapped. Reinforces that favorites are private and teaches the reciprocal
+ * action. Mirrors the iOS FavoriteInfoSheet.
+ */
+@Composable
+private fun FavoriteInfoDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(CorusColors.Accent.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Star,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(id = R.string.notif_favorite_sheet_title),
+                style = CorusFont.displayName,
+                color = CorusColors.Text,
+            )
+        },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = stringResource(id = R.string.notif_favorite_sheet_body),
+                    style = CorusFont.body,
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
+                Text(
+                    text = stringResource(id = R.string.notif_favorite_sheet_nudge),
+                    style = CorusFont.body.copy(fontSize = 12.sp),
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = stringResource(id = R.string.notif_favorite_sheet_dismiss),
+                    color = CorusColors.Accent,
+                )
+            }
+        },
+        containerColor = CorusColors.CardBackground,
+    )
 }

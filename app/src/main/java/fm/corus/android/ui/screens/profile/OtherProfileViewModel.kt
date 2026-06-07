@@ -8,6 +8,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.MusicMatchData
 import fm.corus.android.data.remote.CloudFunctionsDataSource
@@ -43,7 +45,12 @@ class OtherProfileViewModel @Inject constructor(
     private val postDeletionEvent: PostDeletionEvent,
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
+    private val analyticsService: AnalyticsService,
+    private val remoteConfig: RemoteConfigService,
 ) : ViewModel() {
+
+    /** Whether the Favorites feature (star button) is enabled in Remote Config. */
+    val favoritesEnabled: Boolean get() = remoteConfig.favoritesEnabled
 
     /**
      * Resolve the link-out URL for a Spotify-source track given the viewer's
@@ -123,6 +130,9 @@ class OtherProfileViewModel @Inject constructor(
     private val _isSubscribedToNotifications = MutableStateFlow(false)
     val isSubscribedToNotifications: StateFlow<Boolean> = _isSubscribedToNotifications.asStateFlow()
 
+    private val _isFavorite = MutableStateFlow(false)
+    val isFavorite: StateFlow<Boolean> = _isFavorite.asStateFlow()
+
     // Taste-match payload alongside the target user — drives the profile teaser
     // pill and the detail sheet. Null when there's no overlap (or on own-profile).
     private val _matchData = MutableStateFlow<MusicMatchData?>(null)
@@ -162,6 +172,7 @@ class OtherProfileViewModel @Inject constructor(
                 val viewerIdForSub = authRepository.currentUserId
                 if (viewerIdForSub != null) {
                     _isSubscribedToNotifications.value = userRepository.isSubscribedToUserPosts(viewerIdForSub, userId)
+                    _isFavorite.value = userRepository.isFavorite(viewerIdForSub, userId)
                 }
 
                 val viewerId = authRepository.currentUserId ?: return@launch
@@ -458,6 +469,28 @@ class OtherProfileViewModel @Inject constructor(
                 _isSubscribedToNotifications.value = wasSubscribed
             }
         }
+    }
+
+    /** Returns the new favorited state so the screen can show the right toast. */
+    fun toggleFavorite(userId: String): Boolean {
+        val currentUserId = authRepository.currentUserId ?: return _isFavorite.value
+        val wasFavorite = _isFavorite.value
+        val nowFavorite = !wasFavorite
+        _isFavorite.value = nowFavorite
+        if (nowFavorite) analyticsService.logFavoriteAdded(userId)
+        else analyticsService.logFavoriteRemoved(userId)
+        viewModelScope.launch {
+            try {
+                if (wasFavorite) {
+                    userRepository.removeFavorite(currentUserId, userId)
+                } else {
+                    userRepository.addFavorite(currentUserId, userId)
+                }
+            } catch (_: Exception) {
+                _isFavorite.value = wasFavorite
+            }
+        }
+        return nowFavorite
     }
 
     fun toggleMute(userId: String) {

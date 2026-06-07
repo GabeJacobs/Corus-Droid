@@ -40,6 +40,17 @@ class PostRepository @Inject constructor(
             .also { cachePosts(it.posts) }
     }
 
+    suspend fun getFavoritesFeedPage(
+        userId: String,
+        pageSize: Int = 7,
+        lastTimestamp: Long? = null,
+        mediaType: MediaType? = null,
+        newReleasesOnly: Boolean = false,
+    ): CloudFunctionsDataSource.FeedPage {
+        return cloudFunctions.getFavoritesFeedPage(userId, pageSize, lastTimestamp, mediaType, newReleasesOnly)
+            .also { cachePosts(it.posts) }
+    }
+
     suspend fun getForYouFeed(
         userId: String,
         pageSize: Int = 7,

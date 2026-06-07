@@ -257,21 +257,22 @@ private fun GridTile(url: String?, modifier: Modifier = Modifier) {
     }
 }
 
-/** Comma-joined artist + director names (deduped, order-preserving) from
- *  shared previews. Mirrors iOS `sharedNames`. Returns null if there are no
- *  similarity signals or no names available. */
-private fun buildSharedNamesSubtitle(
+/** Comma-joined artist + director names (deduped, order-preserving) the viewer
+ *  *actually shares* with this user. Mirrors iOS `sharedNames`. Returns null if
+ *  there are no similarity signals or no names available.
+ *
+ *  Reads the backend's authoritative `sharedArtistNames` / `sharedDirectorNames`
+ *  — NOT the preview tiles. The tiles are padded with the candidate's recent
+ *  (non-shared) posts to fill the 2x2 art grid, so deriving names from them
+ *  surfaced artists the viewer never posted. */
+internal fun buildSharedNamesSubtitle(
     matchData: fm.corus.android.data.model.MusicMatchData?,
 ): String? {
     if (matchData == null || !matchData.hasSimilarityData) return null
     val seen = mutableSetOf<String>()
     val names = mutableListOf<String>()
-    matchData.sharedTrackPreviews.forEach { p ->
-        val name = p.artistName.trim()
-        if (name.isNotEmpty() && seen.add(name.lowercase())) names.add(name)
-    }
-    matchData.sharedMoviePreviews.forEach { p ->
-        val name = p.directorName.trim()
+    (matchData.sharedArtistNames + matchData.sharedDirectorNames).forEach { raw ->
+        val name = raw.trim()
         if (name.isNotEmpty() && seen.add(name.lowercase())) names.add(name)
     }
     return names.takeIf { it.isNotEmpty() }?.joinToString(", ")

@@ -21,6 +21,29 @@ class RemoteConfigService @Inject constructor(
     private val devPrefs by lazy {
         context.getSharedPreferences("corus_dev_flags", Context.MODE_PRIVATE)
     }
+
+    /// Last-known feed-flag values, persisted across launches. Mirrors iOS,
+    /// which hydrates these flags from UserDefaults in init() and refreshes
+    /// them after every fetch. On a cold launch the Firebase RC getters return
+    /// the type default (false) until the disk-cached activated config finishes
+    /// loading, which makes flag-gated UI (the feed-mode chevron, the
+    /// default-mode resolution) pop in. Reading the cached value during that
+    /// window keeps the first frame correct. Refreshed in fetchAndActivate().
+    private val flagCache by lazy {
+        context.getSharedPreferences("corus_rc_cache", Context.MODE_PRIVATE)
+    }
+
+    /// Returns the live activated value when Remote Config has one this process,
+    /// otherwise the last value we persisted (so feed-gated UI renders correctly
+    /// before the disk-cached config loads / a fetch completes).
+    private fun feedFlag(key: String): Boolean {
+        val value = remoteConfig.getValue(key)
+        return if (value.source == FirebaseRemoteConfig.VALUE_SOURCE_REMOTE) {
+            value.asBoolean()
+        } else {
+            flagCache.getBoolean(key, value.asBoolean())
+        }
+    }
     // Existing flags
     val movieModeEnabled: Boolean
         get() = remoteConfig.getBoolean("movie_mode")
@@ -46,9 +69,6 @@ class RemoteConfigService @Inject constructor(
 
     val dailyPostLimitEnabled: Boolean
         get() = remoteConfig.getBoolean("daily_post_limit_enabled")
-
-    val filterForClubMembersOnly: Boolean
-        get() = remoteConfig.getBoolean("filter_for_club_members_only")
 
     val paywallDefaultYearly: Boolean
         get() = remoteConfig.getBoolean("paywall_default_yearly")
@@ -111,25 +131,28 @@ class RemoteConfigService @Inject constructor(
     /// When false, the chevron toggle next to the Corus wordmark is hidden
     /// and the feed behaves identically to today (Following-only).
     val forYouEnabled: Boolean
-        get() {
-            // ⚠️ TEMPORARY LOCAL TEST OVERRIDE — REVERT BEFORE MERGE.
-            // Forces the For You chevron + ranked feed on so we can dogfood
-            // without flipping the Remote Config key. Restore the line below
-            // to flip back to RC control.
-            return true
-            // return remoteConfig.getBoolean("for_you_enabled")
-        }
+        get() = feedFlag("for_you_enabled")
 
     /// Gate for the "Trending" feed mode — same ranking as For You but the
     /// candidate pool is the whole app, not just your follows. Shares the
     /// `trending_feed_enabled` RC key with iOS.
     val trendingFeedEnabled: Boolean
-        get() = remoteConfig.getBoolean("trending_feed_enabled")
+        get() = feedFlag("trending_feed_enabled")
+
+    /// Gate for the entire Favorites feature: star button on profiles + the
+    /// Favorites feed mode. Shares the `favorites_enabled` RC key with iOS.
+    val favoritesEnabled: Boolean
+        get() = feedFlag("favorites_enabled")
+
+    /// Gates the "Someone added you to their favorites" push + in-app row.
+    /// Server-authoritative on the backend; mirrored here for completeness.
+    val favoritesPushEnabled: Boolean
+        get() = remoteConfig.getBoolean("favorites_push_enabled")
 
     /// When true, users who have never explicitly picked a feed mode open in
     /// For You instead of Recent. Only applies until the user picks a mode.
     val defaultForYouFeedEnabled: Boolean
-        get() = remoteConfig.getBoolean("default_for_you_feed_enabled")
+        get() = feedFlag("default_for_you_feed_enabled")
 
     /**
      * Per-post comments-audience picker (Everyone / Followers / Off).
@@ -177,7 +200,6 @@ class RemoteConfigService @Inject constructor(
                     "review_prompt_enabled" to false,
                     "maintenance_message" to "",
                     "daily_post_limit_enabled" to true,
-                    "filter_for_club_members_only" to false,
                     "paywall_default_yearly" to false,
                     "gif_support" to false,
                     "server_notifications_enabled" to false,
@@ -192,14 +214,29 @@ class RemoteConfigService @Inject constructor(
                     "style_pack_1_enabled" to false,
                     "for_you_enabled" to false,
                     "trending_feed_enabled" to false,
+                    "favorites_enabled" to false,
+                    "favorites_push_enabled" to false,
                     "default_for_you_feed_enabled" to false,
                 )
             ).await()
             val activated = remoteConfig.fetchAndActivate().await()
+            cacheFeedFlags()
             logValues(activated)
         } catch (e: Exception) {
             Log.w("RemoteConfig", "fetchAndActivate failed", e)
         }
+    }
+
+    /// Persist the feed flags so the next cold launch renders the chevron /
+    /// resolves the default mode correctly from the first frame (see feedFlag).
+    /// Reads straight from Remote Config — by this point the fetch has activated.
+    private fun cacheFeedFlags() {
+        flagCache.edit()
+            .putBoolean("for_you_enabled", remoteConfig.getBoolean("for_you_enabled"))
+            .putBoolean("trending_feed_enabled", remoteConfig.getBoolean("trending_feed_enabled"))
+            .putBoolean("favorites_enabled", remoteConfig.getBoolean("favorites_enabled"))
+            .putBoolean("default_for_you_feed_enabled", remoteConfig.getBoolean("default_for_you_feed_enabled"))
+            .apply()
     }
 
     private fun logValues(activated: Boolean) {
@@ -214,7 +251,6 @@ class RemoteConfigService @Inject constructor(
                 "vinyl_flip_enabled=$vinylFlipEnabled " +
                 "review_prompt_enabled=$reviewPromptEnabled " +
                 "daily_post_limit_enabled=$dailyPostLimitEnabled " +
-                "filter_for_club_members_only=$filterForClubMembersOnly " +
                 "paywall_default_yearly=$paywallDefaultYearly " +
                 "gif_support=$gifSupport " +
                 "server_notifications_enabled=$serverNotificationsEnabled " +
