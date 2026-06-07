@@ -120,10 +120,11 @@ class RemoteConfigService @Inject constructor(
             // return remoteConfig.getBoolean("for_you_enabled")
         }
 
-    /// Gate for the "Discovery" feed mode — same ranking as For You but the
-    /// candidate pool is the whole app, not just your follows.
-    val discoveryFeedEnabled: Boolean
-        get() = remoteConfig.getBoolean("discovery_feed_enabled")
+    /// Gate for the "Trending" feed mode — same ranking as For You but the
+    /// candidate pool is the whole app, not just your follows. Shares the
+    /// `trending_feed_enabled` RC key with iOS.
+    val trendingFeedEnabled: Boolean
+        get() = remoteConfig.getBoolean("trending_feed_enabled")
 
     /// When true, users who have never explicitly picked a feed mode open in
     /// For You instead of Recent. Only applies until the user picks a mode.
@@ -190,7 +191,7 @@ class RemoteConfigService @Inject constructor(
                     "new_release_filter_club_only" to false,
                     "style_pack_1_enabled" to false,
                     "for_you_enabled" to false,
-                    "discovery_feed_enabled" to false,
+                    "trending_feed_enabled" to false,
                     "default_for_you_feed_enabled" to false,
                 )
             ).await()

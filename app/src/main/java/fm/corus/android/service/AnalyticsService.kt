@@ -102,6 +102,13 @@ class AnalyticsService @Inject constructor(
     fun logNotificationPermissionResult(granted: Boolean) = logEvent("notification_permission_result", mapOf("granted" to granted))
     fun logBotPreviewPlayed(botUserId: String) = logEvent("bot_preview_played", mapOf("bot_user_id" to botUserId))
 
+    /**
+     * The user picked a preferred music service (onboarding or Settings). The
+     * `service` value is the canonical `MusicService.value` ("spotify",
+     * "appleMusic", "tidal", "deezer"). Mirrors iOS `music_service_selected`.
+     */
+    fun logMusicServiceSelected(service: String) = logEvent("music_service_selected", mapOf("service" to service))
+
     // MARK: - Post Events
 
     fun logPostCreated(
@@ -150,6 +157,7 @@ class AnalyticsService @Inject constructor(
     fun logTrendingHashtagTapped(hashtagName: String) = logEvent("trending_hashtag_tapped", mapOf("hashtag_name" to hashtagName))
     fun logSearchFilterChanged(filter: String) = logEvent("search_filter_changed", mapOf("filter" to filter))
     fun logFeedFilterChanged(filter: String) = logEvent("feed_filter_changed", mapOf("filter" to filter))
+    fun logFeedModeChanged(mode: String) = logEvent("feed_mode_changed", mapOf("mode" to mode))
     fun logDeepLinkOpened(linkType: String) = logEvent("deep_link_opened", mapOf("link_type" to linkType))
 
     // Cross-section search-page events. Pair with `logMusicMatchTapped` for Taste Matches
@@ -190,6 +198,16 @@ class AnalyticsService @Inject constructor(
     fun logFilmDetailViewed(filmId: String) = logEvent("film_detail_viewed", mapOf("film_id" to filmId))
     fun logPostThisSongTapped(trackId: String) = logEvent("post_this_song_tapped", mapOf("track_id" to trackId))
     fun logSpotifyLinkTapped(trackId: String) = logEvent("spotify_link_tapped", mapOf("track_id" to trackId))
+
+    /**
+     * Link-out tap for a non-Spotify service (TIDAL, Deezer, Apple Music).
+     * Spotify keeps the established `spotify_link_tapped`; every other service
+     * routes here with a `service` param (the canonical `MusicService.value`)
+     * so the three are comparable in one report. Mirrors iOS
+     * `AnalyticsService.logMusicServiceLinkTapped`.
+     */
+    fun logMusicServiceLinkTapped(service: String, trackId: String) =
+        logEvent("music_service_link_tapped", mapOf("service" to service, "track_id" to trackId))
     fun logTrailerLinkTapped(filmId: String) = logEvent("trailer_link_tapped", mapOf("film_id" to filmId))
 
     // MARK: - Notification / Message Events

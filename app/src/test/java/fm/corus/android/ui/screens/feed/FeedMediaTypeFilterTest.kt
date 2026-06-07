@@ -69,6 +69,7 @@ class FeedMediaTypeFilterTest {
         preferencesDataStore = mock {
             on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
             on { feedFilter } doReturn savedFeedFilter
+            on { feedMode } doReturn MutableStateFlow("following")
         }
         postRepository = mock()
         authRepository = mock {
@@ -233,6 +234,26 @@ class FeedMediaTypeFilterTest {
         advanceUntilIdle()
 
         org.mockito.kotlin.verify(analyticsService, org.mockito.kotlin.never()).logFeedFilterChanged(any())
+    }
+
+    @Test
+    fun `setFeedMode logs feed_mode_changed`() = runTest(testDispatcher) {
+        val viewModel = vm()
+        // The analytics event fires synchronously, before the async ranked
+        // refetch — so we assert without advancing the dispatcher (which keeps
+        // the test off the getForYouFeed path that "trending" would trigger).
+        viewModel.setFeedMode("trending")
+
+        verify(analyticsService).logFeedModeChanged(eq("trending"))
+    }
+
+    @Test
+    fun `setFeedMode does not log when mode is unchanged`() = runTest(testDispatcher) {
+        val viewModel = vm()
+        // The default resolved mode is "following"; re-selecting it is a no-op.
+        viewModel.setFeedMode("following")
+
+        org.mockito.kotlin.verify(analyticsService, org.mockito.kotlin.never()).logFeedModeChanged(any())
     }
 
     @Test

@@ -106,7 +106,7 @@ fun FeedScreen(
     val feedMode by viewModel.feedMode.collectAsState()
     val forYouLoadFailed by viewModel.forYouLoadFailed.collectAsState()
     val forYouEnabled = viewModel.remoteConfig.forYouEnabled
-    val discoveryFeedEnabled = viewModel.remoteConfig.discoveryFeedEnabled
+    val trendingFeedEnabled = viewModel.remoteConfig.trendingFeedEnabled
     val context = LocalContext.current
     var filterMenuExpanded by remember { mutableStateOf(false) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -241,7 +241,7 @@ fun FeedScreen(
                 }
             },
             forYouEnabled = forYouEnabled,
-            discoveryFeedEnabled = discoveryFeedEnabled,
+            trendingFeedEnabled = trendingFeedEnabled,
             feedMode = feedMode,
             onSetFeedMode = { viewModel.setFeedMode(it) },
         )
@@ -500,11 +500,15 @@ fun FeedScreen(
                                     // preferred service. URL is derived from
                                     // the resolved appleMusicId or the
                                     // `am:`-prefixed trackId.
+                                    viewModel.analyticsService.logMusicServiceLinkTapped(
+                                        fm.corus.android.data.model.MusicService.APPLE_MUSIC.value, post.track.id
+                                    )
                                     val url = post.track.appleMusicURL
                                     if (!url.isNullOrBlank()) {
                                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                                     }
                                 } else if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                                    viewModel.analyticsService.logSpotifyLinkTapped(post.track.id)
                                     val uri = post.track.spotifyURI
                                     val webUrl = post.track.spotifyWebURL
                                     try {
@@ -523,6 +527,7 @@ fun FeedScreen(
                                     // Spotify-source post: resolve that service's
                                     // catalog URL via the backend (network, cached),
                                     // then open. Mirrors iOS openInMusicService.
+                                    viewModel.analyticsService.logMusicServiceLinkTapped(musicService.value, post.track.id)
                                     scope.launch {
                                         val url = viewModel.resolveServiceLinkUrl(post.track)
                                         if (!url.isNullOrBlank()) {
@@ -685,7 +690,7 @@ private fun DividerSectionHeader(text: String) {
 private fun FeedTitleWithModeMenu(
     feedMode: String,
     forYouEnabled: Boolean,
-    discoveryFeedEnabled: Boolean,
+    trendingFeedEnabled: Boolean,
     onSetFeedMode: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -717,12 +722,12 @@ private fun FeedTitleWithModeMenu(
                     tint = CorusColors.Accent,
                 )
             }
-            if (discoveryFeedEnabled) {
+            if (trendingFeedEnabled) {
                 DropdownMenuItem(
-                    text = { Text("Discovery") },
-                    trailingIcon = if (feedMode == "discovery") activeCheckmark else null,
+                    text = { Text("Trending") },
+                    trailingIcon = if (feedMode == "trending") activeCheckmark else null,
                     onClick = {
-                        onSetFeedMode("discovery")
+                        onSetFeedMode("trending")
                         expanded = false
                     },
                 )
@@ -764,7 +769,7 @@ private fun FeedHeader(
     onSetFilter: (FeedFilter) -> Unit,
     onGeneratePlaylist: () -> Unit,
     forYouEnabled: Boolean = false,
-    discoveryFeedEnabled: Boolean = false,
+    trendingFeedEnabled: Boolean = false,
     feedMode: String = "following",
     onSetFeedMode: (String) -> Unit = {},
 ) {
@@ -774,11 +779,11 @@ private fun FeedHeader(
             .padding(top = CorusSpacing.sm),
         contentAlignment = Alignment.Center,
     ) {
-        if (forYouEnabled || discoveryFeedEnabled) {
+        if (forYouEnabled || trendingFeedEnabled) {
             FeedTitleWithModeMenu(
                 feedMode = feedMode,
                 forYouEnabled = forYouEnabled,
-                discoveryFeedEnabled = discoveryFeedEnabled,
+                trendingFeedEnabled = trendingFeedEnabled,
                 onSetFeedMode = onSetFeedMode,
             )
         } else {

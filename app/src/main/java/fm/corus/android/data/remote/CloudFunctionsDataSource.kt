@@ -110,7 +110,7 @@ class CloudFunctionsDataSource @Inject constructor(
      * posts when a session expires mid-scroll.
      */
     /**
-     * `scope` is "forYou" (pool = your follows) or "discovery" (pool = the
+     * `scope` is "forYou" (pool = your follows) or "trending" (pool = the
      * whole app). Both use the same ranked callable + pagination machinery.
      */
     @Suppress("UNCHECKED_CAST")

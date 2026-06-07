@@ -196,6 +196,7 @@ class SocialSetupViewModel @Inject constructor(
     }
 
     fun saveMusicService(service: MusicService) {
+        analyticsService.logMusicServiceSelected(service.value)
         viewModelScope.launch {
             musicServicePreference.syncToFirestore(service)
         }

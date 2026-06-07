@@ -197,12 +197,14 @@ class FeedViewModel @Inject constructor(
     private var lastTimestamp: Long? = null
 
     // ── For You feed state ──
-    // Effective feed mode: "following" | "forYou" | "discovery". The stored
+    // Effective feed mode: "following" | "forYou" | "trending". The stored
     // value may be empty ("never picked") — in that case we resolve the
     // opening mode from Remote Config (`default_for_you_feed_enabled`). Once
-    // the user taps a mode it's persisted and wins.
+    // the user taps a mode it's persisted and wins. (A device that persisted
+    // the long-gone "discovery" value falls through to the default — that mode
+    // never shipped, so no real user is affected.)
     private fun resolveFeedMode(stored: String): String = when (stored) {
-        "following", "forYou", "discovery" -> stored
+        "following", "forYou", "trending" -> stored
         else ->
             if (remoteConfig.defaultForYouFeedEnabled && remoteConfig.forYouEnabled) "forYou"
             else "following"
@@ -382,7 +384,7 @@ class FeedViewModel @Inject constructor(
             _isLoading.value = true
         }
 
-        // Ranked feed covers both For You (pool = follows) and Discovery
+        // Ranked feed covers both For You (pool = follows) and Trending
         // (pool = whole app). Both hit the same callable with a `scope` arg.
         // Keyed off the resolved/persisted mode, NOT the Remote Config flags:
         // on a cold launch the flags can briefly read false before RC fetches,
@@ -390,8 +392,8 @@ class FeedViewModel @Inject constructor(
         // A ranked mode can only have been persisted while its flag was on,
         // and resolveFeedMode already handles the unset case via the RC default.
         val mode = feedMode.value
-        val useRanked = mode == "forYou" || mode == "discovery"
-        val rankedScope = if (mode == "discovery") "discovery" else "forYou"
+        val useRanked = mode == "forYou" || mode == "trending"
+        val rankedScope = if (mode == "trending") "trending" else "forYou"
 
         try {
             val newPosts: List<CymbalPost>
@@ -539,6 +541,7 @@ class FeedViewModel @Inject constructor(
      */
     fun setFeedMode(mode: String) {
         if (feedMode.value == mode) return
+        analyticsService.logFeedModeChanged(mode)
         forYouSessionToken = null
         forYouPageIndex = 0
         _forYouLoadFailed.value = false

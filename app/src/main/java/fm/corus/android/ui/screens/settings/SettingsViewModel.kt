@@ -45,6 +45,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Persist the user's music-service choice (local cache + Firestore). */
     fun setMusicService(service: MusicService) {
+        analyticsService.logMusicServiceSelected(service.value)
         viewModelScope.launch { musicServicePreference.syncToFirestore(service) }
     }
 
