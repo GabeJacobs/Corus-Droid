@@ -727,7 +727,8 @@
     <string name="mini_player_cd_open_spotify">Open in Spotify</string>
 
     <!-- Post action menu -->
-    <string name="post_menu_play_spotify">Play in Spotify</string>
+    <string name="post_menu_play_in_service">Play in %1$s</string>
+    <string name="post_menu_open_soundcloud">Open in SoundCloud</string>
     <string name="post_menu_view_film_page">View Film Page</string>
     <string name="post_menu_view_song_page">View Song Page</string>
     <string name="post_menu_view_front_cover">View Front Cover</string>

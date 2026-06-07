@@ -57,7 +57,7 @@ class PostDetailViewModel @Inject constructor(
      * preferred service (Apple Music / TIDAL / Deezer). Returns null for Spotify
      * (caller opens the post's own URI) and on no-match / error. See FeedViewModel.
      */
-    suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
+    override suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
         fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(
             track, musicServicePreference.current.value, cloudFunctions,
         )

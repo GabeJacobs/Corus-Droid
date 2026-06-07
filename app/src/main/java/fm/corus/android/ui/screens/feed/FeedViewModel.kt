@@ -135,7 +135,7 @@ class FeedViewModel @Inject constructor(
      * (caller opens the post's own URI) and on no-match / error. Network-bound
      * for Apple/TIDAL/Deezer; cached per-process by MusicServiceLinkOut.
      */
-    suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
+    override suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
         fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(
             track, musicServicePreference.current.value, cloudFunctions,
         )

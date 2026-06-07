@@ -76,7 +76,7 @@ class ProfileFeedViewModel @Inject constructor(
      * Resolve the link-out URL for a Spotify-source track given the viewer's
      * preferred service (Apple Music / TIDAL / Deezer). See FeedViewModel.
      */
-    suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
+    override suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
         fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(
             track, musicServicePreference.current.value, cloudFunctions,
         )

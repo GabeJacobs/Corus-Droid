@@ -646,6 +646,7 @@ fun FeedScreen(
         onEditCaptionPostChange = { editCaptionPost = it },
         onDeleteConfirmPostChange = { showDeleteConfirm = it },
         actions = viewModel,
+        musicService = musicService,
         backCoverStateFor = ::backCoverStateFor,
         onNavigateToSong = onNavigateToSong,
         onNavigateToFilm = onNavigateToFilm,

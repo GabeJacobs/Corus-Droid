@@ -1,6 +1,7 @@
 package fm.corus.android.ui.components
 
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -28,4 +29,8 @@ interface PostMenuActions {
     fun blockUser(targetUserId: String)
     fun deletePost(postId: String)
     suspend fun fetchBackCover(postId: String): String?
+
+    /** Resolves the viewer's preferred-service catalog URL for [track] (Apple
+     *  Music / TIDAL / Deezer); used by the post menu's "Open in service" row. */
+    suspend fun resolveServiceLinkUrl(track: CymbalTrack): String?
 }

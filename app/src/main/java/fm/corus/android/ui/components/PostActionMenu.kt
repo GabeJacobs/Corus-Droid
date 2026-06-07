@@ -1,7 +1,5 @@
 package fm.corus.android.ui.components
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,11 +22,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.MusicService
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -41,7 +40,9 @@ import fm.corus.android.ui.theme.CorusSpacing
 fun PostActionMenu(
     post: CymbalPost,
     isMine: Boolean,
+    musicService: MusicService = MusicService.SPOTIFY,
     onDismiss: () -> Unit,
+    onOpenInService: () -> Unit = {},
     onViewSongPage: () -> Unit = {},
     onViewFilmPage: () -> Unit = {},
     onViewBackCover: () -> Unit = {},
@@ -55,9 +56,7 @@ fun PostActionMenu(
     onReportPost: () -> Unit = {},
     onBlockUser: () -> Unit = {},
 ) {
-    val context = LocalContext.current
     val isMovie = post.isMovie
-    val spotifyUri = post.track.spotifyURI.takeIf { it.isNotBlank() }
 
     Column(
         modifier = Modifier
@@ -74,23 +73,21 @@ fun PostActionMenu(
                 .padding(top = CorusSpacing.sm),
         )
 
-        // Play in Spotify (for tracks)
-        if (!isMovie && spotifyUri != null) {
+        // Open in the viewer's preferred music service (tracks only). Locks to
+        // SoundCloud / Apple Music for those track sources; otherwise honors the
+        // selected service (Spotify / Apple Music / TIDAL / Deezer). Mirrors iOS.
+        if (!isMovie) {
+            val openLabel = when (post.track.source) {
+                TrackSource.SOUNDCLOUD -> stringResource(R.string.post_menu_open_soundcloud)
+                TrackSource.APPLEMUSIC ->
+                    stringResource(R.string.post_menu_play_in_service, MusicService.APPLE_MUSIC.displayLabel)
+                else ->
+                    stringResource(R.string.post_menu_play_in_service, musicService.displayLabel)
+            }
             MenuRow(
                 icon = Icons.Filled.PlayArrow,
-                label = stringResource(R.string.post_menu_play_spotify),
-                onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(spotifyUri))
-                    try {
-                        context.startActivity(intent)
-                    } catch (_: Exception) {
-                        // Spotify not installed — try web
-                        val webUri = spotifyUri.replace("spotify:", "https://open.spotify.com/")
-                            .replace(":", "/")
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUri)))
-                    }
-                    onDismiss()
-                },
+                label = openLabel,
+                onClick = { onOpenInService(); onDismiss() },
             )
         }
 

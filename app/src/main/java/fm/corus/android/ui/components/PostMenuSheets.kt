@@ -3,6 +3,8 @@ package fm.corus.android.ui.components
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
@@ -28,12 +30,16 @@ import androidx.compose.ui.unit.dp
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.service.AnalyticsService
 import fm.corus.android.ui.screens.feed.EditCaptionSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Shared bottom-sheet / dialog bundle for the post "…" menu: action menu,
@@ -59,6 +65,7 @@ fun PostMenuSheets(
     onRepost: (CymbalPost) -> Unit,
     onPostDeleted: (CymbalPost) -> Unit = {},
     onCaptionSaved: () -> Unit = {},
+    musicService: MusicService = MusicService.SPOTIFY,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -149,7 +156,14 @@ fun PostMenuSheets(
             PostActionMenu(
                 post = post,
                 isMine = isOwn,
+                musicService = musicService,
                 onDismiss = { onMenuPostChange(null) },
+                onOpenInService = {
+                    openTrackInPreferredService(
+                        context, scope, post, musicService,
+                        actions.analyticsService, actions::resolveServiceLinkUrl,
+                    )
+                },
                 onViewSongPage = { onNavigateToSong(post.track) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
                 showBackCoverOption = actions.remoteConfig.vinylFlipEnabled && !post.isMovie && post.track.source != TrackSource.SOUNDCLOUD,
@@ -231,6 +245,58 @@ fun PostMenuSheets(
                     onCaptionSaved()
                 },
             )
+        }
+    }
+}
+
+/**
+ * Opens a post's track in the viewer's preferred music service. Mirrors the
+ * inline service-logo button on the post card and iOS's `openInMusicService`:
+ * SoundCloud-source and Apple-Music-only tracks lock to their own service;
+ * everything else honors [musicService] (Spotify opens its own URI directly;
+ * Apple Music / TIDAL / Deezer resolve the catalog URL via [resolveServiceLinkUrl]).
+ */
+fun openTrackInPreferredService(
+    context: Context,
+    scope: CoroutineScope,
+    post: CymbalPost,
+    musicService: MusicService,
+    analytics: AnalyticsService,
+    resolveServiceLinkUrl: suspend (CymbalTrack) -> String?,
+) {
+    val track = post.track
+    fun open(url: String?) {
+        url?.takeIf { it.isNotBlank() }?.let {
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
+        }
+    }
+    when {
+        track.source == TrackSource.SOUNDCLOUD -> open(track.soundcloudPermalinkUrl)
+        track.source == TrackSource.APPLEMUSIC -> {
+            // Apple-only tracks always open in Apple Music, regardless of the
+            // viewer's preferred service. URL derives from the resolved
+            // appleMusicId or the `am:`-prefixed trackId.
+            analytics.logMusicServiceLinkTapped(MusicService.APPLE_MUSIC.value, track.id)
+            open(track.appleMusicURL)
+        }
+        musicService == MusicService.SPOTIFY -> {
+            analytics.logSpotifyLinkTapped(track.id)
+            val uri = track.spotifyURI
+            val webUrl = track.spotifyWebURL
+            try {
+                when {
+                    !uri.isNullOrBlank() -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                    !webUrl.isNullOrBlank() -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)))
+                }
+            } catch (_: Exception) {
+                open(webUrl)
+            }
+        }
+        else -> {
+            // Apple Music / TIDAL / Deezer preference on a Spotify-source post:
+            // resolve that service's catalog URL via the backend, then open.
+            analytics.logMusicServiceLinkTapped(musicService.value, track.id)
+            scope.launch { open(resolveServiceLinkUrl(track)) }
         }
     }
 }

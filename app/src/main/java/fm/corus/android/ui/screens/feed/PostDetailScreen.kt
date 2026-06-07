@@ -395,6 +395,7 @@ fun PostDetailScreen(
         onEditCaptionPostChange = { editCaptionPost = it },
         onDeleteConfirmPostChange = { deleteConfirmPost = it },
         actions = viewModel,
+        musicService = musicService,
         backCoverStateFor = { backCoverFlipState },
         onNavigateToSong = onNavigateToSong,
         onNavigateToFilm = onNavigateToFilm,
