@@ -187,20 +187,33 @@ class RemoteConfigService @Inject constructor(
             // return remoteConfig.getBoolean("comment_controls_on_posts")
         }
 
+    // Tracks the UID last pushed as the `user_id` signal so we can tell when it
+    // changes (login / account switch) and force a fresh fetch. Null-vs-unset is
+    // distinguished by [hasAppliedUserSignal] so the first apply always counts.
+    @Volatile private var lastAppliedUserSignal: String? = null
+    @Volatile private var hasAppliedUserSignal = false
+
     /// Pushes the current user's UID into Remote Config as a custom signal so
     /// per-user targeting conditions (e.g. `app.customSignal['user_id']`) can
     /// resolve. Mirrors iOS (RemoteConfigService.setCurrentUserSignal). Safe to
     /// call repeatedly — last write wins. Must run *before* a fetch so the
     /// signal is evaluated against the returned values. Passing null clears the
-    /// signal, matching the desired behavior on sign-out.
-    suspend fun setCurrentUserSignal(uid: String?) {
-        try {
+    /// signal, matching the desired behavior on sign-out. Returns true when the
+    /// applied UID differs from the previously applied one (login / switch),
+    /// meaning any cached config was evaluated for a different user.
+    suspend fun setCurrentUserSignal(uid: String?): Boolean {
+        return try {
             val signals = CustomSignals.Builder()
                 .put("user_id", uid)
                 .build()
             remoteConfig.setCustomSignals(signals).await()
+            val changed = !hasAppliedUserSignal || uid != lastAppliedUserSignal
+            lastAppliedUserSignal = uid
+            hasAppliedUserSignal = true
+            changed
         } catch (e: Exception) {
             Log.w("RemoteConfig", "setCustomSignals failed", e)
+            false
         }
     }
 
@@ -209,9 +222,16 @@ class RemoteConfigService @Inject constructor(
             // Make sure the user-targeting custom signal is in place before
             // fetching so conditional values resolve correctly on the very
             // first response. Mirrors iOS.
-            setCurrentUserSignal(auth.currentUser?.uid)
+            val signalChanged = setCurrentUserSignal(auth.currentUser?.uid)
+            // When the signed-in user changes, the cached config was fetched and
+            // evaluated against a *different* user_id signal. The normal 1h
+            // throttle would serve that stale per-user result for up to an hour,
+            // so per-user flags (e.g. favorites_enabled) wouldn't light up until
+            // then. Bypass the throttle on a signal change so this user's
+            // conditions resolve on this fetch.
+            val minIntervalSeconds = if (signalChanged) 0L else 3600L
             val settings = FirebaseRemoteConfigSettings.Builder()
-                .setMinimumFetchIntervalInSeconds(3600)
+                .setMinimumFetchIntervalInSeconds(minIntervalSeconds)
                 .build()
             remoteConfig.setConfigSettingsAsync(settings).await()
             remoteConfig.setDefaultsAsync(
@@ -282,7 +302,11 @@ class RemoteConfigService @Inject constructor(
                 "save_cap_limit=$saveCapLimit " +
                 "save_cap_warning_at=$saveCapWarningAt " +
                 "new_release_filter_club_only=$newReleaseFilterClubOnly " +
-                "style_pack_1_enabled=$stylePack1Enabled"
+                "style_pack_1_enabled=$stylePack1Enabled " +
+                "for_you_enabled=${remoteConfig.getBoolean("for_you_enabled")} " +
+                "trending_feed_enabled=${remoteConfig.getBoolean("trending_feed_enabled")} " +
+                "favorites_enabled=${remoteConfig.getBoolean("favorites_enabled")} " +
+                "uid=${auth.currentUser?.uid}"
         )
     }
 }

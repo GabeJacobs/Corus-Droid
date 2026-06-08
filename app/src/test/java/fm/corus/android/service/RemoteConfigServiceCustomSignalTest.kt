@@ -6,6 +6,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.remoteconfig.CustomSignals
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
@@ -44,5 +46,23 @@ class RemoteConfigServiceCustomSignalTest {
         service(remoteConfig).setCurrentUserSignal(null)
 
         verify(remoteConfig).setCustomSignals(any<CustomSignals>())
+    }
+
+    /**
+     * The first apply and any UID change must report "changed" so fetchAndActivate
+     * can bypass the 1h fetch throttle — otherwise the cached config (evaluated
+     * for a different/absent user) keeps per-user flags like favorites_enabled
+     * dark for up to an hour after login.
+     */
+    @Test
+    fun `setCurrentUserSignal reports changed on first apply and on uid switch, not on repeat`() = runTest {
+        val remoteConfig = mock<FirebaseRemoteConfig>()
+        whenever(remoteConfig.setCustomSignals(any())).thenReturn(Tasks.forResult(null))
+        val service = service(remoteConfig)
+
+        assertTrue(service.setCurrentUserSignal("uid-A"))   // first apply -> changed
+        assertFalse(service.setCurrentUserSignal("uid-A"))  // same user   -> unchanged
+        assertTrue(service.setCurrentUserSignal("uid-B"))   // switch user -> changed
+        assertTrue(service.setCurrentUserSignal(null))      // sign out     -> changed
     }
 }
