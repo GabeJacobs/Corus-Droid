@@ -362,7 +362,10 @@ class NowPlayingManager @Inject constructor(
         if (!ensureTidalLogin()) return
 
         _isGeneratingPlaylist.value = true
-        ToastManager.show("Generating playlist…")
+        // A persistent spinner toast: TIDAL generation is multi-step (resolve
+        // each track, then create + populate the playlist), so it stays up until
+        // the playlist opens or an error replaces it.
+        val toastId = ToastManager.showLoading("Generating playlist…")
         try {
             when (val outcome = cloudFunctions.generateFeedPlaylistTracks(newReleasesOnly, feedMode, sessionToken)) {
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Paywall ->
@@ -383,6 +386,7 @@ class NowPlayingManager @Inject constructor(
             android.util.Log.e("NowPlaying", "TIDAL feed playlist failed", e)
             _playlistError.value = "Something went wrong. Try again later."
         } finally {
+            ToastManager.dismiss(toastId)
             _isGeneratingPlaylist.value = false
         }
     }
@@ -399,7 +403,7 @@ class NowPlayingManager @Inject constructor(
         if (!ensureTidalLogin()) return
 
         _isGeneratingPlaylist.value = true
-        ToastManager.show("Generating playlist…")
+        val toastId = ToastManager.showLoading("Generating playlist…")
         try {
             when (val outcome = cloudFunctions.generateProfilePlaylistTracks(userId, source)) {
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Paywall ->
@@ -422,6 +426,7 @@ class NowPlayingManager @Inject constructor(
             android.util.Log.e("NowPlaying", "TIDAL profile playlist failed", e)
             _playlistError.value = "Something went wrong. Try again later."
         } finally {
+            ToastManager.dismiss(toastId)
             _isGeneratingPlaylist.value = false
         }
     }
@@ -430,9 +435,15 @@ class NowPlayingManager @Inject constructor(
      *  error message and returns false if the user didn't complete sign-in. */
     private suspend fun ensureTidalLogin(): Boolean {
         if (tidalAuthService.isUserLoggedIn()) return true
-        if (tidalAuthService.login()) return true
-        _playlistError.value = "Sign in to TIDAL to create a playlist."
-        return false
+        if (!tidalAuthService.login()) {
+            _playlistError.value = "Sign in to TIDAL to create a playlist."
+            return false
+        }
+        // The TIDAL login screen is animating away; let the feed return to the
+        // front before the caller shows the "Generating…" toast, otherwise it
+        // flashes behind the transition and the user misses it.
+        delay(500)
+        return true
     }
 
     private suspend fun buildTidalPlaylist(
