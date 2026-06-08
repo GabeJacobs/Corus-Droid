@@ -299,11 +299,11 @@ fun OtherProfileScreen(
                                     enabled = hasSongs && !isGeneratingPlaylist,
                                     onClick = {
                                         showMenu = false
-                                        // Playlist generation is Spotify-only → non-Spotify services get the alert.
-                                        val isNonSpotify = musicService != fm.corus.android.data.model.MusicService.SPOTIFY
+                                        // TIDAL generates directly (own account); Apple Music /
+                                        // Deezer and SoundCloud-on-Spotify get the alert.
                                         val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
                                             && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                                        if (isNonSpotify || hasSoundCloud) {
+                                        if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
                                             showPlaylistAlert = true
                                         } else {
                                             viewModel.generatePlaylist(userId, playlistSource)
@@ -763,11 +763,11 @@ fun OtherProfileScreen(
                                             if (!hasSongs) {
                                                 ToastManager.show(playlistContext.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
                                             } else {
-                                                // Playlist generation is Spotify-only → non-Spotify services get the alert.
-                                                val isNonSpotify = musicService != fm.corus.android.data.model.MusicService.SPOTIFY
+                                                // TIDAL generates directly (own account); Apple Music /
+                                                // Deezer and SoundCloud-on-Spotify get the alert.
                                                 val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
                                                     && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                                                if (isNonSpotify || hasSoundCloud) {
+                                                if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
                                                     showPlaylistAlert = true
                                                 } else {
                                                     viewModel.generatePlaylist(userId, playlistSource)

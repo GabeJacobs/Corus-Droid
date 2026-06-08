@@ -231,12 +231,11 @@ fun FeedScreen(
             onFilterMenuExpandedChange = { filterMenuExpanded = it },
             onSetFilter = { viewModel.setFeedFilter(it) },
             onGeneratePlaylist = {
-                // Playlist generation produces a Spotify playlist, so any
-                // non-Spotify service (Apple Music / TIDAL / Deezer) — and any
-                // SoundCloud track — gets the "Spotify feature" alert first.
-                val isNonSpotify = musicService != fm.corus.android.data.model.MusicService.SPOTIFY
+                // TIDAL builds the playlist on the user's own account, so it
+                // generates directly. Apple Music / Deezer (no Android client-
+                // side path) and SoundCloud-on-Spotify still get the alert.
                 val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                if (isNonSpotify || hasSoundCloud) {
+                if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
                     showPlaylistAlert = true
                 } else {
                     viewModel.generateFeedPlaylist()

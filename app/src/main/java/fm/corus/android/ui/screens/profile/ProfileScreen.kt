@@ -535,14 +535,14 @@ fun ProfileScreen(
                                         if (!hasSongs) {
                                             ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
                                         } else {
-                                            // Playlist generation is Spotify-only, so any
-                                            // non-Spotify service (Apple/TIDAL/Deezer) gets the alert.
-                                            val isNonSpotify = musicService != fm.corus.android.data.model.MusicService.SPOTIFY
+                                            // TIDAL builds on the user's own account (generates
+                                            // directly); Apple Music / Deezer and SoundCloud-on-
+                                            // Spotify still get the alert.
                                             // SoundCloud preflight only meaningful for posts source —
                                             // likes/saves aren't loaded into `posts`.
                                             val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
                                                 && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                                            if (isNonSpotify || hasSoundCloud) {
+                                            if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
                                                 showPlaylistAlert = true
                                             } else {
                                                 viewModel.generatePlaylist(playlistSource)

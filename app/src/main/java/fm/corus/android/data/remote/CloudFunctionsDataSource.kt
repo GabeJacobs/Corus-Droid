@@ -1034,26 +1034,28 @@ class CloudFunctionsDataSource @Inject constructor(
         ) : PlaylistTracksOutcome()
     }
 
-    internal fun parsePlaylistTracksResponse(data: Map<String, Any?>): PlaylistTracksOutcome {
-        val soundcloudSkipped = (data["soundcloudSkipped"] as? Number)?.toInt() ?: 0
-        if (data["error"] != null && data["message"] != null) {
-            if ((data["code"] as? String) == "PAYWALL") return PlaylistTracksOutcome.Paywall
-            return PlaylistTracksOutcome.Failure(soundcloudSkipped)
+    companion object {
+        internal fun parsePlaylistTracksResponse(data: Map<String, Any?>): PlaylistTracksOutcome {
+            val soundcloudSkipped = (data["soundcloudSkipped"] as? Number)?.toInt() ?: 0
+            if (data["error"] != null && data["message"] != null) {
+                if ((data["code"] as? String) == "PAYWALL") return PlaylistTracksOutcome.Paywall
+                return PlaylistTracksOutcome.Failure(soundcloudSkipped)
+            }
+            val raw = data["tracks"] as? List<*> ?: return PlaylistTracksOutcome.Failure(soundcloudSkipped)
+            val descriptors = raw.mapNotNull { item ->
+                val m = item as? Map<*, *> ?: return@mapNotNull null
+                val name = (m["name"] as? String).orEmpty()
+                val artist = (m["artist"] as? String).orEmpty()
+                val isrc = (m["isrc"] as? String).orEmpty().ifEmpty { null }
+                val trackId = (m["trackId"] as? String).orEmpty()
+                val album = (m["album"] as? String).orEmpty()
+                // Need at least a name or an ISRC to resolve the song on TIDAL.
+                if (name.isEmpty() && isrc == null) return@mapNotNull null
+                PlaylistTrackDescriptor(trackId = trackId, isrc = isrc, name = name, artist = artist, album = album)
+            }
+            if (descriptors.isEmpty()) return PlaylistTracksOutcome.Failure(soundcloudSkipped)
+            return PlaylistTracksOutcome.Tracks(descriptors, soundcloudSkipped, data["username"] as? String)
         }
-        val raw = data["tracks"] as? List<*> ?: return PlaylistTracksOutcome.Failure(soundcloudSkipped)
-        val descriptors = raw.mapNotNull { item ->
-            val m = item as? Map<*, *> ?: return@mapNotNull null
-            val name = (m["name"] as? String).orEmpty()
-            val artist = (m["artist"] as? String).orEmpty()
-            val isrc = (m["isrc"] as? String).orEmpty().ifEmpty { null }
-            val trackId = (m["trackId"] as? String).orEmpty()
-            val album = (m["album"] as? String).orEmpty()
-            // Need at least a name or an ISRC to resolve the song on TIDAL.
-            if (name.isEmpty() && isrc == null) return@mapNotNull null
-            PlaylistTrackDescriptor(trackId = trackId, isrc = isrc, name = name, artist = artist, album = album)
-        }
-        if (descriptors.isEmpty()) return PlaylistTracksOutcome.Failure(soundcloudSkipped)
-        return PlaylistTracksOutcome.Tracks(descriptors, soundcloudSkipped, data["username"] as? String)
     }
 
     /** Source the profile playlist should pull from. `Posts` is the legacy
@@ -1082,6 +1084,26 @@ class CloudFunctionsDataSource @Inject constructor(
         val result = functions.getHttpsCallable("generateProfilePlaylist").call(payload).await()
         val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
         return parsePlaylistResponse(data)
+    }
+
+    /** TIDAL/Apple Music variant: returns the resolved track descriptors instead
+     *  of a server-built Spotify playlist (the client builds it on the user's
+     *  own account). Uses the correct `supportsPlaylistGating` key so the
+     *  paywall applies, matching iOS. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun generateProfilePlaylistTracks(
+        userId: String,
+        source: ProfilePlaylistSource = ProfilePlaylistSource.Posts,
+    ): PlaylistTracksOutcome {
+        val payload = mutableMapOf<String, Any>(
+            "userId" to userId,
+            "supportsPlaylistGating" to true,
+            "appleMusicTracks" to true,
+        )
+        if (source != ProfilePlaylistSource.Posts) payload["source"] = source.wire
+        val result = functions.getHttpsCallable("generateProfilePlaylist").call(payload).await()
+        val data = result.getData() as? Map<String, Any?> ?: return PlaylistTracksOutcome.Failure(0)
+        return parsePlaylistTracksResponse(data)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -1122,6 +1144,16 @@ class CloudFunctionsDataSource @Inject constructor(
         return data["tidalURL"] as? String
     }
 
+    /** Resolve a Spotify track to its TIDAL track *id* (for building a playlist
+     *  on the user's TIDAL account). Sibling of [tidalLinkOutUrl], which reads
+     *  the catalog page URL; this reads `tidalId`. null on no match / error. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun tidalLookupId(name: String, artist: String, isrc: String?, spotifyTrackId: String?): String? {
+        val result = functions.getHttpsCallable("tidalLookup").call(linkOutParams(name, artist, isrc, spotifyTrackId)).await()
+        val data = result.getData() as? Map<String, Any?> ?: return null
+        return (data["tidalId"] as? String)?.ifEmpty { null }
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun deezerLinkOutUrl(name: String, artist: String, isrc: String?, spotifyTrackId: String?): String? {
         val result = functions.getHttpsCallable("deezerLookup").call(linkOutParams(name, artist, isrc, spotifyTrackId)).await()
@@ -1149,6 +1181,26 @@ class CloudFunctionsDataSource @Inject constructor(
         val result = functions.getHttpsCallable("generateFeedPlaylist").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
         return parsePlaylistResponse(data)
+    }
+
+    /** TIDAL/Apple Music variant of [generateFeedPlaylist]: returns resolved
+     *  track descriptors for client-side playlist building. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun generateFeedPlaylistTracks(
+        newReleasesOnly: Boolean = false,
+        feedMode: String = "following",
+        sessionToken: String? = null,
+    ): PlaylistTracksOutcome {
+        val params = mutableMapOf<String, Any>(
+            "supportsPlaylistGating" to true,
+            "feedMode" to feedMode,
+            "appleMusicTracks" to true,
+        )
+        if (newReleasesOnly) params["newReleasesOnly"] = true
+        if (feedMode == "trending" && !sessionToken.isNullOrEmpty()) params["sessionToken"] = sessionToken
+        val result = functions.getHttpsCallable("generateFeedPlaylist").call(params).await()
+        val data = result.getData() as? Map<String, Any?> ?: return PlaylistTracksOutcome.Failure(0)
+        return parsePlaylistTracksResponse(data)
     }
 
     // ── Post Limit ──

@@ -62,6 +62,13 @@ class TidalAuthService @Inject constructor(
         }
     }
 
+    /** Whether a TIDAL *user* session exists (configures the SDK on first call).
+     *  Distinct from holding any token — only a user-level session can create
+     *  playlists. */
+    suspend fun isUserLoggedIn(): Boolean = withContext(Dispatchers.IO) {
+        runCatching { configureIfNeeded().credentialsProvider.isUserLoggedIn() }.getOrDefault(false)
+    }
+
     /** Returns a TIDAL access token, refreshing transparently via the SDK. null
      *  when not logged in or refresh failed. */
     suspend fun accessToken(): String? = withContext(Dispatchers.IO) {
@@ -152,12 +159,15 @@ class TidalAuthService @Inject constructor(
         private const val CREDENTIALS_KEY = "fm.corus.tidal.credentials"
         private const val UNIQUE_KEY_PREF = "tidal.clientUniqueKey"
 
-        /** `playlists.write` (+ `playlists.read`) are required to create
-         *  playlists on the user's TIDAL account; the TIDAL dev app must also
-         *  have these scopes enabled. */
+        /** Scoped strictly to playlist generation (this SDK is used for nothing
+         *  else on Android — preview playback stays on ExoPlayer):
+         *  `user.read` for the country lookup (`/users/me`), plus
+         *  `playlists.read`/`playlists.write` to create the playlist.
+         *  NOTE: the TIDAL dev app must have `playlists.read` + `playlists.write`
+         *  enabled (the Corus app currently only has user.read/entitlements.read/
+         *  playback) — add them in the developer portal or login will reject the
+         *  scope request. */
         private val SCOPES = setOf(
-            "playback",
-            "entitlements.read",
             "user.read",
             "playlists.read",
             "playlists.write",

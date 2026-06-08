@@ -88,7 +88,8 @@ class OtherProfileViewModel @Inject constructor(
         source: CloudFunctionsDataSource.ProfilePlaylistSource = CloudFunctionsDataSource.ProfilePlaylistSource.Posts,
     ) {
         viewModelScope.launch {
-            nowPlayingManager.generateProfilePlaylist(userId, source)
+            // Someone else's profile → TIDAL playlist is titled with their username.
+            nowPlayingManager.generateProfilePlaylist(userId, source, isOwnProfile = false)
         }
     }
 

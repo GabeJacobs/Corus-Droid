@@ -8,7 +8,9 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.content.TextContent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.addJsonObject
@@ -83,7 +85,7 @@ class TidalPlaylistService @Inject constructor(
     /** GET /v2/users/me → the user's countryCode (required on v2 catalog/library
      *  calls). Returns null so the caller can default. */
     private suspend fun currentUserCountry(token: String): String? {
-        val resp = httpClient.get("$API_BASE/users/me") { applyHeaders(token, json = false) }
+        val resp = httpClient.get("$API_BASE/users/me") { applyHeaders(token) }
         val attrs = parseBody(resp)["data"]?.jsonObject?.get("attributes")?.jsonObject ?: return null
         // The field has been seen as both `country` and `countryCode` — accept either.
         return (attrs["countryCode"] ?: attrs["country"])?.jsonPrimitive?.content
@@ -107,8 +109,8 @@ class TidalPlaylistService @Inject constructor(
             }
         }
         val resp = httpClient.post("$API_BASE/playlists?countryCode=$country") {
-            applyHeaders(token, json = true)
-            setBody(body.toString())
+            applyHeaders(token)
+            setBody(TextContent(body.toString(), JSON_API))
         }
         return parseBody(resp)["data"]?.jsonObject?.get("id")?.jsonPrimitive?.content
             ?: throw PlaylistException.RequestFailed("TIDAL didn't return a playlist id")
@@ -132,8 +134,8 @@ class TidalPlaylistService @Inject constructor(
             }
         }
         val resp = httpClient.post("$API_BASE/playlists/$playlistId/relationships/items?countryCode=$country") {
-            applyHeaders(token, json = true)
-            setBody(body.toString())
+            applyHeaders(token)
+            setBody(TextContent(body.toString(), JSON_API))
         }
         ensureSuccess(resp)
         return trackIds.size
@@ -141,10 +143,9 @@ class TidalPlaylistService @Inject constructor(
 
     // ── HTTP ───────────────────────────────────────────────────────────────
 
-    private fun HttpRequestBuilder.applyHeaders(token: String, json: Boolean) {
+    private fun HttpRequestBuilder.applyHeaders(token: String) {
         header(HttpHeaders.Authorization, "Bearer $token")
-        header(HttpHeaders.Accept, JSON_API)
-        if (json) header(HttpHeaders.ContentType, JSON_API)
+        header(HttpHeaders.Accept, JSON_API.toString())
     }
 
     /** Throws on non-2xx; maps 401/403 to [PlaylistException.InsufficientScope]. */
@@ -165,7 +166,7 @@ class TidalPlaylistService @Inject constructor(
 
     companion object {
         private const val API_BASE = "https://openapi.tidal.com/v2"
-        private const val JSON_API = "application/vnd.api+json"
+        private val JSON_API = ContentType("application", "vnd.api+json")
         /** Tracks per add-items request — TIDAL caps relationship batch size. */
         private const val ADD_BATCH_SIZE = 20
         private val JSON = Json { ignoreUnknownKeys = true }

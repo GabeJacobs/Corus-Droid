@@ -47,7 +47,7 @@ class NowPlayingManagerScrubberTest {
     }
 
     private fun newManager(): NowPlayingManager =
-        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository)
+        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository, mock(), mock(), mock())
 
     @Before
     fun setUp() {
