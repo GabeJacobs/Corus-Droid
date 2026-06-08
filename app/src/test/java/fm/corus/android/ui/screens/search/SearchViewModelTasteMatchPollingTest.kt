@@ -70,7 +70,14 @@ class SearchViewModelTasteMatchPollingTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         firestoreDataSource = mock()
-        authRepository = mock { on { currentUserId } doReturn "viewer" }
+        // Default viewer has posted (cymbalCount > 0) so the cold-start poll is
+        // allowed to run; the no-taste-data path is covered by its own test.
+        authRepository = mock {
+            on { currentUserId } doReturn "viewer"
+            on { userProfile } doReturn MutableStateFlow(
+                CymbalUser(id = "viewer", username = "viewer", displayName = "Viewer", cymbalCount = 3),
+            )
+        }
         userRepository = mock {
             on { followingIds } doReturn MutableStateFlow(emptySet())
         }
@@ -154,6 +161,25 @@ class SearchViewModelTasteMatchPollingTest {
         assertTrue("no taste matches", vm.suggestedMatches.value.none { it.matchData?.hasSimilarityData == true })
         // Initial call + 4 poll attempts.
         verify(cloudFunctions, times(5)).getSuggestedUsers(eq("viewer"))
+    }
+
+    @Test
+    fun `new user with no posts skips polling even on an empty response`() = runTest(testDispatcher) {
+        // Brand-new user: no posts means no taste data can exist and no eager
+        // recompute is in flight, so the poll (and its skeleton) must be skipped.
+        whenever(authRepository.userProfile).thenReturn(
+            MutableStateFlow(CymbalUser(id = "viewer", username = "viewer", displayName = "Viewer", cymbalCount = 0)),
+        )
+        whenever(cloudFunctions.getSuggestedUsers(eq("viewer"))).thenReturn(emptyList())
+
+        val vm = createViewModel()
+        vm.loadInitialData()
+        advanceUntilIdle()
+
+        assertTrue("we should know this user has no taste data", vm.currentUserHasNoTasteData.value)
+        assertFalse("polling must never activate for a no-posts user", vm.isTasteMatchPolling.value)
+        // Only the initial fetch — no follow-up poll attempts.
+        verify(cloudFunctions, times(1)).getSuggestedUsers(eq("viewer"))
     }
 
     @Test

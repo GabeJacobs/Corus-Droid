@@ -202,7 +202,9 @@ class SearchViewModel @Inject constructor(
     val trendingHashtagsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingHashtagsWindow
             .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+            // Hashtags default to MONTH (weekly volume is too thin to fill the
+            // surface); songs/films still default to WEEK.
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.MONTH)
 
     fun setTrendingSongsWindow(window: TrendingWindow) {
         viewModelScope.launch {
@@ -290,6 +292,18 @@ class SearchViewModel @Inject constructor(
     private val _isTasteMatchPolling = MutableStateFlow(false)
     val isTasteMatchPolling: StateFlow<Boolean> = _isTasteMatchPolling.asStateFlow()
 
+    // True once we positively know the signed-in user has no taste data yet:
+    // they've posted nothing, so the backend has nothing to compute music
+    // matches from and no eager-recompute is in flight. The screen uses this to
+    // skip the taste-match skeleton, and the cold-start poll uses it to bail
+    // early, so a brand-new user never sees the section flash empty and collapse.
+    // A null profile means we don't yet know the post count, so we default to
+    // false and leave the normal skeleton behavior in place.
+    val currentUserHasNoTasteData: StateFlow<Boolean> =
+        authRepository.userProfile
+            .map { it != null && it.cymbalCount == 0 }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     // Follow state
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     val followingIds: StateFlow<Set<String>> = _followingIds.asStateFlow()
@@ -340,26 +354,28 @@ class SearchViewModel @Inject constructor(
             _isRefreshing.value = true
             // Explicit user refresh should bypass the in-memory TTL on trending.
             exploreRepository.clearCaches()
-            loadInitialData()
+            loadInitialData(forceRefresh = true)
             // Give data a moment to load before hiding the indicator
             delay(500)
             _isRefreshing.value = false
         }
     }
 
-    fun loadInitialData() {
+    fun loadInitialData(forceRefresh: Boolean = false) {
         val uid = authRepository.currentUserId ?: return
         viewModelScope.launch {
             userRepository.followingIds.collect { ids ->
                 _followingIds.value = ids
             }
         }
-        // Fetch taste matches (cloud function) and mutual connections (Firestore) in parallel,
-        // then merge them — matching how iOS loads suggestions.
+        // Fetch taste matches and mutual connections (Firestore) in parallel,
+        // then merge them — matching how iOS loads suggestions. Taste matches go
+        // through the repository's 4h cache (warmed from DataStore at sign-in) so
+        // repeat opens render instantly; pull-to-refresh forces a fresh fetch.
         viewModelScope.launch {
             val musicMatchesDeferred = async {
                 try {
-                    cloudFunctions.getSuggestedUsers(uid)
+                    userRepository.getSuggestedUsers(uid, forceRefresh = forceRefresh)
                 } catch (e: Exception) {
                     Log.e("SearchVM", "Failed to load suggested users", e)
                     emptyList()
@@ -459,6 +475,10 @@ class SearchViewModel @Inject constructor(
     // backend's eager recompute (fired by a recent post create) may still be
     // in flight. Refetch up to ~3s before giving up.
     private suspend fun pollTasteMatchesIfMissing(uid: String) {
+        // Brand-new user with no posts: the eager recompute we'd be waiting on
+        // only fires on a post create, so there's nothing in flight. Skip the
+        // poll entirely so the skeleton never shows for them.
+        if (currentUserHasNoTasteData.value) return
         if (_suggestedMatches.value.any { it.hasTasteMatch() }) return
 
         _isTasteMatchPolling.value = true
@@ -466,7 +486,9 @@ class SearchViewModel @Inject constructor(
             repeat(4) {
                 delay(750L)
                 val fresh = try {
-                    cloudFunctions.getSuggestedUsers(uid)
+                    // Bypass the cache: the backend recompute we're waiting on may
+                    // still be in flight. A successful fetch also refreshes the cache.
+                    userRepository.getSuggestedUsers(uid, forceRefresh = true)
                 } catch (e: Exception) {
                     Log.w("SearchVM", "Taste-match poll attempt failed", e)
                     return@repeat

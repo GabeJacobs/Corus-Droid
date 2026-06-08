@@ -3,6 +3,7 @@ package fm.corus.android.data.repository
 import com.google.firebase.auth.FirebaseAuth
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
@@ -84,5 +85,31 @@ class UserRepositoryTest {
         val after = repo.fetchUserProfile(targetUid)
         assertEquals(5, after?.followerCount)
         verify(firestoreDataSource, times(2)).fetchUserProfile(targetUid)
+    }
+
+    // Regression: the Search rail must serve taste matches from the 4h cache on
+    // repeat opens instead of re-hitting the expensive getSuggestedUsers cloud
+    // function every time the screen is shown.
+    @Test
+    fun `getSuggestedUsers serves second call from cache within TTL`() = runTest {
+        whenever(cloudFunctions.getSuggestedUsers(currentUid))
+            .thenReturn(listOf(SuggestedUserMatch(user("a", 1))))
+
+        repo.getSuggestedUsers(currentUid)
+        repo.getSuggestedUsers(currentUid)
+
+        verify(cloudFunctions, times(1)).getSuggestedUsers(currentUid)
+    }
+
+    // forceRefresh (pull-to-refresh / cold-start poll) must bypass the cache.
+    @Test
+    fun `getSuggestedUsers with forceRefresh bypasses cache`() = runTest {
+        whenever(cloudFunctions.getSuggestedUsers(currentUid))
+            .thenReturn(listOf(SuggestedUserMatch(user("a", 1))))
+
+        repo.getSuggestedUsers(currentUid)
+        repo.getSuggestedUsers(currentUid, forceRefresh = true)
+
+        verify(cloudFunctions, times(2)).getSuggestedUsers(currentUid)
     }
 }

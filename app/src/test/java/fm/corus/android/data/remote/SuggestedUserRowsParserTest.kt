@@ -93,4 +93,33 @@ class SuggestedUserRowsParserTest {
         val parsed = dataSource.parseUserRows(rows)
         assertTrue(parsed.single().matchData != null)
     }
+
+    // Regression: the row carries authoritative shared artist/director names; without
+    // forwarding them the card fell back to count labels ("2 artist matches") instead of
+    // listing the actual names like iOS does.
+    @Test
+    fun `parseUserRows forwards shared artist and director names`() {
+        val rows = listOf(
+            mapOf("id" to "u", "username" to "u", "displayName" to "u",
+                "similarityScore" to 0.42,
+                "sharedArtistNames" to listOf("Frank Ocean", "Lana Del Rey"),
+                "sharedDirectorNames" to listOf("Denis Villeneuve")),
+        )
+        val matchData = dataSource.parseUserRows(rows).single().matchData!!
+        assertEquals(listOf("Frank Ocean", "Lana Del Rey"), matchData.sharedArtistNames)
+        assertEquals(listOf("Denis Villeneuve"), matchData.sharedDirectorNames)
+    }
+
+    @Test
+    fun `parseUserRows tolerates missing or malformed name arrays`() {
+        val rows = listOf(
+            mapOf("id" to "u", "username" to "u", "displayName" to "u",
+                "similarityScore" to 0.42,
+                // Non-string entries must be dropped, not crash the parse.
+                "sharedArtistNames" to listOf("Frank Ocean", 42, null)),
+        )
+        val matchData = dataSource.parseUserRows(rows).single().matchData!!
+        assertEquals(listOf("Frank Ocean"), matchData.sharedArtistNames)
+        assertEquals(emptyList<String>(), matchData.sharedDirectorNames)
+    }
 }

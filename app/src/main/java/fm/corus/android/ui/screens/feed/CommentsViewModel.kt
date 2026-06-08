@@ -328,6 +328,7 @@ class CommentsViewModel @Inject constructor(
             _pendingFilm.value = null
             _replyingTo.value = null
             _likedCommentIds.value = emptySet()
+            clearMentions()
         }
         attachCommentsListener(postId)
         viewModelScope.launch {

@@ -879,6 +879,13 @@ class CloudFunctionsDataSource @Inject constructor(
                 )
             } ?: emptyList()
 
+            // Authoritative artist/director names the viewer actually shares with this
+            // user — the card prefers these over count labels ("2 artist matches").
+            // Read straight from the row; mirrors iOS fetchSuggestedUserMatches. Without
+            // these the card always fell back to counts.
+            val sharedArtistNames = (row["sharedArtistNames"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            val sharedDirectorNames = (row["sharedDirectorNames"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+
             // Gate matches iOS fetchSuggestedUserMatches: only build matchData when there's a
             // server-computed score or a concrete taste signal (previews / adjacent artists /
             // posted-movie or director overlap). Shared posted/liked track counts and raw
@@ -901,6 +908,8 @@ class CloudFunctionsDataSource @Inject constructor(
                     mutualFollows = mutualFollows,
                     sharedTrackPreviews = trackPreviews,
                     sharedMoviePreviews = moviePreviews,
+                    sharedArtistNames = sharedArtistNames,
+                    sharedDirectorNames = sharedDirectorNames,
                 )
             } else null
 

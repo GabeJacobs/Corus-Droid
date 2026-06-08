@@ -307,10 +307,11 @@ fun SettingsScreen(
             val musicServiceOptions = remember(settingsViewModel.tidalEnabled, settingsViewModel.deezerEnabled) {
                 buildList {
                     add(MusicService.SPOTIFY)
-                    add(MusicService.APPLE_MUSIC)
                     // TIDAL / Deezer only appear when their Remote Config gates are on.
                     if (settingsViewModel.tidalEnabled) add(MusicService.TIDAL)
                     if (settingsViewModel.deezerEnabled) add(MusicService.DEEZER)
+                    // Apple Music is intentionally last on Android.
+                    add(MusicService.APPLE_MUSIC)
                 }
             }
             DropdownSettingsRow(

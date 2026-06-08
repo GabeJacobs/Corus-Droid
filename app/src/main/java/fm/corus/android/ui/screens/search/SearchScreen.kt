@@ -136,6 +136,7 @@ fun SearchScreen(
     val suggestedMatches by viewModel.suggestedMatches.collectAsState()
     val isSuggestedLoading by viewModel.isSuggestedLoading.collectAsState()
     val isTasteMatchPolling by viewModel.isTasteMatchPolling.collectAsState()
+    val currentUserHasNoTasteData by viewModel.currentUserHasNoTasteData.collectAsState()
     val recentSearchUsers by viewModel.recentSearchUsers.collectAsState()
     val contactMatches by viewModel.contactMatches.collectAsState()
     val isSyncingContacts by viewModel.isSyncingContacts.collectAsState()
@@ -662,6 +663,7 @@ private fun SuggestedUsersContent(
     onNavigateToContactFriends: () -> Unit,
 ) {
     val context = LocalContext.current
+    val currentUserHasNoTasteData by viewModel.currentUserHasNoTasteData.collectAsState()
     val tasteMatchesTitle = stringResource(fm.corus.android.R.string.search_taste_matches_title)
     val mutualConnectionsTitle = stringResource(fm.corus.android.R.string.search_mutual_connections_title)
     val popularOnCorusTitle = stringResource(fm.corus.android.R.string.search_popular_title)
@@ -750,7 +752,11 @@ private fun SuggestedUsersContent(
         }
 
         // ── Taste Matches section ──
-        if ((isSuggestedLoading || isTasteMatchPolling) && musicMatchUsers.isEmpty()) {
+        // Suppress the skeleton for brand-new users with no posts: there's no
+        // taste data to compute and no recompute in flight, so it would only
+        // flash empty and then collapse. Popular on Corus becomes the top
+        // section cleanly instead.
+        if ((isSuggestedLoading || isTasteMatchPolling) && musicMatchUsers.isEmpty() && !currentUserHasNoTasteData) {
             item {
                 SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
             }

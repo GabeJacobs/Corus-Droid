@@ -236,7 +236,7 @@ class PreferencesDataStore @Inject constructor(
     }
 
     val trendingHashtagsWindow: Flow<String> = dataStore.data.map { prefs ->
-        prefs[TRENDING_HASHTAGS_WINDOW] ?: "week"
+        prefs[TRENDING_HASHTAGS_WINDOW] ?: "month"
     }
 
     suspend fun setTrendingHashtagsWindow(value: String) {

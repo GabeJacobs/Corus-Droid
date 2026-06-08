@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.search
 
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalHashtag
+import fm.corus.android.data.model.TrendingWindow
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
@@ -102,6 +103,27 @@ class SearchViewModelHashtagTest {
             on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true)
         },
     )
+
+    @Test
+    fun `hashtags default to month window while songs and films default to week`() =
+        runTest(testDispatcher) {
+            // Empty pref flows == nothing stored, so each StateFlow keeps its
+            // stateIn() initial value: hashtags should seed to MONTH, songs and
+            // films should stay on WEEK.
+            whenever(preferencesDataStore.trendingHashtagsWindow)
+                .thenReturn(kotlinx.coroutines.flow.emptyFlow())
+            whenever(preferencesDataStore.trendingSongsWindow)
+                .thenReturn(kotlinx.coroutines.flow.emptyFlow())
+            whenever(preferencesDataStore.trendingFilmsWindow)
+                .thenReturn(kotlinx.coroutines.flow.emptyFlow())
+
+            val vm = createViewModel()
+            advanceUntilIdle()
+
+            assertEquals(TrendingWindow.MONTH, vm.trendingHashtagsWindow.value)
+            assertEquals(TrendingWindow.WEEK, vm.trendingSongsWindow.value)
+            assertEquals(TrendingWindow.WEEK, vm.trendingFilmsWindow.value)
+        }
 
     @Test
     fun `blank query does not hit firestore`() = runTest(testDispatcher) {

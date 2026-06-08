@@ -135,9 +135,12 @@ class ClubMembersCardRailViewModel @Inject constructor(
             val results = coroutineScope {
                 toFetch.map { user ->
                     async {
-                        val posts = runCatching {
+                        // Bounded retry so a transient cold-start callable
+                        // failure doesn't cache an empty grid until the app is
+                        // relaunched — see fetchListWithRetry.
+                        val posts = fetchListWithRetry {
                             postRepository.getProfilePosts(user.id, viewerId, limit = 12)
-                        }.getOrDefault(emptyList())
+                        }
 
                         // Prefer the high-res field — the 2x2 grid tiles are big
                         // enough on phones that the thumbnail-sized URL renders blurry.

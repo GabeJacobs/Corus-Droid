@@ -34,6 +34,7 @@ class UserRepository @Inject constructor(
         private const val PROFILE_TTL_MS = 5L * 60 * 1000      // 5 minutes — matches iOS
         private const val USERNAME_TTL_MS = 5L * 60 * 1000      // 5 minutes — matches iOS
         private const val SUGGESTED_MATCHES_TTL_MS = 4L * 60 * 60 * 1000 // 4 hours — matches iOS
+        private const val FOLLOWED_PROFILES_TTL_MS = 5L * 60 * 1000 // 5 minutes — matches iOS SearchView refresh
     }
 
     // ── TTL Caches (matching iOS DatabaseService caching) ──
@@ -41,6 +42,12 @@ class UserRepository @Inject constructor(
     private val profileCache = ConcurrentHashMap<String, CacheEntry<CymbalUser>>()
     private val usernameCache = ConcurrentHashMap<String, CacheEntry<String>>() // username → uid
     @Volatile private var suggestedMatchesCache: CacheEntry<List<SuggestedUserMatch>>? = null
+
+    // Followed users' profiles, cached in-memory and reused across keystrokes
+    // (mirrors iOS SearchView's `cachedFollowedUsers`). Only people-finder
+    // surfaces (search, share, DM compose) consult it; mention autocomplete
+    // skips it entirely. See [searchUsers] / [followedProfiles].
+    @Volatile private var followedProfilesCache: CacheEntry<Map<String, CymbalUser>>? = null
 
     // Cached following set
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
@@ -303,9 +310,11 @@ class UserRepository @Inject constructor(
         suggestedMatchesCache = CacheEntry(matches, fetchedAt)
     }
 
-    suspend fun getSuggestedUsers(userId: String): List<SuggestedUserMatch> {
-        suggestedMatchesCache?.let { entry ->
-            if (entry.isValid(SUGGESTED_MATCHES_TTL_MS)) return entry.value
+    suspend fun getSuggestedUsers(userId: String, forceRefresh: Boolean = false): List<SuggestedUserMatch> {
+        if (!forceRefresh) {
+            suggestedMatchesCache?.let { entry ->
+                if (entry.isValid(SUGGESTED_MATCHES_TTL_MS)) return entry.value
+            }
         }
         val result = cloudFunctions.getSuggestedUsers(userId)
         suggestedMatchesCache = CacheEntry(result)
@@ -348,19 +357,31 @@ class UserRepository @Inject constructor(
      *   1. Username prefix match (main query).
      *   2. Per-word searchTokens arrayContains lookups (up to 3 unique words), so
      *      users whose display name contains the query also surface.
-     *   3. Followed-user lookup — fetches the current user's following set by id
-     *      in chunks of 30 and client-side filters to matches, so followed users
-     *      aren't lost past the alphabetical limit.
+     *   3. (Only when [includeFollowed]) Followed-user lookup against the
+     *      in-memory [followedProfiles] cache, so followed users aren't lost
+     *      past the alphabetical limit.
      * Results are deduped and sorted: followed > exact username > prefix > follower
      * count desc > alphabetical.
+     *
+     * [includeFollowed] mirrors iOS, which has two overloads: mention/compose
+     * autocomplete (Comments, Compose, EditCaption) and onboarding pass NO
+     * followed users and skip step 3 entirely — the hot path. People-finder
+     * surfaces (main search, share sheet, DM compose) pass `true`, which reads
+     * the cached followed profiles instead of hitting Firestore on every
+     * keystroke. Defaulting to `false` keeps the high-frequency mention path
+     * off the network for the follow set.
      */
-    suspend fun searchUsers(query: String, limit: Int = 20): List<CymbalUser> = coroutineScope {
+    suspend fun searchUsers(
+        query: String,
+        limit: Int = 20,
+        includeFollowed: Boolean = false,
+    ): List<CymbalUser> = coroutineScope {
         val lowered = query.lowercase()
         if (lowered.isEmpty()) return@coroutineScope emptyList()
         val queryLimit = limit * 3
         val queryWords = lowered.split(Regex("\\s+")).filter { it.isNotEmpty() }
         val usernamePrefix = lowered.replace(" ", "")
-        val followedIds = _followingIds.value
+        val followedIds = if (includeFollowed) _followingIds.value else emptySet()
 
         val mainQuery = async {
             runCatching { firestoreDataSource.searchUsersByUsername(usernamePrefix, queryLimit) }
@@ -374,25 +395,17 @@ class UserRepository @Inject constructor(
         }
         val followedQuery = async {
             if (followedIds.isEmpty()) return@async emptyList()
-            val matched = mutableListOf<CymbalUser>()
-            followedIds.toList().chunked(30).forEach { chunk ->
-                val users = runCatching { firestoreDataSource.fetchUsersByIds(chunk) }
-                    .getOrDefault(emptyList())
-                for (user in users) {
-                    if (queryWords.size > 1) {
-                        val nameWords = user.displayName.lowercase()
-                            .split(Regex("\\s+")).filter { it.isNotEmpty() }
-                        val allMatch = queryWords.all { q -> nameWords.any { it.startsWith(q) } }
-                        if (allMatch || user.username.startsWith(usernamePrefix)) matched.add(user)
-                    } else if (
-                        user.username.startsWith(lowered) ||
+            followedProfiles().values.filter { user ->
+                if (queryWords.size > 1) {
+                    val nameWords = user.displayName.lowercase()
+                        .split(Regex("\\s+")).filter { it.isNotEmpty() }
+                    val allMatch = queryWords.all { q -> nameWords.any { it.startsWith(q) } }
+                    allMatch || user.username.startsWith(usernamePrefix)
+                } else {
+                    user.username.startsWith(lowered) ||
                         user.displayName.lowercase().split(" ").any { it.startsWith(lowered) }
-                    ) {
-                        matched.add(user)
-                    }
                 }
             }
-            matched
         }
 
         val mainResults = mainQuery.await()
@@ -424,6 +437,33 @@ class UserRepository @Inject constructor(
                 .thenByDescending { it.followerCount }
                 .thenBy { it.username },
         ).take(limit)
+    }
+
+    /**
+     * Followed users' profiles, fetched once and reused across keystrokes
+     * (mirrors iOS SearchView's pre-fetched `cachedFollowedUsers`). The previous
+     * implementation re-fetched the entire following set in chunks of 30 on
+     * *every* keystroke, which made search noticeably slow for users who follow
+     * many accounts. This caches them with a 5-minute TTL and refetches only
+     * when the cached id-set no longer matches the current following set (i.e.
+     * after a follow/unfollow), and fetches the chunks in parallel.
+     */
+    private suspend fun followedProfiles(): Map<String, CymbalUser> = coroutineScope {
+        val ids = _followingIds.value
+        if (ids.isEmpty()) return@coroutineScope emptyMap()
+        followedProfilesCache?.let { entry ->
+            if (entry.isValid(FOLLOWED_PROFILES_TTL_MS) && entry.value.keys == ids) {
+                return@coroutineScope entry.value
+            }
+        }
+        val profiles = ids.toList().chunked(30).map { chunk ->
+            async {
+                runCatching { firestoreDataSource.fetchUsersByIds(chunk) }
+                    .getOrDefault(emptyList())
+            }
+        }.awaitAll().flatten().associateBy { it.id }
+        followedProfilesCache = CacheEntry(profiles)
+        profiles
     }
 
     suspend fun fetchUserByUsername(username: String): CymbalUser? {
