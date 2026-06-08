@@ -157,12 +157,21 @@ class UserRepository @Inject constructor(
     suspend fun followUser(userId: String, targetUserId: String) {
         cloudFunctions.followUser(targetUserId)
         _followingIds.value = _followingIds.value + targetUserId
+        // The server bumps targetUser.followerCount and userId.followingCount.
+        // Drop both cache entries so the next profile fetch reflects the new
+        // counts instead of serving a stale entry (target: 5-min TTL; self:
+        // never expires) — otherwise refreshing the profile keeps showing the
+        // pre-follow count, making the follow look like it never processed.
+        invalidateUserProfileCache(targetUserId)
+        invalidateUserProfileCache(userId)
     }
 
     suspend fun unfollowUser(userId: String, targetUserId: String) {
         cloudFunctions.unfollowUser(targetUserId)
         _followingIds.value = _followingIds.value - targetUserId
         _unfollowEvents.tryEmit(targetUserId)
+        invalidateUserProfileCache(targetUserId)
+        invalidateUserProfileCache(userId)
     }
 
     suspend fun fetchFollowerIds(userId: String): Set<String> {

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,6 +38,7 @@ import coil3.request.crossfade
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.SkeletonUserRow
@@ -46,6 +48,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.util.DateUtils
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +77,9 @@ fun SongDetailScreen(
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
     val nowPlayingState by viewModel.nowPlayingState.collectAsState()
     val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
+    val musicService by viewModel.musicServicePreference.current.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // Use route metadata immediately, upgrade to post data when available
     val songInfo = posts.firstOrNull()
@@ -95,6 +100,45 @@ fun SongDetailScreen(
     val effectiveAppleMusicURL = songInfo?.track?.appleMusicURL
         ?: trackId.takeIf { it.startsWith("am:") }?.removePrefix("am:")?.takeIf { it.isNotEmpty() }
             ?.let { "https://music.apple.com/us/song/$it" }
+
+    // Stable track model for link-out resolution + composing. Prefer the loaded
+    // post's track (carries isrc / appleMusicURL); fall back to route metadata.
+    val resolvedTrack = songInfo?.track ?: CymbalTrack(
+        id = trackId,
+        name = displayName ?: "",
+        artistName = displayArtist ?: "",
+        albumName = "",
+        albumArtURL = artUrl,
+        albumArtLargeURL = albumArtLargeURL ?: artUrl,
+        spotifyURI = effectiveSpotifyURI,
+        spotifyWebURL = effectiveSpotifyWebURL,
+        previewUrl = effectivePreviewUrl,
+        isrc = effectiveIsrc,
+        source = effectiveSource,
+        soundcloudId = effectiveSoundcloudId,
+        soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
+    )
+
+    // Open a track in the given service, mirroring iOS SongDetailView. Spotify
+    // opens the post's own URI synchronously; Apple Music / TIDAL / Deezer
+    // resolve the catalog URL via backend (cached; the global MainTabScreen
+    // overlay shows the spinner) then open it.
+    val openInService: (MusicService) -> Unit = { service ->
+        viewModel.analyticsService.logMusicServiceLinkTapped(service, trackId)
+        if (service == MusicService.SPOTIFY) {
+            val uri = effectiveSpotifyURI.ifBlank { effectiveSpotifyWebURL }
+            if (uri.isNotBlank()) {
+                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
+            }
+        } else {
+            scope.launch {
+                val url = viewModel.resolveLinkUrl(resolvedTrack, service)
+                if (!url.isNullOrBlank()) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                }
+            }
+        }
+    }
 
     val isPlayingThisTrack = nowPlayingState.trackId == trackId && nowPlayingState.isPlaying
     val isLoadingThisTrack = previewLoadingTrackId == trackId
@@ -221,7 +265,7 @@ fun SongDetailScreen(
 
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
 
-                // Capsule buttons row — Post Song + Play in Spotify (matching iOS order)
+                // Capsule buttons row — Post Song + preferred-service CTA (matching iOS order)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 ) {
@@ -229,21 +273,6 @@ fun SongDetailScreen(
                     Button(
                         onClick = {
                             viewModel.analyticsService.logPostThisSongTapped(trackId)
-                            val resolvedTrack = songInfo?.track ?: CymbalTrack(
-                                id = trackId,
-                                name = displayName ?: "",
-                                artistName = displayArtist ?: "",
-                                albumName = "",
-                                albumArtURL = artUrl,
-                                albumArtLargeURL = albumArtLargeURL ?: artUrl,
-                                spotifyURI = effectiveSpotifyURI,
-                                spotifyWebURL = effectiveSpotifyWebURL,
-                                previewUrl = effectivePreviewUrl,
-                                isrc = effectiveIsrc,
-                                source = effectiveSource,
-                                soundcloudId = effectiveSoundcloudId,
-                                soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
-                            )
                             onNavigateToCompose(resolvedTrack)
                         },
                         shape = RoundedCornerShape(50),
@@ -281,50 +310,87 @@ fun SongDetailScreen(
                             Text(stringResource(R.string.song_detail_listen_soundcloud), style = CorusFont.buttonSmall)
                         }
                     } else if (isAppleMusic) {
-                        // Listen on Apple Music capsule. Apple-only tracks
-                        // aren't on Spotify so the standard "Play in Spotify"
-                        // CTA would just 404 — surface the Apple Music brand
-                        // affordance instead.
+                        // Apple-only tracks (e.g. Joanna Newsom) aren't in Spotify's
+                        // catalog. If the viewer prefers a service that shares Apple's
+                        // catalog (TIDAL / Deezer) route there; otherwise — including
+                        // Spotify viewers — fall back to Apple Music, which is
+                        // guaranteed to have it. Never offer Spotify (it would 404).
+                        val opened = if (musicService == MusicService.TIDAL || musicService == MusicService.DEEZER) {
+                            musicService
+                        } else {
+                            MusicService.APPLE_MUSIC
+                        }
+                        // Spotify viewers can't open this in Spotify, so the label
+                        // shows the service we actually send them to.
+                        val displayed = if (musicService == MusicService.SPOTIFY) MusicService.APPLE_MUSIC else musicService
                         Button(
                             onClick = {
-                                val url = effectiveAppleMusicURL
-                                if (!url.isNullOrBlank()) {
-                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                if (opened == MusicService.APPLE_MUSIC && !effectiveAppleMusicURL.isNullOrBlank()) {
+                                    // Open Apple Music directly via the resolved URL.
+                                    viewModel.analyticsService.logMusicServiceLinkTapped(MusicService.APPLE_MUSIC, trackId)
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(effectiveAppleMusicURL))) }
+                                } else {
+                                    openInService(opened)
                                 }
                             },
                             shape = RoundedCornerShape(50),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Black,
-                                contentColor = Color.White,
+                                containerColor = serviceColor(displayed),
+                                contentColor = serviceTextColor(displayed),
                             ),
                             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                         ) {
-                            Image(
-                                painter = painterResource(R.drawable.apple_music_logo),
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
+                            Text(
+                                stringResource(R.string.song_detail_open_in_service, displayed.displayLabel),
+                                style = CorusFont.buttonSmall,
                             )
-                            Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                            Text(stringResource(R.string.song_detail_play_spotify), style = CorusFont.buttonSmall)
                         }
                     } else {
-                        // Play in Spotify capsule
+                        // Preferred-service CTA: Spotify → "Play in Spotify" (green),
+                        // every other service → "Open in <service>" in its brand color.
                         Button(
-                            onClick = {
-                                val uri = effectiveSpotifyURI.ifBlank { effectiveSpotifyWebURL }
-                                if (uri.isNotBlank()) {
-                                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
-                                }
-                            },
+                            onClick = { openInService(musicService) },
                             shape = RoundedCornerShape(50),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = CorusColors.SpotifyGreen,
-                                contentColor = Color.White,
+                                containerColor = serviceColor(musicService),
+                                contentColor = serviceTextColor(musicService),
                             ),
                             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                         ) {
-                            Text(stringResource(R.string.song_detail_play_spotify), style = CorusFont.buttonSmall)
+                            Text(
+                                if (musicService == MusicService.SPOTIFY) {
+                                    stringResource(R.string.song_detail_play_in_service, musicService.displayLabel)
+                                } else {
+                                    stringResource(R.string.song_detail_open_in_service, musicService.displayLabel)
+                                },
+                                style = CorusFont.buttonSmall,
+                            )
                         }
+                    }
+                }
+
+                // Alternate-service button — only when the track exists on multiple
+                // services. SoundCloud has no equivalent; Apple-only tracks aren't on
+                // Spotify so the "Spotify is the alternate" assumption doesn't hold.
+                // Spotify viewers → alternate is Apple Music; everyone else → Spotify.
+                if (!isSoundCloud && !isAppleMusic) {
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    val altService = if (musicService == MusicService.SPOTIFY) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
+                    OutlinedButton(
+                        onClick = { openInService(altService) },
+                        shape = RoundedCornerShape(50),
+                        border = BorderStroke(1.dp, serviceColor(altService)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = serviceColor(altService)),
+                        contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                    ) {
+                        Text(
+                            if (altService == MusicService.SPOTIFY) {
+                                stringResource(R.string.song_detail_play_in_service, altService.displayLabel)
+                            } else {
+                                stringResource(R.string.song_detail_open_in_service, altService.displayLabel)
+                            },
+                            style = CorusFont.buttonSmall,
+                        )
                     }
                 }
 
@@ -378,24 +444,7 @@ fun SongDetailScreen(
                         Text(stringResource(R.string.song_detail_empty), style = CorusFont.body, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Button(
-                            onClick = {
-                                val resolvedTrack = songInfo?.track ?: CymbalTrack(
-                                    id = trackId,
-                                    name = displayName ?: "",
-                                    artistName = displayArtist ?: "",
-                                    albumName = "",
-                                    albumArtURL = artUrl,
-                                    albumArtLargeURL = albumArtLargeURL ?: artUrl,
-                                    spotifyURI = effectiveSpotifyURI,
-                                    spotifyWebURL = effectiveSpotifyWebURL,
-                                    previewUrl = effectivePreviewUrl,
-                                    isrc = effectiveIsrc,
-                                    source = effectiveSource,
-                                    soundcloudId = effectiveSoundcloudId,
-                                    soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
-                                )
-                                onNavigateToCompose(resolvedTrack)
-                            },
+                            onClick = { onNavigateToCompose(resolvedTrack) },
                             shape = RoundedCornerShape(50),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = CorusColors.Accent,
@@ -503,6 +552,26 @@ private fun PostedByRow(
         )
     }
 }
+
+/** Brand fill color for a service capsule, mirroring iOS `serviceColor`. */
+@Composable
+@ReadOnlyComposable
+private fun serviceColor(service: MusicService): Color = when (service) {
+    MusicService.SPOTIFY -> CorusColors.SpotifyGreen
+    MusicService.APPLE_MUSIC -> CorusColors.AppleMusicPink
+    MusicService.TIDAL -> CorusColors.Tidal
+    MusicService.DEEZER -> CorusColors.DeezerPurple
+}
+
+/**
+ * Foreground for a filled service capsule. TIDAL's fill is monochrome and
+ * inverts per theme, so its text must invert too; the colored fills keep white
+ * text. Mirrors iOS `serviceTextColor`.
+ */
+@Composable
+@ReadOnlyComposable
+private fun serviceTextColor(service: MusicService): Color =
+    if (service == MusicService.TIDAL) CorusColors.TidalText else Color.White
 
 private fun formatUserCount(count: Int): String {
     return when {

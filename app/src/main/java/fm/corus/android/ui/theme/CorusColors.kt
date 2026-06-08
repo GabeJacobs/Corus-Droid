@@ -58,7 +58,6 @@ object CorusColors {
     val Verified = Color(0xFF2ED573)
     val SpotifyGreen = Color(0xFF1DB954)
     val AppleMusicPink = Color(0xFFFC3C44)
-    val TidalTeal = Color(0xFF33B9C9)
     val DeezerPurple = Color(0xFFA238FF)
     val Error = Color(0xFFE74C3C)
 
@@ -106,6 +105,19 @@ object CorusColors {
     val FeaturedFilmBackgroundBottom: Color
         @Composable @ReadOnlyComposable
         get() = LocalCorusPalette.current.featuredFilmBackgroundBottom
+
+    /**
+     * TIDAL's brand is monochrome — black on light, white on dark. Mirrors iOS
+     * `cymbalTidal`, so the "Open in TIDAL" capsule matches across platforms.
+     */
+    val Tidal: Color
+        @Composable @ReadOnlyComposable
+        get() = if (LocalCorusPalette.current.text == Color(0xFFF5F5F7)) Color.White else Color.Black
+
+    /** Legible foreground on a filled [Tidal] capsule; inverts with the fill. */
+    val TidalText: Color
+        @Composable @ReadOnlyComposable
+        get() = if (LocalCorusPalette.current.text == Color(0xFFF5F5F7)) Color.Black else Color.White
 
     /** + button in the comment composer. White in dark, accent in light. */
     val CommentAttachmentPlus: Color

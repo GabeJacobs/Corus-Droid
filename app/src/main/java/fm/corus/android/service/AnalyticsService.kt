@@ -210,6 +210,19 @@ class AnalyticsService @Inject constructor(
      */
     fun logMusicServiceLinkTapped(service: String, trackId: String) =
         logEvent("music_service_link_tapped", mapOf("service" to service, "track_id" to trackId))
+
+    /**
+     * Convenience mirror of iOS `logMusicServiceLinkTapped(service:)`: routes
+     * Spotify to the established `spotify_link_tapped` and every other service to
+     * `music_service_link_tapped`, so call sites don't have to branch.
+     */
+    fun logMusicServiceLinkTapped(service: fm.corus.android.data.model.MusicService, trackId: String) {
+        if (service == fm.corus.android.data.model.MusicService.SPOTIFY) {
+            logSpotifyLinkTapped(trackId)
+        } else {
+            logMusicServiceLinkTapped(service.value, trackId)
+        }
+    }
     fun logTrailerLinkTapped(filmId: String) = logEvent("trailer_link_tapped", mapOf("film_id" to filmId))
 
     // MARK: - Notification / Message Events

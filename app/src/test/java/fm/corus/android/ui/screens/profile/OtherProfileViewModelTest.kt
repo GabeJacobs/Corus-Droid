@@ -99,9 +99,12 @@ class OtherProfileViewModelTest {
         nowPlayingManager = nowPlayingManager,
         cloudFunctions = mock(),
         musicServicePreference = mock(),
+        analyticsService = mock(),
+        remoteConfig = mock(),
         engagementManager = engagementManager,
         subscriptionRepository = subscriptionRepository,
         postDeletionEvent = postDeletionEvent,
+        favoriteChangedEvent = fm.corus.android.domain.FavoriteChangedEvent(),
         commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
         commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
     )

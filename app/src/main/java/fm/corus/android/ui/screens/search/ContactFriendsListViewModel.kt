@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.UserRepository
@@ -20,6 +21,7 @@ class ContactFriendsListViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val authRepository: AuthRepository,
     private val firestoreDataSource: FirestoreDataSource,
+    private val cloudFunctions: CloudFunctionsDataSource,
     private val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
@@ -45,10 +47,8 @@ class ContactFriendsListViewModel @Inject constructor(
                 try {
                     val phoneNumbers = firestoreDataSource.fetchSyncedContacts(uid)
                     if (phoneNumbers.isNotEmpty()) {
-                        _contacts.value = firestoreDataSource.fetchUsersByPhoneNumbers(
-                            phoneNumbers,
-                            excludeIds = setOf(uid),
-                        )
+                        val ids = cloudFunctions.findContactMatches(phoneNumbers).filter { it != uid }
+                        _contacts.value = userRepository.fetchUsersByIdsBatched(ids)
                     }
                 } catch (_: Exception) { }
                 _isLoading.value = false

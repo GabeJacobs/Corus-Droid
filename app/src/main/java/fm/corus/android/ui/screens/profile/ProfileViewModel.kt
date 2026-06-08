@@ -23,8 +23,10 @@ import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -84,6 +86,13 @@ class ProfileViewModel @Inject constructor(
     private val _savedPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val savedPosts: StateFlow<List<CymbalPost>> = _savedPosts.asStateFlow()
 
+    // Fires after the user creates a post, carrying the logical profile segment
+    // that surfaces it (0 = Music, 1 = Film). The screen uses this to auto-switch
+    // tabs so the just-posted content is visible instead of leaving the user on a
+    // tab where it never appears (e.g. posting a film while on the Music tab).
+    private val _switchToSegment = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    val switchToSegment = _switchToSegment.asSharedFlow()
+
     // All MutableStateFlow backing fields must be declared before `init` —
     // viewModelScope.launch uses Dispatchers.Main.immediate, so the launches
     // below run synchronously up to first suspension and StateFlow.collect
@@ -141,9 +150,11 @@ class ProfileViewModel @Inject constructor(
                 if (user != null) _profile.value = user
             }
         }
-        // Auto-refresh profile when a new post is created
+        // Auto-refresh profile when a new post is created, and switch to the tab
+        // that surfaces it so the user sees what they just posted.
         viewModelScope.launch {
-            postCreationEvent.events.collect {
+            postCreationEvent.events.collect { mediaType ->
+                _switchToSegment.tryEmit(if (mediaType == MediaType.MOVIE) 1 else 0)
                 delay(500) // brief delay for Firestore propagation
                 refreshProfile()
             }

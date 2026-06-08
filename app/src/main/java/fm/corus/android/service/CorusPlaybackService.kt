@@ -47,14 +47,30 @@ class CorusPlaybackService : MediaSessionService() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: IllegalStateException) {
+            // Android 12+ throws ForegroundServiceStartNotAllowedException (a
+            // subclass of IllegalStateException) when we try to promote to the
+            // foreground from a background-initiated start without an exemption —
+            // e.g. playback kicked off while the app is already backgrounded.
+            // We catch the superclass (not the API-31 type) so the clause stays
+            // verifiable on our minSdk 26 devices, where it can never trigger.
+            //
+            // Background audio isn't legal without the foreground service, so
+            // bail cleanly instead of crashing: tear this start down and let
+            // NowPlayingManager re-promote on the next foreground play().
+            nowPlayingManager.onForegroundStartDenied()
+            stopSelf()
+            return START_NOT_STICKY
         }
         return super.onStartCommand(intent, flags, startId)
     }

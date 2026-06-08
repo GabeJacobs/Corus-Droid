@@ -62,6 +62,15 @@ class MessageThreadViewModel @Inject constructor(
     private val _otherUsername = MutableStateFlow("")
     val otherUsername: StateFlow<String> = _otherUsername.asStateFlow()
 
+    private val _otherDisplayName = MutableStateFlow("")
+    val otherDisplayName: StateFlow<String> = _otherDisplayName.asStateFlow()
+
+    private val _otherAvatarURL = MutableStateFlow<String?>(null)
+    val otherAvatarURL: StateFlow<String?> = _otherAvatarURL.asStateFlow()
+
+    private val _otherAvatarThumbURL = MutableStateFlow<String?>(null)
+    val otherAvatarThumbURL: StateFlow<String?> = _otherAvatarThumbURL.asStateFlow()
+
     val currentUserId: String? get() = authRepository.currentUserId
 
     private val _replyToMessage = MutableStateFlow<CymbalMessage?>(null)
@@ -87,6 +96,9 @@ class MessageThreadViewModel @Inject constructor(
                 // Load other user's profile for the header
                 val profile = userRepository.fetchUserProfile(otherUserId)
                 _otherUsername.value = profile?.username ?: ""
+                _otherDisplayName.value = profile?.displayName ?: ""
+                _otherAvatarURL.value = profile?.avatarURL
+                _otherAvatarThumbURL.value = profile?.avatarThumbURL
 
                 // Resolve threadId if empty (e.g. navigating from a user profile)
                 var resolvedId = threadId

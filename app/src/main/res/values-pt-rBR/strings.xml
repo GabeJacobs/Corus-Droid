@@ -258,6 +258,8 @@
     <!-- Feed: song detail -->
     <string name="song_detail_post_song">+ Postar Música</string>
     <string name="song_detail_play_spotify">Tocar no Spotify</string>
+    <string name="song_detail_play_in_service">Tocar no %1$s</string>
+    <string name="song_detail_open_in_service">Abrir no %1$s</string>
     <string name="song_detail_cd_pause_preview">Pausar prévia</string>
     <string name="song_detail_posted_by">Postado por</string>
     <string name="song_detail_load_error">Não foi possível carregar publicações</string>

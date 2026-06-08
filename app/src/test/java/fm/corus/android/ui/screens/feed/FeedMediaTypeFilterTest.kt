@@ -70,6 +70,11 @@ class FeedMediaTypeFilterTest {
             on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
             on { feedFilter } doReturn savedFeedFilter
             on { feedMode } doReturn MutableStateFlow("following")
+            // FeedViewModel's init collects these too; stub them so they emit a
+            // real value instead of a null Flow (null upstreams NPE the eager
+            // stateIn / .first() during runTest's coroutine drain on the CLI).
+            on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
+            on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
         }
         postRepository = mock()
         authRepository = mock {
@@ -114,6 +119,7 @@ class FeedMediaTypeFilterTest {
         analyticsService = analyticsService,
         postCreationEvent = postCreationEvent,
         postDeletionEvent = postDeletionEvent,
+        favoriteChangedEvent = fm.corus.android.domain.FavoriteChangedEvent(),
         commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
         commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
         musicServicePreference = mock(),
@@ -131,6 +137,10 @@ class FeedMediaTypeFilterTest {
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
+        // Let the init filter-restore coroutine settle before changing the
+        // filter — otherwise it runs after our change and clobbers it back to
+        // ALL (in production init always settles long before any user tap).
+        advanceUntilIdle()
         viewModel.setFeedMediaFilter(MediaType.MOVIE)
         advanceUntilIdle()
 
@@ -177,6 +187,7 @@ class FeedMediaTypeFilterTest {
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
+        advanceUntilIdle() // let init filter-restore settle (see loadFeed test)
         viewModel.setFeedFilter(FeedFilter.MUSIC_NEW_RELEASES)
         advanceUntilIdle()
 
@@ -198,6 +209,7 @@ class FeedMediaTypeFilterTest {
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
+        advanceUntilIdle() // let init filter-restore settle (see loadFeed test)
         viewModel.setFeedFilter(FeedFilter.FILM_NEW_RELEASES)
         advanceUntilIdle()
 
@@ -248,6 +260,43 @@ class FeedMediaTypeFilterTest {
     }
 
     @Test
+    fun `setFeedMode flips isRefreshing in the same frame it empties the feed`() = runTest(testDispatcher) {
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
+
+        val viewModel = vm()
+        viewModel.setFeedMode("trending")
+        // Deliberately do NOT advance the dispatcher: this captures the exact
+        // window between clearing the list and the load coroutine running.
+        // Regression for the empty-state flash on following -> trending: the
+        // feed renders the empty state when posts==[] && hasLoaded && !isLoading
+        // && !isRefreshing, so isRefreshing MUST already be true here while the
+        // list is empty, or the skeleton loses to the empty state for a frame.
+        assert(viewModel.posts.value.isEmpty())
+        assert(viewModel.isRefreshing.value) {
+            "isRefreshing must be true synchronously after setFeedMode so the " +
+                "empty state never flashes before the skeleton"
+        }
+    }
+
+    @Test
+    fun `setFeedFilter flips isRefreshing in the same frame it empties the feed`() = runTest(testDispatcher) {
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
+
+        val viewModel = vm()
+        advanceUntilIdle() // let init filter-restore settle (see loadFeed test)
+        viewModel.setFeedFilter(FeedFilter.MUSIC)
+        // Same flash window as setFeedMode: capture state before the load
+        // coroutine runs. isRefreshing must already be true while posts is empty.
+        assert(viewModel.posts.value.isEmpty())
+        assert(viewModel.isRefreshing.value) {
+            "isRefreshing must be true synchronously after setFeedFilter so the " +
+                "empty state never flashes before the skeleton"
+        }
+    }
+
+    @Test
     fun `setFeedMode does not log when mode is unchanged`() = runTest(testDispatcher) {
         val viewModel = vm()
         // The default resolved mode is "following"; re-selecting it is a no-op.
@@ -262,6 +311,7 @@ class FeedMediaTypeFilterTest {
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
+        advanceUntilIdle() // let init filter-restore settle (see loadFeed test)
         viewModel.setFeedFilter(FeedFilter.MUSIC_NEW_RELEASES)
         advanceUntilIdle()
         viewModel.setFeedFilter(FeedFilter.ALL)

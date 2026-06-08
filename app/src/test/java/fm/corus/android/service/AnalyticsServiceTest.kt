@@ -148,6 +148,27 @@ class AnalyticsServiceTest {
     }
 
     @Test
+    fun `logMusicServiceLinkTapped with Spotify routes to spotify_link_tapped`() {
+        // Spotify keeps the established event so it stays comparable to historical data.
+        service.logMusicServiceLinkTapped(fm.corus.android.data.model.MusicService.SPOTIFY, "track1")
+        verify(firebase).logEvent(eq("spotify_link_tapped"), any<Bundle>())
+    }
+
+    @Test
+    fun `logMusicServiceLinkTapped with Deezer routes to music_service_link_tapped`() {
+        // Regression guard: a non-Spotify preference (the reported Deezer bug) must
+        // emit music_service_link_tapped, never silently fall through to Spotify.
+        service.logMusicServiceLinkTapped(fm.corus.android.data.model.MusicService.DEEZER, "track2")
+        verify(firebase).logEvent(eq("music_service_link_tapped"), any<Bundle>())
+    }
+
+    @Test
+    fun `logMusicServiceLinkTapped with Tidal routes to music_service_link_tapped`() {
+        service.logMusicServiceLinkTapped(fm.corus.android.data.model.MusicService.TIDAL, "track3")
+        verify(firebase).logEvent(eq("music_service_link_tapped"), any<Bundle>())
+    }
+
+    @Test
     fun `event names are stable strings`() {
         // Compile-time parity check — if anyone renames a method, they must update this list too.
         val expected = setOf(

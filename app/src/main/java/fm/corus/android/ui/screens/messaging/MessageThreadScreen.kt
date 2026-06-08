@@ -82,6 +82,7 @@ import fm.corus.android.ui.components.FullScreenImageView
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SongFilmPickerSheet
+import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -207,6 +208,7 @@ fun MessageThreadScreen(
     threadId: String,
     otherUserId: String,
     onBack: () -> Unit = {},
+    onNavigateToProfile: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
     viewModel: MessageThreadViewModel = hiltViewModel(),
@@ -215,6 +217,9 @@ fun MessageThreadScreen(
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val otherUsername by viewModel.otherUsername.collectAsState()
+    val otherDisplayName by viewModel.otherDisplayName.collectAsState()
+    val otherAvatarURL by viewModel.otherAvatarURL.collectAsState()
+    val otherAvatarThumbURL by viewModel.otherAvatarThumbURL.collectAsState()
     val replyToMessage by viewModel.replyToMessage.collectAsState()
     val recipientUnread by viewModel.recipientUnread.collectAsState()
     val myReadReceiptsEnabled by viewModel.myReadReceiptsEnabled.collectAsState()
@@ -270,7 +275,24 @@ fun MessageThreadScreen(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.common_back))
             }
-            Text(otherUsername, style = CorusFont.screenTitle, color = CorusColors.Text)
+            // Avatar + username — tap to open the other user's profile (iOS parity)
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                    .clickable(enabled = otherUsername.isNotBlank()) { onNavigateToProfile(otherUserId) }
+                    .padding(vertical = CorusSpacing.xxs, horizontal = CorusSpacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            ) {
+                UserAvatarView(
+                    avatarURL = otherAvatarURL,
+                    avatarThumbURL = otherAvatarThumbURL,
+                    displayName = otherDisplayName,
+                    username = otherUsername,
+                    size = CorusSpacing.avatarSmall,
+                )
+                Text(otherUsername, style = CorusFont.screenTitle, color = CorusColors.Text)
+            }
         }
 
         HorizontalDivider(color = CorusColors.Divider)

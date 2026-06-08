@@ -250,7 +250,7 @@ class ProfileViewModelTest {
         // value emits eagerly to a fresh collector. On a logged-in user that race produced
         // `NullPointerException: ... MutableStateFlow.setValue ... null object reference`
         // during construction. (Crashlytics 96b87ad5.)
-        val creationEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val creationEvents = MutableSharedFlow<fm.corus.android.data.model.MediaType>(extraBufferCapacity = 1)
         authRepository = mock {
             on { currentUserId } doReturn "user1"
             on { userProfile } doReturn MutableStateFlow<CymbalUser?>(makeUser())
@@ -265,7 +265,7 @@ class ProfileViewModelTest {
 
         // And the post-creation → refreshProfile path must complete cleanly, since it
         // exercises every MutableStateFlow that was previously declared after init.
-        creationEvents.tryEmit(Unit)
+        creationEvents.tryEmit(fm.corus.android.data.model.MediaType.TRACK)
         advanceUntilIdle()
 
         // Sanity: refreshProfile ran and settled the loading flags.

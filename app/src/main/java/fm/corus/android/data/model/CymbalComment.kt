@@ -192,6 +192,13 @@ data class CymbalComment(
      * show the attachment card when this is true.
      */
     val textIsAttachmentFallback: Boolean = false,
+    /**
+     * Whether the current viewer has liked this comment, as resolved by the
+     * `getComments` backend in the same round-trip. Null means the backend
+     * didn't supply it (older deploy) — callers should fall back to the
+     * per-comment batch like check in that case.
+     */
+    val likedByViewer: Boolean? = null,
 ) {
     val isEdited: Boolean get() = editedAt != null
 
@@ -236,6 +243,7 @@ data class CymbalComment(
                 attachedSong = attachedSong,
                 attachedFilm = attachedFilm,
                 textIsAttachmentFallback = data["textIsAttachmentFallback"] as? Boolean ?: false,
+                likedByViewer = data["likedByViewer"] as? Boolean,
             )
         }
 

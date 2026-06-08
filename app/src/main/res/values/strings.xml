@@ -285,6 +285,9 @@
     <!-- Feed: song detail -->
     <string name="song_detail_post_song">+ Post Song</string>
     <string name="song_detail_play_spotify">Play in Spotify</string>
+    <!-- Preference-aware playback CTA: %1$s is the music-service name (e.g. Spotify, Deezer) -->
+    <string name="song_detail_play_in_service">Play in %1$s</string>
+    <string name="song_detail_open_in_service">Open in %1$s</string>
     <string name="song_detail_listen_soundcloud">Listen on SoundCloud</string>
     <string name="song_detail_cd_pause_preview">Pause preview</string>
     <string name="song_detail_posted_by">Posted by</string>

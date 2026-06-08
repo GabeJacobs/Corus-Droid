@@ -743,6 +743,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             threadId = route.threadId,
             otherUserId = route.otherUserId,
             onBack = { navController.popBackStack() },
+            onNavigateToProfile = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track ->
                 navController.navigate(track.toSongDetailRoute())
             },

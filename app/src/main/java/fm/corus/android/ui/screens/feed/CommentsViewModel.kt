@@ -349,22 +349,35 @@ class CommentsViewModel @Inject constructor(
             val replies = allComments.filter { it.parentCommentId != null }
                 .groupBy { it.parentCommentId!! }
 
-            _comments.value = topLevel
-            _repliesByParent.value = replies
-
-            // Preload which of these comments the current user has already
-            // liked so the heart renders filled on first open. Without this,
-            // the heart always appears empty and tapping it triggers another
-            // server-side likeCount increment even though our like doc is
-            // just being overwritten.
-            val userId = authRepository.currentUserId
-            if (userId != null && allComments.isNotEmpty()) {
-                val liked = postRepository.checkCommentLikesBatch(
-                    userId = userId,
-                    postId = postId,
-                    commentIds = allComments.map { it.id },
-                )
-                _likedCommentIds.value = liked
+            // Heart state must land in the SAME state update as the comments so
+            // already-liked hearts paint filled on first frame instead of
+            // flashing empty→filled. The backend's `getComments` now stamps a
+            // per-comment `likedByViewer` flag, so we can derive the liked-set
+            // synchronously here with no second round-trip.
+            val viewerFlagsPresent = allComments.any { it.likedByViewer != null }
+            if (viewerFlagsPresent) {
+                _likedCommentIds.value = allComments
+                    .filter { it.likedByViewer == true }
+                    .map { it.id }
+                    .toSet()
+                _comments.value = topLevel
+                _repliesByParent.value = replies
+            } else {
+                // Legacy fallback (older backend without the flag): render
+                // comments, then resolve liked-state via the per-comment batch
+                // check. This path still flashes empty→filled, matching prior
+                // behavior until the backend change is deployed.
+                _comments.value = topLevel
+                _repliesByParent.value = replies
+                val userId = authRepository.currentUserId
+                if (userId != null && allComments.isNotEmpty()) {
+                    val liked = postRepository.checkCommentLikesBatch(
+                        userId = userId,
+                        postId = postId,
+                        commentIds = allComments.map { it.id },
+                    )
+                    _likedCommentIds.value = liked
+                }
             }
         } catch (_: Exception) { }
     }

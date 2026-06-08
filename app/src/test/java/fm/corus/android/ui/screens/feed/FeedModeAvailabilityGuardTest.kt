@@ -109,6 +109,7 @@ class FeedModeAvailabilityGuardTest {
             analyticsService = analyticsService,
             postCreationEvent = postCreationEvent,
             postDeletionEvent = postDeletionEvent,
+            favoriteChangedEvent = fm.corus.android.domain.FavoriteChangedEvent(),
             commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
             commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
             musicServicePreference = mock(),

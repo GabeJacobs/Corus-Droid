@@ -406,9 +406,16 @@ fun CymbalClubOfferSheet(
         }
     }
 
+    // The Club paywall is always content-heavy (vinyl, 5 feature rows, two
+    // plan cards, CTA, footer), so it naturally lands near the top of the
+    // screen anyway. Cap it just shy of full height (94%) so it reads as a
+    // deliberate tall sheet that always sits slightly below the status
+    // bar / camera cutout — never stopping at an awkward in-between height
+    // and never crowding the system area at the top.
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .fillMaxHeight(0.94f)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

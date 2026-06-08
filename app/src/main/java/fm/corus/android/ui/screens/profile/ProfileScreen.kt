@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -54,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -158,6 +160,18 @@ fun ProfileScreen(
             clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
             showClubOffer = true
             viewModel.nowPlayingManager.clearPaywallRequested()
+        }
+    }
+
+    // After the user creates a post, jump to the tab that surfaces it (Music or
+    // Film) so they actually see what they just posted — e.g. posting a film
+    // while on the Music tab now switches to Film instead of looking like nothing
+    // happened.
+    LaunchedEffect(Unit) {
+        viewModel.switchToSegment.collect { segment ->
+            userSelectedSegment = segment
+            isFeaturedArtReady = false
+            viewModel.loadSegment(segment)
         }
     }
 
@@ -439,7 +453,12 @@ fun ProfileScreen(
                                     .padding(vertical = CorusSpacing.sm - 2.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Text(
+                                // Shrink-to-fit so the label stays on one line on
+                                // narrow devices (e.g. Samsung S23 at 360dp) instead of
+                                // wrapping to two lines. On wider screens where it
+                                // already fits (e.g. Pixel 9) it renders at full size,
+                                // so their layout is unchanged.
+                                ShrinkToFitText(
                                     text = stringResource(fm.corus.android.R.string.profile_button_edit),
                                     style = CorusFont.button,
                                     color = CorusColors.Secondary,
@@ -1057,6 +1076,44 @@ fun ProfileScreen(
             },
         )
     }
+}
+
+/**
+ * A single-line [Text] that shrinks its font size to fit the available width
+ * rather than wrapping. It starts at [style]'s font size, so on devices where the
+ * text already fits the rendering is identical to a plain [Text]; only when the
+ * text would overflow (narrower screens) does it step the size down until it fits.
+ *
+ * Uses the pre-Compose-1.8 `onTextLayout` + `didOverflowWidth` pattern because the
+ * stable `autoSize` parameter isn't available on our Compose BOM (1.7.x).
+ */
+@Composable
+private fun ShrinkToFitText(
+    text: String,
+    style: TextStyle,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    var resized by remember(text, style) { mutableStateOf(style) }
+    var readyToDraw by remember(text, style) { mutableStateOf(false) }
+    Text(
+        text = text,
+        style = resized,
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Visible,
+        // Hide until a size that fits is found, to avoid a one-frame flash of the
+        // oversized text before it's stepped down.
+        modifier = modifier.drawWithContent { if (readyToDraw) drawContent() },
+        onTextLayout = { result ->
+            if (result.didOverflowWidth && resized.fontSize.value > 9f) {
+                resized = resized.copy(fontSize = resized.fontSize * 0.92f)
+            } else {
+                readyToDraw = true
+            }
+        },
+    )
 }
 
 @Composable

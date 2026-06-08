@@ -30,6 +30,21 @@ internal fun parseBackCoverResponse(data: Map<String, Any?>?): String? {
 }
 
 /**
+ * Extracts matched user IDs from a `findContactMatches` response payload.
+ * Response shape: `{ "matches": [ { "id": "...", "username": ... }, ... ] }`.
+ * Kept top-level so it can be unit-tested without mocking FirebaseFunctions
+ * (per the project's "Mockito tests fail from CLI" note). Defensive against
+ * null payloads, a non-list `matches`, and entries missing/!-string `id`.
+ */
+@Suppress("UNCHECKED_CAST")
+internal fun parseContactMatchIds(data: Map<String, Any?>?): List<String> {
+    val matches = data?.get("matches") as? List<*> ?: return emptyList()
+    return matches.mapNotNull { entry ->
+        ((entry as? Map<String, Any?>)?.get("id") as? String)?.takeIf { it.isNotBlank() }
+    }
+}
+
+/**
  * Parses a `getForYouFeed` Cloud Function response payload into typed fields.
  * Kept top-level so it can be unit-tested without mocking FirebaseFunctions.
  * Returns null fields/defaults when the server sends an unexpected shape so
@@ -908,6 +923,28 @@ class CloudFunctionsDataSource @Inject constructor(
         functions.getHttpsCallable("notifyContactsOnSync").call(emptyMap<String, Any>()).await()
     }
 
+    /**
+     * Resolve which of the caller's contact phone numbers belong to existing
+     * Corus users, via the `findContactMatches` callable. Returns matched
+     * user IDs (the caller is excluded server-side); callers hydrate full
+     * profiles via [UserRepository.fetchUsersByIdsBatched].
+     *
+     * Replaces the former client-side `users_v2` `whereIn("phoneNumber", ...)`
+     * query, which exposed phoneNumber on the publicly-listable user doc.
+     * Send the same regex-normalized numbers as before — the server filters
+     * to E.164 (`^\+\d{6,15}$`), the only form that ever matched (stored
+     * phoneNumber is always Firebase-Auth E.164), so match parity holds.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun findContactMatches(phoneNumbers: List<String>): List<String> {
+        if (phoneNumbers.isEmpty()) return emptyList()
+        val result = functions
+            .getHttpsCallable("findContactMatches")
+            .call(mapOf("phones" to phoneNumbers))
+            .await()
+        return parseContactMatchIds(result.getData() as? Map<String, Any?>)
+    }
+
     // ── Account ──
 
     suspend fun deleteAllUserData() {
@@ -1031,9 +1068,22 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun generateFeedPlaylist(newReleasesOnly: Boolean = false): PlaylistResult {
-        val params = mutableMapOf<String, Any>("supportsGating" to true)
+    /**
+     * @param feedMode Which feed the user is viewing ("following" / "trending" /
+     *   "favorites"). Drives both the playlist's source and its name on the
+     *   server. Defaults to "following" for back-compat.
+     * @param sessionToken The live Trending ranked-session token the user is
+     *   scrolling, so the server builds the playlist from the exact list shown.
+     *   Only meaningful for "trending"; ignored otherwise.
+     */
+    suspend fun generateFeedPlaylist(
+        newReleasesOnly: Boolean = false,
+        feedMode: String = "following",
+        sessionToken: String? = null,
+    ): PlaylistResult {
+        val params = mutableMapOf<String, Any>("supportsGating" to true, "feedMode" to feedMode)
         if (newReleasesOnly) params["newReleasesOnly"] = true
+        if (feedMode == "trending" && !sessionToken.isNullOrEmpty()) params["sessionToken"] = sessionToken
         val result = functions.getHttpsCallable("generateFeedPlaylist").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
         return parsePlaylistResponse(data)

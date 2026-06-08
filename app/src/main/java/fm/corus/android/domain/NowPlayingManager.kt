@@ -237,7 +237,11 @@ class NowPlayingManager @Inject constructor(
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    suspend fun generateFeedPlaylist(newReleasesOnly: Boolean = false) {
+    suspend fun generateFeedPlaylist(
+        newReleasesOnly: Boolean = false,
+        feedMode: String = "following",
+        sessionToken: String? = null,
+    ) {
         _isGeneratingPlaylist.value = true
         ToastManager.show("Generating playlist\u2026")
 
@@ -248,7 +252,7 @@ class NowPlayingManager @Inject constructor(
         }
 
         try {
-            val result = cloudFunctions.generateFeedPlaylist(newReleasesOnly)
+            val result = cloudFunctions.generateFeedPlaylist(newReleasesOnly, feedMode, sessionToken)
             if (result.soundcloudSkipped > 0) {
                 android.util.Log.i("NowPlaying", "Feed playlist skipped ${result.soundcloudSkipped} SoundCloud track(s)")
             }
@@ -711,6 +715,21 @@ class NowPlayingManager @Inject constructor(
             Intent(context, CorusPlaybackService::class.java),
         )
         foregroundServiceStarted = true
+    }
+
+    /**
+     * Called by [CorusPlaybackService] when Android refused to promote the
+     * service to the foreground (ForegroundServiceStartNotAllowedException on
+     * API 31+) — i.e. playback was started while the app was backgrounded. We
+     * can't keep audio running without the foreground service, so pause and
+     * clear [foregroundServiceStarted] so the next foreground play() retries the
+     * promotion cleanly. Reached on the main thread from onStartCommand, the
+     * same thread that owns the player, so no dispatch is needed.
+     */
+    fun onForegroundStartDenied() {
+        foregroundServiceStarted = false
+        player?.pause()
+        _state.value = _state.value.copy(isPlaying = false)
     }
 
     /**

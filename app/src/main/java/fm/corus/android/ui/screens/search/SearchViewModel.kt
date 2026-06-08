@@ -755,10 +755,10 @@ class SearchViewModel @Inject constructor(
                     }
                     // Only the match lookup is essential for the UI
                     try {
-                        _contactMatches.value =
-                            firestoreDataSource.fetchUsersByPhoneNumbers(phoneNumbers, setOf(userId))
+                        val ids = cloudFunctions.findContactMatches(phoneNumbers).filter { it != userId }
+                        _contactMatches.value = userRepository.fetchUsersByIdsBatched(ids)
                     } catch (e: Exception) {
-                        Log.e("SearchVM", "fetchUsersByPhoneNumbers failed", e)
+                        Log.e("SearchVM", "findContactMatches failed", e)
                     }
                 }
             } catch (_: Exception) { }

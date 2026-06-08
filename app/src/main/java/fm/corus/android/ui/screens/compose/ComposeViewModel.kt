@@ -520,7 +520,7 @@ class ComposeViewModel @Inject constructor(
                 analyticsService.logPostCreated(mediaType.value)
                 subscriptionRepository.incrementPostCount()
                 authRepository.bumpCymbalCount(1)
-                postCreationEvent.notifyPostCreated()
+                postCreationEvent.notifyPostCreated(mediaType)
 
                 // Paid users: warn when they're approaching the 6h hard cap so
                 // it doesn't come out of nowhere. Throttled inside the

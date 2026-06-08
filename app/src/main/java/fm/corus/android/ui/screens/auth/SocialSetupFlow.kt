@@ -138,6 +138,9 @@ private fun MusicServiceScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
+        // Featured tier — Spotify + TIDAL as large side-by-side cards
+        // (mirrors the iOS two-tier layout). No playback subtitle on Android:
+        // it doesn't support in-app full playback for any service.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
@@ -146,19 +149,9 @@ private fun MusicServiceScreen(
                 modifier = Modifier.weight(1f),
                 logoRes = R.drawable.spotify_logo,
                 label = MusicService.SPOTIFY.displayLabel,
-                subtitle = null,
                 accent = CorusColors.SpotifyGreen,
                 selected = selected == MusicService.SPOTIFY,
                 onClick = { selected = MusicService.SPOTIFY },
-            )
-            MusicServiceCard(
-                modifier = Modifier.weight(1f),
-                logoRes = R.drawable.apple_music_logo,
-                label = MusicService.APPLE_MUSIC.displayLabel,
-                subtitle = stringResource(id = R.string.music_service_full_playback),
-                accent = CorusColors.AppleMusicPink,
-                selected = selected == MusicService.APPLE_MUSIC,
-                onClick = { selected = MusicService.APPLE_MUSIC },
             )
             // TIDAL only appears when its Remote Config gate is on (and the
             // integration has shipped on all clients).
@@ -167,36 +160,38 @@ private fun MusicServiceScreen(
                     modifier = Modifier.weight(1f),
                     logoRes = R.drawable.tidal_logo,
                     label = MusicService.TIDAL.displayLabel,
-                    // No "full-length playback" subtitle — TIDAL is preview-only for
-                    // third-party apps; that claim is Apple Music only.
-                    subtitle = null,
-                    accent = CorusColors.TidalTeal,
+                    accent = CorusColors.Tidal,
                     selected = selected == MusicService.TIDAL,
                     onClick = { selected = MusicService.TIDAL },
                 )
             }
-            // Deezer only appears when its Remote Config gate is on. Link-out
-            // only (preview-only for third-party apps), so no playback subtitle.
+        }
+
+        // Secondary tier — full-width list rows beneath the featured pair:
+        // Deezer first, then Apple Music. These link out to their own app.
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+        ) {
+            // Deezer only appears when its Remote Config gate is on.
             if (deezerEnabled) {
-                MusicServiceCard(
-                    modifier = Modifier.weight(1f),
+                MusicServiceRow(
                     logoRes = R.drawable.deezer_logo,
                     label = MusicService.DEEZER.displayLabel,
-                    subtitle = null,
                     accent = CorusColors.DeezerPurple,
                     selected = selected == MusicService.DEEZER,
                     onClick = { selected = MusicService.DEEZER },
                 )
             }
+            MusicServiceRow(
+                logoRes = R.drawable.apple_music_logo,
+                label = MusicService.APPLE_MUSIC.displayLabel,
+                accent = CorusColors.AppleMusicPink,
+                selected = selected == MusicService.APPLE_MUSIC,
+                onClick = { selected = MusicService.APPLE_MUSIC },
+            )
         }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-        Text(
-            stringResource(id = R.string.music_service_more_soon),
-            style = CorusFont.caption,
-            color = CorusColors.Secondary,
-            textAlign = TextAlign.Center,
-        )
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -237,7 +232,6 @@ private fun MusicServiceCard(
     modifier: Modifier = Modifier,
     logoRes: Int,
     label: String,
-    subtitle: String?,
     accent: Color,
     selected: Boolean,
     onClick: () -> Unit,
@@ -267,13 +261,54 @@ private fun MusicServiceCard(
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
         )
-        if (subtitle != null) {
-            Spacer(modifier = Modifier.height(CorusSpacing.xs))
-            Text(
-                subtitle,
-                style = CorusFont.caption,
-                color = CorusColors.Secondary,
-                textAlign = TextAlign.Center,
+    }
+}
+
+/**
+ * Full-width row for the secondary tier (services that only link out to their
+ * own app). Logo + name on the left, selection checkmark on the right — mirrors
+ * the iOS `secondaryServiceRow`.
+ */
+@Composable
+private fun MusicServiceRow(
+    logoRes: Int,
+    label: String,
+    accent: Color,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+            .background(if (selected) accent.copy(alpha = 0.08f) else CorusColors.CardBackground)
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) accent else CorusColors.Divider,
+                shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Image(
+            painter = painterResource(id = logoRes),
+            contentDescription = label,
+            modifier = Modifier.size(28.dp),
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        Text(
+            label,
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Text,
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        if (selected) {
+            Icon(
+                Icons.Filled.CheckCircle,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(20.dp),
             )
         }
     }
@@ -770,6 +805,9 @@ private fun FollowFriendsMainContent(
                 },
             )
         }
+
+        // Breathing room so the scrolling grid doesn't butt against the button
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
         // Continue button — matches iOS button text
         Button(

@@ -124,6 +124,7 @@ class FeedViewModel @Inject constructor(
     private val postDeletionEvent: PostDeletionEvent,
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
+    private val favoriteChangedEvent: fm.corus.android.domain.FavoriteChangedEvent,
     networkMonitor: NetworkMonitor,
     private val preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore,
     @ApplicationContext private val context: Context,
@@ -229,6 +230,14 @@ class FeedViewModel @Inject constructor(
         .map { resolveFeedMode(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, "following")
 
+    // The mode the currently-shown page was actually loaded with. feedMode
+    // resolves from DataStore asynchronously (its eager seed is "following"),
+    // so the screen's first loadFeed() can fire and fetch Following before the
+    // persisted ranked mode lands — leaving the menu showing e.g. Trending as
+    // selected while the posts are Following. Tracking what each load used lets
+    // the init collector below re-sync when the resolved mode diverges.
+    private var lastLoadedMode: String? = null
+
     private var forYouSessionToken: String? = null
     private var forYouPageIndex: Int = 0
     private var forYouSeenIds: MutableList<String> = mutableListOf()
@@ -317,6 +326,27 @@ class FeedViewModel @Inject constructor(
                 }
             }
         }
+        // Re-sync the feed when the resolved mode lands after the screen has
+        // already kicked off a load with a different mode. feedMode resolves
+        // from DataStore asynchronously, so a cold launch can fetch Following
+        // (the eager seed) before the persisted ranked mode arrives — the menu
+        // then shows e.g. Trending as selected while the posts are Following.
+        // When the resolved mode diverges from what the current page loaded
+        // with, redo the load so data matches the selection. Mirrors the
+        // feedFilter restore guard above. setFeedMode pre-claims lastLoadedMode,
+        // so user taps don't double-load through here.
+        viewModelScope.launch {
+            feedMode.collect { mode ->
+                if (mode != lastLoadedMode &&
+                    (_hasLoaded.value || _isLoading.value || _isRefreshing.value)
+                ) {
+                    lastTimestamp = null
+                    _posts.value = emptyList()
+                    _hasMore.value = true
+                    loadFeed(refresh = true)
+                }
+            }
+        }
         // Restore For You seen-IDs ring buffer from DataStore on startup so
         // we suppress already-shown posts after an app restart.
         viewModelScope.launch {
@@ -356,6 +386,23 @@ class FeedViewModel @Inject constructor(
         viewModelScope.launch {
             postDeletionEvent.events.collect { deletedId ->
                 _posts.value = _posts.value.filter { it.id != deletedId }
+            }
+        }
+        // Keep the Favorites feed live when the viewer toggles a favorite from a
+        // profile, so they don't have to pull-to-refresh. Only acts while the
+        // Favorites feed is the active mode — switching INTO it already reloads.
+        viewModelScope.launch {
+            favoriteChangedEvent.events.collect { change ->
+                if (feedMode.value != "favorites") return@collect
+                if (change.isFavorited) {
+                    // Newly favorited — fetch so their posts appear. Brief delay
+                    // lets the favorites doc write propagate before the query.
+                    delay(300)
+                    loadFeed(refresh = true)
+                } else {
+                    // Unfavorited — drop that author's posts instantly, no network.
+                    _posts.value = _posts.value.filter { it.user.id != change.userId }
+                }
             }
         }
         viewModelScope.launch {
@@ -408,6 +455,7 @@ class FeedViewModel @Inject constructor(
         // A ranked mode can only have been persisted while its flag was on,
         // and resolveFeedMode already handles the unset case via the RC default.
         val mode = feedMode.value
+        lastLoadedMode = mode
         val useRanked = mode == "forYou" || mode == "trending"
         val useFavorites = mode == "favorites"
         val rankedScope = if (mode == "trending") "trending" else "forYou"
@@ -499,6 +547,13 @@ class FeedViewModel @Inject constructor(
                 engagementManager.reconcileCommentCount(post.id, atLeast = post.comments.size)
             }
 
+            // Drop a stale response: the user switched feed modes while this
+            // fetch was in flight. A newer loadFeed for the current mode owns
+            // the UI now — applying these posts would flash the wrong feed
+            // (e.g. show Following posts while Trending is selected). The newer
+            // task resets the loading flags on its own completion.
+            if (feedMode.value != mode) return
+
             if (refresh) {
                 _posts.value = newPosts
             } else {
@@ -544,6 +599,10 @@ class FeedViewModel @Inject constructor(
         // so the returned page matches the new filter.
         lastTimestamp = null
         _posts.value = emptyList()
+        // Set the loading flag in the same frame we empty the list so the
+        // skeleton wins immediately — otherwise the empty state flashes for a
+        // frame before loadFeed's coroutine sets it (see setFeedMode).
+        _isRefreshing.value = true
         _hasMore.value = true
         loadFeed(refresh = true)
     }
@@ -570,12 +629,23 @@ class FeedViewModel @Inject constructor(
      */
     fun setFeedMode(mode: String) {
         if (feedMode.value == mode) return
+        // Claim this mode now so the feedMode collector (init) treats the
+        // upcoming DataStore emission as already-handled — this path persists
+        // and reloads directly, so we don't want the collector to fire a second
+        // redundant load.
+        lastLoadedMode = mode
         analyticsService.logFeedModeChanged(mode)
         forYouSessionToken = null
         forYouPageIndex = 0
         _forYouLoadFailed.value = false
         lastTimestamp = null
         _posts.value = emptyList()
+        // Flip the loading flag synchronously, in the same frame we empty the
+        // list. loadFeedSuspending sets it too, but only after the coroutine
+        // starts — that gap let the feed render posts=[] + hasLoaded=true +
+        // !isLoading + !isRefreshing for a frame, flashing the empty state
+        // before the skeleton appeared. Reset in loadFeedSuspending's tail.
+        _isRefreshing.value = true
         _hasMore.value = true
         viewModelScope.launch {
             preferencesDataStore.setFeedMode(mode)
@@ -626,8 +696,17 @@ class FeedViewModel @Inject constructor(
 
     fun generateFeedPlaylist() {
         analyticsService.logFeedPlaylistTapped()
+        // Build the playlist from whichever feed is on screen, and (for
+        // Trending) from the exact ranked session the user is scrolling. The
+        // server names it per mode ("Corus Trending" / "Corus Favorites" /
+        // "Corus Feed").
+        val mode = feedMode.value
         viewModelScope.launch {
-            nowPlayingManager.generateFeedPlaylist(newReleasesOnly = _feedFilter.value.newReleasesOnly)
+            nowPlayingManager.generateFeedPlaylist(
+                newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                feedMode = mode,
+                sessionToken = if (mode == "trending") forYouSessionToken else null,
+            )
         }
     }
 

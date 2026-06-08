@@ -10,7 +10,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -509,7 +508,7 @@ internal fun notificationTabBadge(
 }
 
 @Composable
-private fun CorusBottomBar(
+internal fun CorusBottomBar(
     selectedTab: CorusTab,
     notificationTabBadgeCount: Int,
     onTabSelected: (CorusTab) -> Unit,
@@ -530,34 +529,49 @@ private fun CorusBottomBar(
                 .background(CorusColors.Background)
                 .padding(top = CorusSpacing.sm)
                 .navigationBarsPadding(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.Top,
+            // Center every slot against the full bar height so the "+" lines up with
+            // the icon+label stack of the other tabs (the tab items are the tallest
+            // children, so centering doesn't move them — it only drops the "+" to
+            // their shared vertical center instead of floating above the labels).
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Each slot gets an equal weight(1f) so the bar is divided into five
+            // identical columns. This keeps the center "+" mathematically centered
+            // regardless of how wide each label renders (e.g. "Activity"/"Profile"
+            // are wider than "Feed"/"Search"). Arrangement.SpaceEvenly was sizing
+            // slots to their intrinsic label width, which pushed "+" off-center.
             TabItem(
                 icon = if (selectedTab == CorusTab.FEED) CorusTab.FEED.selectedIcon else CorusTab.FEED.unselectedIcon,
                 label = stringResource(CorusTab.FEED.labelRes),
                 isSelected = selectedTab == CorusTab.FEED,
                 onClick = { onTabSelected(CorusTab.FEED) },
+                modifier = Modifier.weight(1f),
             )
             TabItem(
                 icon = if (selectedTab == CorusTab.EXPLORE) CorusTab.EXPLORE.selectedIcon else CorusTab.EXPLORE.unselectedIcon,
                 label = stringResource(CorusTab.EXPLORE.labelRes),
                 isSelected = selectedTab == CorusTab.EXPLORE,
                 onClick = { onTabSelected(CorusTab.EXPLORE) },
+                modifier = Modifier.weight(1f),
             )
-            ComposeButton(onClick = onComposeTapped)
+            ComposeButton(
+                onClick = onComposeTapped,
+                modifier = Modifier.weight(1f),
+            )
             TabItem(
                 icon = if (selectedTab == CorusTab.NOTIFICATIONS) CorusTab.NOTIFICATIONS.selectedIcon else CorusTab.NOTIFICATIONS.unselectedIcon,
                 label = stringResource(CorusTab.NOTIFICATIONS.labelRes),
                 isSelected = selectedTab == CorusTab.NOTIFICATIONS,
                 badgeCount = notificationTabBadgeCount,
                 onClick = { onTabSelected(CorusTab.NOTIFICATIONS) },
+                modifier = Modifier.weight(1f),
             )
             TabItem(
                 icon = if (selectedTab == CorusTab.PROFILE) CorusTab.PROFILE.selectedIcon else CorusTab.PROFILE.unselectedIcon,
                 label = stringResource(CorusTab.PROFILE.labelRes),
                 isSelected = selectedTab == CorusTab.PROFILE,
                 onClick = { onTabSelected(CorusTab.PROFILE) },
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -568,13 +582,14 @@ private fun TabItem(
     icon: ImageVector,
     label: String,
     isSelected: Boolean,
-    badgeCount: Int = 0,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    badgeCount: Int = 0,
 ) {
     val color = if (isSelected) CorusColors.Accent else CorusColors.Secondary
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .defaultMinSize(minHeight = CorusSpacing.touchTarget)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -632,12 +647,15 @@ private fun TabItem(
     }
 }
 
+// The button is centered on the icon+label stack (CenterVertically in the Row),
+// then lifted 2dp. A solid filled disc optically reads low next to the lightweight
+// outline icons, so this small nudge balances it against the icon row by eye.
+private val ComposeButtonOpticalLift = 2.dp
+
 @Composable
-private fun ComposeButton(onClick: () -> Unit) {
+private fun ComposeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier
-            .height(CorusSpacing.touchTarget)
-            .offset(y = (-4).dp),
+        modifier = modifier.offset(y = -ComposeButtonOpticalLift),
         contentAlignment = Alignment.Center,
     ) {
         Box(

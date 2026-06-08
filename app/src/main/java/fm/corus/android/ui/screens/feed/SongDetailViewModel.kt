@@ -22,7 +22,29 @@ class SongDetailViewModel @Inject constructor(
     val analyticsService: AnalyticsService,
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
+    private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
+    val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
 ) : ViewModel() {
+
+    /**
+     * Resolve the link-out URL for a Spotify-source track in the viewer's
+     * *preferred* service (Apple Music / TIDAL / Deezer). Returns null for
+     * Spotify (caller opens the post's own URI) and on no-match / error.
+     * Mirrors iOS `SongDetailView`'s service routing. See PostDetailViewModel.
+     */
+    suspend fun resolveServiceLinkUrl(track: fm.corus.android.data.model.CymbalTrack): String? =
+        resolveLinkUrl(track, musicServicePreference.current.value)
+
+    /**
+     * Resolve the link-out URL for an explicit [service] — used by the
+     * alternate-service button and Apple-only-track routing, which open a
+     * service other than (or in addition to) the viewer's preference.
+     */
+    suspend fun resolveLinkUrl(
+        track: fm.corus.android.data.model.CymbalTrack,
+        service: fm.corus.android.data.model.MusicService,
+    ): String? =
+        fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(track, service, cloudFunctions)
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()

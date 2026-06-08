@@ -114,7 +114,8 @@ class SocialSetupViewModel @Inject constructor(
                     // Store synced contacts and find matches in parallel
                     val storeJob = async { firestoreDataSource.storeSyncedContacts(userId, phoneNumbers) }
                     val matchesJob = async {
-                        firestoreDataSource.fetchUsersByPhoneNumbers(phoneNumbers, setOf(userId))
+                        val ids = cloudFunctions.findContactMatches(phoneNumbers).filter { it != userId }
+                        userRepository.fetchUsersByIdsBatched(ids)
                     }
                     val notifyJob = async { cloudFunctions.notifyContactsOnSync() }
 

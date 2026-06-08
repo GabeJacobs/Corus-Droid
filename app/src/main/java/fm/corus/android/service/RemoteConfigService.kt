@@ -2,6 +2,8 @@ package fm.corus.android.service
 
 import android.content.Context
 import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.remoteconfig.CustomSignals
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -13,6 +15,7 @@ import javax.inject.Singleton
 @Singleton
 class RemoteConfigService @Inject constructor(
     private val remoteConfig: FirebaseRemoteConfig,
+    private val auth: FirebaseAuth,
     @ApplicationContext private val context: Context,
 ) {
     /// Dev override store. SharedPreferences-backed so toggles persist
@@ -184,8 +187,29 @@ class RemoteConfigService @Inject constructor(
             // return remoteConfig.getBoolean("comment_controls_on_posts")
         }
 
+    /// Pushes the current user's UID into Remote Config as a custom signal so
+    /// per-user targeting conditions (e.g. `app.customSignal['user_id']`) can
+    /// resolve. Mirrors iOS (RemoteConfigService.setCurrentUserSignal). Safe to
+    /// call repeatedly — last write wins. Must run *before* a fetch so the
+    /// signal is evaluated against the returned values. Passing null clears the
+    /// signal, matching the desired behavior on sign-out.
+    suspend fun setCurrentUserSignal(uid: String?) {
+        try {
+            val signals = CustomSignals.Builder()
+                .put("user_id", uid)
+                .build()
+            remoteConfig.setCustomSignals(signals).await()
+        } catch (e: Exception) {
+            Log.w("RemoteConfig", "setCustomSignals failed", e)
+        }
+    }
+
     suspend fun fetchAndActivate() {
         try {
+            // Make sure the user-targeting custom signal is in place before
+            // fetching so conditional values resolve correctly on the very
+            // first response. Mirrors iOS.
+            setCurrentUserSignal(auth.currentUser?.uid)
             val settings = FirebaseRemoteConfigSettings.Builder()
                 .setMinimumFetchIntervalInSeconds(3600)
                 .build()

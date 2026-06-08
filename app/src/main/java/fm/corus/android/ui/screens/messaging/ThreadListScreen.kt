@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.messaging
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -54,6 +55,7 @@ fun ThreadListScreen(
     val threads by viewModel.threads.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     var showNewMessagePicker by remember { mutableStateOf(false) }
+    var isCreatingThread by remember { mutableStateOf(false) }
     var inboxSearchText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
@@ -65,7 +67,8 @@ fun ThreadListScreen(
         viewModel.loadThreads()
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
+    Box(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
+    Column(modifier = Modifier.fillMaxSize()) {
         // Header with back and compose button
         Row(
             modifier = Modifier
@@ -126,6 +129,24 @@ fun ThreadListScreen(
         }
     }
 
+        // Blocking loading overlay shown while the thread is being created/fetched
+        // after a recipient is tapped in the New Message picker.
+        if (isCreatingThread) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(CorusColors.Background.copy(alpha = 0.6f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {},
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = CorusColors.Accent)
+            }
+        }
+    }
+
     // New Message picker sheet
     if (showNewMessagePicker) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -150,11 +171,15 @@ fun ThreadListScreen(
                 onUserSelected = { user ->
                     viewModel.clearSearch()
                     showNewMessagePicker = false
+                    isCreatingThread = true
                     scope.launch {
                         try {
                             val threadId = viewModel.getOrCreateThread(user.id)
                             onThreadTap(threadId, user.id)
-                        } catch (_: Exception) { }
+                        } catch (_: Exception) {
+                        } finally {
+                            isCreatingThread = false
+                        }
                     }
                 },
             )

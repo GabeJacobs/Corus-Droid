@@ -1536,22 +1536,11 @@ class FirestoreDataSource @Inject constructor(
         return (doc.get("syncedContacts") as? List<String>) ?: emptyList()
     }
 
-    suspend fun fetchUsersByPhoneNumbers(phoneNumbers: List<String>, excludeIds: Set<String>): List<CymbalUser> {
-        if (phoneNumbers.isEmpty()) return emptyList()
-        val users = mutableListOf<CymbalUser>()
-        // Firestore `in` queries max 30 items
-        phoneNumbers.chunked(30).forEach { chunk ->
-            val snapshot = firestore.collection("users_v2")
-                .whereIn("phoneNumber", chunk)
-                .get().await()
-            for (doc in snapshot.documents) {
-                if (doc.id in excludeIds) continue
-                val data = doc.data ?: continue
-                users.add(CymbalUser.fromMap(doc.id, data))
-            }
-        }
-        return users
-    }
+    // NOTE: contact matching used to run a client-side
+    // users_v2.whereIn("phoneNumber", ...) query here. That exposed
+    // phoneNumber on the publicly-listable user doc, so it was replaced by
+    // CloudFunctionsDataSource.findContactMatches (the findContactMatches
+    // callable). Do not reintroduce a client-side phoneNumber query.
 
     // ── Notification read status ──
 

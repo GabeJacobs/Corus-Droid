@@ -47,6 +47,7 @@ class OtherProfileViewModel @Inject constructor(
     private val commentDeletedEvent: CommentDeletedEvent,
     private val analyticsService: AnalyticsService,
     private val remoteConfig: RemoteConfigService,
+    private val favoriteChangedEvent: fm.corus.android.domain.FavoriteChangedEvent,
 ) : ViewModel() {
 
     /** Whether the Favorites feature (star button) is enabled in Remote Config. */
@@ -479,6 +480,8 @@ class OtherProfileViewModel @Inject constructor(
         _isFavorite.value = nowFavorite
         if (nowFavorite) analyticsService.logFavoriteAdded(userId)
         else analyticsService.logFavoriteRemoved(userId)
+        // Let the Favorites feed update itself without a manual refresh.
+        favoriteChangedEvent.notify(userId, nowFavorite)
         viewModelScope.launch {
             try {
                 if (wasFavorite) {
