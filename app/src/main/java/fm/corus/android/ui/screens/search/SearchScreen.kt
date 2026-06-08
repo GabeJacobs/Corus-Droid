@@ -136,7 +136,6 @@ fun SearchScreen(
     val suggestedMatches by viewModel.suggestedMatches.collectAsState()
     val isSuggestedLoading by viewModel.isSuggestedLoading.collectAsState()
     val isTasteMatchPolling by viewModel.isTasteMatchPolling.collectAsState()
-    val currentUserHasNoTasteData by viewModel.currentUserHasNoTasteData.collectAsState()
     val recentSearchUsers by viewModel.recentSearchUsers.collectAsState()
     val contactMatches by viewModel.contactMatches.collectAsState()
     val isSyncingContacts by viewModel.isSyncingContacts.collectAsState()
@@ -663,7 +662,6 @@ private fun SuggestedUsersContent(
     onNavigateToContactFriends: () -> Unit,
 ) {
     val context = LocalContext.current
-    val currentUserHasNoTasteData by viewModel.currentUserHasNoTasteData.collectAsState()
     val tasteMatchesTitle = stringResource(fm.corus.android.R.string.search_taste_matches_title)
     val mutualConnectionsTitle = stringResource(fm.corus.android.R.string.search_mutual_connections_title)
     val popularOnCorusTitle = stringResource(fm.corus.android.R.string.search_popular_title)
@@ -752,26 +750,11 @@ private fun SuggestedUsersContent(
         }
 
         // ── Taste Matches section ──
-        // Suppress the skeleton for brand-new users with no posts: there's no
-        // taste data to compute and no recompute in flight, so it would only
-        // flash empty and then collapse. Popular on Corus becomes the top
-        // section cleanly instead.
-        if ((isSuggestedLoading || isTasteMatchPolling) && musicMatchUsers.isEmpty() && !currentUserHasNoTasteData) {
-            item {
-                SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
-            }
-            item {
-                val cardWidth = horizontalRailCardWidth()
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
-                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-                ) {
-                    items(4) { SkeletonTasteMatchCard(modifier = Modifier.width(cardWidth)) }
-                }
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            }
-        }
+        // Always present the section: real cards when we have matches, a skeleton
+        // while we're still loading/polling, and a short explainer whenever a user
+        // has no taste matches yet (regardless of post count) so the slot reads as
+        // "coming soon" rather than missing. (For brand-new users with no posts the
+        // ViewModel skips the cold-start poll, so they reach the explainer fast.)
         if (musicMatchUsers.isNotEmpty()) {
             item {
                 SectionHeader(
@@ -818,6 +801,29 @@ private fun SuggestedUsersContent(
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            }
+        } else if (isSuggestedLoading || isTasteMatchPolling) {
+            item {
+                SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
+            }
+            item {
+                val cardWidth = horizontalRailCardWidth()
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                ) {
+                    items(4) { SkeletonTasteMatchCard(modifier = Modifier.width(cardWidth)) }
+                }
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            }
+        } else {
+            item {
+                SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
+            }
+            item {
+                TasteMatchesEmptyCard()
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
         }
@@ -1058,6 +1064,31 @@ private fun NoContactMatchesCard() {
             stringResource(fm.corus.android.R.string.search_no_contact_matches_subtitle),
             style = CorusFont.caption,
             color = CorusColors.Tertiary,
+        )
+    }
+}
+
+/**
+ * Empty state for the Taste Matches rail shown to brand-new users who haven't
+ * posted yet (no taste data to match on). Explains what the section will become
+ * so it reads as "coming soon" rather than a broken/empty rail.
+ */
+@Composable
+private fun TasteMatchesEmptyCard() {
+    val shape = RoundedCornerShape(CorusSpacing.cornerRadiusLarge)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg)
+            .clip(shape)
+            .background(CorusColors.CardBackground)
+            .border(0.5.dp, CorusColors.Divider, shape)
+            .padding(CorusSpacing.md),
+    ) {
+        Text(
+            stringResource(fm.corus.android.R.string.search_taste_matches_empty),
+            style = CorusFont.body,
+            color = CorusColors.Secondary,
         )
     }
 }

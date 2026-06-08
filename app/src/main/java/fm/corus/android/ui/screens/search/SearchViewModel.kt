@@ -292,18 +292,6 @@ class SearchViewModel @Inject constructor(
     private val _isTasteMatchPolling = MutableStateFlow(false)
     val isTasteMatchPolling: StateFlow<Boolean> = _isTasteMatchPolling.asStateFlow()
 
-    // True once we positively know the signed-in user has no taste data yet:
-    // they've posted nothing, so the backend has nothing to compute music
-    // matches from and no eager-recompute is in flight. The screen uses this to
-    // skip the taste-match skeleton, and the cold-start poll uses it to bail
-    // early, so a brand-new user never sees the section flash empty and collapse.
-    // A null profile means we don't yet know the post count, so we default to
-    // false and leave the normal skeleton behavior in place.
-    val currentUserHasNoTasteData: StateFlow<Boolean> =
-        authRepository.userProfile
-            .map { it != null && it.cymbalCount == 0 }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
     // Follow state
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     val followingIds: StateFlow<Set<String>> = _followingIds.asStateFlow()
@@ -367,6 +355,12 @@ class SearchViewModel @Inject constructor(
             userRepository.followingIds.collect { ids ->
                 _followingIds.value = ids
             }
+        }
+        // Warm the followed-profiles cache so the first keystroke of a Users-tab
+        // search resolves followed matches from memory instead of fetching the
+        // whole following set on the network (mirrors iOS SearchView prefetch).
+        viewModelScope.launch {
+            runCatching { userRepository.prefetchFollowedProfiles() }
         }
         // Fetch taste matches and mutual connections (Firestore) in parallel,
         // then merge them — matching how iOS loads suggestions. Taste matches go
@@ -477,8 +471,10 @@ class SearchViewModel @Inject constructor(
     private suspend fun pollTasteMatchesIfMissing(uid: String) {
         // Brand-new user with no posts: the eager recompute we'd be waiting on
         // only fires on a post create, so there's nothing in flight. Skip the
-        // poll entirely so the skeleton never shows for them.
-        if (currentUserHasNoTasteData.value) return
+        // poll entirely so the skeleton never shows for them. Read the profile
+        // directly (not the derived StateFlow, whose collection can lag) so the
+        // guard is deterministic.
+        if ((authRepository.userProfile.value?.cymbalCount ?: -1) == 0) return
         if (_suggestedMatches.value.any { it.hasTasteMatch() }) return
 
         _isTasteMatchPolling.value = true
@@ -612,7 +608,7 @@ class SearchViewModel @Inject constructor(
                 when (tab) {
                     0 -> {
                         val key = query.lowercase().trim()
-                        val results = userRepository.searchUsers(key)
+                        val results = userRepository.searchUsers(key, includeFollowed = true)
                         userSearchCache[key] = results
                         _userSearchResults.value = results
                     }

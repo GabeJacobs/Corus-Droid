@@ -760,7 +760,7 @@ class FeedViewModel @Inject constructor(
             _isShareSearching.value = true
             delay(250)
             try {
-                _shareSearchResults.value = userRepository.searchUsers(trimmed)
+                _shareSearchResults.value = userRepository.searchUsers(trimmed, includeFollowed = true)
             } catch (_: Exception) {
                 _shareSearchResults.value = emptyList()
             }

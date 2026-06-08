@@ -1236,9 +1236,16 @@ class FirestoreDataSource @Inject constructor(
      * underlying fetch at 500 documents.
      */
     suspend fun fetchClubMembers(limit: Int = 6, excludeIds: Set<String> = emptySet()): List<CymbalUser> {
+        // Order by clubMemberSince server-side and fetch only a small buffer
+        // beyond the requested count (to absorb client-side exclude/bot/hidden
+        // filtering) instead of pulling the entire club and sorting on-device.
+        // All active club members have clubMemberSince set, so newest-first
+        // order is preserved server-side. Requires the users_v2 composite index
+        // on (isClubMember ASC, clubMemberSince DESC).
         val snapshot = firestore.collection("users_v2")
             .whereEqualTo("isClubMember", true)
-            .limit(500)
+            .orderBy("clubMemberSince", Query.Direction.DESCENDING)
+            .limit((limit + excludeIds.size + 10).toLong())
             .get().await()
         return snapshot.documents
             .mapNotNull { doc ->
@@ -1250,7 +1257,6 @@ class FirestoreDataSource @Inject constructor(
                 if (hiddenUsernames.contains(user.username)) return@mapNotNull null
                 user
             }
-            .sortedByDescending { it.clubMemberSince ?: it.createdAt ?: java.util.Date(0) }
             .take(limit)
     }
 

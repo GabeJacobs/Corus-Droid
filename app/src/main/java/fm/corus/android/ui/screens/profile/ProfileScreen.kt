@@ -91,6 +91,30 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/**
+ * Whether the profile PLAYLIST button should be enabled for the given tab.
+ * A playlist is a music playlist, so:
+ *  - Music (0): enabled when the user has posted at least one track.
+ *  - Film (1): always disabled — films can't go in a music playlist.
+ *  - Likes (2) / Saves (3): enabled only once that list has loaded and is
+ *    non-empty, so the button doesn't sit enabled over an empty tab and
+ *    doesn't flicker while the list is still loading.
+ */
+internal fun profilePlaylistEnabled(
+    selectedSegment: Int,
+    hasTrackPosts: Boolean,
+    likedCount: Int,
+    savedCount: Int,
+    isLoadingLiked: Boolean,
+    isLoadingSaved: Boolean,
+): Boolean = when (selectedSegment) {
+    0 -> hasTrackPosts
+    1 -> false
+    2 -> !isLoadingLiked && likedCount > 0
+    3 -> !isLoadingSaved && savedCount > 0
+    else -> false
+}
+
 @Composable
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 fun ProfileScreen(
@@ -473,13 +497,18 @@ fun ProfileScreen(
                                 3 -> CloudFunctionsDataSource.ProfilePlaylistSource.Saves
                                 else -> CloudFunctionsDataSource.ProfilePlaylistSource.Posts
                             }
-                            // The has-tracks precheck only applies to posts. Likes/Saves are
-                            // lazy-loaded into separate flows and the backend responds when empty.
-                            val hasSongs = when (playlistSource) {
-                                CloudFunctionsDataSource.ProfilePlaylistSource.Posts ->
-                                    posts.any { it.mediaType == MediaType.TRACK }
-                                else -> true
-                            }
+                            // Whether the tab has anything to build a music playlist from.
+                            // Music: your posted tracks. Film: never (a playlist is music,
+                            // films aren't songs). Likes/Saves: their own lazy-loaded lists,
+                            // dimmed only once loaded empty so the button doesn't flicker.
+                            val hasSongs = profilePlaylistEnabled(
+                                selectedSegment = selectedSegment,
+                                hasTrackPosts = posts.any { it.mediaType == MediaType.TRACK },
+                                likedCount = likedPosts.size,
+                                savedCount = savedPosts.size,
+                                isLoadingLiked = isLoadingLiked,
+                                isLoadingSaved = isLoadingSaved,
+                            )
                             val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
                             val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
 

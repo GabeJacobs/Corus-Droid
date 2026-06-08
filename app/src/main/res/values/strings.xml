@@ -447,6 +447,7 @@
     <string name="search_clear_all">Clear all</string>
     <string name="search_section_friends_on_corus">FRIENDS ON CORUS</string>
     <string name="search_section_taste_matches">TASTE MATCHES</string>
+    <string name="search_taste_matches_empty">As you post more, Corus will match you with people who share your taste.</string>
     <string name="search_section_mutual_connections">MUTUAL CONNECTIONS</string>
     <string name="search_section_popular">POPULAR ON CORUS</string>
     <string name="search_section_new">NEW ON CORUS</string>

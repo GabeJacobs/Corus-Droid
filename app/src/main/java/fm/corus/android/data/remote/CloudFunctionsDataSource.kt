@@ -1003,6 +1003,59 @@ class CloudFunctionsDataSource @Inject constructor(
         )
     }
 
+    // ── Client-side playlists (Apple Music / TIDAL) ───────────────────────────
+    // Non-Spotify services build the playlist on the user's own account from a
+    // raw track list the backend resolves (the `appleMusicTracks` flag — a
+    // generic "give me descriptors, I'll build it client-side" switch reused by
+    // TIDAL). Mirrors the iOS PlaylistTrackDescriptor / parsePlaylistTracksResponse.
+
+    /** One track from the backend's `appleMusicTracks` response. */
+    data class PlaylistTrackDescriptor(
+        val trackId: String,
+        val isrc: String?,
+        val name: String,
+        val artist: String,
+        val album: String,
+    )
+
+    /** Result of parsing an `appleMusicTracks` response. Mirrors the error/
+     *  paywall/SoundCloud handling of the Spotify path so messaging stays
+     *  consistent across services. */
+    sealed class PlaylistTracksOutcome {
+        object Paywall : PlaylistTracksOutcome()
+        /** No usable tracks. `soundcloudSkipped` lets the caller explain *why*
+         *  (an all-SoundCloud feed) vs. a generic empty/error state. */
+        data class Failure(val soundcloudSkipped: Int) : PlaylistTracksOutcome()
+        data class Tracks(
+            val descriptors: List<PlaylistTrackDescriptor>,
+            val soundcloudSkipped: Int,
+            /** Profile owner's username, for titling the playlist. null for feed. */
+            val username: String?,
+        ) : PlaylistTracksOutcome()
+    }
+
+    internal fun parsePlaylistTracksResponse(data: Map<String, Any?>): PlaylistTracksOutcome {
+        val soundcloudSkipped = (data["soundcloudSkipped"] as? Number)?.toInt() ?: 0
+        if (data["error"] != null && data["message"] != null) {
+            if ((data["code"] as? String) == "PAYWALL") return PlaylistTracksOutcome.Paywall
+            return PlaylistTracksOutcome.Failure(soundcloudSkipped)
+        }
+        val raw = data["tracks"] as? List<*> ?: return PlaylistTracksOutcome.Failure(soundcloudSkipped)
+        val descriptors = raw.mapNotNull { item ->
+            val m = item as? Map<*, *> ?: return@mapNotNull null
+            val name = (m["name"] as? String).orEmpty()
+            val artist = (m["artist"] as? String).orEmpty()
+            val isrc = (m["isrc"] as? String).orEmpty().ifEmpty { null }
+            val trackId = (m["trackId"] as? String).orEmpty()
+            val album = (m["album"] as? String).orEmpty()
+            // Need at least a name or an ISRC to resolve the song on TIDAL.
+            if (name.isEmpty() && isrc == null) return@mapNotNull null
+            PlaylistTrackDescriptor(trackId = trackId, isrc = isrc, name = name, artist = artist, album = album)
+        }
+        if (descriptors.isEmpty()) return PlaylistTracksOutcome.Failure(soundcloudSkipped)
+        return PlaylistTracksOutcome.Tracks(descriptors, soundcloudSkipped, data["username"] as? String)
+    }
+
     /** Source the profile playlist should pull from. `Posts` is the legacy
      *  default; `Likes` and `Saves` were added later. Wire format matches the
      *  backend `source` parameter exactly. */

@@ -736,11 +736,13 @@ fun OtherProfileScreen(
 
                                 // Playlist button
                                 val playlistContext = LocalContext.current
-                                // Likes are lazy-loaded into a separate flow; let the backend respond
-                                // when the user has none.
+                                // A playlist is music, so the Film tab (non-bot segment 1) can
+                                // never build one — disable it there. Music builds from posted
+                                // tracks; Likes is lazy-loaded so the backend responds when empty.
+                                val isFilmTab = profile?.isBot == false && selectedSegment == 1
                                 val hasSongs = when (playlistSource) {
                                     CloudFunctionsDataSource.ProfilePlaylistSource.Posts ->
-                                        posts.any { it.mediaType == MediaType.TRACK }
+                                        !isFilmTab && posts.any { it.mediaType == MediaType.TRACK }
                                     else -> true
                                 }
                                 val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()

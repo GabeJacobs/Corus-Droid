@@ -466,6 +466,17 @@ class UserRepository @Inject constructor(
         profiles
     }
 
+    /**
+     * Warms the [followedProfiles] cache ahead of time so the *first* keystroke
+     * of a people search is instant rather than blocking on the followed-set
+     * fetch. Call when the search screen appears (mirrors iOS SearchView, which
+     * pre-fetches `cachedFollowedUsers` on appear). No-op if the cache is still
+     * valid for the current following set.
+     */
+    suspend fun prefetchFollowedProfiles() {
+        followedProfiles()
+    }
+
     suspend fun fetchUserByUsername(username: String): CymbalUser? {
         val lowerName = username.lowercase()
         // Two-level cache: username → uid, then uid → profile (matching iOS)

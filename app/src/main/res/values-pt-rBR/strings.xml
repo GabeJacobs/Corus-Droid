@@ -405,6 +405,7 @@
     <string name="search_clear_all">Limpar tudo</string>
     <string name="search_section_friends_on_corus">AMIGOS NO CORUS</string>
     <string name="search_section_taste_matches">COMBINAÇÕES DE GOSTO</string>
+    <string name="search_taste_matches_empty">Conforme você publica mais, o Corus vai combinar você com pessoas que têm o mesmo gosto.</string>
     <string name="search_section_mutual_connections">CONEXÕES MÚTUAS</string>
     <string name="search_section_popular">POPULAR NO CORUS</string>
     <string name="search_section_new">NOVOS NO CORUS</string>

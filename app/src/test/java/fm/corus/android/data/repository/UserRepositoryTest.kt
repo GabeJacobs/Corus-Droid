@@ -12,7 +12,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -111,5 +113,57 @@ class UserRepositoryTest {
         repo.getSuggestedUsers(currentUid, forceRefresh = true)
 
         verify(cloudFunctions, times(2)).getSuggestedUsers(currentUid)
+    }
+
+    // ── User search: followed-set fetch (the iOS-parity perf fix) ──
+
+    private suspend fun seedFollowing(vararg ids: String) {
+        whenever(firestoreDataSource.fetchFollowingIds(currentUid)).thenReturn(ids.toSet())
+        repo.prefetchFollowingSet(currentUid)
+        // Username/token queries are irrelevant to these tests — keep them empty.
+        whenever(firestoreDataSource.searchUsersByUsername(any(), any())).thenReturn(emptyList())
+        whenever(firestoreDataSource.searchUsersByToken(any(), any())).thenReturn(emptyList())
+    }
+
+    // Regression: the @mention/compose hot path (includeFollowed = false, the
+    // default) must NOT fetch the following set on each keystroke — that was the
+    // Android-only slowness vs iOS, which passes no followed users on that path.
+    @Test
+    fun `searchUsers without includeFollowed never fetches the following set`() = runTest {
+        seedFollowing("f1", "f2")
+
+        repo.searchUsers("f", limit = 4)
+
+        verify(firestoreDataSource, never()).fetchUsersByIds(any())
+    }
+
+    // Followed users must still surface for people-finder surfaces, but the
+    // profiles are fetched once and reused across keystrokes (in-memory cache),
+    // mirroring iOS SearchView's pre-fetched cachedFollowedUsers.
+    @Test
+    fun `searchUsers with includeFollowed caches the following set across calls`() = runTest {
+        seedFollowing("f1")
+        whenever(firestoreDataSource.fetchUsersByIds(any())).thenReturn(listOf(user("f1", 3)))
+
+        val first = repo.searchUsers("f", includeFollowed = true)
+        val second = repo.searchUsers("f1", includeFollowed = true)
+
+        assertEquals("f1", first.firstOrNull()?.id)
+        assertEquals("f1", second.firstOrNull()?.id)
+        // Two searches, but the followed profiles are fetched exactly once.
+        verify(firestoreDataSource, times(1)).fetchUsersByIds(any())
+    }
+
+    // Warming the cache on screen-appear must make the first real search resolve
+    // followed matches from memory (no extra fetch).
+    @Test
+    fun `prefetchFollowedProfiles warms the cache so the first search does not refetch`() = runTest {
+        seedFollowing("f1")
+        whenever(firestoreDataSource.fetchUsersByIds(any())).thenReturn(listOf(user("f1", 3)))
+
+        repo.prefetchFollowedProfiles()
+        repo.searchUsers("f", includeFollowed = true)
+
+        verify(firestoreDataSource, times(1)).fetchUsersByIds(any())
     }
 }

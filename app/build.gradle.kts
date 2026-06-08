@@ -171,10 +171,14 @@ dependencies {
     // Serialization
     implementation(libs.kotlinx.serialization.json)
 
+    // TIDAL user OAuth (client-side playlist creation on the user's own account)
+    implementation(libs.tidal.auth)
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation(libs.ktor.client.mock)
     testImplementation("org.robolectric:robolectric:4.14.1")
     // Compose UI tests run as Robolectric local unit tests (see CorusBottomBarLayoutTest).
     testImplementation(platform(libs.compose.bom))

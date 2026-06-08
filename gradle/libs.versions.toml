@@ -12,6 +12,7 @@ activityCompose = "1.9.3"
 coil = "3.0.4"
 media3 = "1.5.1"
 ktor = "3.0.3"
+tidalAuth = "0.11.3"
 kotlinxSerialization = "1.7.3"
 datastorePreferences = "1.1.1"
 workRuntime = "2.10.0"
@@ -86,6 +87,10 @@ media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "medi
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
 ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
+
+# TIDAL (user OAuth for client-side playlist creation; mirrors the iOS Auth SDK)
+tidal-auth = { group = "com.tidal.sdk", name = "auth", version.ref = "tidalAuth" }
 
 # Serialization
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }

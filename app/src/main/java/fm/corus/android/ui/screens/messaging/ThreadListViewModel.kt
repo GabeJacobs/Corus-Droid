@@ -96,7 +96,7 @@ class ThreadListViewModel @Inject constructor(
             _isSearching.value = true
             delay(300)
             try {
-                _searchResults.value = userRepository.searchUsers(query, limit = 15)
+                _searchResults.value = userRepository.searchUsers(query, limit = 15, includeFollowed = true)
             } catch (_: Exception) {
                 _searchResults.value = emptyList()
             }

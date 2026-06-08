@@ -176,7 +176,6 @@ class SearchViewModelTasteMatchPollingTest {
         vm.loadInitialData()
         advanceUntilIdle()
 
-        assertTrue("we should know this user has no taste data", vm.currentUserHasNoTasteData.value)
         assertFalse("polling must never activate for a no-posts user", vm.isTasteMatchPolling.value)
         // Only the initial fetch — no follow-up poll attempts.
         verify(cloudFunctions, times(1)).getSuggestedUsers(eq("viewer"))
