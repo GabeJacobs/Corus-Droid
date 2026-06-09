@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -66,6 +67,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.util.PushNotificationPermission
 
 private enum class SetupStep { MUSIC_SERVICE, SYNC_CONTACTS, FOLLOW_FRIENDS }
@@ -541,11 +543,17 @@ private fun RadarAnimation() {
             }
         }
 
-        // Center logo — matches iOS: actual logo image
+        // Center logo. Light mode keeps the native black logo; dark mode tints it accent
+        // blue so it reads against the dark radar (the bare black logo is near-invisible there).
         Image(
             painter = painterResource(R.drawable.logo_no_background),
             contentDescription = stringResource(id = R.string.social_setup_cd_corus_logo),
             modifier = Modifier.size(64.dp),
+            colorFilter = if (LocalCorusDarkTheme.current) {
+                ColorFilter.tint(CorusColors.Accent)
+            } else {
+                null
+            },
         )
     }
 }

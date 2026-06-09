@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark splash: black background (matches DarkCorusPalette.background) with a white logo. -->
+    <color name="splash_background">#FF000000</color>
+    <color name="splash_logo_fill">#FFFFFFFF</color>
+</resources>

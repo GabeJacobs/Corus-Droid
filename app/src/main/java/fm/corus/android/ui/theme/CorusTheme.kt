@@ -1,16 +1,24 @@
 package fm.corus.android.ui.theme
 
 import android.app.Activity
+import android.graphics.Color as AndroidColor
+import android.graphics.drawable.ColorDrawable
 import android.view.View
 import android.view.Window
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
@@ -57,6 +65,7 @@ fun CorusTheme(
     val palette = if (darkTheme) DarkCorusPalette else LightCorusPalette
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
+    CorusWindowAppearance(darkTheme)
     CorusSystemBars(darkTheme)
 
     CompositionLocalProvider(
@@ -67,6 +76,31 @@ fun CorusTheme(
             colorScheme = colorScheme,
             content = content,
         )
+    }
+}
+
+/**
+ * Drives the Activity window's edge-to-edge bar styles and background from the app's resolved
+ * theme rather than the system uiMode. [enableEdgeToEdge]'s default `auto()` style picks the bar
+ * appearance from the system dark-mode setting, and the base XML theme's window background is
+ * light — so without this, the bars (and the white window background behind the transparent nav
+ * bar) flash the wrong appearance during activity transitions like the Google sign-in flow, even
+ * when the app is in dark mode.
+ */
+@Composable
+private fun CorusWindowAppearance(darkTheme: Boolean) {
+    val context = LocalContext.current
+    val background =
+        (if (darkTheme) DarkCorusPalette.background else LightCorusPalette.background).toArgb()
+    LaunchedEffect(darkTheme) {
+        val activity = context as? ComponentActivity ?: return@LaunchedEffect
+        val barStyle = if (darkTheme) {
+            SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+        } else {
+            SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
+        }
+        activity.enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
+        activity.window.setBackgroundDrawable(ColorDrawable(background))
     }
 }
 

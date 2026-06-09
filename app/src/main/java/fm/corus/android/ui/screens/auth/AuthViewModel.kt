@@ -19,6 +19,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
 import fm.corus.android.data.local.OnboardingLocalStore
+import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.SubscriptionRepository
@@ -55,6 +56,7 @@ class AuthViewModel @Inject constructor(
     private val nowPlayingManager: NowPlayingManager,
     private val networkMonitor: NetworkMonitor,
     private val onboardingLocalStore: OnboardingLocalStore,
+    private val preferencesDataStore: PreferencesDataStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -554,6 +556,10 @@ class AuthViewModel @Inject constructor(
             exploreRepository.clearCaches()
             engagementManager.clearAll()
             unreadCountsRepository.stop()
+            // Feed mode is device-scoped (not per-user). Reset it so the next
+            // account to sign in opens on the default (following) instead of
+            // inheriting this user's choice.
+            preferencesDataStore.setFeedMode("")
             didSignInThisSession = false
         }
     }
@@ -693,6 +699,8 @@ class AuthViewModel @Inject constructor(
         exploreRepository.clearCaches()
         engagementManager.clearAll()
         unreadCountsRepository.stop()
+        // Reset device-scoped feed mode so the next account opens on the default.
+        viewModelScope.launch { preferencesDataStore.setFeedMode("") }
         didSignInThisSession = false
         _isDeletingAccount.value = false
         _authState.value = AuthState.SignedOut

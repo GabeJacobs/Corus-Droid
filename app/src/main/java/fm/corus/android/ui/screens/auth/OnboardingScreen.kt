@@ -193,7 +193,11 @@ fun OnboardingScreen(
     // Without this, back is a no-op on this screen since it's the root of the auth graph.
     BackHandler { viewModel.signOut() }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CorusColors.Background),
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

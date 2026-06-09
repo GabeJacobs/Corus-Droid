@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Splash screen colors. The system splash renders before the app process resolves the in-app
+      appearance setting, so it can only follow the device system theme (via values-night), mirroring
+      iOS's UIColor.systemBackground launch screen. Light values here; see values-night/colors.xml.
+    -->
+    <color name="splash_background">#FFFFFFFF</color>
+    <color name="splash_logo_fill">#FF000000</color>
+</resources>
