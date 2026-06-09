@@ -5,13 +5,21 @@ import org.junit.Test
 
 class AppearanceModeTest {
     @Test
-    fun `default mode is light when storage value is missing`() {
-        assertEquals(AppearanceMode.LIGHT, "".toAppearanceMode())
+    fun `declaration order drives settings order System Light Dark`() {
+        assertEquals(
+            listOf(AppearanceMode.SYSTEM, AppearanceMode.LIGHT, AppearanceMode.DARK),
+            AppearanceMode.values().toList(),
+        )
     }
 
     @Test
-    fun `unknown stored value falls back to light`() {
-        assertEquals(AppearanceMode.LIGHT, "midnight".toAppearanceMode())
+    fun `default mode is system when storage value is missing`() {
+        assertEquals(AppearanceMode.SYSTEM, "".toAppearanceMode())
+    }
+
+    @Test
+    fun `unknown stored value falls back to system`() {
+        assertEquals(AppearanceMode.SYSTEM, "midnight".toAppearanceMode())
     }
 
     @Test

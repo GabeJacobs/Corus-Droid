@@ -477,9 +477,10 @@ private fun NotificationRow(
         val timeSuffix = " $timeString"
 
         val fullAnnotatedText = if (notification.type == NotificationType.FAVORITE) {
-            // Anonymous — bold "Someone", no USER annotation (no profile tap).
+            // Anonymous — "Someone" is NOT bolded here (special case): there's no
+            // real actor to name, so it reads as normal prose, not a username.
             buildAnnotatedString {
-                withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)) {
+                withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
                     append(stringResource(id = R.string.notif_favorite_someone))
                 }
                 append(" ")

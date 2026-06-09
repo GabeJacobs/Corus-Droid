@@ -272,10 +272,12 @@ fun openTrackInPreferredService(
     }
     when {
         track.source == TrackSource.SOUNDCLOUD -> open(track.soundcloudPermalinkUrl)
-        track.source == TrackSource.APPLEMUSIC -> {
-            // Apple-only tracks always open in Apple Music, regardless of the
-            // viewer's preferred service. URL derives from the resolved
-            // appleMusicId or the `am:`-prefixed trackId.
+        track.source == TrackSource.APPLEMUSIC &&
+            (musicService == MusicService.SPOTIFY || musicService == MusicService.APPLE_MUSIC) -> {
+            // Apple-only tracks aren't on Spotify, so a Spotify (or Apple Music)
+            // viewer opens directly in Apple Music. URL derives from the resolved
+            // appleMusicId or the `am:`-prefixed trackId. TIDAL/Deezer viewers
+            // fall through to the resolver below (those catalogs carry the track).
             analytics.logMusicServiceLinkTapped(MusicService.APPLE_MUSIC.value, track.id)
             open(track.appleMusicURL)
         }

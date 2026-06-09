@@ -209,34 +209,18 @@ fun MiniPlayerBar(
                             },
                         size = 22.dp,
                     )
-                } else if (isAppleMusic) {
-                    Image(
-                        painter = painterResource(fm.corus.android.R.drawable.apple_music_logo),
-                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
-                        modifier = Modifier
-                            .size(22.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
-                                // Apple-only trackIds carry the `am:` prefix;
-                                // derive the Apple Music id and link straight
-                                // to the song page.
-                                val tid = state.trackId
-                                if (!tid.isNullOrBlank() && tid.startsWith("am:")) {
-                                    val amid = tid.removePrefix("am:")
-                                    if (amid.isNotEmpty()) {
-                                        runCatching {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.apple.com/us/song/$amid")))
-                                        }
-                                    }
-                                }
-                            },
-                    )
                 } else {
-                    // Spotify-source: glyph reflects the viewer's preferred service.
+                    // Glyph reflects the service the tap opens. Apple-only tracks
+                    // aren't on Spotify, so a Spotify viewer is routed to Apple
+                    // Music — show that. TIDAL/Deezer viewers keep their own glyph
+                    // (those catalogs carry the track). Mirrors iOS.
+                    val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                        fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                    } else {
+                        musicService
+                    }
                     Image(
-                        painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(musicService)),
+                        painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(displayedService)),
                         contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
                         modifier = Modifier
                             .size(22.dp)
@@ -244,22 +228,7 @@ fun MiniPlayerBar(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
                             ) {
-                                if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
-                                    val uri = state.spotifyURI
-                                    val webUrl = state.spotifyWebURL
-                                    val opened = if (!uri.isNullOrBlank()) {
-                                        try {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
-                                            true
-                                        } catch (_: Exception) { false }
-                                    } else false
-                                    if (!opened && !webUrl.isNullOrBlank()) {
-                                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
-                                    }
-                                } else {
-                                    // Apple Music / TIDAL / Deezer: resolve via host
-                                    // (network, cached) then open. The global overlay
-                                    // (MainTabScreen) shows the spinner meanwhile.
+                                fun resolveAndOpen() {
                                     val resolve = resolveLinkOut
                                     if (resolve != null) {
                                         linkOutScope.launch {
@@ -268,6 +237,42 @@ fun MiniPlayerBar(
                                                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                                             }
                                         }
+                                    }
+                                }
+                                when {
+                                    // Apple-only track + Spotify/Apple viewer → link
+                                    // straight to the Apple Music song page (`am:` id),
+                                    // falling back to the resolver if there's no id.
+                                    isAppleMusic && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY ||
+                                        musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC) -> {
+                                        val tid = state.trackId
+                                        val amid = if (!tid.isNullOrBlank() && tid.startsWith("am:")) tid.removePrefix("am:") else null
+                                        if (!amid.isNullOrEmpty()) {
+                                            runCatching {
+                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.apple.com/us/song/$amid")))
+                                            }
+                                        } else {
+                                            resolveAndOpen()
+                                        }
+                                    }
+                                    musicService == fm.corus.android.data.model.MusicService.SPOTIFY -> {
+                                        val uri = state.spotifyURI
+                                        val webUrl = state.spotifyWebURL
+                                        val opened = if (!uri.isNullOrBlank()) {
+                                            try {
+                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                                                true
+                                            } catch (_: Exception) { false }
+                                        } else false
+                                        if (!opened && !webUrl.isNullOrBlank()) {
+                                            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
+                                        }
+                                    }
+                                    else -> {
+                                        // Apple Music / TIDAL / Deezer preference
+                                        // (spotify-source post, or Apple-only + TIDAL/Deezer):
+                                        // resolve via host (network, cached) then open.
+                                        resolveAndOpen()
                                     }
                                 }
                             },

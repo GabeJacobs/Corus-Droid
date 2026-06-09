@@ -1,10 +1,12 @@
 package fm.corus.android.data.local
 
+import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MusicMatchData
 import fm.corus.android.data.model.SharedMoviePreview
@@ -194,6 +196,7 @@ private fun RecentSearchEntry.toUser() = CymbalUser(
 @Singleton
 class PreferencesDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>,
+    @ApplicationContext private val context: Context,
 ) {
     companion object {
         val FEED_ONE_PER_FOLLOWER = booleanPreferencesKey("feed_one_per_follower")
@@ -330,12 +333,20 @@ class PreferencesDataStore @Inject constructor(
     }
 
     val appearanceMode: Flow<String> = dataStore.data.map { prefs ->
-        prefs[APPEARANCE_MODE] ?: "light"
+        prefs[APPEARANCE_MODE] ?: AppearanceDefaultMigration.unsetThemeDefault(context)
     }
 
     suspend fun setAppearanceMode(value: String) {
         dataStore.edit { it[APPEARANCE_MODE] = value }
     }
+
+    /**
+     * Synchronous read of the appearance default for a user who hasn't explicitly
+     * chosen a theme — used to seed UI before the [appearanceMode] flow emits, so
+     * the theme doesn't flash on cold launch. Returns "light" or "system".
+     */
+    fun unsetThemeDefaultStorageValue(): String =
+        AppearanceDefaultMigration.unsetThemeDefault(context)
 
     val hasSeenFirstPostPaywall: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[HAS_SEEN_FIRST_POST_PAYWALL] ?: false

@@ -718,21 +718,18 @@ fun PostCard(
                         modifier = tapModifier.semantics { contentDescription = cd },
                         size = 28.dp,
                     )
-                } else if (isAppleMusic) {
-                    // Apple-Music-only tracks lock to the Apple Music brand
-                    // glyph regardless of viewer preference — same pattern
-                    // as SoundCloud above.
-                    Image(
-                        painter = painterResource(R.drawable.apple_music_logo),
-                        contentDescription = cd,
-                        modifier = tapModifier,
-                        contentScale = ContentScale.Fit,
-                    )
                 } else {
-                    // Spotify-source post: glyph reflects the viewer's preferred
-                    // service (Spotify / Apple Music / TIDAL / Deezer), mirroring iOS.
+                    // Glyph reflects the service the tap opens. Apple-only tracks
+                    // aren't on Spotify, so a Spotify viewer is routed to Apple
+                    // Music — show that. TIDAL/Deezer viewers keep their own glyph
+                    // (those catalogs carry the track). Mirrors iOS.
+                    val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                        fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                    } else {
+                        musicService
+                    }
                     Image(
-                        painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(musicService)),
+                        painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(displayedService)),
                         contentDescription = cd,
                         modifier = tapModifier,
                         contentScale = ContentScale.Fit,

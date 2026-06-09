@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.feed
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,16 +10,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -28,6 +33,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -755,6 +763,26 @@ private fun FeedTitleWithModeMenu(
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
             )
+            // For any non-default (non-Following) feed, show a small accent
+            // circle with the mode icon so the user always knows which feed
+            // they're viewing. Following stays the clean wordmark.
+            if (feedMode != "following") {
+                Spacer(modifier = Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(CorusColors.Accent),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = feedModeIcon(feedMode),
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(13.dp),
+                    )
+                }
+            }
             Spacer(modifier = Modifier.width(4.dp))
             Icon(
                 imageVector = Icons.Filled.ArrowDropDown,
@@ -773,9 +801,17 @@ private fun FeedTitleWithModeMenu(
                     tint = CorusColors.Accent,
                 )
             }
+            val leadingIcon: @Composable (String) -> Unit = { mode ->
+                Icon(
+                    imageVector = feedModeIcon(mode),
+                    contentDescription = null,
+                    tint = CorusColors.Secondary,
+                )
+            }
             if (trendingFeedEnabled) {
                 DropdownMenuItem(
                     text = { Text("Trending") },
+                    leadingIcon = { leadingIcon("trending") },
                     trailingIcon = if (feedMode == "trending") activeCheckmark else null,
                     onClick = {
                         onSetFeedMode("trending")
@@ -786,6 +822,7 @@ private fun FeedTitleWithModeMenu(
             if (forYouEnabled) {
                 DropdownMenuItem(
                     text = { Text("For You") },
+                    leadingIcon = { leadingIcon("forYou") },
                     trailingIcon = if (feedMode == "forYou") activeCheckmark else null,
                     onClick = {
                         onSetFeedMode("forYou")
@@ -795,6 +832,7 @@ private fun FeedTitleWithModeMenu(
             }
             DropdownMenuItem(
                 text = { Text("Following") },
+                leadingIcon = { leadingIcon("following") },
                 trailingIcon = if (feedMode == "following") activeCheckmark else null,
                 onClick = {
                     onSetFeedMode("following")
@@ -804,6 +842,7 @@ private fun FeedTitleWithModeMenu(
             if (favoritesEnabled) {
                 DropdownMenuItem(
                     text = { Text("Favorites") },
+                    leadingIcon = { leadingIcon("favorites") },
                     trailingIcon = if (feedMode == "favorites") activeCheckmark else null,
                     onClick = {
                         onSetFeedMode("favorites")
@@ -813,6 +852,18 @@ private fun FeedTitleWithModeMenu(
             }
         }
     }
+}
+
+/**
+ * Icon representing a feed mode (mirrors iOS / Web): Trending → trend line,
+ * Following → people, Favorites → filled star, For You → sparkle. Used for the
+ * header accent pill and the mode-switcher menu rows.
+ */
+private fun feedModeIcon(mode: String): ImageVector = when (mode) {
+    "trending" -> Icons.Filled.TrendingUp
+    "forYou" -> Icons.Filled.AutoAwesome
+    "favorites" -> Icons.Filled.Star
+    else -> Icons.Filled.People
 }
 
 /**

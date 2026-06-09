@@ -20,7 +20,11 @@ class AppearanceSettingsViewModel @Inject constructor(
 
     val appearanceMode: StateFlow<AppearanceMode> = preferencesDataStore.appearanceMode
         .map { it.toAppearanceMode() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppearanceMode.LIGHT)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            preferencesDataStore.unsetThemeDefaultStorageValue().toAppearanceMode(),
+        )
 
     fun setAppearanceMode(mode: AppearanceMode) {
         viewModelScope.launch {

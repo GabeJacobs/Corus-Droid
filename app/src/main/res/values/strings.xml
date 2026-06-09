@@ -547,7 +547,7 @@
     <string name="notif_msg_favorite">added you to their favorites.</string>
     <string name="notif_favorite_someone">Someone</string>
     <string name="notif_favorite_sheet_title">Someone\'s a fan</string>
-    <string name="notif_favorite_sheet_body">Someone added you to their favorites so your posts are easier for them to keep up with. Who it is stays private — even to you.</string>
+    <string name="notif_favorite_sheet_body">Someone added you to their favorites so your posts are easier for them to keep up with.</string>
     <string name="notif_favorite_sheet_nudge">You can favorite people too — just tap the ☆ on anyone\'s profile.</string>
     <string name="notif_favorite_sheet_dismiss">Got it</string>
 

@@ -924,7 +924,7 @@
     <string name="notif_msg_favorite">adicionou você aos favoritos.</string>
     <string name="notif_favorite_someone">Alguém</string>
     <string name="notif_favorite_sheet_title">Alguém é fã</string>
-    <string name="notif_favorite_sheet_body">Alguém adicionou você aos favoritos para acompanhar seus coruses mais facilmente. Quem foi continua privado — até para você.</string>
+    <string name="notif_favorite_sheet_body">Alguém adicionou você aos favoritos para acompanhar seus coruses mais facilmente.</string>
     <string name="notif_favorite_sheet_nudge">Você também pode favoritar pessoas — basta tocar na ☆ no perfil de alguém.</string>
     <string name="notif_favorite_sheet_dismiss">Entendi</string>
     <string name="music_service_title">Escolha Seu Player</string>

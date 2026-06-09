@@ -735,23 +735,19 @@ private fun PostDetailSongInfo(
                         ),
                     size = 28.dp,
                 )
-            } else if (post.track.source == TrackSource.APPLEMUSIC) {
-                Image(
-                    painter = painterResource(R.drawable.apple_music_logo),
-                    contentDescription = stringResource(R.string.post_detail_cd_play_spotify),
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onSpotifyTap,
-                        ),
-                    contentScale = ContentScale.Fit,
-                )
             } else {
-                // Spotify-source: glyph reflects the viewer's preferred service.
+                // Glyph reflects the service the tap opens. Apple-only tracks
+                // aren't on Spotify, so a Spotify viewer is routed to Apple
+                // Music — show that. TIDAL/Deezer viewers keep their own glyph.
+                // Mirrors iOS.
+                val isAppleMusic = post.track.source == TrackSource.APPLEMUSIC
+                val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                    fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                } else {
+                    musicService
+                }
                 Image(
-                    painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(musicService)),
+                    painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(displayedService)),
                     contentDescription = stringResource(R.string.post_detail_cd_play_spotify),
                     modifier = Modifier
                         .size(28.dp)

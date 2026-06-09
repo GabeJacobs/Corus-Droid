@@ -13,6 +13,7 @@ import com.revenuecat.purchases.LogLevel
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesConfiguration
 import dagger.hilt.android.HiltAndroidApp
+import fm.corus.android.data.local.AppearanceDefaultMigration
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -25,6 +26,10 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         FirebaseApp.initializeApp(this)
+        // Freeze the theme default (Light for existing installs, System for fresh
+        // ones) at process start, before onboarding can run, so a brand-new user is
+        // never mistaken for an existing one.
+        AppearanceDefaultMigration.unsetThemeDefault(this)
         initAppCheck()
         initRevenueCat()
         createNotificationChannels()
