@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
@@ -120,52 +121,46 @@ fun TasteMatchCard(
 
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-        // User info row: avatar on left, text on right (matches iOS)
-        Row(
+        // User info: centered name + taste text under the collage. The 2x2 art
+        // grid already identifies the user, so the small left-aligned avatar
+        // read as cluttered — dropped it and centered the block.
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            UserAvatarView(
-                avatarURL = user.avatarURL,
-                displayName = user.displayName,
-                size = CorusSpacing.avatarSmall,
+            // Username + flair badge
+            UsernameWithFlair(
+                username = user.username,
+                isBot = user.isBot,
+                isVerified = user.isVerified,
+                isClubMember = user.isClubMember,
+                flairStyle = user.flairStyle,
+                style = CorusFont.username,
+                color = CorusColors.Text,
             )
 
-            Column(modifier = Modifier.weight(1f)) {
-                // Username + flair badge
-                UsernameWithFlair(
-                    username = user.username,
-                    isBot = user.isBot,
-                    isVerified = user.isVerified,
-                    isClubMember = user.isClubMember,
-                    flairStyle = user.flairStyle,
-                    style = CorusFont.username,
-                    color = CorusColors.Text,
-                )
-
-                // Subtitle priority (matches iOS TasteMatchCard.matchFlavorText):
-                //  1. Explicit `subtitle` override (Popular = "X followers",
-                //     Mutual Connections = "via @x, @y +N")
-                //  2. Shared artist/director names from match previews
-                //  3. Count-based label ("2 song matches" / "1 film match")
-                //  4. "X artists in common" from the user-level field
-                val flavorText = subtitle?.takeIf { it.isNotBlank() }
-                    ?: buildSharedNamesSubtitle(matchData)
-                    ?: buildBestMatchLabel(matchData)
-                    ?: user.artistsInCommonCount?.takeIf { it > 0 }?.let {
-                        if (it == 1) "1 artist in common" else "$it artists in common"
-                    }
-                if (!flavorText.isNullOrBlank()) {
-                    Text(
-                        text = flavorText,
-                        style = CorusFont.caption,
-                        color = CorusColors.Secondary,
-                        minLines = subtitleLines,
-                        maxLines = subtitleLines,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+            // Subtitle priority (matches iOS TasteMatchCard.matchFlavorText):
+            //  1. Explicit `subtitle` override (Popular = "X followers",
+            //     Mutual Connections = "via @x, @y +N")
+            //  2. Shared artist/director names from match previews
+            //  3. Count-based label ("2 song matches" / "1 film match")
+            //  4. "X artists in common" from the user-level field
+            val flavorText = subtitle?.takeIf { it.isNotBlank() }
+                ?: buildSharedNamesSubtitle(matchData)
+                ?: buildBestMatchLabel(matchData)
+                ?: user.artistsInCommonCount?.takeIf { it > 0 }?.let {
+                    if (it == 1) "1 artist in common" else "$it artists in common"
                 }
+            if (!flavorText.isNullOrBlank()) {
+                Text(
+                    text = flavorText,
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                    minLines = subtitleLines,
+                    maxLines = subtitleLines,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
 

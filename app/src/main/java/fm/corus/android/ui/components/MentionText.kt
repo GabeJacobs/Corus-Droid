@@ -298,6 +298,41 @@ fun ExpandableCaptionText(
 }
 
 /**
+ * Gold "1ST" trophy capsule for the first poster of a song/film, matching iOS.
+ * Standalone so callers can place it next to the display name (detail screens)
+ * rather than the username.
+ */
+@Composable
+fun FirstPosterBadge(modifier: Modifier = Modifier) {
+    val gold = Color(1.0f, 0.76f, 0.03f)
+    val capsule = RoundedCornerShape(50)
+    Row(
+        modifier = modifier
+            .background(gold.copy(alpha = 0.14f), shape = capsule)
+            .border(0.8.dp, gold.copy(alpha = 0.4f), shape = capsule)
+            .padding(horizontal = 6.dp, vertical = 2.5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Filled.EmojiEvents,
+            contentDescription = null,
+            tint = gold,
+            modifier = Modifier.size(9.dp),
+        )
+        Text(
+            text = stringResource(R.string.mention_badge_first),
+            style = CorusFont.caption.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 9.sp,
+                letterSpacing = 0.3.sp,
+            ),
+            color = gold,
+        )
+    }
+}
+
+/**
  * Username row with optional flair badge, matching iOS UsernameWithBotBadge.
  */
 @Composable
@@ -355,32 +390,7 @@ fun UsernameWithFlair(
         // Trophy / 1ST badge — gold capsule pill matching iOS
         if (isFirstPoster) {
             Spacer(modifier = Modifier.width(5.dp))
-            val gold = Color(1.0f, 0.76f, 0.03f)
-            val capsule = RoundedCornerShape(50)
-            Row(
-                modifier = Modifier
-                    .background(gold.copy(alpha = 0.14f), shape = capsule)
-                    .border(0.8.dp, gold.copy(alpha = 0.4f), shape = capsule)
-                    .padding(horizontal = 6.dp, vertical = 2.5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.EmojiEvents,
-                    contentDescription = null,
-                    tint = gold,
-                    modifier = Modifier.size(9.dp),
-                )
-                Text(
-                    text = stringResource(R.string.mention_badge_first),
-                    style = CorusFont.caption.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 9.sp,
-                        letterSpacing = 0.3.sp,
-                    ),
-                    color = gold,
-                )
-            }
+            FirstPosterBadge()
         }
 
         // New release — purple capsule pill with flame icon

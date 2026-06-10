@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -62,6 +63,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -981,7 +983,7 @@ private fun FindFriendsFromContactsCard(
     onTap: () -> Unit,
     onDismiss: () -> Unit = {},
 ) {
-    val cardShape = RoundedCornerShape(CorusSpacing.cornerRadiusLarge)
+    val cardShape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -989,31 +991,46 @@ private fun FindFriendsFromContactsCard(
             .clip(cardShape)
             .background(CorusColors.CardBackground)
             .border(0.5.dp, CorusColors.Divider, cardShape)
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.md),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            Icons.Filled.Contacts,
-            contentDescription = null,
-            tint = CorusColors.Accent,
-            modifier = Modifier.size(36.dp),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Balances the dismiss icon on the right so the icon + title stay
+            // optically centered in the card.
+            Spacer(modifier = Modifier.size(18.dp))
 
-        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            Text(
+                stringResource(fm.corus.android.R.string.search_contacts_card_title),
+                style = CorusFont.songTitle,
+                color = CorusColors.Text,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
 
-        Text(
-            stringResource(fm.corus.android.R.string.search_contacts_card_title),
-            style = CorusFont.songTitleLarge,
-            color = CorusColors.Text,
-        )
+            Icon(
+                Icons.Filled.Close,
+                contentDescription = stringResource(fm.corus.android.R.string.search_contacts_card_not_now),
+                tint = CorusColors.Tertiary,
+                modifier = Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onDismiss),
+            )
+        }
+
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
+
         Text(
             stringResource(fm.corus.android.R.string.search_contacts_card_subtitle),
-            style = CorusFont.body,
+            style = CorusFont.caption,
             color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
 
         Button(
             onClick = onTap,
@@ -1023,25 +1040,18 @@ private fun FindFriendsFromContactsCard(
                 containerColor = CorusColors.Accent,
                 contentColor = Color.White,
             ),
-            contentPadding = PaddingValues(vertical = CorusSpacing.sm),
-            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            modifier = Modifier.heightIn(min = 0.dp),
         ) {
             if (isSyncing) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(16.dp),
                     color = Color.White,
                     strokeWidth = 2.dp,
                 )
             } else {
                 Text(stringResource(fm.corus.android.R.string.search_contacts_card_sync), style = CorusFont.buttonSmall)
             }
-        }
-
-        TextButton(
-            onClick = onDismiss,
-            contentPadding = PaddingValues(horizontal = CorusSpacing.md, vertical = CorusSpacing.xs),
-        ) {
-            Text(stringResource(fm.corus.android.R.string.search_contacts_card_not_now), style = CorusFont.caption, color = CorusColors.Tertiary)
         }
     }
 }

@@ -43,6 +43,7 @@ import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.FirstPosterBadge
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -504,7 +505,7 @@ fun SongDetailScreen(
 }
 
 @Composable
-private fun PostedByRow(
+internal fun PostedByRow(
     post: CymbalPost,
     onUserTap: () -> Unit = {},
 ) {
@@ -524,21 +525,26 @@ private fun PostedByRow(
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = post.user.displayName,
-                style = CorusFont.bodyMedium,
-                color = CorusColors.Text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = post.user.displayName,
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (post.isFirstPoster) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    FirstPosterBadge()
+                }
+            }
             UsernameWithFlair(
                 username = post.user.username,
                 isVerified = post.user.isVerified,
                 isClubMember = post.user.isClubMember,
                 flairStyle = post.user.flairStyle,
                 isBot = post.user.isBot,
-                isFirstPoster = post.isFirstPoster,
-                isNewRelease = post.isNewRelease(),
                 showAtPrefix = true,
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,

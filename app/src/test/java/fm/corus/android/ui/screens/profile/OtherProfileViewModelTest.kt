@@ -60,6 +60,7 @@ class OtherProfileViewModelTest {
     private lateinit var engagementManager: PostEngagementManager
     private lateinit var subscriptionRepository: SubscriptionRepository
     private lateinit var postDeletionEvent: PostDeletionEvent
+    private lateinit var cloudFunctions: CloudFunctionsDataSource
 
     @Before
     fun setUp() {
@@ -84,6 +85,7 @@ class OtherProfileViewModelTest {
         postDeletionEvent = mock {
             on { events } doReturn MutableSharedFlow()
         }
+        cloudFunctions = mock()
     }
 
     @After
@@ -97,7 +99,7 @@ class OtherProfileViewModelTest {
         postRepository = postRepository,
         authRepository = authRepository,
         nowPlayingManager = nowPlayingManager,
-        cloudFunctions = mock(),
+        cloudFunctions = cloudFunctions,
         musicServicePreference = mock(),
         analyticsService = mock(),
         remoteConfig = mock(),
@@ -172,5 +174,61 @@ class OtherProfileViewModelTest {
 
         verify(userRepository).fetchUserProfile(eq(targetId))
         verify(postRepository).getProfilePosts(eq(targetId), any(), any(), anyOrNull(), anyOrNull())
+    }
+
+    /**
+     * Regression guard for the LIKES-tab bug: tapping LIKES on another user's
+     * profile used to render `posts` (the owner's OWN posts) because the
+     * ViewModel never fetched likes. The fix loads a dedicated [likedPosts]
+     * list from getLikedPosts — the owner's liked posts, authored by others.
+     */
+    @Test
+    fun `loadLikedPosts shows the owner's liked posts, not their own posts`() = runTest {
+        val targetId = "target3"
+        val ownPosts = listOf(makePost("own1", targetId))
+        val liked = listOf(makePost("liked1", "other_a"), makePost("liked2", "other_b"))
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(CloudFunctionsDataSource.ProfileData(makeUser(targetId, 1), ownPosts))
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+        whenever(cloudFunctions.getLikedPosts(eq(targetId), eq("viewer1"), any(), any()))
+            .thenReturn(liked)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+        viewModel.loadLikedPosts(targetId)
+        advanceUntilIdle()
+
+        assertEquals(listOf("liked1", "liked2"), viewModel.likedPosts.value.map { it.id })
+        // The owner's own posts are unchanged and distinct — proving the LIKES
+        // tab no longer reuses `posts`.
+        assertEquals(listOf("own1"), viewModel.posts.value.map { it.id })
+        verify(cloudFunctions).getLikedPosts(eq(targetId), eq("viewer1"), any(), any())
+    }
+
+    @Test
+    fun `loadMoreLiked paginates with the running offset`() = runTest {
+        val targetId = "target4"
+        val firstPage = (1..30).map { makePost("l$it", "a$it") }
+        val secondPage = listOf(makePost("l31", "a31"))
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(CloudFunctionsDataSource.ProfileData(makeUser(targetId, 0), emptyList()))
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+        whenever(cloudFunctions.getLikedPosts(eq(targetId), eq("viewer1"), any(), eq(0)))
+            .thenReturn(firstPage)
+        whenever(cloudFunctions.getLikedPosts(eq(targetId), eq("viewer1"), any(), eq(30)))
+            .thenReturn(secondPage)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+        viewModel.loadLikedPosts(targetId)
+        advanceUntilIdle()
+        viewModel.loadMoreLiked(targetId)
+        advanceUntilIdle()
+
+        assertEquals(31, viewModel.likedPosts.value.size)
+        // The second page is fetched at offset = size of the first page.
+        verify(cloudFunctions).getLikedPosts(eq(targetId), eq("viewer1"), any(), eq(30))
     }
 }

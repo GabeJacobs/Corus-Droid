@@ -302,6 +302,12 @@ class FeedViewModel @Inject constructor(
         combine(_followingIds, _localFollowedIds) { remote, local -> remote + local }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
+    /** All user ids the viewer follows (remote following set + optimistic local
+     *  follows). Powers the inline Trending follow pill, which checks membership
+     *  synchronously so the pill is correct on first composition — no per-post
+     *  read. (Same underlying set as [followedBotIds]; aliased for clarity.) */
+    val followingUserIds: StateFlow<Set<String>> = followedBotIds
+
     // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
     private val activeListenerPostIds = mutableSetOf<String>()
 
@@ -867,6 +873,23 @@ class FeedViewModel @Inject constructor(
 
     fun isPostSaved(postId: String): Boolean {
         return engagementManager.getState(postId)?.isSaved ?: false
+    }
+
+    /** Follow a post's author from the inline Trending pill. The pill animates
+     *  its own optimistic confirm; here we run the network follow and, on
+     *  success, `userRepository.followUser` adds the author to the shared
+     *  following set (which feeds [followingUserIds]) so the menu state stays in
+     *  sync. A failure simply leaves the viewer not-following — the pill will
+     *  reappear on the next feed load. */
+    fun followAuthor(targetUserId: String) {
+        val uid = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                userRepository.followUser(uid, targetUserId)
+                analyticsService.logFollowUser(targetUserId)
+            } catch (_: Exception) {
+            }
+        }
     }
 
     fun toggleBotFollow(user: CymbalUser) {

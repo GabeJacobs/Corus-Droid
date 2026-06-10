@@ -113,6 +113,7 @@ fun FeedScreen(
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val feedMode by viewModel.feedMode.collectAsState()
+    val followingUserIds by viewModel.followingUserIds.collectAsState()
     val forYouLoadFailed by viewModel.forYouLoadFailed.collectAsState()
     val forYouEnabled = viewModel.remoteConfig.forYouEnabled
     val trendingFeedEnabled = viewModel.remoteConfig.trendingFeedEnabled
@@ -615,6 +616,9 @@ fun FeedScreen(
                             backCoverFlipState = backCoverStateFor(post.id),
                             showsTapHint = index == 0 && isNewAccount && !hasTappedAlbumArt,
                             onAlbumArtTap = { viewModel.markAlbumArtTapped() },
+                            isTrendingFeed = feedMode == "trending",
+                            isFollowingAuthor = followingUserIds.contains(post.user.id),
+                            onFollowAuthor = { viewModel.followAuthor(post.user.id) },
                         )
                         HorizontalDivider(
                             color = CorusColors.Divider,

@@ -12,6 +12,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
@@ -30,6 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.scale
@@ -107,6 +110,16 @@ fun PostCard(
     hideComments: Boolean = false,
     showsTapHint: Boolean = false,
     onAlbumArtTap: () -> Unit = {},
+    /** True only on the Trending feed. Surfaces an inline "Follow" pill to the
+     *  left of the "..." button for authors the viewer doesn't already follow. */
+    isTrendingFeed: Boolean = false,
+    /** Whether the viewer currently follows this post's author. Resolved
+     *  synchronously from the cached following set so the pill is correct on
+     *  first composition (no per-post read, no pop-in). */
+    isFollowingAuthor: Boolean = false,
+    /** Invoked when the inline Trending pill is tapped — should optimistically
+     *  follow the author (and log analytics). */
+    onFollowAuthor: () -> Unit = {},
 ) {
     // For the viewer's own posts, overlay the live profile from
     // AuthRepository.userProfile (passed in as `currentUser`) on top of the
@@ -126,6 +139,16 @@ fun PostCard(
     var showUnavailableToast by remember(post.id) { mutableStateOf(false) }
     val flipState = backCoverFlipState
     val haptics = LocalHapticManager.current
+
+    // Inline Trending "Follow" pill state. `followTapped` latches so the pill
+    // keeps rendering through its confirm→fade animation even after the
+    // optimistic follow flips `isFollowingAuthor` true; `inlineFollowDismissed`
+    // hides it once the fade completes. Keyed by post.id so recycled rows reset.
+    val isOwnPost = currentUser?.id == post.user.id
+    var followTapped by remember(post.id) { mutableStateOf(false) }
+    var inlineFollowDismissed by remember(post.id) { mutableStateOf(false) }
+    val showInlineFollow = isTrendingFeed && !isOwnPost && !inlineFollowDismissed &&
+        (followTapped || !isFollowingAuthor)
 
     // Tap-hint pulse: only runs when showsTapHint and there is no playback yet.
     val hintActive = showsTapHint && post.isTrack && !post.track.unavailable
@@ -254,6 +277,17 @@ fun PostCard(
                         )
                     }
                 }
+            }
+
+            if (showInlineFollow) {
+                InlineFollowPill(
+                    onTap = {
+                        followTapped = true
+                        onFollowAuthor()
+                    },
+                    onAnimationEnd = { inlineFollowDismissed = true },
+                )
+                Spacer(modifier = Modifier.width(CorusSpacing.sm))
             }
 
             Icon(
@@ -1006,6 +1040,73 @@ fun PostCard(
             modifier = Modifier
                 .padding(horizontal = CorusSpacing.lg)
                 .padding(bottom = CorusSpacing.sm),
+        )
+    }
+}
+
+/**
+ * Inline blue "Follow" pill shown on Trending-feed posts, left of the "..."
+ * button. On tap it haptic-confirms, pops to a "✓ Following" state, holds
+ * briefly, then fades itself out (calling [onAnimationEnd] so the parent can
+ * drop it). Mirrors the iOS PostCard inline-follow pill exactly.
+ */
+@Composable
+private fun InlineFollowPill(
+    onTap: () -> Unit,
+    onAnimationEnd: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = LocalHapticManager.current
+    val scope = rememberCoroutineScope()
+    var confirmed by remember { mutableStateOf(false) }
+    var enabled by remember { mutableStateOf(true) }
+    val alpha = remember { Animatable(1f) }
+    val scale = remember { Animatable(1f) }
+
+    Row(
+        modifier = modifier
+            .graphicsLayer {
+                this.alpha = alpha.value
+                scaleX = scale.value
+                scaleY = scale.value
+            }
+            .clip(CircleShape)
+            .background(CorusColors.Accent)
+            .clickable(
+                enabled = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                enabled = false
+                haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                onTap()
+                scope.launch {
+                    confirmed = true
+                    // Little spring-like pop into the confirmed state.
+                    scale.animateTo(1.10f, tween(130, easing = EaseInOut))
+                    scale.animateTo(1f, tween(130, easing = EaseInOut))
+                    // Hold so "Following" reads, then fade away.
+                    kotlinx.coroutines.delay(720)
+                    alpha.animateTo(0f, tween(450))
+                    onAnimationEnd()
+                }
+            }
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Icon(
+            imageVector = if (confirmed) Icons.Filled.Check else Icons.Filled.Add,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(12.dp),
+        )
+        Text(
+            text = stringResource(
+                if (confirmed) R.string.likes_button_following else R.string.likes_button_follow
+            ),
+            style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
+            color = Color.White,
         )
     }
 }

@@ -117,6 +117,28 @@ class OtherProfileViewModel @Inject constructor(
     private val _hasFetchedFilmPage = MutableStateFlow(false)
     val hasFetchedFilmPage: StateFlow<Boolean> = _hasFetchedFilmPage.asStateFlow()
 
+    // Liked posts — a separate, lazily-loaded list for the LIKES tab (segment 2).
+    // These are the posts the profile *owner* has liked, NOT their own posts.
+    // The MUSIC/FILM tabs filter the owner's own [posts]; likes come from a
+    // dedicated backend call (getLikedPosts reads the owner's `liked`
+    // subcollection). Mirrors iOS ProfileViewModel.likedPosts and the
+    // self-profile ProfileViewModel.
+    private val _likedPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
+    val likedPosts: StateFlow<List<CymbalPost>> = _likedPosts.asStateFlow()
+
+    private val _isLoadingLiked = MutableStateFlow(false)
+    val isLoadingLiked: StateFlow<Boolean> = _isLoadingLiked.asStateFlow()
+
+    private val _likedHasMore = MutableStateFlow(true)
+    val likedHasMore: StateFlow<Boolean> = _likedHasMore.asStateFlow()
+
+    // Offset-based cursor for likes pagination (getLikedPosts is offset-paged,
+    // unlike the timestamp-cursored profile posts). Reset when the cache is
+    // invalidated (profile switch / pull-to-refresh).
+    private var likedOffset: Int = 0
+    private var likedLoaded = false
+    private var likedLoadedUserId: String? = null
+
     private var postsLastTimestamp: Long? = null
     private val PAGE_SIZE = 30
     private val _isFollowing = MutableStateFlow(false)
@@ -231,10 +253,14 @@ class OtherProfileViewModel @Inject constructor(
         }
     }
 
-    fun refresh(userId: String, includeFilms: Boolean = false) {
+    fun refresh(userId: String, includeFilms: Boolean = false, includeLikes: Boolean = false) {
         if (_isRefreshing.value) return
         val viewerId = authRepository.currentUserId ?: return
         loadedUserId = userId
+        // Invalidate the likes cache so the next LIKES-tab visit refetches. When
+        // we're on the LIKES tab now (includeLikes), reload it inline below so
+        // the visible grid updates without a tab round-trip.
+        if (!includeLikes) likedLoaded = false
         // Only reset the film-fetch flag if there's actually something to re-fetch.
         // The counter (when available) is authoritative; fall back to the free
         // guard for older backends without the field.
@@ -293,6 +319,16 @@ class OtherProfileViewModel @Inject constructor(
                     }
                 }
                 engagementManager.checkLikeStatuses(merged.map { it.id }, viewerId)
+
+                if (includeLikes) {
+                    val liked = cloudFunctions.getLikedPosts(userId, viewerId, limit = PAGE_SIZE, offset = 0)
+                    _likedPosts.value = liked
+                    likedOffset = liked.size
+                    _likedHasMore.value = liked.size >= PAGE_SIZE
+                    likedLoaded = true
+                    likedLoadedUserId = userId
+                    initEngagement(liked, viewerId)
+                }
             } catch (_: Exception) { }
             _isRefreshing.value = false
         }
@@ -382,6 +418,70 @@ class OtherProfileViewModel @Inject constructor(
             } catch (_: Exception) { }
             _isLoadingMore.value = false
         }
+    }
+
+    /**
+     * Lazy-load the profile owner's liked posts for the LIKES tab. Runs once
+     * per profile (guarded by [likedLoaded]); the guard is reset on profile
+     * switch and pull-to-refresh. getLikedPosts reads the owner's `liked`
+     * subcollection server-side — the viewerId arg is for caller-scoped like
+     * state, not whose likes are returned.
+     */
+    fun loadLikedPosts(userId: String) {
+        if (likedLoaded && likedLoadedUserId == userId) return
+        val viewerId = authRepository.currentUserId ?: return
+        likedLoaded = true
+        likedLoadedUserId = userId
+        _isLoadingLiked.value = true
+        viewModelScope.launch {
+            try {
+                val liked = cloudFunctions.getLikedPosts(userId, viewerId, limit = PAGE_SIZE, offset = 0)
+                _likedPosts.value = liked
+                likedOffset = liked.size
+                _likedHasMore.value = liked.size >= PAGE_SIZE
+                initEngagement(liked, viewerId)
+            } catch (_: Exception) {
+                // Allow a retry on the next tab visit.
+                likedLoaded = false
+            }
+            _isLoadingLiked.value = false
+        }
+    }
+
+    fun loadMoreLiked(userId: String) {
+        if (!_likedHasMore.value || _isLoadingMore.value || _isLoadingLiked.value) return
+        val viewerId = authRepository.currentUserId ?: return
+        _isLoadingMore.value = true
+        viewModelScope.launch {
+            try {
+                val more = cloudFunctions.getLikedPosts(userId, viewerId, limit = PAGE_SIZE, offset = likedOffset)
+                val existingIds = _likedPosts.value.mapTo(HashSet()) { it.id }
+                val unique = more.filter { it.id !in existingIds }
+                _likedPosts.value = _likedPosts.value + unique
+                likedOffset += more.size
+                _likedHasMore.value = more.size >= PAGE_SIZE
+                initEngagement(unique, viewerId)
+            } catch (_: Exception) { }
+            _isLoadingMore.value = false
+        }
+    }
+
+    /** Seed engagement state + real-time listeners for a freshly-fetched page. */
+    private fun initEngagement(posts: List<CymbalPost>, viewerId: String) {
+        posts.forEach { post ->
+            engagementManager.initState(
+                postId = post.id,
+                likeCount = post.likeCount,
+                commentCount = post.commentCount,
+                repostCount = post.repostCount,
+                isLiked = post.isLiked,
+                isSaved = false,
+            )
+            if (activeListenerPostIds.add(post.id)) {
+                engagementManager.startListening(post.id)
+            }
+        }
+        if (posts.isNotEmpty()) engagementManager.checkLikeStatuses(posts.map { it.id }, viewerId)
     }
 
     fun toggleFollow(userId: String) {

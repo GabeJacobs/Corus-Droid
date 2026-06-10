@@ -148,6 +148,9 @@ fun OtherProfileScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingFilms by viewModel.isLoadingFilms.collectAsState()
     val hasFetchedFilmPage by viewModel.hasFetchedFilmPage.collectAsState()
+    val likedPosts by viewModel.likedPosts.collectAsState()
+    val isLoadingLiked by viewModel.isLoadingLiked.collectAsState()
+    val likedHasMore by viewModel.likedHasMore.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
     // The user's explicit choice once they've tapped a tab. While null, the
     // selected tab is derived synchronously from the profile data so the
@@ -192,13 +195,26 @@ fun OtherProfileScreen(
         }
     }
     LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore && hasMore && !isLoadingMore && !isLoading) {
-            viewModel.loadMore(userId)
+        if (shouldLoadMore && !isLoadingMore && !isLoading) {
+            // The LIKES tab paginates its own dedicated list; Music/Film share
+            // the owner's mixed-media posts cursor.
+            if (selectedSegment == 2 && profile?.isBot == false) {
+                if (likedHasMore) viewModel.loadMoreLiked(userId)
+            } else if (hasMore) {
+                viewModel.loadMore(userId)
+            }
         }
     }
 
     LaunchedEffect(userId) {
         viewModel.start(userId, initialIsFollowing)
+    }
+
+    // Lazy-load the owner's liked posts the first time the LIKES tab is shown.
+    LaunchedEffect(selectedSegment, userId, profile?.isBot) {
+        if (profile?.isBot == false && selectedSegment == 2) {
+            viewModel.loadLikedPosts(userId)
+        }
     }
 
     // When the user switches to the FILM tab, fetch movie-only posts so films
@@ -622,12 +638,12 @@ fun OtherProfileScreen(
                 else -> when (selectedSegment) {
                     0 -> posts.filter { it.mediaType == MediaType.TRACK }
                     1 -> posts.filter { it.mediaType == MediaType.MOVIE }
-                    2 -> posts
+                    2 -> likedPosts
                     else -> posts
                 }
             }
             ProfileFeedCache.posts = filteredForNav
-            ProfileFeedCache.hasMore = hasMore
+            ProfileFeedCache.hasMore = if (selectedSegment == 2) likedHasMore else hasMore
             ProfileFeedCache.profileUser = currentProfile
             onNavigateToProfileFeed(
                 currentProfile.id,
@@ -644,7 +660,8 @@ fun OtherProfileScreen(
                 // Mirrors iOS OtherProfileView.refreshable haptic.
                 haptics.impact(HapticManager.ImpactStyle.LIGHT)
                 val onFilmsTab = !currentProfile.isBot && selectedSegment == 1
-                viewModel.refresh(userId, includeFilms = onFilmsTab)
+                val onLikesTab = !currentProfile.isBot && selectedSegment == 2
+                viewModel.refresh(userId, includeFilms = onFilmsTab, includeLikes = onLikesTab)
             },
             modifier = Modifier
                 .fillMaxSize()
@@ -932,7 +949,7 @@ fun OtherProfileScreen(
                         else -> when (selectedSegment) {
                             0 -> posts.filter { it.mediaType == MediaType.TRACK }
                             1 -> posts.filter { it.mediaType == MediaType.MOVIE }
-                            2 -> posts // Likes — show all (ViewModel would handle this)
+                            2 -> likedPosts // Likes — the owner's liked posts, not their own
                             else -> posts
                         }
                     }
@@ -1022,7 +1039,8 @@ fun OtherProfileScreen(
                                 staggerVinyl = shouldStagger,
                             )
                         }
-                    } else if (filteredPosts.isEmpty() && !isLoading) {
+                    } else if (filteredPosts.isEmpty() && !isLoading
+                        && !(selectedSegment == 2 && isLoadingLiked)) {
                         // Empty state per segment (matching iOS: icon + text, no emoji)
                         Box(
                             modifier = Modifier
@@ -1063,7 +1081,7 @@ fun OtherProfileScreen(
                 else -> when (selectedSegment) {
                     0 -> posts.filter { it.mediaType == MediaType.TRACK }
                     1 -> posts.filter { it.mediaType == MediaType.MOVIE }
-                    2 -> posts
+                    2 -> likedPosts
                     else -> posts
                 }
             }
@@ -1077,9 +1095,30 @@ fun OtherProfileScreen(
             val gridPosts = (if (isFeaturedTab) filteredPosts.drop(1) else filteredPosts)
                 .distinctBy { it.id }
             val filmGridLoading = !currentProfile.isBot && selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)
+            val likesGridLoading = !currentProfile.isBot && selectedSegment == 2 && isLoadingLiked && likedPosts.isEmpty()
             // Hide grid while featured art is loading (skeleton in header covers both areas)
             if (isFeaturedTab && selectedSegment == 0 && !isFeaturedArtReady && filteredPosts.isNotEmpty()) {
                 // Music featured uses SkeletonProfileGrid in the header; emit nothing.
+            } else if (likesGridLoading) {
+                // Skeleton grid cells while the owner's likes load (matching iOS + self profile).
+                items(15) { index ->
+                    val transition = rememberInfiniteTransition(label = "likesSkeletonPulse")
+                    val alpha by transition.animateFloat(
+                        initialValue = 0.85f,
+                        targetValue = 0.3f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 750, easing = EaseInOut),
+                            repeatMode = RepeatMode.Reverse,
+                            initialStartOffset = StartOffset(offsetMillis = index * 80),
+                        ),
+                        label = "likesSkeletonAlpha",
+                    )
+                    Box(
+                        modifier = Modifier
+                            .aspectRatio(1f)
+                            .background(CorusColors.Skeleton.copy(alpha = alpha)),
+                    )
+                }
             } else if (filmGridLoading) {
                 // FILM tab now uses the in-place FeaturedMoviePosterView shell, so we
                 // need to render grid skeleton cells here.
