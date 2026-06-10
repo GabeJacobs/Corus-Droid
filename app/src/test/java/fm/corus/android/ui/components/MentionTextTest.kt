@@ -221,4 +221,40 @@ class MentionTextTest {
         val result = buildMentionAnnotatedString(source)
         assertEquals(source, result.text)
     }
+
+    // ── bioTruncationCutoff ──
+    // Backs the last visible line off to a word boundary so the truncated bio reads
+    // "...published in brooklyn... more" rather than chopping mid-word.
+
+    @Test
+    fun `bioTruncationCutoff breaks on the nearest preceding space`() {
+        val text = "dj and event producer published in brooklyn magazine"
+        // lineEnd lands inside "magazine"; back off 8 (reserve) -> index 44 ("a" of magazine),
+        // then to the preceding space after "brooklyn".
+        val cutoff = bioTruncationCutoff(text, lineEnd = 52, reserveChars = 8)
+        assertEquals("dj and event producer published in brooklyn ".length, cutoff)
+        assertEquals("dj and event producer published in brooklyn", text.substring(0, cutoff).trimEnd())
+    }
+
+    @Test
+    fun `bioTruncationCutoff falls back to the reserved index when the line has no space`() {
+        val text = "supercalifragilisticexpialidocious"
+        // No spaces to break on -> returns the raw backed-off index (lineEnd - reserveChars).
+        val cutoff = bioTruncationCutoff(text, lineEnd = 30, reserveChars = 8)
+        assertEquals(22, cutoff)
+    }
+
+    @Test
+    fun `bioTruncationCutoff clamps lineEnd to the text length`() {
+        val text = "short bio here"
+        // lineEnd past the end must not throw; clamp before backing off.
+        val cutoff = bioTruncationCutoff(text, lineEnd = 999, reserveChars = 8)
+        assertEquals("short bio ".length, cutoff)
+    }
+
+    @Test
+    fun `bioTruncationCutoff never returns a negative index`() {
+        val cutoff = bioTruncationCutoff("hi", lineEnd = 2, reserveChars = 8)
+        assertEquals(0, cutoff)
+    }
 }

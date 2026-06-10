@@ -152,6 +152,21 @@ class SubscriptionRepository @Inject constructor(
         return _savesCount.value >= remoteConfig.saveCapLimit
     }
 
+    /** Mirror of users_v2/{uid}.favoritesCount. Hydrated at profile load and updated after each favorite/unfavorite. */
+    private val _favoritesCount = MutableStateFlow(0)
+    val favoritesCount: StateFlow<Int> = _favoritesCount.asStateFlow()
+
+    fun setFavoritesCount(count: Int) {
+        _favoritesCount.value = count.coerceAtLeast(0)
+    }
+
+    /** Local favorite-people cap pre-check. Mirrors backend `shouldRejectFavorite`. */
+    fun shouldRejectFavorite(): Boolean {
+        if (!remoteConfig.favoritePeopleCapEnforced) return false
+        if (hasFullAccess) return false
+        return _favoritesCount.value >= remoteConfig.favoritePeopleCapLimit
+    }
+
     fun updateVerifiedStatus(isVerified: Boolean) {
         _isVerified.value = isVerified
         prefs.edit().putBoolean(PREF_IS_VERIFIED, isVerified).apply()

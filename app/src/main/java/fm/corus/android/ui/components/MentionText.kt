@@ -298,6 +298,94 @@ fun ExpandableCaptionText(
 }
 
 /**
+ * Backs [lineEnd] off by [reserveChars] (leaving room for the "... more" suffix) and then
+ * to the nearest preceding space, so a truncated bio breaks on a word boundary rather than
+ * mid-word. Falls back to the raw backed-off index when the line has no space to break on.
+ * Pure + visible for testing.
+ */
+internal fun bioTruncationCutoff(text: String, lineEnd: Int, reserveChars: Int = 8): Int {
+    val truncEnd = (lineEnd - reserveChars).coerceAtLeast(0).coerceAtMost(text.length)
+    var cutoff = truncEnd
+    while (cutoff > 0 && text[cutoff - 1] != ' ') cutoff--
+    if (cutoff == 0) cutoff = truncEnd
+    return cutoff
+}
+
+/**
+ * Expandable profile bio with a 4-line cap and a tap-to-reveal "... more" affordance.
+ * Shows up to [maxCollapsedLines] lines collapsed; if the bio overflows it appends
+ * "... more" (in primary text color so it stands out against the secondary-colored bio)
+ * and tapping anywhere on the bio expands it to full. Bios are plain text — no mentions
+ * or hashtags — so this is a lighter sibling of [ExpandableCaptionText]. Mirrors the iOS
+ * ExpandableBioText in ProfileHeaderView.
+ */
+@Composable
+fun ExpandableBioText(
+    bio: String,
+    maxCollapsedLines: Int = 4,
+    modifier: Modifier = Modifier,
+) {
+    var isExpanded by remember(bio) { mutableStateOf(false) }
+    // null = not yet measured, false = fits, true = overflows
+    var overflowState by remember(bio) { mutableStateOf<Boolean?>(null) }
+    var trimmedText by remember(bio) { mutableStateOf<AnnotatedString?>(null) }
+
+    val moreColor = CorusColors.Text
+    val bioStyle = CorusFont.bio.copy(color = CorusColors.Secondary)
+    val fullText = remember(bio) { AnnotatedString(bio) }
+
+    val displayText = when {
+        isExpanded -> fullText
+        overflowState == true && trimmedText != null -> trimmedText!!
+        else -> fullText
+    }
+    val displayMaxLines = if (isExpanded) Int.MAX_VALUE else maxCollapsedLines
+    val canExpand = !isExpanded && overflowState == true
+
+    Column(
+        modifier = modifier.animateContentSize(
+            animationSpec = tween(durationMillis = 200, easing = EaseInOut),
+        ),
+    ) {
+        if (overflowState == null) {
+            // First render: measure with BasicText to detect overflow.
+            BasicText(
+                text = fullText,
+                style = bioStyle,
+                maxLines = maxCollapsedLines,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { result ->
+                    if (!result.hasVisualOverflow) {
+                        overflowState = false
+                    } else {
+                        val lastLine = result.lineCount - 1
+                        val lineEnd = result.getLineEnd(lastLine, visibleEnd = true)
+                        val cutoff = bioTruncationCutoff(bio, lineEnd)
+                        trimmedText = buildAnnotatedString {
+                            append(bio.substring(0, cutoff).trimEnd())
+                            append("... ")
+                            withStyle(SpanStyle(color = moreColor, fontWeight = FontWeight.SemiBold)) {
+                                append("more")
+                            }
+                        }
+                        overflowState = true
+                    }
+                },
+            )
+        } else {
+            ClickableText(
+                text = displayText,
+                style = bioStyle,
+                maxLines = displayMaxLines,
+                onClick = {
+                    if (canExpand) isExpanded = true
+                },
+            )
+        }
+    }
+}
+
+/**
  * Gold "1ST" trophy capsule for the first poster of a song/film, matching iOS.
  * Standalone so callers can place it next to the display name (detail screens)
  * rather than the username.

@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -180,7 +181,11 @@ fun PostCard(
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
-        // 1. POST HEADER: avatar + username with badges + repost indicator + menu
+        // 1. POST HEADER: avatar + username + badges + repost indicator + pill + menu.
+        // Wrapped in RowThatFits — the inline Follow pill is the lowest-priority
+        // element and drops when the full username + badges leave no room. The
+        // name is never truncated to fit the pill, and nothing overlaps the "...".
+        val headerContent: @Composable (Boolean) -> Unit = { includePill ->
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -279,7 +284,7 @@ fun PostCard(
                 }
             }
 
-            if (showInlineFollow) {
+            if (includePill && showInlineFollow) {
                 InlineFollowPill(
                     onTap = {
                         followTapped = true
@@ -303,6 +308,12 @@ fun PostCard(
                 tint = CorusColors.Secondary,
             )
         }
+        }
+        RowThatFits(
+            modifier = Modifier.fillMaxWidth(),
+            primary = { headerContent(true) },
+            fallback = { headerContent(false) },
+        )
 
         // 2. ALBUM ART / MOVIE POSTER: full-bleed, no corner radius, double-tap to like
         val aspectRatio = if (post.isMovie) 2f / 3f else 1f
@@ -1041,6 +1052,37 @@ fun PostCard(
                 .padding(horizontal = CorusSpacing.lg)
                 .padding(bottom = CorusSpacing.sm),
         )
+    }
+}
+
+/**
+ * Renders [primary] if its natural (intrinsic) width fits the available width,
+ * otherwise [fallback]. A lightweight Compose analog of SwiftUI's `ViewThatFits`,
+ * used so the post header can drop the inline Follow pill when the full username
+ * + badges leave no room — without truncating the username for the pill's sake.
+ *
+ * `maxIntrinsicWidth` measures the natural content width ignoring greedy
+ * `Spacer(weight)`s, so the decision is driven by the real username + badge +
+ * pill widths. The chosen variant is then measured with the real constraints.
+ */
+@Composable
+private fun RowThatFits(
+    modifier: Modifier = Modifier,
+    primary: @Composable () -> Unit,
+    fallback: @Composable () -> Unit,
+) {
+    SubcomposeLayout(modifier) { constraints ->
+        val naturalWidth = subcompose("measure", primary)
+            .firstOrNull()
+            ?.maxIntrinsicWidth(constraints.maxHeight)
+            ?: 0
+        val fits = naturalWidth <= constraints.maxWidth
+        val placeable = subcompose(if (fits) "primary" else "fallback") {
+            if (fits) primary() else fallback()
+        }.first().measure(constraints)
+        layout(placeable.width, placeable.height) {
+            placeable.place(0, 0)
+        }
     }
 }
 

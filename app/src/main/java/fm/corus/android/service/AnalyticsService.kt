@@ -258,6 +258,7 @@ class AnalyticsService @Inject constructor(
     fun logManageSubscriptionTapped() = logEvent("manage_subscription_tapped")
     fun logPostLimitReached(todayCount: Int) = logEvent("post_limit_reached", mapOf("today_count" to todayCount))
     fun logSaveCapReached(savesCount: Int) = logEvent("save_cap_reached", mapOf("saves_count" to savesCount))
+    fun logFavoritePeopleCapReached(favoritesCount: Int) = logEvent("favorite_people_cap_reached", mapOf("favorites_count" to favoritesCount))
     fun logSaveWarningToastShown(savesRemaining: Int) = logEvent("save_warning_toast_shown", mapOf("saves_remaining" to savesRemaining))
     fun logSaveWarningToastTapped(savesRemaining: Int) = logEvent("save_warning_toast_tapped", mapOf("saves_remaining" to savesRemaining))
 

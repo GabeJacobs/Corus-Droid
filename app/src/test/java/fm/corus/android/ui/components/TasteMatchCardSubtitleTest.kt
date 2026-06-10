@@ -85,6 +85,43 @@ class TasteMatchCardSubtitleTest {
         assertNull(buildSharedNamesSubtitle(data))
     }
 
+    // --- buildFlavorText: the full subtitle priority chain ---
+
+    @Test
+    fun `flavor text prefers shared names`() {
+        val data = MusicMatchData(
+            sharedArtists = 1,
+            sharedArtistNames = listOf("Caroline Polachek"),
+        )
+
+        assertEquals("Caroline Polachek", buildFlavorText(null, data))
+    }
+
+    @Test
+    fun `flavor text falls back to match count when names absent`() {
+        val data = MusicMatchData(
+            sharedArtists = 3,
+            sharedTrackPreviews = listOf(preview("The White Octave")),
+        )
+
+        assertEquals("3 artist matches", buildFlavorText(null, data))
+    }
+
+    @Test
+    fun `flavor text never shows a bare in-common count`() {
+        // No matchData at all (or a stale-index ghost stripped of names): there
+        // is nothing to show, so the subtitle is null — NOT "1 artist in common".
+        assertNull(buildFlavorText(null, null))
+        assertNull(buildFlavorText(null, MusicMatchData()))
+    }
+
+    @Test
+    fun `flavor text honors explicit subtitle override`() {
+        val data = MusicMatchData(sharedArtistNames = listOf("Caroline Polachek"))
+
+        assertEquals("1.2k followers", buildFlavorText("1.2k followers", data))
+    }
+
     private fun preview(artistName: String) = SharedTrackPreview(
         trackId = artistName,
         trackName = "track",

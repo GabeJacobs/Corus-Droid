@@ -32,8 +32,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
@@ -75,6 +78,7 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import android.graphics.Bitmap
 import fm.corus.android.ui.components.AvatarCropView
+import fm.corus.android.ui.components.ExpandableBioText
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.SelfieCaptureScreen
 import fm.corus.android.ui.components.ShimmerAsyncImage
@@ -162,6 +166,9 @@ fun ProfileScreen(
     val hasFullAccess by viewModel.hasFullAccess.collectAsState()
     val isSavingStyle by viewModel.isSavingStyle.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
+    val likesSavesFilter by viewModel.likesSavesFilter.collectAsState()
+    // Whether the Likes/Saves filter dropdown is open.
+    var filterMenuExpanded by remember { mutableStateOf(false) }
     // The user's explicit choice once they've tapped a tab. While null, the
     // selected tab is derived synchronously from the profile data so the
     // first frame after load already lands on the right tab — no flicker
@@ -172,6 +179,10 @@ fun ProfileScreen(
     val selectedSegment = userSelectedSegment
         ?: profile?.preferredProfileSegmentFromPosts(posts, hasMoreMixedPosts)
         ?: 0
+    // Render full 2:3 posters (not square crops) when the grid is films-only:
+    // the Film tab, or a Likes/Saves grid filtered to Film.
+    val showPosterGrid = selectedSegment == 1 ||
+        ((selectedSegment == 2 || selectedSegment == 3) && likesSavesFilter == ProfileMediaFilter.FILM)
     var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
     var didRevealFromSkeleton by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
@@ -614,12 +625,10 @@ fun ProfileScreen(
                     // Bio
                     if (currentProfile.bio.isNotBlank()) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                        Text(
-                            text = currentProfile.bio,
-                            style = CorusFont.bio,
-                            color = CorusColors.Secondary,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
+                        ExpandableBioText(
+                            bio = currentProfile.bio,
+                            maxCollapsedLines = 4,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
 
@@ -678,19 +687,35 @@ fun ProfileScreen(
                 }
                 val tabSelectedColor = CorusColors.Text
                 val tabUnselectedColor = CorusColors.Divider
+                // Always show the Likes/Saves filter. Keeping the chevron
+                // permanently present avoids a flash on bare profiles, where a
+                // "does a second type exist" signal only settles after the page
+                // loads. It's fine to offer it even when a type has zero items.
+                val lensUseful = selectedSegment == 2 || selectedSegment == 3
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     tabs.forEachIndexed { index, title ->
                         val logicalSegment = tabsOrder[index]
                         val isSelected = selectedSegment == logicalSegment
+                        val isFilterable = logicalSegment == 2 || logicalSegment == 3
+                        val showFilter = isFilterable && isSelected && lensUseful
+                        Box(modifier = Modifier.weight(1f)) {
                         Column(
                             modifier = Modifier
-                                .weight(1f)
+                                .fillMaxWidth()
                                 .clickable {
-                                    userSelectedSegment = logicalSegment
-                                    isFeaturedArtReady = false
-                                    viewModel.loadSegment(logicalSegment)
+                                    if (showFilter) {
+                                        // The whole active Likes/Saves tab is the
+                                        // filter trigger.
+                                        filterMenuExpanded = true
+                                    } else {
+                                        filterMenuExpanded = false
+                                        viewModel.resetLikesSavesLens()
+                                        userSelectedSegment = logicalSegment
+                                        isFeaturedArtReady = false
+                                        viewModel.loadSegment(logicalSegment)
+                                    }
                                 }
                                 .drawBehind {
                                     val strokeWidth = if (isSelected) 3.dp.toPx() else 0.5.dp.toPx()
@@ -705,11 +730,39 @@ fun ProfileScreen(
                                 .padding(vertical = CorusSpacing.sm),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Text(
-                                text = title,
-                                style = CorusFont.tabLabel,
-                                color = if (isSelected) CorusColors.Text else CorusColors.Tertiary,
+                            ProfileTabLabel(
+                                title = title,
+                                isSelected = isSelected,
+                                reservesChevron = isFilterable,
+                                showChevron = showFilter,
+                                activeIcon = when {
+                                    !showFilter -> null
+                                    likesSavesFilter == ProfileMediaFilter.MUSIC -> Icons.Filled.MusicNote
+                                    likesSavesFilter == ProfileMediaFilter.FILM -> Icons.Filled.Movie
+                                    else -> null
+                                },
                             )
+                        }
+                        if (showFilter) {
+                            DropdownMenu(
+                                expanded = filterMenuExpanded,
+                                onDismissRequest = { filterMenuExpanded = false },
+                                modifier = Modifier.background(CorusColors.Background),
+                            ) {
+                                ProfileFilterMenuItem("All", ProfileMediaFilter.ALL, null, likesSavesFilter) {
+                                    filterMenuExpanded = false
+                                    viewModel.setLikesSavesFilter(it, logicalSegment)
+                                }
+                                ProfileFilterMenuItem("Music", ProfileMediaFilter.MUSIC, Icons.Filled.MusicNote, likesSavesFilter) {
+                                    filterMenuExpanded = false
+                                    viewModel.setLikesSavesFilter(it, logicalSegment)
+                                }
+                                ProfileFilterMenuItem("Film", ProfileMediaFilter.FILM, Icons.Filled.Movie, likesSavesFilter) {
+                                    filterMenuExpanded = false
+                                    viewModel.setLikesSavesFilter(it, logicalSegment)
+                                }
+                            }
+                        }
                         }
                     }
                 }
@@ -831,11 +884,23 @@ fun ProfileScreen(
                         )
                         2 -> ProfileEmptyPlaceholder(
                             icon = Icons.Filled.Favorite,
-                            message = stringResource(fm.corus.android.R.string.profile_empty_likes),
+                            message = stringResource(
+                                when (likesSavesFilter) {
+                                    ProfileMediaFilter.MUSIC -> fm.corus.android.R.string.profile_empty_likes_music
+                                    ProfileMediaFilter.FILM -> fm.corus.android.R.string.profile_empty_likes_films
+                                    ProfileMediaFilter.ALL -> fm.corus.android.R.string.profile_empty_likes
+                                }
+                            ),
                         )
                         else -> ProfileEmptyPlaceholder(
                             icon = Icons.Filled.Bookmark,
-                            message = stringResource(fm.corus.android.R.string.profile_empty_saves),
+                            message = stringResource(
+                                when (likesSavesFilter) {
+                                    ProfileMediaFilter.MUSIC -> fm.corus.android.R.string.profile_empty_saves_music
+                                    ProfileMediaFilter.FILM -> fm.corus.android.R.string.profile_empty_saves_films
+                                    ProfileMediaFilter.ALL -> fm.corus.android.R.string.profile_empty_saves
+                                }
+                            ),
                         )
                     }
                 }
@@ -897,7 +962,7 @@ fun ProfileScreen(
                 )
                 Box(
                     modifier = Modifier
-                        .aspectRatio(1f)
+                        .aspectRatio(if (showPosterGrid) 2f / 3f else 1f)
                         .background(CorusColors.Skeleton.copy(alpha = alpha)),
                 )
             }
@@ -921,7 +986,7 @@ fun ProfileScreen(
                 items(gridPosts, key = { it.id }, contentType = { "post_grid" }) { post ->
                     PostGridItem(
                         post = post,
-                        isFilmPoster = selectedSegment == 1,
+                        isFilmPoster = showPosterGrid,
                         onClick = { navigateToFeed(post.id) },
                     )
                 }
@@ -1324,6 +1389,80 @@ private fun ProfileEmptyPrompt(
             )
         }
     }
+}
+
+/**
+ * Tab label for the profile segment strip. Likes/Saves tabs ([reservesChevron])
+ * always reserve the chevron's width — a hidden balancing chevron on the leading
+ * side keeps the title centered, and the visible chevron is toggled by opacity —
+ * so the label never reflows when the chevron appears after load or when
+ * switching between the two tabs.
+ */
+@Composable
+private fun ProfileTabLabel(
+    title: String,
+    isSelected: Boolean,
+    reservesChevron: Boolean,
+    showChevron: Boolean,
+    activeIcon: ImageVector?,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (reservesChevron) {
+            Icon(
+                Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp).alpha(0f),
+            )
+        }
+        Text(
+            text = title,
+            style = CorusFont.tabLabel,
+            color = if (isSelected) CorusColors.Text else CorusColors.Tertiary,
+        )
+        if (activeIcon != null) {
+            Icon(
+                activeIcon,
+                contentDescription = null,
+                tint = CorusColors.Accent,
+                modifier = Modifier.size(14.dp),
+            )
+        }
+        if (reservesChevron) {
+            Icon(
+                Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                tint = if (activeIcon != null) CorusColors.Accent else CorusColors.Tertiary,
+                modifier = Modifier
+                    .size(14.dp)
+                    .alpha(if (showChevron) 1f else 0f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileFilterMenuItem(
+    label: String,
+    value: ProfileMediaFilter,
+    icon: ImageVector?,
+    current: ProfileMediaFilter,
+    onSelect: (ProfileMediaFilter) -> Unit,
+) {
+    DropdownMenuItem(
+        text = { Text(label, color = CorusColors.Text) },
+        leadingIcon = icon?.let {
+            { Icon(it, contentDescription = null, tint = CorusColors.Text, modifier = Modifier.size(18.dp)) }
+        },
+        trailingIcon = if (value == current) {
+            { Icon(Icons.Filled.Check, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(18.dp)) }
+        } else {
+            null
+        },
+        onClick = { onSelect(value) },
+    )
 }
 
 @Composable

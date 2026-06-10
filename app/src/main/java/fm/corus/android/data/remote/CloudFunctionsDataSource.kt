@@ -371,6 +371,44 @@ class CloudFunctionsDataSource @Inject constructor(
         return (data["savesCount"] as? Number)?.toInt() ?: 0
     }
 
+    /** Result of a favoritePerson callable invocation. */
+    data class FavoritePersonResult(val favoritesCount: Int, val alreadyFavorited: Boolean)
+
+    /** Thrown when the server rejects a favorite because the user has hit the free cap. */
+    class FavoriteCapReachedException(val favoritesCount: Int) : Exception("FAVORITE_CAP_REACHED")
+
+    /**
+     * Favorite a person via the `favoritePerson` callable. Server enforces the
+     * favorite-people cap and maintains `favoritesCount`. Mirrors [savePost].
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun favoritePerson(targetUserId: String): FavoritePersonResult {
+        try {
+            val result = functions.getHttpsCallable("favoritePerson")
+                .call(mapOf("targetUserId" to targetUserId)).await()
+            val data = result.getData() as? Map<String, Any?> ?: emptyMap()
+            val count = (data["favoritesCount"] as? Number)?.toInt() ?: 0
+            val already = data["alreadyFavorited"] as? Boolean ?: false
+            return FavoritePersonResult(favoritesCount = count, alreadyFavorited = already)
+        } catch (e: com.google.firebase.functions.FirebaseFunctionsException) {
+            if (e.code == com.google.firebase.functions.FirebaseFunctionsException.Code.RESOURCE_EXHAUSTED) {
+                val details = e.details as? Map<String, Any?>
+                val count = (details?.get("favoritesCount") as? Number)?.toInt() ?: 0
+                throw FavoriteCapReachedException(count)
+            }
+            throw e
+        }
+    }
+
+    /** Unfavorite a person via the `unfavoritePerson` callable. Returns the new favoritesCount. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun unfavoritePerson(targetUserId: String): Int {
+        val result = functions.getHttpsCallable("unfavoritePerson")
+            .call(mapOf("targetUserId" to targetUserId)).await()
+        val data = result.getData() as? Map<String, Any?> ?: emptyMap()
+        return (data["favoritesCount"] as? Number)?.toInt() ?: 0
+    }
+
     // ── Likes ──
     // Server-side: the `likePost`/`unlikePost` callables atomically write
     // the like doc, the user's `liked` entry, and bump `posts.likeCount`,

@@ -21,6 +21,8 @@ data class CymbalUser(
     val trackCount: Int? = null,
     val movieCount: Int? = null,
     val savesCount: Int = 0,
+    /** Mirror of users_v2/{uid}.favoritesCount — drives the favorite-people cap. */
+    val favoritesCount: Int = 0,
     val vinylColor: String = "black",
     val frameColor: String = "black",
     val profileFlair: String = "checkmark",
@@ -164,6 +166,7 @@ data class CymbalUser(
             trackCount = (data["trackCount"] as? Number)?.toInt(),
             movieCount = (data["movieCount"] as? Number)?.toInt(),
             savesCount = (data["savesCount"] as? Number)?.toInt() ?: 0,
+            favoritesCount = (data["favoritesCount"] as? Number)?.toInt() ?: 0,
             vinylColor = data["vinylColor"] as? String ?: "black",
             frameColor = data["frameColor"] as? String ?: "black",
             profileFlair = data["profileFlair"] as? String ?: "checkmark",

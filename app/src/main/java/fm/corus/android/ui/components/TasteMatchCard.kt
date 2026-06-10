@@ -86,36 +86,37 @@ fun TasteMatchCard(
             .clickable(onClick = onUserTap)
             .padding(CorusSpacing.sm),
     ) {
-        // 2x2 grid of shared media with gaps
-        if (previewImages.isNotEmpty()) {
-            val gridShape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(gridShape),
-            ) {
-                // Edge-to-edge — matches iOS `gap = 0` in TasteMatchCard.
-                Column {
-                    Row(modifier = Modifier.weight(1f)) {
-                        GridTile(url = previewImages.getOrNull(0), modifier = Modifier.weight(1f).fillMaxHeight())
-                        GridTile(url = previewImages.getOrNull(1), modifier = Modifier.weight(1f).fillMaxHeight())
-                    }
-                    Row(modifier = Modifier.weight(1f)) {
-                        GridTile(url = previewImages.getOrNull(2), modifier = Modifier.weight(1f).fillMaxHeight())
-                        GridTile(url = previewImages.getOrNull(3), modifier = Modifier.weight(1f).fillMaxHeight())
-                    }
+        // 2x2 grid of shared media with gaps. Always rendered — even when the
+        // user has no shared artwork — so empty tiles fall through to GridTile's
+        // logo placeholder and the card keeps its normal (square-collage) height.
+        // Matches iOS TasteMatchCard, where albumArtGrid always lays out 4 tiles.
+        val gridShape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(gridShape),
+        ) {
+            // Edge-to-edge — matches iOS `gap = 0` in TasteMatchCard.
+            Column {
+                Row(modifier = Modifier.weight(1f)) {
+                    GridTile(url = previewImages.getOrNull(0), modifier = Modifier.weight(1f).fillMaxHeight())
+                    GridTile(url = previewImages.getOrNull(1), modifier = Modifier.weight(1f).fillMaxHeight())
                 }
+                Row(modifier = Modifier.weight(1f)) {
+                    GridTile(url = previewImages.getOrNull(2), modifier = Modifier.weight(1f).fillMaxHeight())
+                    GridTile(url = previewImages.getOrNull(3), modifier = Modifier.weight(1f).fillMaxHeight())
+                }
+            }
 
-                if (showPreviewButton) {
-                    PreviewButton(
-                        isLoading = isPreviewLoading,
-                        isPlaying = isPreviewing,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(CorusSpacing.sm),
-                    )
-                }
+            if (showPreviewButton) {
+                PreviewButton(
+                    isLoading = isPreviewLoading,
+                    isPlaying = isPreviewing,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(CorusSpacing.sm),
+                )
             }
         }
 
@@ -139,18 +140,7 @@ fun TasteMatchCard(
                 color = CorusColors.Text,
             )
 
-            // Subtitle priority (matches iOS TasteMatchCard.matchFlavorText):
-            //  1. Explicit `subtitle` override (Popular = "X followers",
-            //     Mutual Connections = "via @x, @y +N")
-            //  2. Shared artist/director names from match previews
-            //  3. Count-based label ("2 song matches" / "1 film match")
-            //  4. "X artists in common" from the user-level field
-            val flavorText = subtitle?.takeIf { it.isNotBlank() }
-                ?: buildSharedNamesSubtitle(matchData)
-                ?: buildBestMatchLabel(matchData)
-                ?: user.artistsInCommonCount?.takeIf { it > 0 }?.let {
-                    if (it == 1) "1 artist in common" else "$it artists in common"
-                }
+            val flavorText = buildFlavorText(subtitle, matchData)
             if (!flavorText.isNullOrBlank()) {
                 Text(
                     text = flavorText,
@@ -251,6 +241,25 @@ private fun GridTile(url: String?, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** Subtitle priority for a taste card. Mirrors iOS `matchFlavorText`:
+ *   1. Explicit `subtitle` override (Popular = "X followers",
+ *      Mutual Connections = "via @x, @y +N").
+ *   2. Shared artist/director names (list format).
+ *   3. Song/film match count ("2 song matches" / "1 film match").
+ *
+ *  There is intentionally NO `artistsInCommonCount` fallback. A bare
+ *  "N artists in common" with no names is a stale-index ghost — the overlap
+ *  index still lists it, but the viewer's live profile no longer backs it
+ *  (e.g. they deleted the post). The backend now nulls that count, so taste
+ *  cards show shared names or nothing — never a nameless count. */
+internal fun buildFlavorText(
+    subtitle: String?,
+    matchData: fm.corus.android.data.model.MusicMatchData?,
+): String? =
+    subtitle?.takeIf { it.isNotBlank() }
+        ?: buildSharedNamesSubtitle(matchData)
+        ?: buildBestMatchLabel(matchData)
 
 /** Comma-joined artist + director names (deduped, order-preserving) the viewer
  *  *actually shares* with this user. Mirrors iOS `sharedNames`. Returns null if

@@ -31,6 +31,49 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Media-type lens for the Likes/Saves grids (which mix songs + films, unlike
+ * the type-pure Music/Film tabs). Mirrors the web + iOS profile filter.
+ * [mediaType] is the post field this lens matches, or null for "all".
+ */
+enum class ProfileMediaFilter(val mediaType: String?) {
+    ALL(null),
+    MUSIC("track"),
+    FILM("movie"),
+}
+
+/** One page of filtered engagement posts, with the RAW offset to resume from. */
+data class FilteredEngagementPage(
+    val posts: List<CymbalPost>,
+    val nextOffset: Int,
+    val hasMore: Boolean,
+)
+
+/**
+ * Pure offset/match computation for a media-filtered Likes/Saves page, split out
+ * so it can be unit-tested without the network. Given the raw rows scanned so
+ * far (in engagement-recency order), keeps the matches up to [pageSize] and
+ * computes the RAW offset to resume from — from the last match returned, so the
+ * next page neither skips nor repeats — plus whether more remain. [moreAfterScan]
+ * is whether the underlying source still had rows beyond what was scanned.
+ */
+fun computeFilteredEngagementPage(
+    rawRows: List<CymbalPost>,
+    startOffset: Int,
+    mediaType: String,
+    pageSize: Int,
+    moreAfterScan: Boolean,
+): FilteredEngagementPage {
+    val matchIndices = rawRows.indices.filter { rawRows[it].mediaType.value == mediaType }
+    val take = matchIndices.take(pageSize)
+    val posts = take.map { rawRows[it] }
+    val nextOffset =
+        if (matchIndices.size > pageSize) startOffset + take.last() + 1
+        else startOffset + rawRows.size
+    val hasMore = matchIndices.size > pageSize || moreAfterScan
+    return FilteredEngagementPage(posts, nextOffset, hasMore)
+}
+
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
@@ -85,6 +128,11 @@ class ProfileViewModel @Inject constructor(
 
     private val _savedPosts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val savedPosts: StateFlow<List<CymbalPost>> = _savedPosts.asStateFlow()
+
+    // Active media lens for whichever of Likes/Saves is selected; reset to ALL
+    // when the segment changes (see [resetLikesSavesLens]).
+    private val _likesSavesFilter = MutableStateFlow(ProfileMediaFilter.ALL)
+    val likesSavesFilter: StateFlow<ProfileMediaFilter> = _likesSavesFilter.asStateFlow()
 
     // Fires after the user creates a post, carrying the logical profile segment
     // that surfaces it (0 = Music, 1 = Film). The screen uses this to auto-switch
@@ -528,18 +576,61 @@ class ProfileViewModel @Inject constructor(
         else -> "unknown"
     }
 
+    private enum class EngagementKind { LIKED, SAVED }
+
+    /**
+     * Fetches a page of liked/saved posts, optionally filtered by media type.
+     * The callables can't filter by type (it lives on the post, not the
+     * engagement index), so with a filter we page through the raw rows in
+     * bounded batches and keep the matches until a page is filled or the rows
+     * run out — capped by a scan budget so a type-sparse history can't fan out
+     * into unbounded round-trips. The continuation cursor is the RAW offset.
+     * Mirrors the web + iOS implementation.
+     */
+    private suspend fun fetchFilteredEngagement(
+        kind: EngagementKind,
+        userId: String,
+        startOffset: Int,
+        mediaType: String?,
+    ): FilteredEngagementPage {
+        suspend fun raw(limit: Int, offset: Int): List<CymbalPost> = when (kind) {
+            EngagementKind.LIKED -> cloudFunctions.getLikedPosts(userId, userId, limit = limit, offset = offset)
+            EngagementKind.SAVED -> cloudFunctions.getSavedPosts(userId, limit = limit, offset = offset)
+        }
+
+        if (mediaType == null) {
+            val posts = raw(PAGE_SIZE, startOffset)
+            return FilteredEngagementPage(posts, startOffset + posts.size, posts.size >= PAGE_SIZE)
+        }
+
+        val batch = 45
+        val maxRounds = 6 // ≤270 rows scanned per page
+        val rawRows = mutableListOf<CymbalPost>()
+        var more = true
+        var rounds = 0
+        while (rounds < maxRounds && more) {
+            val r = raw(batch, startOffset + rawRows.size)
+            rawRows.addAll(r)
+            more = r.size >= batch
+            rounds++
+            if (r.isEmpty()) { more = false; break }
+            if (rawRows.count { it.mediaType.value == mediaType } >= PAGE_SIZE) break
+        }
+        return computeFilteredEngagementPage(rawRows, startOffset, mediaType, PAGE_SIZE, more)
+    }
+
     private fun loadLikedPosts() {
         val userId = authRepository.currentUserId ?: return
         segmentLoadJob?.cancel()
         _isLoadingLiked.value = true
         segmentLoadJob = viewModelScope.launch {
             try {
-                val posts = cloudFunctions.getLikedPosts(userId, userId, limit = PAGE_SIZE, offset = 0)
-                _likedPosts.value = posts
+                val page = fetchFilteredEngagement(EngagementKind.LIKED, userId, 0, _likesSavesFilter.value.mediaType)
+                _likedPosts.value = page.posts
                 likedLoaded = true
-                likedOffset = posts.size
+                likedOffset = page.nextOffset
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
-                    this[2] = posts.size >= PAGE_SIZE
+                    this[2] = page.hasMore
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "loadLikedPosts failed", e)
@@ -554,18 +645,52 @@ class ProfileViewModel @Inject constructor(
         _isLoadingSaved.value = true
         segmentLoadJob = viewModelScope.launch {
             try {
-                val posts = cloudFunctions.getSavedPosts(userId, limit = PAGE_SIZE, offset = 0)
-                _savedPosts.value = posts
+                val page = fetchFilteredEngagement(EngagementKind.SAVED, userId, 0, _likesSavesFilter.value.mediaType)
+                _savedPosts.value = page.posts
                 savedLoaded = true
-                savedOffset = posts.size
+                savedOffset = page.nextOffset
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
-                    this[3] = posts.size >= PAGE_SIZE
+                    this[3] = page.hasMore
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "loadSavedPosts failed", e)
             }
             _isLoadingSaved.value = false
         }
+    }
+
+    /** Apply a new media lens to the active Likes/Saves segment: reset that
+     *  list and reload it under the new filter from the start. */
+    fun setLikesSavesFilter(filter: ProfileMediaFilter, segment: Int) {
+        if (_likesSavesFilter.value == filter) return
+        _likesSavesFilter.value = filter
+        when (segment) {
+            2 -> {
+                _likedPosts.value = emptyList()
+                likedOffset = 0
+                likedLoaded = false
+                _hasMore.value = _hasMore.value.toMutableMap().apply { this[2] = true }
+                loadLikedPosts()
+            }
+            3 -> {
+                _savedPosts.value = emptyList()
+                savedOffset = 0
+                savedLoaded = false
+                _hasMore.value = _hasMore.value.toMutableMap().apply { this[3] = true }
+                loadSavedPosts()
+            }
+        }
+    }
+
+    /** Drop any active Likes/Saves lens when the segment changes, so a stale
+     *  filter never silently hides content on the next visit. Clears the (now
+     *  type-filtered) cached lists so the next visit reloads the full set. */
+    fun resetLikesSavesLens() {
+        if (_likesSavesFilter.value == ProfileMediaFilter.ALL) return
+        _likesSavesFilter.value = ProfileMediaFilter.ALL
+        _likedPosts.value = emptyList(); likedOffset = 0; likedLoaded = false
+        _savedPosts.value = emptyList(); savedOffset = 0; savedLoaded = false
+        _hasMore.value = _hasMore.value.toMutableMap().apply { this[2] = true; this[3] = true }
     }
 
     fun loadMoreForSegment(segment: Int) {
@@ -640,23 +765,23 @@ class ProfileViewModel @Inject constructor(
                         }
                     }
                     2 -> {
-                        val newPosts = cloudFunctions.getLikedPosts(userId, userId, limit = PAGE_SIZE, offset = likedOffset)
+                        val page = fetchFilteredEngagement(EngagementKind.LIKED, userId, likedOffset, _likesSavesFilter.value.mediaType)
                         val existingIds = _likedPosts.value.mapTo(HashSet()) { it.id }
-                        val unique = newPosts.filter { it.id !in existingIds }
+                        val unique = page.posts.filter { it.id !in existingIds }
                         _likedPosts.value = _likedPosts.value + unique
-                        likedOffset += newPosts.size
+                        likedOffset = page.nextOffset
                         _hasMore.value = _hasMore.value.toMutableMap().apply {
-                            this[2] = newPosts.size >= PAGE_SIZE
+                            this[2] = page.hasMore
                         }
                     }
                     3 -> {
-                        val newPosts = cloudFunctions.getSavedPosts(userId, limit = PAGE_SIZE, offset = savedOffset)
+                        val page = fetchFilteredEngagement(EngagementKind.SAVED, userId, savedOffset, _likesSavesFilter.value.mediaType)
                         val existingIds = _savedPosts.value.mapTo(HashSet()) { it.id }
-                        val unique = newPosts.filter { it.id !in existingIds }
+                        val unique = page.posts.filter { it.id !in existingIds }
                         _savedPosts.value = _savedPosts.value + unique
-                        savedOffset += newPosts.size
+                        savedOffset = page.nextOffset
                         _hasMore.value = _hasMore.value.toMutableMap().apply {
-                            this[3] = newPosts.size >= PAGE_SIZE
+                            this[3] = page.hasMore
                         }
                     }
                 }

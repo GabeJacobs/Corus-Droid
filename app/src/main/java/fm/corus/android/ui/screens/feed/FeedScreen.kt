@@ -25,6 +25,10 @@ import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -767,25 +771,23 @@ private fun FeedTitleWithModeMenu(
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
             )
-            // For any non-default (non-Following) feed, show a small accent
-            // circle with the mode icon so the user always knows which feed
-            // they're viewing. Following stays the clean wordmark.
-            if (feedMode != "following") {
-                Spacer(modifier = Modifier.width(6.dp))
-                Box(
-                    modifier = Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(CorusColors.Accent),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = feedModeIcon(feedMode),
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(13.dp),
-                    )
-                }
+            // Small accent circle with the active mode's icon, so the user
+            // always knows which feed they're viewing. Filled icon (white on
+            // accent); the dropdown uses the outlined variants.
+            Spacer(modifier = Modifier.width(6.dp))
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(CorusColors.Accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = feedModeIcon(feedMode),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(13.dp),
+                )
             }
             Spacer(modifier = Modifier.width(4.dp))
             Icon(
@@ -807,7 +809,7 @@ private fun FeedTitleWithModeMenu(
             }
             val leadingIcon: @Composable (String) -> Unit = { mode ->
                 Icon(
-                    imageVector = feedModeIcon(mode),
+                    imageVector = feedModeIcon(mode, filled = false),
                     contentDescription = null,
                     tint = CorusColors.Secondary,
                 )
@@ -863,11 +865,11 @@ private fun FeedTitleWithModeMenu(
  * Following → people, Favorites → filled star, For You → sparkle. Used for the
  * header accent pill and the mode-switcher menu rows.
  */
-private fun feedModeIcon(mode: String): ImageVector = when (mode) {
-    "trending" -> Icons.Filled.TrendingUp
-    "forYou" -> Icons.Filled.AutoAwesome
-    "favorites" -> Icons.Filled.Star
-    else -> Icons.Filled.People
+private fun feedModeIcon(mode: String, filled: Boolean = true): ImageVector = when (mode) {
+    "trending" -> if (filled) Icons.Filled.TrendingUp else Icons.Outlined.TrendingUp
+    "forYou" -> if (filled) Icons.Filled.AutoAwesome else Icons.Outlined.AutoAwesome
+    "favorites" -> if (filled) Icons.Filled.Star else Icons.Outlined.Star
+    else -> if (filled) Icons.Filled.People else Icons.Outlined.People
 }
 
 /**

@@ -74,6 +74,7 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CorusHeaderIcon
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ExpandableBioText
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.FeaturedCymbalView
 import fm.corus.android.ui.components.FeaturedMoviePosterView
@@ -175,13 +176,26 @@ fun OtherProfileScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showAvatarFullScreen by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
+    var clubOfferSource by remember {
+        mutableStateOf(fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT)
+    }
     val gridState = rememberLazyGridState()
 
     val paywallRequested by viewModel.nowPlayingManager.paywallRequested.collectAsState()
     LaunchedEffect(paywallRequested) {
         if (paywallRequested) {
+            clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
             showClubOffer = true
             viewModel.nowPlayingManager.clearPaywallRequested()
+        }
+    }
+
+    val favoriteCapPaywallRequested by viewModel.favoriteCapPaywallRequested.collectAsState()
+    LaunchedEffect(favoriteCapPaywallRequested) {
+        if (favoriteCapPaywallRequested) {
+            clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.FAVORITE_LIMIT
+            showClubOffer = true
+            viewModel.clearFavoriteCapPaywallRequested()
         }
     }
 
@@ -529,11 +543,14 @@ fun OtherProfileScreen(
 
                                 if (!initialBio.isNullOrBlank()) {
                                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                                    // Transient skeleton header shown until the live profile
+                                    // lands; cap at 4 lines (no expand) to match the real
+                                    // ExpandableBioText below so the bio doesn't jump on swap.
                                     Text(
                                         text = initialBio,
                                         style = CorusFont.bio,
                                         color = CorusColors.Secondary,
-                                        maxLines = 3,
+                                        maxLines = 4,
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                 }
@@ -851,12 +868,10 @@ fun OtherProfileScreen(
 
                         if (currentProfile.bio.isNotBlank()) {
                             Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                            Text(
-                                text = currentProfile.bio,
-                                style = CorusFont.bio,
-                                color = CorusColors.Secondary,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
+                            ExpandableBioText(
+                                bio = currentProfile.bio,
+                                maxCollapsedLines = 4,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1200,7 +1215,7 @@ fun OtherProfileScreen(
             CorusSystemBars()
             BackHandler { showClubOffer = false }
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
-                source = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT,
+                source = clubOfferSource,
                 onDismiss = { showClubOffer = false },
             )
         }

@@ -36,7 +36,7 @@
     <string name="settings_account_deleted_toast">Sua conta foi excluída.</string>
     <string name="settings_section_corus_club">CORUS CLUB</string>
     <string name="settings_row_join_club">Entrar no Corus Club</string>
-    <string name="settings_row_join_club_subtitle">Selo verificado, publicações ilimitadas e mais</string>
+    <string name="settings_row_join_club_subtitle">Distintivo de perfil personalizado, publicações ilimitadas e mais</string>
     <string name="settings_row_restore_purchases_subtitle">Já é membro? Toque para sincronizar sua assinatura</string>
     <string name="settings_restore_toast_success">Assinatura restaurada</string>
     <string name="settings_restore_toast_none">Nenhuma assinatura ativa encontrada</string>
@@ -306,6 +306,10 @@
     <string name="profile_empty_film_button">Poste seu primeiro filme</string>
     <string name="profile_empty_likes">Nenhuma curtida ainda</string>
     <string name="profile_empty_saves">Nenhum post salvo ainda</string>
+    <string name="profile_empty_likes_music">Nenhuma música curtida ainda</string>
+    <string name="profile_empty_likes_films">Nenhum filme curtido ainda</string>
+    <string name="profile_empty_saves_music">Nenhuma música salva ainda</string>
+    <string name="profile_empty_saves_films">Nenhum filme salvo ainda</string>
     <string name="profile_share_another_track">Compartilhe outra música</string>
 
     <string name="profile_share_another_film">Compartilhe outro filme</string>
@@ -790,7 +794,8 @@
     <string name="club_subtitle_playlist_limit">Desbloqueie a geração de playlists.</string>
     <string name="club_subtitle_settings">Apoie o Corus. Ganhe Vantagens.</string>
     <string name="club_feature_unlimited">Publicações ilimitadas</string>
-    <string name="club_feature_verified">Selo verificado</string>
+    <string name="club_feature_favorites">Favoritos ilimitados</string>
+    <string name="club_feature_verified">Distintivo de perfil personalizado</string>
     <string name="club_feature_customization">Personalização de perfil</string>
     <string name="club_feature_playlists">Gerar playlists do Spotify</string>
     <string name="club_feature_support">Mantenha o Corus sem anúncios</string>

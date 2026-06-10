@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.*
@@ -488,10 +489,19 @@ fun CymbalClubOfferSheet(
             if (source != PaywallSource.FIRST_POST) {
                 FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
             }
+            // Source-specific perk sits right under posts so it's in the list,
+            // not just the subtitle.
+            if (source == PaywallSource.FAVORITE_LIMIT) {
+                FeatureRow(icon = Icons.Filled.Star, text = stringResource(R.string.club_feature_favorites))
+            }
             FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
             FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
             FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
-            FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+            // Drop the badge line on the favorites paywall to keep the list at
+            // 5 rows on phones (room is tight).
+            if (source != PaywallSource.FAVORITE_LIMIT) {
+                FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+            }
         }
 
         Spacer(modifier = Modifier.height(CorusSpacing.sm))

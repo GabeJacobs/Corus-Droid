@@ -157,6 +157,13 @@ class OtherProfileViewModel @Inject constructor(
     private val _isFavorite = MutableStateFlow(false)
     val isFavorite: StateFlow<Boolean> = _isFavorite.asStateFlow()
 
+    // Set when a favorite attempt hits the favorite-people cap. The screen
+    // observes this to open the Club paywall, then calls clear. Mirrors the
+    // now-playing paywall-request flow.
+    private val _favoriteCapPaywallRequested = MutableStateFlow(false)
+    val favoriteCapPaywallRequested: StateFlow<Boolean> = _favoriteCapPaywallRequested.asStateFlow()
+    fun clearFavoriteCapPaywallRequested() { _favoriteCapPaywallRequested.value = false }
+
     // Taste-match payload alongside the target user — drives the profile teaser
     // pill and the detail sheet. Null when there's no overlap (or on own-profile).
     private val _matchData = MutableStateFlow<MusicMatchData?>(null)
@@ -577,6 +584,13 @@ class OtherProfileViewModel @Inject constructor(
     fun toggleFavorite(userId: String): Boolean {
         val currentUserId = authRepository.currentUserId ?: return _isFavorite.value
         val wasFavorite = _isFavorite.value
+        // Instant local cap pre-check (only when adding) — open the paywall
+        // instead of attempting the favorite. Server enforces independently.
+        if (!wasFavorite && subscriptionRepository.shouldRejectFavorite()) {
+            analyticsService.logFavoritePeopleCapReached(subscriptionRepository.favoritesCount.value)
+            _favoriteCapPaywallRequested.value = true
+            return wasFavorite
+        }
         val nowFavorite = !wasFavorite
         _isFavorite.value = nowFavorite
         if (nowFavorite) analyticsService.logFavoriteAdded(userId)
@@ -590,8 +604,16 @@ class OtherProfileViewModel @Inject constructor(
                 } else {
                     userRepository.addFavorite(currentUserId, userId)
                 }
+            } catch (e: CloudFunctionsDataSource.FavoriteCapReachedException) {
+                // Server backstop — roll back and open the paywall.
+                _isFavorite.value = wasFavorite
+                favoriteChangedEvent.notify(userId, wasFavorite)
+                subscriptionRepository.setFavoritesCount(e.favoritesCount)
+                analyticsService.logFavoritePeopleCapReached(e.favoritesCount)
+                _favoriteCapPaywallRequested.value = true
             } catch (_: Exception) {
                 _isFavorite.value = wasFavorite
+                favoriteChangedEvent.notify(userId, wasFavorite)
             }
         }
         return nowFavorite

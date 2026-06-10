@@ -109,13 +109,19 @@ class UserRepository @Inject constructor(
             // it's always needed for optimistic UI (comments, etc.)
             val isCurrentUser = uid == auth.currentUser?.uid
             if (isCurrentUser || entry.isValid(PROFILE_TTL_MS)) {
-                if (isCurrentUser) subscriptionRepository.setSavesCount(entry.value.savesCount)
+                if (isCurrentUser) {
+                    subscriptionRepository.setSavesCount(entry.value.savesCount)
+                    subscriptionRepository.setFavoritesCount(entry.value.favoritesCount)
+                }
                 return entry.value
             }
         }
         val user = firestoreDataSource.fetchUserProfile(uid) ?: return null
         profileCache[uid] = CacheEntry(user)
-        if (uid == auth.currentUser?.uid) subscriptionRepository.setSavesCount(user.savesCount)
+        if (uid == auth.currentUser?.uid) {
+            subscriptionRepository.setSavesCount(user.savesCount)
+            subscriptionRepository.setFavoritesCount(user.favoritesCount)
+        }
         return user
     }
 
@@ -519,12 +525,20 @@ class UserRepository @Inject constructor(
         return firestoreDataSource.isSubscribedToUserPosts(subscriberId, targetUserId)
     }
 
-    suspend fun addFavorite(userId: String, targetId: String) {
-        firestoreDataSource.addFavorite(userId, targetId)
+    // Favorite/unfavorite route through the callable so the server enforces the
+    // favorite-people cap and maintains `favoritesCount`. Returns the new count
+    // and syncs it into SubscriptionRepository for the local pre-check. On cap
+    // hit, `favoritePerson` throws CloudFunctionsDataSource.FavoriteCapReachedException.
+    suspend fun addFavorite(userId: String, targetId: String): Int {
+        val result = cloudFunctions.favoritePerson(targetId)
+        subscriptionRepository.setFavoritesCount(result.favoritesCount)
+        return result.favoritesCount
     }
 
-    suspend fun removeFavorite(userId: String, targetId: String) {
-        firestoreDataSource.removeFavorite(userId, targetId)
+    suspend fun removeFavorite(userId: String, targetId: String): Int {
+        val count = cloudFunctions.unfavoritePerson(targetId)
+        subscriptionRepository.setFavoritesCount(count)
+        return count
     }
 
     suspend fun isFavorite(userId: String, targetId: String): Boolean {

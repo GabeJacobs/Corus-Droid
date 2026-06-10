@@ -36,7 +36,7 @@
     <string name="settings_account_deleted_toast">Your account has been deleted.</string>
     <string name="settings_section_corus_club">CORUS CLUB</string>
     <string name="settings_row_join_club">Join Corus Club</string>
-    <string name="settings_row_join_club_subtitle">Verified badge, unlimited posts &amp; more</string>
+    <string name="settings_row_join_club_subtitle">Custom profile badge, unlimited posts &amp; more</string>
     <string name="settings_row_restore_purchases_subtitle">Already a member? Tap to sync your subscription</string>
     <string name="settings_restore_toast_success">Subscription restored</string>
     <string name="settings_restore_toast_none">No active subscription found</string>
@@ -335,6 +335,10 @@
     <string name="profile_empty_film_button">Post your first film</string>
     <string name="profile_empty_likes">No liked posts yet</string>
     <string name="profile_empty_saves">No saved posts yet</string>
+    <string name="profile_empty_likes_music">No liked music yet</string>
+    <string name="profile_empty_likes_films">No liked films yet</string>
+    <string name="profile_empty_saves_music">No saved music yet</string>
+    <string name="profile_empty_saves_films">No saved films yet</string>
     <string name="profile_share_another_track">Share another song</string>
     <string name="profile_share_another_film">Share another film</string>
     <string name="profile_share_another_subtitle">Build your collection</string>
@@ -869,7 +873,8 @@
     <string name="club_subtitle_playlist_limit">Unlock playlist generation.</string>
     <string name="club_subtitle_settings">Support Corus. Get Perks.</string>
     <string name="club_feature_unlimited">Unlimited posts</string>
-    <string name="club_feature_verified">Verified badge</string>
+    <string name="club_feature_favorites">Unlimited favorites</string>
+    <string name="club_feature_verified">Custom profile badge</string>
     <string name="club_feature_customization">Profile customization</string>
     <string name="club_feature_playlists">Export playlists</string>
     <string name="club_feature_support">Keep Corus ad-free</string>

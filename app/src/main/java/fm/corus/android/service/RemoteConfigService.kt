@@ -97,6 +97,17 @@ class RemoteConfigService @Inject constructor(
             return if (v > 0) v else 23
         }
 
+    // Favorite-people cap. `favoritePeopleCapEnforced` is the master switch —
+    // false means no cap at all. Mirrors the save cap above.
+    val favoritePeopleCapEnforced: Boolean
+        get() = remoteConfig.getBoolean("favorite_people_cap_enforced")
+
+    val favoritePeopleCapLimit: Int
+        get() {
+            val v = remoteConfig.getLong("favorite_people_cap_limit").toInt()
+            return if (v > 0) v else 3
+        }
+
     val soundcloudEnabled: Boolean
         get() = remoteConfig.getBoolean("soundcloud_enabled")
 
@@ -250,6 +261,8 @@ class RemoteConfigService @Inject constructor(
                     "save_cap_enforced" to false,
                     "save_cap_limit" to 25L,
                     "save_cap_warning_at" to 23L,
+                    "favorite_people_cap_enforced" to false,
+                    "favorite_people_cap_limit" to 3L,
                     "soundcloud_enabled" to false,
                     "tidal_enabled" to false,
                     "deezer_enabled" to false,
