@@ -25,6 +25,14 @@ class MessageRepository @Inject constructor(
         return cloudFunctions.listThreads(userId)
     }
 
+    suspend fun listThreadsPage(
+        userId: String,
+        limit: Int = 30,
+        startAfter: Long? = null,
+    ): CloudFunctionsDataSource.ThreadListPage {
+        return cloudFunctions.listThreadsPage(userId, limit, startAfter)
+    }
+
     suspend fun listMessages(threadId: String, limit: Int = 50, lastTimestamp: Long? = null): List<CymbalMessage> {
         return cloudFunctions.listMessages(threadId, limit, lastTimestamp)
     }

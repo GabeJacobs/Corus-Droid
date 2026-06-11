@@ -585,15 +585,33 @@ class CloudFunctionsDataSource @Inject constructor(
 
     // ── Messaging ──
 
+    /**
+     * One page of inbox threads plus the cursor for the next page. [nextCursor] is
+     * the `updatedAt` of the last thread scanned (millis) — pass it back as
+     * `startAfter`. [hasMore] is authoritative from the server: block/ban filtering
+     * can leave [threads] shorter than the page size, so don't infer it from size.
+     */
+    data class ThreadListPage(
+        val threads: List<CymbalThread>,
+        val nextCursor: Long? = null,
+        val hasMore: Boolean = false,
+    )
+
     @Suppress("UNCHECKED_CAST")
-    suspend fun listThreads(userId: String): List<CymbalThread> {
-        val result = functions.getHttpsCallable("listThreads").call(
-            mapOf("userId" to userId)
-        ).await()
-        val data = result.getData() as? Map<String, Any?> ?: return emptyList()
-        val threads = data["threads"] as? List<Map<String, Any?>> ?: return emptyList()
-        return threads.map { CymbalThread.fromMap(it["id"] as? String ?: "", it) }
+    suspend fun listThreadsPage(userId: String, limit: Int = 30, startAfter: Long? = null): ThreadListPage {
+        val params = mutableMapOf<String, Any>("userId" to userId, "limit" to limit)
+        startAfter?.let { params["startAfter"] = it }
+        val result = functions.getHttpsCallable("listThreads").call(params).await()
+        val data = result.getData() as? Map<String, Any?> ?: return ThreadListPage(emptyList())
+        val threads = (data["threads"] as? List<Map<String, Any?>> ?: emptyList())
+            .map { CymbalThread.fromMap(it["id"] as? String ?: "", it) }
+        val nextCursor = (data["nextCursor"] as? Number)?.toLong()
+        val hasMore = data["hasMore"] as? Boolean ?: false
+        return ThreadListPage(threads, nextCursor, hasMore)
     }
+
+    suspend fun listThreads(userId: String): List<CymbalThread> =
+        listThreadsPage(userId).threads
 
     @Suppress("UNCHECKED_CAST")
     suspend fun listMessages(threadId: String, limit: Int = 50, lastTimestamp: Long? = null): List<CymbalMessage> {

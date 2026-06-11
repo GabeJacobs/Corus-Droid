@@ -43,6 +43,7 @@ fun FollowListScreen(
     val users by viewModel.users.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val isLoadingAll by viewModel.isLoadingAll.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
     val followingStatus by viewModel.followingStatus.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
@@ -68,12 +69,24 @@ fun FollowListScreen(
         }
     }
 
+    // First non-blank query pulls in the rest of the list so the filter
+    // searches everyone, not just the pages already loaded.
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank() && hasMore) {
+            viewModel.loadAllRemaining()
+        }
+    }
+
     val filteredUsers = if (searchQuery.isBlank()) users else {
         users.filter {
             it.username.contains(searchQuery, ignoreCase = true) ||
                     it.displayName.contains(searchQuery, ignoreCase = true)
         }
     }
+
+    // While searching we may still be pulling the rest of the list; show the
+    // skeleton instead of a premature "No results" until that load finishes.
+    val isSearchingAcrossFullList = searchQuery.isNotBlank() && (isLoadingAll || hasMore)
 
     Scaffold(
         topBar = {
@@ -133,7 +146,7 @@ fun FollowListScreen(
             )
 
             when {
-                isLoading && users.isEmpty() -> {
+                (isLoading && users.isEmpty()) || (filteredUsers.isEmpty() && isSearchingAcrossFullList) -> {
                     // Skeleton loading
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(10) {
@@ -205,7 +218,7 @@ fun FollowListScreen(
                         }
 
                         // Loading more indicator
-                        if (isLoadingMore) {
+                        if (isLoadingMore || isLoadingAll) {
                             item {
                                 Box(
                                     modifier = Modifier

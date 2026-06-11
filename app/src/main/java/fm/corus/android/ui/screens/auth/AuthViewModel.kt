@@ -349,6 +349,14 @@ class AuthViewModel @Inject constructor(
      */
     private suspend fun revalidateInBackground(user: FirebaseUser) {
         try {
+            // Alias RevenueCat to the Firebase UID as early as possible — kicked
+            // off in parallel here (not gated behind the ban/profile reads below,
+            // which can throw and skip it) so a fast user is less likely to reach
+            // the paywall while the SDK is still on its anonymous id. The purchase
+            // path also guards on this via ensureIdentified() as the deterministic
+            // backstop.
+            viewModelScope.launch { subscriptionRepository.loginUser(user.uid) }
+
             if (authRepository.checkIfUserIsBanned(user.uid)) {
                 authRepository.signOut()
                 _error.value = context.getString(R.string.auth_error_account_suspended)
@@ -368,11 +376,10 @@ class AuthViewModel @Inject constructor(
                 subscriptionRepository.updateVerifiedStatus(profile.isVerified)
                 subscriptionRepository.setTotalPostCount(profile.cymbalCount)
             }
-            // RevenueCat alias — backgrounded here (was inline, before SignedIn, on
-            // the slow path). Matches iOS, which has always aliased in its
-            // background warmup; subscription status is read from the
-            // SharedPreferences cache meanwhile, so gating is never wrong.
-            subscriptionRepository.loginUser(user.uid)
+            // RevenueCat alias is kicked off at the top of this function (in
+            // parallel) so a fast user can't reach the paywall before the SDK is
+            // identified; subscription status is read from the SharedPreferences
+            // cache meanwhile, so gating is never wrong.
 
             viewModelScope.launch { userRepository.prefetchFollowingSet(user.uid) }
             viewModelScope.launch { userRepository.prefetchBlockedSet(user.uid) }

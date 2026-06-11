@@ -29,6 +29,17 @@ class ThreadListViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _hasMoreThreads = MutableStateFlow(false)
+    val hasMoreThreads: StateFlow<Boolean> = _hasMoreThreads.asStateFlow()
+
+    private val pageSize = 30
+
+    /** Cursor for the next page — the `updatedAt` of the last thread fetched, in millis. */
+    private var nextCursor: Long? = null
+
     // New Message picker state
     private val _suggestedContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
     val suggestedContacts: StateFlow<List<CymbalUser>> = _suggestedContacts.asStateFlow()
@@ -51,10 +62,37 @@ class ThreadListViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                _threads.value = messageRepository.listThreads(userId)
-                    .filter { it.lastMessageFromUserId != null }
+                val page = messageRepository.listThreadsPage(userId, limit = pageSize)
+                _threads.value = page.threads.filter { it.lastMessageFromUserId != null }
+                nextCursor = page.nextCursor
+                _hasMoreThreads.value = page.hasMore && page.nextCursor != null
             } catch (_: Exception) { }
             _isLoading.value = false
+        }
+    }
+
+    fun loadMoreThreads() {
+        val userId = authRepository.currentUserId ?: return
+        if (_isLoadingMore.value || !_hasMoreThreads.value) return
+        val cursor = nextCursor ?: return
+
+        viewModelScope.launch {
+            _isLoadingMore.value = true
+            try {
+                val page = messageRepository.listThreadsPage(userId, limit = pageSize, startAfter = cursor)
+                val existingIds = _threads.value.map { it.id }.toSet()
+                val newThreads = page.threads
+                    .filter { it.lastMessageFromUserId != null }
+                    .filter { it.id !in existingIds }
+                _threads.value = _threads.value + newThreads
+                nextCursor = page.nextCursor
+                // The recency cursor strictly decreases each page, so it can't loop;
+                // stop when the server reports no more or the cursor didn't advance.
+                _hasMoreThreads.value = page.hasMore && page.nextCursor != null && page.nextCursor != cursor
+            } catch (_: Exception) {
+                _hasMoreThreads.value = false
+            }
+            _isLoadingMore.value = false
         }
     }
 

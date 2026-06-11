@@ -54,6 +54,7 @@ fun ThreadListScreen(
 ) {
     val threads by viewModel.threads.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val hasMoreThreads by viewModel.hasMoreThreads.collectAsState()
     var showNewMessagePicker by remember { mutableStateOf(false) }
     var isCreatingThread by remember { mutableStateOf(false) }
     var inboxSearchText by remember { mutableStateOf("") }
@@ -123,6 +124,24 @@ fun ThreadListScreen(
                             thread = thread,
                             onClick = { onThreadTap(thread.id, thread.otherUserId) },
                         )
+                    }
+
+                    // Paginate by recency only when not searching — search filters the
+                    // already-loaded set client-side.
+                    if (hasMoreThreads && inboxSearchText.isBlank()) {
+                        item {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = CorusSpacing.xl)
+                                    .wrapContentWidth(Alignment.CenterHorizontally),
+                                color = CorusColors.Secondary,
+                                strokeWidth = 2.dp,
+                            )
+                            LaunchedEffect(threads.size) {
+                                viewModel.loadMoreThreads()
+                            }
+                        }
                     }
                 }
             }

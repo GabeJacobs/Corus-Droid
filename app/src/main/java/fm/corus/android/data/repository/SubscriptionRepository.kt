@@ -278,25 +278,54 @@ class SubscriptionRepository @Inject constructor(
     suspend fun loginUser(uid: String) {
         Purchases.sharedInstance.updatedCustomerInfoListener = this
         try {
-            val customerInfo = suspendCancellableCoroutine { cont ->
-                Purchases.sharedInstance.logIn(
-                    uid,
-                    object : com.revenuecat.purchases.interfaces.LogInCallback {
-                        override fun onReceived(customerInfo: CustomerInfo, created: Boolean) {
-                            cont.resume(customerInfo)
-                        }
-                        override fun onError(error: PurchasesError) {
-                            cont.resume(null)
-                        }
-                    }
-                )
-            }
+            val customerInfo = awaitLogIn(uid)
             if (customerInfo != null) {
                 updateClubStatus(customerInfo)
                 syncClubStatusToFirestore()
             }
         } catch (e: Exception) {
             android.util.Log.e("SubscriptionRepo", "loginUser failed", e)
+        }
+    }
+
+    /** Suspend wrapper around `Purchases.logIn`. Resolves null on error. */
+    private suspend fun awaitLogIn(uid: String): CustomerInfo? =
+        suspendCancellableCoroutine { cont ->
+            Purchases.sharedInstance.logIn(
+                uid,
+                object : com.revenuecat.purchases.interfaces.LogInCallback {
+                    override fun onReceived(customerInfo: CustomerInfo, created: Boolean) {
+                        cont.resume(customerInfo)
+                    }
+                    override fun onError(error: PurchasesError) {
+                        cont.resume(null)
+                    }
+                }
+            )
+        }
+
+    /**
+     * Guarantee the RevenueCat SDK is aliased to the current Firebase UID before
+     * a purchase. On the launch fast path the alias ([loginUser]) is backgrounded,
+     * so a user can reach the paywall before it lands; a purchase made while the
+     * SDK is still on its anonymous id makes the RevenueCat webhook skip the
+     * INITIAL_PURCHASE (anti-fraud), leaving `users_v2/{uid}.isClubMember` unset
+     * until the next sign-in's TRANSFER — i.e. the user stays blocked at the
+     * post limit until they restart. Awaiting the alias here closes that window.
+     * No-op when already aliased.
+     */
+    suspend fun ensureIdentified() {
+        val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val current = runCatching { Purchases.sharedInstance.appUserID }.getOrNull()
+        if (current == uid) return
+        Purchases.sharedInstance.updatedCustomerInfoListener = this
+        repeat(2) {
+            val info = awaitLogIn(uid)
+            if (info != null) {
+                updateClubStatus(info)
+                syncClubStatusToFirestore()
+                return
+            }
         }
     }
 
@@ -342,8 +371,13 @@ class SubscriptionRepository @Inject constructor(
             onSuccess = { storeTransaction, customerInfo ->
                 updateClubStatus(customerInfo)
                 if (_isClubMember.value) {
-                    val userId = Purchases.sharedInstance.appUserID
                     scope.launch {
+                        // Self-heal: if the purchase still fired against an
+                        // anonymous RC id (the pre-purchase alias couldn't
+                        // complete), aliasing now triggers a TRANSFER so the
+                        // webhook back-fills isClubMember without a restart.
+                        ensureIdentified()
+                        val userId = Purchases.sharedInstance.appUserID
                         try {
                             cloudFunctions.syncClubMemberStatus(userId, isClubMember = true)
                         } catch (_: Exception) { }

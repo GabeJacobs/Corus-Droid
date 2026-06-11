@@ -37,6 +37,9 @@ class FollowListViewModel @Inject constructor(
     private val _hasMore = MutableStateFlow(true)
     val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
 
+    private val _isLoadingAll = MutableStateFlow(false)
+    val isLoadingAll: StateFlow<Boolean> = _isLoadingAll.asStateFlow()
+
     private val _followingStatus = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val followingStatus: StateFlow<Map<String, Boolean>> = _followingStatus.asStateFlow()
 
@@ -88,34 +91,58 @@ class FollowListViewModel @Inject constructor(
     }
 
     fun loadMore() {
-        if (!_hasMore.value || _isLoadingMore.value || _isLoading.value) return
+        if (!_hasMore.value || _isLoadingMore.value || _isLoading.value || _isLoadingAll.value) return
 
         viewModelScope.launch {
             _isLoadingMore.value = true
             try {
-                val result = if (currentIsFollowers) {
-                    userRepository.fetchFollowersPaginated(currentUserId_, PAGE_SIZE, lastDocument)
-                } else {
-                    userRepository.fetchFollowingPaginated(currentUserId_, PAGE_SIZE, lastDocument)
-                }
-
-                _users.value = _users.value + result.users
-                lastDocument = result.lastDocument
-                if (result.users.size < PAGE_SIZE) {
-                    _hasMore.value = false
-                }
-
-                // Update follow status for new users
-                val myFollowing = userRepository.followingIds.value
-                val newStatuses = result.users.associate { it.id to myFollowing.contains(it.id) }
-                _followingStatus.value = _followingStatus.value + newStatuses
-
-                // If viewing followers, update follow-back tracking
-                if (currentIsFollowers) {
-                    _followersOfTarget.value = _followersOfTarget.value + result.users.map { it.id }.toSet()
-                }
+                appendNextPage()
             } catch (_: Exception) { }
             _isLoadingMore.value = false
+        }
+    }
+
+    /**
+     * Eagerly loads every remaining page so a search can match the full follow
+     * list, not just the pages already scrolled into view. Pagination is gated
+     * behind a blank search query, so without this a query like "Isa" would miss
+     * anyone past the first loaded page.
+     */
+    fun loadAllRemaining() {
+        if (!_hasMore.value || _isLoadingAll.value || _isLoading.value) return
+
+        viewModelScope.launch {
+            _isLoadingAll.value = true
+            try {
+                while (_hasMore.value) {
+                    appendNextPage()
+                }
+            } catch (_: Exception) { }
+            _isLoadingAll.value = false
+        }
+    }
+
+    private suspend fun appendNextPage() {
+        val result = if (currentIsFollowers) {
+            userRepository.fetchFollowersPaginated(currentUserId_, PAGE_SIZE, lastDocument)
+        } else {
+            userRepository.fetchFollowingPaginated(currentUserId_, PAGE_SIZE, lastDocument)
+        }
+
+        _users.value = _users.value + result.users
+        lastDocument = result.lastDocument
+        if (result.users.size < PAGE_SIZE) {
+            _hasMore.value = false
+        }
+
+        // Update follow status for new users
+        val myFollowing = userRepository.followingIds.value
+        val newStatuses = result.users.associate { it.id to myFollowing.contains(it.id) }
+        _followingStatus.value = _followingStatus.value + newStatuses
+
+        // If viewing followers, update follow-back tracking
+        if (currentIsFollowers) {
+            _followersOfTarget.value = _followersOfTarget.value + result.users.map { it.id }.toSet()
         }
     }
 

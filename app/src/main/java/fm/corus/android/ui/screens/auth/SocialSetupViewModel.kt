@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import javax.inject.Inject
 
 @HiltViewModel
@@ -111,17 +112,26 @@ class SocialSetupViewModel @Inject constructor(
             try {
                 val phoneNumbers = readContactPhoneNumbers(contentResolver)
                 if (phoneNumbers.isNotEmpty()) {
-                    // Store synced contacts and find matches in parallel
-                    val storeJob = async { firestoreDataSource.storeSyncedContacts(userId, phoneNumbers) }
-                    val matchesJob = async {
-                        val ids = cloudFunctions.findContactMatches(phoneNumbers).filter { it != userId }
-                        userRepository.fetchUsersByIdsBatched(ids)
-                    }
-                    val notifyJob = async { cloudFunctions.notifyContactsOnSync() }
+                    // Store synced contacts and find matches in parallel.
+                    // supervisorScope + per-await runCatching is required: these
+                    // are `async` children, and a callable failure (e.g.
+                    // findContactMatches / notifyContactsOnSync returning
+                    // UNAUTHENTICATED before the auth/App Check token is ready
+                    // right after signup) would otherwise propagate to
+                    // viewModelScope and CRASH onboarding — the outer try/catch
+                    // can't stop `async` exceptions from reaching the parent.
+                    supervisorScope {
+                        val storeJob = async { firestoreDataSource.storeSyncedContacts(userId, phoneNumbers) }
+                        val matchesJob = async {
+                            val ids = cloudFunctions.findContactMatches(phoneNumbers).filter { it != userId }
+                            userRepository.fetchUsersByIdsBatched(ids)
+                        }
+                        val notifyJob = async { cloudFunctions.notifyContactsOnSync() }
 
-                    storeJob.await()
-                    _contactMatches.value = matchesJob.await()
-                    notifyJob.await()
+                        runCatching { storeJob.await() }
+                        _contactMatches.value = runCatching { matchesJob.await() }.getOrDefault(emptyList())
+                        runCatching { notifyJob.await() }
+                    }
                 }
             } catch (_: Exception) { }
             preferencesDataStore.setContactsSyncStatus("synced")

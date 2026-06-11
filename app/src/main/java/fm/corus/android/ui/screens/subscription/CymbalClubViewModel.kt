@@ -77,20 +77,27 @@ class CymbalClubViewModel @Inject constructor(
         _isPurchasing.value = true
         _errorMessage.value = null
         analyticsService.logPurchaseStarted(planName)
-        subscriptionRepository.purchase(activity, pkg) { outcome ->
-            _isPurchasing.value = false
-            when (outcome) {
-                is PurchaseOutcome.Success -> {
-                    analyticsService.logPurchaseCompleted(planName)
-                    _purchaseResult.value = PurchaseResult.Success
-                }
-                is PurchaseOutcome.Cancelled -> {
-                    _purchaseResult.value = PurchaseResult.Cancelled
-                }
-                is PurchaseOutcome.Failed -> {
-                    analyticsService.logPurchaseFailed(planName, outcome.error)
-                    _errorMessage.value = "Something went wrong. Please try again."
-                    _purchaseResult.value = PurchaseResult.Failed
+        viewModelScope.launch {
+            // Never let the purchase fire against RevenueCat's anonymous id: make
+            // sure the SDK is aliased to the Firebase UID first. Otherwise the
+            // webhook skips the INITIAL_PURCHASE and the server never sets
+            // isClubMember, blocking the just-paid user until they restart.
+            subscriptionRepository.ensureIdentified()
+            subscriptionRepository.purchase(activity, pkg) { outcome ->
+                _isPurchasing.value = false
+                when (outcome) {
+                    is PurchaseOutcome.Success -> {
+                        analyticsService.logPurchaseCompleted(planName)
+                        _purchaseResult.value = PurchaseResult.Success
+                    }
+                    is PurchaseOutcome.Cancelled -> {
+                        _purchaseResult.value = PurchaseResult.Cancelled
+                    }
+                    is PurchaseOutcome.Failed -> {
+                        analyticsService.logPurchaseFailed(planName, outcome.error)
+                        _errorMessage.value = "Something went wrong. Please try again."
+                        _purchaseResult.value = PurchaseResult.Failed
+                    }
                 }
             }
         }
