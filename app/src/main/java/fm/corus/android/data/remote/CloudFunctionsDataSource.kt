@@ -3,6 +3,7 @@ package fm.corus.android.data.remote
 import com.google.firebase.functions.FirebaseFunctions
 import fm.corus.android.data.model.*
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -869,9 +870,16 @@ class CloudFunctionsDataSource @Inject constructor(
 
     @Suppress("UNCHECKED_CAST")
     suspend fun getSuggestedUsers(userId: String, limit: Int = 50, includeFollowing: Boolean = true): List<SuggestedUserMatch> {
-        val result = functions.getHttpsCallable("getSuggestedUsers").call(
-            mapOf("currentUserId" to userId, "limit" to limit, "includeFollowing" to includeFollowing)
-        ).await()
+        // Cap the wait so a slow/hung backend can't leave the Search taste-match
+        // loader spinning forever (mirrors iOS's 15s race in DatabaseService).
+        // withTimeout THROWS on expiry rather than returning empty, so a transient
+        // hang never poisons the repository's 4h cache with an empty result — the
+        // caller catches it and shows the existing/empty state instead.
+        val result = withTimeout(SUGGESTED_USERS_TIMEOUT_MS) {
+            functions.getHttpsCallable("getSuggestedUsers").call(
+                mapOf("currentUserId" to userId, "limit" to limit, "includeFollowing" to includeFollowing)
+            ).await()
+        }
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val rows = data["users"] as? List<Map<String, Any?>> ?: return emptyList()
         return parseUserRows(rows).filter { !it.user.isBot }
@@ -1091,6 +1099,10 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     companion object {
+        // Upper bound on the getSuggestedUsers callable so the Search loader can
+        // never hang indefinitely on a slow/cold backend (matches iOS's 15s race).
+        private const val SUGGESTED_USERS_TIMEOUT_MS = 15_000L
+
         internal fun parsePlaylistTracksResponse(data: Map<String, Any?>): PlaylistTracksOutcome {
             val soundcloudSkipped = (data["soundcloudSkipped"] as? Number)?.toInt() ?: 0
             if (data["error"] != null && data["message"] != null) {

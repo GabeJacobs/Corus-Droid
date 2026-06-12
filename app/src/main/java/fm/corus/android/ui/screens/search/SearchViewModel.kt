@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @HiltViewModel
@@ -276,6 +277,10 @@ class SearchViewModel @Inject constructor(
 
     companion object {
         private const val TRENDING_WINDOW_MIN_DISPLAY_MS = 280L
+        // Upper bound on the taste-match load so the spinner can never latch on a
+        // hung backend (mirrors iOS's 15s race; the callable itself is also
+        // bounded at the data source).
+        private const val SUGGESTIONS_LOAD_TIMEOUT_MS = 15_000L
     }
 
     // Suggestions
@@ -377,61 +382,71 @@ class SearchViewModel @Inject constructor(
             }
             val mutualConnectionsDeferred = async {
                 try {
-                    // Try precomputed mutual connections first
-                    var mutuals = firestoreDataSource.fetchPrecomputedMutualConnections(uid, limit = 20)
-                    // Fallback: client-side graph traversal (matching iOS)
-                    if (mutuals.isEmpty()) {
-                        val followingIds = firestoreDataSource.fetchFollowingIds(uid)
-                        val excludeIds = followingIds + uid
-                        mutuals = firestoreDataSource.fetchFriendsOfFriends(uid, excludeIds, limit = 20)
-                    }
-                    Log.d("SearchVM", "Mutual connections loaded: ${mutuals.size}")
-                    mutuals.map { mc ->
-                        SuggestedUserMatch(
-                            user = mc.user,
-                            matchData = null,
-                            suggestionReason = SuggestionReason(
-                                mutualNames = mc.mutualUsernames,
-                                mutualCount = mc.mutualCount,
-                            ),
-                        )
-                    }
+                    // Bound the Firestore fan-out so a hung read can't stall the
+                    // loader (the music-match path is bounded at the data source).
+                    withTimeoutOrNull(SUGGESTIONS_LOAD_TIMEOUT_MS) {
+                        // Try precomputed mutual connections first
+                        var mutuals = firestoreDataSource.fetchPrecomputedMutualConnections(uid, limit = 20)
+                        // Fallback: client-side graph traversal (matching iOS)
+                        if (mutuals.isEmpty()) {
+                            val followingIds = firestoreDataSource.fetchFollowingIds(uid)
+                            val excludeIds = followingIds + uid
+                            mutuals = firestoreDataSource.fetchFriendsOfFriends(uid, excludeIds, limit = 20)
+                        }
+                        Log.d("SearchVM", "Mutual connections loaded: ${mutuals.size}")
+                        mutuals.map { mc ->
+                            SuggestedUserMatch(
+                                user = mc.user,
+                                matchData = null,
+                                suggestionReason = SuggestionReason(
+                                    mutualNames = mc.mutualUsernames,
+                                    mutualCount = mc.mutualCount,
+                                ),
+                            )
+                        }
+                    } ?: emptyList()
                 } catch (e: Exception) {
                     Log.e("SearchVM", "Failed to load mutual connections", e)
                     emptyList()
                 }
             }
 
-            val musicMatches = musicMatchesDeferred.await()
-            val socialMatches = mutualConnectionsDeferred.await()
-            Log.d("SearchVM", "Music matches: ${musicMatches.size}, Social matches: ${socialMatches.size}")
-            for (m in musicMatches) {
-                Log.d("SearchVM", "  CF user: ${m.user.username} cymbal=${m.user.cymbalCount} hasSim=${m.matchData?.hasSimilarityData} mutualNames=${m.suggestionReason?.mutualNames} artistsInCommon=${m.user.artistsInCommonCount}")
+            try {
+                val musicMatches = musicMatchesDeferred.await()
+                val socialMatches = mutualConnectionsDeferred.await()
+                Log.d("SearchVM", "Music matches: ${musicMatches.size}, Social matches: ${socialMatches.size}")
+                for (m in musicMatches) {
+                    Log.d("SearchVM", "  CF user: ${m.user.username} cymbal=${m.user.cymbalCount} hasSim=${m.matchData?.hasSimilarityData} mutualNames=${m.suggestionReason?.mutualNames} artistsInCommon=${m.user.artistsInCommonCount}")
+                }
+
+                // Merge: music matches first, then social suggestions (dedup by user ID).
+                // Carry over suggestionReason from social onto music matches.
+                val socialReasonById = socialMatches
+                    .filter { it.suggestionReason != null }
+                    .associateBy({ it.user.id }, { it.suggestionReason!! })
+
+                val seenIds = mutableSetOf<String>()
+                val merged = mutableListOf<SuggestedUserMatch>()
+
+                for (match in musicMatches) {
+                    if (!seenIds.add(match.user.id)) continue
+                    val withReason = if (match.suggestionReason == null) {
+                        socialReasonById[match.user.id]?.let { match.copy(suggestionReason = it) } ?: match
+                    } else match
+                    merged.add(withReason)
+                }
+                for (match in socialMatches) {
+                    if (!seenIds.add(match.user.id)) continue
+                    merged.add(match)
+                }
+
+                _suggestedMatches.value = merged
+            } finally {
+                // Always clear the spinner, even if an await is cancelled or a merge
+                // step throws — the loader must never latch on (both fetches above
+                // are time-bounded so the awaits cannot hang).
+                _isSuggestedLoading.value = false
             }
-
-            // Merge: music matches first, then social suggestions (dedup by user ID).
-            // Carry over suggestionReason from social onto music matches.
-            val socialReasonById = socialMatches
-                .filter { it.suggestionReason != null }
-                .associateBy({ it.user.id }, { it.suggestionReason!! })
-
-            val seenIds = mutableSetOf<String>()
-            val merged = mutableListOf<SuggestedUserMatch>()
-
-            for (match in musicMatches) {
-                if (!seenIds.add(match.user.id)) continue
-                val withReason = if (match.suggestionReason == null) {
-                    socialReasonById[match.user.id]?.let { match.copy(suggestionReason = it) } ?: match
-                } else match
-                merged.add(withReason)
-            }
-            for (match in socialMatches) {
-                if (!seenIds.add(match.user.id)) continue
-                merged.add(match)
-            }
-
-            _suggestedMatches.value = merged
-            _isSuggestedLoading.value = false
             pollTasteMatchesIfMissing(uid)
         }
         viewModelScope.launch {
