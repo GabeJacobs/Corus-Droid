@@ -91,6 +91,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.util.formattedCount
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1265,7 +1266,7 @@ fun OtherProfileScreen(
 @Composable
 private fun StatItem(count: Int, label: String, modifier: Modifier = Modifier) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
-        Text(text = count.toString(), style = CorusFont.stat, color = CorusColors.Text)
+        Text(text = formattedCount(count), style = CorusFont.stat, color = CorusColors.Text)
         Text(text = label, style = CorusFont.statLabel, color = CorusColors.Secondary)
     }
 }

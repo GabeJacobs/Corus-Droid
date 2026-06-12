@@ -76,6 +76,7 @@ import fm.corus.android.ui.util.DateUtils
 fun NotificationsScreen(
     viewModel: NotificationsViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
+    tabActivationTrigger: Int = 0,
     unreadMessageCount: Int = 0,
     onNavigateToMessages: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -112,9 +113,21 @@ fun NotificationsScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadNotifications()
-        // Clear any outstanding system-tray notifications so the launcher icon
-        // dot clears as well — matches iOS MainTabView clearing the OS badge.
-        try { NotificationManagerCompat.from(context).cancelAll() } catch (_: Exception) { }
+    }
+
+    // Mark the feed as viewed every time the user actually navigates to the
+    // Activity tab. The trigger is bumped by MainTabScreen on each tab
+    // selection; the initial value is 0 so this does NOT fire at app launch
+    // (when all tab screens first compose) — only on real visits. This is what
+    // makes the badge clear for real on each visit, instead of only at cold
+    // start. Mirrors iOS reacting to `.notificationsTabBecameActive`.
+    LaunchedEffect(tabActivationTrigger) {
+        if (tabActivationTrigger > 0) {
+            viewModel.markActivityViewed()
+            // Clear any outstanding system-tray notifications so the launcher
+            // icon dot clears too — matches iOS MainTabView clearing the OS badge.
+            try { NotificationManagerCompat.from(context).cancelAll() } catch (_: Exception) { }
+        }
     }
 
     // One-shot toasts from sendReply() — success/failure feedback.

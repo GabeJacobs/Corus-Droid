@@ -8,6 +8,8 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,8 +39,16 @@ class FollowListViewModel @Inject constructor(
     private val _hasMore = MutableStateFlow(true)
     val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
 
-    private val _isLoadingAll = MutableStateFlow(false)
-    val isLoadingAll: StateFlow<Boolean> = _isLoadingAll.asStateFlow()
+    // Search runs as a scoped global user search (same ranking as the main
+    // Users search), filtered to members of this list — not a client-side
+    // filter over the loaded pages.
+    private val _searchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val searchResults: StateFlow<List<CymbalUser>> = _searchResults.asStateFlow()
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
+    private var searchJob: Job? = null
 
     private val _followingStatus = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val followingStatus: StateFlow<Map<String, Boolean>> = _followingStatus.asStateFlow()
@@ -91,7 +101,7 @@ class FollowListViewModel @Inject constructor(
     }
 
     fun loadMore() {
-        if (!_hasMore.value || _isLoadingMore.value || _isLoading.value || _isLoadingAll.value) return
+        if (!_hasMore.value || _isLoadingMore.value || _isLoading.value) return
 
         viewModelScope.launch {
             _isLoadingMore.value = true
@@ -103,22 +113,63 @@ class FollowListViewModel @Inject constructor(
     }
 
     /**
-     * Eagerly loads every remaining page so a search can match the full follow
-     * list, not just the pages already scrolled into view. Pagination is gated
-     * behind a blank search query, so without this a query like "Isa" would miss
-     * anyone past the first loaded page.
+     * Scoped search: runs the same ranked global user search as the main Users
+     * tab, then keeps only candidates who belong to this follow list (members of
+     * `currentUserId_`'s followers/following). One search call plus a batched
+     * membership read — debounced, results land all at once. A blank query
+     * returns to the browse list.
      */
-    fun loadAllRemaining() {
-        if (!_hasMore.value || _isLoadingAll.value || _isLoading.value) return
+    fun search(query: String) {
+        searchJob?.cancel()
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            _isSearching.value = false
+            _searchResults.value = emptyList()
+            return
+        }
 
-        viewModelScope.launch {
-            _isLoadingAll.value = true
+        _isSearching.value = true
+        // Adaptive debounce matching the main Users search.
+        val debounceMs = when (trimmed.length) {
+            1 -> 400L
+            2 -> 300L
+            in 3..5 -> 200L
+            else -> 150L
+        }
+
+        searchJob = viewModelScope.launch {
+            delay(debounceMs)
             try {
-                while (_hasMore.value) {
-                    appendNextPage()
+                // No followed-set augmentation: searchTokens already include name
+                // prefixes, so prefix + token search surfaces the same people
+                // without building the (potentially huge) followed-profile dict.
+                val candidates = userRepository.searchUsers(
+                    trimmed.lowercase(), limit = 30, includeFollowed = false,
+                )
+                val candidateIds = candidates.map { it.id }
+
+                // Keep only candidates who are in this list (followers/following
+                // of the viewed profile).
+                val memberIds = if (currentIsFollowers) {
+                    userRepository.checkFollowerStatusBatch(currentUserId_, candidateIds)
+                } else {
+                    userRepository.checkFollowingStatusBatch(currentUserId_, candidateIds)
                 }
-            } catch (_: Exception) { }
-            _isLoadingAll.value = false
+                val members = candidates.filter { memberIds.contains(it.id) }
+
+                // Follow-button state for the matches, relative to the viewer.
+                val myFollowing = userRepository.followingIds.value
+                _followingStatus.value = _followingStatus.value +
+                    members.associate { it.id to myFollowing.contains(it.id) }
+                if (currentIsFollowers) {
+                    _followersOfTarget.value =
+                        _followersOfTarget.value + members.map { it.id }.toSet()
+                }
+                _searchResults.value = members
+            } catch (_: Exception) {
+                _searchResults.value = emptyList()
+            }
+            _isSearching.value = false
         }
     }
 

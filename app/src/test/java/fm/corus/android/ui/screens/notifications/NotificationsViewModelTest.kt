@@ -94,20 +94,58 @@ class NotificationsViewModelTest {
         commentId = commentId,
     )
 
-    // ── Auto mark-all-read ──
+    // ── Mark-as-viewed is driven by tab activation, NOT by loadNotifications ──
+    //
+    // Regression context: all tab screens stay composed, so the screen's
+    // LaunchedEffect(Unit) (which calls loadNotifications) fires once at app
+    // launch — not on tab entry. The previous design marked everything read in
+    // loadNotifications, so it ran only at cold start and the badge never
+    // cleared on subsequent Activity-tab visits (it only got an optimistic
+    // in-memory zero, then snapped back to the full accumulated count when a
+    // new notification arrived). The mark-read now lives in markActivityViewed,
+    // bumped by the tab-activation trigger on every visit.
 
     @Test
-    fun `loadNotifications auto-marks all notifications as read`() = runTest {
+    fun `loadNotifications does NOT mark read or stamp lastSeen (no premature clear at launch)`() = runTest {
         val viewModel = createViewModel()
 
         viewModel.loadNotifications()
         advanceUntilIdle()
 
-        verify(notificationRepository).markAllRead(eq("user1"))
+        // loadNotifications is launch-time list setup only — clearing the badge
+        // here would dismiss notifications the user hasn't viewed yet.
+        verify(notificationRepository, never()).markAllRead(any())
+        verify(notificationRepository, never()).updateLastSeenNotificationsAt(any())
     }
 
     @Test
-    fun `loadNotifications does not mark-all-read when user is signed out`() = runTest {
+    fun `markActivityViewed marks all read and stamps lastSeen`() = runTest {
+        val viewModel = createViewModel()
+
+        viewModel.markActivityViewed()
+        advanceUntilIdle()
+
+        verify(notificationRepository).markAllRead(eq("user1"))
+        verify(notificationRepository).updateLastSeenNotificationsAt(eq("user1"))
+    }
+
+    @Test
+    fun `markActivityViewed marks read on EVERY visit, not just the first`() = runTest {
+        // This is the core fix: each Activity-tab entry must clear the badge for
+        // real. Three visits => three markAllRead writes.
+        val viewModel = createViewModel()
+
+        viewModel.markActivityViewed()
+        viewModel.markActivityViewed()
+        viewModel.markActivityViewed()
+        advanceUntilIdle()
+
+        verify(notificationRepository, times(3)).markAllRead(eq("user1"))
+        verify(notificationRepository, times(3)).updateLastSeenNotificationsAt(eq("user1"))
+    }
+
+    @Test
+    fun `markActivityViewed does nothing when user is signed out`() = runTest {
         val signedOutAuth = mock<AuthRepository> {
             on { currentUserId } doReturn null
         }
@@ -125,10 +163,11 @@ class NotificationsViewModelTest {
             context = mock(),
         )
 
-        viewModel.loadNotifications()
+        viewModel.markActivityViewed()
         advanceUntilIdle()
 
         verify(notificationRepository, never()).markAllRead(any())
+        verify(notificationRepository, never()).updateLastSeenNotificationsAt(any())
     }
 
     @Test
@@ -140,21 +179,9 @@ class NotificationsViewModelTest {
         viewModel.loadNotifications()
         advanceUntilIdle()
 
-        // Only the first call should trigger the mark-all-read side effect,
-        // matching the `hasStartedLoading` guard.
-        verify(notificationRepository, times(1)).markAllRead(eq("user1"))
-    }
-
-    // ── lastSeenNotificationsAt stamping ──
-
-    @Test
-    fun `loadNotifications stamps lastSeenNotificationsAt`() = runTest {
-        val viewModel = createViewModel()
-
-        viewModel.loadNotifications()
-        advanceUntilIdle()
-
-        verify(notificationRepository).updateLastSeenNotificationsAt(eq("user1"))
+        // The list listener is set up only once, matching the `hasStartedLoading`
+        // guard — observeNotifications must not be re-subscribed per call.
+        verify(notificationRepository, times(1)).observeNotifications(eq("user1"), any())
     }
 
     // ── newNotificationIds client-side set ──

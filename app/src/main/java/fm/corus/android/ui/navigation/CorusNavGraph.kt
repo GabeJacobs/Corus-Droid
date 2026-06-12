@@ -252,6 +252,7 @@ fun NotificationsNavGraph(
     navController: NavHostController,
     mainTabViewModel: MainTabViewModel,
     scrollToTopTrigger: Int = 0,
+    tabActivationTrigger: Int = 0,
     isContainingTabSelected: Boolean = true,
 ) {
     var commentPostId by remember { mutableStateOf<String?>(null) }
@@ -270,6 +271,7 @@ fun NotificationsNavGraph(
             val unreadMessageCount by mainTabViewModel.unreadMessageCount.collectAsState()
             NotificationsScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
+                tabActivationTrigger = tabActivationTrigger,
                 unreadMessageCount = unreadMessageCount,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },

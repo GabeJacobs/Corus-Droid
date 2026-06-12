@@ -382,11 +382,17 @@ class FeedViewModel @Inject constructor(
                 }
             }
         }
-        // Auto-refresh feed when a new post is created
+        // Auto-refresh feed when a new post is created, but only in the
+        // chronological Following feed where the new post belongs at the top.
+        // Trending is ranked (the post hasn't earned a slot) and Favorites
+        // can't contain your own post, so refetching them on every post is
+        // wasted work and would misleadingly jump the post to the top.
         viewModelScope.launch {
             postCreationEvent.events.collect {
-                delay(500) // brief delay for Firestore propagation
-                loadFeed(refresh = true)
+                if (feedMode.value == "following") {
+                    delay(500) // brief delay for Firestore propagation
+                    loadFeed(refresh = true)
+                }
             }
         }
         viewModelScope.launch {

@@ -90,6 +90,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.util.formattedCount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -1226,21 +1227,6 @@ private fun StatItem(count: Int, label: String, onClick: (() -> Unit)? = null) {
             style = CorusFont.statLabel,
             color = CorusColors.Secondary,
         )
-    }
-}
-
-private fun formattedCount(count: Int): String {
-    return when {
-        count >= 1_000_000 -> {
-            val s = String.format("%.1f", count / 1_000_000.0)
-            if (s.endsWith(".0")) "${s.dropLast(2)}M" else "${s}M"
-        }
-        count >= 10_000 -> "${count / 1000}K"
-        count >= 1_000 -> {
-            val s = String.format("%.1f", count / 1000.0)
-            if (s.endsWith(".0")) "${s.dropLast(2)}K" else "${s}K"
-        }
-        else -> count.toString()
     }
 }
 

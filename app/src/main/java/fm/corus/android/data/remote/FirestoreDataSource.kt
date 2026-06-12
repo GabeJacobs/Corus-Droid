@@ -241,6 +241,25 @@ class FirestoreDataSource @Inject constructor(
     }
 
     /**
+     * Returns the subset of [candidateIds] that appear in [userId]'s following
+     * collection — i.e. which of those users [userId] follows. Batched in
+     * chunks of 30 to respect Firestore's `whereIn` limit. Used to scope a
+     * follow-list search to members of the list.
+     */
+    suspend fun checkFollowingStatusBatch(userId: String, candidateIds: List<String>): Set<String> {
+        if (candidateIds.isEmpty()) return emptySet()
+        val result = mutableSetOf<String>()
+        candidateIds.chunked(30).forEach { chunk ->
+            val snapshot = firestore.collection("users_v2").document(userId)
+                .collection("following")
+                .whereIn(FieldPath.documentId(), chunk)
+                .get().await()
+            snapshot.documents.forEach { result.add(it.id) }
+        }
+        return result
+    }
+
+    /**
      * Returns the subset of [postIds] the current user has liked, read from
      * their OWN `users_v2/{uid}/liked` index in chunks of 30. Firestore bills a
      * `whereIn` query only for the docs it returns (the liked ones), so a page

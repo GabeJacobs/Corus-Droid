@@ -209,6 +209,13 @@ fun MainTabScreen(
     // refresh of the featured post(s)' engagement counts.
     val profileTabActivation = remember { mutableIntStateOf(0) }
 
+    // Tab-activation trigger for the Activity tab: increments every time it's
+    // selected so the notifications screen can mark the feed as viewed
+    // (stamp lastSeen + mark all read) on every visit. Required because all tab
+    // screens stay composed, so the screen's own LaunchedEffect(Unit) only fires
+    // once at launch and can't re-trigger the mark-read on later visits.
+    val notificationsTabActivation = remember { mutableIntStateOf(0) }
+
     // Handle notification tap navigation
     val notificationDestination = pendingNotificationDestination?.collectAsState()?.value
     LaunchedEffect(notificationDestination) {
@@ -316,8 +323,16 @@ fun MainTabScreen(
                                 }
                             }
                         }
-                        if (tab == CorusTab.NOTIFICATIONS && selectedTab != CorusTab.NOTIFICATIONS) {
-                            viewModel.onActivityTabEntered()
+                        if (tab == CorusTab.NOTIFICATIONS) {
+                            // Optimistic in-memory zero only on a real switch in
+                            // (not a re-tap), matching the prior behaviour.
+                            if (selectedTab != CorusTab.NOTIFICATIONS) {
+                                viewModel.onActivityTabEntered()
+                            }
+                            // Bump the activation trigger on every selection so
+                            // the notifications screen actually marks the feed
+                            // read (stamp lastSeen + markAllRead) on each visit.
+                            notificationsTabActivation.intValue++
                         }
                         if (tab == CorusTab.PROFILE) {
                             profileTabActivation.intValue++
@@ -364,6 +379,7 @@ fun MainTabScreen(
                     navController = notificationsNavController,
                     mainTabViewModel = viewModel,
                     scrollToTopTrigger = notificationsScrollToTop.intValue,
+                    tabActivationTrigger = notificationsTabActivation.intValue,
                     isContainingTabSelected = selectedTab == CorusTab.NOTIFICATIONS,
                 )
             }

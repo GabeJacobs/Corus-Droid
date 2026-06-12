@@ -43,11 +43,13 @@ fun FollowListScreen(
     val users by viewModel.users.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
-    val isLoadingAll by viewModel.isLoadingAll.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
     val followingStatus by viewModel.followingStatus.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
+    val isSearching by viewModel.isSearching.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val searching = searchQuery.isNotBlank()
 
     LaunchedEffect(userId, isFollowers) {
         viewModel.loadFollowList(userId, isFollowers)
@@ -64,29 +66,23 @@ fun FollowListScreen(
     }
 
     LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore && searchQuery.isBlank()) {
+        if (shouldLoadMore && !searching) {
             viewModel.loadMore()
         }
     }
 
-    // First non-blank query pulls in the rest of the list so the filter
-    // searches everyone, not just the pages already loaded.
+    // Scoped search (debounced in the VM) — runs the global user search and
+    // keeps only members of this list.
     LaunchedEffect(searchQuery) {
-        if (searchQuery.isNotBlank() && hasMore) {
-            viewModel.loadAllRemaining()
-        }
+        viewModel.search(searchQuery)
     }
 
-    val filteredUsers = if (searchQuery.isBlank()) users else {
-        users.filter {
-            it.username.contains(searchQuery, ignoreCase = true) ||
-                    it.displayName.contains(searchQuery, ignoreCase = true)
-        }
-    }
-
-    // While searching we may still be pulling the rest of the list; show the
-    // skeleton instead of a premature "No results" until that load finishes.
-    val isSearchingAcrossFullList = searchQuery.isNotBlank() && (isLoadingAll || hasMore)
+    // What to render: the browse list when idle, the scoped search results
+    // when searching.
+    val displayedUsers = if (searching) searchResults else users
+    // Show the skeleton while a search is still resolving (no results yet),
+    // rather than a premature "No results".
+    val showSearchSkeleton = searching && isSearching && searchResults.isEmpty()
 
     Scaffold(
         topBar = {
@@ -146,7 +142,7 @@ fun FollowListScreen(
             )
 
             when {
-                (isLoading && users.isEmpty()) || (filteredUsers.isEmpty() && isSearchingAcrossFullList) -> {
+                (!searching && isLoading && users.isEmpty()) || showSearchSkeleton -> {
                     // Skeleton loading
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(10) {
@@ -179,7 +175,7 @@ fun FollowListScreen(
                         }
                     }
                 }
-                filteredUsers.isEmpty() && !isLoading -> {
+                displayedUsers.isEmpty() && !isLoading -> {
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -193,7 +189,7 @@ fun FollowListScreen(
                         )
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Text(
-                            text = if (searchQuery.isNotBlank()) stringResource(fm.corus.android.R.string.follow_list_no_results) else
+                            text = if (searching) stringResource(fm.corus.android.R.string.follow_list_no_results) else
                                 if (isFollowers) stringResource(fm.corus.android.R.string.follow_list_no_followers) else stringResource(fm.corus.android.R.string.follow_list_not_following),
                             style = CorusFont.bodyMedium,
                             color = CorusColors.Secondary,
@@ -205,7 +201,7 @@ fun FollowListScreen(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(filteredUsers, key = { it.id }) { user ->
+                        items(displayedUsers, key = { it.id }) { user ->
                             FollowUserRow(
                                 user = user,
                                 isFollowing = followingStatus[user.id] ?: false,
@@ -217,8 +213,8 @@ fun FollowListScreen(
                             )
                         }
 
-                        // Loading more indicator
-                        if (isLoadingMore || isLoadingAll) {
+                        // Loading more indicator (browse pagination only)
+                        if (!searching && isLoadingMore) {
                             item {
                                 Box(
                                     modifier = Modifier

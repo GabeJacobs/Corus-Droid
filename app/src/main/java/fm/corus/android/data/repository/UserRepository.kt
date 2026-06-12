@@ -201,6 +201,11 @@ class UserRepository @Inject constructor(
         return firestoreDataSource.checkFollowerStatusBatch(userId, candidateIds)
     }
 
+    /** Returns which of [candidateIds] are followed by [userId], batched server-side. */
+    suspend fun checkFollowingStatusBatch(userId: String, candidateIds: List<String>): Set<String> {
+        return firestoreDataSource.checkFollowingStatusBatch(userId, candidateIds)
+    }
+
     data class PaginatedUsersResult(
         val users: List<CymbalUser>,
         val lastDocument: DocumentSnapshot?,

@@ -177,23 +177,31 @@ class NotificationsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * One-time setup of the live notification list: captures the previous
+     * "seen" cutoff (for new-row highlighting) and attaches the real-time
+     * listener. Runs once per ViewModel lifetime — and because all tab
+     * screens stay composed (MainTabScreen keeps invisible tabs off-screen
+     * rather than disposing them), the triggering `LaunchedEffect(Unit)` fires
+     * at app launch, not on tab entry. The actual "mark as viewed" side effect
+     * therefore lives in [markActivityViewed], which is driven by the Activity
+     * tab-activation trigger so it re-runs on every visit. Do NOT stamp
+     * lastSeen or markAllRead here — that would clear the badge at launch
+     * before the user has viewed anything.
+     */
     fun loadNotifications() {
         if (hasStartedLoading) return
         hasStartedLoading = true
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             _isLoading.value = true
-            // Capture the previous "seen" cutoff BEFORE stamping the new one,
-            // so we can flag later-arriving notifications as new for dim styling.
+            // Capture the previous "seen" cutoff so we can flag later-arriving
+            // notifications as new for dim styling. We intentionally do NOT
+            // stamp a new lastSeen here — that happens in markActivityViewed
+            // when the user actually opens the tab.
             lastSeenCutoffMs = try {
                 notificationRepository.fetchLastSeenNotificationsAt(userId)
             } catch (_: Exception) { null }
-            // Fire-and-forget: stamp lastSeen + mark all read. Matches iOS
-            // NotificationsView.loadNotifications.
-            viewModelScope.launch {
-                try { notificationRepository.updateLastSeenNotificationsAt(userId) } catch (_: Exception) { }
-            }
-            markAllRead()
             try {
                 // Use real-time listener for the first page
                 notificationRepository.observeNotifications(userId, limit = pageSize).collect { incoming ->
@@ -360,6 +368,29 @@ class NotificationsViewModel @Inject constructor(
         viewModelScope.launch {
             try { notificationRepository.markAllRead(userId) } catch (_: Exception) { }
         }
+    }
+
+    /**
+     * Marks the Activity feed as viewed: stamps `lastSeenNotificationsAt` and
+     * marks every unread notification read so the badge clears for real.
+     *
+     * Driven by the Activity tab-activation trigger, so it runs on *every*
+     * visit to the tab — not once per ViewModel lifetime like
+     * [loadNotifications]. This is the fix for the badge that appeared to clear
+     * (optimistic in-memory zero) but never actually marked notifications read
+     * on repeat visits, causing the count to snap back to the full accumulated
+     * total whenever a new notification arrived. Mirrors iOS NotificationsView
+     * re-running its load on `.notificationsTabBecameActive`.
+     *
+     * Safe to call repeatedly: markAllRead only touches unread docs and the
+     * lastSeen stamp is idempotent.
+     */
+    fun markActivityViewed() {
+        val userId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try { notificationRepository.updateLastSeenNotificationsAt(userId) } catch (_: Exception) { }
+        }
+        markAllRead()
     }
 
     // ── Comment actions on notification rows (matches iOS NotificationsView) ──
