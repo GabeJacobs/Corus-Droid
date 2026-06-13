@@ -628,7 +628,7 @@ fun ProfileScreen(
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
                         ExpandableBioText(
                             bio = currentProfile.bio,
-                            maxCollapsedLines = 4,
+                            maxCollapsedLines = 3,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

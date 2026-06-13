@@ -282,6 +282,29 @@ class FirestoreDataSource @Inject constructor(
         return result
     }
 
+    /**
+     * Returns the subset of [postIds] the current user has saved, read from
+     * their OWN `users_v2/{uid}/saves` index in chunks of 30. Like
+     * [fetchLikedStates], the `whereIn` query bills only for the saved matches,
+     * so a page of 30 where the viewer saved 1 costs ~1 read — not 30 per-card
+     * `saves/{postId}` reads. Used to seed a page's save-state at once (the
+     * backend doesn't stamp posts with `isSaved`).
+     */
+    suspend fun fetchSavedStates(postIds: List<String>): Set<String> {
+        val uid = firebaseAuth.currentUser?.uid ?: return emptySet()
+        val ids = postIds.filter { it.isNotEmpty() }.distinct() // `whereIn` rejects dupes
+        if (ids.isEmpty()) return emptySet()
+        val result = mutableSetOf<String>()
+        ids.chunked(30).forEach { chunk ->
+            val snapshot = firestore.collection("users_v2").document(uid)
+                .collection("saves")
+                .whereIn(FieldPath.documentId(), chunk)
+                .get().await()
+            snapshot.documents.forEach { result.add(it.id) }
+        }
+        return result
+    }
+
     data class PaginatedIdsResult(
         val ids: List<String>,
         val lastDocument: DocumentSnapshot?,

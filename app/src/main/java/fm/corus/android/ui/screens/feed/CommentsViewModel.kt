@@ -290,6 +290,7 @@ class CommentsViewModel @Inject constructor(
                         isSaved = false,
                     )
                     engagementManager.checkLikeStatuses(listOf(loadedPost.id), userId)
+                    engagementManager.checkSaveStatuses(listOf(loadedPost.id), userId)
 
                     // Start real-time listener (matching iOS PostEngagementStore)
                     listeningPostId?.let { engagementManager.stopListening(it) }

@@ -122,23 +122,38 @@ fun TasteMatchCard(
 
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-        // User info: centered name + taste text under the collage. The 2x2 art
-        // grid already identifies the user, so the small left-aligned avatar
-        // read as cluttered — dropped it and centered the block.
+        // User info: avatar + name row over taste text, start-aligned under the
+        // collage. Mirrors iOS TasteMatchCard.userInfoRow (VStack(.leading) with
+        // a small avatar to the left of the username).
         Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
         ) {
-            // Username + flair badge
-            UsernameWithFlair(
-                username = user.username,
-                isBot = user.isBot,
-                isVerified = user.isVerified,
-                isClubMember = user.isClubMember,
-                flairStyle = user.flairStyle,
-                style = CorusFont.username,
-                color = CorusColors.Text,
-            )
+            // Avatar + username + flair badge
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                UserAvatarView(
+                    avatarURL = user.avatarURL,
+                    avatarThumbURL = user.avatarThumbURL,
+                    displayName = user.displayName,
+                    username = user.username,
+                    size = CorusSpacing.avatarSmall,
+                )
+
+                UsernameWithFlair(
+                    username = user.username,
+                    isBot = user.isBot,
+                    isVerified = user.isVerified,
+                    isClubMember = user.isClubMember,
+                    flairStyle = user.flairStyle,
+                    style = CorusFont.username,
+                    color = CorusColors.Text,
+                )
+            }
 
             val flavorText = buildFlavorText(subtitle, matchData)
             if (!flavorText.isNullOrBlank()) {
@@ -146,7 +161,7 @@ fun TasteMatchCard(
                     text = flavorText,
                     style = CorusFont.caption,
                     color = CorusColors.Secondary,
-                    textAlign = TextAlign.Center,
+                    textAlign = TextAlign.Start,
                     minLines = subtitleLines,
                     maxLines = subtitleLines,
                     overflow = TextOverflow.Ellipsis,

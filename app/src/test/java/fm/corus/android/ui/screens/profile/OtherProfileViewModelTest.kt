@@ -191,7 +191,7 @@ class OtherProfileViewModelTest {
             .thenReturn(CloudFunctionsDataSource.ProfileData(makeUser(targetId, 1), ownPosts))
         whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
         whenever(cloudFunctions.getLikedPosts(eq(targetId), eq("viewer1"), any(), any()))
-            .thenReturn(liked)
+            .thenReturn(CloudFunctionsDataSource.LikedPostsPage(liked, hasMore = false))
 
         val viewModel = createViewModel()
         viewModel.start(targetId, initialIsFollowing = false)
@@ -206,6 +206,51 @@ class OtherProfileViewModelTest {
         verify(cloudFunctions).getLikedPosts(eq(targetId), eq("viewer1"), any(), any())
     }
 
+    /**
+     * Regression guard for the "Trending feed shows Follow, but the profile
+     * opened from it shows Following" bug. The feed nav used to hardcode
+     * `initialIsFollowing = true` (a Following-feed-era assumption), so an
+     * unfollowed Trending/For You author's profile rendered "Following".
+     * With the fix, the feed passes no hint (null) and start() seeds the
+     * follow state from the cached following set instead of assuming true.
+     */
+    @Test
+    fun `start with null hint does not assume following for an unfollowed author`() = runTest {
+        val targetId = "unfollowed1"
+        // Cached following set does NOT contain the author (the Trending case).
+        whenever(userRepository.isFollowing(eq(targetId))).thenReturn(false)
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(CloudFunctionsDataSource.ProfileData(makeUser(targetId, 0), emptyList()))
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = null)
+
+        // Seeded synchronously from the cache before the server reconcile, so
+        // the button never flashes "Following" for an author you don't follow.
+        assertEquals(false, viewModel.isFollowing.value)
+
+        advanceUntilIdle()
+        assertEquals(false, viewModel.isFollowing.value)
+    }
+
+    @Test
+    fun `start with null hint seeds following state from the cached following set`() = runTest {
+        val targetId = "followed1"
+        // Viewer already follows this author (e.g. a Following-feed post).
+        whenever(userRepository.isFollowing(eq(targetId))).thenReturn(true)
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(CloudFunctionsDataSource.ProfileData(makeUser(targetId, 0), emptyList()))
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = null)
+
+        // Seeded from cache on the first frame — no "Follow" flash for someone
+        // the viewer already follows.
+        assertEquals(true, viewModel.isFollowing.value)
+    }
+
     @Test
     fun `loadMoreLiked paginates with the running offset`() = runTest {
         val targetId = "target4"
@@ -215,9 +260,9 @@ class OtherProfileViewModelTest {
             .thenReturn(CloudFunctionsDataSource.ProfileData(makeUser(targetId, 0), emptyList()))
         whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
         whenever(cloudFunctions.getLikedPosts(eq(targetId), eq("viewer1"), any(), eq(0)))
-            .thenReturn(firstPage)
+            .thenReturn(CloudFunctionsDataSource.LikedPostsPage(firstPage, hasMore = true))
         whenever(cloudFunctions.getLikedPosts(eq(targetId), eq("viewer1"), any(), eq(30)))
-            .thenReturn(secondPage)
+            .thenReturn(CloudFunctionsDataSource.LikedPostsPage(secondPage, hasMore = false))
 
         val viewModel = createViewModel()
         viewModel.start(targetId, initialIsFollowing = false)

@@ -361,12 +361,6 @@ class SearchViewModel @Inject constructor(
                 _followingIds.value = ids
             }
         }
-        // Warm the followed-profiles cache so the first keystroke of a Users-tab
-        // search resolves followed matches from memory instead of fetching the
-        // whole following set on the network (mirrors iOS SearchView prefetch).
-        viewModelScope.launch {
-            runCatching { userRepository.prefetchFollowedProfiles() }
-        }
         // Fetch taste matches and mutual connections (Firestore) in parallel,
         // then merge them — matching how iOS loads suggestions. Taste matches go
         // through the repository's 4h cache (warmed from DataStore at sign-in) so

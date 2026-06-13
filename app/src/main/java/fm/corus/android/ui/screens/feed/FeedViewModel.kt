@@ -586,6 +586,7 @@ class FeedViewModel @Inject constructor(
 
             // Check actual like status from Firestore (backend doesn't return isLiked)
             engagementManager.checkLikeStatuses(newPosts.map { it.id }, userId)
+            engagementManager.checkSaveStatuses(newPosts.map { it.id }, userId)
             _lastLoadFailed.value = false
         } catch (_: Exception) {
             _lastLoadFailed.value = true

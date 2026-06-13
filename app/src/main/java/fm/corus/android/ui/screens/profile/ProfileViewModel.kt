@@ -87,6 +87,7 @@ class ProfileViewModel @Inject constructor(
     private val postDeletionEvent: PostDeletionEvent,
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
+    private val saveChangedEvent: fm.corus.android.domain.SaveChangedEvent,
     private val analyticsService: AnalyticsService,
     private val remoteConfigService: RemoteConfigService,
     private val networkMonitor: NetworkMonitor,
@@ -228,6 +229,29 @@ class ProfileViewModel @Inject constructor(
                 _posts.value = applyCommentDeleteToPosts(_posts.value, payload)
                 _likedPosts.value = applyCommentDeleteToPosts(_likedPosts.value, payload)
                 _savedPosts.value = applyCommentDeleteToPosts(_savedPosts.value, payload)
+            }
+        }
+        // Keep the Saves tab in sync with save/unsave actions taken anywhere
+        // else this session (feed, post detail, other profiles) without a manual
+        // refresh: unsaving drops the post instantly, saving inserts it at the
+        // top. Only mutates a list that's already been loaded — an unopened tab
+        // fetches fresh on first visit, which already reflects the change.
+        viewModelScope.launch {
+            saveChangedEvent.events.collect { change ->
+                if (!savedLoaded) return@collect
+                if (change.isSaved) {
+                    val post = change.post ?: return@collect
+                    val matchesFilter = when (_likesSavesFilter.value) {
+                        ProfileMediaFilter.ALL -> true
+                        ProfileMediaFilter.MUSIC -> post.isTrack
+                        ProfileMediaFilter.FILM -> post.isMovie
+                    }
+                    if (matchesFilter && _savedPosts.value.none { it.id == change.postId }) {
+                        _savedPosts.value = listOf(post) + _savedPosts.value
+                    }
+                } else {
+                    _savedPosts.value = _savedPosts.value.filter { it.id != change.postId }
+                }
             }
         }
     }
@@ -650,6 +674,10 @@ class ProfileViewModel @Inject constructor(
             try {
                 val page = fetchFilteredEngagement(EngagementKind.SAVED, userId, 0, _likesSavesFilter.value.mediaType)
                 _savedPosts.value = page.posts
+                // These came from the viewer's own Saves index, so they ARE saved —
+                // seed isSaved=true so opening one shows a filled bookmark instantly
+                // (no unfilled→filled flash from the detail screen's reconcile).
+                engagementManager.seedSavedState(page.posts.map { it.id })
                 savedLoaded = true
                 savedOffset = page.nextOffset
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
@@ -783,6 +811,7 @@ class ProfileViewModel @Inject constructor(
                         val existingIds = _savedPosts.value.mapTo(HashSet()) { it.id }
                         val unique = page.posts.filter { it.id !in existingIds }
                         _savedPosts.value = _savedPosts.value + unique
+                        engagementManager.seedSavedState(unique.map { it.id })
                         savedOffset = page.nextOffset
                         _hasMore.value = _hasMore.value.toMutableMap().apply {
                             this[3] = page.hasMore

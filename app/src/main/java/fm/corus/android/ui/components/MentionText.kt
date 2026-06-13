@@ -322,7 +322,7 @@ internal fun bioTruncationCutoff(text: String, lineEnd: Int, reserveChars: Int =
 @Composable
 fun ExpandableBioText(
     bio: String,
-    maxCollapsedLines: Int = 4,
+    maxCollapsedLines: Int = 3,
     modifier: Modifier = Modifier,
 ) {
     var isExpanded by remember(bio) { mutableStateOf(false) }

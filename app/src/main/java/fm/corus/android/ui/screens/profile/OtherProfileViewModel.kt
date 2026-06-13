@@ -195,7 +195,12 @@ class OtherProfileViewModel @Inject constructor(
 
     fun start(userId: String, initialIsFollowing: Boolean?) {
         if (loadedUserId == userId) return
-        if (initialIsFollowing != null) _isFollowing.value = initialIsFollowing
+        // Seed from the explicit hint when a caller passes an authoritative
+        // optimistic value; otherwise fall back to the cached following set
+        // (the same source the feed's Follow pill reads) so the button is
+        // correct on first paint instead of defaulting to a stale value.
+        // loadProfile() reconciles against the server regardless.
+        _isFollowing.value = initialIsFollowing ?: userRepository.isFollowing(userId)
         loadProfile(userId)
     }
 

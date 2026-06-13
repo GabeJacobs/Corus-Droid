@@ -34,7 +34,6 @@ class UserRepository @Inject constructor(
         private const val PROFILE_TTL_MS = 5L * 60 * 1000      // 5 minutes — matches iOS
         private const val USERNAME_TTL_MS = 5L * 60 * 1000      // 5 minutes — matches iOS
         private const val SUGGESTED_MATCHES_TTL_MS = 4L * 60 * 60 * 1000 // 4 hours — matches iOS
-        private const val FOLLOWED_PROFILES_TTL_MS = 5L * 60 * 1000 // 5 minutes — matches iOS SearchView refresh
     }
 
     // ── TTL Caches (matching iOS DatabaseService caching) ──
@@ -42,12 +41,6 @@ class UserRepository @Inject constructor(
     private val profileCache = ConcurrentHashMap<String, CacheEntry<CymbalUser>>()
     private val usernameCache = ConcurrentHashMap<String, CacheEntry<String>>() // username → uid
     @Volatile private var suggestedMatchesCache: CacheEntry<List<SuggestedUserMatch>>? = null
-
-    // Followed users' profiles, cached in-memory and reused across keystrokes
-    // (mirrors iOS SearchView's `cachedFollowedUsers`). Only people-finder
-    // surfaces (search, share, DM compose) consult it; mention autocomplete
-    // skips it entirely. See [searchUsers] / [followedProfiles].
-    @Volatile private var followedProfilesCache: CacheEntry<Map<String, CymbalUser>>? = null
 
     // Cached following set
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
@@ -368,19 +361,18 @@ class UserRepository @Inject constructor(
      *   1. Username prefix match (main query).
      *   2. Per-word searchTokens arrayContains lookups (up to 3 unique words), so
      *      users whose display name contains the query also surface.
-     *   3. (Only when [includeFollowed]) Followed-user lookup against the
-     *      in-memory [followedProfiles] cache, so followed users aren't lost
-     *      past the alphabetical limit.
      * Results are deduped and sorted: followed > exact username > prefix > follower
      * count desc > alphabetical.
      *
-     * [includeFollowed] mirrors iOS, which has two overloads: mention/compose
-     * autocomplete (Comments, Compose, EditCaption) and onboarding pass NO
-     * followed users and skip step 3 entirely — the hot path. People-finder
-     * surfaces (main search, share sheet, DM compose) pass `true`, which reads
-     * the cached followed profiles instead of hitting Firestore on every
-     * keystroke. Defaulting to `false` keeps the high-frequency mention path
-     * off the network for the follow set.
+     * Followed users are surfaced by the same username/token queries as everyone
+     * else — `searchTokens` is kept complete server-side for every user by the
+     * `regenerateSearchTokensOnUserWrite` trigger, so a followed user always
+     * matches by name or handle. [includeFollowed] therefore only affects
+     * *ranking* (float people you follow to the top); it reads the already-loaded
+     * in-memory [_followingIds] set and never hits the network. We used to also
+     * fetch every followed user's full profile here as a safety net, but for
+     * users who follow thousands of accounts that bulk fetch dominated search
+     * latency, and with complete searchTokens it's redundant.
      */
     suspend fun searchUsers(
         query: String,
@@ -404,24 +396,9 @@ class UserRepository @Inject constructor(
                     .getOrDefault(emptyList())
             }
         }
-        val followedQuery = async {
-            if (followedIds.isEmpty()) return@async emptyList()
-            followedProfiles().values.filter { user ->
-                if (queryWords.size > 1) {
-                    val nameWords = user.displayName.lowercase()
-                        .split(Regex("\\s+")).filter { it.isNotEmpty() }
-                    val allMatch = queryWords.all { q -> nameWords.any { it.startsWith(q) } }
-                    allMatch || user.username.startsWith(usernamePrefix)
-                } else {
-                    user.username.startsWith(lowered) ||
-                        user.displayName.lowercase().split(" ").any { it.startsWith(lowered) }
-                }
-            }
-        }
 
         val mainResults = mainQuery.await()
         val allNameResults = nameQueries.awaitAll().flatten()
-        val followedMatches = followedQuery.await()
 
         val seenIds = mutableSetOf<String>()
         val users = mutableListOf<CymbalUser>()
@@ -437,9 +414,6 @@ class UserRepository @Inject constructor(
             }
             if (seenIds.add(user.id)) users.add(user)
         }
-        for (user in followedMatches) {
-            if (seenIds.add(user.id)) users.add(user)
-        }
 
         users.sortedWith(
             compareByDescending<CymbalUser> { followedIds.contains(it.id) }
@@ -448,44 +422,6 @@ class UserRepository @Inject constructor(
                 .thenByDescending { it.followerCount }
                 .thenBy { it.username },
         ).take(limit)
-    }
-
-    /**
-     * Followed users' profiles, fetched once and reused across keystrokes
-     * (mirrors iOS SearchView's pre-fetched `cachedFollowedUsers`). The previous
-     * implementation re-fetched the entire following set in chunks of 30 on
-     * *every* keystroke, which made search noticeably slow for users who follow
-     * many accounts. This caches them with a 5-minute TTL and refetches only
-     * when the cached id-set no longer matches the current following set (i.e.
-     * after a follow/unfollow), and fetches the chunks in parallel.
-     */
-    private suspend fun followedProfiles(): Map<String, CymbalUser> = coroutineScope {
-        val ids = _followingIds.value
-        if (ids.isEmpty()) return@coroutineScope emptyMap()
-        followedProfilesCache?.let { entry ->
-            if (entry.isValid(FOLLOWED_PROFILES_TTL_MS) && entry.value.keys == ids) {
-                return@coroutineScope entry.value
-            }
-        }
-        val profiles = ids.toList().chunked(30).map { chunk ->
-            async {
-                runCatching { firestoreDataSource.fetchUsersByIds(chunk) }
-                    .getOrDefault(emptyList())
-            }
-        }.awaitAll().flatten().associateBy { it.id }
-        followedProfilesCache = CacheEntry(profiles)
-        profiles
-    }
-
-    /**
-     * Warms the [followedProfiles] cache ahead of time so the *first* keystroke
-     * of a people search is instant rather than blocking on the followed-set
-     * fetch. Call when the search screen appears (mirrors iOS SearchView, which
-     * pre-fetches `cachedFollowedUsers` on appear). No-op if the cache is still
-     * valid for the current following set.
-     */
-    suspend fun prefetchFollowedProfiles() {
-        followedProfiles()
     }
 
     suspend fun fetchUserByUsername(username: String): CymbalUser? {

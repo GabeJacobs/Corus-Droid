@@ -41,7 +41,7 @@
     <string name="settings_restore_toast_success">Subscription restored</string>
     <string name="settings_restore_toast_none">No active subscription found</string>
     <string name="settings_restore_toast_failed">Couldn\'t restore. Try again.</string>
-    <string name="settings_section_invite">INVITE</string>
+    <string name="settings_section_invite">FRIENDS</string>
     <string name="settings_row_invite_friends">Invite Friends</string>
     <string name="settings_row_invite_friends_subtitle">Invite your friends to use Corus with you</string>
     <string name="settings_row_sync_contacts">Sync Contacts</string>

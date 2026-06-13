@@ -115,55 +115,59 @@ class UserRepositoryTest {
         verify(cloudFunctions, times(2)).getSuggestedUsers(currentUid)
     }
 
-    // ── User search: followed-set fetch (the iOS-parity perf fix) ──
+    // ── User search: no follow-list fetch on any path ──
 
     private suspend fun seedFollowing(vararg ids: String) {
         whenever(firestoreDataSource.fetchFollowingIds(currentUid)).thenReturn(ids.toSet())
         repo.prefetchFollowingSet(currentUid)
-        // Username/token queries are irrelevant to these tests — keep them empty.
+        // Default the username/token queries to empty; ranking tests override.
         whenever(firestoreDataSource.searchUsersByUsername(any(), any())).thenReturn(emptyList())
         whenever(firestoreDataSource.searchUsersByToken(any(), any())).thenReturn(emptyList())
     }
 
-    // Regression: the @mention/compose hot path (includeFollowed = false, the
-    // default) must NOT fetch the following set on each keystroke — that was the
-    // Android-only slowness vs iOS, which passes no followed users on that path.
+    // Regression: search must NEVER bulk-fetch the following set, on any path.
+    // Followed users surface through the same username/token queries as everyone
+    // else (searchTokens is kept complete server-side), and the follow graph is
+    // applied as a ranking signal from the in-memory id set only. The old code
+    // pulled every followed profile here, which made people-search take ~10s for
+    // users who follow thousands of accounts (e.g. 1,569 follows → ~53 reads per
+    // search session).
     @Test
-    fun `searchUsers without includeFollowed never fetches the following set`() = runTest {
-        seedFollowing("f1", "f2")
+    fun `searchUsers never bulk-fetches the following set`() = runTest {
+        seedFollowing("f1", "f2", "f3")
 
-        repo.searchUsers("f", limit = 4)
+        repo.searchUsers("f", limit = 4)                       // mention/compose path
+        repo.searchUsers("f", limit = 4, includeFollowed = true) // people-finder path
 
         verify(firestoreDataSource, never()).fetchUsersByIds(any())
     }
 
-    // Followed users must still surface for people-finder surfaces, but the
-    // profiles are fetched once and reused across keystrokes (in-memory cache),
-    // mirroring iOS SearchView's pre-fetched cachedFollowedUsers.
+    // includeFollowed = true floats people you follow to the top of results, even
+    // when a non-followed match has a far higher follower count. The followed
+    // user is surfaced by the token query (not a separate fetch) and the in-memory
+    // following set drives the ranking.
     @Test
-    fun `searchUsers with includeFollowed caches the following set across calls`() = runTest {
+    fun `searchUsers with includeFollowed ranks followed users first`() = runTest {
         seedFollowing("f1")
-        whenever(firestoreDataSource.fetchUsersByIds(any())).thenReturn(listOf(user("f1", 3)))
+        whenever(firestoreDataSource.searchUsersByToken(any(), any()))
+            .thenReturn(listOf(user("popular", 9999), user("f1", 2)))
 
-        val first = repo.searchUsers("f", includeFollowed = true)
-        val second = repo.searchUsers("f1", includeFollowed = true)
+        val results = repo.searchUsers("a", includeFollowed = true)
 
-        assertEquals("f1", first.firstOrNull()?.id)
-        assertEquals("f1", second.firstOrNull()?.id)
-        // Two searches, but the followed profiles are fetched exactly once.
-        verify(firestoreDataSource, times(1)).fetchUsersByIds(any())
+        assertEquals("f1", results.firstOrNull()?.id)
+        verify(firestoreDataSource, never()).fetchUsersByIds(any())
     }
 
-    // Warming the cache on screen-appear must make the first real search resolve
-    // followed matches from memory (no extra fetch).
+    // Without includeFollowed there is no follow-based boost, so the higher
+    // follower-count match ranks first.
     @Test
-    fun `prefetchFollowedProfiles warms the cache so the first search does not refetch`() = runTest {
+    fun `searchUsers without includeFollowed ranks by follower count`() = runTest {
         seedFollowing("f1")
-        whenever(firestoreDataSource.fetchUsersByIds(any())).thenReturn(listOf(user("f1", 3)))
+        whenever(firestoreDataSource.searchUsersByToken(any(), any()))
+            .thenReturn(listOf(user("popular", 9999), user("f1", 2)))
 
-        repo.prefetchFollowedProfiles()
-        repo.searchUsers("f", includeFollowed = true)
+        val results = repo.searchUsers("a")
 
-        verify(firestoreDataSource, times(1)).fetchUsersByIds(any())
+        assertEquals("popular", results.firstOrNull()?.id)
     }
 }

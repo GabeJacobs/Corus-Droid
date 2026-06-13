@@ -101,6 +101,7 @@ class ProfileViewModelFeaturedRefreshTest {
         postDeletionEvent = postDeletionEvent,
         commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
         commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
+        saveChangedEvent = fm.corus.android.domain.SaveChangedEvent(),
         analyticsService = analyticsService,
         musicServicePreference = org.mockito.kotlin.mock(),
         remoteConfigService = org.mockito.kotlin.mock(),

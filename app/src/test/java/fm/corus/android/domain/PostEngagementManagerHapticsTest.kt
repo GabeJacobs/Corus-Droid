@@ -24,6 +24,7 @@ class PostEngagementManagerHapticsTest {
         subscriptionRepository = mock(),
         remoteConfig = mock(),
         analyticsService = mock(),
+        saveChangedEvent = mock(),
     )
 
     @Test

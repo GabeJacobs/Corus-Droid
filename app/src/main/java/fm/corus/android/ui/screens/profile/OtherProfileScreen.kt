@@ -546,13 +546,13 @@ fun OtherProfileScreen(
                                 if (!initialBio.isNullOrBlank()) {
                                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
                                     // Transient skeleton header shown until the live profile
-                                    // lands; cap at 4 lines (no expand) to match the real
+                                    // lands; cap at 3 lines (no expand) to match the real
                                     // ExpandableBioText below so the bio doesn't jump on swap.
                                     Text(
                                         text = initialBio,
                                         style = CorusFont.bio,
                                         color = CorusColors.Secondary,
-                                        maxLines = 4,
+                                        maxLines = 3,
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                 }
@@ -872,7 +872,7 @@ fun OtherProfileScreen(
                             Spacer(modifier = Modifier.height(CorusSpacing.xs))
                             ExpandableBioText(
                                 bio = currentProfile.bio,
-                                maxCollapsedLines = 4,
+                                maxCollapsedLines = 3,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }

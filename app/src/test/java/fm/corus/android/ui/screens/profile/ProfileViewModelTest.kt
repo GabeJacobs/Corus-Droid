@@ -94,6 +94,7 @@ class ProfileViewModelTest {
         postDeletionEvent = postDeletionEvent,
         commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
         commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
+        saveChangedEvent = fm.corus.android.domain.SaveChangedEvent(),
         analyticsService = analyticsService,
         musicServicePreference = mock(),
         remoteConfigService = mock(),

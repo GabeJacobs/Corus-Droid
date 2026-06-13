@@ -32,6 +32,7 @@ class PostEngagementManagerLikeBatchTest {
         subscriptionRepository = mock(),
         remoteConfig = mock(),
         analyticsService = mock(),
+        saveChangedEvent = mock(),
     )
 
     /** checkLikeStatuses launches on Dispatchers.IO; poll briefly for the result. */

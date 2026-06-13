@@ -102,6 +102,16 @@ fun FeedNavGraph(
     var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
+    // Synchronous access to the cached following set so feed → profile
+    // navigation can seed the correct follow state on the first frame (no
+    // Follow→Following flash for authors the viewer already follows).
+    val followStateContext = LocalContext.current
+    val userRepository = remember(followStateContext) {
+        EntryPointAccessors.fromApplication(
+            followStateContext.applicationContext,
+            UserRepositoryEntryPoint::class.java,
+        ).userRepository()
+    }
 
     NavHost(
         navController = navController,
@@ -129,7 +139,13 @@ fun FeedNavGraph(
                         initialFollowingCount = user.followingCount,
                         initialIsVerified = user.isVerified,
                         initialIsClubMember = user.isClubMember,
-                        initialIsFollowing = true,
+                        // Seed the real follow state from the cached following set
+                        // (synchronous, same source as the feed's Follow pill) so
+                        // the profile opens in the correct state with no
+                        // Follow→Following flash. Hardcoding `true` here was a
+                        // Following-feed-era assumption that showed "Following" for
+                        // unfollowed Trending/For You authors.
+                        initialIsFollowing = userRepository.isFollowing(user.id),
                     ))
                 },
                 onNavigateToUserById = { userId -> navController.navigate(OtherProfileRoute(userId)) },

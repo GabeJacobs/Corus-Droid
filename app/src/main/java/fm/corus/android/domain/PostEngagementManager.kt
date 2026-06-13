@@ -56,6 +56,7 @@ class PostEngagementManager @Inject constructor(
     private val subscriptionRepository: SubscriptionRepository,
     private val remoteConfig: RemoteConfigService,
     private val analyticsService: AnalyticsService,
+    private val saveChangedEvent: SaveChangedEvent,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -270,10 +271,12 @@ class PostEngagementManager @Inject constructor(
                     val result = postRepository.savePost(userId, postId)
                     subscriptionRepository.setSavesCount(result.savesCount)
                     maybeFireSaveWarningToast(result.savesCount)
+                    val post = try { postRepository.getCachedPost(postId) } catch (_: Exception) { null }
+                    // Keep the profile Saves tab live without a refetch.
+                    saveChangedEvent.notify(postId, true, post)
                     // Send save notification (matches iOS)
-                    try {
-                        val post = postRepository.getCachedPost(postId)
-                        if (post != null) {
+                    if (post != null) {
+                        try {
                             postRepository.createNotification(
                                 type = "save",
                                 fromUserId = userId,
@@ -281,11 +284,12 @@ class PostEngagementManager @Inject constructor(
                                 postId = postId,
                                 postAlbumArtURL = post.displayImageURL,
                             )
-                        }
-                    } catch (_: Exception) { }
+                        } catch (_: Exception) { }
+                    }
                 } else {
                     val newCount = postRepository.unsavePost(userId, postId)
                     subscriptionRepository.setSavesCount(newCount)
+                    saveChangedEvent.notify(postId, false, null)
                 }
             } catch (e: CloudFunctionsDataSource.SaveCapReachedException) {
                 // Server rejected — local cache was stale. Sync count, revert UI, request paywall.
@@ -408,6 +412,73 @@ class PostEngagementManager @Inject constructor(
                 }
                 updated
             }
+        }
+    }
+
+    /**
+     * Reconcile save status from Firestore for the given page of posts.
+     *
+     * The save/bookmark equivalent of [checkLikeStatuses]: resolves all [postIds]
+     * in ONE batched `whereIn` query against the viewer's own
+     * `users_v2/{uid}/saves` index (FirestoreDataSource.fetchSavedStates), billing
+     * only for the saved matches. Posts always seed `isSaved = false` (the backend
+     * doesn't return it), so without this the bookmark icon never fills in — even
+     * for posts opened straight from the Saves tab. The [userId] param is kept for
+     * call-site symmetry with checkLikeStatuses; fetchSavedStates derives the uid
+     * from auth.
+     *
+     * Optimistic toggles (userModified) are never clobbered. A transient failure
+     * leaves state untouched; the next refresh reconciles.
+     */
+    fun checkSaveStatuses(postIds: List<String>, userId: String) {
+        if (postIds.isEmpty()) return
+        scope.launch {
+            val saved = try {
+                firestoreDataSource.fetchSavedStates(postIds)
+            } catch (_: Exception) {
+                return@launch
+            }
+
+            _states.update { map ->
+                var updated = map
+                for (postId in postIds) {
+                    if (userModifiedPostIds.contains(postId)) continue
+                    val current = updated[postId] ?: continue
+                    val isSaved = saved.contains(postId)
+                    if (current.isSaved != isSaved) {
+                        updated = updated + (postId to current.copy(isSaved = isSaved))
+                    }
+                }
+                updated
+            }
+        }
+    }
+
+    /**
+     * Authoritatively mark posts as saved. Used when loading the viewer's own
+     * Saves list, where list membership IS the ground truth — so the bookmark
+     * renders filled immediately and there's no unfilled→filled flash from the
+     * [checkSaveStatuses] Firestore round-trip when a post is opened from Saves.
+     *
+     * Forces `isSaved = true` even over a stale existing entry (unlike
+     * [initState], which preserves the prior flag). In-flight optimistic toggles
+     * (userModified) are left alone. Creates a minimal entry if none exists yet;
+     * the subsequent initState / listener fills in the counts.
+     */
+    fun seedSavedState(postIds: List<String>) {
+        if (postIds.isEmpty()) return
+        _states.update { map ->
+            var updated = map
+            for (postId in postIds) {
+                if (userModifiedPostIds.contains(postId)) continue
+                val current = updated[postId]
+                updated = if (current != null) {
+                    if (current.isSaved) updated else updated + (postId to current.copy(isSaved = true))
+                } else {
+                    updated + (postId to EngagementState(isSaved = true))
+                }
+            }
+            updated
         }
     }
 

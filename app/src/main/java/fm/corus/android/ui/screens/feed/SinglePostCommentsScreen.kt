@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
@@ -115,6 +116,7 @@ fun SinglePostCommentsScreen(
 
     var commentText by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
     var showGifPicker by remember { mutableStateOf(false) }
     var showSongFilmPicker by remember { mutableStateOf(false) }
     var pickerInitialMode by remember { mutableStateOf(PickerMode.SONG) }
@@ -423,6 +425,7 @@ fun SinglePostCommentsScreen(
                                 }
                                 commentText = TextFieldValue("")
                                 viewModel.clearMentions()
+                                keyboardController?.hide()
                             }
                         }),
                     )
@@ -448,6 +451,7 @@ fun SinglePostCommentsScreen(
                                 }
                                 commentText = TextFieldValue("")
                                 viewModel.clearMentions()
+                                keyboardController?.hide()
                             },
                         contentAlignment = Alignment.Center,
                     ) {
