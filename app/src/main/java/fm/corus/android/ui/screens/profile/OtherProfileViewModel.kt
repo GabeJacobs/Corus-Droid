@@ -132,6 +132,13 @@ class OtherProfileViewModel @Inject constructor(
     private val _likedHasMore = MutableStateFlow(true)
     val likedHasMore: StateFlow<Boolean> = _likedHasMore.asStateFlow()
 
+    // True once the LIKES tab's first page has finished loading (success, empty,
+    // or error). The grid uses this — mirroring [hasFetchedFilmPage] — to show
+    // the skeleton and suppress the empty state until the lazy load completes,
+    // so the empty state never flashes before the likes arrive.
+    private val _hasFetchedLikedPage = MutableStateFlow(false)
+    val hasFetchedLikedPage: StateFlow<Boolean> = _hasFetchedLikedPage.asStateFlow()
+
     // Offset-based cursor for likes pagination (getLikedPosts is offset-paged,
     // unlike the timestamp-cursored profile posts). Reset when the cache is
     // invalidated (profile switch / pull-to-refresh).
@@ -194,6 +201,15 @@ class OtherProfileViewModel @Inject constructor(
 
     fun loadProfile(userId: String) {
         loadedUserId = userId
+        // Reset the lazily-loaded LIKES state so a reused ViewModel (profile ->
+        // profile navigation) never shows the previous owner's likes or a stale
+        // loaded/empty flag while the new owner's likes fetch.
+        likedLoaded = false
+        likedLoadedUserId = null
+        likedOffset = 0
+        _likedPosts.value = emptyList()
+        _likedHasMore.value = true
+        _hasFetchedLikedPage.value = false
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -255,6 +271,7 @@ class OtherProfileViewModel @Inject constructor(
                     }
                 }
                 engagementManager.checkLikeStatuses(page.map { it.id }, viewerId)
+                engagementManager.checkSaveStatuses(page.map { it.id }, viewerId)
             } catch (_: Exception) { }
             _isLoading.value = false
         }
@@ -267,7 +284,10 @@ class OtherProfileViewModel @Inject constructor(
         // Invalidate the likes cache so the next LIKES-tab visit refetches. When
         // we're on the LIKES tab now (includeLikes), reload it inline below so
         // the visible grid updates without a tab round-trip.
-        if (!includeLikes) likedLoaded = false
+        if (!includeLikes) {
+            likedLoaded = false
+            _hasFetchedLikedPage.value = false
+        }
         // Only reset the film-fetch flag if there's actually something to re-fetch.
         // The counter (when available) is authoritative; fall back to the free
         // guard for older backends without the field.
@@ -326,15 +346,17 @@ class OtherProfileViewModel @Inject constructor(
                     }
                 }
                 engagementManager.checkLikeStatuses(merged.map { it.id }, viewerId)
+                engagementManager.checkSaveStatuses(merged.map { it.id }, viewerId)
 
                 if (includeLikes) {
                     val liked = cloudFunctions.getLikedPosts(userId, viewerId, limit = PAGE_SIZE, offset = 0)
-                    _likedPosts.value = liked
-                    likedOffset = liked.size
-                    _likedHasMore.value = liked.size >= PAGE_SIZE
+                    _likedPosts.value = liked.posts
+                    likedOffset = PAGE_SIZE
+                    _likedHasMore.value = liked.hasMore
                     likedLoaded = true
                     likedLoadedUserId = userId
-                    initEngagement(liked, viewerId)
+                    _hasFetchedLikedPage.value = true
+                    initEngagement(liked.posts, viewerId)
                 }
             } catch (_: Exception) { }
             _isRefreshing.value = false
@@ -381,6 +403,7 @@ class OtherProfileViewModel @Inject constructor(
                         }
                     }
                     engagementManager.checkLikeStatuses(additions.map { it.id }, viewerId)
+                    engagementManager.checkSaveStatuses(additions.map { it.id }, viewerId)
                 }
             } catch (_: Exception) {
                 _hasFetchedFilmPage.value = false
@@ -422,6 +445,7 @@ class OtherProfileViewModel @Inject constructor(
                     }
                 }
                 engagementManager.checkLikeStatuses(newPosts.map { it.id }, viewerId)
+                engagementManager.checkSaveStatuses(newPosts.map { it.id }, viewerId)
             } catch (_: Exception) { }
             _isLoadingMore.value = false
         }
@@ -443,15 +467,20 @@ class OtherProfileViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val liked = cloudFunctions.getLikedPosts(userId, viewerId, limit = PAGE_SIZE, offset = 0)
-                _likedPosts.value = liked
-                likedOffset = liked.size
-                _likedHasMore.value = liked.size >= PAGE_SIZE
-                initEngagement(liked, viewerId)
+                _likedPosts.value = liked.posts
+                // getLikedPosts pages by *ref* offset (server-side), so advance by
+                // the page size we requested, not by how many posts hydrated — a
+                // short page (orphan/banned refs filtered out) must not desync the
+                // cursor. Use the server's hasMore for the same reason.
+                likedOffset = PAGE_SIZE
+                _likedHasMore.value = liked.hasMore
+                initEngagement(liked.posts, viewerId)
             } catch (_: Exception) {
                 // Allow a retry on the next tab visit.
                 likedLoaded = false
             }
             _isLoadingLiked.value = false
+            _hasFetchedLikedPage.value = true
         }
     }
 
@@ -463,10 +492,13 @@ class OtherProfileViewModel @Inject constructor(
             try {
                 val more = cloudFunctions.getLikedPosts(userId, viewerId, limit = PAGE_SIZE, offset = likedOffset)
                 val existingIds = _likedPosts.value.mapTo(HashSet()) { it.id }
-                val unique = more.filter { it.id !in existingIds }
+                val unique = more.posts.filter { it.id !in existingIds }
                 _likedPosts.value = _likedPosts.value + unique
-                likedOffset += more.size
-                _likedHasMore.value = more.size >= PAGE_SIZE
+                // Advance by the ref page size (not posts returned) to stay aligned
+                // with the server's ref-based offset; trust the server's hasMore so
+                // a short page doesn't prematurely halt pagination.
+                likedOffset += PAGE_SIZE
+                _likedHasMore.value = more.hasMore
                 initEngagement(unique, viewerId)
             } catch (_: Exception) { }
             _isLoadingMore.value = false
@@ -489,6 +521,7 @@ class OtherProfileViewModel @Inject constructor(
             }
         }
         if (posts.isNotEmpty()) engagementManager.checkLikeStatuses(posts.map { it.id }, viewerId)
+        if (posts.isNotEmpty()) engagementManager.checkSaveStatuses(posts.map { it.id }, viewerId)
     }
 
     fun toggleFollow(userId: String) {

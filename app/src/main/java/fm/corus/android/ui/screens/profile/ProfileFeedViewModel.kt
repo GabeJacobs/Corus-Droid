@@ -230,6 +230,7 @@ class ProfileFeedViewModel @Inject constructor(
         }
         viewModelScope.launch {
             engagementManager.checkLikeStatuses(_posts.value.map { it.id }, viewerId)
+            engagementManager.checkSaveStatuses(_posts.value.map { it.id }, viewerId)
         }
         return _posts.value.isNotEmpty()
     }
@@ -271,13 +272,13 @@ class ProfileFeedViewModel @Inject constructor(
                         filtered to (allNew.size >= PAGE_SIZE)
                     }
                     ProfileFeedSource.LIKES -> {
-                        val fetched = cloudFunctions.getLikedPosts(
+                        val page = cloudFunctions.getLikedPosts(
                             userId = userId,
                             viewerId = viewerId,
                             limit = PAGE_SIZE,
                             offset = 0,
                         )
-                        fetched to (fetched.size >= PAGE_SIZE)
+                        page.posts to page.hasMore
                     }
                     ProfileFeedSource.SAVES -> {
                         val fetched = cloudFunctions.getSavedPosts(
@@ -313,6 +314,7 @@ class ProfileFeedViewModel @Inject constructor(
                 }
                 if (newPosts.isNotEmpty()) {
                     engagementManager.checkLikeStatuses(newPosts.map { it.id }, viewerId)
+                    engagementManager.checkSaveStatuses(newPosts.map { it.id }, viewerId)
                 }
             } catch (_: Exception) { }
             _isRefreshing.value = false
@@ -359,6 +361,7 @@ class ProfileFeedViewModel @Inject constructor(
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
+                            engagementManager.checkSaveStatuses(unique.map { it.id }, viewerId)
                         }
                     }
                     ProfileFeedSource.LIKES -> {
@@ -368,7 +371,7 @@ class ProfileFeedViewModel @Inject constructor(
                             viewerId = viewerId,
                             limit = PAGE_SIZE,
                             offset = offset,
-                        )
+                        ).posts
                         val existingIds = _posts.value.map { it.id }.toSet()
                         val unique = fetched.filter { it.id !in existingIds }
                         _posts.value = _posts.value + unique
@@ -388,6 +391,7 @@ class ProfileFeedViewModel @Inject constructor(
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
+                            engagementManager.checkSaveStatuses(unique.map { it.id }, viewerId)
                         }
                     }
                     ProfileFeedSource.SAVES -> {
@@ -416,6 +420,7 @@ class ProfileFeedViewModel @Inject constructor(
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
+                            engagementManager.checkSaveStatuses(unique.map { it.id }, viewerId)
                         }
                     }
                     ProfileFeedSource.HASHTAG -> {
@@ -449,6 +454,7 @@ class ProfileFeedViewModel @Inject constructor(
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
+                            engagementManager.checkSaveStatuses(unique.map { it.id }, viewerId)
                         }
                     }
                 }

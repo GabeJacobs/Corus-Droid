@@ -308,15 +308,26 @@ class CloudFunctionsDataSource @Inject constructor(
         return posts.map { CymbalPost.fromCloudData(it) }
     }
 
+    /**
+     * A page of liked posts plus the server's authoritative [hasMore] flag.
+     * [hasMore] is computed server-side from the *ref* count (it survives pages
+     * that hydrate fewer posts than requested because some refs point to
+     * deleted/banned posts), so callers must use it instead of inferring
+     * "more pages" from `posts.size >= limit` — a short page does not mean the
+     * end of the list.
+     */
+    data class LikedPostsPage(val posts: List<CymbalPost>, val hasMore: Boolean)
+
     @Suppress("UNCHECKED_CAST")
-    suspend fun getLikedPosts(userId: String, viewerId: String, limit: Int = 30, offset: Int = 0): List<CymbalPost> {
+    suspend fun getLikedPosts(userId: String, viewerId: String, limit: Int = 30, offset: Int = 0): LikedPostsPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId, "viewerId" to viewerId, "limit" to limit, "offset" to offset
         )
         val result = functions.getHttpsCallable("getLikedPosts").call(params).await()
-        val data = result.getData() as? Map<String, Any?> ?: return emptyList()
-        val posts = data["posts"] as? List<Map<String, Any?>> ?: return emptyList()
-        return posts.map { CymbalPost.fromCloudData(it) }
+        val data = result.getData() as? Map<String, Any?> ?: return LikedPostsPage(emptyList(), false)
+        val posts = (data["posts"] as? List<Map<String, Any?>>)?.map { CymbalPost.fromCloudData(it) } ?: emptyList()
+        val hasMore = data["hasMore"] as? Boolean ?: false
+        return LikedPostsPage(posts, hasMore)
     }
 
     @Suppress("UNCHECKED_CAST")

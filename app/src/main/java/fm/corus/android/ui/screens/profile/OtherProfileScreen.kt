@@ -153,6 +153,7 @@ fun OtherProfileScreen(
     val likedPosts by viewModel.likedPosts.collectAsState()
     val isLoadingLiked by viewModel.isLoadingLiked.collectAsState()
     val likedHasMore by viewModel.likedHasMore.collectAsState()
+    val hasFetchedLikedPage by viewModel.hasFetchedLikedPage.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
     // The user's explicit choice once they've tapped a tab. While null, the
     // selected tab is derived synchronously from the profile data so the
@@ -252,6 +253,11 @@ fun OtherProfileScreen(
                     }
                 },
                 actions = {
+                    // Dedicated message button (matching iOS outlined envelope icon)
+                    IconButton(onClick = { onNavigateToMessages("", userId) }) {
+                        Icon(Icons.Outlined.Email, contentDescription = stringResource(fm.corus.android.R.string.other_profile_cd_message), tint = CorusColors.Text, modifier = Modifier.size(20.dp))
+                    }
+
                     // Post notifications bell button (matching iOS)
                     val notifContext = LocalContext.current
                     IconButton(onClick = {
@@ -297,11 +303,6 @@ fun OtherProfileScreen(
                                 modifier = Modifier.size(22.dp),
                             )
                         }
-                    }
-
-                    // Dedicated message button (matching iOS outlined envelope icon)
-                    IconButton(onClick = { onNavigateToMessages("", userId) }) {
-                        Icon(Icons.Outlined.Email, contentDescription = stringResource(fm.corus.android.R.string.other_profile_cd_message), tint = CorusColors.Text, modifier = Modifier.size(20.dp))
                     }
 
                     Box {
@@ -1056,7 +1057,7 @@ fun OtherProfileScreen(
                             )
                         }
                     } else if (filteredPosts.isEmpty() && !isLoading
-                        && !(selectedSegment == 2 && isLoadingLiked)) {
+                        && !(selectedSegment == 2 && (isLoadingLiked || !hasFetchedLikedPage))) {
                         // Empty state per segment (matching iOS: icon + text, no emoji)
                         Box(
                             modifier = Modifier
@@ -1111,7 +1112,8 @@ fun OtherProfileScreen(
             val gridPosts = (if (isFeaturedTab) filteredPosts.drop(1) else filteredPosts)
                 .distinctBy { it.id }
             val filmGridLoading = !currentProfile.isBot && selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)
-            val likesGridLoading = !currentProfile.isBot && selectedSegment == 2 && isLoadingLiked && likedPosts.isEmpty()
+            val likesGridLoading = !currentProfile.isBot && selectedSegment == 2 &&
+                (isLoadingLiked || !hasFetchedLikedPage) && likedPosts.isEmpty()
             // Hide grid while featured art is loading (skeleton in header covers both areas)
             if (isFeaturedTab && selectedSegment == 0 && !isFeaturedArtReady && filteredPosts.isNotEmpty()) {
                 // Music featured uses SkeletonProfileGrid in the header; emit nothing.

@@ -324,6 +324,7 @@ class ProfileViewModel @Inject constructor(
                     )
                 }
                 engagementManager.checkLikeStatuses(page.map { it.id }, userId)
+                engagementManager.checkSaveStatuses(page.map { it.id }, userId)
                 lastFeaturedRefreshAt = clock()
                 _hasLoadError.value = false
             } catch (e: Exception) {
@@ -401,6 +402,7 @@ class ProfileViewModel @Inject constructor(
                     )
                 }
                 engagementManager.checkLikeStatuses(merged.map { it.id }, userId)
+                engagementManager.checkSaveStatuses(merged.map { it.id }, userId)
                 lastFeaturedRefreshAt = clock()
                 // Reset lazy-loaded segments so they reload on next visit
                 likedLoaded = false
@@ -555,6 +557,7 @@ class ProfileViewModel @Inject constructor(
                         )
                     }
                     engagementManager.checkLikeStatuses(additions.map { it.id }, userId)
+                    engagementManager.checkSaveStatuses(additions.map { it.id }, userId)
                 }
                 if (movies.isNotEmpty()) filmsLastTimestamp = movies.last().timestamp.time
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
@@ -594,7 +597,7 @@ class ProfileViewModel @Inject constructor(
         mediaType: String?,
     ): FilteredEngagementPage {
         suspend fun raw(limit: Int, offset: Int): List<CymbalPost> = when (kind) {
-            EngagementKind.LIKED -> cloudFunctions.getLikedPosts(userId, userId, limit = limit, offset = offset)
+            EngagementKind.LIKED -> cloudFunctions.getLikedPosts(userId, userId, limit = limit, offset = offset).posts
             EngagementKind.SAVED -> cloudFunctions.getSavedPosts(userId, limit = limit, offset = offset)
         }
 
@@ -751,6 +754,7 @@ class ProfileViewModel @Inject constructor(
                                     )
                                 }
                                 engagementManager.checkLikeStatuses(unique.map { it.id }, userId)
+                                engagementManager.checkSaveStatuses(unique.map { it.id }, userId)
                             }
                             if (newPosts.isNotEmpty()) {
                                 filmsLastTimestamp = newPosts.last().timestamp.time
