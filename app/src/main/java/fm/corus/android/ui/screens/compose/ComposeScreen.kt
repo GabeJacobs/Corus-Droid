@@ -224,7 +224,13 @@ fun ComposeScreen(
                         onMediaTypeChange = { newType ->
                             mediaType = newType
                             viewModel.clearSelection()
-                            searchQuery = ""
+                            // Keep the query: switching tabs mid-search usually
+                            // means "same search, other medium" (typed a film
+                            // title into the Songs tab) — re-run it against the
+                            // new type instead of making the user retype.
+                            if (searchQuery.length >= 2) {
+                                viewModel.search(searchQuery, newType)
+                            }
                         },
                         isSearching = isSearching,
                         searchResults = searchResults,

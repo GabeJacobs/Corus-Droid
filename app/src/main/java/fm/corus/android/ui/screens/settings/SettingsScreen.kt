@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Refresh
@@ -74,6 +75,7 @@ fun SettingsScreen(
     onMutedUsers: () -> Unit = {},
     onSendFeedback: () -> Unit = {},
     onNotificationSettings: () -> Unit = {},
+    onSyncContacts: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
     appearanceViewModel: AppearanceSettingsViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
@@ -279,6 +281,13 @@ fun SettingsScreen(
                     }
                     context.startActivity(android.content.Intent.createChooser(sendIntent, inviteShareChooser))
                 },
+            )
+
+            SettingsNavRow(
+                icon = Icons.Filled.Contacts,
+                title = stringResource(R.string.settings_row_sync_contacts),
+                subtitle = stringResource(R.string.settings_row_sync_contacts_subtitle),
+                onClick = onSyncContacts,
             )
 
             // ── Section: Appearance ──

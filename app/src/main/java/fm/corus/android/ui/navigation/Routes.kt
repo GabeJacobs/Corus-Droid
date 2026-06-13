@@ -90,3 +90,4 @@ import kotlinx.serialization.Serializable
     val source: String = "tasteMatches",
 )
 @Serializable data object ContactFriendsListRoute
+@Serializable data object SyncContactsSettingsRoute

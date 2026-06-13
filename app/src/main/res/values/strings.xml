@@ -44,6 +44,9 @@
     <string name="settings_section_invite">INVITE</string>
     <string name="settings_row_invite_friends">Invite Friends</string>
     <string name="settings_row_invite_friends_subtitle">Invite your friends to use Corus with you</string>
+    <string name="settings_row_sync_contacts">Sync Contacts</string>
+    <string name="settings_row_sync_contacts_subtitle">Find friends from your contacts</string>
+    <string name="sync_contacts_permission_denied">Allow contacts access in your device settings to find friends on Corus</string>
     <string name="settings_section_general">GENERAL</string>
     <string name="settings_row_music_service">Music Service</string>
     <string name="settings_row_autoplay_title">Autoplay Next Song</string>

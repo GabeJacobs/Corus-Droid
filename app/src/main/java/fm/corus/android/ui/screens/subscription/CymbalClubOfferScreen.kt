@@ -126,8 +126,11 @@ fun CymbalClubOfferScreen(
     val yearlyPackage = packages.firstOrNull { it.identifier == "\$rc_annual" }
     val selectedPackage = if (selectedPlan == "yearly") yearlyPackage else monthlyPackage
 
-    // Log paywall shown on first composition
+    // Log paywall shown on first composition. The view model is scoped to the
+    // host screen, so a stale error from a previous presentation would still
+    // be set — clear it so each presentation starts clean.
     LaunchedEffect(Unit) {
+        viewModel.clearError()
         viewModel.logPaywallShown()
     }
 
@@ -280,18 +283,23 @@ fun CymbalClubOfferScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(CorusSpacing.xxl))
-
-            // Inline error message
-            if (errorMessage != null) {
-                Text(
-                    text = errorMessage!!,
-                    style = CorusFont.caption,
-                    color = Color.Red,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            // Fixed-height slot the inline error renders inside, so the CTA
+            // and footer links don't jump when it appears or disappears.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                errorMessage?.let {
+                    Text(
+                        text = it,
+                        style = CorusFont.caption,
+                        color = Color.Red,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                    )
+                }
             }
 
             // CTA button
@@ -377,8 +385,11 @@ fun CymbalClubOfferSheet(
     val yearlyPackage = packages.firstOrNull { it.identifier == "\$rc_annual" }
     val selectedPackage = if (selectedPlan == "yearly") yearlyPackage else monthlyPackage
 
-    // Log paywall shown on first composition
+    // Log paywall shown on first composition. The view model is scoped to the
+    // host screen, so a stale error from a previous presentation would still
+    // be set — clear it so each presentation starts clean.
     LaunchedEffect(Unit) {
+        viewModel.clearError()
         viewModel.logPaywallShown()
     }
 
@@ -545,18 +556,23 @@ fun CymbalClubOfferSheet(
             )
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-
-        // Inline error message
-        if (errorMessage != null) {
-            Text(
-                text = errorMessage!!,
-                style = CorusFont.caption,
-                color = Color.Red,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-            )
-            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        // Fixed-height slot the inline error renders inside, so the CTA
+        // and footer links don't jump when it appears or disappears.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            errorMessage?.let {
+                Text(
+                    text = it,
+                    style = CorusFont.caption,
+                    color = Color.Red,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                )
+            }
         }
 
         Button(

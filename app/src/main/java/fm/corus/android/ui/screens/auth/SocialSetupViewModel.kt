@@ -1,11 +1,11 @@
 package fm.corus.android.ui.screens.auth
 
 import android.content.ContentResolver
-import android.provider.ContactsContract
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
+import fm.corus.android.data.local.readContactPhoneNumbers
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.remote.CloudFunctionsDataSource
@@ -139,25 +139,6 @@ class SocialSetupViewModel @Inject constructor(
             _isSyncing.value = false
             analyticsService.logContactsSynced(_contactMatches.value.size)
         }
-    }
-
-    private fun readContactPhoneNumbers(contentResolver: ContentResolver): List<String> {
-        val numbers = mutableSetOf<String>()
-        try {
-            val cursor = contentResolver.query(
-                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-                null, null, null,
-            )
-            cursor?.use {
-                val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                while (it.moveToNext()) {
-                    val number = it.getString(numberIndex)?.replace(Regex("[^+\\d]"), "")
-                    if (!number.isNullOrBlank()) numbers.add(number)
-                }
-            }
-        } catch (_: Exception) { }
-        return numbers.toList()
     }
 
     /** Kept as a no-op so existing call sites (notably SocialSetupFlow.kt) don't

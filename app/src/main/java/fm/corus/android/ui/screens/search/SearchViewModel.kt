@@ -1,12 +1,12 @@
 package fm.corus.android.ui.screens.search
 
 import android.content.ContentResolver
-import android.provider.ContactsContract
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
+import fm.corus.android.data.local.readContactPhoneNumbers
 import fm.corus.android.data.model.CymbalHashtag
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalTrack
@@ -800,25 +800,6 @@ class SearchViewModel @Inject constructor(
                 _showNoContactMatches.value = true
             }
         }
-    }
-
-    private fun readContactPhoneNumbers(contentResolver: ContentResolver): List<String> {
-        val numbers = mutableSetOf<String>()
-        try {
-            val cursor = contentResolver.query(
-                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-                null, null, null,
-            )
-            cursor?.use {
-                val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                while (it.moveToNext()) {
-                    val number = it.getString(numberIndex)?.replace(Regex("[^+\\d]"), "")
-                    if (!number.isNullOrBlank()) numbers.add(number)
-                }
-            }
-        } catch (_: Exception) { }
-        return numbers.toList()
     }
 
     // ── Follow ──

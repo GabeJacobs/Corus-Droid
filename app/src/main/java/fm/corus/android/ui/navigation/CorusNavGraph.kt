@@ -40,6 +40,7 @@ import fm.corus.android.ui.screens.messaging.MessageThreadScreen
 import fm.corus.android.ui.screens.messaging.ThreadListScreen
 import fm.corus.android.ui.screens.settings.NotificationSettingsScreen
 import fm.corus.android.ui.screens.settings.SettingsScreen
+import fm.corus.android.ui.screens.settings.SyncContactsSettingsScreen
 import fm.corus.android.ui.screens.search.SuggestedUsersListScreen
 import fm.corus.android.ui.screens.search.SuggestedUsersListViewModel
 import fm.corus.android.ui.screens.search.ContactFriendsListScreen
@@ -642,6 +643,14 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onMutedUsers = { navController.navigate(MutedUsersRoute) },
             onSendFeedback = { navController.navigate(FeedbackFormRoute) },
             onNotificationSettings = { navController.navigate(NotificationSettingsRoute) },
+            onSyncContacts = { navController.navigate(SyncContactsSettingsRoute) },
+        )
+    }
+
+    composable<SyncContactsSettingsRoute> {
+        SyncContactsSettingsScreen(
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
         )
     }
 
@@ -790,22 +799,15 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val contacts by viewModel.contacts.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
 
-        if (isLoading) {
-            ContactFriendsListScreen(
-                users = emptyList(),
-                onBack = { navController.popBackStack() },
-                onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            )
-        } else {
-            ContactFriendsListScreen(
-                users = contacts,
-                isFollowed = { viewModel.isFollowed(it) },
-                onFollow = { viewModel.toggleFollow(it) },
-                onUserTapped = { userId -> viewModel.logUserTapped(userId) },
-                onBack = { navController.popBackStack() },
-                onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            )
-        }
+        ContactFriendsListScreen(
+            users = contacts,
+            isLoading = isLoading,
+            isFollowed = { viewModel.isFollowed(it) },
+            onFollow = { viewModel.toggleFollow(it) },
+            onUserTapped = { userId -> viewModel.logUserTapped(userId) },
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+        )
     }
 
 }

@@ -44,6 +44,9 @@
     <string name="settings_section_invite">CONVIDAR</string>
     <string name="settings_row_invite_friends">Convidar Amigos</string>
     <string name="settings_row_invite_friends_subtitle">Convide seus amigos para usar o Corus com você</string>
+    <string name="settings_row_sync_contacts">Sincronizar Contatos</string>
+    <string name="settings_row_sync_contacts_subtitle">Encontre amigos dos seus contatos</string>
+    <string name="sync_contacts_permission_denied">Permita o acesso aos contatos nas configurações do dispositivo para encontrar amigos no Corus</string>
     <string name="settings_section_general">GERAL</string>
     <string name="settings_row_autoplay_title">Reproduzir Próxima Música Automaticamente</string>
     <string name="settings_row_autoplay_subtitle">Tocar a próxima música automaticamente quando uma terminar</string>

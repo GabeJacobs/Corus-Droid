@@ -16,6 +16,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Merges a refreshed first page into the already-loaded thread list. Threads
+ * not in the refreshed page keep their positions below it (they're older than
+ * everything in the newest page), so the list never shrinks and the scroll
+ * position holds.
+ */
+internal fun mergeRefreshedThreads(
+    existing: List<CymbalThread>,
+    refreshed: List<CymbalThread>,
+): List<CymbalThread> {
+    val refreshedIds = refreshed.map { it.id }.toSet()
+    return refreshed + existing.filter { it.id !in refreshedIds }
+}
+
 @HiltViewModel
 class ThreadListViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
@@ -40,6 +54,14 @@ class ThreadListViewModel @Inject constructor(
     /** Cursor for the next page — the `updatedAt` of the last thread fetched, in millis. */
     private var nextCursor: Long? = null
 
+    /**
+     * The screen's LaunchedEffect re-runs every time it's recomposed after a
+     * back navigation. After the first successful load, reloads refresh in
+     * place instead of resetting to the first page, which would drop
+     * paginated-in threads and yank the scroll position.
+     */
+    private var hasLoadedThreads = false
+
     // New Message picker state
     private val _suggestedContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
     val suggestedContacts: StateFlow<List<CymbalUser>> = _suggestedContacts.asStateFlow()
@@ -59,6 +81,10 @@ class ThreadListViewModel @Inject constructor(
 
     fun loadThreads() {
         val userId = authRepository.currentUserId ?: return
+        if (hasLoadedThreads) {
+            refreshThreads(userId)
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -66,8 +92,29 @@ class ThreadListViewModel @Inject constructor(
                 _threads.value = page.threads.filter { it.lastMessageFromUserId != null }
                 nextCursor = page.nextCursor
                 _hasMoreThreads.value = page.hasMore && page.nextCursor != null
+                hasLoadedThreads = true
             } catch (_: Exception) { }
             _isLoading.value = false
+        }
+    }
+
+    private fun refreshThreads(userId: String) {
+        viewModelScope.launch {
+            try {
+                val page = messageRepository.listThreadsPage(userId, limit = pageSize)
+                val refreshed = page.threads.filter { it.lastMessageFromUserId != null }
+                val merged = mergeRefreshedThreads(_threads.value, refreshed)
+                val tailEmpty = merged.size == refreshed.size
+                _threads.value = merged
+                if (tailEmpty) {
+                    // Everything loaded fits in the refreshed page, so its cursor is
+                    // the list's cursor. With a tail, the existing cursor still
+                    // points at the last fetched thread (the tail's end) and stays
+                    // valid.
+                    nextCursor = page.nextCursor
+                    _hasMoreThreads.value = page.hasMore && page.nextCursor != null
+                }
+            } catch (_: Exception) { }
         }
     }
 

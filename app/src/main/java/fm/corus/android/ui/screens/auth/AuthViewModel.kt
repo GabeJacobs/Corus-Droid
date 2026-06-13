@@ -556,9 +556,14 @@ class AuthViewModel @Inject constructor(
     fun signOut() {
         viewModelScope.launch {
             analyticsService.logSignOut()
+            // Sign out first: it awaits FCM token removal (so the user can't get
+            // pushes after signing out) and then flips Firebase auth state, which
+            // navigates to the login screen. The clears below mutate state the
+            // Settings screen renders (club status, now-playing), so running them
+            // before navigation causes a visible layout shift.
+            authRepository.signOut()
             subscriptionRepository.logoutUser()
             nowPlayingManager.stop()
-            authRepository.signOut()
             userRepository.clearCaches()
             exploreRepository.clearCaches()
             engagementManager.clearAll()
