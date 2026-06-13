@@ -17,7 +17,9 @@ class TMDBRepository @Inject constructor(
 
     suspend fun searchMovies(query: String, page: Int = 1): List<CymbalMovie> {
         val response = tmdbApi.searchMovies(query, page)
-        return response.results.map { result ->
+        // Films without a TMDB poster are excluded everywhere in Corus (bot
+        // pipeline and createPost both require one), so hide them from search.
+        return response.results.filter { !it.posterPath.isNullOrBlank() }.map { result ->
             CymbalMovie(
                 id = result.id.toString(),
                 title = result.title,
