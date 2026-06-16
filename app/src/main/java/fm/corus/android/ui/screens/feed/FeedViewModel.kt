@@ -564,6 +564,7 @@ class FeedViewModel @Inject constructor(
                     likeCount = post.likeCount,
                     commentCount = post.commentCount,
                     repostCount = post.repostCount,
+                    saveCount = post.saveCount,
                     isLiked = post.isLiked,
                     isSaved = false,
                 )

@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
@@ -60,6 +61,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.domain.HapticManager
+import fm.corus.android.domain.TrailerPlaybackCoordinator
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -82,6 +84,10 @@ fun PostCard(
     repostCount: Int = post.repostCount,
     isLiked: Boolean = post.isLiked,
     isSaved: Boolean = false,
+    saveCount: Int = post.saveCount,
+    /** Gates the per-post save count next to the bookmark (`save_count_enabled`
+     *  Remote Config flag). When false the bookmark renders with no number. */
+    saveCountEnabled: Boolean = false,
     currentUser: CymbalUser? = null,
     onLikeTap: () -> Unit = {},
     onSaveTap: () -> Unit = {},
@@ -142,6 +148,19 @@ fun PostCard(
     val heartAlpha = remember { Animatable(0f) }
     var showDoubleTapHeart by remember { mutableStateOf(false) }
     var showFilmOverlay by remember { mutableStateOf(false) }
+    // Prototype: when set, the poster swaps to an inline YouTube trailer player.
+    var inlineTrailerVideoID by remember(post.id) { mutableStateOf<String?>(null) }
+    // When another post (or music) takes over the single trailer slot, tear this
+    // one down so at most one trailer plays at a time.
+    val activeTrailerPostId by TrailerPlaybackCoordinator.activePostId.collectAsState()
+    LaunchedEffect(activeTrailerPostId) {
+        if (activeTrailerPostId != post.id && inlineTrailerVideoID != null) {
+            inlineTrailerVideoID = null
+        }
+    }
+    DisposableEffect(post.id) {
+        onDispose { TrailerPlaybackCoordinator.stop(post.id) }
+    }
     var showUnavailableToast by remember(post.id) { mutableStateOf(false) }
     val flipState = backCoverFlipState
     val haptics = LocalHapticManager.current
@@ -362,6 +381,7 @@ fun PostCard(
                             detectTapGestures(
                                 onDoubleTap = {
                                     if (flipState.isLoading) return@detectTapGestures
+                                    if (inlineTrailerVideoID != null) return@detectTapGestures
                                     // Mirrors iOS PostCard.doubleTapLike haptic.
                                     haptics.impact(HapticManager.ImpactStyle.MEDIUM)
                                     if (!isLiked) onLikeTap()
@@ -377,6 +397,7 @@ fun PostCard(
                                 },
                                 onTap = {
                                     if (flipState.isLoading) return@detectTapGestures
+                                    if (inlineTrailerVideoID != null) return@detectTapGestures
                                     if (post.isTrack) onAlbumArtTap()
                                     when {
                                         post.isTrack && post.track.unavailable -> {
@@ -387,7 +408,20 @@ fun PostCard(
                                             }
                                         }
                                         post.isTrack -> onPreviewTap()
-                                        post.isMovie -> showFilmOverlay = !showFilmOverlay
+                                        // Prototype: a single tap plays the trailer inline when one
+                                        // exists; posters without a trailer fall back to the overlay
+                                        // so the film page is still reachable.
+                                        post.isMovie -> {
+                                            val videoID = youTubeVideoID(post.trailerURL)
+                                            if (videoID != null) {
+                                                inlineTrailerVideoID = videoID
+                                                // Claim the single slot: stops any other
+                                                // trailer and pauses music.
+                                                TrailerPlaybackCoordinator.play(post.id)
+                                            } else {
+                                                showFilmOverlay = !showFilmOverlay
+                                            }
+                                        }
                                         else -> onPostTap()
                                     }
                                 },
@@ -595,6 +629,47 @@ fun PostCard(
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // Prototype: inline trailer player. Letterboxed 16:9 against black
+            // inside the portrait poster box so the card never reflows.
+            inlineTrailerVideoID?.let { videoID ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    InlineYouTubePlayer(
+                        videoID = videoID,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f),
+                        onEnded = {
+                            inlineTrailerVideoID = null
+                            TrailerPlaybackCoordinator.stop(post.id)
+                        },
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(CorusSpacing.md)
+                            .size(32.dp)
+                            .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                            .clickable {
+                                inlineTrailerVideoID = null
+                                TrailerPlaybackCoordinator.stop(post.id)
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.post_card_cd_close_trailer),
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp),
+                        )
                     }
                 }
             }
@@ -911,19 +986,39 @@ fun PostCard(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Save button
-            Icon(
-                imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                contentDescription = stringResource(R.string.post_card_cd_save),
-                modifier = Modifier
-                    .size(20.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onSaveTap,
-                    ),
-                tint = CorusColors.Text,
-            )
+            // Save button. Floor the count to 1 while optimistically saved so a
+            // just-saved post never shows 0 before the server trigger commits.
+            // Gated by the save_count_enabled flag — 0 (hidden) when off.
+            val displaySaveCount = when {
+                !saveCountEnabled -> 0
+                isSaved -> maxOf(saveCount, 1)
+                else -> saveCount
+            }
+            Row(
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onSaveTap,
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+            ) {
+                // Count sits to the LEFT of the right-anchored bookmark so it
+                // reads inward instead of off the row's trailing edge.
+                if (displaySaveCount > 0) {
+                    Text(
+                        text = displaySaveCount.toString(),
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Text,
+                    )
+                }
+                Icon(
+                    imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    contentDescription = stringResource(R.string.post_card_cd_save),
+                    modifier = Modifier.size(20.dp),
+                    tint = CorusColors.Text,
+                )
+            }
         }
 
         // 5. LIKED BY

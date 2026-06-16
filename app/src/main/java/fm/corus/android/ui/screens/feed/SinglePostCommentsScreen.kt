@@ -525,6 +525,7 @@ fun SinglePostCommentsScreen(
                     val repostCount = engagement?.repostCount ?: p.repostCount
                     val isLiked = engagement?.isLiked ?: p.isLiked
                     val isSaved = engagement?.isSaved ?: false
+                    val saveCount = engagement?.saveCount ?: p.saveCount
 
                     PostCard(
                         post = p,
@@ -533,6 +534,8 @@ fun SinglePostCommentsScreen(
                         repostCount = repostCount,
                         isLiked = isLiked,
                         isSaved = isSaved,
+                        saveCount = saveCount,
+                        saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
                         currentUser = currentUserProfile,
                         isPreviewLoading = p.isTrack && loadingTrackId == p.track.id,
                         isPreviewPlaying = p.isTrack && nowPlayingState.trackId == p.track.id && nowPlayingState.isPlaying,

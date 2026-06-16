@@ -285,7 +285,7 @@ class CommentsViewModel @Inject constructor(
                         postId = loadedPost.id,
                         likeCount = loadedPost.likeCount,
                         commentCount = loadedPost.commentCount,
-                        repostCount = loadedPost.repostCount,
+                        repostCount = loadedPost.repostCount, saveCount = loadedPost.saveCount,
                         isLiked = loadedPost.isLiked,
                         isSaved = false,
                     )

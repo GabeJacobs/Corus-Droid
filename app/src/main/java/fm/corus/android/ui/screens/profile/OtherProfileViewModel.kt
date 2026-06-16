@@ -267,7 +267,7 @@ class OtherProfileViewModel @Inject constructor(
                         postId = post.id,
                         likeCount = post.likeCount,
                         commentCount = post.commentCount,
-                        repostCount = post.repostCount,
+                        repostCount = post.repostCount, saveCount = post.saveCount,
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
@@ -342,7 +342,7 @@ class OtherProfileViewModel @Inject constructor(
                         postId = post.id,
                         likeCount = post.likeCount,
                         commentCount = post.commentCount,
-                        repostCount = post.repostCount,
+                        repostCount = post.repostCount, saveCount = post.saveCount,
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
@@ -399,7 +399,7 @@ class OtherProfileViewModel @Inject constructor(
                             postId = post.id,
                             likeCount = post.likeCount,
                             commentCount = post.commentCount,
-                            repostCount = post.repostCount,
+                            repostCount = post.repostCount, saveCount = post.saveCount,
                             isLiked = post.isLiked,
                             isSaved = false,
                         )
@@ -441,7 +441,7 @@ class OtherProfileViewModel @Inject constructor(
                         postId = post.id,
                         likeCount = post.likeCount,
                         commentCount = post.commentCount,
-                        repostCount = post.repostCount,
+                        repostCount = post.repostCount, saveCount = post.saveCount,
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
@@ -517,7 +517,7 @@ class OtherProfileViewModel @Inject constructor(
                 postId = post.id,
                 likeCount = post.likeCount,
                 commentCount = post.commentCount,
-                repostCount = post.repostCount,
+                repostCount = post.repostCount, saveCount = post.saveCount,
                 isLiked = post.isLiked,
                 isSaved = false,
             )

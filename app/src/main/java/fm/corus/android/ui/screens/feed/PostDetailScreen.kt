@@ -152,6 +152,7 @@ fun PostDetailScreen(
                 val commentCount = engagement?.commentCount ?: currentPost.commentCount
                 val isLiked = engagement?.isLiked ?: currentPost.isLiked
                 val isSaved = engagement?.isSaved ?: false
+                val saveCount = engagement?.saveCount ?: currentPost.saveCount
 
                 PullToRefreshBox(
                     isRefreshing = isRefreshing,
@@ -259,6 +260,8 @@ fun PostDetailScreen(
                             repostCount = engagement?.repostCount ?: currentPost.repostCount,
                             isLiked = isLiked,
                             isSaved = isSaved,
+                            saveCount = saveCount,
+                            saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
                             trackPostCount = currentPost.trackPostCount ?: 0,
                             onLikeTap = { viewModel.toggleLike(currentPost.id) },
                             onCommentTap = { onNavigateToComments(currentPost.id) },
@@ -770,6 +773,8 @@ private fun PostDetailEngagementRow(
     repostCount: Int,
     isLiked: Boolean,
     isSaved: Boolean,
+    saveCount: Int,
+    saveCountEnabled: Boolean,
     trackPostCount: Int,
     onLikeTap: () -> Unit,
     onCommentTap: () -> Unit,
@@ -835,19 +840,38 @@ private fun PostDetailEngagementRow(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Save
-        Icon(
-            imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-            contentDescription = stringResource(R.string.post_detail_cd_save),
-            modifier = Modifier
-                .size(20.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onSaveTap,
-                ),
-            tint = CorusColors.Text,
-        )
+        // Save. Floor the count to 1 while optimistically saved so a just-saved
+        // post never shows 0 before the server trigger commits. Gated by the
+        // save_count_enabled flag — 0 (hidden) when off.
+        val displaySaveCount = when {
+            !saveCountEnabled -> 0
+            isSaved -> maxOf(saveCount, 1)
+            else -> saveCount
+        }
+        Row(
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onSaveTap,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+        ) {
+            // Count to the LEFT of the right-anchored bookmark.
+            if (displaySaveCount > 0) {
+                Text(
+                    text = displaySaveCount.toString(),
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                )
+            }
+            Icon(
+                imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                contentDescription = stringResource(R.string.post_detail_cd_save),
+                modifier = Modifier.size(20.dp),
+                tint = CorusColors.Text,
+            )
+        }
     }
 }
 

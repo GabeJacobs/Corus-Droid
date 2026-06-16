@@ -82,6 +82,14 @@ class RemoteConfigService @Inject constructor(
     val serverNotificationsEnabled: Boolean
         get() = remoteConfig.getBoolean("server_notifications_enabled")
 
+    /// Master gate for the per-post save COUNT shown next to the bookmark.
+    /// When false the bookmark renders exactly as before (no number); the
+    /// server-side saveCount is maintained regardless, so flipping this on
+    /// reveals the already-accumulated counts with no rebuild. Keep OFF until
+    /// the backend is deployed + backfilled and all clients have shipped.
+    val saveCountEnabled: Boolean
+        get() = remoteConfig.getBoolean("save_count_enabled")
+
     val saveCapEnforced: Boolean
         get() = remoteConfig.getBoolean("save_cap_enforced")
 
@@ -258,6 +266,7 @@ class RemoteConfigService @Inject constructor(
                     "paywall_default_yearly" to false,
                     "gif_support" to false,
                     "server_notifications_enabled" to false,
+                    "save_count_enabled" to false,
                     "save_cap_enforced" to false,
                     "save_cap_limit" to 25L,
                     "save_cap_warning_at" to 23L,

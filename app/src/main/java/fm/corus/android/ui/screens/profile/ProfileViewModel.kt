@@ -342,7 +342,7 @@ class ProfileViewModel @Inject constructor(
                         postId = post.id,
                         likeCount = post.likeCount,
                         commentCount = post.commentCount,
-                        repostCount = post.repostCount,
+                        repostCount = post.repostCount, saveCount = post.saveCount,
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
@@ -420,7 +420,7 @@ class ProfileViewModel @Inject constructor(
                         postId = post.id,
                         likeCount = post.likeCount,
                         commentCount = post.commentCount,
-                        repostCount = post.repostCount,
+                        repostCount = post.repostCount, saveCount = post.saveCount,
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
@@ -483,7 +483,7 @@ class ProfileViewModel @Inject constructor(
                             postId = updated.id,
                             likeCount = updated.likeCount,
                             commentCount = updated.commentCount,
-                            repostCount = updated.repostCount,
+                            repostCount = updated.repostCount, saveCount = updated.saveCount,
                             isLiked = updated.isLiked,
                             isSaved = false,
                         )
@@ -575,7 +575,7 @@ class ProfileViewModel @Inject constructor(
                             postId = post.id,
                             likeCount = post.likeCount,
                             commentCount = post.commentCount,
-                            repostCount = post.repostCount,
+                            repostCount = post.repostCount, saveCount = post.saveCount,
                             isLiked = post.isLiked,
                             isSaved = false,
                         )
@@ -776,7 +776,7 @@ class ProfileViewModel @Inject constructor(
                                         postId = post.id,
                                         likeCount = post.likeCount,
                                         commentCount = post.commentCount,
-                                        repostCount = post.repostCount,
+                                        repostCount = post.repostCount, saveCount = post.saveCount,
                                         isLiked = post.isLiked,
                                         isSaved = false,
                                     )

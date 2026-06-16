@@ -38,6 +38,11 @@ data class EngagementState(
     val repostCount: Int = 0,
     val isLiked: Boolean = false,
     val isSaved: Boolean = false,
+    /** Server-confirmed save count. No optimistic bump on tap — the bookmark
+     *  fill flips via [isSaved], the number reconciles from the server once the
+     *  onSaveCreated/onSaveDeleted trigger commits. The UI floors it to 1 while
+     *  [isSaved] is true so a just-saved post never shows 0. */
+    val saveCount: Int = 0,
 )
 
 /**
@@ -125,7 +130,7 @@ class PostEngagementManager @Inject constructor(
 
     fun getState(postId: String): EngagementState? = _states.value[postId]
 
-    fun initState(postId: String, likeCount: Int, commentCount: Int, repostCount: Int, isLiked: Boolean, isSaved: Boolean) {
+    fun initState(postId: String, likeCount: Int, commentCount: Int, repostCount: Int, isLiked: Boolean, isSaved: Boolean, saveCount: Int = 0) {
         _states.update { map ->
             if (map.containsKey(postId) && userModifiedPostIds.contains(postId)) map
             else {
@@ -143,9 +148,12 @@ class PostEngagementManager @Inject constructor(
                         likeCount = safeLikeCount,
                         commentCount = safeCommentCount,
                         repostCount = safeRepostCount,
+                        // saveCount has no optimistic path, so always take the
+                        // latest server value.
+                        saveCount = saveCount,
                     ))
                 } else {
-                    map + (postId to EngagementState(likeCount, commentCount, repostCount, isLiked, isSaved))
+                    map + (postId to EngagementState(likeCount, commentCount, repostCount, isLiked, isSaved, saveCount))
                 }
             }
         }
@@ -158,8 +166,8 @@ class PostEngagementManager @Inject constructor(
         if (newCount == 1) {
             val registration = firestoreDataSource.listenForPostUpdates(
                 postId = postId,
-                onUpdate = { likeCount, commentCount, repostCount ->
-                    applyListenerUpdate(postId, likeCount, commentCount, repostCount)
+                onUpdate = { likeCount, commentCount, repostCount, saveCount ->
+                    applyListenerUpdate(postId, likeCount, commentCount, repostCount, saveCount)
                 },
             )
             activeListeners[postId] = registration
@@ -174,7 +182,7 @@ class PostEngagementManager @Inject constructor(
         }
     }
 
-    private fun applyListenerUpdate(postId: String, likeCount: Int, commentCount: Int, repostCount: Int) {
+    private fun applyListenerUpdate(postId: String, likeCount: Int, commentCount: Int, repostCount: Int, saveCount: Int) {
         _states.update { map ->
             val current = map[postId] ?: return@update map
             // The post-doc snapshot can fire with a stale count if some other
@@ -187,6 +195,8 @@ class PostEngagementManager @Inject constructor(
                 likeCount = safeLikeCount,
                 commentCount = safeCommentCount,
                 repostCount = safeRepostCount,
+                // saveCount has no optimistic path — always take the server value.
+                saveCount = saveCount,
             ))
         }
     }
@@ -373,7 +383,7 @@ class PostEngagementManager @Inject constructor(
     fun refreshCountsFromServer(postId: String) {
         scope.launch {
             val counts = firestoreDataSource.fetchPostCounts(postId) ?: return@launch
-            applyListenerUpdate(postId, counts.likeCount, counts.commentCount, counts.repostCount)
+            applyListenerUpdate(postId, counts.likeCount, counts.commentCount, counts.repostCount, counts.saveCount)
         }
     }
 

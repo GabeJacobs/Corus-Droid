@@ -223,6 +223,8 @@ fun ProfileFeedScreen(
                     repostCount = engagement?.repostCount ?: post.repostCount,
                     isLiked = engagement?.isLiked ?: post.isLiked,
                     isSaved = engagement?.isSaved ?: false,
+                    saveCount = engagement?.saveCount ?: post.saveCount,
+                    saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
                     currentUser = currentUserProfile,
                     isPreviewLoading = post.isTrack && loadingTrackId == post.track.id,
                     isPreviewPlaying = post.isTrack && nowPlayingState.trackId == post.track.id && nowPlayingState.isPlaying,

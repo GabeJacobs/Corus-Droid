@@ -27,6 +27,12 @@ data class CymbalPost(
     val repostedFromUserId: String? = null,
     val repostedFromUsername: String? = null,
     val repostCount: Int = 0,
+    /** Number of users who have this post saved. Denormalized aggregate kept in
+     *  sync server-side by the onSaveCreated / onSaveDeleted triggers. The
+     *  who-saved list stays private; only this count is exposed. Server-only —
+     *  no optimistic bump on tap (the bookmark fill flips optimistically, the
+     *  count reconciles up to a floor of 1 while the trigger lags). */
+    val saveCount: Int = 0,
     /** Set by the `getFeedPage` cloud function on posts injected into the
      *  home feed because the user follows the hashtag (not the author).
      *  `null` for posts from followed users and for direct-Firestore reads. */
@@ -220,6 +226,7 @@ data class CymbalPost(
                 repostedFromUserId = data["repostedFromUserId"] as? String,
                 repostedFromUsername = data["repostedFromUsername"] as? String,
                 repostCount = (data["repostCount"] as? Number)?.toInt() ?: 0,
+                saveCount = ((data["saveCount"] as? Number)?.toInt() ?: 0).coerceAtLeast(0),
                 injectedByHashtag = (data["injectedByHashtag"] as? String)?.ifEmpty { null },
                 mediaType = mediaType,
                 movieId = data["movieId"] as? String,

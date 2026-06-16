@@ -623,6 +623,7 @@
     <string name="post_card_cd_share">Compartilhar</string>
     <string name="post_card_cd_save">Salvar</string>
     <string name="post_card_cd_watch_trailer">Assistir Trailer</string>
+    <string name="post_card_cd_close_trailer">Fechar trailer</string>
     <string name="post_card_liked_by_prefix">"Curtido por "</string>
     <string name="post_card_liked_by_and">" e "</string>
     <plurals name="post_card_others_count">

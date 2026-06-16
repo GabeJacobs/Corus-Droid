@@ -114,6 +114,9 @@ class NowPlayingManager @Inject constructor(
     private var autoplayEnabled: Boolean = true
 
     init {
+        // Let the trailer coordinator pause music when a trailer starts, keeping
+        // the two audio sources mutually exclusive without a direct dependency.
+        TrailerPlaybackCoordinator.pauseMusic = { pause() }
         managerScope.launch {
             preferencesDataStore.autoplayNextSong.collect { autoplayEnabled = it }
         }
@@ -676,6 +679,10 @@ class NowPlayingManager @Inject constructor(
 
     private suspend fun playInternal(track: QueuedTrack) {
         val trackId = track.trackId
+
+        // Audio sources are mutually exclusive: starting music stops any inline
+        // trailer so the two never play over each other.
+        TrailerPlaybackCoordinator.stopAll()
 
         // If same track is already playing, toggle pause/play
         if (_state.value.trackId == trackId && player != null) {

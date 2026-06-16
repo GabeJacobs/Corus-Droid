@@ -942,7 +942,7 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Per-post engagement listener (matching iOS PostEngagementStore) ──
 
-    data class PostCounts(val likeCount: Int, val commentCount: Int, val repostCount: Int)
+    data class PostCounts(val likeCount: Int, val commentCount: Int, val repostCount: Int, val saveCount: Int)
 
     /** One-shot read of denormalized counts on a post doc. Cheaper than a full
      *  cloud-function `getPostDetail` when we only need to refresh badges. */
@@ -953,6 +953,7 @@ class FirestoreDataSource @Inject constructor(
                 likeCount = (data["likeCount"] as? Number)?.toInt() ?: 0,
                 commentCount = (data["commentCount"] as? Number)?.toInt() ?: 0,
                 repostCount = (data["repostCount"] as? Number)?.toInt() ?: 0,
+                saveCount = ((data["saveCount"] as? Number)?.toInt() ?: 0).coerceAtLeast(0),
             )
         } catch (_: Exception) {
             null
@@ -961,7 +962,7 @@ class FirestoreDataSource @Inject constructor(
 
     fun listenForPostUpdates(
         postId: String,
-        onUpdate: (likeCount: Int, commentCount: Int, repostCount: Int) -> Unit,
+        onUpdate: (likeCount: Int, commentCount: Int, repostCount: Int, saveCount: Int) -> Unit,
     ): ListenerRegistration {
         return firestore.collection("posts").document(postId)
             .addSnapshotListener { snapshot, error ->
@@ -970,7 +971,8 @@ class FirestoreDataSource @Inject constructor(
                 val likeCount = (data["likeCount"] as? Number)?.toInt() ?: 0
                 val commentCount = (data["commentCount"] as? Number)?.toInt() ?: 0
                 val repostCount = (data["repostCount"] as? Number)?.toInt() ?: 0
-                onUpdate(likeCount, commentCount, repostCount)
+                val saveCount = ((data["saveCount"] as? Number)?.toInt() ?: 0).coerceAtLeast(0)
+                onUpdate(likeCount, commentCount, repostCount, saveCount)
             }
     }
 
