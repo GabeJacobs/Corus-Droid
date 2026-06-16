@@ -14,6 +14,7 @@ import fm.corus.android.data.model.SharedTrackPreview
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.SuggestionReason
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -480,13 +481,12 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun loadMutedIdsAsync(userId: String): Set<String>? {
         val key = stringPreferencesKey("mutedIds_$userId")
-        var result: Set<String>? = null
-        dataStore.data.collect { prefs ->
-            val raw = prefs[key]
-            result = if (raw.isNullOrBlank()) null else raw.split(",").toSet()
-            return@collect
-        }
-        return result
+        // first() reads one value and terminates; collecting dataStore.data
+        // would suspend forever (infinite flow — `return@collect` returns from
+        // the lambda, not from collect, so the fresh network refresh that
+        // follows in prefetchMutedSet would never run).
+        val raw = dataStore.data.first()[key]
+        return if (raw.isNullOrBlank()) null else raw.split(",").toSet()
     }
 
     // ── Following IDs (persisted for offline access, matching iOS UserDefaults pattern) ──
@@ -500,12 +500,10 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun loadFollowingIdsAsync(userId: String): Set<String>? {
         val key = stringPreferencesKey("followingIds_$userId")
-        var result: Set<String>? = null
-        dataStore.data.collect { prefs ->
-            val raw = prefs[key]
-            result = if (raw.isNullOrBlank()) null else raw.split(",").toSet()
-            return@collect
-        }
-        return result
+        // first() reads one value and terminates. Collecting dataStore.data
+        // would suspend forever — it's an infinite flow, and `return@collect`
+        // only returns from the lambda, not from collect.
+        val raw = dataStore.data.first()[key]
+        return if (raw.isNullOrBlank()) null else raw.split(",").toSet()
     }
 }
