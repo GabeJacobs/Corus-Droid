@@ -42,9 +42,16 @@ class UserRepository @Inject constructor(
     private val usernameCache = ConcurrentHashMap<String, CacheEntry<String>>() // username → uid
     @Volatile private var suggestedMatchesCache: CacheEntry<List<SuggestedUserMatch>>? = null
 
-    // Cached following set
+    // Cached following set (two-layer: in-memory + persisted to DataStore)
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     val followingIds: StateFlow<Set<String>> = _followingIds.asStateFlow()
+
+    // True once the following set has been seeded at least once (from persisted
+    // cache or network). Lets the Trending inline "Follow" pill stay hidden
+    // while membership is still unknown on a true cold start, instead of
+    // flashing "Follow" for an author the viewer may already follow.
+    private val _followingLoaded = MutableStateFlow(false)
+    val followingLoaded: StateFlow<Boolean> = _followingLoaded.asStateFlow()
 
     /**
      * Fires whenever the local user unfollows someone. Downstream listeners
@@ -63,7 +70,18 @@ class UserRepository @Inject constructor(
     val mutedIds: StateFlow<Set<String>> = _mutedIds.asStateFlow()
 
     suspend fun prefetchFollowingSet(userId: String) {
-        _followingIds.value = firestoreDataSource.fetchFollowingIds(userId)
+        // Layer 1: Load from DataStore for instant correctness on first render
+        // (so the Trending follow pill doesn't flash before the network lands).
+        val persisted = preferencesDataStore.loadFollowingIdsAsync(userId)
+        if (persisted != null) {
+            _followingIds.value = persisted
+            _followingLoaded.value = true
+        }
+        // Layer 2: Fetch fresh from Firestore (source of truth)
+        val fresh = firestoreDataSource.fetchFollowingIds(userId)
+        _followingIds.value = fresh
+        _followingLoaded.value = true
+        preferencesDataStore.persistFollowingIds(fresh, userId)
     }
 
     /**
@@ -80,6 +98,7 @@ class UserRepository @Inject constructor(
         val confirmed = firestoreDataSource.checkFollowingStatusBatch(userId, candidateIds)
         val queried = candidateIds.toSet()
         _followingIds.value = (_followingIds.value - queried) + confirmed
+        preferencesDataStore.persistFollowingIds(_followingIds.value, userId)
     }
 
     suspend fun prefetchBlockedSet(userId: String) {
@@ -184,6 +203,7 @@ class UserRepository @Inject constructor(
     suspend fun followUser(userId: String, targetUserId: String) {
         cloudFunctions.followUser(targetUserId)
         _followingIds.value = _followingIds.value + targetUserId
+        preferencesDataStore.persistFollowingIds(_followingIds.value, userId)
         // The server bumps targetUser.followerCount and userId.followingCount.
         // Drop both cache entries so the next profile fetch reflects the new
         // counts instead of serving a stale entry (target: 5-min TTL; self:
@@ -196,6 +216,7 @@ class UserRepository @Inject constructor(
     suspend fun unfollowUser(userId: String, targetUserId: String) {
         cloudFunctions.unfollowUser(targetUserId)
         _followingIds.value = _followingIds.value - targetUserId
+        preferencesDataStore.persistFollowingIds(_followingIds.value, userId)
         _unfollowEvents.tryEmit(targetUserId)
         invalidateUserProfileCache(targetUserId)
         invalidateUserProfileCache(userId)
@@ -509,6 +530,7 @@ class UserRepository @Inject constructor(
 
     fun clearCaches() {
         _followingIds.value = emptySet()
+        _followingLoaded.value = false
         _blockedIds.value = emptySet()
         _mutedIds.value = emptySet()
         profileCache.clear()

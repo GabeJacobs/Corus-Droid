@@ -118,6 +118,7 @@ fun FeedScreen(
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val feedMode by viewModel.feedMode.collectAsState()
     val followingUserIds by viewModel.followingUserIds.collectAsState()
+    val followingLoaded by viewModel.followingLoaded.collectAsState()
     val forYouLoadFailed by viewModel.forYouLoadFailed.collectAsState()
     val forYouEnabled = viewModel.remoteConfig.forYouEnabled
     val trendingFeedEnabled = viewModel.remoteConfig.trendingFeedEnabled
@@ -622,6 +623,7 @@ fun FeedScreen(
                             onAlbumArtTap = { viewModel.markAlbumArtTapped() },
                             isTrendingFeed = feedMode == "trending",
                             isFollowingAuthor = followingUserIds.contains(post.user.id),
+                            isFollowingKnown = followingLoaded,
                             onFollowAuthor = { viewModel.followAuthor(post.user.id) },
                         )
                         HorizontalDivider(

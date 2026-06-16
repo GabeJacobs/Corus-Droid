@@ -488,4 +488,24 @@ class PreferencesDataStore @Inject constructor(
         }
         return result
     }
+
+    // ── Following IDs (persisted for offline access, matching iOS UserDefaults pattern) ──
+    // Seeds the cached following set instantly on launch so the Trending inline
+    // "Follow" pill is correct on first composition instead of flashing in then out.
+
+    suspend fun persistFollowingIds(ids: Set<String>, userId: String) {
+        val key = stringPreferencesKey("followingIds_$userId")
+        dataStore.edit { it[key] = ids.joinToString(",") }
+    }
+
+    suspend fun loadFollowingIdsAsync(userId: String): Set<String>? {
+        val key = stringPreferencesKey("followingIds_$userId")
+        var result: Set<String>? = null
+        dataStore.data.collect { prefs ->
+            val raw = prefs[key]
+            result = if (raw.isNullOrBlank()) null else raw.split(",").toSet()
+            return@collect
+        }
+        return result
+    }
 }

@@ -118,6 +118,11 @@ fun PostCard(
      *  synchronously from the cached following set so the pill is correct on
      *  first composition (no per-post read, no pop-in). */
     isFollowingAuthor: Boolean = false,
+    /** Whether the viewer's following set has been seeded yet. While false (a
+     *  true cold start with no persisted cache), the inline pill stays hidden
+     *  instead of flashing "Follow" for an author who may already be followed.
+     *  Defaults true so non-Trending callers are unaffected. */
+    isFollowingKnown: Boolean = true,
     /** Invoked when the inline Trending pill is tapped — should optimistically
      *  follow the author (and log analytics). */
     onFollowAuthor: () -> Unit = {},
@@ -149,7 +154,7 @@ fun PostCard(
     var followTapped by remember(post.id) { mutableStateOf(false) }
     var inlineFollowDismissed by remember(post.id) { mutableStateOf(false) }
     val showInlineFollow = isTrendingFeed && !isOwnPost && !inlineFollowDismissed &&
-        (followTapped || !isFollowingAuthor)
+        (followTapped || (isFollowingKnown && !isFollowingAuthor))
 
     // Tap-hint pulse: only runs when showsTapHint and there is no playback yet.
     val hintActive = showsTapHint && post.isTrack && !post.track.unavailable

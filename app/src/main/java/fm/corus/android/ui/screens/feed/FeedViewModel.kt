@@ -308,6 +308,12 @@ class FeedViewModel @Inject constructor(
      *  read. (Same underlying set as [followedBotIds]; aliased for clarity.) */
     val followingUserIds: StateFlow<Set<String>> = followedBotIds
 
+    /** True once the viewer's following set has been seeded at least once (from
+     *  the persisted cache or network). The inline Trending pill stays hidden
+     *  until this flips so it never flashes "Follow" for an author the viewer
+     *  may already follow while membership is still unknown on a cold start. */
+    val followingLoaded: StateFlow<Boolean> = userRepository.followingLoaded
+
     // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
     private val activeListenerPostIds = mutableSetOf<String>()
 
