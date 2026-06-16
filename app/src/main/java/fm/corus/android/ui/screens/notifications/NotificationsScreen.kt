@@ -159,8 +159,6 @@ fun NotificationsScreen(
             onMessagesTapped = onNavigateToMessages,
         )
 
-        HorizontalDivider(color = CorusColors.Divider)
-
         val haptics = LocalHapticManager.current
         @OptIn(ExperimentalMaterial3Api::class)
         PullToRefreshBox(

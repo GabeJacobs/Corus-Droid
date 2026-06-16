@@ -216,6 +216,11 @@ class PreferencesDataStore @Inject constructor(
         val TRENDING_HASHTAGS_WINDOW = stringPreferencesKey("trending_hashtags_window")
         // For You feed mode + seen-IDs ring buffer (cap 500, JSON-encoded).
         val FEED_MODE = stringPreferencesKey("feed_mode")
+        // Synchronous mirror of FEED_MODE's raw value, in the same launch-critical
+        // SharedPreferences store as AppearanceDefaultMigration, so the header icon
+        // can be seeded without awaiting DataStore (avoids a Following→ranked flash).
+        private const val SYNC_PREFS_NAME = "corus_prefs"
+        private const val FEED_MODE_SYNC_KEY = "feed_mode"
         val FOR_YOU_SEEN_IDS = stringPreferencesKey("for_you_seen_ids")
         // Active home-feed content filter (FeedFilter enum name). Mirrors iOS
         // @AppStorage("feedFilter"); persists the music/film/new-releases choice
@@ -282,14 +287,37 @@ class PreferencesDataStore @Inject constructor(
      * ViewModel resolves the opening mode from Remote Config
      * (`default_for_you_feed_enabled`) in that case. Once the user taps a
      * mode it's persisted here and sticks.
+     *
+     * The emitted raw value is also write-through mirrored to the synchronous
+     * `corus_prefs` store so [feedModeSyncSeed] can seed the header icon on the
+     * launch-critical path without awaiting DataStore — otherwise the icon
+     * flashes Following before the persisted ranked mode loads. Same store and
+     * rationale as [AppearanceDefaultMigration].
      */
     val feedMode: Flow<String> = dataStore.data.map { prefs ->
-        prefs[FEED_MODE] ?: ""
+        (prefs[FEED_MODE] ?: "").also { mirrorFeedModeSync(it) }
     }
 
     suspend fun setFeedMode(value: String) {
+        mirrorFeedModeSync(value)
         dataStore.edit { it[FEED_MODE] = value }
     }
+
+    private fun mirrorFeedModeSync(raw: String) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(FEED_MODE_SYNC_KEY, raw).apply()
+    }
+
+    /**
+     * Synchronous best-effort read of the persisted raw feed mode, used to seed
+     * UI before the async [feedMode] flow emits. Empty string = unknown (the
+     * user never picked a mode, or an existing install whose value hasn't been
+     * mirrored from DataStore yet); the caller resolves it the same way the flow
+     * does. Mirror is kept current by [feedMode] / [setFeedMode].
+     */
+    fun feedModeSyncSeed(): String =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(FEED_MODE_SYNC_KEY, null) ?: ""
 
     /**
      * Ring buffer of recently-served For You post IDs (JSON-encoded array

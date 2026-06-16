@@ -228,7 +228,17 @@ class FeedViewModel @Inject constructor(
     }
     val feedMode: StateFlow<String> = preferencesDataStore.feedMode
         .map { resolveFeedMode(it) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "following")
+        // Seed from the synchronous mirror so the header icon is correct on the
+        // first frame instead of flashing Following before DataStore resolves.
+        // For an existing install that hasn't mirrored yet the seed reads ""
+        // (→ resolves to the default), and the init collector below re-syncs
+        // once the real persisted value lands — a one-launch fallback that then
+        // self-heals as the mirror is written.
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            resolveFeedMode(preferencesDataStore.feedModeSyncSeed()),
+        )
 
     // The mode the currently-shown page was actually loaded with. feedMode
     // resolves from DataStore asynchronously (its eager seed is "following"),
