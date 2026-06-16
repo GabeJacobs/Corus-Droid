@@ -647,6 +647,9 @@ fun PostCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(16f / 9f),
+                        // Controls shown so the scrub bar is available; they
+                        // auto-hide during playback, so it stays clean.
+                        showControls = true,
                         onEnded = {
                             inlineTrailerVideoID = null
                             TrailerPlaybackCoordinator.stop(post.id)

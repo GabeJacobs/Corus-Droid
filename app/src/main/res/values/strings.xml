@@ -98,6 +98,7 @@
     <string name="notifications_row_new_followers">New Followers</string>
     <string name="notifications_row_follow_requests">Follow Requests</string>
     <string name="notifications_row_contact_joined">Contact Joined</string>
+    <string name="notifications_row_plays">Plays</string>
     <string name="notifications_row_messages">Messages</string>
     <string name="notifications_row_read_receipts">Read receipts</string>
 
@@ -552,6 +553,7 @@
     <string name="notif_msg_repost">reposted your %s.</string>
     <string name="notif_msg_taste_match_default">is a new taste match.</string>
     <string name="notif_msg_favorite">added you to their favorites.</string>
+    <string name="notif_msg_play_milestone">%1$d people played your corus.</string>
     <string name="notif_favorite_someone">Someone</string>
     <string name="notif_favorite_sheet_title">Someone\'s a fan</string>
     <string name="notif_favorite_sheet_body">Someone added you to their favorites so your posts are easier for them to keep up with.</string>

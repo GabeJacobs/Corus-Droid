@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PersonSearch
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.PersonAdd
@@ -101,6 +102,17 @@ fun NotificationSettingsScreen(
                 checked = settings.tasteMatches,
                 onCheckedChange = viewModel::setTasteMatches,
             )
+
+            // Gated behind the same flag as the backend play-milestone feature,
+            // so the row only appears once play notifications are launched.
+            if (viewModel.playMilestoneEnabled) {
+                NotifToggleRow(
+                    icon = Icons.Filled.PlayArrow,
+                    title = stringResource(R.string.notifications_row_plays),
+                    checked = settings.plays,
+                    onCheckedChange = viewModel::setPlays,
+                )
+            }
 
             NotifToggleRow(
                 icon = Icons.Filled.Notifications,

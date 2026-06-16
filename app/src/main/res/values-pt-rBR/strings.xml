@@ -97,6 +97,7 @@
     <string name="notifications_row_new_followers">Novos Seguidores</string>
     <string name="notifications_row_follow_requests">Solicitações de Seguir</string>
     <string name="notifications_row_contact_joined">Contato Entrou</string>
+    <string name="notifications_row_plays">Reproduções</string>
     <string name="notifications_row_messages">Mensagens</string>
 
     <!-- Settings: Appearance -->
@@ -931,6 +932,7 @@
     <string name="hashtag_followers_count">%1$s %2$s</string>
     <string name="hashtag_count_coruses">%1$s %2$s</string>
     <string name="notif_msg_favorite">adicionou você aos favoritos.</string>
+    <string name="notif_msg_play_milestone">%1$d pessoas reproduziram seu corus.</string>
     <string name="notif_favorite_someone">Alguém</string>
     <string name="notif_favorite_sheet_title">Alguém é fã</string>
     <string name="notif_favorite_sheet_body">Alguém adicionou você aos favoritos para acompanhar seus coruses mais facilmente.</string>

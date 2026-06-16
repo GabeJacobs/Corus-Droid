@@ -13,7 +13,8 @@ enum class NotificationType(val value: String) {
     REPLY("reply"),
     CONTACT_JOINED("contact_joined"),
     TASTE_MATCH("taste_match"),
-    FAVORITE("favorite");
+    FAVORITE("favorite"),
+    PLAY_MILESTONE("play_milestone");
 
     val supportsCommentActions: Boolean
         get() = this in listOf(COMMENT, REPLY, MENTION)

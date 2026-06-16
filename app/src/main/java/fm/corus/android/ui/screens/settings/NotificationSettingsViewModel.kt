@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +24,7 @@ data class NotificationSettings(
     val followRequests: Boolean = true,
     val contactJoined: Boolean = true,
     val tasteMatches: Boolean = true,
+    val plays: Boolean = true,
     val messagePush: Boolean = true,
     val readReceipts: Boolean = true,
     val isLoaded: Boolean = false,
@@ -33,10 +35,16 @@ class NotificationSettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val analyticsService: AnalyticsService,
+    private val remoteConfigService: RemoteConfigService,
 ) : ViewModel() {
 
     private val _settings = MutableStateFlow(NotificationSettings())
     val settings: StateFlow<NotificationSettings> = _settings.asStateFlow()
+
+    /** Gates the "Plays" toggle row — only shown once play-milestone
+     *  notifications are launched (same flag the backend + other clients use). */
+    val playMilestoneEnabled: Boolean
+        get() = remoteConfigService.playMilestoneEnabled
 
     private val firestore: FirebaseFirestore = Firebase.firestore
 
@@ -59,6 +67,7 @@ class NotificationSettingsViewModel @Inject constructor(
                     followRequests = notif["followRequests"] as? Boolean ?: true,
                     contactJoined = notif["contactJoined"] as? Boolean ?: true,
                     tasteMatches = notif["tasteMatches"] as? Boolean ?: true,
+                    plays = notif["plays"] as? Boolean ?: true,
                     messagePush = msg["pushEnabled"] as? Boolean ?: true,
                     readReceipts = msg["readReceiptsEnabled"] as? Boolean ?: true,
                     isLoaded = true,
@@ -89,6 +98,9 @@ class NotificationSettingsViewModel @Inject constructor(
         updateNotif("tasteMatches", enabled) {
             _settings.value = _settings.value.copy(tasteMatches = enabled)
         }
+    }
+    fun setPlays(enabled: Boolean) = updateNotif("plays", enabled) {
+        _settings.value = _settings.value.copy(plays = enabled)
     }
     fun setMessagePush(enabled: Boolean) {
         val uid = authRepository.currentUserId ?: return

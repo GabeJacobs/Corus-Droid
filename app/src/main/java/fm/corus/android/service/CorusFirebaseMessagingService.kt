@@ -24,6 +24,10 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
     companion object {
         private const val CHANNEL_ID = "corus_default"
         private const val CHANNEL_NAME = "Corus"
+        // Dedicated channel for play-milestone pushes so users can mute just
+        // these from system settings without silencing all of Corus.
+        private const val CHANNEL_ID_PLAYS = "corus_plays"
+        private const val CHANNEL_NAME_PLAYS = "Plays"
         const val EXTRA_FROM_NOTIFICATION = "from_notification"
         const val EXTRA_NOTIF_PREFIX = "notif_"
     }
@@ -92,7 +96,13 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
+        // Route play-milestone pushes to their own channel so they can be muted
+        // independently in system settings.
+        val isPlay = data["type"] == "play_milestone"
+        val channelId = if (isPlay) CHANNEL_ID_PLAYS else CHANNEL_ID
+        val channelName = if (isPlay) CHANNEL_NAME_PLAYS else CHANNEL_NAME
+
+        val notificationBuilder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.logo_no_background)
             .setContentTitle(title)
             .setContentText(body)
@@ -102,7 +112,7 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Create channel (required for Android O+, no-op if already exists)
-        val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT)
+        val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT)
         manager.createNotificationChannel(channel)
 
         manager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())

@@ -171,6 +171,13 @@ class RemoteConfigService @Inject constructor(
     val favoritesPushEnabled: Boolean
         get() = remoteConfig.getBoolean("favorites_push_enabled")
 
+    /// Gate for play-milestone notifications ("N plays on your corus"). Gates
+    /// the backend rows + push AND the "Plays" toggle row in notification
+    /// settings. Stays off until the play_milestone row has shipped everywhere.
+    /// Shares the `play_milestone_enabled` RC key with iOS/web.
+    val playMilestoneEnabled: Boolean
+        get() = feedFlag("play_milestone_enabled")
+
     /// When true, users who have never explicitly picked a feed mode open in
     /// For You instead of Recent. Only applies until the user picks a mode.
     val defaultForYouFeedEnabled: Boolean
@@ -282,6 +289,7 @@ class RemoteConfigService @Inject constructor(
                     "trending_feed_enabled" to false,
                     "favorites_enabled" to false,
                     "favorites_push_enabled" to false,
+                    "play_milestone_enabled" to false,
                     "default_for_you_feed_enabled" to false,
                 )
             ).await()
@@ -301,6 +309,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("for_you_enabled", remoteConfig.getBoolean("for_you_enabled"))
             .putBoolean("trending_feed_enabled", remoteConfig.getBoolean("trending_feed_enabled"))
             .putBoolean("favorites_enabled", remoteConfig.getBoolean("favorites_enabled"))
+            .putBoolean("play_milestone_enabled", remoteConfig.getBoolean("play_milestone_enabled"))
             .putBoolean("default_for_you_feed_enabled", remoteConfig.getBoolean("default_for_you_feed_enabled"))
             .apply()
     }

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
@@ -447,7 +448,8 @@ private fun NotificationRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         verticalAlignment = if (showCommentActions) Alignment.Top else Alignment.CenterVertically,
     ) {
-        // Left: avatar (taps to profile) — or, for anonymous favorites, a star.
+        // Left: avatar (taps to profile) — or, for anonymous favorites, a star,
+        // or, for play milestones, a headphones glyph.
         if (notification.type == NotificationType.FAVORITE) {
             Box(
                 modifier = Modifier
@@ -458,6 +460,21 @@ private fun NotificationRow(
             ) {
                 Icon(
                     imageVector = Icons.Filled.Star,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        } else if (notification.type == NotificationType.PLAY_MILESTONE) {
+            Box(
+                modifier = Modifier
+                    .size(CorusSpacing.avatarMedium)
+                    .clip(CircleShape)
+                    .background(CorusColors.Accent.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Headphones,
                     contentDescription = null,
                     tint = CorusColors.Accent,
                     modifier = Modifier.size(20.dp),
@@ -495,6 +512,18 @@ private fun NotificationRow(
                     append(stringResource(id = R.string.notif_favorite_someone))
                 }
                 append(" ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
+                    append(localizedNotificationMessage(notification, context))
+                }
+                append(" ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, color = CorusColors.Secondary)) {
+                    append(timeString)
+                }
+            }
+        } else if (notification.type == NotificationType.PLAY_MILESTONE) {
+            // Anonymous aggregate — the whole "{n} people played your corus."
+            // sentence is one localized, count-formatted string (no actor name).
+            buildAnnotatedString {
                 withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
                     append(localizedNotificationMessage(notification, context))
                 }
@@ -942,6 +971,7 @@ private fun localizedNotificationMessage(
         NotificationType.TASTE_MATCH -> notification.bodyText
             ?: context.getString(R.string.notif_msg_taste_match_default)
         NotificationType.FAVORITE -> context.getString(R.string.notif_msg_favorite)
+        NotificationType.PLAY_MILESTONE -> context.getString(R.string.notif_msg_play_milestone, notification.playCount ?: 0)
     }
 }
 

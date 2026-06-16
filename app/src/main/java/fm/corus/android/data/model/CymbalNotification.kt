@@ -14,6 +14,8 @@ data class CymbalNotification(
     val subtype: String? = null,
     val timestamp: Date = Date(),
     val isRead: Boolean = false,
+    /** Unique-listener count for PLAY_MILESTONE rows (null otherwise). */
+    val playCount: Int? = null,
 ) {
     val supportsCommentActions: Boolean
         get() = commentId != null && postId != null && type.supportsCommentActions
@@ -34,6 +36,8 @@ data class CymbalNotification(
             NotificationType.TASTE_MATCH -> bodyText ?: "is a new taste match."
             // Anonymous — paired with a "Someone" display name in the row.
             NotificationType.FAVORITE -> "added you to their favorites."
+            // Anonymous aggregate — the row prepends "{playCount} people".
+            NotificationType.PLAY_MILESTONE -> "played your corus."
         }
 
     companion object {
@@ -64,6 +68,7 @@ data class CymbalNotification(
                 subtype = data["subtype"] as? String,
                 timestamp = timestamp,
                 isRead = data["isRead"] as? Boolean ?: false,
+                playCount = (data["playCount"] as? Number)?.toInt(),
             )
         }
     }

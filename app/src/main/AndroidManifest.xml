@@ -16,6 +16,15 @@
 
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
+    <!-- Package visibility (Android 11+): the share sheet detects Instagram and
+         WhatsApp via PackageManager.getPackageInfo(); without these <queries>
+         entries that call always throws NameNotFoundException, so the Instagram
+         Stories and WhatsApp buttons would silently never appear. -->
+    <queries>
+        <package android:name="com.instagram.android" />
+        <package android:name="com.whatsapp" />
+    </queries>
+
     <application
         android:name=".CorusApplication"
         android:allowBackup="true"
