@@ -66,6 +66,22 @@ class UserRepository @Inject constructor(
         _followingIds.value = firestoreDataSource.fetchFollowingIds(userId)
     }
 
+    /**
+     * Verifies the local user's forward-follow status for [candidateIds]
+     * against the server and heals the cached [followingIds] set with the
+     * result. The cache is seeded once at launch and otherwise only mutated by
+     * local follow/unfollow, so a follow made on another device never reaches
+     * it — leaving the Activity feed to show a stale "Follow back". Authoritative
+     * over the queried subset: confirmed ids are added, queried ids the server
+     * doesn't confirm are removed (so it also corrects a remote unfollow).
+     */
+    suspend fun reconcileFollowingStatus(userId: String, candidateIds: List<String>) {
+        if (candidateIds.isEmpty()) return
+        val confirmed = firestoreDataSource.checkFollowingStatusBatch(userId, candidateIds)
+        val queried = candidateIds.toSet()
+        _followingIds.value = (_followingIds.value - queried) + confirmed
+    }
+
     suspend fun prefetchBlockedSet(userId: String) {
         _blockedIds.value = firestoreDataSource.fetchBlockedIds(userId)
     }
@@ -142,10 +158,15 @@ class UserRepository @Inject constructor(
 
     suspend fun uploadAvatar(uid: String, imageData: ByteArray): String {
         val url = storageDataSource.uploadAvatar(uid, imageData)
-        val timestamp = System.currentTimeMillis()
-        firestoreDataSource.updateUserProfile(uid, mapOf("avatarURL" to "$url?v=$timestamp"))
+        // The Firebase download URL already carries a query string
+        // (?alt=media&token=...), so the cache-buster must be appended with '&',
+        // not '?'. A second '?' produces a malformed URL that corrupts the token
+        // and breaks the image load on stricter clients (iOS).
+        val separator = if (url.contains('?')) '&' else '?'
+        val bustedUrl = "$url${separator}v=${System.currentTimeMillis()}"
+        firestoreDataSource.updateUserProfile(uid, mapOf("avatarURL" to bustedUrl))
         invalidateUserProfileCache(uid)
-        return "$url?v=$timestamp"
+        return bustedUrl
     }
 
     suspend fun checkUsernameAvailable(username: String): Boolean {

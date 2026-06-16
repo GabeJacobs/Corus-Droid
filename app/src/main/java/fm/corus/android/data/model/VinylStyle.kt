@@ -61,7 +61,7 @@ enum class VinylStyle(val value: String) {
             CLEAR -> 327f / 585f
             PURPLE -> 326f / 585f
             GREEN -> 322f / 585f
-            GOLD -> 327f / 585f
+            GOLD -> 319.91f / 585f
         }
 
     val labelYFrac: Float
@@ -74,7 +74,7 @@ enum class VinylStyle(val value: String) {
             CLEAR -> 154f / 447f
             PURPLE -> 153f / 447f
             GREEN -> 148f / 447f
-            GOLD -> 149f / 447f
+            GOLD -> 151.6f / 447f
         }
 
     val labelWFrac: Float
@@ -87,7 +87,7 @@ enum class VinylStyle(val value: String) {
             CLEAR -> 88f / 585f
             PURPLE -> 90f / 585f
             GREEN -> 98f / 585f
-            GOLD -> 93f / 585f
+            GOLD -> 89.29f / 585f
         }
 
     val labelHFrac: Float
@@ -100,7 +100,7 @@ enum class VinylStyle(val value: String) {
             CLEAR -> 90f / 447f
             PURPLE -> 92f / 447f
             GREEN -> 100f / 447f
-            GOLD -> 95f / 447f
+            GOLD -> 91.25f / 447f
         }
 
     val canvasRatio: Float get() = 447f / 585f

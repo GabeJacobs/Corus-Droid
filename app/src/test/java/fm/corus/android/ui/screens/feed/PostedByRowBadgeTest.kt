@@ -22,8 +22,9 @@ import kotlin.math.abs
  * Regression tests for the "Posted by N users" rows on the song/film detail
  * screens. Two things must hold (matching iOS and Web):
  *
- *  1. The gold "1ST" first-poster trophy sits next to the *display name*, not
- *     the @username line.
+ *  1. The gold "1ST" first-poster trophy sits next to the prominent *@username*
+ *     line (the rows lead with the username, display name muted below), not the
+ *     display-name line.
  *  2. The purple "NEW RELEASE" pill never appears in this poster list — it is
  *     only meant to show on a post itself.
  *
@@ -69,8 +70,8 @@ class PostedByRowBadgeTest {
         movieReleaseDate = todayIso,
     )
 
-    /** The 1ST badge's vertical center must align with the display-name line. */
-    private fun assertTrophyOnDisplayNameLine() {
+    /** The 1ST badge's vertical center must align with the @username line. */
+    private fun assertTrophyOnUsernameLine() {
         // The row is clickable, which merges descendant semantics into one node;
         // query the unmerged tree so each text node reports its own bounds.
         val displayName = composeRule
@@ -85,27 +86,27 @@ class PostedByRowBadgeTest {
         val usernameCenterY = (username.top + username.bottom).value / 2f
 
         assertTrue(
-            "1ST badge (centerY=$trophyCenterY) should sit on the display-name line " +
-                "(centerY=$nameCenterY), not the @username line (centerY=$usernameCenterY)",
-            abs(trophyCenterY - nameCenterY) < abs(trophyCenterY - usernameCenterY),
+            "1ST badge (centerY=$trophyCenterY) should sit on the @username line " +
+                "(centerY=$usernameCenterY), not the display-name line (centerY=$nameCenterY)",
+            abs(trophyCenterY - usernameCenterY) < abs(trophyCenterY - nameCenterY),
         )
     }
 
     @Test
-    fun `song row shows 1ST next to display name and no new release pill`() {
+    fun `song row shows 1ST next to username and no new release pill`() {
         composeRule.setContent { PostedByRow(post = songPost()) }
 
         composeRule.onNodeWithText("1ST").assertExists()
         composeRule.onNodeWithText("NEW RELEASE").assertDoesNotExist()
-        assertTrophyOnDisplayNameLine()
+        assertTrophyOnUsernameLine()
     }
 
     @Test
-    fun `film row shows 1ST next to display name and no new release pill`() {
+    fun `film row shows 1ST next to username and no new release pill`() {
         composeRule.setContent { FilmPostedByRow(post = filmPost()) }
 
         composeRule.onNodeWithText("1ST").assertExists()
         composeRule.onNodeWithText("NEW RELEASE").assertDoesNotExist()
-        assertTrophyOnDisplayNameLine()
+        assertTrophyOnUsernameLine()
     }
 }

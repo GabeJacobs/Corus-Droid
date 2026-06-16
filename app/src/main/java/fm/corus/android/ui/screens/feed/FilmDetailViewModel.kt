@@ -8,6 +8,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +19,7 @@ import javax.inject.Inject
 class FilmDetailViewModel @Inject constructor(
     private val postRepository: PostRepository,
     val nowPlayingManager: NowPlayingManager,
+    val analyticsService: AnalyticsService,
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
 ) : ViewModel() {

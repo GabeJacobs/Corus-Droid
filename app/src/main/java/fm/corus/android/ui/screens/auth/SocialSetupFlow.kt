@@ -970,15 +970,17 @@ private fun OnboardingUserRow(
         UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
+            // Lead with the @username to match search/follow lists; the subtitle
+            // (or display name) sits muted below.
             Text(
-                user.displayName,
+                "@${user.username}",
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                subtitle ?: "@${user.username}",
+                subtitle ?: user.displayName,
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,
                 maxLines = 1,

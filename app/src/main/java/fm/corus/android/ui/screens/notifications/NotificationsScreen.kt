@@ -936,6 +936,7 @@ private fun localizedNotificationMessage(
         NotificationType.SAVE -> context.getString(R.string.notif_msg_save, postNoun)
         NotificationType.FOLLOW -> context.getString(R.string.notif_msg_follow)
         NotificationType.NEW_POST -> context.getString(R.string.notif_msg_new_post, postNoun)
+        NotificationType.REPOST -> context.getString(R.string.notif_msg_repost, postNoun)
         NotificationType.REPLY -> commentExcerpt
             ?.let { context.getString(R.string.notif_msg_reply_with_text, it) }
             ?: context.getString(R.string.notif_msg_reply_no_text)

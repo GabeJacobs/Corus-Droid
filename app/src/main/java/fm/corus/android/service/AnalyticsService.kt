@@ -202,6 +202,17 @@ class AnalyticsService @Inject constructor(
     fun logSpotifyLinkTapped(trackId: String) = logEvent("spotify_link_tapped", mapOf("track_id" to trackId))
 
     /**
+     * Two events on the song/film detail "Posted by" list so the two tap
+     * destinations are comparable: the row opens that user's post, the
+     * avatar/name opens their profile. `mediaType` is "song" or "film";
+     * `contentId` is the track or movie id. Mirrored on Web and iOS.
+     */
+    fun logPostedByPostTapped(mediaType: String, contentId: String, postId: String) =
+        logEvent("posted_by_post_tapped", mapOf("media_type" to mediaType, "content_id" to contentId, "post_id" to postId))
+    fun logPostedByProfileTapped(mediaType: String, contentId: String, userId: String) =
+        logEvent("posted_by_profile_tapped", mapOf("media_type" to mediaType, "content_id" to contentId, "user_id" to userId))
+
+    /**
      * Link-out tap for a non-Spotify service (TIDAL, Deezer, Apple Music).
      * Spotify keeps the established `spotify_link_tapped`; every other service
      * routes here with a `service` param (the canonical `MusicService.value`)

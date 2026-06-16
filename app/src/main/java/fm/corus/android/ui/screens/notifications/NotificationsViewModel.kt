@@ -172,6 +172,7 @@ class NotificationsViewModel @Inject constructor(
                 _hasMoreNotifications.value = _notifications.value.size >= pageSize
                 loadCommentLikeStatuses(userId)
                 loadFollowsMeStatuses(userId)
+                loadFollowingStatuses(userId)
             } catch (_: Exception) { }
             _isRefreshing.value = false
         }
@@ -212,6 +213,7 @@ class NotificationsViewModel @Inject constructor(
                     _hasLoadError.value = false
                     loadCommentLikeStatuses(userId)
                     loadFollowsMeStatuses(userId)
+                    loadFollowingStatuses(userId)
                 }
             } catch (_: Exception) {
                 // Fallback to one-shot fetch
@@ -223,6 +225,7 @@ class NotificationsViewModel @Inject constructor(
                     _hasMoreNotifications.value = fetched.size >= pageSize
                     loadCommentLikeStatuses(userId)
                     loadFollowsMeStatuses(userId)
+                    loadFollowingStatuses(userId)
                     fellBackOk = true
                 } catch (_: Exception) { }
                 _isLoading.value = false
@@ -446,6 +449,29 @@ class NotificationsViewModel @Inject constructor(
             if (followers.isNotEmpty()) {
                 _followsMeIds.value = _followsMeIds.value + followers
             }
+        }
+    }
+
+    /**
+     * Verifies the local user's OWN forward-follow status for FOLLOW rows
+     * against the server and heals the cached followingIds set. Unlike
+     * [loadFollowsMeStatuses] (reverse direction), this corrects a follow made
+     * on another device that the launch-seeded cache never learned about — so
+     * the follow button doesn't show a stale "Follow back" that flips to
+     * "Following", and the corrected value sticks across visits.
+     */
+    private fun loadFollowingStatuses(userId: String) {
+        val candidateIds = _notifications.value
+            .filter { it.type == fm.corus.android.data.model.NotificationType.FOLLOW }
+            .map { it.fromUser.id }
+            .filter { it != userId }
+            .distinct()
+        if (candidateIds.isEmpty()) return
+
+        viewModelScope.launch {
+            try {
+                userRepository.reconcileFollowingStatus(userId, candidateIds)
+            } catch (_: Exception) { }
         }
     }
 

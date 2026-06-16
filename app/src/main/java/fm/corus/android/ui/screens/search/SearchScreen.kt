@@ -138,6 +138,7 @@ fun SearchScreen(
     val suggestedMatches by viewModel.suggestedMatches.collectAsState()
     val isSuggestedLoading by viewModel.isSuggestedLoading.collectAsState()
     val isTasteMatchPolling by viewModel.isTasteMatchPolling.collectAsState()
+    val tasteMatchLoadFailed by viewModel.tasteMatchLoadFailed.collectAsState()
     val recentSearchUsers by viewModel.recentSearchUsers.collectAsState()
     val contactMatches by viewModel.contactMatches.collectAsState()
     val isSyncingContacts by viewModel.isSyncingContacts.collectAsState()
@@ -372,6 +373,7 @@ fun SearchScreen(
                                 allFollowedIds = allFollowedIds,
                                 isSuggestedLoading = isSuggestedLoading,
                                 isTasteMatchPolling = isTasteMatchPolling,
+                                tasteMatchLoadFailed = tasteMatchLoadFailed,
                                 viewModel = viewModel,
                                 onNavigateToUser = onNavigateToUser,
                                 onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
@@ -658,6 +660,7 @@ private fun SuggestedUsersContent(
     allFollowedIds: Set<String>,
     isSuggestedLoading: Boolean,
     isTasteMatchPolling: Boolean,
+    tasteMatchLoadFailed: Boolean,
     viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
@@ -820,6 +823,10 @@ private fun SuggestedUsersContent(
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
+        } else if (tasteMatchLoadFailed) {
+            // Failed/timed-out load with nothing to show: hide the section entirely
+            // rather than implying the user has no taste matches. It reappears on the
+            // next successful load (or the cold-start poll recovering).
         } else {
             item {
                 SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
@@ -1270,15 +1277,8 @@ fun SuggestedUserRow(
         UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = 44.dp)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            // Display name (bold)
-            Text(
-                text = user.displayName.ifBlank { user.username },
-                style = CorusFont.bodyMedium,
-                color = CorusColors.Text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            // @username + flair badge
+            // Lead with the @username (with flair) to match search/follow lists;
+            // display name sits muted below.
             UsernameWithFlair(
                 username = user.username,
                 isVerified = user.isVerified,
@@ -1286,9 +1286,18 @@ fun SuggestedUserRow(
                 flairStyle = user.flairStyle,
                 isBot = user.isBot,
                 showAtPrefix = true,
-                style = CorusFont.caption,
-                color = CorusColors.Secondary,
+                style = CorusFont.username,
+                color = CorusColors.Text,
             )
+            if (user.displayName.isNotBlank()) {
+                Text(
+                    text = user.displayName,
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             // Flavor text (subtitle like "Followed by @user1, @user2")
             if (!subtitle.isNullOrBlank()) {
                 Text(

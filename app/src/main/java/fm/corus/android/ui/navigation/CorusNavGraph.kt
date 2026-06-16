@@ -549,6 +549,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             soundcloudPermalinkUrl = route.soundcloudPermalinkUrl,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToCompose = { track ->
                 mainTabViewModel.setPreSelectedTrack(track)
             },
@@ -567,6 +568,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             initialTrailerURL = route.trailerURL,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToCompose = { movieId ->
                 mainTabViewModel.setPreSelectedMovieId(movieId)
             },

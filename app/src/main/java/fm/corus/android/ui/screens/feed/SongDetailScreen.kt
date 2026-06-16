@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -68,6 +69,7 @@ fun SongDetailScreen(
     viewModel: SongDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
+    onNavigateToPost: (String) -> Unit = {},
     onNavigateToCompose: (CymbalTrack) -> Unit = {},
 ) {
     val posts by viewModel.posts.collectAsState()
@@ -475,7 +477,14 @@ fun SongDetailScreen(
                 items(posts, key = { it.id }) { post ->
                     PostedByRow(
                         post = post,
-                        onUserTap = { onNavigateToUser(post.user.id) },
+                        onUserTap = {
+                            viewModel.analyticsService.logPostedByProfileTapped("song", trackId, post.user.id)
+                            onNavigateToUser(post.user.id)
+                        },
+                        onPostTap = {
+                            viewModel.analyticsService.logPostedByPostTapped("song", trackId, post.id)
+                            onNavigateToPost(post.id)
+                        },
                     )
                     if (post.id != posts.lastOrNull()?.id) {
                         HorizontalDivider(
@@ -508,11 +517,16 @@ fun SongDetailScreen(
 internal fun PostedByRow(
     post: CymbalPost,
     onUserTap: () -> Unit = {},
+    onPostTap: () -> Unit = {},
 ) {
+    // Whole row opens the post; the avatar and name column carry their own
+    // clickable for the profile. A child clickable consumes the tap, so taps on
+    // the avatar/name go to onUserTap and everything else falls through to the
+    // row's onPostTap.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onUserTap)
+            .clickable(onClick = onPostTap)
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -520,42 +534,70 @@ internal fun PostedByRow(
             avatarURL = post.user.avatarURL,
             displayName = post.user.displayName,
             size = CorusSpacing.avatarMedium,
+            modifier = Modifier.clickable(onClick = onUserTap),
         )
 
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = post.user.displayName,
-                    style = CorusFont.bodyMedium,
+            // Username + display name open the profile. Leads with the @username
+            // (with the 1ST trophy inline) to match search/follow lists; display
+            // name sits muted below.
+            Column(modifier = Modifier.clickable(onClick = onUserTap)) {
+                UsernameWithFlair(
+                    username = post.user.username,
+                    isVerified = post.user.isVerified,
+                    isClubMember = post.user.isClubMember,
+                    flairStyle = post.user.flairStyle,
+                    isBot = post.user.isBot,
+                    isFirstPoster = post.isFirstPoster,
+                    showAtPrefix = true,
+                    style = CorusFont.username,
                     color = CorusColors.Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
                 )
-                if (post.isFirstPoster) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    FirstPosterBadge()
+                if (post.user.displayName.isNotBlank()) {
+                    Text(
+                        text = post.user.displayName,
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
-            UsernameWithFlair(
-                username = post.user.username,
-                isVerified = post.user.isVerified,
-                isClubMember = post.user.isClubMember,
-                flairStyle = post.user.flairStyle,
-                isBot = post.user.isBot,
-                showAtPrefix = true,
-                style = CorusFont.caption,
-                color = CorusColors.Secondary,
-            )
+
+            // Caption snippet — part of the row's post tap (no clickable here).
+            val caption = post.caption?.trim()
+            if (!caption.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "“$caption”",
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
 
-        Text(
-            text = DateUtils.relativeTime(LocalContext.current, post.timestamp),
-            style = CorusFont.caption,
-            color = CorusColors.Tertiary,
-        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+
+        // Centered against the full row: timestamp + chevron read as a
+        // row-level "open post" affordance.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = DateUtils.relativeTime(LocalContext.current, post.timestamp),
+                style = CorusFont.caption,
+                color = CorusColors.Tertiary,
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.xs))
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = CorusColors.Tertiary,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 

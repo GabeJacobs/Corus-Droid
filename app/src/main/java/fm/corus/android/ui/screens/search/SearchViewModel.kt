@@ -297,6 +297,13 @@ class SearchViewModel @Inject constructor(
     private val _isTasteMatchPolling = MutableStateFlow(false)
     val isTasteMatchPolling: StateFlow<Boolean> = _isTasteMatchPolling.asStateFlow()
 
+    // True when the taste-match fetch failed/timed out with nothing to show, so
+    // the UI hides the section entirely rather than rendering the "post more"
+    // explainer (which would falsely imply the user has zero matches). Only a
+    // successful fetch that genuinely returns no taste matches shows the explainer.
+    private val _tasteMatchLoadFailed = MutableStateFlow(false)
+    val tasteMatchLoadFailed: StateFlow<Boolean> = _tasteMatchLoadFailed.asStateFlow()
+
     // Follow state
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     val followingIds: StateFlow<Set<String>> = _followingIds.asStateFlow()
@@ -368,10 +375,12 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch {
             val musicMatchesDeferred = async {
                 try {
+                    // null (not empty) signals a failed/timed-out load so the UI can
+                    // distinguish "couldn't load" from "loaded, genuinely no matches".
                     userRepository.getSuggestedUsers(uid, forceRefresh = forceRefresh)
                 } catch (e: Exception) {
                     Log.e("SearchVM", "Failed to load suggested users", e)
-                    emptyList()
+                    null
                 }
             }
             val mutualConnectionsDeferred = async {
@@ -406,7 +415,12 @@ class SearchViewModel @Inject constructor(
             }
 
             try {
-                val musicMatches = musicMatchesDeferred.await()
+                val musicMatchesResult = musicMatchesDeferred.await()
+                // On failure, keep any taste matches we're already showing so a
+                // transient error never wipes the section (mirrors iOS's cache
+                // fallback). On first load this is empty, so nothing changes.
+                val musicMatches = musicMatchesResult
+                    ?: _suggestedMatches.value.filter { it.hasTasteMatch() }
                 val socialMatches = mutualConnectionsDeferred.await()
                 Log.d("SearchVM", "Music matches: ${musicMatches.size}, Social matches: ${socialMatches.size}")
                 for (m in musicMatches) {
@@ -435,6 +449,10 @@ class SearchViewModel @Inject constructor(
                 }
 
                 _suggestedMatches.value = merged
+                // Hide the section only on an actual failed load with no taste
+                // matches to show. A successful empty pull keeps this false so the
+                // "post more" explainer renders instead.
+                _tasteMatchLoadFailed.value = musicMatchesResult == null && merged.none { it.hasTasteMatch() }
             } finally {
                 // Always clear the spinner, even if an await is cancelled or a merge
                 // step throws — the loader must never latch on (both fetches above
@@ -498,6 +516,9 @@ class SearchViewModel @Inject constructor(
                     Log.w("SearchVM", "Taste-match poll attempt failed", e)
                     return@repeat
                 }
+                // A successful poll response (even an empty one) clears the failed
+                // state: the section should show the explainer, not stay hidden.
+                _tasteMatchLoadFailed.value = false
                 if (fresh.none { it.hasTasteMatch() }) return@repeat
 
                 // Merge fresh music matches over the existing social suggestions.

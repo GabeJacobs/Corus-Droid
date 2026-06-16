@@ -9,6 +9,7 @@ enum class NotificationType(val value: String) {
     SAVE("save"),
     FOLLOW("follow"),
     NEW_POST("new_post"),
+    REPOST("repost"),
     REPLY("reply"),
     CONTACT_JOINED("contact_joined"),
     TASTE_MATCH("taste_match"),
