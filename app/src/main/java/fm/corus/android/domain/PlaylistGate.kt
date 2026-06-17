@@ -16,8 +16,14 @@ import fm.corus.android.data.model.MusicService
  *   go in a Spotify playlist) will be skipped.
  */
 fun shouldShowSpotifyPlaylistAlert(service: MusicService, hasSoundCloud: Boolean): Boolean =
-    when (service) {
-        MusicService.TIDAL -> false
-        MusicService.APPLE_MUSIC, MusicService.DEEZER -> true
-        MusicService.SPOTIFY -> hasSoundCloud
-    }
+    usesSpotifyFallback(service) || (service == MusicService.SPOTIFY && hasSoundCloud)
+
+/**
+ * Whether the service has no native playlist path on Android and therefore
+ * always produces a Spotify playlist instead (Apple Music needs iOS-only
+ * MusicKit; Deezer is link-out only). These always show the "Spotify Feature"
+ * warning and never the first-time export explainer. TIDAL and Spotify export
+ * natively, so they get the one-time explainer instead.
+ */
+fun usesSpotifyFallback(service: MusicService): Boolean =
+    service == MusicService.APPLE_MUSIC || service == MusicService.DEEZER

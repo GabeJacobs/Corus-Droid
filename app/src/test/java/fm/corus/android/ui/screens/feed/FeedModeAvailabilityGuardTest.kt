@@ -94,6 +94,7 @@ class FeedModeAvailabilityGuardTest {
             on { feedMode } doReturn MutableStateFlow(storedMode)
             on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
             on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
+            on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)
         }
         return FeedViewModel(
             postRepository = postRepository,

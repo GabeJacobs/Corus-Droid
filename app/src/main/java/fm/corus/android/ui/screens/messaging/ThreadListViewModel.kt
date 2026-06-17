@@ -79,6 +79,17 @@ class ThreadListViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
+    // Inbox search. The local filter in the screen only sees paged-in threads, so
+    // a debounced backend `searchThreads` backfills matches from the full history.
+    // Null = no backend answer yet for the current query (fall back to local filter).
+    private val _inboxSearchResults = MutableStateFlow<List<CymbalThread>?>(null)
+    val inboxSearchResults: StateFlow<List<CymbalThread>?> = _inboxSearchResults.asStateFlow()
+
+    private val _isSearchingInbox = MutableStateFlow(false)
+    val isSearchingInbox: StateFlow<Boolean> = _isSearchingInbox.asStateFlow()
+
+    private var inboxSearchJob: Job? = null
+
     fun loadThreads() {
         val userId = authRepository.currentUserId ?: return
         if (hasLoadedThreads) {
@@ -193,6 +204,43 @@ class ThreadListViewModel @Inject constructor(
         searchJob?.cancel()
         _searchResults.value = emptyList()
         _isSearching.value = false
+    }
+
+    /**
+     * Debounced backend inbox search. Cancels any in-flight search, waits briefly
+     * so we don't fire on every keystroke, then queries the full thread history
+     * (not just the paged-in threads the screen's local filter can see).
+     */
+    fun searchInbox(query: String) {
+        inboxSearchJob?.cancel()
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            _inboxSearchResults.value = null
+            _isSearchingInbox.value = false
+            return
+        }
+        // Drop stale results so the instant local filter shows for the new query
+        // while the server answers.
+        _inboxSearchResults.value = null
+        _isSearchingInbox.value = true
+        inboxSearchJob = viewModelScope.launch {
+            delay(300)
+            val userId = authRepository.currentUserId
+            if (userId == null) {
+                _isSearchingInbox.value = false
+                return@launch
+            }
+            try {
+                _inboxSearchResults.value = messageRepository.searchThreads(userId, trimmed)
+                    .filter { it.lastMessageFromUserId != null }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Leave results null so the local filter stays visible on failure.
+                _inboxSearchResults.value = null
+            }
+            _isSearchingInbox.value = false
+        }
     }
 
     suspend fun getOrCreateThread(otherUserId: String): String {

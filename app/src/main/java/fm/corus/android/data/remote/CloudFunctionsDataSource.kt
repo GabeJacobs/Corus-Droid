@@ -625,6 +625,39 @@ class CloudFunctionsDataSource @Inject constructor(
     suspend fun listThreads(userId: String): List<CymbalThread> =
         listThreadsPage(userId).threads
 
+    /**
+     * Server-side DM inbox search. The inbox paginates threads in, so the local
+     * filter only sees what's already loaded. This searches the caller's full
+     * thread history (username, display name, last-message text) and reuses the
+     * `listThreads` thread shape. Returns threads ordered by recency.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun searchThreads(userId: String, query: String, limit: Int = 30): List<CymbalThread> {
+        val params = mapOf<String, Any>("userId" to userId, "query" to query, "limit" to limit)
+        val result = functions.getHttpsCallable("searchThreads").call(params).await()
+        val data = result.getData() as? Map<String, Any?> ?: return emptyList()
+        return (data["threads"] as? List<Map<String, Any?>> ?: emptyList())
+            .map { CymbalThread.fromMap(it["id"] as? String ?: "", it) }
+    }
+
+    /**
+     * People the user deliberately shares posts/songs/films with, ranked by a
+     * server-side recency+frequency blend. Higher-intent than DM recency (which is
+     * noise for accounts that message everyone) — used to seed the share sheet.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun listShareRecipients(limit: Int = 12): List<CymbalUser> {
+        val result = functions.getHttpsCallable("listShareRecipients")
+            .call(mapOf("limit" to limit)).await()
+        val data = result.getData() as? Map<String, Any?> ?: return emptyList()
+        val recipients = data["recipients"] as? List<Map<String, Any?>> ?: return emptyList()
+        return recipients.mapNotNull { row ->
+            val userMap = row["otherUser"] as? Map<String, Any?> ?: return@mapNotNull null
+            val otherUserId = row["otherUserId"] as? String ?: ""
+            CymbalUser.fromMap(otherUserId, userMap)
+        }
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun listMessages(threadId: String, limit: Int = 50, lastTimestamp: Long? = null): List<CymbalMessage> {
         val params = mutableMapOf<String, Any>("threadId" to threadId, "limit" to limit)

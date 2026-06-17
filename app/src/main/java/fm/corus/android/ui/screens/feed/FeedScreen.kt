@@ -94,6 +94,8 @@ fun FeedScreen(
     val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     var showPlaylistAlert by remember { mutableStateOf(false) }
+    val hasConfirmedFeedPlaylist by viewModel.hasConfirmedFeedPlaylist.collectAsState()
+    var showFirstTimePlaylistDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(playlistError) {
         if (playlistError != null) {
@@ -245,14 +247,24 @@ fun FeedScreen(
             onFilterMenuExpandedChange = { filterMenuExpanded = it },
             onSetFilter = { viewModel.setFeedFilter(it) },
             onGeneratePlaylist = {
-                // TIDAL builds the playlist on the user's own account, so it
-                // generates directly. Apple Music / Deezer (no Android client-
-                // side path) and SoundCloud-on-Spotify still get the alert.
                 val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
-                    showPlaylistAlert = true
-                } else {
-                    viewModel.generateFeedPlaylist()
+                when {
+                    // Apple Music / Deezer have no native playlist path on Android,
+                    // so they always produce a Spotify playlist and show the Spotify
+                    // warning every time (never the explainer).
+                    fm.corus.android.domain.usesSpotifyFallback(musicService) ->
+                        showPlaylistAlert = true
+                    // TIDAL / Spotify export natively and leave Corus — the first
+                    // such tap gets a one-time explainer. After that, Spotify still
+                    // shows the SoundCloud-skip notice when applicable.
+                    hasConfirmedFeedPlaylist -> {
+                        if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                            showPlaylistAlert = true
+                        } else {
+                            viewModel.generateFeedPlaylist()
+                        }
+                    }
+                    else -> showFirstTimePlaylistDialog = true
                 }
             },
             forYouEnabled = forYouEnabled,
@@ -341,8 +353,11 @@ fun FeedScreen(
                 }
             }
 
-            // Empty state — only after a load settles with no posts
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedFilter.newReleasesOnly -> {
+            // Empty state — only after a load settles with no posts.
+            // Favorites mode is handled by its own branch below (which is
+            // filter-aware), so exclude it here to avoid the generic
+            // "from people you follow" copy leaking into a favorites view.
+            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedFilter.newReleasesOnly && feedMode != "favorites" -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -388,8 +403,34 @@ fun FeedScreen(
                 }
             }
 
-            // Favorites mode with no posts — mirrors iOS favoritesEmptyState.
+            // Favorites mode with no posts. When a filter is active the user
+            // DOES have favorites — they just haven't posted anything matching
+            // the current film/music/new-releases narrowing — so name the
+            // filter instead of saying "No favorites yet", and offer to clear
+            // the filter rather than leave the feed. Only the unfiltered case
+            // is a true "no favorites" state. Mirrors iOS favoritesFilteredEmptyState.
             posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedMode == "favorites" -> {
+                val filtered = feedFilter != FeedFilter.ALL
+                val icon = when (feedFilter) {
+                    FeedFilter.MUSIC -> Icons.Filled.MusicNote
+                    FeedFilter.FILM -> Icons.Filled.Movie
+                    FeedFilter.MUSIC_NEW_RELEASES, FeedFilter.FILM_NEW_RELEASES -> Icons.Filled.LocalFireDepartment
+                    FeedFilter.ALL -> Icons.Filled.Star
+                }
+                val titleRes = when (feedFilter) {
+                    FeedFilter.MUSIC -> R.string.feed_empty_favorites_music_title
+                    FeedFilter.FILM -> R.string.feed_empty_favorites_film_title
+                    FeedFilter.MUSIC_NEW_RELEASES -> R.string.feed_empty_favorites_new_music_title
+                    FeedFilter.FILM_NEW_RELEASES -> R.string.feed_empty_favorites_new_film_title
+                    FeedFilter.ALL -> R.string.feed_empty_favorites_title
+                }
+                val subtitleRes = when (feedFilter) {
+                    FeedFilter.MUSIC -> R.string.feed_empty_favorites_music_subtitle
+                    FeedFilter.FILM -> R.string.feed_empty_favorites_film_subtitle
+                    FeedFilter.MUSIC_NEW_RELEASES -> R.string.feed_empty_favorites_new_music_subtitle
+                    FeedFilter.FILM_NEW_RELEASES -> R.string.feed_empty_favorites_new_film_subtitle
+                    FeedFilter.ALL -> R.string.feed_empty_favorites_subtitle
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -399,21 +440,21 @@ fun FeedScreen(
                     header()
                     Spacer(modifier = Modifier.height(60.dp))
                     Icon(
-                        imageVector = Icons.Filled.Star,
+                        imageVector = icon,
                         contentDescription = null,
                         tint = CorusColors.Tertiary,
                         modifier = Modifier.size(36.dp),
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                     Text(
-                        text = stringResource(R.string.feed_empty_favorites_title),
+                        text = stringResource(titleRes),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
                     Text(
-                        text = stringResource(R.string.feed_empty_favorites_subtitle),
+                        text = stringResource(subtitleRes),
                         style = CorusFont.caption,
                         color = CorusColors.Tertiary,
                         textAlign = TextAlign.Center,
@@ -421,12 +462,22 @@ fun FeedScreen(
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.lg))
                     Button(
-                        onClick = { viewModel.setFeedMode("following") },
+                        onClick = {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                            if (filtered) {
+                                viewModel.setFeedFilter(FeedFilter.ALL)
+                            } else {
+                                viewModel.setFeedMode("following")
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
                         shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                     ) {
                         Text(
-                            text = stringResource(R.string.feed_empty_favorites_button),
+                            text = stringResource(
+                                if (filtered) R.string.feed_empty_clear_filter
+                                else R.string.feed_empty_favorites_button,
+                            ),
                             style = CorusFont.button,
                             color = CorusColors.Background,
                         )
@@ -706,6 +757,41 @@ fun FeedScreen(
             },
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { showPlaylistAlert = false }) {
+                    androidx.compose.material3.Text("Cancel")
+                }
+            },
+        )
+    }
+
+    // First-time explainer: the playlist button leaves Corus to open the user's
+    // music app, which surprises new users. Shown once, before the first
+    // generation; confirming records the flag and proceeds to the normal flow.
+    if (showFirstTimePlaylistDialog) {
+        val destination = if (musicService == fm.corus.android.data.model.MusicService.TIDAL) "TIDAL" else "Spotify"
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showFirstTimePlaylistDialog = false },
+            title = { androidx.compose.material3.Text("Generate a playlist?") },
+            text = {
+                androidx.compose.material3.Text(
+                    "Corus will make a playlist from the songs in your feed and open it in $destination."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showFirstTimePlaylistDialog = false
+                    viewModel.markFeedPlaylistConfirmed()
+                    // Reached only by TIDAL / Spotify (native). Spotify still warns
+                    // about skipped SoundCloud tracks; TIDAL generates directly.
+                    val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+                    if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                        showPlaylistAlert = true
+                    } else {
+                        viewModel.generateFeedPlaylist()
+                    }
+                }) { androidx.compose.material3.Text("Export Playlist") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showFirstTimePlaylistDialog = false }) {
                     androidx.compose.material3.Text("Cancel")
                 }
             },

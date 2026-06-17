@@ -161,7 +161,15 @@ class FeedViewModel @Inject constructor(
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
 
-    private val _feedFilter = MutableStateFlow(FeedFilter.ALL)
+    // Seed the active filter synchronously from the SharedPreferences mirror so
+    // a saved music/film selection is in place before the screen kicks off its
+    // first load — without this the initial page fetches with ALL (the async
+    // DataStore restore lands a frame later) and the user sees an all-content
+    // flash before it corrects to the saved filter.
+    private val _feedFilter = MutableStateFlow(
+        runCatching { FeedFilter.valueOf(preferencesDataStore.feedFilterSyncSeed()) }
+            .getOrDefault(FeedFilter.ALL)
+    )
     val feedFilter: StateFlow<FeedFilter> = _feedFilter.asStateFlow()
     // Back-compat for existing observers — derived from _feedFilter.
     val feedMediaFilter: StateFlow<MediaType?> = _feedFilter
@@ -284,6 +292,18 @@ class FeedViewModel @Inject constructor(
 
     fun markAlbumArtTapped() {
         viewModelScope.launch { preferencesDataStore.setHasTappedAlbumArt() }
+    }
+
+    /**
+     * False until the user has confirmed the first feed-playlist generation.
+     * The playlist button leaves Corus to open the music service, so the first
+     * tap shows an explainer + confirm; afterwards taps run directly.
+     */
+    val hasConfirmedFeedPlaylist: StateFlow<Boolean> = preferencesDataStore.hasConfirmedFeedPlaylist
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun markFeedPlaylistConfirmed() {
+        viewModelScope.launch { preferencesDataStore.setHasConfirmedFeedPlaylist() }
     }
 
     // ── Share search state ──
@@ -757,20 +777,22 @@ class FeedViewModel @Inject constructor(
         _isLoadingShareContacts.value = true
         viewModelScope.launch {
             try {
-                val threads = messageRepository.listThreads(userId)
-                val contacts = threads.mapNotNull { it.otherUser }
-                if (contacts.isNotEmpty()) {
-                    _recentShareContacts.value = contacts.take(20)
-                } else {
+                // Rank by people you actually share with, then fill gaps from recent
+                // DM threads, then fall back to following + followers. Keeps the grid
+                // full for new users while surfacing real share intent for everyone.
+                val shareRecipients = runCatching { messageRepository.listShareRecipients(12) }.getOrDefault(emptyList())
+                val threadContacts = messageRepository.listThreads(userId).mapNotNull { it.otherUser }
+
+                // Only pay for the follow-graph fetch when shares + DMs don't fill the grid.
+                val followFallback = if (rankShareContacts(shareRecipients, threadContacts, emptyList()).size < SHARE_CONTACTS_TARGET) {
                     val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
                     val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
-                    val seen = mutableSetOf<String>()
-                    val combined = mutableListOf<CymbalUser>()
-                    for (user in following + followers) {
-                        if (seen.add(user.id)) combined.add(user)
-                    }
-                    _recentShareContacts.value = combined.take(20)
+                    following + followers
+                } else {
+                    emptyList()
                 }
+
+                _recentShareContacts.value = rankShareContacts(shareRecipients, threadContacts, followFallback)
             } catch (_: Exception) { }
             _isLoadingShareContacts.value = false
         }
@@ -948,4 +970,29 @@ class FeedViewModel @Inject constructor(
         activeListenerPostIds.forEach { engagementManager.stopListening(it) }
         activeListenerPostIds.clear()
     }
+}
+
+/** Target number of contacts before we stop reaching for fallback sources. */
+const val SHARE_CONTACTS_TARGET = 12
+
+/** Max contacts shown in the share sheet grid. */
+const val SHARE_CONTACTS_CAP = 20
+
+/**
+ * Merge the share-sheet contact sources in priority order — people you deliberately
+ * share with first, then recent DM partners, then the follow-graph fallback — keeping
+ * the first occurrence of each user (preserving rank) and capping the result.
+ */
+fun rankShareContacts(
+    shareRecipients: List<CymbalUser>,
+    threadContacts: List<CymbalUser>,
+    followFallback: List<CymbalUser>,
+    cap: Int = SHARE_CONTACTS_CAP,
+): List<CymbalUser> {
+    val seen = mutableSetOf<String>()
+    val combined = mutableListOf<CymbalUser>()
+    for (user in shareRecipients + threadContacts + followFallback) {
+        if (user.id.isNotEmpty() && seen.add(user.id)) combined.add(user)
+    }
+    return combined.take(cap)
 }

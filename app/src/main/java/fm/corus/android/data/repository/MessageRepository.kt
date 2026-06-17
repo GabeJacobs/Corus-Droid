@@ -6,6 +6,7 @@ import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
@@ -25,12 +26,22 @@ class MessageRepository @Inject constructor(
         return cloudFunctions.listThreads(userId)
     }
 
+    /** Ranked people the user actually shares posts with, for the share sheet. */
+    suspend fun listShareRecipients(limit: Int = 12): List<CymbalUser> {
+        return cloudFunctions.listShareRecipients(limit)
+    }
+
     suspend fun listThreadsPage(
         userId: String,
         limit: Int = 30,
         startAfter: Long? = null,
     ): CloudFunctionsDataSource.ThreadListPage {
         return cloudFunctions.listThreadsPage(userId, limit, startAfter)
+    }
+
+    /** Searches the caller's full DM history server-side (not just loaded threads). */
+    suspend fun searchThreads(userId: String, query: String, limit: Int = 30): List<CymbalThread> {
+        return cloudFunctions.searchThreads(userId, query, limit)
     }
 
     suspend fun listMessages(threadId: String, limit: Int = 50, lastTimestamp: Long? = null): List<CymbalMessage> {

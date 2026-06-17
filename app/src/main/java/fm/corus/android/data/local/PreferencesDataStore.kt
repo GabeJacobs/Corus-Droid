@@ -208,6 +208,7 @@ class PreferencesDataStore @Inject constructor(
         val HAS_SEEN_TENTH_POST_PAYWALL = booleanPreferencesKey("has_seen_tenth_post_paywall")
         val HAS_REQUESTED_PUSH_PERMISSION = booleanPreferencesKey("has_requested_push_permission")
         val HAS_TAPPED_ALBUM_ART = booleanPreferencesKey("has_tapped_album_art")
+        val HAS_CONFIRMED_FEED_PLAYLIST = booleanPreferencesKey("has_confirmed_feed_playlist")
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
         val AUTOPLAY_NEXT_SONG = booleanPreferencesKey("autoplay_next_song")
         val FEED_FOLLOWS_NOW_PLAYING = booleanPreferencesKey("feed_follows_now_playing")
@@ -226,6 +227,11 @@ class PreferencesDataStore @Inject constructor(
         // @AppStorage("feedFilter"); persists the music/film/new-releases choice
         // across app restarts.
         val FEED_FILTER = stringPreferencesKey("feed_filter")
+        // Synchronous mirror of FEED_FILTER's raw value, in the same
+        // launch-critical SYNC_PREFS_NAME store as the feed mode seed, so the
+        // ViewModel can seed the active filter without awaiting DataStore
+        // (avoids an all/music → film flash on cold launch).
+        private const val FEED_FILTER_SYNC_KEY = "feed_filter"
     }
 
     val trendingSongsWindow: Flow<String> = dataStore.data.map { prefs ->
@@ -336,14 +342,37 @@ class PreferencesDataStore @Inject constructor(
      * Persisted home-feed content filter, stored as the FeedFilter enum name
      * ("ALL" | "MUSIC" | "FILM" | "MUSIC_NEW_RELEASES" | "FILM_NEW_RELEASES").
      * Defaults to "ALL". Mirrors iOS @AppStorage("feedFilter").
+     *
+     * The emitted raw value is also write-through mirrored to the synchronous
+     * `corus_prefs` store so [feedFilterSyncSeed] can seed the active filter on
+     * the launch-critical path without awaiting DataStore — otherwise a saved
+     * film/music selection flashes all-content posts before the persisted
+     * filter loads. Same store and rationale as the feed mode seed.
      */
     val feedFilter: Flow<String> = dataStore.data.map { prefs ->
-        prefs[FEED_FILTER] ?: "ALL"
+        (prefs[FEED_FILTER] ?: "ALL").also { mirrorFeedFilterSync(it) }
     }
 
     suspend fun setFeedFilter(value: String) {
+        mirrorFeedFilterSync(value)
         dataStore.edit { it[FEED_FILTER] = value }
     }
+
+    private fun mirrorFeedFilterSync(raw: String) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(FEED_FILTER_SYNC_KEY, raw).apply()
+    }
+
+    /**
+     * Synchronous best-effort read of the persisted raw feed filter, used to
+     * seed the ViewModel's active filter before the async [feedFilter] flow
+     * emits. Returns "ALL" when unknown (fresh install, or an existing install
+     * whose value hasn't been mirrored from DataStore yet) — the same default
+     * the flow uses. Mirror is kept current by [feedFilter] / [setFeedFilter].
+     */
+    fun feedFilterSyncSeed(): String =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(FEED_FILTER_SYNC_KEY, null) ?: "ALL"
 
     val lastComposeMediaType: Flow<String> = dataStore.data.map { prefs ->
         prefs[LAST_COMPOSE_MEDIA_TYPE] ?: "track"
@@ -407,6 +436,17 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setHasTappedAlbumArt() {
         dataStore.edit { it[HAS_TAPPED_ALBUM_ART] = true }
+    }
+
+    // The feed playlist button leaves Corus to open the user's music service.
+    // The first generation shows a one-shot explainer + confirm; this flag is
+    // only set once the user confirms, so a cancel re-offers it next time.
+    val hasConfirmedFeedPlaylist: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[HAS_CONFIRMED_FEED_PLAYLIST] ?: false
+    }
+
+    suspend fun setHasConfirmedFeedPlaylist() {
+        dataStore.edit { it[HAS_CONFIRMED_FEED_PLAYLIST] = true }
     }
 
     // ── Recent Searches (stored as JSON array of user objects) ──

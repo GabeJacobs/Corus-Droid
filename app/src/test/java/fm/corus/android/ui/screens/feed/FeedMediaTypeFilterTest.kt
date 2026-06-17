@@ -75,6 +75,7 @@ class FeedMediaTypeFilterTest {
             // stateIn / .first() during runTest's coroutine drain on the CLI).
             on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
             on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
+            on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)
         }
         postRepository = mock()
         authRepository = mock {
@@ -342,6 +343,20 @@ class FeedMediaTypeFilterTest {
     }
 
     @Test
+    fun `seeds the saved filter synchronously on construction so the first load is not ALL`() = runTest(testDispatcher) {
+        // A prior session selected "Film only". The synchronous SharedPreferences
+        // mirror returns it eagerly, before the async DataStore restore runs.
+        whenever(preferencesDataStore.feedFilterSyncSeed()).doReturn(FeedFilter.FILM.name)
+
+        val viewModel = vm()
+        // Deliberately do NOT advance the dispatcher: this captures the state the
+        // screen's first loadFeed() reads. Regression for the music→film flash —
+        // the filter must already be FILM here, not the ALL default, or the
+        // initial page fetches all-content posts before the async restore lands.
+        org.junit.Assert.assertEquals(FeedFilter.FILM, viewModel.feedFilter.value)
+    }
+
+    @Test
     fun `restores persisted filter on init and applies it to the first feed load`() = runTest(testDispatcher) {
         whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
@@ -363,5 +378,27 @@ class FeedMediaTypeFilterTest {
             mediaType = eq(MediaType.TRACK),
             newReleasesOnly = eq(false),
         )
+    }
+
+    @Test
+    fun `hasConfirmedFeedPlaylist reflects the persisted flag`() = runTest(testDispatcher) {
+        // A returning user who already confirmed once should not be re-prompted.
+        whenever(preferencesDataStore.hasConfirmedFeedPlaylist).doReturn(MutableStateFlow(true))
+
+        val viewModel = vm()
+        advanceUntilIdle()
+
+        org.junit.Assert.assertTrue(viewModel.hasConfirmedFeedPlaylist.value)
+    }
+
+    @Test
+    fun `markFeedPlaylistConfirmed persists the flag`() = runTest(testDispatcher) {
+        // Confirming the first-time explainer must record the flag so the
+        // playlist button runs directly (no explainer) on every later tap.
+        val viewModel = vm()
+        viewModel.markFeedPlaylistConfirmed()
+        advanceUntilIdle()
+
+        org.mockito.kotlin.verifyBlocking(preferencesDataStore) { setHasConfirmedFeedPlaylist() }
     }
 }

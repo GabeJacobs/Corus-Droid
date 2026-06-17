@@ -882,6 +882,15 @@
     <string name="feed_empty_favorites_title">Nenhum favorito ainda</string>
     <string name="feed_empty_favorites_subtitle">Toque na ☆ no perfil de alguém para adicioná-lo aqui.</string>
     <string name="feed_empty_favorites_button">Voltar para Seguindo</string>
+    <string name="feed_empty_favorites_music_title">Nenhuma música dos seus favoritos</string>
+    <string name="feed_empty_favorites_music_subtitle">Nenhum dos seus favoritos compartilhou música ainda. Tente outro filtro ou volte em breve.</string>
+    <string name="feed_empty_favorites_film_title">Nenhum filme dos seus favoritos</string>
+    <string name="feed_empty_favorites_film_subtitle">Nenhum dos seus favoritos compartilhou um filme ainda. Tente outro filtro ou volte em breve.</string>
+    <string name="feed_empty_favorites_new_music_title">Nenhuma música nova dos seus favoritos</string>
+    <string name="feed_empty_favorites_new_music_subtitle">Seus favoritos ainda não compartilharam nenhum lançamento. Tente outro filtro ou volte em breve.</string>
+    <string name="feed_empty_favorites_new_film_title">Nenhum filme novo dos seus favoritos</string>
+    <string name="feed_empty_favorites_new_film_subtitle">Seus favoritos ainda não compartilharam nenhum lançamento de filme. Tente outro filtro ou volte em breve.</string>
+    <string name="feed_empty_clear_filter">Limpar filtro</string>
     <string name="feed_offline_title">Não foi possível conectar</string>
     <string name="feed_offline_subtitle">Verifique sua conexão com a internet e tente novamente.</string>
     <string name="feed_offline_retry">Tentar novamente</string>

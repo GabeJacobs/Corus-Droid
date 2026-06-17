@@ -173,6 +173,16 @@
     <string name="feed_empty_favorites_title">No favorites yet</string>
     <string name="feed_empty_favorites_subtitle">Tap the ☆ on someone\'s profile to add them here.</string>
     <string name="feed_empty_favorites_button">Back to Following</string>
+    <!-- Favorites empty state when a filter is active: the user has favorites, none match the filter. -->
+    <string name="feed_empty_favorites_music_title">No music from your favorites</string>
+    <string name="feed_empty_favorites_music_subtitle">None of your favorites have shared music yet. Try another filter or check back soon.</string>
+    <string name="feed_empty_favorites_film_title">No films from your favorites</string>
+    <string name="feed_empty_favorites_film_subtitle">None of your favorites have shared a film yet. Try another filter or check back soon.</string>
+    <string name="feed_empty_favorites_new_music_title">No new music from your favorites</string>
+    <string name="feed_empty_favorites_new_music_subtitle">Your favorites haven\'t shared any new releases yet. Try another filter or check back soon.</string>
+    <string name="feed_empty_favorites_new_film_title">No new films from your favorites</string>
+    <string name="feed_empty_favorites_new_film_subtitle">Your favorites haven\'t shared any new film releases yet. Try another filter or check back soon.</string>
+    <string name="feed_empty_clear_filter">Clear filter</string>
     <string name="feed_empty_invite_title">corus is fun with\njust a few friends.</string>
     <string name="feed_empty_invite_subtitle">know someone with good taste?</string>
     <string name="feed_empty_invite_button">invite friends</string>

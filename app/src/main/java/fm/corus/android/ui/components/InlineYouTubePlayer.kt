@@ -2,10 +2,13 @@ package fm.corus.android.ui.components
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.view.View
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebSettings
+import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -47,68 +50,122 @@ fun InlineYouTubePlayer(
     AndroidView(
         modifier = modifier,
         factory = { context ->
-            WebView(context).apply {
+            // Host the WebView in a FrameLayout so the YouTube player's fullscreen
+            // video view (delivered via onShowCustomView) has somewhere to render.
+            // Without this, the video requests a fullscreen surface, finds no host,
+            // flashes black, and bails — leaving audio-only with a black frame.
+            val container = FrameLayout(context)
+            container.setBackgroundColor(android.graphics.Color.BLACK)
+
+            val webView = WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = false
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
+                // The YouTube IFrame player needs DOM storage to render video.
+                settings.domStorageEnabled = true
+                settings.databaseEnabled = true
                 // Needed for the embed's YouTube logo to trigger onCreateWindow.
                 settings.setSupportMultipleWindows(true)
                 setBackgroundColor(android.graphics.Color.BLACK)
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
-                // The YouTube logo (and any in-embed link) tries to open a new
-                // window; don't create one — open the trailer in the YouTube app
-                // / browser instead.
-                webChromeClient = object : WebChromeClient() {
-                    override fun onCreateWindow(
-                        view: WebView,
-                        isDialog: Boolean,
-                        isUserGesture: Boolean,
-                        resultMsg: Message,
-                    ): Boolean {
-                        val watchUrl = "https://www.youtube.com/watch?v=$videoID"
-                        runCatching {
-                            view.context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse(watchUrl))
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            )
-                        }
-                        return false
-                    }
-                }
-                // JS calls back here when the IFrame player reports it ended.
-                // @JavascriptInterface methods run on a binder thread, so hop to
-                // the main thread before invoking Compose state.
                 addJavascriptInterface(object {
                     @JavascriptInterface
                     fun onEnded() {
+                        // Runs on a binder thread; hop to main for Compose state.
                         Handler(Looper.getMainLooper()).post { currentOnEnded() }
                     }
                 }, "AndroidTrailer")
-                loadDataWithBaseURL(
-                    "https://www.youtube-nocookie.com",
-                    embedHTML(videoID, autoplay, muted, showControls),
-                    "text/html",
-                    "utf-8",
-                    null,
-                )
             }
+            container.addView(
+                webView,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+            )
+
+            var customView: View? = null
+            var customCallback: WebChromeClient.CustomViewCallback? = null
+
+            webView.webChromeClient = object : WebChromeClient() {
+                // The player hands us its video view to display "fullscreen" — we
+                // host it in our container (sized to the 16:9 box), so it renders
+                // in place instead of going black.
+                override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+                    if (customView != null) {
+                        callback.onCustomViewHidden()
+                        return
+                    }
+                    customView = view
+                    customCallback = callback
+                    container.addView(
+                        view,
+                        FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                    )
+                    webView.visibility = View.GONE
+                }
+
+                override fun onHideCustomView() {
+                    customView?.let { container.removeView(it) }
+                    customView = null
+                    customCallback?.onCustomViewHidden()
+                    customCallback = null
+                    webView.visibility = View.VISIBLE
+                }
+
+                // The YouTube logo (and any in-embed link) tries to open a new
+                // window; open the trailer in the YouTube app / browser instead.
+                override fun onCreateWindow(
+                    view: WebView,
+                    isDialog: Boolean,
+                    isUserGesture: Boolean,
+                    resultMsg: Message,
+                ): Boolean {
+                    val watchUrl = "https://www.youtube.com/watch?v=$videoID"
+                    runCatching {
+                        view.context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(watchUrl))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }
+                    return false
+                }
+            }
+
+            webView.loadDataWithBaseURL(
+                "https://www.youtube-nocookie.com",
+                embedHTML(videoID, autoplay, muted, showControls),
+                "text/html",
+                "utf-8",
+                null,
+            )
+            container
         },
-        onRelease = { webView ->
+        onRelease = { container ->
             // Stop playback + free the WebView when the card scrolls off or the
             // user closes the trailer.
-            webView.loadUrl("about:blank")
-            webView.destroy()
+            (container.getChildAt(0) as? WebView)?.apply {
+                loadUrl("about:blank")
+                destroy()
+            }
         },
     )
 }
 
 /**
- * Bare YouTube embed iframe — the config that plays reliably inside a WebView.
- * We enable the JS API (`enablejsapi=1`) only to *listen* for the ENDED state via
- * postMessage; we deliberately do NOT use `new YT.Player`, which reconfigures the
- * embed host/origin and gets rejected by the WebView's synthetic origin
- * ("video unavailable").
+ * Bare YouTube embed iframe. We deliberately do NOT use `new YT.Player` (the
+ * IFrame API constructor) here: in a WebView's synthetic loadDataWithBaseURL
+ * origin it gets rejected with "video unavailable, error 152" (same as iOS
+ * WKWebView). The bare embed sidesteps that origin check entirely.
+ *
+ * Rendering is handled by the FrameLayout + onShowCustomView wiring above — the
+ * embed's video goes "fullscreen", we host that view in our 16:9 box, so it
+ * renders in place instead of going black. We use `enablejsapi=1` only to listen
+ * for the ENDED state via a postMessage handshake.
  */
 private fun embedHTML(videoID: String, autoplay: Boolean, muted: Boolean, showControls: Boolean): String {
     val autoplayFlag = if (autoplay) 1 else 0
@@ -136,7 +193,6 @@ private fun embedHTML(videoID: String, autoplay: Boolean, muted: Boolean, showCo
           </div>
           <script>
             var frame = document.getElementById('ytplayer');
-            // Handshake so the embed starts broadcasting state events to us.
             function subscribe() {
               try {
                 frame.contentWindow.postMessage(
@@ -145,7 +201,6 @@ private fun embedHTML(videoID: String, autoplay: Boolean, muted: Boolean, showCo
             }
             window.addEventListener('message', function(e) {
               var d; try { d = JSON.parse(e.data); } catch (x) { return; }
-              // Newer embeds report state via infoDelivery.playerState; older via onStateChange.
               var state = (d.event === 'infoDelivery' && d.info) ? d.info.playerState
                         : (d.event === 'onStateChange') ? d.info : undefined;
               // YT.PlayerState.ENDED === 0
@@ -153,7 +208,6 @@ private fun embedHTML(videoID: String, autoplay: Boolean, muted: Boolean, showCo
             });
             frame.addEventListener('load', function() {
               subscribe();
-              // A couple of retries in case the first handshake races the embed.
               setTimeout(subscribe, 500);
               setTimeout(subscribe, 1500);
             });

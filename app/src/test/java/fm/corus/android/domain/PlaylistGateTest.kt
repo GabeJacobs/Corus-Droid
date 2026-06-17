@@ -33,4 +33,21 @@ class PlaylistGateTest {
         assertFalse(shouldShowSpotifyPlaylistAlert(MusicService.SPOTIFY, hasSoundCloud = false))
         assertTrue(shouldShowSpotifyPlaylistAlert(MusicService.SPOTIFY, hasSoundCloud = true))
     }
+
+    /**
+     * The first-time export explainer is keyed on this: native exporters (TIDAL,
+     * Spotify) get the one-time explainer; the Spotify-fallback services (Apple
+     * Music, Deezer) always show the Spotify warning instead, never the explainer.
+     */
+    @Test
+    fun `apple music and deezer use the spotify fallback`() {
+        assertTrue(usesSpotifyFallback(MusicService.APPLE_MUSIC))
+        assertTrue(usesSpotifyFallback(MusicService.DEEZER))
+    }
+
+    @Test
+    fun `tidal and spotify export natively`() {
+        assertFalse(usesSpotifyFallback(MusicService.TIDAL))
+        assertFalse(usesSpotifyFallback(MusicService.SPOTIFY))
+    }
 }

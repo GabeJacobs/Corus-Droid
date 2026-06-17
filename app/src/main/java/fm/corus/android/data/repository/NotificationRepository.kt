@@ -27,9 +27,20 @@ class NotificationRepository @Inject constructor(
             val ids = notifications.map { it.fromUser.id }.filter { it.isNotEmpty() }.distinct()
             if (ids.isEmpty()) return@map notifications
             val byId = userRepository.fetchUsersByIdsBatched(ids).associateBy { it.id }
-            notifications.map { n ->
+            notifications.mapNotNull { n ->
                 val hydrated = byId[n.fromUser.id]
-                if (hydrated != null) n.copy(fromUser = hydrated) else n
+                when {
+                    hydrated != null -> n.copy(fromUser = hydrated)
+                    // Anonymous rows (favorite, play_milestone) have no sender to
+                    // resolve — the doc carries no `fromUserId`, so keep them.
+                    n.fromUser.id.isEmpty() -> n
+                    // Sender profile couldn't be resolved (cache-miss/fetch race on
+                    // a freshly-pushed listener row). Drop it rather than render a
+                    // nameless "posted a new corus." — the next snapshot re-fetches
+                    // and the row heals. Matches iOS listenForNotifications, which
+                    // `continue`s past notifications whose fromUser isn't in cache.
+                    else -> null
+                }
             }
         }
     }

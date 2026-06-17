@@ -95,6 +95,7 @@ class FeedModeResyncOnLateResolveTest {
             on { feedMode } doReturn modeFlow
             on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
             on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
+            on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)
         }
     }
 

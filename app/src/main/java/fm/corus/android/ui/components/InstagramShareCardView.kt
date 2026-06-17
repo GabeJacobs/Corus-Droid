@@ -177,11 +177,11 @@ suspend fun generateShareCardBitmap(
     post: CymbalPost,
 ): Bitmap = withContext(Dispatchers.IO) {
     val width = 1080
-    val height = 1920
+    val height = 1920f
     val marginX = 80f
     val ink = android.graphics.Color.parseColor("#1A1A2E")
 
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val bitmap = Bitmap.createBitmap(width, height.toInt(), Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bitmap)
     canvas.drawColor(android.graphics.Color.WHITE)
     val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -192,77 +192,57 @@ suspend fun generateShareCardBitmap(
     val artBitmap = (post.displayImageLargeURL ?: post.displayImageURL)?.let { downloadBitmap(it) }
     val avatarBitmap = post.user.avatarURL?.takeIf { it.isNotBlank() }?.let { downloadBitmap(it) }
 
-    // --- Top: avatar + @username ---
-    val topPad = height * 0.08f
-    val avatarSize = 120f
-    val usernamePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = ink
-        textSize = 46f
-        isFakeBoldText = true
-        textAlign = android.graphics.Paint.Align.LEFT
-    }
-    var usernameX = marginX
-    if (avatarBitmap != null) {
-        val circ = circularBitmap(avatarBitmap, avatarSize.toInt())
-        canvas.drawBitmap(circ, marginX, topPad, paint)
-        circ.recycle()
-        usernameX = marginX + avatarSize + 28f
-    }
-    // Vertically center the username against the avatar.
-    val usernameBaseline = topPad + avatarSize / 2f - (usernamePaint.descent() + usernamePaint.ascent()) / 2f
-    canvas.drawText("@${post.user.username}", usernameX, usernameBaseline, usernamePaint)
+    // Brand-font paints (Nunito, weights matched to iOS CymbalFont: heavy=800, medium=500, black=900).
+    val usernamePaint = nunitoPaint(context, size = 46f, weight = 800, color = ink)
+    val titlePaint = nunitoPaint(context, size = 48f, weight = 800, color = ink)
+    val subtitlePaint = nunitoPaint(context, size = 38f, weight = 500, color = (0x80 shl 24) or (ink and 0x00FFFFFF))
+    val captionPaint = nunitoPaint(context, size = 34f, weight = 500, color = (0x66 shl 24) or (ink and 0x00FFFFFF))
+    val brandPaint = nunitoPaint(context, size = 48f, weight = 900, color = ink, align = android.graphics.Paint.Align.RIGHT)
 
-    // --- Bottom-right: "corus" wordmark ---
-    val bottomPad = height * 0.08f
-    val brandPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = ink
-        textSize = 48f
-        isFakeBoldText = true
-        textAlign = android.graphics.Paint.Align.RIGHT
-    }
-    canvas.drawText("corus", width - marginX, height - bottomPad, brandPaint)
-
-    // --- Bottom-left: title / subtitle / caption, bottom-aligned with the wordmark ---
-    val titlePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = ink
-        textSize = 48f
-        isFakeBoldText = true
-    }
-    val subtitlePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = (0x80 shl 24) or (ink and 0x00FFFFFF) // ~50% ink
-        textSize = 38f
-    }
-    val captionPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = (0x66 shl 24) or (ink and 0x00FFFFFF) // ~40% ink
-        textSize = 34f
-    }
+    // Wrap the bottom text up front so we can size the block and center the layout.
     val maxTextWidth = width - marginX * 2
-    val captionLines = post.caption?.takeIf { it.isNotBlank() }
-        ?.let { ellipsizeLines(it, captionPaint, maxTextWidth, 4) } ?: emptyList()
     val titleLines = ellipsizeLines(post.displayTitle, titlePaint, maxTextWidth, 2)
     val subtitleLine = post.displaySubtitle
         .takeIf { it.isNotBlank() }
         ?.let { ellipsizeLines(it, subtitlePaint, maxTextWidth, 1).firstOrNull() }
+    val captionLines = post.caption?.takeIf { it.isNotBlank() }
+        ?.let { ellipsizeLines(it, captionPaint, maxTextWidth, 4) } ?: emptyList()
 
-    var baseline = height - bottomPad
-    captionLines.asReversed().forEach { line ->
-        canvas.drawText(line, marginX, baseline, captionPaint)
-        baseline -= (captionPaint.descent() - captionPaint.ascent()) + 6f
-    }
-    if (subtitleLine != null) {
-        canvas.drawText(subtitleLine, marginX, baseline, subtitlePaint)
-        baseline -= (subtitlePaint.descent() - subtitlePaint.ascent()) + 8f
-    }
-    titleLines.asReversed().forEach { line ->
-        canvas.drawText(line, marginX, baseline, titlePaint)
-        baseline -= (titlePaint.descent() - titlePaint.ascent()) + 8f
-    }
+    fun lineHeight(p: android.graphics.Paint) = p.descent() - p.ascent()
+    val titleLH = lineHeight(titlePaint)
+    val subtitleLH = lineHeight(subtitlePaint)
+    val captionLH = lineHeight(captionPaint)
+    var textBlockHeight = titleLines.size * titleLH
+    if (subtitleLine != null) textBlockHeight += 8f + subtitleLH
+    if (captionLines.isNotEmpty()) textBlockHeight += 12f + captionLines.size * captionLH
 
-    // --- Middle: media composite, centered between the avatar row and the text block ---
-    val regionTop = topPad + avatarSize + 60f
-    val regionBottom = height - bottomPad - 360f
-    val regionCenterY = (regionTop + regionBottom) / 2f
+    // iOS lays the card out as a single VStack centered in the 1080x1920 frame:
+    // 8% top pad, avatar row, 4% spacer, vinyl slot (0.65 * width), 4% spacer,
+    // title/subtitle/caption block, 8% bottom pad. Center the whole block so the
+    // spacing matches instead of anchoring to the image edges.
+    val topPad = height * 0.08f
+    val bottomPad = height * 0.08f
+    val gapSpacer = height * 0.04f
+    val avatarSize = 120f
+    val vinylSlot = width * 0.65f
+    val contentH = topPad + avatarSize + gapSpacer + vinylSlot + gapSpacer + textBlockHeight + bottomPad
+    val startY = ((height - contentH) / 2f).coerceAtLeast(0f)
 
+    // --- Top: avatar + @username ---
+    val avatarTop = startY + topPad
+    var usernameX = marginX
+    if (avatarBitmap != null) {
+        val circ = circularBitmap(avatarBitmap, avatarSize.toInt())
+        canvas.drawBitmap(circ, marginX, avatarTop, paint)
+        circ.recycle()
+        usernameX = marginX + avatarSize + 28f
+    }
+    val usernameBaseline = avatarTop + avatarSize / 2f - (usernamePaint.descent() + usernamePaint.ascent()) / 2f
+    canvas.drawText("@${post.user.username}", usernameX, usernameBaseline, usernamePaint)
+
+    // --- Middle: media composite, centered in its slot (it overflows the slot, like iOS) ---
+    val vinylSlotTop = avatarTop + avatarSize + gapSpacer
+    val vinylCenterY = vinylSlotTop + vinylSlot / 2f
     if (artBitmap != null) {
         if (post.isMovie) {
             val posterW = 460f
@@ -270,7 +250,7 @@ suspend fun generateShareCardBitmap(
             val scaled = Bitmap.createScaledBitmap(artBitmap, posterW.toInt(), posterH.toInt(), true)
             val rounded = roundedBitmap(scaled, 24f)
             if (scaled != rounded) scaled.recycle()
-            canvas.drawBitmap(rounded, (width - posterW) / 2f, regionCenterY - posterH / 2f, paint)
+            canvas.drawBitmap(rounded, (width - posterW) / 2f, vinylCenterY - posterH / 2f, paint)
             rounded.recycle()
         } else {
             drawVinylComposite(
@@ -280,7 +260,7 @@ suspend fun generateShareCardBitmap(
                 art = artBitmap,
                 compWidth = width.toFloat(),
                 compLeft = 0f,
-                compCenterY = regionCenterY,
+                compCenterY = vinylCenterY,
                 paint = paint,
             )
         }
@@ -288,7 +268,49 @@ suspend fun generateShareCardBitmap(
     }
     avatarBitmap?.recycle()
 
+    // --- Bottom: title / subtitle / caption (left), "corus" wordmark (right, bottom-aligned) ---
+    val textTop = vinylSlotTop + vinylSlot + gapSpacer
+    var cursorTop = textTop
+    titleLines.forEach { line ->
+        canvas.drawText(line, marginX, cursorTop - titlePaint.ascent(), titlePaint)
+        cursorTop += titleLH
+    }
+    if (subtitleLine != null) {
+        cursorTop += 8f
+        canvas.drawText(subtitleLine, marginX, cursorTop - subtitlePaint.ascent(), subtitlePaint)
+        cursorTop += subtitleLH
+    }
+    if (captionLines.isNotEmpty()) {
+        cursorTop += 12f
+        captionLines.forEach { line ->
+            canvas.drawText(line, marginX, cursorTop - captionPaint.ascent(), captionPaint)
+            cursorTop += captionLH
+        }
+    }
+    val textBottom = textTop + textBlockHeight
+    canvas.drawText("corus", width - marginX, textBottom - brandPaint.descent(), brandPaint)
+
     bitmap
+}
+
+/** A Paint using the Nunito brand font at the given variable-font weight (falls back to system bold). */
+private fun nunitoPaint(
+    context: Context,
+    size: Float,
+    weight: Int,
+    color: Int,
+    align: android.graphics.Paint.Align = android.graphics.Paint.Align.LEFT,
+): android.graphics.Paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+    textSize = size
+    textAlign = align
+    this.color = color
+    try {
+        typeface = context.resources.getFont(R.font.nunito)
+        fontVariationSettings = "'wght' $weight"
+    } catch (_: Throwable) {
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        isFakeBoldText = weight >= 700
+    }
 }
 
 /** Layers shadow + tinted vinyl + circular center label + big album art, matching FeaturedCymbalView. */

@@ -55,17 +55,30 @@ fun ThreadListScreen(
     val threads by viewModel.threads.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val hasMoreThreads by viewModel.hasMoreThreads.collectAsState()
+    val inboxSearchResults by viewModel.inboxSearchResults.collectAsState()
+    val isSearchingInbox by viewModel.isSearchingInbox.collectAsState()
     var showNewMessagePicker by remember { mutableStateOf(false) }
     var isCreatingThread by remember { mutableStateOf(false) }
     var inboxSearchText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    val filteredThreads = remember(threads, inboxSearchText) {
-        filterInboxThreads(threads, inboxSearchText)
+    // What the list renders. When searching, prefer the authoritative backend
+    // results once they land; until then fall back to the instant local filter
+    // over the already-loaded threads.
+    val displayedThreads = remember(threads, inboxSearchText, inboxSearchResults) {
+        when {
+            inboxSearchText.isBlank() -> threads
+            inboxSearchResults != null -> inboxSearchResults!!
+            else -> filterInboxThreads(threads, inboxSearchText)
+        }
     }
 
     LaunchedEffect(Unit) {
         viewModel.loadThreads()
+    }
+
+    LaunchedEffect(inboxSearchText) {
+        viewModel.searchInbox(inboxSearchText)
     }
 
     Box(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
@@ -113,13 +126,17 @@ fun ThreadListScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = CorusColors.Accent)
                 }
-            } else if (filteredThreads.isEmpty()) {
+            } else if (displayedThreads.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(id = R.string.messaging_list_no_matches), style = CorusFont.body, color = CorusColors.Secondary)
+                    if (inboxSearchText.isNotBlank() && isSearchingInbox) {
+                        CircularProgressIndicator(color = CorusColors.Accent)
+                    } else {
+                        Text(stringResource(id = R.string.messaging_list_no_matches), style = CorusFont.body, color = CorusColors.Secondary)
+                    }
                 }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(filteredThreads, key = { it.id }) { thread ->
+                    items(displayedThreads, key = { it.id }) { thread ->
                         ThreadRow(
                             thread = thread,
                             onClick = { onThreadTap(thread.id, thread.otherUserId) },
