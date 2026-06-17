@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -61,6 +62,9 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.ui.components.CommentAttachmentCard
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
+import fm.corus.android.ui.components.CorusDraggableSheet
+import fm.corus.android.ui.components.CorusSheetState
+import fm.corus.android.ui.components.rememberCorusSheetState
 import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.ReportContentType
@@ -94,26 +98,23 @@ fun CommentsBottomSheet(
     onNavigateToHashtag: (String) -> Unit = {},
 ) {
     val viewModel: CommentsViewModel = hiltViewModel()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Custom two-detent sheet (see CorusDraggableSheet): opens at the half-height
+    // peek, drag up to full, drag down to dismiss. Unlike Material3's
+    // ModalBottomSheet, its panel height tracks the detent so the composer stays
+    // pinned and visible at the peek, mirroring the iOS
+    // .presentationDetents([.medium, .large]) comments sheet.
+    val sheetState = rememberCorusSheetState()
 
-    // Explicitly handle system back to dismiss the sheet
-    BackHandler(enabled = true) { onDismiss() }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
+    CorusDraggableSheet(
+        onDismiss = onDismiss,
         sheetState = sheetState,
         containerColor = CorusColors.Background,
-        dragHandle = {
-            // Add status bar padding so the drag handle stays below the camera cutout
-            Column(modifier = Modifier.statusBarsPadding()) {
-                BottomSheetDefaults.DragHandle()
-            }
-        },
     ) {
         CorusSystemBars()
         CommentsSheetContent(
             postId = postId,
             viewModel = viewModel,
+            sheetState = sheetState,
             onDismiss = onDismiss,
             onNavigateToUser = onNavigateToUser,
             onNavigateToSong = onNavigateToSong,
@@ -167,6 +168,7 @@ fun CommentsSheet(
 private fun CommentsSheetContent(
     postId: String,
     viewModel: CommentsViewModel = hiltViewModel(),
+    sheetState: CorusSheetState? = null,
     onDismiss: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
@@ -623,7 +625,15 @@ private fun CommentsSheetContent(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { focusState ->
+                        // Mirror iOS onChange(isInputFocused){ selectedDetent = .large }:
+                        // focusing the composer grows the sheet to full height so the
+                        // comment list stays readable above the keyboard.
+                        if (focusState.isFocused) {
+                            coroutineScope.launch { sheetState?.expand() }
+                        }
+                    },
                 placeholder = {
                     Text(
                         when {

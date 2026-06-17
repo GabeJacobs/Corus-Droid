@@ -265,6 +265,7 @@ fun PostDetailScreen(
                             trackPostCount = currentPost.trackPostCount ?: 0,
                             onLikeTap = { viewModel.toggleLike(currentPost.id) },
                             onCommentTap = { onNavigateToComments(currentPost.id) },
+                            onRepostTap = { onRepost(currentPost) },
                             onShareTap = {
                                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
@@ -778,6 +779,7 @@ private fun PostDetailEngagementRow(
     trackPostCount: Int,
     onLikeTap: () -> Unit,
     onCommentTap: () -> Unit,
+    onRepostTap: () -> Unit,
     onShareTap: () -> Unit,
     onSaveTap: () -> Unit,
     onSongCountTap: () -> Unit,
@@ -806,10 +808,18 @@ private fun PostDetailEngagementRow(
             onClick = onCommentTap,
         )
 
-        // Share/Repost
+        // Repost
+        EngagementButton(
+            icon = Icons.Filled.Repeat,
+            count = repostCount,
+            tint = CorusColors.Text,
+            onClick = onRepostTap,
+        )
+
+        // Share
         EngagementButton(
             icon = Icons.AutoMirrored.Filled.Send,
-            count = repostCount,
+            count = 0,
             tint = CorusColors.Text,
             onClick = onShareTap,
         )
