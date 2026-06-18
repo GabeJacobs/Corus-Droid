@@ -124,24 +124,13 @@ class RemoteConfigService @Inject constructor(
     /// user could pick TIDAL on one client with no support on another. Mirrors
     /// iOS/web `tidal_enabled`.
     val tidalEnabled: Boolean
-        get() {
-            // ⚠️ TEMPORARY LOCAL TEST OVERRIDE — REVERT BEFORE MERGE.
-            // Forces TIDAL on for local testing before the Remote Config key is
-            // created / flipped. Restore the line below for RC control.
-            return true
-            // return remoteConfig.getBoolean("tidal_enabled")
-        }
+        get() = remoteConfig.getBoolean("tidal_enabled")
 
     /// Master gate for the Deezer link-out integration (onboarding + settings
     /// service picker + post link-out). Mirrors `tidalEnabled` / iOS+web
     /// `deezer_enabled`. Keep OFF until web + iOS + Android all ship.
     val deezerEnabled: Boolean
-        get() {
-            // ⚠️ TEMPORARY LOCAL TEST OVERRIDE — REVERT BEFORE MERGE.
-            // Forces Deezer on for local testing. Restore the line below for RC control.
-            return true
-            // return remoteConfig.getBoolean("deezer_enabled")
-        }
+        get() = remoteConfig.getBoolean("deezer_enabled")
 
     val newReleaseFilterClubOnly: Boolean
         get() = remoteConfig.getBoolean("new_release_filter_club_only")
@@ -203,14 +192,10 @@ class RemoteConfigService @Inject constructor(
      */
     val commentControlsOnPosts: Boolean
         get() {
-            // ⚠️ TEMPORARY TEST OVERRIDE — REVERT BEFORE MERGE.
-            // Forced ON to test the per-post comments-audience gate locally.
-            // Restore the block below to flip back to Remote Config control.
-            return true
-            // if (BuildConfig.DEBUG && devPrefs.contains("comment_controls_on_posts")) {
-            //     return devPrefs.getBoolean("comment_controls_on_posts", false)
-            // }
-            // return remoteConfig.getBoolean("comment_controls_on_posts")
+            if (BuildConfig.DEBUG && devPrefs.contains("comment_controls_on_posts")) {
+                return devPrefs.getBoolean("comment_controls_on_posts", false)
+            }
+            return remoteConfig.getBoolean("comment_controls_on_posts")
         }
 
     // Tracks the UID last pushed as the `user_id` signal so we can tell when it
@@ -262,32 +247,32 @@ class RemoteConfigService @Inject constructor(
             remoteConfig.setConfigSettingsAsync(settings).await()
             remoteConfig.setDefaultsAsync(
                 mapOf(
-                    "movie_mode" to false,
+                    "movie_mode" to true,
                     "maintenance_mode" to false,
-                    "instagram_share_enabled" to false,
-                    "corus_club_enabled" to false,
-                    "vinyl_flip_enabled" to false,
-                    "review_prompt_enabled" to false,
+                    "instagram_share_enabled" to true,
+                    "corus_club_enabled" to true,
+                    "vinyl_flip_enabled" to true,
+                    "review_prompt_enabled" to true,
                     "maintenance_message" to "",
                     "daily_post_limit_enabled" to true,
                     "paywall_default_yearly" to false,
                     "gif_support" to false,
-                    "server_notifications_enabled" to false,
-                    "save_count_enabled" to false,
-                    "save_cap_enforced" to false,
-                    "save_cap_limit" to 25L,
-                    "save_cap_warning_at" to 23L,
-                    "favorite_people_cap_enforced" to false,
-                    "favorite_people_cap_limit" to 3L,
+                    "server_notifications_enabled" to true,
+                    "save_count_enabled" to true,
+                    "save_cap_enforced" to true,
+                    "save_cap_limit" to 20L,
+                    "save_cap_warning_at" to 17L,
+                    "favorite_people_cap_enforced" to true,
+                    "favorite_people_cap_limit" to 4L,
                     "soundcloud_enabled" to false,
-                    "tidal_enabled" to false,
-                    "deezer_enabled" to false,
-                    "comment_controls_on_posts" to false,
+                    "tidal_enabled" to true,
+                    "deezer_enabled" to true,
+                    "comment_controls_on_posts" to true,
                     "new_release_filter_club_only" to false,
                     "style_pack_1_enabled" to false,
                     "for_you_enabled" to false,
-                    "trending_feed_enabled" to false,
-                    "favorites_enabled" to false,
+                    "trending_feed_enabled" to true,
+                    "favorites_enabled" to true,
                     "favorites_push_enabled" to false,
                     "play_milestone_enabled" to false,
                     "default_for_you_feed_enabled" to false,

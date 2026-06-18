@@ -304,6 +304,7 @@
     <string name="song_detail_open_in_service">Open in %1$s</string>
     <string name="song_detail_listen_soundcloud">Listen on SoundCloud</string>
     <string name="song_detail_cd_pause_preview">Pause preview</string>
+    <string name="song_detail_cd_play_preview">Play preview</string>
     <string name="song_detail_posted_by">Posted by</string>
     <string name="song_detail_load_error">Couldn\'t load posts</string>
     <string name="song_detail_try_again">Try Again</string>
@@ -563,7 +564,7 @@
     <string name="notif_msg_repost">reposted your %s.</string>
     <string name="notif_msg_taste_match_default">is a new taste match.</string>
     <string name="notif_msg_favorite">added you to their favorites.</string>
-    <string name="notif_msg_play_milestone">%1$d people played your corus.</string>
+    <string name="notif_msg_play_milestone">Your corus has been played %1$d times.</string>
     <string name="notif_favorite_someone">Someone</string>
     <string name="notif_favorite_sheet_title">Someone\'s a fan</string>
     <string name="notif_favorite_sheet_body">Someone added you to their favorites so your posts are easier for them to keep up with.</string>
@@ -657,6 +658,8 @@
 
     <!-- Messaging: thread -->
     <string name="messaging_thread_replying_to_format">Replying to %1$s</string>
+    <string name="messaging_thread_editing">Editing message</string>
+    <string name="messaging_thread_edited">edited</string>
     <string name="messaging_thread_yourself">yourself</string>
     <string name="messaging_thread_message_fallback">Message</string>
     <string name="messaging_thread_you">You</string>
@@ -826,6 +829,8 @@
     <string name="share_post_cd_selected">Selected</string>
     <string name="share_post_cd_instagram">Instagram</string>
     <string name="share_post_instagram">Instagram</string>
+    <string name="share_post_x">X</string>
+    <string name="share_post_cd_x">Share to X</string>
 
     <!-- Song/Film picker sheet -->
     <string name="song_film_picker_songs">Songs</string>

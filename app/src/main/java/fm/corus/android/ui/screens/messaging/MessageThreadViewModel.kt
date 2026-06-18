@@ -76,6 +76,9 @@ class MessageThreadViewModel @Inject constructor(
     private val _replyToMessage = MutableStateFlow<CymbalMessage?>(null)
     val replyToMessage: StateFlow<CymbalMessage?> = _replyToMessage.asStateFlow()
 
+    private val _editingMessage = MutableStateFlow<CymbalMessage?>(null)
+    val editingMessage: StateFlow<CymbalMessage?> = _editingMessage.asStateFlow()
+
     private val _recipientUnread = MutableStateFlow(0)
     val recipientUnread: StateFlow<Int> = _recipientUnread.asStateFlow()
 
@@ -161,7 +164,51 @@ class MessageThreadViewModel @Inject constructor(
     }
 
     fun setReplyTo(message: CymbalMessage?) {
+        if (message != null) _editingMessage.value = null
         _replyToMessage.value = message
+    }
+
+    /** Begin editing one of the caller's own text messages. Mutually exclusive with reply. */
+    fun startEditing(message: CymbalMessage) {
+        _replyToMessage.value = null
+        _editingMessage.value = message
+    }
+
+    fun cancelEditing() {
+        _editingMessage.value = null
+    }
+
+    /**
+     * Commit an in-progress edit. Optimistically updates the message in place; the
+     * Firestore listener reconciles to the canonical server value (text + editedAt)
+     * shortly after. On failure the optimistic change is reverted and the editor
+     * re-opens so the user can retry.
+     */
+    fun editMessage(threadId: String, newText: String) {
+        val target = _editingMessage.value ?: return
+        val resolvedId = currentThreadId ?: threadId
+        val trimmed = newText.trim()
+        _editingMessage.value = null
+        if (trimmed.isEmpty()) return
+        if (trimmed == (target.text ?: "")) return // unchanged: no round-trip
+
+        val original = _serverMessages.value.firstOrNull { it.id == target.id }
+        _serverMessages.value = _serverMessages.value.map {
+            if (it.id == target.id) it.copy(text = trimmed, editedAt = Date()) else it
+        }
+
+        viewModelScope.launch {
+            try {
+                messageRepository.editMessage(resolvedId, target.id, trimmed)
+            } catch (e: Exception) {
+                if (original != null) {
+                    _serverMessages.value = _serverMessages.value.map {
+                        if (it.id == target.id) original else it
+                    }
+                }
+                _editingMessage.value = target
+            }
+        }
     }
 
     // ── Optimistic send: text ──

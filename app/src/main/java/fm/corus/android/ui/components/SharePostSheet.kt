@@ -34,13 +34,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
@@ -313,8 +316,9 @@ fun SharePostSheet(
                     if (showWhatsApp) {
                         item {
                             ShareActionButton(
-                                icon = Icons.Filled.Share,
                                 label = stringResource(R.string.share_post_whatsapp),
+                                painter = painterResource(R.drawable.whatsapp_logo),
+                                iconSize = 22.dp,
                                 backgroundColor = Color(0xFF25D366),
                                 iconTint = Color.White,
                             ) {
@@ -325,6 +329,12 @@ fun SharePostSheet(
                                     context.startActivity(intent)
                                 } catch (_: Exception) { }
                             }
+                        }
+                    }
+                    item {
+                        XShareButton {
+                            onAnalyticsLog?.invoke("x")
+                            shareToX(context, post)
                         }
                     }
                     item {
@@ -474,8 +484,10 @@ private fun ShareUserRow(
 
 @Composable
 private fun ShareActionButton(
-    icon: ImageVector,
     label: String,
+    icon: ImageVector? = null,
+    painter: Painter? = null,
+    iconSize: Dp = 20.dp,
     isProminent: Boolean = false,
     backgroundColor: Color? = null,
     iconTint: Color? = null,
@@ -495,13 +507,22 @@ private fun ShareActionButton(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                icon,
-                contentDescription = label,
-                tint = iconTint
-                    ?: if (isProminent) Color.White else CorusColors.Text,
-                modifier = Modifier.size(20.dp),
-            )
+            val tint = iconTint ?: if (isProminent) Color.White else CorusColors.Text
+            if (painter != null) {
+                Icon(
+                    painter = painter,
+                    contentDescription = label,
+                    tint = tint,
+                    modifier = Modifier.size(iconSize),
+                )
+            } else if (icon != null) {
+                Icon(
+                    icon,
+                    contentDescription = label,
+                    tint = tint,
+                    modifier = Modifier.size(iconSize),
+                )
+            }
         }
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(label, style = CorusFont.captionMedium, color = CorusColors.Text)
@@ -541,7 +562,7 @@ private fun InstagramShareButton(
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Filled.Share,
+                    painter = painterResource(R.drawable.instagram_logo),
                     contentDescription = stringResource(R.string.share_post_cd_instagram),
                     tint = Color.White,
                     modifier = Modifier.size(22.dp),
@@ -551,6 +572,50 @@ private fun InstagramShareButton(
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(stringResource(R.string.share_post_instagram), style = CorusFont.captionMedium, color = CorusColors.Text)
     }
+}
+
+@Composable
+private fun XShareButton(onClick: () -> Unit) {
+    Column(
+        modifier = Modifier.clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(Color.Black),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_x_logo),
+                contentDescription = stringResource(R.string.share_post_cd_x),
+                tint = Color.White,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(stringResource(R.string.share_post_x), style = CorusFont.captionMedium, color = CorusColors.Text)
+    }
+}
+
+/**
+ * Opens the X compose intent (X app if installed, otherwise the web composer)
+ * pre-filled with Shazam-style copy plus the post link, tagged `?ref=x`. X turns
+ * the URL into a tappable link and @corusapp into a mention.
+ */
+private fun shareToX(context: Context, post: CymbalPost) {
+    val text = if (post.isMovie) {
+        "${post.displayTitle} on @corusapp"
+    } else {
+        "${post.displayTitle} by ${post.displaySubtitle} on @corusapp"
+    }
+    val url = "https://corus.fm/post/${post.id}?ref=x"
+    val intentUrl = "https://twitter.com/intent/tweet?text=${Uri.encode(text)}&url=${Uri.encode(url)}"
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(intentUrl))
+    try {
+        context.startActivity(intent)
+    } catch (_: Exception) { }
 }
 
 private fun isWhatsAppAvailable(context: Context): Boolean {

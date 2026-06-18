@@ -39,8 +39,13 @@ data class CymbalMessage(
     val replyToMessageId: String? = null,
     val replyToText: String? = null,
     val replyToUserId: String? = null,
+    /** Set when the author edited the message; drives the "edited" indicator. */
+    val editedAt: Date? = null,
     val failureReason: MessageFailureReason = MessageFailureReason.GENERIC,
 ) {
+    /** True once the author has edited the message. */
+    val isEdited: Boolean get() = editedAt != null
+
     /**
      * Reconstruct a [CommentAttachedSong] from the message's track fields so
      * existing playback + navigation pipelines can consume it. Returns null for
@@ -148,6 +153,7 @@ data class CymbalMessage(
                 replyToMessageId = data["replyToMessageId"] as? String,
                 replyToText = data["replyToText"] as? String,
                 replyToUserId = data["replyToUserId"] as? String,
+                editedAt = (data["editedAt"] as? Number)?.let { Date(it.toLong()) },
             )
         }
 
@@ -193,6 +199,7 @@ data class CymbalMessage(
                 replyToMessageId = data["replyToMessageId"] as? String,
                 replyToText = data["replyToText"] as? String,
                 replyToUserId = data["replyToUserId"] as? String,
+                editedAt = (data["editedAt"] as? Timestamp)?.toDate(),
             )
         }
 

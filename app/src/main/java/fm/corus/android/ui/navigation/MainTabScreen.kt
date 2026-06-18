@@ -59,6 +59,7 @@ import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
+import fm.corus.android.ui.screens.feed.CommentsBottomSheet
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
 import fm.corus.android.ui.screens.subscription.PaywallSource
@@ -160,6 +161,11 @@ fun MainTabScreen(
             CorusTab.PROFILE to profileNavController,
         )
     }
+
+    // Comments sheet is hosted here at the root (not inside a tab nav-graph) so it covers
+    // the tab bar like iOS and gets real window insets (the nav-graph content consumes
+    // them). Tabs open it via onShowComments; navigation routes through the active tab.
+    var commentPostId by remember { mutableStateOf<String?>(null) }
 
     // When a pre-selected media ID becomes non-null, open compose overlay.
     // Reset then immediately start the load so isLoadingPreSelection is true
@@ -364,6 +370,7 @@ fun MainTabScreen(
                     mainTabViewModel = viewModel,
                     scrollToTopTrigger = feedScrollToTop.intValue,
                     isFeedTabSelected = selectedTab == CorusTab.FEED,
+                    onShowComments = { commentPostId = it },
                 )
             }
             TabContent(visible = selectedTab == CorusTab.EXPLORE) {
@@ -372,6 +379,7 @@ fun MainTabScreen(
                     mainTabViewModel = viewModel,
                     scrollToTopTrigger = searchScrollToTop.intValue,
                     isContainingTabSelected = selectedTab == CorusTab.EXPLORE,
+                    onShowComments = { commentPostId = it },
                 )
             }
             TabContent(visible = selectedTab == CorusTab.NOTIFICATIONS) {
@@ -381,6 +389,7 @@ fun MainTabScreen(
                     scrollToTopTrigger = notificationsScrollToTop.intValue,
                     tabActivationTrigger = notificationsTabActivation.intValue,
                     isContainingTabSelected = selectedTab == CorusTab.NOTIFICATIONS,
+                    onShowComments = { commentPostId = it },
                 )
             }
             TabContent(visible = selectedTab == CorusTab.PROFILE) {
@@ -390,6 +399,7 @@ fun MainTabScreen(
                     scrollToTopTrigger = profileScrollToTop.intValue,
                     tabActivationTrigger = profileTabActivation.intValue,
                     isContainingTabSelected = selectedTab == CorusTab.PROFILE,
+                    onShowComments = { commentPostId = it },
                     onOpenCompose = { mediaType ->
                         if (viewModel.subscriptionRepository.canPost) {
                             composeViewModel.reset()
@@ -483,6 +493,32 @@ fun MainTabScreen(
                 }
             }
         }
+    }
+
+    // Comments sheet hosted at the root so it covers the tab bar (full iOS parity) and
+    // sees the real window insets. Navigation routes through the active tab's controller.
+    commentPostId?.let { postId ->
+        val navController = navControllers[selectedTab]
+        CommentsBottomSheet(
+            postId = postId,
+            onDismiss = { commentPostId = null },
+            onNavigateToUser = { userId ->
+                commentPostId = null
+                navController?.navigate(OtherProfileRoute(userId))
+            },
+            onNavigateToSong = { track ->
+                commentPostId = null
+                navController?.navigate(track.toSongDetailRoute())
+            },
+            onNavigateToFilm = { movie ->
+                commentPostId = null
+                navController?.navigate(FilmDetailRoute(movie.id))
+            },
+            onNavigateToHashtag = { hashtag ->
+                commentPostId = null
+                navController?.navigate(HashtagFeedRoute(hashtag))
+            },
+        )
     }
 
     } // end outer Box

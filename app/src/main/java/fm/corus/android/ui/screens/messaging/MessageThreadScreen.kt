@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Gif
@@ -88,6 +89,9 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
 private val REACTION_EMOJIS = listOf("❤️", "😂", "👍", "😮", "😢", "🔥")
+
+/** Messages can be edited for 15 minutes after sending (mirrors the server gate). */
+private const val EDIT_WINDOW_MS = 15 * 60 * 1000L
 private val REACTION_KEYS = listOf("heart", "laugh", "thumbsup", "wow", "cry", "fire")
 
 private val URL_REGEX = Regex("""https?://\S+""", RegexOption.IGNORE_CASE)
@@ -149,6 +153,13 @@ private fun BubbleMeta(
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (message.isEdited) {
+            Text(
+                text = stringResource(id = R.string.messaging_thread_edited),
+                fontSize = 10.sp,
+                color = CorusColors.Tertiary,
+            )
+        }
         Text(
             text = bubbleTimeFormatter.format(message.createdAt).lowercase(),
             fontSize = 10.sp,
@@ -221,6 +232,7 @@ fun MessageThreadScreen(
     val otherAvatarURL by viewModel.otherAvatarURL.collectAsState()
     val otherAvatarThumbURL by viewModel.otherAvatarThumbURL.collectAsState()
     val replyToMessage by viewModel.replyToMessage.collectAsState()
+    val editingMessage by viewModel.editingMessage.collectAsState()
     val recipientUnread by viewModel.recipientUnread.collectAsState()
     val myReadReceiptsEnabled by viewModel.myReadReceiptsEnabled.collectAsState()
     var messageText by remember { mutableStateOf("") }
@@ -348,6 +360,48 @@ fun MessageThreadScreen(
             }
         }
 
+        // Edit banner (mirrors the reply bar). Editing and replying are mutually exclusive.
+        if (editingMessage != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(id = R.string.messaging_thread_editing),
+                        style = CorusFont.caption,
+                        color = CorusColors.Text,
+                    )
+                    Text(
+                        text = editingMessage?.text ?: "",
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                IconButton(onClick = {
+                    viewModel.cancelEditing()
+                    messageText = ""
+                }) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = stringResource(id = R.string.comments_cd_cancel_edit),
+                        modifier = Modifier.size(18.dp),
+                        tint = CorusColors.Secondary,
+                    )
+                }
+            }
+        } else
         // Reply-to bar (iOS parity: thin accent bar + "Replying to [username]" + preview + X)
         if (replyToMessage != null) {
             Row(
@@ -460,14 +514,18 @@ fun MessageThreadScreen(
             IconButton(
                 onClick = {
                     if (messageText.isNotBlank()) {
-                        viewModel.sendMessage(threadId, messageText)
+                        if (editingMessage != null) {
+                            viewModel.editMessage(threadId, messageText)
+                        } else {
+                            viewModel.sendMessage(threadId, messageText)
+                        }
                         messageText = ""
                     }
                 },
                 enabled = messageText.isNotBlank(),
             ) {
                 Icon(
-                    Icons.AutoMirrored.Filled.Send,
+                    if (editingMessage != null) Icons.Filled.Check else Icons.AutoMirrored.Filled.Send,
                     contentDescription = stringResource(id = R.string.comments_cd_send),
                     tint = if (messageText.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary,
                 )
@@ -531,6 +589,19 @@ fun MessageThreadScreen(
                 clipboardManager.setPrimaryClip(clip)
                 reactionTarget = null
             },
+            onEdit = if (
+                reactionTarget!!.fromUserId == viewModel.currentUserId &&
+                reactionTarget!!.type == MessageType.TEXT &&
+                (System.currentTimeMillis() - reactionTarget!!.createdAt.time) < EDIT_WINDOW_MS
+            ) {
+                {
+                    reactionTarget?.let { msg ->
+                        messageText = msg.text ?: ""
+                        viewModel.startEditing(msg)
+                    }
+                    reactionTarget = null
+                }
+            } else null,
             onReport = { reactionTarget = null },
             onBlock = { reactionTarget = null },
             onDismiss = { reactionTarget = null },
@@ -545,6 +616,7 @@ private fun ReactionOverlay(
     onReaction: (String) -> Unit,
     onReply: () -> Unit,
     onCopy: () -> Unit,
+    onEdit: (() -> Unit)? = null,
     onReport: () -> Unit,
     onBlock: () -> Unit,
     onDismiss: () -> Unit,
@@ -600,6 +672,14 @@ private fun ReactionOverlay(
                 modifier = Modifier.widthIn(min = 220.dp),
             ) {
                 Column {
+                    if (onEdit != null) {
+                        ActionMenuItem(
+                            icon = Icons.Filled.Edit,
+                            label = stringResource(id = R.string.comments_menu_edit),
+                            onClick = onEdit,
+                        )
+                        HorizontalDivider(color = CorusColors.Divider)
+                    }
                     ActionMenuItem(
                         icon = Icons.AutoMirrored.Filled.Reply,
                         label = stringResource(id = R.string.comments_reply),

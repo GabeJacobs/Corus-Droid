@@ -115,6 +115,14 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="corus_general" />
 
+        <!-- Small icon used when the FCM SDK builds the notification itself
+             (notification-payload message arriving while the app is backgrounded
+             or killed). Without this, FCM falls back to the opaque launcher icon,
+             which the status bar masks into a solid white square. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_corus" />
+
     </application>
 
 </manifest>

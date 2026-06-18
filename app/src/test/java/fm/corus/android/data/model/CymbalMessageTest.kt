@@ -1,8 +1,12 @@
 package fm.corus.android.data.model
 
+import com.google.firebase.Timestamp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Date
 
 class CymbalMessageTest {
 
@@ -123,6 +127,50 @@ class CymbalMessageTest {
         durationMs = durationMs,
         trackSource = trackSource,
     )
+
+    @Test
+    fun `fromMap parses editedAt from millis and reports isEdited`() {
+        val editedMs = 1_700_000_000_000L
+        val msg = CymbalMessage.fromMap(
+            "m1",
+            mapOf(
+                "fromUserId" to "u1",
+                "text" to "hello",
+                "type" to "text",
+                "createdAt" to 1_699_999_000_000L,
+                "editedAt" to editedMs,
+            ),
+        )
+        assertEquals(Date(editedMs), msg.editedAt)
+        assertTrue(msg.isEdited)
+    }
+
+    @Test
+    fun `fromMap leaves editedAt null when absent`() {
+        val msg = CymbalMessage.fromMap(
+            "m1",
+            mapOf("fromUserId" to "u1", "text" to "hello", "type" to "text"),
+        )
+        assertNull(msg.editedAt)
+        assertFalse(msg.isEdited)
+    }
+
+    @Test
+    fun `fromFirestoreDoc parses editedAt from Timestamp`() {
+        val editedMs = 1_700_000_000_000L
+        val msg = CymbalMessage.fromFirestoreDoc(
+            "m1",
+            "t1",
+            mapOf(
+                "fromUserId" to "u1",
+                "text" to "hello",
+                "type" to "text",
+                "editedAt" to Timestamp(Date(editedMs)),
+            ),
+        )
+        assertEquals(Date(editedMs), msg.editedAt)
+        assertTrue(msg.isEdited)
+    }
 
     private fun filmMessage(
         movieId: String?,

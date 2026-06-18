@@ -15,7 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -29,7 +31,9 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doSuspendableAnswer
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -382,5 +386,110 @@ class MessageThreadViewModelTest {
             replyToUserId = anyOrNull(),
             clientMessageId = any(),
         )
+    }
+
+    // ── Edit message ──
+
+    private fun textMessage(id: String = "m1", text: String = "old") = CymbalMessage(
+        id = id, threadId = "thread1", fromUserId = "user1", text = text, type = MessageType.TEXT,
+    )
+
+    /** Seed [_serverMessages] via the listener so optimistic edits are observable. */
+    private fun TestScope.loadServerMessage(msg: CymbalMessage) {
+        whenever(messageRepository.listenToMessages(any())).doReturn(flowOf(listOf(msg)))
+        whenever(messageRepository.listenToRecipientUnreadCount(any(), any())).doReturn(emptyFlow())
+        whenever(messageRepository.listenToReadReceiptsEnabled(any())).doReturn(emptyFlow())
+        viewModel.loadMessages("thread1", "other")
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `startEditing sets editing target and clears reply`() = runTest {
+        viewModel.setReplyTo(CymbalMessage(id = "r1", threadId = "thread1", fromUserId = "other", text = "hi", type = MessageType.TEXT))
+        val target = textMessage()
+        viewModel.startEditing(target)
+        assertEquals(target, viewModel.editingMessage.first())
+        assertEquals(null, viewModel.replyToMessage.first())
+    }
+
+    @Test
+    fun `setReplyTo clears editing target`() = runTest {
+        viewModel.startEditing(textMessage())
+        val reply = CymbalMessage(id = "r1", threadId = "thread1", fromUserId = "other", text = "hi", type = MessageType.TEXT)
+        viewModel.setReplyTo(reply)
+        assertEquals(null, viewModel.editingMessage.first())
+        assertEquals(reply, viewModel.replyToMessage.first())
+    }
+
+    @Test
+    fun `cancelEditing clears editing target`() = runTest {
+        viewModel.startEditing(textMessage())
+        viewModel.cancelEditing()
+        assertEquals(null, viewModel.editingMessage.first())
+    }
+
+    @Test
+    fun `editMessage with changed text calls repository and clears editing`() = runTest {
+        whenever(messageRepository.editMessage(any(), any(), any())).doReturn(Unit)
+        viewModel.startEditing(textMessage(id = "m1", text = "old"))
+
+        viewModel.editMessage("thread1", "new text")
+        advanceUntilIdle()
+
+        verify(messageRepository).editMessage(eq("thread1"), eq("m1"), eq("new text"))
+        assertEquals(null, viewModel.editingMessage.first())
+    }
+
+    @Test
+    fun `editMessage with unchanged text does not call repository`() = runTest {
+        viewModel.startEditing(textMessage(text = "same"))
+
+        viewModel.editMessage("thread1", "same")
+        advanceUntilIdle()
+
+        verify(messageRepository, never()).editMessage(any(), any(), any())
+        assertEquals(null, viewModel.editingMessage.first())
+    }
+
+    @Test
+    fun `editMessage with blank text does not call repository`() = runTest {
+        viewModel.startEditing(textMessage(text = "old"))
+
+        viewModel.editMessage("thread1", "   ")
+        advanceUntilIdle()
+
+        verify(messageRepository, never()).editMessage(any(), any(), any())
+    }
+
+    @Test
+    fun `editMessage optimistically updates text and marks edited`() = runTest {
+        whenever(messageRepository.editMessage(any(), any(), any())).doReturn(Unit)
+        val target = textMessage(id = "m1", text = "old")
+        loadServerMessage(target)
+
+        viewModel.startEditing(target)
+        viewModel.editMessage("thread1", "new text")
+        advanceUntilIdle()
+
+        val msg = viewModel.messages.first().single()
+        assertEquals("new text", msg.text)
+        assertTrue("message should be marked edited", msg.isEdited)
+    }
+
+    @Test
+    fun `failed editMessage reverts text and re-opens editor`() = runTest {
+        whenever(messageRepository.editMessage(any(), any(), any()))
+            .doSuspendableAnswer { throw RuntimeException("Network error") }
+        val target = textMessage(id = "m1", text = "old")
+        loadServerMessage(target)
+
+        viewModel.startEditing(target)
+        viewModel.editMessage("thread1", "new text")
+        advanceUntilIdle()
+
+        val msg = viewModel.messages.first().single()
+        assertEquals("old", msg.text)
+        assertTrue("edited marker should be reverted", !msg.isEdited)
+        assertEquals(target, viewModel.editingMessage.first())
     }
 }

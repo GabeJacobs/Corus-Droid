@@ -265,6 +265,7 @@
     <string name="song_detail_play_in_service">Tocar no %1$s</string>
     <string name="song_detail_open_in_service">Abrir no %1$s</string>
     <string name="song_detail_cd_pause_preview">Pausar prévia</string>
+    <string name="song_detail_cd_play_preview">Reproduzir prévia</string>
     <string name="song_detail_posted_by">Postado por</string>
     <string name="song_detail_load_error">Não foi possível carregar publicações</string>
     <string name="song_detail_try_again">Tentar Novamente</string>
@@ -738,6 +739,8 @@
     <string name="share_post_cd_selected">Selecionado</string>
     <string name="share_post_cd_instagram">Instagram</string>
     <string name="share_post_instagram">Instagram</string>
+    <string name="share_post_x">X</string>
+    <string name="share_post_cd_x">Compartilhar no X</string>
 
     <!-- Song/Film picker sheet -->
     <string name="song_film_picker_songs">Músicas</string>
@@ -941,7 +944,7 @@
     <string name="hashtag_followers_count">%1$s %2$s</string>
     <string name="hashtag_count_coruses">%1$s %2$s</string>
     <string name="notif_msg_favorite">adicionou você aos favoritos.</string>
-    <string name="notif_msg_play_milestone">%1$d pessoas reproduziram seu corus.</string>
+    <string name="notif_msg_play_milestone">Seu corus foi reproduzido %1$d vezes.</string>
     <string name="notif_favorite_someone">Alguém</string>
     <string name="notif_favorite_sheet_title">Alguém é fã</string>
     <string name="notif_favorite_sheet_body">Alguém adicionou você aos favoritos para acompanhar seus coruses mais facilmente.</string>

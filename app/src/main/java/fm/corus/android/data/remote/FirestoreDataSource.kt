@@ -1582,8 +1582,25 @@ class FirestoreDataSource @Inject constructor(
 
     @Suppress("UNCHECKED_CAST")
     suspend fun fetchSyncedContacts(userId: String): List<String> {
-        val doc = firestore.collection("users_v2").document(userId).get().await()
-        return (doc.get("syncedContacts") as? List<String>) ?: emptyList()
+        // Read the legacy main-doc location first (where it still lives today).
+        val mainDoc = firestore.collection("users_v2").document(userId).get().await()
+        val fromMain = (mainDoc.get("syncedContacts") as? List<String>).orEmpty()
+        if (fromMain.isNotEmpty()) return fromMain
+        // syncedContacts is being migrated OFF the publicly-readable user doc
+        // into the owner-private subcollection (it contains contacts' phone
+        // numbers). Once the server move lands, the main-doc field is gone, so
+        // fall back to the private copy. Reading both keeps this build working
+        // before, during, and after the move. The private doc is owner-only, so
+        // this only resolves for the caller's own uid (the only caller); guard
+        // against a denied read for safety.
+        return try {
+            val privDoc = firestore.collection("users_v2").document(userId)
+                .collection("private").document("contact").get().await()
+            (privDoc.get("syncedContacts") as? List<String>).orEmpty()
+        } catch (e: Exception) {
+            Log.w("FirestoreDS", "fetchSyncedContacts private fallback failed", e)
+            emptyList()
+        }
     }
 
     // NOTE: contact matching used to run a client-side

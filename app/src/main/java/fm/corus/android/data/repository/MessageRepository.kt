@@ -72,6 +72,11 @@ class MessageRepository @Inject constructor(
         cloudFunctions.toggleMessageReaction(threadId, messageId, emoji)
     }
 
+    /** Edit one of the caller's own text messages (server-enforced 15-min window). */
+    suspend fun editMessage(threadId: String, messageId: String, text: String) {
+        cloudFunctions.editMessage(threadId, messageId, text)
+    }
+
     suspend fun sendImageMessage(threadId: String, fromUserId: String, imageData: ByteArray, clientMessageId: String? = null): String {
         val messageId = clientMessageId ?: "${System.currentTimeMillis()}"
         val url = storageDataSource.uploadMessageImage(fromUserId, threadId, messageId, imageData)

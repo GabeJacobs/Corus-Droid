@@ -78,7 +78,9 @@ fun CorusApp(
         val context = LocalContext.current
         val hapticManager = remember(context) { hapticManagerFromContext(context) }
 
-        CompositionLocalProvider(LocalHapticManager provides hapticManager) {
+        CompositionLocalProvider(
+            LocalHapticManager provides hapticManager,
+        ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 when (authState) {
                     AuthViewModel.AuthState.Loading -> {

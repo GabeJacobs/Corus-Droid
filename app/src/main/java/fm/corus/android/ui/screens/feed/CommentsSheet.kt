@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,6 +77,7 @@ import fm.corus.android.ui.components.TappableMentionText
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
+import fm.corus.android.ui.components.VoiceNotePlayerView
 import fm.corus.android.ui.components.applyMention
 import fm.corus.android.ui.components.buildMentionAnnotatedString
 import fm.corus.android.ui.components.parseMentionQuery
@@ -341,34 +343,39 @@ private fun CommentsSheetContent(
         return
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .imePadding(),
-    ) {
-        // Centered title (Instagram-style)
-        Text(
-            text = stringResource(R.string.comments_screen_title),
-            style = CorusFont.screenTitle,
-            color = CorusColors.Text,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = CorusSpacing.sm),
-            textAlign = TextAlign.Center,
-        )
+    // Explicit two-slot layout: the composer (bottom bar) is measured at its NATURAL
+    // height first; the comment list gets exactly the remaining height. The nav-bar inset
+    // is handled by the sheet container (CorusDraggableSheet), so nothing to do here.
+    Layout(
+        modifier = Modifier.fillMaxSize(),
+        content = {
+            // ── Slot 0: comment list (title + divider + scrolling list) ──
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Centered title (Instagram-style)
+                Text(
+                    text = stringResource(R.string.comments_screen_title),
+                    style = CorusFont.screenTitle.copy(fontSize = 16.sp),
+                    color = CorusColors.Text,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = CorusSpacing.md, bottom = CorusSpacing.sm),
+                    textAlign = TextAlign.Center,
+                )
 
-        HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+                // No divider under the header (matches iOS — the title floats above the list).
 
-        // Single LazyColumn for all states. weight(1f) so the input bar pins below.
-        // The bottom spacer guarantees content always overflows (needed for drag-to-expand).
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = PaddingValues(vertical = CorusSpacing.sm),
-        ) {
+                // weight(1f) fills the list slot below the title; it is the last child
+                // here (no fixed sibling after it), so the weight resolves cleanly.
+                // Top padding gives the first row (voice note / caption) breathing room,
+                // matching iOS.
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.sm),
+                ) {
             if (isLoading && comments.isEmpty()) {
                 val skeletonCount = post?.let { maxOf(minOf(it.commentCount, 5), 2) } ?: 3
                 items(skeletonCount) { SkeletonCommentRow() }
-            } else if (comments.isEmpty() && !isLoading && (post?.caption.isNullOrEmpty())) {
+            } else if (comments.isEmpty() && !isLoading && post?.caption.isNullOrEmpty() == true && post?.voiceNoteURL.isNullOrEmpty() == true) {
                 item(key = "empty") {
                     Box(
                         modifier = Modifier
@@ -384,8 +391,23 @@ private fun CommentsSheetContent(
                     }
                 }
             } else {
+                val voiceNoteURL = post?.voiceNoteURL
                 val captionText = post?.caption
-                if (!captionText.isNullOrEmpty()) {
+                if (!voiceNoteURL.isNullOrEmpty()) {
+                    // Voice-note post: show the player at the top, like iOS.
+                    item(key = "voicenote") {
+                        VoiceNotePlayerView(
+                            voiceNoteURL = voiceNoteURL,
+                            username = post?.user?.username ?: "",
+                            onUsernameTap = { post?.user?.id?.let { onNavigateToUser(it) } },
+                            modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                            color = CorusColors.Divider,
+                        )
+                    }
+                } else if (!captionText.isNullOrEmpty()) {
                     item(key = "caption") {
                         CaptionRow(
                             user = post?.user,
@@ -460,9 +482,26 @@ private fun CommentsSheetContent(
                 }
             }
 
-        }
+                }
+            } // end Slot 0 (comment list)
 
-        val currentBlockReason = blockReason
+            // ── Slot 1: bottom bar (composer, or locked notice). Measured at its
+            // natural height; the list above is given the remaining space. ──
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Floor the composer bar to roughly the input row's natural height so
+                    // the custom Layout can't collapse it to nothing, without adding dead
+                    // space above the nav bar. Banners/mentions/keyboard grow it past this.
+                    .heightIn(min = 72.dp)
+                    .background(CorusColors.Background)
+                    // Keyboard inset only — the dialog reports this reliably. The nav-bar
+                    // inset is applied upstream (CorusDraggableSheet) since the dialog
+                    // can't see it. imePadding lifts the composer above the keyboard and
+                    // lets it grow upward as the text wraps to a 2nd line.
+                    .imePadding(),
+            ) {
+            val currentBlockReason = blockReason
         if (currentBlockReason != null) {
             // Mirror iOS: viewer can't write here, so swap the composer for an
             // inline notice instead of the input bar. The comment list above
@@ -472,11 +511,9 @@ private fun CommentsSheetContent(
                 authorUsername = post?.user?.username,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(CorusColors.Background)
-                    .navigationBarsPadding(),
+                    .background(CorusColors.Background),
             )
-            return@Column
-        }
+        } else {
 
         // ── Mention suggestions (above the input bar) ──
         MentionSuggestionsList(
@@ -547,7 +584,6 @@ private fun CommentsSheetContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(CorusColors.Background)
-                .navigationBarsPadding()
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -708,6 +744,20 @@ private fun CommentsSheetContent(
                     )
                 }
             }
+        }
+            } // end else (composer shown)
+            } // end Slot 1 (bottom bar)
+        },
+    ) { measurables, constraints ->
+        // Composer (slot 1) at its natural height; list (slot 0) gets the rest.
+        val barPlaceable = measurables[1].measure(constraints.copy(minHeight = 0))
+        val listHeight = (constraints.maxHeight - barPlaceable.height).coerceAtLeast(0)
+        val listPlaceable = measurables[0].measure(
+            constraints.copy(minHeight = listHeight, maxHeight = listHeight)
+        )
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            listPlaceable.place(0, 0)
+            barPlaceable.place(0, listHeight)
         }
     }
 }

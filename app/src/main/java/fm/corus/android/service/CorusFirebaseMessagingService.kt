@@ -103,7 +103,10 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
         val channelName = if (isPlay) CHANNEL_NAME_PLAYS else CHANNEL_NAME
 
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.logo_no_background)
+            // Dedicated monochrome notification icon. logo_no_background is a UI
+            // asset whose artwork only fills ~70% of its viewport, so it renders
+            // undersized in the 24dp status-bar slot.
+            .setSmallIcon(R.drawable.ic_stat_corus)
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)

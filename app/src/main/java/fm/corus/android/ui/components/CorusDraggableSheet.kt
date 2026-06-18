@@ -1,6 +1,8 @@
 package fm.corus.android.ui.components
 
+import android.os.Build
 import android.view.WindowManager
+import androidx.core.view.WindowCompat
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -16,12 +18,14 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -76,6 +80,7 @@ import kotlinx.coroutines.launch
  *    [CorusSheetState.expand] on input focus to grow to full height
  *  - works on every screen size (detents are screen fractions, like iOS)
  */
+
 enum class CorusSheetValue { Hidden, PartiallyExpanded, Expanded }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -149,67 +154,72 @@ fun CorusDraggableSheet(
     sheetState: CorusSheetState,
     modifier: Modifier = Modifier,
     containerColor: Color = CorusColors.Background,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val state = sheetState.draggableState
 
-    Dialog(
-        onDismissRequest = { scope.launch { sheetState.hide() } },
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false,
-        ),
-    ) {
-        // Make the dialog window resize for the IME so imePadding() lifts the panel
-        // above the keyboard (the same setup Material3's ModalBottomSheet uses).
-        val dialogWindowProvider = LocalView.current.parent as? DialogWindowProvider
-        if (dialogWindowProvider != null) {
-            dialogWindowProvider.window.setSoftInputMode(
-                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-            )
-            dialogWindowProvider.window.setDimAmount(0f) // we draw our own scrim
-        }
+    // Rendered as an in-window overlay, NOT a Dialog. A Compose Dialog reports the nav-bar
+    // and IME insets as 0 inside its window (verified via logging), which kept landing the
+    // composer under the nav bar / keyboard. In the host (main) window those insets are
+    // real, so navigationBarsPadding()/imePadding() work. The caller MUST place this on top
+    // of everything (it is hosted at the app root so it covers the tab bar).
 
-        // Tracks whether the sheet has ever been shown, so settling back to Hidden
-        // (drag-down dismiss, scrim tap, back) fires onDismiss exactly once.
-        var hasShown by remember { mutableStateOf(false) }
-        LaunchedEffect(state.currentValue) {
-            if (state.currentValue != CorusSheetValue.Hidden) {
-                hasShown = true
-            } else if (hasShown) {
-                onDismiss()
+    var hasShown by remember { mutableStateOf(false) }
+    LaunchedEffect(state.currentValue) {
+        if (state.currentValue != CorusSheetValue.Hidden) {
+            hasShown = true
+        } else if (hasShown) {
+            onDismiss()
+        }
+    }
+
+    BackHandler(enabled = true) {
+        scope.launch {
+            // Collapse full -> peek before dismissing (predictive-back-ish).
+            if (state.currentValue == CorusSheetValue.Expanded &&
+                state.anchors.hasAnchorFor(CorusSheetValue.PartiallyExpanded)
+            ) {
+                sheetState.partialExpand()
+            } else {
+                sheetState.hide()
             }
         }
+    }
 
-        BackHandler(enabled = true) {
-            scope.launch {
-                // Mirror predictive-back-ish: collapse full -> peek before dismissing.
-                if (state.currentValue == CorusSheetValue.Expanded &&
-                    state.anchors.hasAnchorFor(CorusSheetValue.PartiallyExpanded)
-                ) {
-                    sheetState.partialExpand()
-                } else {
-                    sheetState.hide()
-                }
-            }
-        }
+    val density = LocalDensity.current
+    val statusTopPx = WindowInsets.statusBars.getTop(density).toFloat()
 
-        val density = LocalDensity.current
-        val statusTopPx = WindowInsets.statusBars.getTop(density).toFloat()
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Scrim — full screen (dims behind the nav bar too); fades with how open the sheet
+        // is; tap to dismiss.
+        val scrimAlpha = corusSheetScrimAlpha(
+            offset = state.offset,
+            minAnchor = state.anchors.minAnchor(),
+            maxAnchor = state.anchors.maxAnchor(),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = scrimAlpha))
+                .pointerInput(Unit) {
+                    detectTapGestures { scope.launch { sheetState.hide() } }
+                },
+        )
 
-        BoxWithConstraints(modifier = Modifier.fillMaxSize().imePadding()) {
+        // navigationBarsPadding insets the panel area above the nav bar (reliable in the
+        // host window). The composer's imePadding (inside `content`) handles the keyboard.
+        BoxWithConstraints(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
             val fullHeightPx = constraints.maxHeight.toFloat()
 
-            // (Re)build anchors whenever the available height changes (e.g. the IME
-            // shows/hides and shrinks/grows the window). PartiallyExpanded is the
-            // half peek; Expanded sits just below the status bar; Hidden is off the
-            // bottom. Matches iOS .medium / .large detents.
+            // (Re)build anchors when the available height changes. PartiallyExpanded is the
+            // half peek; Expanded leaves a top gap (like iOS .large); Hidden is off-bottom.
             LaunchedEffect(fullHeightPx, statusTopPx) {
                 if (fullHeightPx > 0f) {
+                    val expandedTopPx = maxOf(statusTopPx, fullHeightPx * 0.06f)
                     state.updateAnchors(
                         DraggableAnchors {
-                            CorusSheetValue.Expanded at statusTopPx
+                            CorusSheetValue.Expanded at expandedTopPx
                             CorusSheetValue.PartiallyExpanded at fullHeightPx / 2f
                             CorusSheetValue.Hidden at fullHeightPx
                         }
@@ -224,22 +234,6 @@ fun CorusDraggableSheet(
                 }
             }
 
-            // Scrim — fades with how far the sheet is open; tap to dismiss.
-            val scrimAlpha = corusSheetScrimAlpha(
-                offset = state.offset,
-                minAnchor = state.anchors.minAnchor(),
-                maxAnchor = state.anchors.maxAnchor(),
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = scrimAlpha))
-                    .pointerInput(Unit) {
-                        // A tap anywhere on the scrim dismisses (drag is owned by the panel).
-                        detectTapGestures { scope.launch { sheetState.hide() } }
-                    },
-            )
-
             val nestedScroll = remember(state) { sheetNestedScrollConnection(state) }
 
             Surface(
@@ -250,22 +244,25 @@ fun CorusDraggableSheet(
                     .fillMaxWidth()
                     .nestedScroll(nestedScroll)
                     .anchoredDraggable(state, Orientation.Vertical)
-                    // Size the panel to the visible region (containerHeight - offset),
-                    // bottom-aligned, so it grows upward from the screen bottom and the
-                    // composer (the last child) stays pinned to the visible bottom at
-                    // every detent. The offset is read in the measure phase, so dragging
-                    // relayouts the panel without recomposing the comment list each frame.
+                    // Panel height = visible region (containerHeight - offset), bottom-
+                    // aligned, so it grows upward and the composer (last child) stays pinned
+                    // to the visible bottom at every detent. Offset is read in measure, so
+                    // dragging relayouts without recomposing the comment list each frame.
                     .sheetPanelHeight(state),
             ) {
-                // fillMaxSize (not fillMaxWidth): the panel has a fixed height from
-                // sheetPanelHeight, and the content's `LazyColumn.weight(1f)` needs a
-                // bounded-height parent to distribute space deterministically — otherwise
-                // the list over-consumes and squishes the pinned composer.
                 Column(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                        BottomSheetDefaults.DragHandle()
+                    // Compact grabber (Material3's DragHandle reserves ~44dp, too tall).
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(top = 10.dp, bottom = 4.dp)
+                            .size(width = 36.dp, height = 4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(CorusColors.Tertiary.copy(alpha = 0.4f)),
+                    )
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        content()
                     }
-                    content()
                 }
             }
         }
@@ -284,12 +281,7 @@ private fun Modifier.sheetPanelHeight(
     val raw = state.offset
     val maxH = constraints.maxHeight
     val h = (if (raw.isNaN()) 0 else maxH - raw.roundToInt()).coerceIn(0, maxH)
-    android.util.Log.d(
-        "CorusSheet",
-        "panelHeight: incoming maxH=$maxH boundedH=${constraints.hasBoundedHeight} offset=$raw -> h=$h",
-    )
     val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
-    android.util.Log.d("CorusSheet", "panelHeight: measured placeable=${placeable.width}x${placeable.height}")
     layout(placeable.width, h) { placeable.place(0, 0) }
 }
 

@@ -12,7 +12,6 @@ import androidx.navigation.toRoute
 import fm.corus.android.ui.screens.explore.HashtagFeedScreen
 import fm.corus.android.ui.screens.explore.HashtagPeopleListScreen
 import fm.corus.android.ui.screens.feed.CommentLikesScreen
-import fm.corus.android.ui.screens.feed.CommentsBottomSheet
 import fm.corus.android.ui.screens.feed.CommentsSheet
 import fm.corus.android.ui.screens.feed.EditCaptionSheet
 import fm.corus.android.ui.screens.feed.FeedScreen
@@ -98,8 +97,8 @@ fun FeedNavGraph(
     mainTabViewModel: MainTabViewModel,
     scrollToTopTrigger: Int = 0,
     isFeedTabSelected: Boolean = true,
+    onShowComments: (String) -> Unit = {},
 ) {
-    var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
     // Synchronous access to the cached following set so feed → profile
@@ -150,7 +149,7 @@ fun FeedNavGraph(
                 },
                 onNavigateToUserById = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToUserByUsername = navigateToUserByUsername,
-                onNavigateToComments = { postId -> commentPostId = postId },
+                onNavigateToComments = onShowComments,
                 onNavigateToLikes = { postId -> likesPostId = postId },
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
@@ -158,30 +157,7 @@ fun FeedNavGraph(
                 onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it }, isContainingTabSelected = isFeedTabSelected)
-    }
-
-    commentPostId?.let { postId ->
-        CommentsBottomSheet(
-            postId = postId,
-            onDismiss = { commentPostId = null },
-            onNavigateToUser = { userId ->
-                commentPostId = null
-                navController.navigate(OtherProfileRoute(userId))
-            },
-            onNavigateToSong = { track ->
-                commentPostId = null
-                navController.navigate(track.toSongDetailRoute())
-            },
-            onNavigateToFilm = { movie ->
-                commentPostId = null
-                navController.navigate(FilmDetailRoute(movie.id))
-            },
-            onNavigateToHashtag = { hashtag ->
-                commentPostId = null
-                navController.navigate(HashtagFeedRoute(hashtag))
-            },
-        )
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isFeedTabSelected)
     }
 
     likesPostId?.let { postId ->
@@ -202,8 +178,8 @@ fun SearchNavGraph(
     mainTabViewModel: MainTabViewModel,
     scrollToTopTrigger: Int = 0,
     isContainingTabSelected: Boolean = true,
+    onShowComments: (String) -> Unit = {},
 ) {
-    var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
 
@@ -226,30 +202,7 @@ fun SearchNavGraph(
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
-    }
-
-    commentPostId?.let { postId ->
-        CommentsBottomSheet(
-            postId = postId,
-            onDismiss = { commentPostId = null },
-            onNavigateToUser = { userId ->
-                commentPostId = null
-                navController.navigate(OtherProfileRoute(userId))
-            },
-            onNavigateToSong = { track ->
-                commentPostId = null
-                navController.navigate(track.toSongDetailRoute())
-            },
-            onNavigateToFilm = { movie ->
-                commentPostId = null
-                navController.navigate(FilmDetailRoute(movie.id))
-            },
-            onNavigateToHashtag = { hashtag ->
-                commentPostId = null
-                navController.navigate(HashtagFeedRoute(hashtag))
-            },
-        )
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
     }
 
     likesPostId?.let { postId ->
@@ -271,8 +224,8 @@ fun NotificationsNavGraph(
     scrollToTopTrigger: Int = 0,
     tabActivationTrigger: Int = 0,
     isContainingTabSelected: Boolean = true,
+    onShowComments: (String) -> Unit = {},
 ) {
-    var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
 
@@ -298,30 +251,7 @@ fun NotificationsNavGraph(
                 },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
-    }
-
-    commentPostId?.let { postId ->
-        CommentsBottomSheet(
-            postId = postId,
-            onDismiss = { commentPostId = null },
-            onNavigateToUser = { userId ->
-                commentPostId = null
-                navController.navigate(OtherProfileRoute(userId))
-            },
-            onNavigateToSong = { track ->
-                commentPostId = null
-                navController.navigate(track.toSongDetailRoute())
-            },
-            onNavigateToFilm = { movie ->
-                commentPostId = null
-                navController.navigate(FilmDetailRoute(movie.id))
-            },
-            onNavigateToHashtag = { hashtag ->
-                commentPostId = null
-                navController.navigate(HashtagFeedRoute(hashtag))
-            },
-        )
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
     }
 
     likesPostId?.let { postId ->
@@ -344,8 +274,8 @@ fun ProfileNavGraph(
     tabActivationTrigger: Int = 0,
     onOpenCompose: (String) -> Unit = {},
     isContainingTabSelected: Boolean = true,
+    onShowComments: (String) -> Unit = {},
 ) {
-    var commentPostId by remember { mutableStateOf<String?>(null) }
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
 
@@ -379,30 +309,7 @@ fun ProfileNavGraph(
                 onOpenCompose = onOpenCompose,
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = { commentPostId = it }, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
-    }
-
-    commentPostId?.let { postId ->
-        CommentsBottomSheet(
-            postId = postId,
-            onDismiss = { commentPostId = null },
-            onNavigateToUser = { userId ->
-                commentPostId = null
-                navController.navigate(OtherProfileRoute(userId))
-            },
-            onNavigateToSong = { track ->
-                commentPostId = null
-                navController.navigate(track.toSongDetailRoute())
-            },
-            onNavigateToFilm = { movie ->
-                commentPostId = null
-                navController.navigate(FilmDetailRoute(movie.id))
-            },
-            onNavigateToHashtag = { hashtag ->
-                commentPostId = null
-                navController.navigate(HashtagFeedRoute(hashtag))
-            },
-        )
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
     }
 
     likesPostId?.let { postId ->

@@ -747,6 +747,15 @@ class CloudFunctionsDataSource @Inject constructor(
         ).await()
     }
 
+    /** Edit one of the caller's own messages. Server-enforced: author-only, text
+     *  messages only, within a 15-minute window. On success the message gains an
+     *  `editedAt`, surfaced as an "edited" indicator. */
+    suspend fun editMessage(threadId: String, messageId: String, text: String) {
+        functions.getHttpsCallable("editMessage").call(
+            mapOf("threadId" to threadId, "messageId" to messageId, "text" to text)
+        ).await()
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun getOrCreateThread(userId: String, otherUserId: String): String {
         val result = functions.getHttpsCallable("getOrCreateThread").call(

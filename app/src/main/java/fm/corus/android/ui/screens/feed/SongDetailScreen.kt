@@ -2,8 +2,6 @@ package fm.corus.android.ui.screens.feed
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -12,11 +10,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -145,7 +145,6 @@ fun SongDetailScreen(
 
     val isPlayingThisTrack = nowPlayingState.trackId == trackId && nowPlayingState.isPlaying
     val isLoadingThisTrack = previewLoadingTrackId == trackId
-    val showScrim = isPlayingThisTrack || isLoadingThisTrack
 
     LaunchedEffect(trackId) {
         viewModel.loadSongPosts(
@@ -183,11 +182,6 @@ fun SongDetailScreen(
                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
                 if (artUrl != null) {
-                    val scrimAlpha by animateFloatAsState(
-                        targetValue = if (showScrim) 1f else 0f,
-                        animationSpec = tween(durationMillis = 200),
-                        label = "previewScrim",
-                    )
                     Box(
                         modifier = Modifier
                             .size(200.dp)
@@ -221,24 +215,34 @@ fun SongDetailScreen(
                             contentScale = ContentScale.Crop,
                         )
 
-                        if (scrimAlpha > 0f) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.4f * scrimAlpha)),
-                            )
-                            if (isLoadingThisTrack) {
-                                CircularProgressIndicator(
+                        // A single circular badge in every state (play / pause /
+                        // loading) so the affordance reads consistently and never
+                        // covers the whole cover. Mirrors the search-row preview
+                        // badge (SongPreviewArtwork), scaled up for the large art.
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.4f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            when {
+                                isLoadingThisTrack -> CircularProgressIndicator(
                                     color = Color.White,
-                                    strokeWidth = 3.dp,
-                                    modifier = Modifier.size(40.dp),
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(24.dp),
                                 )
-                            } else if (isPlayingThisTrack) {
-                                Icon(
+                                isPlayingThisTrack -> Icon(
                                     imageVector = Icons.Filled.Pause,
                                     contentDescription = stringResource(R.string.song_detail_cd_pause_preview),
                                     tint = Color.White,
-                                    modifier = Modifier.size(40.dp),
+                                    modifier = Modifier.size(28.dp),
+                                )
+                                else -> Icon(
+                                    imageVector = Icons.Filled.PlayArrow,
+                                    contentDescription = stringResource(R.string.song_detail_cd_play_preview),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp),
                                 )
                             }
                         }

@@ -197,7 +197,7 @@ suspend fun generateShareCardBitmap(
     val titlePaint = nunitoPaint(context, size = 48f, weight = 800, color = ink)
     val subtitlePaint = nunitoPaint(context, size = 38f, weight = 500, color = (0x80 shl 24) or (ink and 0x00FFFFFF))
     val captionPaint = nunitoPaint(context, size = 34f, weight = 500, color = (0x66 shl 24) or (ink and 0x00FFFFFF))
-    val brandPaint = nunitoPaint(context, size = 48f, weight = 900, color = ink, align = android.graphics.Paint.Align.RIGHT)
+    val brandPaint = nunitoPaint(context, size = 60f, weight = 900, color = ink, align = android.graphics.Paint.Align.RIGHT)
 
     // Wrap the bottom text up front so we can size the block and center the layout.
     val maxTextWidth = width - marginX * 2
