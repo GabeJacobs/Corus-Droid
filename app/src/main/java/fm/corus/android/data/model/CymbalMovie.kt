@@ -1,5 +1,7 @@
 package fm.corus.android.data.model
 
+import fm.corus.android.ui.navigation.FilmDetailRoute
+
 data class CymbalMovie(
     val id: String,
     val title: String,
@@ -19,7 +21,24 @@ data class CymbalMovie(
     val cast: List<String> = emptyList(),
     val trailerURL: String? = null,
     val releaseDate: String? = null,
-)
+) {
+    /**
+     * Seed the film detail route with the metadata we already hold so the
+     * header renders immediately — even for films with zero posts. Without
+     * this, [FilmDetailRoute] would carry only the id and the detail screen
+     * could populate its header only from the first post, leaving films
+     * reached from a comment/DM attachment with no posts looking empty.
+     */
+    fun toFilmDetailRoute() = FilmDetailRoute(
+        movieId = id,
+        movieTitle = title.ifBlank { null },
+        directorName = directorName.ifBlank { null },
+        releaseYear = year.ifBlank { null },
+        posterURL = posterURL,
+        posterLargeURL = posterLargeURL,
+        trailerURL = trailerURL,
+    )
+}
 
 /** Time window the trending cache aggregates over.
  *

@@ -508,7 +508,7 @@ fun MainTabScreen(
             onDismiss = { commentPostId = null },
             onNavigateToUser = { userId -> navController?.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track -> navController?.navigate(track.toSongDetailRoute()) },
-            onNavigateToFilm = { movie -> navController?.navigate(FilmDetailRoute(movie.id)) },
+            onNavigateToFilm = { movie -> navController?.navigate(movie.toFilmDetailRoute()) },
             onNavigateToHashtag = { hashtag -> navController?.navigate(HashtagFeedRoute(hashtag)) },
         )
     }

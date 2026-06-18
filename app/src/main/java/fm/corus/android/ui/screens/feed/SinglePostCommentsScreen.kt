@@ -56,6 +56,7 @@ import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.ui.navigation.FilmDetailRoute
 import fm.corus.android.ui.components.CommentAttachmentCard
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.ui.components.CorusHeaderIconButton
@@ -90,7 +91,7 @@ fun SinglePostCommentsScreen(
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
-    onNavigateToFilm: (String) -> Unit = {},
+    onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
     onNavigateToLikes: (String) -> Unit = {},
     onNavigateToCommentLikes: (commentId: String) -> Unit = {},
@@ -546,7 +547,7 @@ fun SinglePostCommentsScreen(
                         onUserTap = { onNavigateToUser(p.user.id) },
                         onPreviewTap = {
                             if (p.isMovie) {
-                                p.movieId?.let { onNavigateToFilm(it) }
+                                p.movieId?.let { onNavigateToFilm(FilmDetailRoute(movieId = it)) }
                             } else {
                                 viewModel.playPreview(p)
                             }
@@ -606,12 +607,12 @@ fun SinglePostCommentsScreen(
                         },
                         onSongCountTap = {
                             if (p.isMovie) {
-                                p.movieId?.let { onNavigateToFilm(it) }
+                                p.movieId?.let { onNavigateToFilm(FilmDetailRoute(movieId = it)) }
                             } else {
                                 onNavigateToSong(p.track)
                             }
                         },
-                        onFilmPageTap = { p.movieId?.let { onNavigateToFilm(it) } },
+                        onFilmPageTap = { p.movieId?.let { onNavigateToFilm(FilmDetailRoute(movieId = it)) } },
                         onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                         onMenuTap = { menuPost = p },
                         backCoverFlipState = backCoverFlipState,
@@ -685,7 +686,7 @@ fun SinglePostCommentsScreen(
                         onReplyBlock = { reply -> viewModel.blockUser(reply.user.id) },
                         nowPlaying = viewModel.nowPlayingManager,
                         onNavigateToSong = onNavigateToSong,
-                        onNavigateToFilm = { movie -> onNavigateToFilm(movie.id) },
+                        onNavigateToFilm = { movie -> onNavigateToFilm(movie.toFilmDetailRoute()) },
                     )
                 }
             }
@@ -705,7 +706,7 @@ fun SinglePostCommentsScreen(
         musicService = musicService,
         backCoverStateFor = { backCoverFlipState },
         onNavigateToSong = onNavigateToSong,
-        onNavigateToFilm = onNavigateToFilm,
+        onNavigateToFilm = { movieId -> onNavigateToFilm(FilmDetailRoute(movieId = movieId)) },
         onRepost = onRepost,
         onPostDeleted = { onBack() },
         onCaptionSaved = { viewModel.loadPost(postId) },

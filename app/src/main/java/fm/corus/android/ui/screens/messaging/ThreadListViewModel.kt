@@ -30,6 +30,47 @@ internal fun mergeRefreshedThreads(
     return refreshed + existing.filter { it.id !in refreshedIds }
 }
 
+/** Result of folding a live inbox snapshot into the loaded list. */
+internal data class LiveThreadMerge(
+    /** Loaded list with known threads' previews updated, sorted newest-first. */
+    val merged: List<CymbalThread>,
+    /** Live summaries for threads not yet loaded — need profile resolution. */
+    val newThreads: List<CymbalThread>,
+)
+
+/**
+ * Fold a live snapshot of thread summaries into the already-loaded list. Known
+ * threads get their preview fields (text/type/time/sender/unread) refreshed
+ * while keeping their resolved `otherUser`; threads absent from the loaded list
+ * are returned separately so the caller can resolve their profiles. The merged
+ * list is sorted by most-recent message so a new message floats to the top.
+ */
+internal fun applyLiveThreadUpdates(
+    existing: List<CymbalThread>,
+    live: List<CymbalThread>,
+): LiveThreadMerge {
+    val byId = existing.associateBy { it.id }.toMutableMap()
+    val newThreads = mutableListOf<CymbalThread>()
+    for (lt in live) {
+        // Skip threads with no message yet (mirrors the loadThreads filter).
+        if (lt.lastMessageFromUserId == null) continue
+        val ex = byId[lt.id]
+        if (ex != null) {
+            byId[lt.id] = ex.copy(
+                lastMessageText = lt.lastMessageText,
+                lastMessageType = lt.lastMessageType,
+                lastMessageAt = lt.lastMessageAt,
+                lastMessageFromUserId = lt.lastMessageFromUserId,
+                unreadCount = lt.unreadCount,
+            )
+        } else {
+            newThreads.add(lt)
+        }
+    }
+    val merged = byId.values.sortedByDescending { it.lastMessageAt.time }
+    return LiveThreadMerge(merged, newThreads)
+}
+
 @HiltViewModel
 class ThreadListViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
@@ -78,6 +119,7 @@ class ThreadListViewModel @Inject constructor(
     val currentUserId: String? get() = authRepository.currentUserId
 
     private var searchJob: Job? = null
+    private var threadSummaryJob: Job? = null
 
     // Inbox search. The local filter in the screen only sees paged-in threads, so
     // a debounced backend `searchThreads` backfills matches from the full history.
@@ -104,9 +146,49 @@ class ThreadListViewModel @Inject constructor(
                 nextCursor = page.nextCursor
                 _hasMoreThreads.value = page.hasMore && page.nextCursor != null
                 hasLoadedThreads = true
+                startThreadSummaryListener(userId)
             } catch (_: Exception) { }
             _isLoading.value = false
         }
+    }
+
+    /**
+     * Keep the first page of the inbox live: merge a real-time snapshot of the
+     * caller's threads so previews/timestamps/unread update without leaving the
+     * screen. Started once after the first load; the paginated callable still
+     * loads older threads on scroll. Profiles for brand-new threads (someone
+     * messaging you for the first time while you sit here) are resolved on the
+     * side and folded in.
+     */
+    private fun startThreadSummaryListener(userId: String) {
+        if (threadSummaryJob != null) return
+        threadSummaryJob = viewModelScope.launch {
+            messageRepository.listenToThreadSummaries(userId, pageSize.toLong()).collect { live ->
+                val (merged, newThreads) = applyLiveThreadUpdates(_threads.value, live)
+                _threads.value = merged
+                if (newThreads.isEmpty()) return@collect
+                val resolved = newThreads.mapNotNull { lt ->
+                    val profile = runCatching {
+                        userRepository.fetchUserProfile(lt.otherUserId)
+                    }.getOrNull()
+                    profile?.let { lt.copy(otherUser = it) }
+                }
+                if (resolved.isNotEmpty()) {
+                    // resolved goes last so it wins over any stale duplicate.
+                    _threads.value = (_threads.value + resolved)
+                        .associateBy { it.id }
+                        .values
+                        .sortedByDescending { it.lastMessageAt.time }
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        threadSummaryJob?.cancel()
+        searchJob?.cancel()
+        inboxSearchJob?.cancel()
     }
 
     private fun refreshThreads(userId: String) {

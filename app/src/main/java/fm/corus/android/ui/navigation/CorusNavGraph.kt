@@ -644,7 +644,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
-            onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
+            onNavigateToFilm = { route -> navController.navigate(route) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             onNavigateToLikes = onShowLikes,
             onNavigateToCommentLikes = { commentId ->
@@ -684,7 +684,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 navController.navigate(track.toSongDetailRoute())
             },
             onNavigateToFilm = { movie ->
-                navController.navigate(FilmDetailRoute(movie.id))
+                navController.navigate(movie.toFilmDetailRoute())
             },
         )
     }

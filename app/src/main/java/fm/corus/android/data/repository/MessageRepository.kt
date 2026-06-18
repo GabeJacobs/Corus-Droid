@@ -1,5 +1,6 @@
 package fm.corus.android.data.repository
 
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import fm.corus.android.data.model.CymbalMessage
@@ -7,7 +8,9 @@ import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MessageType
 import fm.corus.android.data.model.TrackSource
+import java.util.Date
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import kotlinx.coroutines.channels.awaitClose
@@ -191,6 +194,53 @@ class MessageRepository @Inject constructor(
                 trySend(enabled)
             }
         awaitClose { registration.remove() }
+    }
+
+    /**
+     * Live snapshot of the first page of the caller's inbox, read straight from
+     * `users_v2/{uid}/threads` (ordered by `updatedAt`, newest first). Lets the
+     * inbox preview/timestamp/unread update in real time, while the paginated
+     * `listThreadsPage` callable still loads older threads on scroll.
+     *
+     * These docs carry only `otherUserId` (not the resolved profile), so the
+     * caller keeps the already-resolved `otherUser` for known threads and looks
+     * up profiles only for genuinely new ones.
+     */
+    fun listenToThreadSummaries(userId: String, limit: Long): Flow<List<CymbalThread>> = callbackFlow {
+        val registration = firestore
+            .collection("users_v2")
+            .document(userId)
+            .collection("threads")
+            .orderBy("updatedAt", Query.Direction.DESCENDING)
+            .limit(limit)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                val summaries = snapshot.documents.mapNotNull { doc ->
+                    val data = doc.data ?: return@mapNotNull null
+                    parseThreadSummary(doc.id, data)
+                }
+                trySend(summaries)
+            }
+        awaitClose { registration.remove() }
+    }
+
+    /**
+     * Parse a raw `users_v2/{uid}/threads` doc into a CymbalThread with no
+     * `otherUser` (the doc only stores `otherUserId`). Timestamps are real
+     * Firestore `Timestamp`s here, unlike the callable which serializes millis.
+     */
+    private fun parseThreadSummary(id: String, data: Map<String, Any?>): CymbalThread {
+        val ts = data["lastMessageAt"] as? Timestamp ?: data["updatedAt"] as? Timestamp
+        return CymbalThread(
+            id = id,
+            otherUser = null,
+            otherUserId = data["otherUserId"] as? String ?: "",
+            lastMessageText = data["lastMessageText"] as? String ?: "",
+            lastMessageType = MessageType.from(data["lastMessageType"] as? String),
+            lastMessageAt = ts?.toDate() ?: Date(0),
+            lastMessageFromUserId = data["lastMessageFromUserId"] as? String,
+            unreadCount = (data["unreadCount"] as? Number)?.toInt() ?: 0,
+        )
     }
 
     /**
