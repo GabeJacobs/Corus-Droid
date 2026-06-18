@@ -273,7 +273,7 @@ class RemoteConfigService @Inject constructor(
                     "for_you_enabled" to false,
                     "trending_feed_enabled" to true,
                     "favorites_enabled" to true,
-                    "favorites_push_enabled" to false,
+                    "favorites_push_enabled" to true,
                     "play_milestone_enabled" to false,
                     "default_for_you_feed_enabled" to false,
                 )

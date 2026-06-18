@@ -47,6 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -244,10 +246,20 @@ fun MessageThreadScreen(
     var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val composerFocusRequester = remember { FocusRequester() }
 
     // Dismiss the keyboard while the long-press menu is shown so it doesn't occlude the action card
     LaunchedEffect(reactionTarget) {
         if (reactionTarget != null) keyboardController?.hide()
+    }
+
+    // When an edit begins, focus the composer and raise the keyboard (parity with
+    // iOS/web, which focus the field on edit).
+    LaunchedEffect(editingMessage) {
+        if (editingMessage != null) {
+            composerFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
     }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -504,7 +516,9 @@ fun MessageThreadScreen(
             OutlinedTextField(
                 value = messageText,
                 onValueChange = { messageText = it },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(composerFocusRequester),
                 placeholder = { Text(stringResource(id = R.string.messaging_thread_placeholder), style = CorusFont.body) },
                 singleLine = false,
                 maxLines = 4,

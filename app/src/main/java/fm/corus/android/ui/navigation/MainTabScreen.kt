@@ -501,23 +501,15 @@ fun MainTabScreen(
         val navController = navControllers[selectedTab]
         CommentsBottomSheet(
             postId = postId,
+            // onDismiss is what removes the sheet (commentPostId = null). The nav callbacks
+            // below only navigate — CommentsBottomSheet animates the sheet closed first and
+            // the close reaching Hidden fires onDismiss, so they must NOT clear it here (that
+            // would yank the sheet instantly and skip the animation).
             onDismiss = { commentPostId = null },
-            onNavigateToUser = { userId ->
-                commentPostId = null
-                navController?.navigate(OtherProfileRoute(userId))
-            },
-            onNavigateToSong = { track ->
-                commentPostId = null
-                navController?.navigate(track.toSongDetailRoute())
-            },
-            onNavigateToFilm = { movie ->
-                commentPostId = null
-                navController?.navigate(FilmDetailRoute(movie.id))
-            },
-            onNavigateToHashtag = { hashtag ->
-                commentPostId = null
-                navController?.navigate(HashtagFeedRoute(hashtag))
-            },
+            onNavigateToUser = { userId -> navController?.navigate(OtherProfileRoute(userId)) },
+            onNavigateToSong = { track -> navController?.navigate(track.toSongDetailRoute()) },
+            onNavigateToFilm = { movie -> navController?.navigate(FilmDetailRoute(movie.id)) },
+            onNavigateToHashtag = { hashtag -> navController?.navigate(HashtagFeedRoute(hashtag)) },
         )
     }
 

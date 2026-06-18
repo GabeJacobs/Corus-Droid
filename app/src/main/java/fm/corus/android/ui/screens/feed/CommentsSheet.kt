@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -33,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -51,6 +53,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import coil3.compose.AsyncImage
@@ -65,6 +68,7 @@ import fm.corus.android.ui.components.CommentAttachmentCard
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.ui.components.CorusDraggableSheet
 import fm.corus.android.ui.components.CorusSheetState
+import fm.corus.android.ui.components.CorusSheetValue
 import fm.corus.android.ui.components.rememberCorusSheetState
 import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.PickerMode
@@ -106,6 +110,17 @@ fun CommentsBottomSheet(
     // pinned and visible at the peek, mirroring the iOS
     // .presentationDetents([.medium, .large]) comments sheet.
     val sheetState = rememberCorusSheetState()
+    val scope = rememberCoroutineScope()
+
+    // Tapping a user / hashtag / song / film inside a comment animates the sheet closed,
+    // then lands on the destination — instead of the sheet vanishing abruptly (iOS parity:
+    // navigate intent, then animated dismiss). The push happens immediately behind the
+    // still-visible sheet; the slide-down reveals it. The host clears the sheet via onDismiss
+    // once it settles at the Hidden anchor, so the nav callbacks here must NOT also clear it.
+    fun navigateClosing(navigate: () -> Unit) {
+        navigate()
+        scope.launch { sheetState.hide() }
+    }
 
     CorusDraggableSheet(
         onDismiss = onDismiss,
@@ -118,10 +133,10 @@ fun CommentsBottomSheet(
             viewModel = viewModel,
             sheetState = sheetState,
             onDismiss = onDismiss,
-            onNavigateToUser = onNavigateToUser,
-            onNavigateToSong = onNavigateToSong,
-            onNavigateToFilm = onNavigateToFilm,
-            onNavigateToHashtag = onNavigateToHashtag,
+            onNavigateToUser = { userId -> navigateClosing { onNavigateToUser(userId) } },
+            onNavigateToSong = { track -> navigateClosing { onNavigateToSong(track) } },
+            onNavigateToFilm = { movie -> navigateClosing { onNavigateToFilm(movie) } },
+            onNavigateToHashtag = { hashtag -> navigateClosing { onNavigateToHashtag(hashtag) } },
             autoFocusInput = false,
         )
     }
@@ -189,13 +204,21 @@ private fun CommentsSheetContent(
     val editingComment by viewModel.editingComment.collectAsState()
     val blockReason by viewModel.commentBlockReason.collectAsState()
 
+    // The retained ViewModel may still hold the PREVIOUS post's comments on the first frame
+    // after reopening for a different post. Until the new load commits (loadComments sets
+    // loadedPostId), treat the list as loading so we show a skeleton, never the old sheet.
+    val loadedPostId by viewModel.loadedPostId.collectAsState()
+    val isStale = loadedPostId != postId
+
     val pendingSong by viewModel.pendingSong.collectAsState()
     val pendingFilm by viewModel.pendingFilm.collectAsState()
     val pendingGif by viewModel.pendingGif.collectAsState()
 
     var commentText by remember { mutableStateOf(TextFieldValue("")) }
+    val commentListState = rememberLazyListState()
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     var showGifPicker by remember { mutableStateOf(false) }
     var showSongFilmPicker by remember { mutableStateOf(false) }
     var pickerInitialMode by remember { mutableStateOf(PickerMode.SONG) }
@@ -233,10 +256,50 @@ private fun CommentsSheetContent(
         viewModel.loadPost(postId)
     }
 
+    // Keyboard ⟺ Expanded invariant (iOS parity): the keyboard only belongs at the full
+    // detent. As soon as the sheet is dragged toward a lower detent, dismiss the keyboard
+    // and drop focus, so you can't get stuck half-collapsed with the keyboard still up.
+    // snapshotFlow emits only on change, so the focus -> expand() open path (which sets the
+    // target straight to Expanded) never trips this.
+    if (sheetState != null) {
+        LaunchedEffect(sheetState) {
+            snapshotFlow { sheetState.targetValue }
+                .collect { target ->
+                    if (target != CorusSheetValue.Expanded) {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                    }
+                }
+        }
+    }
+
     LaunchedEffect(replyingTo, blockReason) {
         if (replyingTo != null && blockReason == null) {
             focusRequester.requestFocus()
         }
+    }
+
+    // Scroll the replied-to comment into view when Reply is tapped (iOS parity:
+    // scrollProxy.scrollTo(newId, anchor: .center) in CommentsSheet.swift). We bring it to
+    // the top of the list area rather than centering, so it stays visible above the keyboard
+    // that opens at the same time. Index mirrors the LazyColumn's flattened order below:
+    // an optional header (voice note / caption) row, then each comment followed by its replies.
+    LaunchedEffect(replyingTo?.id) {
+        val targetId = replyingTo?.id ?: return@LaunchedEffect
+        val hasHeader = !post?.voiceNoteURL.isNullOrEmpty() || !post?.caption.isNullOrEmpty()
+        var index = if (hasHeader) 1 else 0
+        var found = -1
+        run {
+            comments.forEach { comment ->
+                if (comment.id == targetId) { found = index; return@run }
+                index++
+                (repliesByParent[comment.id] ?: emptyList()).forEach { reply ->
+                    if (reply.id == targetId) { found = index; return@run }
+                    index++
+                }
+            }
+        }
+        if (found >= 0) commentListState.animateScrollToItem(found)
     }
 
     LaunchedEffect(editingComment?.id, blockReason) {
@@ -306,7 +369,7 @@ private fun CommentsSheetContent(
     val likesCommentId = viewingLikesCommentId
     if (likesCommentId != null) {
         BackHandler(enabled = true) { viewingLikesCommentId = null }
-        Column(modifier = Modifier.fillMaxWidth().imePadding()) {
+        Column(modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 IconButton(
                     onClick = { viewingLikesCommentId = null },
@@ -334,8 +397,10 @@ private fun CommentsSheetContent(
                 commentId = likesCommentId,
                 onNavigateToUser = { userId ->
                     viewingLikesCommentId = null
+                    // onNavigateToUser already animates the sheet closed (see
+                    // CommentsBottomSheet.navigateClosing); no separate onDismiss() so the
+                    // close animates instead of the sheet vanishing.
                     onNavigateToUser(userId)
-                    onDismiss()
                 },
                 fillContainer = true,
             )
@@ -369,11 +434,12 @@ private fun CommentsSheetContent(
                 // Top padding gives the first row (voice note / caption) breathing room,
                 // matching iOS.
                 LazyColumn(
+                    state = commentListState,
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.sm),
                 ) {
-            if (isLoading && comments.isEmpty()) {
-                val skeletonCount = post?.let { maxOf(minOf(it.commentCount, 5), 2) } ?: 3
+            if (isStale || (isLoading && comments.isEmpty())) {
+                val skeletonCount = if (isStale) 3 else post?.let { maxOf(minOf(it.commentCount, 5), 2) } ?: 3
                 items(skeletonCount) { SkeletonCommentRow() }
             } else if (comments.isEmpty() && !isLoading && post?.caption.isNullOrEmpty() == true && post?.voiceNoteURL.isNullOrEmpty() == true) {
                 item(key = "empty") {
@@ -495,11 +561,13 @@ private fun CommentsSheetContent(
                     // space above the nav bar. Banners/mentions/keyboard grow it past this.
                     .heightIn(min = 72.dp)
                     .background(CorusColors.Background)
-                    // Keyboard inset only — the dialog reports this reliably. The nav-bar
-                    // inset is applied upstream (CorusDraggableSheet) since the dialog
-                    // can't see it. imePadding lifts the composer above the keyboard and
-                    // lets it grow upward as the text wraps to a 2nd line.
-                    .imePadding(),
+                    // Background is applied BEFORE this padding, so the composer's fill
+                    // extends down behind the nav bar (one continuous sheet), while its
+                    // CONTENT sits above both the keyboard and the 3-button nav bar. The
+                    // union takes the larger inset per side: nav bar when the keyboard is
+                    // closed, the (taller) IME when it's open — never double-counted. This
+                    // also lets the input grow upward as the text wraps to a 2nd line.
+                    .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
             ) {
             val currentBlockReason = blockReason
         if (currentBlockReason != null) {
@@ -614,6 +682,11 @@ private fun CommentsSheetContent(
                     DropdownMenu(
                         expanded = showAttachmentMenu,
                         onDismissRequest = { showAttachmentMenu = false },
+                        // Don't steal focus from the composer, so opening the attachment
+                        // menu while typing leaves the keyboard up (iOS parity: the SwiftUI
+                        // Menu behaves this way). Selecting an item opens the full picker,
+                        // which dismisses the keyboard as expected.
+                        properties = PopupProperties(focusable = false),
                     ) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.comment_attachment_gif)) },

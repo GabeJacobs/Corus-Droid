@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -207,9 +206,12 @@ fun CorusDraggableSheet(
                 },
         )
 
-        // navigationBarsPadding insets the panel area above the nav bar (reliable in the
-        // host window). The composer's imePadding (inside `content`) handles the keyboard.
-        BoxWithConstraints(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
+        // The panel fills to the very bottom of the screen so the sheet's surface (its
+        // background) extends under the 3-button nav bar — one continuous sheet, with no
+        // dark scrim strip showing below it. The composer (inside `content`) insets itself
+        // above the nav bar + keyboard via WindowInsets.ime.union(navigationBars), so only
+        // the sheet's own background sits behind the nav bar.
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val fullHeightPx = constraints.maxHeight.toFloat()
 
             // (Re)build anchors when the available height changes. PartiallyExpanded is the
@@ -234,7 +236,13 @@ fun CorusDraggableSheet(
                 }
             }
 
-            val nestedScroll = remember(state) { sheetNestedScrollConnection(state) }
+            // A downward fling faster than this skips the peek and dismisses outright,
+            // matching iOS where a quick flick from the large detent closes the sheet
+            // instead of stopping at medium. Slower drags still settle to the nearest anchor.
+            val dismissVelocityThresholdPx = with(density) { 300.dp.toPx() }
+            val nestedScroll = remember(state, dismissVelocityThresholdPx) {
+                sheetNestedScrollConnection(state, dismissVelocityThresholdPx)
+            }
 
             Surface(
                 color = containerColor,
@@ -293,6 +301,7 @@ private fun Modifier.sheetPanelHeight(
 @OptIn(ExperimentalFoundationApi::class)
 private fun sheetNestedScrollConnection(
     state: AnchoredDraggableState<CorusSheetValue>,
+    dismissVelocityThresholdPx: Float,
 ): NestedScrollConnection = object : NestedScrollConnection {
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
         val delta = available.y
@@ -327,7 +336,16 @@ private fun sheetNestedScrollConnection(
     }
 
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-        state.settle(available.y)
+        // Fast downward flick → dismiss the whole sheet, skipping the peek detent (iOS
+        // parity). A slower fling falls through to settle() and lands on the nearest anchor.
+        if (available.y > dismissVelocityThresholdPx &&
+            state.currentValue != CorusSheetValue.Hidden &&
+            state.anchors.hasAnchorFor(CorusSheetValue.Hidden)
+        ) {
+            state.animateTo(CorusSheetValue.Hidden)
+        } else {
+            state.settle(available.y)
+        }
         return available
     }
 }

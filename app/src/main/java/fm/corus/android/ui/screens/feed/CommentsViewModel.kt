@@ -213,6 +213,14 @@ class CommentsViewModel @Inject constructor(
     private val _comments = MutableStateFlow<List<CymbalComment>>(emptyList())
     val comments: StateFlow<List<CymbalComment>> = _comments.asStateFlow()
 
+    // The post id whose comments are currently loaded. The sheet's ViewModel is retained
+    // across opens (hosted at the app root), so when it reopens for a DIFFERENT post the
+    // old comments/caption are still in state for the first frame. The UI compares this
+    // against the requested postId and shows a skeleton (not the previous post) until the
+    // new load commits — kills the "flash of the last sheet" on reopen.
+    private val _loadedPostId = MutableStateFlow<String?>(null)
+    val loadedPostId: StateFlow<String?> = _loadedPostId.asStateFlow()
+
     private val _repliesByParent = MutableStateFlow<Map<String, List<CymbalComment>>>(emptyMap())
     val repliesByParent: StateFlow<Map<String, List<CymbalComment>>> = _repliesByParent.asStateFlow()
 
@@ -267,11 +275,14 @@ class CommentsViewModel @Inject constructor(
     }
 
     fun loadPost(postId: String) {
-        // Show cached post immediately so the caption appears without delay
+        // Show cached post immediately so the caption appears without delay.
         val cached = postRepository.getCachedPost(postId)
-        if (cached != null && _post.value == null) {
+        // When switching to a different post, drop the previous one right away (its caption /
+        // voice note is the comment list's first row) so it can't flash before the new detail
+        // loads. Reopening the SAME post keeps the loaded post (no needless reload flash).
+        if (_post.value?.id != postId) {
             _post.value = cached
-            refreshFollowGate(cached)
+            if (cached != null) refreshFollowGate(cached)
         }
 
         val userId = authRepository.currentUserId ?: return
@@ -322,6 +333,7 @@ class CommentsViewModel @Inject constructor(
     fun loadComments(postId: String) {
         val postChanged = this.postId != postId
         this.postId = postId
+        _loadedPostId.value = postId
         if (postChanged) {
             _comments.value = emptyList()
             _repliesByParent.value = emptyMap()
