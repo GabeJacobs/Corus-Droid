@@ -13,6 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -332,6 +334,7 @@ fun OnboardingScreen(
                             onValueChange = { displayName = it.take(30) },
                             textStyle = CorusFont.body.copy(color = CorusColors.Text),
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -388,6 +391,7 @@ fun OnboardingScreen(
                             },
                             textStyle = CorusFont.body.copy(color = CorusColors.Text),
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

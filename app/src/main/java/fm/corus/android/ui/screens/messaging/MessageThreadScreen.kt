@@ -3,6 +3,10 @@ package fm.corus.android.ui.screens.messaging
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -17,11 +21,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
@@ -32,6 +38,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.Image
@@ -46,10 +53,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import fm.corus.android.service.ActiveThreadTracker
+import fm.corus.android.service.CorusFirebaseMessagingService
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -237,9 +253,13 @@ fun MessageThreadScreen(
     val editingMessage by viewModel.editingMessage.collectAsState()
     val recipientUnread by viewModel.recipientUnread.collectAsState()
     val myReadReceiptsEnabled by viewModel.myReadReceiptsEnabled.collectAsState()
-    var messageText by remember { mutableStateOf("") }
+    // TextFieldValue (not plain String) so we can place the cursor at the end of
+    // the prefilled text when an edit starts; the String overload resets it to 0.
+    var messageText by remember { mutableStateOf(TextFieldValue("")) }
     val listState = rememberLazyListState()
     var reactionTarget by remember { mutableStateOf<CymbalMessage?>(null) }
+    // Drives the big-heart burst over a bubble on a fresh double-tap like (iOS parity).
+    var heartBurstMessageId by remember { mutableStateOf<String?>(null) }
     var showGifPicker by remember { mutableStateOf(false) }
     var showAttachmentMenu by remember { mutableStateOf(false) }
     var mediaPickerMode by remember { mutableStateOf<PickerMode?>(null) }
@@ -247,6 +267,14 @@ fun MessageThreadScreen(
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val composerFocusRequester = remember { FocusRequester() }
+
+    // Auto-clear the heart burst after it plays (mirrors iOS's 0.8s hold).
+    LaunchedEffect(heartBurstMessageId) {
+        if (heartBurstMessageId != null) {
+            kotlinx.coroutines.delay(800)
+            heartBurstMessageId = null
+        }
+    }
 
     // Dismiss the keyboard while the long-press menu is shown so it doesn't occlude the action card
     LaunchedEffect(reactionTarget) {
@@ -257,6 +285,15 @@ fun MessageThreadScreen(
     // iOS/web, which focus the field on edit).
     LaunchedEffect(editingMessage) {
         if (editingMessage != null) {
+            composerFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
+    }
+
+    // Likewise when a reply begins, focus the composer and raise the keyboard
+    // (iOS focuses the field on reply; Android didn't).
+    LaunchedEffect(replyToMessage) {
+        if (replyToMessage != null) {
             composerFocusRequester.requestFocus()
             keyboardController?.show()
         }
@@ -279,6 +316,43 @@ fun MessageThreadScreen(
 
     LaunchedEffect(threadId) {
         viewModel.loadMessages(threadId, otherUserId)
+    }
+
+    // Mark this thread as the one being actively viewed while the screen is in
+    // the foreground: suppresses its push notifications, excludes it from the
+    // unread badge, and clears any notification that arrived before opening it.
+    // Cleared on STOP (app backgrounded / screen left) so notifications resume.
+    val resolvedThreadId by viewModel.resolvedThreadId.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(resolvedThreadId, lifecycleOwner) {
+        val tid = resolvedThreadId
+        fun activate() {
+            if (tid != null) {
+                ActiveThreadTracker.activeThreadId = tid
+                NotificationManagerCompat.from(context)
+                    .cancel(CorusFirebaseMessagingService.dmNotificationId(tid))
+            }
+        }
+        fun deactivate() {
+            if (ActiveThreadTracker.activeThreadId == tid) {
+                ActiveThreadTracker.activeThreadId = null
+            }
+        }
+        // The screen is already resumed when this effect runs, so activate now;
+        // the observer then handles later background/foreground transitions.
+        activate()
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> activate()
+                Lifecycle.Event.ON_STOP -> deactivate()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            deactivate()
+        }
     }
 
     // Auto-scroll to newest message when the list grows (reverseLayout: index 0 = bottom)
@@ -353,8 +427,17 @@ fun MessageThreadScreen(
                     onDoubleTap = {
                         // Mirrors iOS NotificationsView toggleReaction haptic.
                         bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
-                        viewModel.toggleReaction(threadId, message.id, "heart")
+                        // Backend's toggleMessageReaction only accepts the raw emoji
+                        // (ALLOWED_REACTIONS), not key strings like "heart". The long-press
+                        // picker already sends REACTION_EMOJIS; double-tap must match it.
+                        val heart = REACTION_EMOJIS[0]
+                        // Only burst on a fresh like (adding the heart), not when un-liking.
+                        val isFreshLike = viewModel.currentUserId
+                            ?.let { it !in (message.reactions[heart] ?: emptyList()) } ?: false
+                        viewModel.toggleReaction(threadId, message.id, heart)
+                        if (isFreshLike) heartBurstMessageId = message.id
                     },
+                    showHeartBurst = heartBurstMessageId == message.id,
                     onReactionTap = { emoji ->
                         // Mirrors iOS NotificationsView toggleReaction haptic.
                         bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
@@ -403,7 +486,7 @@ fun MessageThreadScreen(
                 }
                 IconButton(onClick = {
                     viewModel.cancelEditing()
-                    messageText = ""
+                    messageText = TextFieldValue("")
                 }) {
                     Icon(
                         Icons.Filled.Close,
@@ -520,6 +603,7 @@ fun MessageThreadScreen(
                     .weight(1f)
                     .focusRequester(composerFocusRequester),
                 placeholder = { Text(stringResource(id = R.string.messaging_thread_placeholder), style = CorusFont.body) },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 singleLine = false,
                 maxLines = 4,
                 shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
@@ -527,21 +611,21 @@ fun MessageThreadScreen(
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             IconButton(
                 onClick = {
-                    if (messageText.isNotBlank()) {
+                    if (messageText.text.isNotBlank()) {
                         if (editingMessage != null) {
-                            viewModel.editMessage(threadId, messageText)
+                            viewModel.editMessage(threadId, messageText.text)
                         } else {
-                            viewModel.sendMessage(threadId, messageText)
+                            viewModel.sendMessage(threadId, messageText.text)
                         }
-                        messageText = ""
+                        messageText = TextFieldValue("")
                     }
                 },
-                enabled = messageText.isNotBlank(),
+                enabled = messageText.text.isNotBlank(),
             ) {
                 Icon(
                     if (editingMessage != null) Icons.Filled.Check else Icons.AutoMirrored.Filled.Send,
                     contentDescription = stringResource(id = R.string.comments_cd_send),
-                    tint = if (messageText.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary,
+                    tint = if (messageText.text.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary,
                 )
             }
         }
@@ -589,7 +673,11 @@ fun MessageThreadScreen(
                 // Mirrors iOS NotificationsView toggleReaction haptic.
                 overlayHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
                 reactionTarget?.let { msg ->
+                    // Burst on a fresh heart from the picker too (iOS parity).
+                    val isFreshLike = emojiKey == REACTION_EMOJIS[0] &&
+                        (viewModel.currentUserId?.let { it !in (msg.reactions[emojiKey] ?: emptyList()) } ?: false)
                     viewModel.toggleReaction(threadId, msg.id, emojiKey)
+                    if (isFreshLike) heartBurstMessageId = msg.id
                 }
                 reactionTarget = null
             },
@@ -610,7 +698,8 @@ fun MessageThreadScreen(
             ) {
                 {
                     reactionTarget?.let { msg ->
-                        messageText = msg.text ?: ""
+                        val current = msg.text ?: ""
+                        messageText = TextFieldValue(text = current, selection = TextRange(current.length))
                         viewModel.startEditing(msg)
                     }
                     reactionTarget = null
@@ -762,6 +851,7 @@ private fun MessageBubble(
     otherUsername: String,
     deliveryStatus: MessageDeliveryStatus,
     nowPlayingManager: NowPlayingManager,
+    showHeartBurst: Boolean = false,
     onLongPress: () -> Unit,
     onDoubleTap: () -> Unit,
     onReactionTap: (String) -> Unit,
@@ -986,6 +1076,69 @@ private fun MessageBubble(
                 }
 
             }
+
+            // Big-heart burst on a fresh double-tap like (mirrors iOS heartAnimation):
+            // a spring pop-in, held ~0.8s by heartBurstMessageId, then a quick fade-out.
+            val burstScale by animateFloatAsState(
+                targetValue = if (showHeartBurst) 1f else 0f,
+                animationSpec = if (showHeartBurst) {
+                    spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium)
+                } else {
+                    tween(durationMillis = 300)
+                },
+                label = "heartBurstScale",
+            )
+            if (burstScale > 0.01f) {
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = null,
+                    tint = CorusColors.Like,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(60.dp)
+                        .graphicsLayer {
+                            scaleX = burstScale
+                            scaleY = burstScale
+                            alpha = burstScale.coerceIn(0f, 1f)
+                        },
+                )
+            }
+        }
+
+        // Reaction pills — overlaid on the bubble's bottom edge (mirrors iOS)
+        if (message.reactions.isNotEmpty()) {
+            Row(
+                modifier = Modifier.offset(y = (-4).dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                message.reactions.forEach { (emojiKey, userIds) ->
+                    if (userIds.isNotEmpty()) {
+                        val emojiChar = REACTION_EMOJIS.getOrNull(REACTION_KEYS.indexOf(emojiKey)) ?: emojiKey
+                        val isMine = currentUserId in userIds
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isMine) CorusColors.Accent.copy(alpha = 0.15f) else CorusColors.Background,
+                            shadowElevation = 2.dp,
+                            modifier = Modifier.clickable { onReactionTap(emojiKey) },
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(text = emojiChar, fontSize = 12.sp)
+                                if (userIds.size > 1) {
+                                    Text(
+                                        text = "${userIds.size}",
+                                        style = CorusFont.caption,
+                                        color = if (isMine) CorusColors.Accent else CorusColors.Secondary,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Time + read-receipt meta (mirrors web BubbleMeta)
@@ -1031,41 +1184,6 @@ private fun MessageBubble(
                         style = CorusFont.caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
                         color = Color.Red,
                     )
-                }
-            }
-        }
-
-        // Reaction pills
-        if (message.reactions.isNotEmpty()) {
-            Row(
-                modifier = Modifier.padding(top = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                message.reactions.forEach { (emojiKey, userIds) ->
-                    if (userIds.isNotEmpty()) {
-                        val emojiChar = REACTION_EMOJIS.getOrNull(REACTION_KEYS.indexOf(emojiKey)) ?: emojiKey
-                        val isMine = currentUserId in userIds
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isMine) CorusColors.Accent.copy(alpha = 0.15f) else CorusColors.CardBackground,
-                            modifier = Modifier.clickable { onReactionTap(emojiKey) },
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                            ) {
-                                Text(text = emojiChar, fontSize = 12.sp)
-                                if (userIds.size > 1) {
-                                    Text(
-                                        text = "${userIds.size}",
-                                        style = CorusFont.caption,
-                                        color = if (isMine) CorusColors.Accent else CorusColors.Secondary,
-                                    )
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }

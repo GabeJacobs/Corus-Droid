@@ -85,14 +85,29 @@ class MessageThreadViewModel @Inject constructor(
     private val _myReadReceiptsEnabled = MutableStateFlow(true)
     val myReadReceiptsEnabled: StateFlow<Boolean> = _myReadReceiptsEnabled.asStateFlow()
 
+    /** The thread id once resolved (may differ from the nav arg when entering
+     *  from a profile, where the thread is created lazily). Drives the screen's
+     *  active-thread tracking + notification suppression. */
+    private val _resolvedThreadId = MutableStateFlow<String?>(null)
+    val resolvedThreadId: StateFlow<String?> = _resolvedThreadId.asStateFlow()
+
     private var currentThreadId: String? = null
     private var listenerJob: Job? = null
     private var recipientUnreadJob: Job? = null
     private var readReceiptsJob: Job? = null
 
+    // Tracks whether the message listener has delivered its first snapshot, so we
+    // only re-mark-read for messages that arrive live (the initial load is
+    // already covered by markThreadRead in loadMessages).
+    private var hasLoadedInitialMessages = false
+    private var seenMessageIds: Set<String> = emptySet()
+
 
     fun loadMessages(threadId: String, otherUserId: String) {
         currentThreadId = threadId
+        // Arm active-thread tracking right away when the id is already known, so
+        // suppression is in effect before the (async) profile fetch completes.
+        if (threadId.isNotBlank()) _resolvedThreadId.value = threadId
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -110,6 +125,7 @@ class MessageThreadViewModel @Inject constructor(
                     resolvedId = messageRepository.getOrCreateThread(userId, otherUserId)
                     currentThreadId = resolvedId
                 }
+                _resolvedThreadId.value = resolvedId
 
                 // Start real-time Firestore listener (matches iOS snapshot listener)
                 startListening(resolvedId)
@@ -128,12 +144,29 @@ class MessageThreadViewModel @Inject constructor(
 
     private fun startListening(threadId: String) {
         listenerJob?.cancel()
+        hasLoadedInitialMessages = false
+        seenMessageIds = emptySet()
         listenerJob = viewModelScope.launch {
             messageRepository.listenToMessages(threadId).collect { serverMessages ->
                 // Remove pending messages that the server has now confirmed
                 val confirmedIds = serverMessages.map { it.id }.toSet()
                 _pendingMessages.value = _pendingMessages.value.filterKeys { it !in confirmedIds }
+
+                // Re-mark the thread read whenever a NEW message arrives from the
+                // other user while we're viewing it, so the unread badge clears
+                // instead of ticking up (mirrors iOS MessageThreadView). The
+                // initial snapshot is already covered by loadMessages.
+                val myId = authRepository.currentUserId
+                val hadNewIncoming = serverMessages.any {
+                    it.id !in seenMessageIds && it.fromUserId != myId
+                }
+                seenMessageIds = confirmedIds
                 _serverMessages.value = serverMessages
+
+                if (hasLoadedInitialMessages && hadNewIncoming && myId != null) {
+                    messageRepository.markThreadRead(currentThreadId ?: threadId, myId)
+                }
+                hasLoadedInitialMessages = true
             }
         }
     }
@@ -480,12 +513,45 @@ class MessageThreadViewModel @Inject constructor(
 
     // ── Reactions ──
 
+    /**
+     * Toggle the caller's [emoji] reaction on a message. Optimistically updates the
+     * reaction in place (mirrors iOS `toggleReaction`) so the pill appears instantly;
+     * the Firestore listener reconciles to the canonical server value shortly after.
+     * On failure the optimistic change is reverted.
+     *
+     * [emoji] must be the raw emoji character the server allowlists (e.g. "❤️"),
+     * not a key string like "heart".
+     */
     fun toggleReaction(threadId: String, messageId: String, emoji: String) {
+        val uid = authRepository.currentUserId ?: return
         val resolvedId = currentThreadId ?: threadId
+        val target = _serverMessages.value.firstOrNull { it.id == messageId } ?: return
+        val originalReactions = target.reactions
+
+        // Toggle the caller into/out of this emoji's reactor list, dropping the
+        // emoji entirely when it has no reactors left.
+        val users = originalReactions[emoji] ?: emptyList()
+        val newReactions = originalReactions.toMutableMap().apply {
+            if (uid in users) {
+                val remaining = users - uid
+                if (remaining.isEmpty()) remove(emoji) else put(emoji, remaining)
+            } else {
+                put(emoji, users + uid)
+            }
+        }
+        _serverMessages.value = _serverMessages.value.map {
+            if (it.id == messageId) it.copy(reactions = newReactions) else it
+        }
+
         viewModelScope.launch {
             try {
                 messageRepository.toggleReaction(resolvedId, messageId, emoji)
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                // Roll back to the pre-tap reactions for this message.
+                _serverMessages.value = _serverMessages.value.map {
+                    if (it.id == messageId) it.copy(reactions = originalReactions) else it
+                }
+            }
         }
     }
 

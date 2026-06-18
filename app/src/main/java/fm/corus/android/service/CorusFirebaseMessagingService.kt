@@ -30,6 +30,22 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
         private const val CHANNEL_NAME_PLAYS = "Plays"
         const val EXTRA_FROM_NOTIFICATION = "from_notification"
         const val EXTRA_NOTIF_PREFIX = "notif_"
+        // Payload `type` for a direct-message push.
+        const val MESSAGE_TYPE = "message"
+
+        /**
+         * Deterministic notification id for a DM thread, so repeated messages in
+         * the same conversation collapse into one updating notification (instead
+         * of stacking) and can be cancelled by id when the user opens the thread.
+         */
+        fun dmNotificationId(threadId: String): Int = "dm_$threadId".hashCode()
+
+        /**
+         * True when an incoming DM push should be hidden because the user is
+         * already viewing that thread in the foreground. Pure for unit testing.
+         */
+        fun shouldSuppress(type: String?, threadId: String?, activeThreadId: String?): Boolean =
+            type == MESSAGE_TYPE && !threadId.isNullOrEmpty() && threadId == activeThreadId
     }
 
     override fun onNewToken(token: String) {
@@ -48,6 +64,13 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
         val data = message.data
 
         refreshPostCountsIfNeeded(data)
+
+        // Suppress a DM push for the thread the user is currently viewing. Only
+        // applies in the foreground (ActiveThreadTracker is cleared on STOP), so
+        // a message arriving while backgrounded still notifies normally.
+        if (shouldSuppress(data["type"], data["threadId"], ActiveThreadTracker.activeThreadId)) {
+            return
+        }
 
         if (notification != null) {
             // System would auto-display this, but we need to attach navigation data.
@@ -118,6 +141,15 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
         val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT)
         manager.createNotificationChannel(channel)
 
-        manager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
+        // DMs use a per-thread id so a conversation shows a single, updating
+        // notification (and can be cancelled when the thread is opened). Other
+        // types keep a unique id so each one stands on its own.
+        val threadId = data["threadId"]
+        val notificationId = if (data["type"] == MESSAGE_TYPE && !threadId.isNullOrEmpty()) {
+            dmNotificationId(threadId)
+        } else {
+            System.currentTimeMillis().toInt()
+        }
+        manager.notify(notificationId, notificationBuilder.build())
     }
 }

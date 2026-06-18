@@ -2,6 +2,7 @@ package fm.corus.android.data.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import fm.corus.android.service.ActiveThreadTracker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,9 +51,13 @@ class UnreadCountsRepository @Inject constructor(
             .whereGreaterThan("unreadCount", 0)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) return@addSnapshotListener
-                _unreadMessageCount.value = snapshot.documents.sumOf { doc ->
-                    (doc.get("unreadCount") as? Number)?.toInt() ?: 0
-                }
+                // Exclude the thread the user is actively viewing so its count
+                // never contributes to the badge (the thread auto-marks-read, but
+                // excluding it here removes the brief tick between the message
+                // arriving and the read write landing).
+                _unreadMessageCount.value = snapshot.documents
+                    .filter { it.id != ActiveThreadTracker.activeThreadId }
+                    .sumOf { doc -> (doc.get("unreadCount") as? Number)?.toInt() ?: 0 }
             }
     }
 

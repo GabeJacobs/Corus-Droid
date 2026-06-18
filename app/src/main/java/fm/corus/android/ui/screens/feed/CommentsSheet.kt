@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -756,7 +757,7 @@ private fun CommentsSheetContent(
                 },
                 singleLine = false,
                 maxLines = 4,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(
                     onDone = { keyboardController?.hide() },
                 ),
@@ -1176,7 +1177,7 @@ private fun CommentRow(
             // "..." menu button for own comments (matching iOS)
             if (isOwnComment) {
                 var showMenu by remember { mutableStateOf(false) }
-                Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Box {
                 Icon(
                     imageVector = Icons.Filled.MoreHoriz,

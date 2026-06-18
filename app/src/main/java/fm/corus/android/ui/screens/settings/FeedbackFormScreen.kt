@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -97,6 +99,7 @@ fun FeedbackFormScreen(
                     onValueChange = { viewModel.onSubjectChanged(it) },
                     label = { Text(stringResource(R.string.feedback_subject_label)) },
                     placeholder = { Text(stringResource(R.string.feedback_subject_placeholder), color = CorusColors.Tertiary) },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
@@ -108,6 +111,7 @@ fun FeedbackFormScreen(
                     onValueChange = { viewModel.onDescriptionChanged(it) },
                     label = { Text(stringResource(R.string.feedback_description_label)) },
                     placeholder = { Text(stringResource(R.string.feedback_description_placeholder), color = CorusColors.Tertiary) },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 150.dp),

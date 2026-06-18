@@ -3,6 +3,8 @@ package fm.corus.android.ui.screens.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -99,6 +101,7 @@ fun ChangeUsernameScreen(
                         else -> {}
                     }
                 },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),

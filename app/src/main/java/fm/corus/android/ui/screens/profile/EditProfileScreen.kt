@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -196,6 +198,7 @@ fun EditProfileScreen(
                 value = displayName,
                 onValueChange = { viewModel.updateDisplayName(it) },
                 singleLine = true,
+                capitalization = KeyboardCapitalization.Words,
             )
 
             // Username field
@@ -217,6 +220,7 @@ fun EditProfileScreen(
                         .fillMaxWidth()
                         .border(1.dp, borderColor, RoundedCornerShape(CorusSpacing.cornerRadiusMedium)),
                     prefix = { Text("@", style = CorusFont.body, color = CorusColors.Secondary) },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
                     singleLine = true,
                     shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                     colors = TextFieldDefaults.colors(
@@ -275,6 +279,7 @@ fun EditProfileScreen(
                 value = website,
                 onValueChange = { viewModel.updateWebsite(it) },
                 singleLine = true,
+                capitalization = KeyboardCapitalization.None,
             )
 
             // Featured Tab picker — controls whether this user's profile leads
@@ -395,6 +400,7 @@ private fun EditField(
     singleLine: Boolean = true,
     minLines: Int = 1,
     maxLines: Int = 1,
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.Sentences,
 ) {
     Column {
         Text(label, style = CorusFont.sectionHeader, color = CorusColors.Secondary)
@@ -405,6 +411,7 @@ private fun EditField(
             modifier = Modifier
                 .fillMaxWidth()
                 .border(1.dp, CorusColors.Divider, RoundedCornerShape(CorusSpacing.cornerRadiusMedium)),
+            keyboardOptions = KeyboardOptions(capitalization = capitalization),
             singleLine = singleLine,
             minLines = minLines,
             maxLines = if (singleLine) 1 else maxLines,

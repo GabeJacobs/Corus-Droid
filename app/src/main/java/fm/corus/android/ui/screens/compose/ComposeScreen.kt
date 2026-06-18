@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MusicNote
@@ -1156,6 +1157,7 @@ private fun ComposeModeContent(
                     .focusRequester(captionFocusRequester),
                 textStyle = CorusFont.body.copy(color = CorusColors.Text),
                 maxLines = Int.MAX_VALUE,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 cursorBrush = SolidColor(CorusColors.Accent),
             )
         }

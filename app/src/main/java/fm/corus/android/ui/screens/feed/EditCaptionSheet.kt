@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -9,6 +10,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -108,6 +110,7 @@ fun EditCaptionSheet(
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
                 placeholder = { Text(stringResource(R.string.edit_caption_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 textStyle = CorusFont.body.copy(color = CorusColors.Text),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,

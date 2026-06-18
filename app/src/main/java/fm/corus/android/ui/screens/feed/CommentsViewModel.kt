@@ -334,14 +334,23 @@ class CommentsViewModel @Inject constructor(
         val postChanged = this.postId != postId
         this.postId = postId
         _loadedPostId.value = postId
+        // Always reset the transient composer state on (re)open: a reply / edit / pending
+        // attachment in progress must NOT survive a dismiss + reopen. The ViewModel is
+        // retained across opens (sheet hosted at the app root), so without this an
+        // interrupted reply sticks around. Mirrors iOS, where the sheet is a fresh view
+        // each time it's presented.
+        _replyingTo.value = null
+        _editingComment.value = null
+        _pendingSong.value = null
+        _pendingFilm.value = null
+        _pendingGif.value = null
+        clearMentions()
         if (postChanged) {
+            // Only drop the loaded list when the post actually changes — keeps same-post
+            // reopen instant (no skeleton flash, see loadedPostId).
             _comments.value = emptyList()
             _repliesByParent.value = emptyMap()
-            _pendingSong.value = null
-            _pendingFilm.value = null
-            _replyingTo.value = null
             _likedCommentIds.value = emptySet()
-            clearMentions()
         }
         attachCommentsListener(postId)
         viewModelScope.launch {
