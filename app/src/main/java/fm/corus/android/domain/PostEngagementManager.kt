@@ -38,10 +38,14 @@ data class EngagementState(
     val repostCount: Int = 0,
     val isLiked: Boolean = false,
     val isSaved: Boolean = false,
-    /** Server-confirmed save count. No optimistic bump on tap — the bookmark
-     *  fill flips via [isSaved], the number reconciles from the server once the
-     *  onSaveCreated/onSaveDeleted trigger commits. The UI floors it to 1 while
-     *  [isSaved] is true so a just-saved post never shows 0. */
+    /** Save count. Optimistically incremented/decremented on tap (like the
+     *  comment count) so the number reflects the viewer's own save the instant
+     *  they toggle. This matters most for the sole-saver case: unsaving a post
+     *  you were the only saver of must drop the count to 0 (hidden) immediately,
+     *  not linger at 1 until the onSaveCreated/onSaveDeleted trigger reconciles
+     *  the post doc. A save in-flight marker protects the optimistic value from a
+     *  stale refresh/listener snapshot fired before the trigger committed. The UI
+     *  still floors it to 1 while [isSaved] is true as a backstop. */
     val saveCount: Int = 0,
 )
 
@@ -96,6 +100,7 @@ class PostEngagementManager @Inject constructor(
      */
     private val commentInFlightUntil = ConcurrentHashMap<String, Long>()
     private val repostInFlightUntil = ConcurrentHashMap<String, Long>()
+    private val saveInFlightUntil = ConcurrentHashMap<String, Long>()
     private val likeRetainedUntil = ConcurrentHashMap<String, Long>()
 
     /** Retention window for optimistic-count protection. Sized to cover the
@@ -111,12 +116,17 @@ class PostEngagementManager @Inject constructor(
         repostInFlightUntil[postId] = System.currentTimeMillis() + inFlightRetentionMs
     }
 
+    private fun markSaveInFlight(postId: String) {
+        saveInFlightUntil[postId] = System.currentTimeMillis() + inFlightRetentionMs
+    }
+
     private fun markLikeRetained(postId: String) {
         likeRetainedUntil[postId] = System.currentTimeMillis() + inFlightRetentionMs
     }
 
     private fun isCommentInFlight(postId: String): Boolean = isMarkerActive(commentInFlightUntil, postId)
     private fun isRepostInFlight(postId: String): Boolean = isMarkerActive(repostInFlightUntil, postId)
+    private fun isSaveInFlight(postId: String): Boolean = isMarkerActive(saveInFlightUntil, postId)
     private fun isLikeRetained(postId: String): Boolean = isMarkerActive(likeRetainedUntil, postId)
 
     private fun isMarkerActive(map: ConcurrentHashMap<String, Long>, postId: String): Boolean {
@@ -144,13 +154,15 @@ class PostEngagementManager @Inject constructor(
                     val safeLikeCount = if (likeInFlightIds.contains(postId) || isLikeRetained(postId)) existing.likeCount else likeCount
                     val safeCommentCount = if (isCommentInFlight(postId)) existing.commentCount else commentCount
                     val safeRepostCount = if (isRepostInFlight(postId)) existing.repostCount else repostCount
+                    // saveCount IS optimistic — guard it the same way so a feed
+                    // payload fetched before the onSave(Created|Deleted) trigger
+                    // committed can't clobber the viewer's just-toggled value.
+                    val safeSaveCount = if (isSaveInFlight(postId)) existing.saveCount else saveCount
                     map + (postId to existing.copy(
                         likeCount = safeLikeCount,
                         commentCount = safeCommentCount,
                         repostCount = safeRepostCount,
-                        // saveCount has no optimistic path, so always take the
-                        // latest server value.
-                        saveCount = saveCount,
+                        saveCount = safeSaveCount,
                     ))
                 } else {
                     map + (postId to EngagementState(likeCount, commentCount, repostCount, isLiked, isSaved, saveCount))
@@ -191,12 +203,13 @@ class PostEngagementManager @Inject constructor(
             val safeLikeCount = if (likeInFlightIds.contains(postId) || isLikeRetained(postId)) current.likeCount else likeCount
             val safeCommentCount = if (isCommentInFlight(postId)) current.commentCount else commentCount
             val safeRepostCount = if (isRepostInFlight(postId)) current.repostCount else repostCount
+            // saveCount IS optimistic — protect it like the like/comment counts.
+            val safeSaveCount = if (isSaveInFlight(postId)) current.saveCount else saveCount
             map + (postId to current.copy(
                 likeCount = safeLikeCount,
                 commentCount = safeCommentCount,
                 repostCount = safeRepostCount,
-                // saveCount has no optimistic path — always take the server value.
-                saveCount = saveCount,
+                saveCount = safeSaveCount,
             ))
         }
     }
@@ -270,9 +283,16 @@ class PostEngagementManager @Inject constructor(
         // Mirrors iOS PostCard / PostDetailView / PostContextMenu toggleSave haptic.
         hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
 
+        // Optimistic count: reflect the viewer's own save immediately so an
+        // unsaved sole-saver post hides its count (0) without waiting on the
+        // onSaveDeleted trigger. The in-flight marker protects it from a stale
+        // refresh; both rollback paths below restore `current` (its pre-toggle
+        // saveCount included), so no manual revert is needed.
         userModifiedPostIds.add(postId)
+        markSaveInFlight(postId)
+        val newSaveCount = if (newSaved) current.saveCount + 1 else maxOf(0, current.saveCount - 1)
         _states.update { map ->
-            map + (postId to current.copy(isSaved = newSaved))
+            map + (postId to current.copy(isSaved = newSaved, saveCount = newSaveCount))
         }
 
         scope.launch {
@@ -499,6 +519,7 @@ class PostEngagementManager @Inject constructor(
         likeInFlightIds.clear()
         commentInFlightUntil.clear()
         repostInFlightUntil.clear()
+        saveInFlightUntil.clear()
         likeRetainedUntil.clear()
         _states.value = emptyMap()
         userModifiedPostIds.clear()
