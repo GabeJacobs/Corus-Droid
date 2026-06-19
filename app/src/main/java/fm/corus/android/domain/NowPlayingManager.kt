@@ -1,5 +1,6 @@
 package fm.corus.android.domain
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
@@ -21,6 +22,7 @@ import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.TidalPlaylistService
+import fm.corus.android.MainActivity
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.CorusPlaybackService
 import fm.corus.android.ui.components.ToastManager
@@ -955,8 +957,31 @@ class NowPlayingManager @Inject constructor(
             }
         }
         player = exo
-        mediaSession = MediaSession.Builder(context, sessionPlayer).build()
+        // setSessionActivity makes tapping the now-playing card (QS media player,
+        // lock screen, Android Auto, media3's own notification provider) open
+        // Corus instead of doing nothing.
+        mediaSession = MediaSession.Builder(context, sessionPlayer)
+            .setSessionActivity(appLaunchPendingIntent())
+            .build()
         return exo
+    }
+
+    /**
+     * PendingIntent that brings Corus to the foreground. Used as the media
+     * session's tap target (QS media card / lock screen) and as the playback
+     * notification's content intent. MainActivity is `singleTask`, so this
+     * resumes the existing task rather than starting a fresh copy.
+     */
+    fun appLaunchPendingIntent(): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        return PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     /**

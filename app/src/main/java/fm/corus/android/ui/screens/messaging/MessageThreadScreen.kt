@@ -3,10 +3,9 @@ package fm.corus.android.ui.screens.messaging
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -38,7 +37,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.Image
@@ -55,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -876,6 +875,24 @@ private fun MessageBubble(
     var bubbleCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var textCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
+    // One-shot "pop" for the heart reaction pill on a fresh double-tap like: the
+    // pill itself springs in from large so the like reads as a single heart
+    // landing in its place (Instagram-style), instead of a big burst heart that
+    // fades and leaves a separate small pill behind.
+    val heartPopScale = remember { Animatable(1f) }
+    LaunchedEffect(showHeartBurst) {
+        if (showHeartBurst) {
+            // Pop up to the top of the scale, hold there for a beat, then ease
+            // slowly down into the locked-in resting size.
+            heartPopScale.snapTo(2.2f)
+            kotlinx.coroutines.delay(160)
+            heartPopScale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(dampingRatio = 0.6f, stiffness = 140f),
+            )
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1076,63 +1093,54 @@ private fun MessageBubble(
                 }
 
             }
-
-            // Big-heart burst on a fresh double-tap like (mirrors iOS heartAnimation):
-            // a spring pop-in, held ~0.8s by heartBurstMessageId, then a quick fade-out.
-            val burstScale by animateFloatAsState(
-                targetValue = if (showHeartBurst) 1f else 0f,
-                animationSpec = if (showHeartBurst) {
-                    spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium)
-                } else {
-                    tween(durationMillis = 300)
-                },
-                label = "heartBurstScale",
-            )
-            if (burstScale > 0.01f) {
-                Icon(
-                    imageVector = Icons.Filled.Favorite,
-                    contentDescription = null,
-                    tint = CorusColors.Like,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(60.dp)
-                        .graphicsLayer {
-                            scaleX = burstScale
-                            scaleY = burstScale
-                            alpha = burstScale.coerceIn(0f, 1f)
-                        },
-                )
-            }
         }
 
-        // Reaction pills — overlaid on the bubble's bottom edge (mirrors iOS)
+        // Reaction pills — overlap the bubble's bottom-right corner. We size this
+        // container to the measured bubble width and align the pills to the End so
+        // they land under the bubble's right edge even for received (left-aligned)
+        // bubbles. The heart pill springs in via heartPopScale on a fresh like, so
+        // the double-tap reads as one heart popping into place (no separate burst).
         if (message.reactions.isNotEmpty()) {
-            Row(
-                modifier = Modifier.offset(y = (-4).dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            val density = LocalDensity.current
+            val bubbleWidthDp = bubbleCoords?.size?.width?.let { with(density) { it.toDp() } }
+            Box(
+                modifier = Modifier
+                    .then(if (bubbleWidthDp != null) Modifier.width(bubbleWidthDp) else Modifier.fillMaxWidth())
+                    .offset(y = (-4).dp),
+                contentAlignment = Alignment.CenterEnd,
             ) {
-                message.reactions.forEach { (emojiKey, userIds) ->
-                    if (userIds.isNotEmpty()) {
-                        val emojiChar = REACTION_EMOJIS.getOrNull(REACTION_KEYS.indexOf(emojiKey)) ?: emojiKey
-                        val isMine = currentUserId in userIds
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isMine) CorusColors.Accent.copy(alpha = 0.15f) else CorusColors.Background,
-                            shadowElevation = 2.dp,
-                            modifier = Modifier.clickable { onReactionTap(emojiKey) },
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                            ) {
-                                Text(text = emojiChar, fontSize = 12.sp)
-                                if (userIds.size > 1) {
-                                    Text(
-                                        text = "${userIds.size}",
-                                        style = CorusFont.caption,
-                                        color = if (isMine) CorusColors.Accent else CorusColors.Secondary,
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    message.reactions.forEach { (emojiKey, userIds) ->
+                        if (userIds.isNotEmpty()) {
+                            val emojiChar = REACTION_EMOJIS.getOrNull(REACTION_KEYS.indexOf(emojiKey)) ?: emojiKey
+                            val isMine = currentUserId in userIds
+                            val isHeart = emojiChar == REACTION_EMOJIS[0]
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isMine) CorusColors.Accent.copy(alpha = 0.15f) else CorusColors.Background,
+                                shadowElevation = 2.dp,
+                                modifier = Modifier
+                                    .then(
+                                        if (isHeart) Modifier.graphicsLayer {
+                                            scaleX = heartPopScale.value
+                                            scaleY = heartPopScale.value
+                                        } else Modifier
                                     )
+                                    .clickable { onReactionTap(emojiKey) },
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(text = emojiChar, fontSize = 12.sp)
+                                    if (userIds.size > 1) {
+                                        Text(
+                                            text = "${userIds.size}",
+                                            style = CorusFont.caption,
+                                            color = if (isMine) CorusColors.Accent else CorusColors.Secondary,
+                                        )
+                                    }
                                 }
                             }
                         }

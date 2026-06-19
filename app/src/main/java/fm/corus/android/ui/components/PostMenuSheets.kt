@@ -7,6 +7,8 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -105,7 +107,11 @@ fun PostMenuSheets(
             containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            contentWindowInsets = { WindowInsets.systemBars },
+            // Only pad for the bottom system bar (nav bar) so the action row clears it.
+            // systemBars would also add the TOP status-bar inset above the drag handle —
+            // that inset is device-dependent (taller status bars push it down further),
+            // which is the "too much padding above the handle" some devices showed.
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
         ) {
             CorusSystemBars()
             BackHandler { onSharePostChange(null) }

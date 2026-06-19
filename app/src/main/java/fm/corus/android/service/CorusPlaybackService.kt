@@ -107,6 +107,8 @@ class CorusPlaybackService : MediaSessionService() {
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            // Tapping the card opens Corus (same target as the session activity).
+            .setContentIntent(nowPlayingManager.appLaunchPendingIntent())
         // NowPlayingManager builds the session before starting this service, so it's
         // present on the first start. Falls back to a bare notification if, for any
         // reason, the session isn't up yet.

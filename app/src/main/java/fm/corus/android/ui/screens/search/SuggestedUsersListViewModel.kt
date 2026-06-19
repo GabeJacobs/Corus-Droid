@@ -126,7 +126,13 @@ class SuggestedUsersListViewModel @Inject constructor(
                     "popular" -> loadPopularUsersPage(uid, afterDocId = null)
                     "new" -> loadNewUsersPage(uid, afterDocId = null)
                     "clubMembers" -> loadClubMembers(uid)
-                    else -> userRepository.getSuggestedUsers(uid)
+                    // Pull-to-refresh must bypass the 4-hour suggested-matches
+                    // cache: serving cached data here returns synchronously (no
+                    // network suspension), so isRefreshing flips true→false
+                    // within a frame and the PullToRefreshBox indicator freezes
+                    // at the pulled position instead of retracting. Forcing a
+                    // real fetch also gives the user genuinely fresh matches.
+                    else -> userRepository.getSuggestedUsers(uid, forceRefresh = true)
                 }
                 _suggestions.value = initial
                 _hasMore.value = isPaginated && initial.size >= pageSize
