@@ -27,6 +27,7 @@
     <string name="language_option_system">System Default</string>
     <string name="language_option_english">English</string>
     <string name="language_option_portuguese_br">Português (Brasil)</string>
+    <string name="language_option_spanish">Español</string>
 
     <!-- Settings: Main -->
     <string name="settings_screen_title">Settings</string>

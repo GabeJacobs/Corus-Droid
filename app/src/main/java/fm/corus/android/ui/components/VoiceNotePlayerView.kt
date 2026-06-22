@@ -218,6 +218,15 @@ fun VoiceNotePlayerView(
                         onPlaybackStarted?.invoke()
                         isLoading = true
                         val mp = MediaPlayer()
+                        // Store the player immediately so DisposableEffect.onDispose can
+                        // always release it, even if this composable leaves the screen
+                        // while prepareAsync() is still streaming. Otherwise the
+                        // half-prepared MediaPlayer (with an open HTTP connection to
+                        // voiceNoteURL) leaks, and its GC finalizer's
+                        // MediaHTTPConnection.disconnect() can block >10s and trip the
+                        // FinalizerWatchdog (TimeoutException crash). release() is safe to
+                        // call mid-prepare; the isLoading guard above blocks taps until ready.
+                        player = mp
                         mp.setAudioAttributes(
                             AudioAttributes.Builder()
                                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -230,7 +239,7 @@ fun VoiceNotePlayerView(
                             it.start()
                             isPlaying = true
                             isLoading = false
-                            player = mp
+                            // player was already set to mp at creation (see above).
                             VoiceNotePlayerManager.registerActivePlayer(voiceNoteURL) {
                                 mp.pause()
                                 isPlaying = false
@@ -246,8 +255,13 @@ fun VoiceNotePlayerView(
                         }
                         mp.setOnErrorListener { _, _, _ ->
                             isLoading = false
+                            isPlaying = false
                             audioFocus.abandon()
                             VoiceNotePlayerManager.clearIfActive(voiceNoteURL)
+                            // Release the failed player so it can't leak to the finalizer,
+                            // and null it so the next tap starts a fresh one.
+                            mp.release()
+                            player = null
                             true
                         }
                         try {
@@ -255,6 +269,8 @@ fun VoiceNotePlayerView(
                             mp.prepareAsync()
                         } catch (_: Exception) {
                             isLoading = false
+                            mp.release()
+                            player = null
                         }
                     }
                 },

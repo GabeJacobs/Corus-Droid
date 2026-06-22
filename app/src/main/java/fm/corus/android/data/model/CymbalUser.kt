@@ -12,6 +12,8 @@ data class CymbalUser(
     val website: String? = null,
     val isVerified: Boolean = false,
     val isClubMember: Boolean = false,
+    /** Staff flag (server-managed; absent = false). Gates the staff-only "Corus" flair option. */
+    val isStaff: Boolean = false,
     val isBot: Boolean = false,
     val botType: String? = null,
     val followerCount: Int = 0,
@@ -157,6 +159,7 @@ data class CymbalUser(
             website = data["website"] as? String,
             isVerified = data["isVerified"] as? Boolean ?: false,
             isClubMember = data["isClubMember"] as? Boolean ?: false,
+            isStaff = data["isStaff"] as? Boolean ?: false,
             isBot = data["isBot"] as? Boolean ?: false,
             botType = data["botType"] as? String,
             followerCount = (data["followerCount"] as? Number)?.toInt() ?: 0,

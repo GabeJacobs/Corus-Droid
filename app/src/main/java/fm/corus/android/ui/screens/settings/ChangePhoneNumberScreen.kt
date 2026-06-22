@@ -4,6 +4,8 @@ import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -225,7 +227,11 @@ fun ChangePhoneNumberScreen(
             onDismissRequest = { showCountryPicker = false },
             title = { Text(stringResource(R.string.change_phone_select_country_title), style = CorusFont.songTitleLarge) },
             text = {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
                     CountryCode.all.forEach { country ->
                         Row(
                             modifier = Modifier

@@ -24,18 +24,62 @@ data class CountryCode(
     val dialCode: String,
 ) {
     companion object {
+        // Default selection; also referenced by AuthScreen / ChangePhoneNumberViewModel.
         val US = CountryCode("United States", "\uD83C\uDDFA\uD83C\uDDF8", "+1")
-        val GB = CountryCode("United Kingdom", "\uD83C\uDDEC\uD83C\uDDE7", "+44")
-        val CA = CountryCode("Canada", "\uD83C\uDDE8\uD83C\uDDE6", "+1")
-        val AU = CountryCode("Australia", "\uD83C\uDDE6\uD83C\uDDFA", "+61")
-        val DE = CountryCode("Germany", "\uD83C\uDDE9\uD83C\uDDEA", "+49")
-        val FR = CountryCode("France", "\uD83C\uDDEB\uD83C\uDDF7", "+33")
-        val JP = CountryCode("Japan", "\uD83C\uDDEF\uD83C\uDDF5", "+81")
-        val IN = CountryCode("India", "\uD83C\uDDEE\uD83C\uDDF3", "+91")
-        val BR = CountryCode("Brazil", "\uD83C\uDDE7\uD83C\uDDF7", "+55")
-        val MX = CountryCode("Mexico", "\uD83C\uDDF2\uD83C\uDDFD", "+52")
 
-        val all = listOf(US, GB, CA, AU, DE, FR, JP, IN, BR, MX)
+        // Full country list, kept in parity with iOS (CountryCode.swift) and Web (login page).
+        val all = listOf(
+            US,
+            CountryCode("Canada", "\uD83C\uDDE8\uD83C\uDDE6", "+1"),
+            CountryCode("United Kingdom", "\uD83C\uDDEC\uD83C\uDDE7", "+44"),
+            CountryCode("Australia", "\uD83C\uDDE6\uD83C\uDDFA", "+61"),
+            CountryCode("New Zealand", "\uD83C\uDDF3\uD83C\uDDFF", "+64"),
+            CountryCode("Ireland", "\uD83C\uDDEE\uD83C\uDDEA", "+353"),
+            CountryCode("Germany", "\uD83C\uDDE9\uD83C\uDDEA", "+49"),
+            CountryCode("France", "\uD83C\uDDEB\uD83C\uDDF7", "+33"),
+            CountryCode("Spain", "\uD83C\uDDEA\uD83C\uDDF8", "+34"),
+            CountryCode("Italy", "\uD83C\uDDEE\uD83C\uDDF9", "+39"),
+            CountryCode("Portugal", "\uD83C\uDDF5\uD83C\uDDF9", "+351"),
+            CountryCode("Netherlands", "\uD83C\uDDF3\uD83C\uDDF1", "+31"),
+            CountryCode("Belgium", "\uD83C\uDDE7\uD83C\uDDEA", "+32"),
+            CountryCode("Switzerland", "\uD83C\uDDE8\uD83C\uDDED", "+41"),
+            CountryCode("Austria", "\uD83C\uDDE6\uD83C\uDDF9", "+43"),
+            CountryCode("Sweden", "\uD83C\uDDF8\uD83C\uDDEA", "+46"),
+            CountryCode("Norway", "\uD83C\uDDF3\uD83C\uDDF4", "+47"),
+            CountryCode("Denmark", "\uD83C\uDDE9\uD83C\uDDF0", "+45"),
+            CountryCode("Finland", "\uD83C\uDDEB\uD83C\uDDEE", "+358"),
+            CountryCode("Poland", "\uD83C\uDDF5\uD83C\uDDF1", "+48"),
+            CountryCode("Mexico", "\uD83C\uDDF2\uD83C\uDDFD", "+52"),
+            CountryCode("Brazil", "\uD83C\uDDE7\uD83C\uDDF7", "+55"),
+            CountryCode("Argentina", "\uD83C\uDDE6\uD83C\uDDF7", "+54"),
+            CountryCode("Chile", "\uD83C\uDDE8\uD83C\uDDF1", "+56"),
+            CountryCode("Colombia", "\uD83C\uDDE8\uD83C\uDDF4", "+57"),
+            CountryCode("Peru", "\uD83C\uDDF5\uD83C\uDDEA", "+51"),
+            CountryCode("Japan", "\uD83C\uDDEF\uD83C\uDDF5", "+81"),
+            CountryCode("South Korea", "\uD83C\uDDF0\uD83C\uDDF7", "+82"),
+            CountryCode("China", "\uD83C\uDDE8\uD83C\uDDF3", "+86"),
+            CountryCode("Hong Kong", "\uD83C\uDDED\uD83C\uDDF0", "+852"),
+            CountryCode("Taiwan", "\uD83C\uDDF9\uD83C\uDDFC", "+886"),
+            CountryCode("Singapore", "\uD83C\uDDF8\uD83C\uDDEC", "+65"),
+            CountryCode("Malaysia", "\uD83C\uDDF2\uD83C\uDDFE", "+60"),
+            CountryCode("Thailand", "\uD83C\uDDF9\uD83C\uDDED", "+66"),
+            CountryCode("Indonesia", "\uD83C\uDDEE\uD83C\uDDE9", "+62"),
+            CountryCode("Philippines", "\uD83C\uDDF5\uD83C\uDDED", "+63"),
+            CountryCode("Vietnam", "\uD83C\uDDFB\uD83C\uDDF3", "+84"),
+            CountryCode("India", "\uD83C\uDDEE\uD83C\uDDF3", "+91"),
+            CountryCode("Pakistan", "\uD83C\uDDF5\uD83C\uDDF0", "+92"),
+            CountryCode("Bangladesh", "\uD83C\uDDE7\uD83C\uDDE9", "+880"),
+            CountryCode("United Arab Emirates", "\uD83C\uDDE6\uD83C\uDDEA", "+971"),
+            CountryCode("Saudi Arabia", "\uD83C\uDDF8\uD83C\uDDE6", "+966"),
+            CountryCode("Israel", "\uD83C\uDDEE\uD83C\uDDF1", "+972"),
+            CountryCode("Turkey", "\uD83C\uDDF9\uD83C\uDDF7", "+90"),
+            CountryCode("Russia", "\uD83C\uDDF7\uD83C\uDDFA", "+7"),
+            CountryCode("Ukraine", "\uD83C\uDDFA\uD83C\uDDE6", "+380"),
+            CountryCode("South Africa", "\uD83C\uDDFF\uD83C\uDDE6", "+27"),
+            CountryCode("Nigeria", "\uD83C\uDDF3\uD83C\uDDEC", "+234"),
+            CountryCode("Egypt", "\uD83C\uDDEA\uD83C\uDDEC", "+20"),
+            CountryCode("Kenya", "\uD83C\uDDF0\uD83C\uDDEA", "+254"),
+        )
     }
 }
 

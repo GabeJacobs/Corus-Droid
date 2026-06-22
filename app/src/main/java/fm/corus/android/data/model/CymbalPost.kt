@@ -177,6 +177,11 @@ data class CymbalPost(
                 source = trackSource,
                 soundcloudId = (data["soundcloudId"] as? String)?.ifEmpty { null },
                 soundcloudPermalinkUrl = (data["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
+                // Tri-state, drives the service badge. Preserve "" (resolver
+                // confirmed NOT on Apple Music) vs null (unknown / field absent).
+                // Don't collapse "" to null, or a confirmed Spotify-only track
+                // can't be told from "we don't know yet".
+                appleMusicId = data["appleMusicId"] as? String,
                 unavailable = data["trackUnavailable"] as? Boolean ?: false,
                 unavailableReason = (data["trackUnavailableReason"] as? String)?.ifEmpty { null },
             )

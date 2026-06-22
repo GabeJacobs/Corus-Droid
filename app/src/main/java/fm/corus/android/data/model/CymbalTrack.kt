@@ -123,10 +123,10 @@ data class CymbalTrack(
                 source = source,
                 soundcloudId = (data["soundcloudId"] as? String)?.ifEmpty { null },
                 soundcloudPermalinkUrl = (data["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
-                // Backend writes appleMusicId at create time for Apple-only
-                // posts; Spotify-source posts get it lazily filled by the
-                // populatePostAppleMusicId trigger via apple_music_mappings.
-                appleMusicId = (data["appleMusicId"] as? String)?.ifEmpty { null },
+                // Tri-state, drives the service badge. Preserve "" (resolver
+                // confirmed NOT on Apple Music) vs null (unknown). See
+                // CymbalPost.fromMap and PostCard for why the distinction matters.
+                appleMusicId = data["appleMusicId"] as? String,
                 unavailable = data["trackUnavailable"] as? Boolean ?: false,
                 unavailableReason = (data["trackUnavailableReason"] as? String)?.ifEmpty { null },
             )

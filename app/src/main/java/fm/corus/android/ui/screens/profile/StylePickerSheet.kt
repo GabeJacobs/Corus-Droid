@@ -97,6 +97,19 @@ data class StyleSelections(
 
 private enum class StylePage { VINYL, FRAME, FLAIR, RAIN, SNOW, DISCO }
 
+/**
+ * Whether the staff-only "Corus" flair (`FlairStyle.CORUS_LOGO`) should appear
+ * in the picker. Shown when the viewer is staff, when the open flag is on
+ * (today's default), or when it's the current selection — the last clause keeps
+ * existing holders from seeing an empty selection during the phase-out. Mirrors
+ * the web implementation. Display/rendering of the flair is unaffected by this.
+ */
+internal fun shouldShowCorusFlairOption(
+    isStaff: Boolean,
+    corusFlairOpen: Boolean,
+    selected: FlairStyle,
+): Boolean = isStaff || corusFlairOpen || selected == FlairStyle.CORUS_LOGO
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StylePickerSheet(
@@ -108,6 +121,8 @@ fun StylePickerSheet(
     hasMoviePosts: Boolean,
     isClubMember: Boolean,
     stylePack1Enabled: Boolean,
+    isStaff: Boolean,
+    corusFlairOpen: Boolean,
     isSaving: Boolean,
     initialPage: Int = 0,
     onSave: (StyleSelections) -> Unit,
@@ -198,6 +213,8 @@ fun StylePickerSheet(
                     selected = draft.profileFlair,
                     onSelect = { draft = draft.copy(profileFlair = it) },
                     username = username,
+                    isStaff = isStaff,
+                    corusFlairOpen = corusFlairOpen,
                 )
                 StylePage.RAIN -> EffectTogglePage(
                     title = stringResource(R.string.style_picker_rain_effect),
@@ -572,8 +589,16 @@ private fun FlairPickerPage(
     selected: FlairStyle,
     onSelect: (FlairStyle) -> Unit,
     username: String,
+    isStaff: Boolean,
+    corusFlairOpen: Boolean,
 ) {
     val scrollState = rememberScrollState()
+
+    // Restrict the staff-only "Corus" flair (see shouldShowCorusFlairOption).
+    // Recomputed on selection change so an existing holder who switches away
+    // can't switch back once the option is otherwise gated off.
+    val showCorus = shouldShowCorusFlairOption(isStaff, corusFlairOpen, selected)
+    val visibleFlairs = FlairStyle.entries.filter { it != FlairStyle.CORUS_LOGO || showCorus }
 
     Column(
         modifier = Modifier
@@ -604,7 +629,7 @@ private fun FlairPickerPage(
             modifier = Modifier.padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
-            FlairStyle.entries.forEach { style ->
+            visibleFlairs.forEach { style ->
                 FlairOptionCard(
                     style = style,
                     isSelected = selected == style,

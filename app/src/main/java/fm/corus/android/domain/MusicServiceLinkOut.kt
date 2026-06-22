@@ -54,9 +54,28 @@ object MusicServiceLinkOut {
         cloud: CloudFunctionsDataSource,
     ): String? {
         if (service == MusicService.SPOTIFY) return null
-        if (service == MusicService.APPLE_MUSIC) track.appleMusicURL?.let { return it }
+        if (service == MusicService.APPLE_MUSIC) {
+            // appleMusicURL is non-null whenever appleMusicId is set, so this
+            // returns for every track with a resolved Apple Music id.
+            track.appleMusicURL?.let { return it }
+            // Empty id = backend CONFIRMED no Apple Music match: the badge shows
+            // Spotify, so open Spotify rather than leaving the tap dead. A null
+            // id is just "unknown" (legacy/feed payload) — fall through to the
+            // live lookup, which may still find a match. This keeps the tap in
+            // sync with the badge (which also only flips on a confirmed "").
+            if (track.appleMusicId == "") return spotifyFallbackUrl(track)
+        }
         return resolveLinkOutUrlRaw(track.id, track.name, track.artistName, track.isrc, service, cloud)
     }
+
+    /**
+     * Universal Spotify link for a Spotify-source track, used as a graceful
+     * fallback when the viewer's preferred service has no catalog match. Prefers
+     * the web URL (always opens) over the `spotify:` URI (needs the app).
+     */
+    private fun spotifyFallbackUrl(track: CymbalTrack): String? =
+        track.spotifyWebURL.takeIf { it.isNotBlank() }
+            ?: track.spotifyURI.takeIf { it.isNotBlank() }
 
     /**
      * Same as [resolveLinkOutUrl] but from raw track fields rather than a

@@ -122,6 +122,31 @@ fun SongDetailScreen(
         soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
     )
 
+    // Default: treat as on Apple Music (keep the viewer's preference). Only an
+    // explicit empty appleMusicId ("") — the backend's CONFIRMED "no Apple Music
+    // match" — flips to the source. null = unknown → no flip. Mirrors iOS.
+    val hasAppleMusicEquivalent = isAppleMusic ||
+        resolvedTrack.appleMusicId != "" ||
+        !effectiveAppleMusicURL.isNullOrBlank()
+    // Service the Spotify-source link-out routes to and badges as. A genuinely
+    // Spotify-only track can't open on Apple Music, so an Apple Music viewer is
+    // sent to Spotify rather than a dead Apple Music search. Mirrors iOS.
+    val linkOutService = if (musicService == MusicService.APPLE_MUSIC && !hasAppleMusicEquivalent) {
+        MusicService.SPOTIFY
+    } else {
+        musicService
+    }
+    // Secondary "also on …" button. Hidden when it would 404 (a Spotify-only
+    // track has no Apple Music page) or duplicate the primary.
+    val alternateLinkService: MusicService? = run {
+        val alternate = if (musicService == MusicService.SPOTIFY) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
+        when {
+            alternate == linkOutService -> null
+            alternate == MusicService.APPLE_MUSIC && !hasAppleMusicEquivalent -> null
+            else -> alternate
+        }
+    }
+
     // Open a track in the given service, mirroring iOS SongDetailView. Spotify
     // opens the post's own URI synchronously; Apple Music / TIDAL / Deezer
     // resolve the catalog URL via backend (cached; the global MainTabScreen
@@ -354,21 +379,24 @@ fun SongDetailScreen(
                         }
                     } else {
                         // Preferred-service CTA: Spotify → "Play in Spotify" (green),
-                        // every other service → "Open in <service>" in its brand color.
+                        // every other service → "Open in <service>" in its brand
+                        // color. Uses linkOutService so a Spotify-only track shows
+                        // "Play in Spotify" to an Apple Music viewer instead of a
+                        // dead "Open in Apple Music".
                         Button(
-                            onClick = { openInService(musicService) },
+                            onClick = { openInService(linkOutService) },
                             shape = RoundedCornerShape(50),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = serviceColor(musicService),
-                                contentColor = serviceTextColor(musicService),
+                                containerColor = serviceColor(linkOutService),
+                                contentColor = serviceTextColor(linkOutService),
                             ),
                             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                         ) {
                             Text(
-                                if (musicService == MusicService.SPOTIFY) {
-                                    stringResource(R.string.song_detail_play_in_service, musicService.displayLabel)
+                                if (linkOutService == MusicService.SPOTIFY) {
+                                    stringResource(R.string.song_detail_play_in_service, linkOutService.displayLabel)
                                 } else {
-                                    stringResource(R.string.song_detail_open_in_service, musicService.displayLabel)
+                                    stringResource(R.string.song_detail_open_in_service, linkOutService.displayLabel)
                                 },
                                 style = CorusFont.buttonSmall,
                             )
@@ -379,10 +407,12 @@ fun SongDetailScreen(
                 // Alternate-service button — only when the track exists on multiple
                 // services. SoundCloud has no equivalent; Apple-only tracks aren't on
                 // Spotify so the "Spotify is the alternate" assumption doesn't hold.
-                // Spotify viewers → alternate is Apple Music; everyone else → Spotify.
-                if (!isSoundCloud && !isAppleMusic) {
+                // alternateLinkService also hides the button when the alternate would
+                // 404 (a Spotify-only track has no Apple Music page) or duplicate the
+                // primary (an Apple Music viewer on a Spotify-only track).
+                if (!isSoundCloud && !isAppleMusic && alternateLinkService != null) {
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
-                    val altService = if (musicService == MusicService.SPOTIFY) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
+                    val altService = alternateLinkService
                     OutlinedButton(
                         onClick = { openInService(altService) },
                         shape = RoundedCornerShape(50),

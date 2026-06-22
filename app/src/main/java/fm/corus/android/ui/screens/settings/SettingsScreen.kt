@@ -365,6 +365,7 @@ fun SettingsScreen(
                 fm.corus.android.i18n.AppLanguage.SYSTEM to stringResource(R.string.language_option_system),
                 fm.corus.android.i18n.AppLanguage.ENGLISH to stringResource(R.string.language_option_english),
                 fm.corus.android.i18n.AppLanguage.PORTUGUESE_BR to stringResource(R.string.language_option_portuguese_br),
+                fm.corus.android.i18n.AppLanguage.SPANISH to stringResource(R.string.language_option_spanish),
             )
             DropdownSettingsRow(
                 icon = Icons.Filled.Language,

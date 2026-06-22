@@ -103,7 +103,7 @@ class SettingsViewModel @Inject constructor(
     /**
      * Persist the user's language preference to Firestore so the backend can send
      * push notifications in their preferred language. Mirrors iOS DatabaseService.updateLanguage.
-     * Stored at users_v2/{uid}.settings.language as one of "system" | "en" | "pt-BR".
+     * Stored at users_v2/{uid}.settings.language as one of "system" | "en" | "pt-BR" | "es".
      */
     fun syncLanguagePreference(language: AppLanguage) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -111,6 +111,7 @@ class SettingsViewModel @Inject constructor(
             AppLanguage.SYSTEM -> "system"
             AppLanguage.ENGLISH -> "en"
             AppLanguage.PORTUGUESE_BR -> "pt-BR"
+            AppLanguage.SPANISH -> "es"
         }
         viewModelScope.launch(Dispatchers.IO) {
             try {

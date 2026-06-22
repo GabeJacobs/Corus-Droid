@@ -1095,29 +1095,29 @@ private fun MessageBubble(
             }
         }
 
-        // Reaction pills — overlap the bubble's bottom-right corner. We size this
-        // container to the measured bubble width and align the pills to the End so
-        // they land under the bubble's right edge even for received (left-aligned)
-        // bubbles. The heart pill springs in via heartPopScale on a fresh like, so
-        // the double-tap reads as one heart popping into place (no separate burst).
+        // Reaction pills share the metadata line (opposite the timestamp) so
+        // reacting never pushes the timestamp down or overlaps text. The row is
+        // sized to the measured bubble width; SpaceBetween pins the timestamp to
+        // the message's own side and the pills to the opposite side. The heart
+        // springs in via heartPopScale on a fresh like.
         if (message.reactions.isNotEmpty()) {
             val density = LocalDensity.current
             val bubbleWidthDp = bubbleCoords?.size?.width?.let { with(density) { it.toDp() } }
-            Box(
-                modifier = Modifier
-                    .then(if (bubbleWidthDp != null) Modifier.width(bubbleWidthDp) else Modifier.fillMaxWidth())
-                    .offset(y = (-4).dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            val pills: @Composable () -> Unit = {
+                // Lift the pills up a few dp so the heart's top overlaps the
+                // bubble's bottom edge (over its padding, never text), WhatsApp-style.
+                Row(
+                    modifier = Modifier.offset(y = (-8).dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     message.reactions.forEach { (emojiKey, userIds) ->
                         if (userIds.isNotEmpty()) {
                             val emojiChar = REACTION_EMOJIS.getOrNull(REACTION_KEYS.indexOf(emojiKey)) ?: emojiKey
-                            val isMine = currentUserId in userIds
+                            val reactedByMe = currentUserId in userIds
                             val isHeart = emojiChar == REACTION_EMOJIS[0]
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isMine) CorusColors.Accent.copy(alpha = 0.15f) else CorusColors.Background,
+                                color = if (reactedByMe) CorusColors.Accent.copy(alpha = 0.15f) else CorusColors.Background,
                                 shadowElevation = 2.dp,
                                 modifier = Modifier
                                     .then(
@@ -1138,7 +1138,7 @@ private fun MessageBubble(
                                         Text(
                                             text = "${userIds.size}",
                                             style = CorusFont.caption,
-                                            color = if (isMine) CorusColors.Accent else CorusColors.Secondary,
+                                            color = if (reactedByMe) CorusColors.Accent else CorusColors.Secondary,
                                         )
                                     }
                                 }
@@ -1147,15 +1147,29 @@ private fun MessageBubble(
                     }
                 }
             }
+            Row(
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .then(if (bubbleWidthDp != null) Modifier.width(bubbleWidthDp) else Modifier),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (isFromCurrentUser) {
+                    pills()
+                    BubbleMeta(message = message, isFromCurrentUser = isFromCurrentUser, deliveryStatus = deliveryStatus)
+                } else {
+                    BubbleMeta(message = message, isFromCurrentUser = isFromCurrentUser, deliveryStatus = deliveryStatus)
+                    pills()
+                }
+            }
+        } else {
+            BubbleMeta(
+                message = message,
+                isFromCurrentUser = isFromCurrentUser,
+                deliveryStatus = deliveryStatus,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
-
-        // Time + read-receipt meta (mirrors web BubbleMeta)
-        BubbleMeta(
-            message = message,
-            isFromCurrentUser = isFromCurrentUser,
-            deliveryStatus = deliveryStatus,
-            modifier = Modifier.padding(top = 2.dp),
-        )
 
         if (isFailed) {
             Row(

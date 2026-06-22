@@ -535,7 +535,11 @@ private fun PhoneAuthContent(
                 onDismissRequest = { showCountryPicker = false },
                 title = { Text(stringResource(id = R.string.change_phone_select_country_title), style = CorusFont.songTitleLarge) },
                 text = {
-                    Column {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
                         CountryCode.all.forEach { country ->
                             Row(
                                 modifier = Modifier

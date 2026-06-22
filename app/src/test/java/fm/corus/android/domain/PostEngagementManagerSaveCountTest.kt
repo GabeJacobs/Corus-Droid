@@ -1,5 +1,9 @@
 package fm.corus.android.domain
 
+import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.PostRepository
 import org.junit.Assert.assertEquals
@@ -7,6 +11,7 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import java.util.Date
 
 /**
  * Guards the denormalized per-post `saveCount` plumbed through the engagement
@@ -129,6 +134,49 @@ class PostEngagementManagerSaveCountTest {
         manager.toggleSave("p1", "u1")
 
         assertEquals(0, manager.getState("p1")?.saveCount)
+    }
+
+    // ── Self-save exclusion (must match the server's adjustPostSaveCountExcludingSelf) ──
+
+    private fun ownPost(id: String, userId: String): CymbalPost = CymbalPost(
+        id = id,
+        user = CymbalUser(id = userId, username = "user_$userId", displayName = "User", cymbalCount = 0),
+        track = CymbalTrack(id = "t_$id", name = "Track", artistName = "Artist", albumName = "Album"),
+        timestamp = Date(),
+        mediaType = MediaType.TRACK,
+    )
+
+    @Test
+    fun `saving your OWN post does not bump the public count (server excludes self-saves)`() {
+        val repo = mock<PostRepository> {
+            on { getCachedPost("p1") } doReturn ownPost("p1", "u1")
+            onBlocking { savePost(any(), any()) } doReturn
+                CloudFunctionsDataSource.SavePostResult(savesCount = 1, alreadySaved = false)
+        }
+        val manager = newManager(postRepository = repo)
+        manager.initState("p1", 0, 0, 0, isLiked = false, isSaved = false, saveCount = 5)
+
+        manager.toggleSave("p1", "u1")
+
+        val state = manager.getState("p1")
+        assertEquals(5, state?.saveCount) // unchanged — your own save isn't public proof
+        assertEquals(true, state?.isSaved) // bookmark still fills
+    }
+
+    @Test
+    fun `unsaving your OWN post does not change the public count`() {
+        val repo = mock<PostRepository> {
+            on { getCachedPost("p1") } doReturn ownPost("p1", "u1")
+            onBlocking { unsavePost(any(), any()) } doReturn 0
+        }
+        val manager = newManager(postRepository = repo)
+        manager.initState("p1", 0, 0, 0, isLiked = false, isSaved = true, saveCount = 5)
+
+        manager.toggleSave("p1", "u1")
+
+        val state = manager.getState("p1")
+        assertEquals(5, state?.saveCount)
+        assertEquals(false, state?.isSaved)
     }
 
     @Test

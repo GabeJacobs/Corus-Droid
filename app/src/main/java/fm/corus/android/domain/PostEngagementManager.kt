@@ -283,14 +283,21 @@ class PostEngagementManager @Inject constructor(
         // Mirrors iOS PostCard / PostDetailView / PostContextMenu toggleSave haptic.
         hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
 
-        // Optimistic count: reflect the viewer's own save immediately so an
-        // unsaved sole-saver post hides its count (0) without waiting on the
-        // onSaveDeleted trigger. The in-flight marker protects it from a stale
-        // refresh; both rollback paths below restore `current` (its pre-toggle
-        // saveCount included), so no manual revert is needed.
+        // Optimistic count — only for OTHER people's posts. The server excludes
+        // the author's own save from the public count
+        // (adjustPostSaveCountExcludingSelf), so bumping a self-save here would
+        // show the author a transiently inflated number that snaps back on
+        // reconcile. The in-flight marker protects the bump from a stale refresh;
+        // both rollback paths below restore `current` (its pre-toggle saveCount
+        // included), so no manual revert is needed.
         userModifiedPostIds.add(postId)
-        markSaveInFlight(postId)
-        val newSaveCount = if (newSaved) current.saveCount + 1 else maxOf(0, current.saveCount - 1)
+        val isOwnPost = postRepository.getCachedPost(postId)?.user?.id == userId
+        val newSaveCount = when {
+            isOwnPost -> current.saveCount
+            newSaved -> current.saveCount + 1
+            else -> maxOf(0, current.saveCount - 1)
+        }
+        if (!isOwnPost) markSaveInFlight(postId)
         _states.update { map ->
             map + (postId to current.copy(isSaved = newSaved, saveCount = newSaveCount))
         }

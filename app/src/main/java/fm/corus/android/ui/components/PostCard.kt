@@ -847,14 +847,21 @@ fun PostCard(
                         size = 28.dp,
                     )
                 } else {
-                    // Glyph reflects the service the tap opens. Apple-only tracks
-                    // aren't on Spotify, so a Spotify viewer is routed to Apple
-                    // Music — show that. TIDAL/Deezer viewers keep their own glyph
-                    // (those catalogs carry the track). Mirrors iOS.
-                    val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
-                        fm.corus.android.data.model.MusicService.APPLE_MUSIC
-                    } else {
-                        musicService
+                    // Glyph reflects the service the tap opens. Default is the
+                    // viewer's preference; we only fall back to the source when
+                    // the backend has CONFIRMED the track isn't on Apple Music
+                    // (appleMusicId == ""), which is rare. null appleMusicId means
+                    // unknown (legacy post, or the feed payload hasn't carried it
+                    // yet) and must NOT flip — otherwise the whole feed shows
+                    // Spotify to an Apple Music viewer. Apple-only tracks always
+                    // route a Spotify viewer to Apple Music. Mirrors iOS.
+                    val hasAppleMusicEquivalent = isAppleMusic || post.track.appleMusicId != ""
+                    val displayedService = when {
+                        isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY ->
+                            fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                        musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC && !hasAppleMusicEquivalent ->
+                            fm.corus.android.data.model.MusicService.SPOTIFY
+                        else -> musicService
                     }
                     Image(
                         painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(displayedService)),
@@ -976,7 +983,7 @@ fun PostCard(
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
                 ) {
                     VennDiagramIcon(
-                        size = 20.dp,
+                        size = 23.dp,
                         color = CorusColors.Text,
                     )
                     Text(

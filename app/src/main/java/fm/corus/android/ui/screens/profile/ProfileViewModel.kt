@@ -108,6 +108,8 @@ class ProfileViewModel @Inject constructor(
 
     val stylePack1Enabled: Boolean get() = remoteConfigService.stylePack1Enabled
 
+    val corusFlairOpen: Boolean get() = remoteConfigService.corusFlairOpen
+
     val engagementStates = engagementManager.states
 
     private val _profile = MutableStateFlow<CymbalUser?>(null)

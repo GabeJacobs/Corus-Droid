@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,7 +35,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,7 +65,12 @@ fun TasteMatchTeaser(
     modifier: Modifier = Modifier,
 ) {
     val thumbs = remember(match) { thumbnailURLs(match).take(3) }
-    val label = remember(match) { teaserLabel(match) }
+    val names = remember(match) { sharedNames(match) }
+    val totalSheetItems = remember(match) {
+        match.sharedTrackPreviews.size + match.sharedMoviePreviews.size
+    }
+    val measurer = rememberTextMeasurer()
+    val labelStyle = CorusFont.button
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -96,14 +105,51 @@ fun TasteMatchTeaser(
             color = CorusColors.Secondary,
             shadedIntersection = true,
         )
-        Text(
-            text = label,
-            style = CorusFont.button,
-            color = CorusColors.Secondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        // Names truncate to whatever fits; the "+N" count is always kept.
+        // chooseTeaserLabel drops from two names to one (folding the dropped
+        // name into the count) before any name is chopped mid-word, mirroring
+        // the iOS ViewThatFits behavior.
+        if (names.isEmpty()) {
+            Text(
+                text = emptyLabel(match),
+                style = labelStyle,
+                color = CorusColors.Secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            BoxWithConstraints(modifier = Modifier.weight(1f)) {
+                val maxWidthPx = constraints.maxWidth
+                val (namesText, extraText) = remember(names, totalSheetItems, maxWidthPx) {
+                    chooseTeaserLabel(names, totalSheetItems, maxWidthPx) { candidate ->
+                        measurer.measure(candidate, labelStyle, maxLines = 1).size.width
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = namesText,
+                        style = labelStyle,
+                        color = CorusColors.Secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (extraText != null) {
+                        Text(
+                            text = extraText,
+                            style = labelStyle,
+                            color = CorusColors.Secondary,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
@@ -209,16 +255,18 @@ fun TasteMatchSheet(
             }
             if (artistFillSongs.isNotEmpty()) {
                 Section(
-                    title = "From artists in common",
+                    title = "Artists in common",
                     items = artistFillSongs.map(PreviewItem::Track),
+                    nameFirst = true,
                     onSelectPost = onSelectPost,
                     onDismiss = onDismiss,
                 )
             }
             if (directorFillFilms.isNotEmpty()) {
                 Section(
-                    title = "From directors in common",
+                    title = "Directors in common",
                     items = directorFillFilms.map(PreviewItem::Movie),
+                    nameFirst = true,
                     onSelectPost = onSelectPost,
                     onDismiss = onDismiss,
                 )
@@ -233,6 +281,7 @@ private fun Section(
     items: List<PreviewItem>,
     onSelectPost: (String) -> Unit,
     onDismiss: () -> Unit,
+    nameFirst: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -256,6 +305,7 @@ private fun Section(
                     Tile(
                         item = item,
                         modifier = Modifier.weight(1f),
+                        nameFirst = nameFirst,
                         onClick = {
                             val postId = item.postId
                             if (postId != null) {
@@ -278,8 +328,15 @@ private fun Section(
 private fun Tile(
     item: PreviewItem,
     modifier: Modifier = Modifier,
+    nameFirst: Boolean = false,
     onClick: () -> Unit,
 ) {
+    // When true (artist/director sections), lead with the shared name and put
+    // the specific song/film they posted underneath, so the bold line always
+    // names the thing in common.
+    val leadWithName = nameFirst && item.subtitle.isNotEmpty()
+    val primary = if (leadWithName) item.subtitle else item.title
+    val secondary = if (leadWithName) item.title else item.subtitle
     Column(
         modifier = modifier.clickable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
@@ -301,15 +358,15 @@ private fun Tile(
             }
         }
         Text(
-            text = item.title,
+            text = primary,
             style = CorusFont.songTitle,
             color = CorusColors.Text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        if (item.subtitle.isNotEmpty()) {
+        if (secondary.isNotEmpty()) {
             Text(
-                text = item.subtitle,
+                text = secondary,
                 style = CorusFont.artistName,
                 color = CorusColors.Secondary,
                 maxLines = 1,
@@ -328,37 +385,57 @@ private fun thumbnailURLs(match: MusicMatchData): List<String> {
     return urls
 }
 
-private fun teaserLabel(match: MusicMatchData): String {
+/** Up to two deduped artist/director names from the shared previews. */
+private fun sharedNames(match: MusicMatchData): List<String> {
     val names = mutableListOf<String>()
     val seen = HashSet<String>()
     for (p in match.sharedTrackPreviews) {
         val trimmed = p.artistName.trim()
-        if (trimmed.isEmpty()) continue
-        val key = trimmed.lowercase()
-        if (!seen.add(key)) continue
+        if (trimmed.isEmpty() || !seen.add(trimmed.lowercase())) continue
         names += trimmed
         if (names.size >= 2) break
     }
     if (names.size < 2) {
         for (p in match.sharedMoviePreviews) {
             val trimmed = p.directorName.trim()
-            if (trimmed.isEmpty()) continue
-            val key = trimmed.lowercase()
-            if (!seen.add(key)) continue
+            if (trimmed.isEmpty() || !seen.add(trimmed.lowercase())) continue
             names += trimmed
             if (names.size >= 2) break
         }
     }
-    val totalSheetItems = match.sharedTrackPreviews.size + match.sharedMoviePreviews.size
-    val extras = maxOf(0, totalSheetItems - names.size)
-    if (names.isEmpty()) {
-        return when {
-            match.sharedArtists == 1 -> "1 artist"
-            match.sharedArtists > 0 -> "${match.sharedArtists} artists"
-            else -> "Taste match"
+    return names
+}
+
+/** Fallback label when there are no usable names to lead with. */
+private fun emptyLabel(match: MusicMatchData): String = when {
+    match.sharedArtists == 1 -> "1 artist"
+    match.sharedArtists > 0 -> "${match.sharedArtists} artists"
+    else -> "Taste match"
+}
+
+/**
+ * Decide the teaser label. Prefer two names; drop to one (folding the hidden
+ * name into the "+N" overflow count) before any name is truncated mid-word.
+ * Width measurement is injected so the decision is pure and unit-testable.
+ * Mirrors the iOS `ViewThatFits`. Returns (namesText, extraText-or-null);
+ * extraText is null when there is no overflow.
+ */
+internal fun chooseTeaserLabel(
+    names: List<String>,
+    totalSheetItems: Int,
+    maxWidthPx: Int,
+    measure: (String) -> Int,
+): Pair<String, String?> {
+    val maxNames = names.size.coerceAtMost(2)
+    for (count in maxNames downTo 1) {
+        val shown = names.take(count)
+        val extras = (totalSheetItems - count).coerceAtLeast(0)
+        val joined = shown.joinToString(", ")
+        val full = if (extras > 0) "$joined +$extras" else joined
+        if (measure(full) <= maxWidthPx || count == 1) {
+            return joined to (if (extras > 0) "+$extras" else null)
         }
     }
-    val joined = names.joinToString(", ")
-    return if (extras > 0) "$joined +$extras" else joined
+    return "" to null
 }
 

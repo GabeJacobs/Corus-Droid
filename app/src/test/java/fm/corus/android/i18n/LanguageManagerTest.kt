@@ -35,6 +35,21 @@ class LanguageManagerTest {
     }
 
     @Test
+    fun `fromTag es returns SPANISH`() {
+        assertEquals(AppLanguage.SPANISH, AppLanguage.fromTag("es"))
+    }
+
+    @Test
+    fun `fromTag es_419 returns SPANISH`() {
+        assertEquals(AppLanguage.SPANISH, AppLanguage.fromTag("es_419"))
+    }
+
+    @Test
+    fun `SPANISH tag is es`() {
+        assertEquals("es", AppLanguage.SPANISH.tag)
+    }
+
+    @Test
     fun `fromTag null returns SYSTEM`() {
         assertEquals(AppLanguage.SYSTEM, AppLanguage.fromTag(null))
     }
@@ -79,5 +94,20 @@ class LanguageManagerTest {
             .edit().putString("tag", "en").apply()
         val wrapped = LanguageManager.wrapContext(context)
         assertEquals("en", wrapped.resources.configuration.locales[0].language)
+    }
+
+    @Test
+    fun `current reflects persisted es tag`() {
+        context.getSharedPreferences("corus_locale", Context.MODE_PRIVATE)
+            .edit().putString("tag", "es").apply()
+        assertEquals(AppLanguage.SPANISH, LanguageManager.current(context))
+    }
+
+    @Test
+    fun `wrapContext applies spanish locale when persisted`() {
+        context.getSharedPreferences("corus_locale", Context.MODE_PRIVATE)
+            .edit().putString("tag", "es").apply()
+        val wrapped = LanguageManager.wrapContext(context)
+        assertEquals("es", wrapped.resources.configuration.locales[0].language)
     }
 }

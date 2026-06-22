@@ -138,6 +138,14 @@ class RemoteConfigService @Inject constructor(
     val stylePack1Enabled: Boolean
         get() = remoteConfig.getBoolean("style_pack_1_enabled")
 
+    /// Gate for who may pick the staff-only "Corus" profile flair. Default true
+    /// keeps today's behavior (everyone can pick it); flipping to false restricts
+    /// the picker option to staff (plus existing holders, who keep seeing it so
+    /// their selection isn't blanked during the phase-out). Mirrors web/iOS
+    /// `corus_flair_open`. Display/rendering of the flair is unaffected.
+    val corusFlairOpen: Boolean
+        get() = remoteConfig.getBoolean("corus_flair_open")
+
     /// Master gate for the algorithmically-ranked "For You" feed mode.
     /// When false, the chevron toggle next to the Corus wordmark is hidden
     /// and the feed behaves identically to today (Following-only).
@@ -270,6 +278,7 @@ class RemoteConfigService @Inject constructor(
                     "comment_controls_on_posts" to true,
                     "new_release_filter_club_only" to false,
                     "style_pack_1_enabled" to false,
+                    "corus_flair_open" to true,
                     "for_you_enabled" to false,
                     "trending_feed_enabled" to true,
                     "favorites_enabled" to true,
@@ -319,6 +328,7 @@ class RemoteConfigService @Inject constructor(
                 "save_cap_warning_at=$saveCapWarningAt " +
                 "new_release_filter_club_only=$newReleaseFilterClubOnly " +
                 "style_pack_1_enabled=$stylePack1Enabled " +
+                "corus_flair_open=$corusFlairOpen " +
                 "for_you_enabled=${remoteConfig.getBoolean("for_you_enabled")} " +
                 "trending_feed_enabled=${remoteConfig.getBoolean("trending_feed_enabled")} " +
                 "favorites_enabled=${remoteConfig.getBoolean("favorites_enabled")} " +

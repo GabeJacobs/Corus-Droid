@@ -1060,6 +1060,8 @@ fun ProfileScreen(
                 hasMoviePosts = moviePosts.isNotEmpty(),
                 isClubMember = hasFullAccess,
                 stylePack1Enabled = viewModel.stylePack1Enabled,
+                isStaff = currentProfile.isStaff,
+                corusFlairOpen = viewModel.corusFlairOpen,
                 isSaving = isSavingStyle,
                 initialPage = styleInitialPage,
                 onSave = { selections ->

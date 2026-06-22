@@ -27,6 +27,7 @@
     <string name="language_option_system">Padrão do Sistema</string>
     <string name="language_option_english">English</string>
     <string name="language_option_portuguese_br">Português (Brasil)</string>
+    <string name="language_option_spanish">Español</string>
 
     <!-- Settings: Main -->
     <string name="settings_screen_title">Configurações</string>
@@ -573,6 +574,8 @@
 
     <!-- Messaging: thread -->
     <string name="messaging_thread_replying_to_format">Respondendo a %1$s</string>
+    <string name="messaging_thread_editing">Editando mensagem</string>
+    <string name="messaging_thread_edited">editado</string>
     <string name="messaging_thread_yourself">você</string>
     <string name="messaging_thread_message_fallback">Mensagem</string>
     <string name="messaging_thread_you">Você</string>
