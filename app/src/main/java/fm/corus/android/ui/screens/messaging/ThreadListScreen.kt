@@ -6,10 +6,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,6 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.MessageType
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -57,6 +62,7 @@ fun ThreadListScreen(
     val hasMoreThreads by viewModel.hasMoreThreads.collectAsState()
     val inboxSearchResults by viewModel.inboxSearchResults.collectAsState()
     val isSearchingInbox by viewModel.isSearchingInbox.collectAsState()
+    val groupMembersById by viewModel.groupMembersById.collectAsState()
     var showNewMessagePicker by remember { mutableStateOf(false) }
     var isCreatingThread by remember { mutableStateOf(false) }
     var inboxSearchText by remember { mutableStateOf("") }
@@ -140,6 +146,8 @@ fun ThreadListScreen(
                         ThreadRow(
                             thread = thread,
                             onClick = { onThreadTap(thread.id, thread.otherUserId) },
+                            membersById = groupMembersById,
+                            currentUserId = viewModel.currentUserId,
                         )
                     }
 
@@ -186,10 +194,14 @@ fun ThreadListScreen(
     // New Message picker sheet
     if (showNewMessagePicker) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        // Within the sheet, the default DM list can hand off to the group-create
+        // flow (Instagram-style) without closing.
+        var showGroupCreate by remember { mutableStateOf(false) }
 
         ModalBottomSheet(
             onDismissRequest = {
                 viewModel.clearSearch()
+                showGroupCreate = false
                 showNewMessagePicker = false
             },
             sheetState = sheetState,
@@ -198,27 +210,62 @@ fun ThreadListScreen(
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {
             CorusSystemBars()
-            NewMessagePickerContent(
-                viewModel = viewModel,
-                onCancel = {
-                    viewModel.clearSearch()
-                    showNewMessagePicker = false
-                },
-                onUserSelected = { user ->
-                    viewModel.clearSearch()
-                    showNewMessagePicker = false
-                    isCreatingThread = true
-                    scope.launch {
-                        try {
-                            val threadId = viewModel.getOrCreateThread(user.id)
-                            onThreadTap(threadId, user.id)
-                        } catch (_: Exception) {
-                        } finally {
-                            isCreatingThread = false
+            if (showGroupCreate) {
+                // Multi-select: one selection starts a 1:1 DM, two+ creates a group.
+                MultiUserPickerContent(
+                    title = stringResource(id = R.string.messaging_group_new_title),
+                    showNameField = true,
+                    excludeIds = setOf(viewModel.currentUserId ?: ""),
+                    loadSuggestions = { viewModel.fetchSuggestionsList() },
+                    search = { viewModel.searchUsersList(it) },
+                    checkAddable = { viewModel.checkAddable(it) },
+                    onCancel = { showGroupCreate = false }, // back to the DM list
+                    onConfirm = { selectedUsers, name ->
+                        showGroupCreate = false
+                        showNewMessagePicker = false
+                        isCreatingThread = true
+                        scope.launch {
+                            try {
+                                if (selectedUsers.size == 1) {
+                                    val u = selectedUsers.first()
+                                    val threadId = viewModel.getOrCreateThread(u.id)
+                                    onThreadTap(threadId, u.id)
+                                } else if (selectedUsers.size >= 2) {
+                                    val threadId = viewModel.createGroup(selectedUsers.map { it.id }, name)
+                                    onThreadTap(threadId, "")
+                                }
+                            } catch (_: Exception) {
+                            } finally {
+                                isCreatingThread = false
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            } else {
+                NewMessagePickerContent(
+                    viewModel = viewModel,
+                    groupMessagingEnabled = viewModel.groupMessagingEnabled,
+                    onGroupChat = { showGroupCreate = true },
+                    onCancel = {
+                        viewModel.clearSearch()
+                        showNewMessagePicker = false
+                    },
+                    onUserSelected = { user ->
+                        viewModel.clearSearch()
+                        showNewMessagePicker = false
+                        isCreatingThread = true
+                        scope.launch {
+                            try {
+                                val threadId = viewModel.getOrCreateThread(user.id)
+                                onThreadTap(threadId, user.id)
+                            } catch (_: Exception) {
+                            } finally {
+                                isCreatingThread = false
+                            }
+                        }
+                    },
+                )
+            }
         }
     }
 }
@@ -228,6 +275,8 @@ private fun NewMessagePickerContent(
     viewModel: ThreadListViewModel,
     onCancel: () -> Unit,
     onUserSelected: (CymbalUser) -> Unit,
+    groupMessagingEnabled: Boolean = false,
+    onGroupChat: () -> Unit = {},
 ) {
     val suggestedContacts by viewModel.suggestedContacts.collectAsState()
     val isLoadingSuggestions by viewModel.isLoadingSuggestions.collectAsState()
@@ -317,6 +366,29 @@ private fun NewMessagePickerContent(
         }
 
         HorizontalDivider(color = CorusColors.Divider)
+
+        // Entry to the separate group-creation flow (the default list DMs people
+        // one-tap; group capability only restricts who you can put IN a group).
+        if (groupMessagingEnabled && searchText.isBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onGroupChat)
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+            ) {
+                Box(
+                    modifier = Modifier.size(CorusSpacing.avatarMedium).clip(CircleShape).background(CorusColors.CardBackground),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Group, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(20.dp))
+                }
+                Text(stringResource(id = R.string.messaging_group_chat), style = CorusFont.username, color = CorusColors.Text, modifier = Modifier.weight(1f))
+                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = CorusColors.Tertiary)
+            }
+            HorizontalDivider(color = CorusColors.Divider)
+        }
 
         // Content
         if (isSearching || isLoadingSuggestions) {
@@ -456,7 +528,33 @@ private fun InboxSearchBar(
 }
 
 @Composable
-private fun ThreadRow(thread: CymbalThread, onClick: () -> Unit) {
+private fun ThreadRow(
+    thread: CymbalThread,
+    onClick: () -> Unit,
+    membersById: Map<String, CymbalUser> = emptyMap(),
+    currentUserId: String? = null,
+) {
+    val context = LocalContext.current
+    val isGroup = thread.isGroup
+    val otherMembers = if (isGroup) {
+        thread.memberIds.filter { it != currentUserId }.mapNotNull { membersById[it] }
+    } else emptyList()
+    val title = if (isGroup) {
+        groupDisplayTitle(thread.groupName, otherMembers, context)
+    } else {
+        thread.otherUser?.username ?: ""
+    }
+    // In groups, prefix the sender's first name for other people's messages;
+    // system events already carry full text.
+    val preview = if (isGroup && thread.lastMessageType != MessageType.SYSTEM) {
+        val fromId = thread.lastMessageFromUserId
+        val sender = if (fromId != null && fromId != currentUserId) membersById[fromId] else null
+        val first = sender?.let { (it.displayName.ifBlank { it.username }).split(" ").firstOrNull() }
+        if (!first.isNullOrBlank()) {
+            context.getString(R.string.messaging_group_sender_preview, first, thread.lastMessageText)
+        } else thread.lastMessageText
+    } else thread.lastMessageText
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -464,20 +562,32 @@ private fun ThreadRow(thread: CymbalThread, onClick: () -> Unit) {
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(
-            avatarURL = thread.otherUser?.avatarURL,
-            displayName = thread.otherUser?.displayName,
-            size = CorusSpacing.avatarMedium,
-        )
+        if (isGroup && thread.groupPhotoURL != null) {
+            UserAvatarView(
+                avatarURL = thread.groupPhotoURL,
+                displayName = title,
+                size = CorusSpacing.avatarMedium,
+            )
+        } else if (isGroup) {
+            StackedGroupAvatar(members = otherMembers, size = CorusSpacing.avatarMedium)
+        } else {
+            UserAvatarView(
+                avatarURL = thread.otherUser?.avatarURL,
+                displayName = thread.otherUser?.displayName,
+                size = CorusSpacing.avatarMedium,
+            )
+        }
 
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = thread.otherUser?.username ?: "",
+                    text = title,
                     style = CorusFont.username,
                     color = CorusColors.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
@@ -487,7 +597,7 @@ private fun ThreadRow(thread: CymbalThread, onClick: () -> Unit) {
                 )
             }
             Text(
-                text = thread.lastMessageText,
+                text = preview,
                 style = CorusFont.body,
                 color = CorusColors.Secondary,
                 maxLines = 1,

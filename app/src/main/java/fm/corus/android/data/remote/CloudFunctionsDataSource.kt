@@ -771,6 +771,71 @@ class CloudFunctionsDataSource @Inject constructor(
         ).await()
     }
 
+    // ── Group messaging ──
+
+    data class GroupAddResult(
+        val added: List<String>,
+        val rejected: List<Pair<String, String>>,
+    )
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun createGroupThread(participantIds: List<String>, name: String? = null, photoURL: String? = null): String {
+        val params = mutableMapOf<String, Any>("participantIds" to participantIds)
+        name?.takeIf { it.isNotBlank() }?.let { params["name"] = it }
+        photoURL?.let { params["photoURL"] = it }
+        val result = functions.getHttpsCallable("createGroupThread").call(params).await()
+        val data = result.getData() as? Map<String, Any?> ?: throw Exception("Failed to create group")
+        return data["threadId"] as? String ?: throw Exception("No threadId returned")
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun addGroupMembers(threadId: String, userIds: List<String>): GroupAddResult {
+        val result = functions.getHttpsCallable("addGroupMembers").call(
+            mapOf("threadId" to threadId, "userIds" to userIds)
+        ).await()
+        val data = result.getData() as? Map<String, Any?> ?: return GroupAddResult(emptyList(), emptyList())
+        val added = (data["added"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+        val rejected = (data["rejected"] as? List<Map<String, Any?>> ?: emptyList()).mapNotNull {
+            val id = it["id"] as? String ?: return@mapNotNull null
+            id to (it["reason"] as? String ?: "")
+        }
+        return GroupAddResult(added, rejected)
+    }
+
+    suspend fun removeGroupMember(threadId: String, userId: String) {
+        functions.getHttpsCallable("removeGroupMember").call(
+            mapOf("threadId" to threadId, "userId" to userId)
+        ).await()
+    }
+
+    suspend fun leaveGroup(threadId: String) {
+        functions.getHttpsCallable("leaveGroup").call(mapOf("threadId" to threadId)).await()
+    }
+
+    suspend fun renameGroup(threadId: String, name: String) {
+        functions.getHttpsCallable("renameGroup").call(
+            mapOf("threadId" to threadId, "name" to name)
+        ).await()
+    }
+
+    suspend fun setGroupPhoto(threadId: String, photoURL: String) {
+        functions.getHttpsCallable("setGroupPhoto").call(
+            mapOf("threadId" to threadId, "photoURL" to photoURL)
+        ).await()
+    }
+
+    /** Pre-check which users can be added to a group, so the picker can grey out
+     *  those on a build that hasn't advertised group-chat support. Fails open. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun checkGroupAddable(userIds: List<String>, threadId: String? = null): Map<String, Boolean> {
+        val params = mutableMapOf<String, Any>("userIds" to userIds)
+        threadId?.let { params["threadId"] = it }
+        val result = functions.getHttpsCallable("checkGroupAddable").call(params).await()
+        val data = result.getData() as? Map<String, Any?> ?: return emptyMap()
+        val addable = data["addable"] as? Map<String, Any?> ?: return emptyMap()
+        return addable.mapValues { (_, v) -> (v as? Map<String, Any?>)?.get("ok") as? Boolean ?: false }
+    }
+
     // ── GIF Search (Klipy via Cloud Function) ──
 
     data class GifSearchResult(

@@ -973,4 +973,27 @@
     <string name="comments_locked_authorfollow_unknown">Solo las personas que el autor sigue pueden comentar.</string>
     <string name="comments_locked_follow_cta">Seguir</string>
     <string name="comments_locked_following_cta">Siguiendo…</string>
+
+    <!-- Group messaging -->
+    <string name="messaging_separator_today">Hoy</string>
+    <string name="messaging_separator_yesterday">Ayer</string>
+    <string name="messaging_group_fallback_title">Grupo</string>
+    <string name="messaging_group_info_title">Información del grupo</string>
+    <string name="messaging_group_creator">Creador</string>
+    <string name="messaging_group_add_people">Agregar personas</string>
+    <string name="messaging_group_create">Crear grupo</string>
+    <string name="messaging_group_new_title">Nuevo grupo</string>
+    <string name="messaging_group_message_cta">Mensaje</string>
+    <string name="messaging_group_add_cta">Agregar</string>
+    <string name="messaging_group_leave">Salir del grupo</string>
+    <string name="messaging_group_leave_confirm">¿Salir de este grupo?</string>
+    <string name="messaging_group_name_label">Nombre del grupo</string>
+    <string name="messaging_group_name_optional">Nombre del grupo (opcional)</string>
+    <string name="messaging_group_change_photo">Cambiar foto</string>
+    <string name="messaging_group_remove">Quitar</string>
+    <string name="messaging_group_not_addable">Debe actualizar para unirse a grupos</string>
+    <string name="messaging_group_cancel">Cancelar</string>
+    <string name="messaging_group_member_count">%1$d miembros</string>
+    <string name="messaging_group_and_others">y %1$d más</string>
+    <string name="messaging_group_sender_preview">%1$s: %2$s</string>
 </resources>

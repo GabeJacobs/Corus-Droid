@@ -42,6 +42,17 @@ class MessageThreadViewModel @Inject constructor(
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport
 
+    val groupMessagingEnabled: Boolean
+        get() = remoteConfigService.groupMessagingEnabled
+
+    // Group metadata (null/non-group for 1:1 threads) + resolved member profiles
+    // for the header title, run-grouped sender labels/avatars, and reply names.
+    private val _groupInfo = MutableStateFlow<MessageRepository.GroupThreadInfo?>(null)
+    val groupInfo: StateFlow<MessageRepository.GroupThreadInfo?> = _groupInfo.asStateFlow()
+
+    private val _membersById = MutableStateFlow<Map<String, fm.corus.android.data.model.CymbalUser>>(emptyMap())
+    val membersById: StateFlow<Map<String, fm.corus.android.data.model.CymbalUser>> = _membersById.asStateFlow()
+
     private val _serverMessages = MutableStateFlow<List<CymbalMessage>>(emptyList())
 
     private val _pendingMessages = MutableStateFlow<Map<String, CymbalMessage>>(emptyMap())
@@ -95,6 +106,7 @@ class MessageThreadViewModel @Inject constructor(
     private var listenerJob: Job? = null
     private var recipientUnreadJob: Job? = null
     private var readReceiptsJob: Job? = null
+    private var groupInfoJob: Job? = null
 
     // Tracks whether the message listener has delivered its first snapshot, so we
     // only re-mark-read for messages that arrive live (the initial load is
@@ -130,6 +142,7 @@ class MessageThreadViewModel @Inject constructor(
                 // Start real-time Firestore listener (matches iOS snapshot listener)
                 startListening(resolvedId)
                 startThreadDocListener(resolvedId, otherUserId)
+                startGroupInfoListener(resolvedId)
 
                 // Mark as read
                 val userId = authRepository.currentUserId
@@ -189,11 +202,92 @@ class MessageThreadViewModel @Inject constructor(
         }
     }
 
+    private fun startGroupInfoListener(threadId: String) {
+        groupInfoJob?.cancel()
+        groupInfoJob = viewModelScope.launch {
+            messageRepository.listenToGroupThreadInfo(threadId).collect { info ->
+                _groupInfo.value = info
+                if (info != null && info.isGroup) {
+                    val missing = info.memberIds.filter { it !in _membersById.value }
+                    if (missing.isNotEmpty()) {
+                        val resolved = _membersById.value.toMutableMap()
+                        for (id in missing) {
+                            userRepository.fetchUserProfile(id)?.let { resolved[id] = it }
+                        }
+                        _membersById.value = resolved
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Group actions (driven by the Group Info sheet) ──
+
+    fun renameGroup(name: String) {
+        val id = currentThreadId ?: return
+        viewModelScope.launch { try { messageRepository.renameGroup(id, name.trim()) } catch (_: Exception) {} }
+    }
+
+    fun setGroupPhoto(url: String) {
+        val id = currentThreadId ?: return
+        viewModelScope.launch { try { messageRepository.setGroupPhoto(id, url) } catch (_: Exception) {} }
+    }
+
+    fun addGroupMembers(userIds: List<String>) {
+        val id = currentThreadId ?: return
+        if (userIds.isEmpty()) return
+        viewModelScope.launch { try { messageRepository.addGroupMembers(id, userIds) } catch (_: Exception) {} }
+    }
+
+    fun removeGroupMember(userId: String) {
+        val id = currentThreadId ?: return
+        viewModelScope.launch { try { messageRepository.removeGroupMember(id, userId) } catch (_: Exception) {} }
+    }
+
+    fun leaveGroup(onDone: () -> Unit) {
+        val id = currentThreadId ?: return
+        viewModelScope.launch {
+            try { messageRepository.leaveGroup(id) } catch (_: Exception) {}
+            onDone()
+        }
+    }
+
+    suspend fun checkAddable(userIds: List<String>): Map<String, Boolean> =
+        messageRepository.checkGroupAddable(userIds, currentThreadId)
+
+    suspend fun fetchSuggestionsList(): List<fm.corus.android.data.model.CymbalUser> {
+        val userId = authRepository.currentUserId ?: return emptyList()
+        val contacts = runCatching { messageRepository.listThreads(userId) }
+            .getOrDefault(emptyList()).mapNotNull { it.otherUser }
+        if (contacts.isNotEmpty()) return contacts.take(20)
+        runCatching { userRepository.prefetchFollowingSet(userId) }
+        return userRepository.followingIds.value.take(20)
+            .mapNotNull { runCatching { userRepository.fetchUserProfile(it) }.getOrNull() }
+            .filter { !it.isBot }
+    }
+
+    suspend fun searchUsersList(query: String): List<fm.corus.android.data.model.CymbalUser> =
+        runCatching { userRepository.searchUsers(query, limit = 15, includeFollowed = true) }
+            .getOrDefault(emptyList())
+
+    /** Upload an image and set it as the group photo. Returns true on success. */
+    fun uploadAndSetGroupPhoto(imageData: ByteArray) {
+        val id = currentThreadId ?: return
+        val userId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                val url = messageRepository.uploadGroupPhoto(userId, id, imageData)
+                messageRepository.setGroupPhoto(id, url)
+            } catch (_: Exception) {}
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         listenerJob?.cancel()
         recipientUnreadJob?.cancel()
         readReceiptsJob?.cancel()
+        groupInfoJob?.cancel()
     }
 
     fun setReplyTo(message: CymbalMessage?) {

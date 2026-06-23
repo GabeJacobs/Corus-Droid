@@ -16,6 +16,7 @@ import fm.corus.android.data.remote.FirebaseStorageDataSource
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -155,6 +156,84 @@ class MessageRepository @Inject constructor(
         cloudFunctions.markThreadRead(threadId, userId)
     }
 
+    // ── Group messaging ──
+
+    suspend fun createGroupThread(participantIds: List<String>, name: String? = null, photoURL: String? = null): String =
+        cloudFunctions.createGroupThread(participantIds, name, photoURL)
+
+    suspend fun addGroupMembers(threadId: String, userIds: List<String>) =
+        cloudFunctions.addGroupMembers(threadId, userIds)
+
+    suspend fun removeGroupMember(threadId: String, userId: String) =
+        cloudFunctions.removeGroupMember(threadId, userId)
+
+    suspend fun leaveGroup(threadId: String) = cloudFunctions.leaveGroup(threadId)
+
+    suspend fun renameGroup(threadId: String, name: String) = cloudFunctions.renameGroup(threadId, name)
+
+    suspend fun setGroupPhoto(threadId: String, photoURL: String) = cloudFunctions.setGroupPhoto(threadId, photoURL)
+
+    /** Upload a group photo to message media storage and return its download URL. */
+    suspend fun uploadGroupPhoto(userId: String, threadId: String, imageData: ByteArray): String {
+        val photoId = java.util.UUID.randomUUID().toString()
+        return storageDataSource.uploadMessageImage(userId, threadId, photoId, imageData)
+    }
+
+    suspend fun checkGroupAddable(userIds: List<String>, threadId: String? = null): Map<String, Boolean> =
+        cloudFunctions.checkGroupAddable(userIds, threadId)
+
+    /**
+     * Advertise that this build supports group chat by deep-merging
+     * `settings.capabilities.groupChat = true` onto the caller's own user doc
+     * (allowed by the self-writable settings rule). Best-effort; lets the backend
+     * gate who is addable to a group. Safe to call once per signed-in session.
+     */
+    suspend fun advertiseGroupMessagingCapability(userId: String) {
+        try {
+            firestore.collection("users_v2").document(userId)
+                .set(
+                    mapOf("settings" to mapOf("capabilities" to mapOf("groupChat" to true))),
+                    com.google.firebase.firestore.SetOptions.merge(),
+                ).await()
+        } catch (_: Exception) {
+            // best-effort; a later launch retries
+        }
+    }
+
+    /** Live group metadata from the `threads/{threadId}` root doc, so the thread
+     *  screen knows it's a group plus its name/photo/members/creator. */
+    data class GroupThreadInfo(
+        val isGroup: Boolean,
+        val name: String?,
+        val photoURL: String?,
+        val memberIds: List<String>,
+        val createdBy: String?,
+    )
+
+    fun listenToGroupThreadInfo(threadId: String): Flow<GroupThreadInfo?> = callbackFlow {
+        val registration = firestore
+            .collection("threads")
+            .document(threadId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || !snapshot.exists()) {
+                    trySend(null); return@addSnapshotListener
+                }
+                val data = snapshot.data ?: return@addSnapshotListener
+                @Suppress("UNCHECKED_CAST")
+                val memberIds = (data["participantIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                trySend(
+                    GroupThreadInfo(
+                        isGroup = data["type"] == "group",
+                        name = data["name"] as? String,
+                        photoURL = data["photoURL"] as? String,
+                        memberIds = memberIds,
+                        createdBy = data["createdBy"] as? String,
+                    )
+                )
+            }
+        awaitClose { registration.remove() }
+    }
+
     fun listenToMessages(threadId: String): Flow<List<CymbalMessage>> = callbackFlow {
         val registration = firestore
             .collection("threads")
@@ -231,6 +310,8 @@ class MessageRepository @Inject constructor(
      */
     private fun parseThreadSummary(id: String, data: Map<String, Any?>): CymbalThread {
         val ts = data["lastMessageAt"] as? Timestamp ?: data["updatedAt"] as? Timestamp
+        @Suppress("UNCHECKED_CAST")
+        val memberIds = (data["memberIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
         return CymbalThread(
             id = id,
             otherUser = null,
@@ -240,6 +321,11 @@ class MessageRepository @Inject constructor(
             lastMessageAt = ts?.toDate() ?: Date(0),
             lastMessageFromUserId = data["lastMessageFromUserId"] as? String,
             unreadCount = (data["unreadCount"] as? Number)?.toInt() ?: 0,
+            isGroup = data["type"] == "group",
+            groupName = (data["groupName"] ?: data["name"]) as? String,
+            groupPhotoURL = (data["groupPhotoURL"] ?: data["photoURL"]) as? String,
+            memberIds = memberIds,
+            createdBy = data["createdBy"] as? String,
         )
     }
 

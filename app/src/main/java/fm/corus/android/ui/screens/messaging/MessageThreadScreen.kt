@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -156,6 +157,136 @@ internal fun computeDeliveryStatus(
 private val bubbleTimeFormatter: SimpleDateFormat by lazy {
     SimpleDateFormat("h:mm a", Locale.getDefault())
 }
+private val separatorWeekdayFormatter: SimpleDateFormat by lazy { SimpleDateFormat("EEEE", Locale.getDefault()) }
+private val separatorDateFormatter: SimpleDateFormat by lazy { SimpleDateFormat("MMM d", Locale.getDefault()) }
+private val separatorDateYearFormatter: SimpleDateFormat by lazy { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
+
+private const val SEPARATOR_GAP_MS = 60 * 60 * 1000L
+private const val DAY_MS = 24 * 60 * 60 * 1000L
+
+private fun startOfDayMs(date: java.util.Date): Long {
+    val cal = java.util.Calendar.getInstance()
+    cal.time = date
+    cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+    cal.set(java.util.Calendar.MINUTE, 0)
+    cal.set(java.util.Calendar.SECOND, 0)
+    cal.set(java.util.Calendar.MILLISECOND, 0)
+    return cal.timeInMillis
+}
+
+/** Mirror of iOS shouldShowTimeSeparator: separator before the first message,
+ *  on a calendar-day change, or after a gap of an hour or more. */
+internal fun shouldShowSeparator(prev: java.util.Date?, cur: java.util.Date): Boolean {
+    if (prev == null) return true
+    if (startOfDayMs(prev) != startOfDayMs(cur)) return true
+    return cur.time - prev.time >= SEPARATOR_GAP_MS
+}
+
+/** Whether the separator marks a new calendar day (vs. an intra-day gap). Day
+ *  boundaries always carry a day label; intra-day gaps show only the time, so a
+ *  multi-day "leap" is always obvious. */
+internal fun isDayBoundary(prev: java.util.Date?, cur: java.util.Date): Boolean {
+    if (prev == null) return true
+    return startOfDayMs(prev) != startOfDayMs(cur)
+}
+
+/** Centered separator text (matches iOS timeSeparatorText). Intra-day gaps show
+ *  only the time; day boundaries prepend Today / Yesterday / weekday / date. */
+internal fun separatorText(date: java.util.Date, dayBoundary: Boolean, context: android.content.Context): String {
+    val time = bubbleTimeFormatter.format(date)
+    if (!dayBoundary) return time.uppercase()
+    val daysAgo = ((startOfDayMs(java.util.Date()) - startOfDayMs(date)) / DAY_MS).toInt()
+    val label = when {
+        daysAgo == 0 -> context.getString(R.string.messaging_separator_today)
+        daysAgo == 1 -> context.getString(R.string.messaging_separator_yesterday)
+        daysAgo in 2..6 -> separatorWeekdayFormatter.format(date)
+        else -> {
+            val cal = java.util.Calendar.getInstance().also { it.time = date }
+            val sameYear = cal.get(java.util.Calendar.YEAR) == java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+            if (sameYear) separatorDateFormatter.format(date) else separatorDateYearFormatter.format(date)
+        }
+    }
+    return "$label $time".uppercase()
+}
+
+@Composable
+private fun DateSeparatorRow(text: String) {
+    Text(
+        text = text,
+        fontSize = 11.sp,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        color = CorusColors.Tertiary,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(vertical = CorusSpacing.sm),
+    )
+}
+
+@Composable
+private fun GroupSystemRow(text: String) {
+    if (text.isEmpty()) return
+    Text(
+        text = text,
+        style = CorusFont.caption,
+        color = CorusColors.Secondary,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+    )
+}
+
+/** Title for a group thread: custom name, else up to 3 other members' names with
+ *  "and N others", else a generic fallback (mirrors iOS displayTitle). */
+internal fun groupDisplayTitle(
+    name: String?,
+    otherMembers: List<fm.corus.android.data.model.CymbalUser>,
+    context: android.content.Context,
+): String {
+    if (!name.isNullOrBlank()) return name
+    val names = otherMembers.take(3).map { it.displayName.ifBlank { it.username } }
+    if (names.isEmpty()) return context.getString(R.string.messaging_group_fallback_title)
+    if (otherMembers.size <= 3) return names.joinToString(", ")
+    return names.joinToString(", ") + " " +
+        context.getString(R.string.messaging_group_and_others, otherMembers.size - 3)
+}
+
+/** Two overlapping member avatars for a group with no custom photo (iOS StackedAvatarView). */
+@Composable
+internal fun StackedGroupAvatar(
+    members: List<fm.corus.android.data.model.CymbalUser>,
+    size: androidx.compose.ui.unit.Dp,
+) {
+    val inner = size * 0.66f
+    when {
+        members.isEmpty() -> Box(
+            modifier = Modifier.size(size).clip(CircleShape).background(CorusColors.CardBackground)
+        )
+        members.size == 1 -> {
+            val u = members[0]
+            UserAvatarView(
+                avatarURL = u.avatarURL, avatarThumbURL = u.avatarThumbURL,
+                displayName = u.displayName, username = u.username, size = size,
+            )
+        }
+        else -> Box(modifier = Modifier.size(size)) {
+            val a = members[0]
+            val b = members[1]
+            Box(modifier = Modifier.align(Alignment.TopStart)) {
+                UserAvatarView(
+                    avatarURL = a.avatarURL, avatarThumbURL = a.avatarThumbURL,
+                    displayName = a.displayName, username = a.username, size = inner,
+                )
+            }
+            Box(
+                modifier = Modifier.align(Alignment.BottomEnd)
+                    .clip(CircleShape).background(CorusColors.Background).padding(1.dp)
+            ) {
+                UserAvatarView(
+                    avatarURL = b.avatarURL, avatarThumbURL = b.avatarThumbURL,
+                    displayName = b.displayName, username = b.username, size = inner,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun BubbleMeta(
@@ -165,6 +296,9 @@ private fun BubbleMeta(
     modifier: Modifier = Modifier,
 ) {
     if (message.sendStatus == MessageSendStatus.FAILED) return
+    // The time now lives in the day/time separators above (mirrors iOS), so a
+    // received, unedited message carries no meta line at all.
+    if (!isFromCurrentUser && !message.isEdited) return
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
@@ -177,11 +311,6 @@ private fun BubbleMeta(
                 color = CorusColors.Tertiary,
             )
         }
-        Text(
-            text = bubbleTimeFormatter.format(message.createdAt).lowercase(),
-            fontSize = 10.sp,
-            color = CorusColors.Tertiary,
-        )
         if (isFromCurrentUser) {
             when (deliveryStatus) {
                 MessageDeliveryStatus.SENDING -> Icon(
@@ -252,6 +381,10 @@ fun MessageThreadScreen(
     val editingMessage by viewModel.editingMessage.collectAsState()
     val recipientUnread by viewModel.recipientUnread.collectAsState()
     val myReadReceiptsEnabled by viewModel.myReadReceiptsEnabled.collectAsState()
+    val groupInfo by viewModel.groupInfo.collectAsState()
+    val membersById by viewModel.membersById.collectAsState()
+    val isGroup = groupInfo?.isGroup == true
+    var showGroupInfo by remember { mutableStateOf(false) }
     // TextFieldValue (not plain String) so we can place the cursor at the end of
     // the prefilled text when an edit starts; the String overload resets it to 0.
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
@@ -372,23 +505,56 @@ fun MessageThreadScreen(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.common_back))
             }
-            // Avatar + username — tap to open the other user's profile (iOS parity)
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
-                    .clickable(enabled = otherUsername.isNotBlank()) { onNavigateToProfile(otherUserId) }
-                    .padding(vertical = CorusSpacing.xxs, horizontal = CorusSpacing.xs),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
-            ) {
-                UserAvatarView(
-                    avatarURL = otherAvatarURL,
-                    avatarThumbURL = otherAvatarThumbURL,
-                    displayName = otherDisplayName,
-                    username = otherUsername,
-                    size = CorusSpacing.avatarSmall,
-                )
-                Text(otherUsername, style = CorusFont.screenTitle, color = CorusColors.Text)
+            if (isGroup) {
+                val otherMembers = (groupInfo?.memberIds ?: emptyList())
+                    .filter { it != viewModel.currentUserId }
+                    .mapNotNull { membersById[it] }
+                // Group avatar + title — tap to open Group Info.
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                        .clickable { showGroupInfo = true }
+                        .padding(vertical = CorusSpacing.xxs, horizontal = CorusSpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                ) {
+                    val photo = groupInfo?.photoURL
+                    if (photo != null) {
+                        UserAvatarView(
+                            avatarURL = photo, avatarThumbURL = photo,
+                            displayName = "", username = "",
+                            size = CorusSpacing.avatarSmall,
+                        )
+                    } else {
+                        StackedGroupAvatar(members = otherMembers, size = CorusSpacing.avatarSmall)
+                    }
+                    Text(
+                        text = groupDisplayTitle(groupInfo?.name, otherMembers, context),
+                        style = CorusFont.screenTitle,
+                        color = CorusColors.Text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            } else {
+                // Avatar + username — tap to open the other user's profile (iOS parity)
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                        .clickable(enabled = otherUsername.isNotBlank()) { onNavigateToProfile(otherUserId) }
+                        .padding(vertical = CorusSpacing.xxs, horizontal = CorusSpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                ) {
+                    UserAvatarView(
+                        avatarURL = otherAvatarURL,
+                        avatarThumbURL = otherAvatarThumbURL,
+                        displayName = otherDisplayName,
+                        username = otherUsername,
+                        size = CorusSpacing.avatarSmall,
+                    )
+                    Text(otherUsername, style = CorusFont.screenTitle, color = CorusColors.Text)
+                }
             }
         }
 
@@ -404,53 +570,76 @@ fun MessageThreadScreen(
             reverseLayout = true,
             contentPadding = PaddingValues(vertical = CorusSpacing.sm),
         ) {
-            items(messages, key = { it.id }) { message ->
-                MessageBubble(
-                    message = message,
-                    isFromCurrentUser = message.fromUserId == viewModel.currentUserId,
-                    currentUserId = viewModel.currentUserId ?: "",
-                    otherUsername = otherUsername,
-                    deliveryStatus = computeDeliveryStatus(
-                        message = message,
-                        currentUserId = viewModel.currentUserId,
-                        messages = messages,
-                        recipientUnread = recipientUnread,
-                        myReadReceiptsEnabled = myReadReceiptsEnabled,
-                    ),
-                    nowPlayingManager = nowPlayingManager,
-                    onLongPress = {
-                        // Mirrors iOS NotificationsView message long-press haptic.
-                        bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
-                        reactionTarget = message
-                    },
-                    onDoubleTap = {
-                        // Mirrors iOS NotificationsView toggleReaction haptic.
-                        bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
-                        // Backend's toggleMessageReaction only accepts the raw emoji
-                        // (ALLOWED_REACTIONS), not key strings like "heart". The long-press
-                        // picker already sends REACTION_EMOJIS; double-tap must match it.
-                        val heart = REACTION_EMOJIS[0]
-                        // Only burst on a fresh like (adding the heart), not when un-liking.
-                        val isFreshLike = viewModel.currentUserId
-                            ?.let { it !in (message.reactions[heart] ?: emptyList()) } ?: false
-                        viewModel.toggleReaction(threadId, message.id, heart)
-                        if (isFreshLike) heartBurstMessageId = message.id
-                    },
-                    showHeartBurst = heartBurstMessageId == message.id,
-                    onReactionTap = { emoji ->
-                        // Mirrors iOS NotificationsView toggleReaction haptic.
-                        bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
-                        viewModel.toggleReaction(threadId, message.id, emoji)
-                    },
-                    onImageTap = { url ->
-                        if (reactionTarget == null) {
-                            fullScreenImageUrl = url
-                        }
-                    },
-                    onRetry = { viewModel.retrySendMessage(message.id) },
-                    onNavigateToSong = onNavigateToSong,
-                    onNavigateToFilm = onNavigateToFilm,
-                )
+            itemsIndexed(messages, key = { _, m -> m.id }) { index, message ->
+                // messages is newest-first (reverseLayout). The chronologically
+                // older message is at index+1; the newer one at index-1.
+                val older = messages.getOrNull(index + 1)
+                val newer = messages.getOrNull(index - 1)
+                val mine = message.fromUserId == viewModel.currentUserId
+                val incomingInGroup = isGroup && !mine && !message.isSystem
+                val sender = if (incomingInGroup) membersById[message.fromUserId] else null
+                val showSenderLabel = incomingInGroup &&
+                    (older == null || older.isSystem || older.fromUserId != message.fromUserId)
+                val showAvatar = incomingInGroup &&
+                    (newer == null || newer.isSystem || newer.fromUserId != message.fromUserId)
+                val replyName = if (isGroup && message.replyToUserId != null && !mine)
+                    membersById[message.replyToUserId]?.username else null
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (shouldShowSeparator(older?.createdAt, message.createdAt)) {
+                        DateSeparatorRow(
+                            separatorText(message.createdAt, isDayBoundary(older?.createdAt, message.createdAt), context)
+                        )
+                    }
+                    if (message.isSystem) {
+                        GroupSystemRow(message.text ?: "")
+                    } else {
+                        MessageBubble(
+                            message = message,
+                            isFromCurrentUser = mine,
+                            currentUserId = viewModel.currentUserId ?: "",
+                            otherUsername = otherUsername,
+                            deliveryStatus = computeDeliveryStatus(
+                                message = message,
+                                currentUserId = viewModel.currentUserId,
+                                messages = messages,
+                                recipientUnread = recipientUnread,
+                                myReadReceiptsEnabled = if (isGroup) false else myReadReceiptsEnabled,
+                            ),
+                            nowPlayingManager = nowPlayingManager,
+                            isGroup = isGroup,
+                            sender = sender,
+                            showSenderLabel = showSenderLabel,
+                            showAvatar = showAvatar,
+                            replyName = replyName,
+                            onLongPress = {
+                                bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
+                                reactionTarget = message
+                            },
+                            onDoubleTap = {
+                                bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
+                                val heart = REACTION_EMOJIS[0]
+                                val isFreshLike = viewModel.currentUserId
+                                    ?.let { it !in (message.reactions[heart] ?: emptyList()) } ?: false
+                                viewModel.toggleReaction(threadId, message.id, heart)
+                                if (isFreshLike) heartBurstMessageId = message.id
+                            },
+                            showHeartBurst = heartBurstMessageId == message.id,
+                            onReactionTap = { emoji ->
+                                bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
+                                viewModel.toggleReaction(threadId, message.id, emoji)
+                            },
+                            onImageTap = { url ->
+                                if (reactionTarget == null) {
+                                    fullScreenImageUrl = url
+                                }
+                            },
+                            onRetry = { viewModel.retrySendMessage(message.id) },
+                            onNavigateToSong = onNavigateToSong,
+                            onNavigateToFilm = onNavigateToFilm,
+                        )
+                    }
+                }
             }
         }
 
@@ -709,6 +898,21 @@ fun MessageThreadScreen(
             onDismiss = { reactionTarget = null },
         )
     }
+
+    // Group info sheet
+    val gi = groupInfo
+    if (showGroupInfo && gi != null && gi.isGroup) {
+        GroupInfoSheet(
+            viewModel = viewModel,
+            groupInfo = gi,
+            membersById = membersById,
+            onDismiss = { showGroupInfo = false },
+            onLeft = {
+                showGroupInfo = false
+                onBack()
+            },
+        )
+    }
 }
 
 @Composable
@@ -851,6 +1055,11 @@ private fun MessageBubble(
     deliveryStatus: MessageDeliveryStatus,
     nowPlayingManager: NowPlayingManager,
     showHeartBurst: Boolean = false,
+    isGroup: Boolean = false,
+    sender: fm.corus.android.data.model.CymbalUser? = null,
+    showSenderLabel: Boolean = false,
+    showAvatar: Boolean = false,
+    replyName: String? = null,
     onLongPress: () -> Unit,
     onDoubleTap: () -> Unit,
     onReactionTap: (String) -> Unit,
@@ -893,12 +1102,41 @@ private fun MessageBubble(
         }
     }
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.xxs),
-        horizontalAlignment = if (isFromCurrentUser) Alignment.End else Alignment.Start,
+        horizontalArrangement = if (isFromCurrentUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom,
     ) {
+      // Incoming group messages get a left avatar gutter: the sender's avatar at
+      // the end of a run, an empty spacer otherwise so bubbles stay aligned.
+      if (isGroup && !isFromCurrentUser) {
+        if (showAvatar && sender != null) {
+            UserAvatarView(
+                avatarURL = sender.avatarURL,
+                avatarThumbURL = sender.avatarThumbURL,
+                displayName = sender.displayName,
+                username = sender.username,
+                size = 26.dp,
+            )
+        } else {
+            Spacer(modifier = Modifier.width(26.dp))
+        }
+        Spacer(modifier = Modifier.width(6.dp))
+      }
+      Column(
+        horizontalAlignment = if (isFromCurrentUser) Alignment.End else Alignment.Start,
+      ) {
+        // Sender name at the start of a run (incoming group only).
+        if (showSenderLabel && sender != null) {
+            Text(
+                text = sender.displayName.ifBlank { sender.username },
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
+            )
+        }
         // Message bubble — quoted reply context is rendered inside
         Box(
             modifier = Modifier
@@ -948,7 +1186,8 @@ private fun MessageBubble(
                 // Quoted reply context, inside the bubble
                 if (message.replyToText != null) {
                     val isOwnQuote = message.replyToUserId == currentUserId
-                    val authorName = if (isOwnQuote) stringResource(id = R.string.messaging_thread_you) else otherUsername
+                    val authorName = if (isOwnQuote) stringResource(id = R.string.messaging_thread_you)
+                                     else replyName ?: otherUsername
                     val accentBarColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.6f)
                                          else CorusColors.Accent.copy(alpha = 0.6f)
                     val quotedAuthorColor = if (isFromCurrentUser) Color.White else CorusColors.Accent
@@ -1209,6 +1448,7 @@ private fun MessageBubble(
                 }
             }
         }
+      }
     }
 }
 

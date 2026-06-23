@@ -6,7 +6,10 @@ enum class MessageType(val value: String) {
     GIF("gif"),
     SHARED_POST("sharedPost"),
     SHARED_TRACK("sharedTrack"),
-    SHARED_FILM("sharedFilm");
+    SHARED_FILM("sharedFilm"),
+
+    /** Group lifecycle event ("X added Y"), rendered as a centered system row. */
+    SYSTEM("system");
 
     companion object {
         fun from(value: String?): MessageType =

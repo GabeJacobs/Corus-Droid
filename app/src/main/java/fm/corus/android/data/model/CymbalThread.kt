@@ -11,6 +11,16 @@ data class CymbalThread(
     val lastMessageAt: Date = Date(),
     val lastMessageFromUserId: String? = null,
     val unreadCount: Int = 0,
+    // Group fields (present when isGroup). Direct threads leave these defaulted,
+    // so existing 1:1 constructors/parsers are unaffected.
+    val isGroup: Boolean = false,
+    val groupName: String? = null,
+    val groupPhotoURL: String? = null,
+    val memberIds: List<String> = emptyList(),
+    /** Resolved member profiles when available (callable rows); the live mirror
+     *  doc carries only `memberIds`, resolved by the consumer. */
+    val members: List<CymbalUser> = emptyList(),
+    val createdBy: String? = null,
 ) {
     companion object {
         @Suppress("UNCHECKED_CAST")
@@ -22,6 +32,14 @@ data class CymbalThread(
             val timestampMs = data["lastMessageAt"] as? Number
             val lastMessageAt = if (timestampMs != null) Date(timestampMs.toLong()) else Date()
 
+            val isGroup = data["type"] == "group"
+            val memberIds = (data["memberIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            // Callables hand back a resolved `members` map (uid -> profile);
+            // mirror docs carry only ids.
+            val members = (data["members"] as? Map<String, Any?>)?.mapNotNull { (uid, raw) ->
+                (raw as? Map<String, Any?>)?.let { CymbalUser.fromMap(uid, it) }
+            } ?: emptyList()
+
             return CymbalThread(
                 id = id,
                 otherUser = otherUser,
@@ -31,6 +49,13 @@ data class CymbalThread(
                 lastMessageAt = lastMessageAt,
                 lastMessageFromUserId = data["lastMessageFromUserId"] as? String,
                 unreadCount = (data["unreadCount"] as? Number)?.toInt() ?: 0,
+                isGroup = isGroup,
+                // Callables use name/photoURL; mirror docs use groupName/groupPhotoURL.
+                groupName = (data["name"] ?: data["groupName"]) as? String,
+                groupPhotoURL = (data["photoURL"] ?: data["groupPhotoURL"]) as? String,
+                memberIds = memberIds,
+                members = members,
+                createdBy = data["createdBy"] as? String,
             )
         }
     }

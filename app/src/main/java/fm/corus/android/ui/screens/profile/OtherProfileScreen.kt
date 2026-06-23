@@ -480,6 +480,10 @@ fun OtherProfileScreen(
                                         val hintFollowing = initialIsFollowing == true
                                         Box(
                                             modifier = Modifier
+                                                // Flex into the leftover row width so the
+                                                // unweighted PLAYLIST pill (measured first)
+                                                // always gets its full intrinsic width.
+                                                .weight(1f)
                                                 .clip(followShape)
                                                 .then(
                                                     if (hintFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
@@ -753,6 +757,11 @@ fun OtherProfileScreen(
                                 val followShape = RoundedCornerShape(50)
                                 Box(
                                     modifier = Modifier
+                                        // Flex into the leftover row width so the unweighted
+                                        // PLAYLIST pill (measured first) always gets its full
+                                        // intrinsic width and never clips (e.g. "PLAYLI" on
+                                        // the Pixel 9 Pro's wide-header padding).
+                                        .weight(1f)
                                         .clip(followShape)
                                         .then(
                                             if (isFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)

@@ -875,7 +875,7 @@
     <string name="compose_segment_songs">Songs</string>
     <string name="compose_segment_films">Filme</string>
     <string name="compose_segment_text">Text</string>
-    <string name="compose_segment_voice">Sprache</string>
+    <string name="compose_segment_voice">Stimme</string>
     <string name="compose_caption_placeholder">Schreibe eine Beschreibung...</string>
     <string name="compose_char_count_format">%1$d/700</string>
     <string name="compose_post_button">LEGE DEINEN CORUS FEST →</string>
@@ -973,4 +973,27 @@
     <string name="comments_locked_authorfollow_unknown">Nur Personen, denen der Autor folgt, können kommentieren.</string>
     <string name="comments_locked_follow_cta">Folgen</string>
     <string name="comments_locked_following_cta">Folge ich…</string>
+
+    <!-- Group messaging -->
+    <string name="messaging_separator_today">Heute</string>
+    <string name="messaging_separator_yesterday">Gestern</string>
+    <string name="messaging_group_fallback_title">Gruppe</string>
+    <string name="messaging_group_info_title">Gruppeninfo</string>
+    <string name="messaging_group_creator">Ersteller</string>
+    <string name="messaging_group_add_people">Personen hinzufügen</string>
+    <string name="messaging_group_create">Gruppe erstellen</string>
+    <string name="messaging_group_new_title">Neue Gruppe</string>
+    <string name="messaging_group_message_cta">Nachricht</string>
+    <string name="messaging_group_add_cta">Hinzufügen</string>
+    <string name="messaging_group_leave">Gruppe verlassen</string>
+    <string name="messaging_group_leave_confirm">Diese Gruppe verlassen?</string>
+    <string name="messaging_group_name_label">Gruppenname</string>
+    <string name="messaging_group_name_optional">Gruppenname (optional)</string>
+    <string name="messaging_group_change_photo">Foto ändern</string>
+    <string name="messaging_group_remove">Entfernen</string>
+    <string name="messaging_group_not_addable">Muss aktualisieren, um Gruppen beizutreten</string>
+    <string name="messaging_group_cancel">Abbrechen</string>
+    <string name="messaging_group_member_count">%1$d Mitglieder</string>
+    <string name="messaging_group_and_others">und %1$d weitere</string>
+    <string name="messaging_group_sender_preview">%1$s: %2$s</string>
 </resources>

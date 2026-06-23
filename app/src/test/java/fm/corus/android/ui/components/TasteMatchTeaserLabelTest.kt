@@ -1,5 +1,9 @@
 package fm.corus.android.ui.components
 
+import fm.corus.android.data.model.MusicMatchData
+import fm.corus.android.data.model.SharedMoviePreview
+import fm.corus.android.data.model.SharedPreviewKind
+import fm.corus.android.data.model.SharedTrackPreview
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -95,5 +99,27 @@ class TasteMatchTeaserLabelTest {
         )
         assertEquals("A, B", names)
         assertEquals("+8", extra)
+    }
+
+    // The "+N" overflow counts the discrete tiles the sheet shows: one per
+    // shared post, so a multi-artist track (a supergroup credited with its
+    // members) counts once, not once per credited artist.
+    @Test
+    fun `totalSheetItems counts tiles, collapsing multi-artist tracks`() {
+        val match = MusicMatchData(
+            sharedTrackPreviews = (0 until 5).map {
+                SharedTrackPreview(
+                    trackId = "t$it", trackName = "t", artistName = "a$it",
+                    albumArtURL = "u", kind = SharedPreviewKind.SHARED_ARTIST,
+                )
+            },
+            sharedMoviePreviews = listOf(
+                SharedMoviePreview(
+                    movieId = "m", movieTitle = "t", directorName = "d",
+                    posterURL = "u", kind = SharedPreviewKind.SHARED_ARTIST,
+                ),
+            ),
+        )
+        assertEquals(6, totalSheetItems(match))
     }
 }

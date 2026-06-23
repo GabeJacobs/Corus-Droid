@@ -155,7 +155,7 @@
     <string name="feed_empty_new_releases_title">まだ新着がありません</string>
     <string name="feed_empty_new_releases_subtitle">フォロー中の人からの新着は、しばらくしてからもう一度確認してください。</string>
     <string name="feed_empty_new_releases_show_all">すべての投稿を表示</string>
-    <string name="feed_empty_favorites_title">まだお気に入りがいません</string>
+    <string name="feed_empty_favorites_title">お気に入りはまだありません</string>
     <string name="feed_empty_favorites_subtitle">誰かのプロフィールで☆をタップすると、ここに追加できます。</string>
     <string name="feed_empty_favorites_button">フォロー中に戻る</string>
     <string name="feed_empty_favorites_music_title">お気に入りからの音楽はありません</string>
@@ -438,7 +438,7 @@
     <string name="search_trending_window_aria">トレンドの期間</string>
     <string name="hashtag_followers">フォロワー</string>
     <string name="hashtag_contributors">投稿者</string>
-    <string name="hashtag_velocity_this_week">今週%1$s件の coruses</string>
+    <string name="hashtag_velocity_this_week">今週 %1$s coruses</string>
     <string name="hashtag_velocity_this_week_one">今週%1$s件の corus</string>
     <string name="hashtag_followers_title">#%1$s のフォロワー</string>
     <string name="hashtag_contributors_title">#%1$s の投稿者</string>
@@ -824,7 +824,7 @@
     <string name="club_error_no_subscription">有効なサブスクリプションが見つかりませんでした。</string>
     <string name="club_error_no_subscription_log">No active subscription found</string>
     <string name="hashtag_feed_cd_back">戻る</string>
-    <string name="hashtag_feed_count_format">%1$s件の coruses</string>
+    <string name="hashtag_feed_count_format">%1$s coruses</string>
     <string name="hashtag_feed_load_error">投稿を読み込めませんでした</string>
     <string name="hashtag_feed_try_again">もう一度試す</string>
     <string name="hashtag_feed_empty">このハッシュタグの投稿はまだありません</string>
@@ -848,4 +848,27 @@
     <string name="comments_locked_authorfollow_unknown">投稿者がフォローしている人のみコメントできます。</string>
     <string name="comments_locked_follow_cta">フォロー</string>
     <string name="comments_locked_following_cta">フォロー中…</string>
+
+    <!-- Group messaging -->
+    <string name="messaging_separator_today">今日</string>
+    <string name="messaging_separator_yesterday">昨日</string>
+    <string name="messaging_group_fallback_title">グループ</string>
+    <string name="messaging_group_info_title">グループ情報</string>
+    <string name="messaging_group_creator">作成者</string>
+    <string name="messaging_group_add_people">メンバーを追加</string>
+    <string name="messaging_group_create">グループを作成</string>
+    <string name="messaging_group_new_title">新しいグループ</string>
+    <string name="messaging_group_message_cta">メッセージ</string>
+    <string name="messaging_group_add_cta">追加</string>
+    <string name="messaging_group_leave">グループを退出</string>
+    <string name="messaging_group_leave_confirm">このグループを退出しますか？</string>
+    <string name="messaging_group_name_label">グループ名</string>
+    <string name="messaging_group_name_optional">グループ名（任意）</string>
+    <string name="messaging_group_change_photo">写真を変更</string>
+    <string name="messaging_group_remove">削除</string>
+    <string name="messaging_group_not_addable">グループに参加するにはアップデートが必要です</string>
+    <string name="messaging_group_cancel">キャンセル</string>
+    <string name="messaging_group_member_count">メンバー%1$d人</string>
+    <string name="messaging_group_and_others">他%1$d人</string>
+    <string name="messaging_group_sender_preview">%1$s: %2$s</string>
 </resources>

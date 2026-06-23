@@ -79,6 +79,11 @@ class RemoteConfigService @Inject constructor(
     val gifSupport: Boolean
         get() = remoteConfig.getBoolean("gif_support")
 
+    /** Instagram-style group messaging gate (create/expand). Default false; on
+     *  per cohort via the user_id allowlist condition. */
+    val groupMessagingEnabled: Boolean
+        get() = remoteConfig.getBoolean("group_messaging_enabled")
+
     val serverNotificationsEnabled: Boolean
         get() = remoteConfig.getBoolean("server_notifications_enabled")
 
@@ -265,6 +270,7 @@ class RemoteConfigService @Inject constructor(
                     "daily_post_limit_enabled" to true,
                     "paywall_default_yearly" to false,
                     "gif_support" to false,
+                    "group_messaging_enabled" to false,
                     "server_notifications_enabled" to true,
                     "save_count_enabled" to true,
                     "save_cap_enforced" to true,

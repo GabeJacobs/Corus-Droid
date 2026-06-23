@@ -25,6 +25,15 @@ data class SharedTrackPreview(
     val isMovie: Boolean = false,
     val postId: String? = null,
     val kind: SharedPreviewKind = SharedPreviewKind.SHARED_SONG,
+    /**
+     * How many shared artists this one tile represents. A multi-artist track
+     * (e.g. a supergroup credited with its members) claims several shared artists
+     * at once, so the sheet shows "<dominant> + N others". Defaults to 1.
+     */
+    val sharedArtistCount: Int = 1,
+    /** Canonical names of the shared artists this tile represents (dominant
+     *  first). Lets the sheet list a small set ("Blood Orange, Empress Of"). */
+    val sharedArtistNames: List<String> = emptyList(),
 ) {
     val displayImageURL: String? get() = if (isMovie) posterURL else albumArtURL
 }
@@ -36,6 +45,10 @@ data class SharedMoviePreview(
     val posterURL: String? = null,
     val postId: String? = null,
     val kind: SharedPreviewKind = SharedPreviewKind.SHARED_SONG,
+    /** How many shared directors this tile represents (co-directed films). Defaults to 1. */
+    val sharedDirectorCount: Int = 1,
+    /** Canonical names of the shared directors this tile represents (dominant first). */
+    val sharedDirectorNames: List<String> = emptyList(),
 )
 
 data class MusicMatchData(
@@ -75,6 +88,8 @@ data class MusicMatchData(
                     isMovie = it["isMovie"] as? Boolean ?: false,
                     postId = it["postId"] as? String,
                     kind = SharedPreviewKind.fromWire(it["kind"] as? String),
+                    sharedArtistCount = (it["sharedArtistCount"] as? Number)?.toInt() ?: 1,
+                    sharedArtistNames = (it["sharedArtistNames"] as? List<*>)?.mapNotNull { n -> n as? String } ?: emptyList(),
                 )
             } ?: emptyList()
 
@@ -86,6 +101,8 @@ data class MusicMatchData(
                     posterURL = it["posterURL"] as? String,
                     postId = it["postId"] as? String,
                     kind = SharedPreviewKind.fromWire(it["kind"] as? String),
+                    sharedDirectorCount = (it["sharedDirectorCount"] as? Number)?.toInt() ?: 1,
+                    sharedDirectorNames = (it["sharedDirectorNames"] as? List<*>)?.mapNotNull { n -> n as? String } ?: emptyList(),
                 )
             } ?: emptyList()
 

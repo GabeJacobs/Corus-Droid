@@ -66,9 +66,7 @@ fun TasteMatchTeaser(
 ) {
     val thumbs = remember(match) { thumbnailURLs(match).take(3) }
     val names = remember(match) { sharedNames(match) }
-    val totalSheetItems = remember(match) {
-        match.sharedTrackPreviews.size + match.sharedMoviePreviews.size
-    }
+    val totalSheetItems = remember(match) { totalSheetItems(match) }
     val measurer = rememberTextMeasurer()
     val labelStyle = CorusFont.button
     Row(
@@ -405,6 +403,12 @@ private fun sharedNames(match: MusicMatchData): List<String> {
     }
     return names
 }
+
+/** Every distinct thing the sheet would surface, the base for the "+N" count.
+ *  One tile per shared post (a multi-artist track collapses to a single tile),
+ *  so this counts the discrete things the user actually sees. */
+internal fun totalSheetItems(match: MusicMatchData): Int =
+    match.sharedTrackPreviews.size + match.sharedMoviePreviews.size
 
 /** Fallback label when there are no usable names to lead with. */
 private fun emptyLabel(match: MusicMatchData): String = when {

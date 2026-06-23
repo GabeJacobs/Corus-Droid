@@ -490,7 +490,7 @@
     <string name="search_trending_window_aria">热门时间范围</string>
     <string name="hashtag_followers">粉丝</string>
     <string name="hashtag_contributors">贡献者</string>
-    <string name="hashtag_velocity_this_week">本周 %1$s 个 coruses</string>
+    <string name="hashtag_velocity_this_week">本周 %1$s coruses</string>
     <string name="hashtag_velocity_this_week_one">本周 %1$s 个 corus</string>
     <string name="hashtag_followers_title">#%1$s 的粉丝</string>
     <string name="hashtag_contributors_title">#%1$s 的贡献者</string>
@@ -582,7 +582,7 @@
     <string name="tab_feed">动态</string>
     <string name="tab_search">搜索</string>
     <string name="tab_post">发布</string>
-    <string name="tab_activity">通知</string>
+    <string name="tab_activity">互动</string>
     <string name="tab_profile">我的</string>
 
     <!-- Time / relative -->
@@ -692,7 +692,7 @@
     <string name="messaging_list_no_matches">没有匹配结果</string>
 
     <!-- Notifications (activity feed) -->
-    <string name="notifications_activity_title">通知</string>
+    <string name="notifications_activity_title">互动</string>
     <string name="notifications_cd_messages">消息</string>
     <string name="notifications_cd_unlike">取消赞</string>
     <string name="notifications_cd_like">赞</string>
@@ -939,7 +939,7 @@
 
     <!-- Hashtag feed -->
     <string name="hashtag_feed_cd_back">返回</string>
-    <string name="hashtag_feed_count_format">%1$s 个 coruses</string>
+    <string name="hashtag_feed_count_format">%1$s coruses</string>
     <string name="hashtag_feed_load_error">无法加载内容</string>
     <string name="hashtag_feed_try_again">重试</string>
     <string name="hashtag_feed_empty">这个话题标签还没有内容</string>
@@ -973,4 +973,27 @@
     <string name="comments_locked_authorfollow_unknown">只有作者关注的人才能评论。</string>
     <string name="comments_locked_follow_cta">关注</string>
     <string name="comments_locked_following_cta">正在关注…</string>
+
+    <!-- Group messaging -->
+    <string name="messaging_separator_today">今天</string>
+    <string name="messaging_separator_yesterday">昨天</string>
+    <string name="messaging_group_fallback_title">群组</string>
+    <string name="messaging_group_info_title">群组信息</string>
+    <string name="messaging_group_creator">创建者</string>
+    <string name="messaging_group_add_people">添加成员</string>
+    <string name="messaging_group_create">创建群组</string>
+    <string name="messaging_group_new_title">新建群组</string>
+    <string name="messaging_group_message_cta">私信</string>
+    <string name="messaging_group_add_cta">添加</string>
+    <string name="messaging_group_leave">退出群组</string>
+    <string name="messaging_group_leave_confirm">退出此群组？</string>
+    <string name="messaging_group_name_label">群组名称</string>
+    <string name="messaging_group_name_optional">群组名称（可选）</string>
+    <string name="messaging_group_change_photo">更换照片</string>
+    <string name="messaging_group_remove">移除</string>
+    <string name="messaging_group_not_addable">需要更新才能加入群组</string>
+    <string name="messaging_group_cancel">取消</string>
+    <string name="messaging_group_member_count">%1$d 名成员</string>
+    <string name="messaging_group_and_others">等另外 %1$d 人</string>
+    <string name="messaging_group_sender_preview">%1$s: %2$s</string>
 </resources>

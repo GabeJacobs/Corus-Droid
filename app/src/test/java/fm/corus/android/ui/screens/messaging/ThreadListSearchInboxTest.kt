@@ -64,7 +64,8 @@ class ThreadListSearchInboxTest {
             on { currentUserId } doReturn "me"
         }
         userRepository = mock()
-        viewModel = ThreadListViewModel(messageRepository, authRepository, userRepository)
+        val remoteConfigService = mock<fm.corus.android.service.RemoteConfigService>()
+        viewModel = ThreadListViewModel(messageRepository, authRepository, userRepository, remoteConfigService)
     }
 
     @After

@@ -691,6 +691,32 @@
     <string name="messaging_list_inbox_search_placeholder">Search messages</string>
     <string name="messaging_list_no_matches">No matches</string>
 
+    <!-- Messaging: date separators -->
+    <string name="messaging_separator_today">Today</string>
+    <string name="messaging_separator_yesterday">Yesterday</string>
+
+    <!-- Messaging: groups -->
+    <string name="messaging_group_fallback_title">Group</string>
+    <string name="messaging_group_and_others">and %1$d others</string>
+    <string name="messaging_group_member_count">%1$d members</string>
+    <string name="messaging_group_info_title">Group info</string>
+    <string name="messaging_group_creator">Creator</string>
+    <string name="messaging_group_add_people">Add people</string>
+    <string name="messaging_group_create">Create group</string>
+    <string name="messaging_group_new_title">New group</string>
+    <string name="messaging_group_chat">Group chat</string>
+    <string name="messaging_group_message_cta">Message</string>
+    <string name="messaging_group_add_cta">Add</string>
+    <string name="messaging_group_leave">Leave group</string>
+    <string name="messaging_group_leave_confirm">Leave this group?</string>
+    <string name="messaging_group_name_label">Group name</string>
+    <string name="messaging_group_name_optional">Group name (optional)</string>
+    <string name="messaging_group_change_photo">Change photo</string>
+    <string name="messaging_group_remove">Remove</string>
+    <string name="messaging_group_not_addable">Needs to update to join groups</string>
+    <string name="messaging_group_sender_preview">%1$s: %2$s</string>
+    <string name="messaging_group_cancel">Cancel</string>
+
     <!-- Notifications (activity feed) -->
     <string name="notifications_activity_title">Activity</string>
     <string name="notifications_cd_messages">Messages</string>

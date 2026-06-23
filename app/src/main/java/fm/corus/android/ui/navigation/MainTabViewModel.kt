@@ -7,6 +7,7 @@ import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.domain.NowPlayingManager
@@ -34,9 +35,18 @@ class MainTabViewModel @Inject constructor(
     private val unreadCountsRepository: UnreadCountsRepository,
     val postEngagementManager: fm.corus.android.domain.PostEngagementManager,
     private val authRepository: AuthRepository,
+    private val messageRepository: MessageRepository,
     private val analyticsService: fm.corus.android.service.AnalyticsService,
     val feedScrollRouter: fm.corus.android.domain.FeedScrollRouter,
 ) : ViewModel() {
+
+    init {
+        // Advertise group-chat support once per signed-in session so the backend
+        // can gate who's addable to a group (capability gate). Fire-and-forget.
+        authRepository.currentUserId?.let { uid ->
+            viewModelScope.launch { messageRepository.advertiseGroupMessagingCapability(uid) }
+        }
+    }
 
     /**
      * Toggle the like state of the post that originated the currently-playing

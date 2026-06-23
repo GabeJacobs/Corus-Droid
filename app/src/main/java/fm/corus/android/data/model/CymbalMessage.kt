@@ -42,9 +42,17 @@ data class CymbalMessage(
     /** Set when the author edited the message; drives the "edited" indicator. */
     val editedAt: Date? = null,
     val failureReason: MessageFailureReason = MessageFailureReason.GENERIC,
+    // Group lifecycle events ("X added Y"): `systemEvent` keys the event, `text`
+    // holds the canonical fallback string. Null/empty for normal messages.
+    val systemEvent: String? = null,
+    val systemActorId: String? = null,
+    val systemTargetIds: List<String> = emptyList(),
 ) {
     /** True once the author has edited the message. */
     val isEdited: Boolean get() = editedAt != null
+
+    /** True for group lifecycle events, rendered as a centered system row. */
+    val isSystem: Boolean get() = type == MessageType.SYSTEM
 
     /**
      * Reconstruct a [CommentAttachedSong] from the message's track fields so
@@ -154,6 +162,9 @@ data class CymbalMessage(
                 replyToText = data["replyToText"] as? String,
                 replyToUserId = data["replyToUserId"] as? String,
                 editedAt = (data["editedAt"] as? Number)?.let { Date(it.toLong()) },
+                systemEvent = data["systemEvent"] as? String,
+                systemActorId = data["actorId"] as? String,
+                systemTargetIds = (data["targetIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             )
         }
 
@@ -200,6 +211,9 @@ data class CymbalMessage(
                 replyToText = data["replyToText"] as? String,
                 replyToUserId = data["replyToUserId"] as? String,
                 editedAt = (data["editedAt"] as? Timestamp)?.toDate(),
+                systemEvent = data["systemEvent"] as? String,
+                systemActorId = data["actorId"] as? String,
+                systemTargetIds = (data["targetIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             )
         }
 

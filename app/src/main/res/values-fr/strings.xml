@@ -191,7 +191,7 @@
     <string name="feed_empty_favorites_new_film_subtitle">Tes favoris n\'ont encore partagé aucune nouveauté film. Essaie un autre filtre ou reviens bientôt.</string>
     <string name="feed_empty_clear_filter">Effacer le filtre</string>
     <string name="feed_empty_invite_title">corus est sympa avec\nquelques amis seulement.</string>
-    <string name="feed_empty_invite_subtitle">tu connais quelqu\'un de bon goût ?</string>
+    <string name="feed_empty_invite_subtitle">tu connais quelqu\'un qui a bon goût ?</string>
     <string name="feed_empty_invite_button">inviter des amis</string>
     <string name="feed_empty_invite_share_text">Découvre Corus. Partage tes goûts en musique et en cinéma. https://corus.fm</string>
     <string name="feed_empty_invite_chooser">Inviter des amis</string>
@@ -284,7 +284,7 @@
     <string name="likes_cd_clear">Effacer</string>
     <string name="likes_empty_no_likes">Aucun j\'aime pour l\'instant</string>
     <string name="likes_empty_no_results">Aucun résultat</string>
-    <string name="likes_button_following">Abonné</string>
+    <string name="likes_button_following">Abonnement</string>
     <string name="likes_button_follow_back">Suivre en retour</string>
     <string name="likes_button_follow">Suivre</string>
 
@@ -436,7 +436,7 @@
     <string name="follow_list_no_followers">Aucun abonné pour l\'instant</string>
     <string name="follow_list_not_following">Tu ne suis encore personne</string>
     <string name="follow_list_follows_you">Te suit</string>
-    <string name="follow_list_button_following">Abonné</string>
+    <string name="follow_list_button_following">Abonnement</string>
     <string name="follow_list_button_follow_back">Suivre en retour</string>
     <string name="follow_list_button_follow">Suivre</string>
 
@@ -509,7 +509,7 @@
     <string name="search_filter_all">Tout</string>
     <string name="search_filter_unfollowed">Non suivis</string>
     <string name="search_subtitle_from_contacts">Parmi tes contacts</string>
-    <string name="search_invite_title">tu connais quelqu\'un de bon goût ?</string>
+    <string name="search_invite_title">tu connais quelqu\'un qui a bon goût ?</string>
     <string name="search_invite_button">inviter des amis</string>
     <string name="search_contacts_card_title">Trouve tes amis sur Corus</string>
     <string name="search_contacts_card_subtitle">Vois lesquels de tes contacts sont déjà là</string>
@@ -524,7 +524,7 @@
     <string name="search_post_some_songs">Publie quelques chansons pour lancer les choses</string>
     <string name="search_no_trending_films">Aucun film en tendance pour l\'instant</string>
     <string name="search_post_some_films">Publie quelques films pour lancer les choses</string>
-    <string name="search_button_following">Abonné</string>
+    <string name="search_button_following">Abonnement</string>
     <string name="search_button_follow">Suivre</string>
     <string name="search_followed_by_one_format">Suivi par @%1$s</string>
     <string name="search_followed_by_two_format">Suivi par @%1$s et @%2$s</string>
@@ -944,7 +944,7 @@
     <string name="hashtag_feed_try_again">Réessayer</string>
     <string name="hashtag_feed_empty">Aucune publication pour ce hashtag pour l\'instant</string>
     <string name="hashtag_feed_follow">Suivre</string>
-    <string name="hashtag_feed_following">Abonné</string>
+    <string name="hashtag_feed_following">Abonnement</string>
 
     <!-- Navigation / tabs -->
     <string name="nav_toast_caption_updated">Légende mise à jour</string>
@@ -973,4 +973,27 @@
     <string name="comments_locked_authorfollow_unknown">Seules les personnes que l\'auteur suit peuvent commenter.</string>
     <string name="comments_locked_follow_cta">Suivre</string>
     <string name="comments_locked_following_cta">Abonnement…</string>
+
+    <!-- Group messaging -->
+    <string name="messaging_separator_today">Aujourd\'hui</string>
+    <string name="messaging_separator_yesterday">Hier</string>
+    <string name="messaging_group_fallback_title">Groupe</string>
+    <string name="messaging_group_info_title">Infos du groupe</string>
+    <string name="messaging_group_creator">Créateur</string>
+    <string name="messaging_group_add_people">Ajouter des personnes</string>
+    <string name="messaging_group_create">Créer un groupe</string>
+    <string name="messaging_group_new_title">Nouveau groupe</string>
+    <string name="messaging_group_message_cta">Message</string>
+    <string name="messaging_group_add_cta">Ajouter</string>
+    <string name="messaging_group_leave">Quitter le groupe</string>
+    <string name="messaging_group_leave_confirm">Quitter ce groupe ?</string>
+    <string name="messaging_group_name_label">Nom du groupe</string>
+    <string name="messaging_group_name_optional">Nom du groupe (facultatif)</string>
+    <string name="messaging_group_change_photo">Changer la photo</string>
+    <string name="messaging_group_remove">Retirer</string>
+    <string name="messaging_group_not_addable">Doit mettre à jour pour rejoindre les groupes</string>
+    <string name="messaging_group_cancel">Annuler</string>
+    <string name="messaging_group_member_count">%1$d membres</string>
+    <string name="messaging_group_and_others">et %1$d autres</string>
+    <string name="messaging_group_sender_preview">%1$s: %2$s</string>
 </resources>

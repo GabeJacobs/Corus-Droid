@@ -76,10 +76,59 @@ class ThreadListViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
+    private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
 ) : ViewModel() {
+
+    val groupMessagingEnabled: Boolean
+        get() = remoteConfigService.groupMessagingEnabled
 
     private val _threads = MutableStateFlow<List<CymbalThread>>(emptyList())
     val threads: StateFlow<List<CymbalThread>> = _threads.asStateFlow()
+
+    // Resolved member profiles for group rows (stacked avatars + titles). The
+    // live mirror carries only memberIds, so missing profiles are fetched here.
+    private val _groupMembersById = MutableStateFlow<Map<String, CymbalUser>>(emptyMap())
+    val groupMembersById: StateFlow<Map<String, CymbalUser>> = _groupMembersById.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _threads.collect { list ->
+                val groups = list.filter { it.isGroup }
+                if (groups.isEmpty()) return@collect
+                val resolved = _groupMembersById.value.toMutableMap()
+                // Seed from any members already resolved by the callable rows.
+                for (g in groups) for (m in g.members) resolved.putIfAbsent(m.id, m)
+                val missing = groups.flatMap { it.memberIds }.toSet()
+                    .filter { it != currentUserId && it !in resolved }
+                for (id in missing) {
+                    runCatching { userRepository.fetchUserProfile(id) }.getOrNull()?.let { resolved[id] = it }
+                }
+                if (resolved.size != _groupMembersById.value.size) _groupMembersById.value = resolved
+            }
+        }
+    }
+
+    suspend fun createGroup(userIds: List<String>, name: String?): String =
+        messageRepository.createGroupThread(userIds, name)
+
+    suspend fun checkAddable(userIds: List<String>): Map<String, Boolean> =
+        messageRepository.checkGroupAddable(userIds)
+
+    /** Suggestion + search helpers for the multi-select group picker. */
+    suspend fun fetchSuggestionsList(): List<CymbalUser> {
+        val userId = authRepository.currentUserId ?: return emptyList()
+        val contacts = runCatching { messageRepository.listThreads(userId) }
+            .getOrDefault(emptyList()).mapNotNull { it.otherUser }
+        if (contacts.isNotEmpty()) return contacts.take(20)
+        runCatching { userRepository.prefetchFollowingSet(userId) }
+        return userRepository.followingIds.value.take(20)
+            .mapNotNull { runCatching { userRepository.fetchUserProfile(it) }.getOrNull() }
+            .filter { !it.isBot }
+    }
+
+    suspend fun searchUsersList(query: String): List<CymbalUser> =
+        runCatching { userRepository.searchUsers(query, limit = 15, includeFollowed = true) }
+            .getOrDefault(emptyList())
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
