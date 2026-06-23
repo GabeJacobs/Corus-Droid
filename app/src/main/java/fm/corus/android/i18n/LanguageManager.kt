@@ -30,7 +30,13 @@ enum class AppLanguage(val tag: String, val displayName: String) {
     SYSTEM("", "System Default"),
     ENGLISH("en", "English"),
     PORTUGUESE_BR("pt-BR", "Português (Brasil)"),
-    SPANISH("es", "Español");
+    SPANISH("es", "Español"),
+    JAPANESE("ja", "日本語"),
+    CHINESE_SIMPLIFIED("zh-Hans", "简体中文"),
+    GERMAN("de", "Deutsch"),
+    FRENCH("fr", "Français"),
+    KOREAN("ko", "한국어"),
+    ITALIAN("it", "Italiano");
 
     companion object {
         fun fromTag(tag: String?): AppLanguage = when (tag) {
@@ -38,6 +44,12 @@ enum class AppLanguage(val tag: String, val displayName: String) {
             "en" -> ENGLISH
             "pt-BR", "pt", "pt_BR" -> PORTUGUESE_BR
             "es", "es_ES", "es_419" -> SPANISH
+            "ja", "ja_JP" -> JAPANESE
+            "zh-Hans", "zh", "zh_CN", "zh-CN", "zh_Hans", "zh-Hans-CN" -> CHINESE_SIMPLIFIED
+            "de", "de_DE" -> GERMAN
+            "fr", "fr_FR" -> FRENCH
+            "ko", "ko_KR" -> KOREAN
+            "it", "it_IT" -> ITALIAN
             else -> SYSTEM
         }
     }

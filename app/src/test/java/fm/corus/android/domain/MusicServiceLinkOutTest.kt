@@ -29,6 +29,7 @@ class MusicServiceLinkOutTest {
 
     private fun spotifyTrack(
         appleMusicId: String? = null,
+        appleMusicStorefront: String? = null,
         spotifyWebURL: String = "https://open.spotify.com/track/61dv1VL5ZPj1L9p3Ko9QEC",
         spotifyURI: String = "spotify:track:61dv1VL5ZPj1L9p3Ko9QEC",
         id: String = "61dv1VL5ZPj1L9p3Ko9QEC",
@@ -41,6 +42,7 @@ class MusicServiceLinkOutTest {
         spotifyWebURL = spotifyWebURL,
         source = TrackSource.SPOTIFY,
         appleMusicId = appleMusicId,
+        appleMusicStorefront = appleMusicStorefront,
     )
 
     @Test
@@ -86,6 +88,32 @@ class MusicServiceLinkOutTest {
         val track = spotifyTrack(appleMusicId = "", spotifyWebURL = "", spotifyURI = "", id = "confirmedSpotifyOnly3")
         val url = MusicServiceLinkOut.resolveLinkOutUrl(track, MusicService.APPLE_MUSIC, cloud)
         assertNull(url)
+        verifyNoInteractions(cloud)
+    }
+
+    @Test
+    fun `apple music viewer on a foreign-catalog id the viewer can't reach falls back to spotify`() = runTest {
+        // Gal Costa: Brazil-only Apple id, US device. The badge shows Spotify, so
+        // the tap must open Spotify rather than a dead Apple Music page.
+        val prev = java.util.Locale.getDefault()
+        java.util.Locale.setDefault(java.util.Locale.US)
+        try {
+            val cloud = mock<CloudFunctionsDataSource>()
+            val track = spotifyTrack(appleMusicId = "960299338", appleMusicStorefront = "br", id = "foreignAm1")
+            val url = MusicServiceLinkOut.resolveLinkOutUrl(track, MusicService.APPLE_MUSIC, cloud)
+            assertEquals("https://open.spotify.com/track/61dv1VL5ZPj1L9p3Ko9QEC", url)
+            verifyNoInteractions(cloud)
+        } finally {
+            java.util.Locale.setDefault(prev)
+        }
+    }
+
+    @Test
+    fun `apple music viewer on a US-catalog id opens the storefront-correct apple music page`() = runTest {
+        val cloud = mock<CloudFunctionsDataSource>()
+        val track = spotifyTrack(appleMusicId = "1530256510", appleMusicStorefront = "us", id = "usAm1")
+        val url = MusicServiceLinkOut.resolveLinkOutUrl(track, MusicService.APPLE_MUSIC, cloud)
+        assertEquals("https://music.apple.com/us/song/1530256510", url)
         verifyNoInteractions(cloud)
     }
 

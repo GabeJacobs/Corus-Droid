@@ -182,6 +182,9 @@ data class CymbalPost(
                 // Don't collapse "" to null, or a confirmed Spotify-only track
                 // can't be told from "we don't know yet".
                 appleMusicId = data["appleMusicId"] as? String,
+                // Storefront the appleMusicId is valid in (Apple ids are
+                // storefront-specific); null = unknown -> treat as reachable.
+                appleMusicStorefront = data["appleMusicStorefront"] as? String,
                 unavailable = data["trackUnavailable"] as? Boolean ?: false,
                 unavailableReason = (data["trackUnavailableReason"] as? String)?.ifEmpty { null },
             )

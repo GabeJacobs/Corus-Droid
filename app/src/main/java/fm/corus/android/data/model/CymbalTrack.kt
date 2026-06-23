@@ -52,6 +52,13 @@ data class CymbalTrack(
      * resolver. null when we haven't resolved yet or there's no Apple match.
      */
     val appleMusicId: String? = null,
+    /**
+     * Storefront the `appleMusicId` is valid in (Apple ids are storefront-
+     * specific). Lets clients tell whether the viewing user can actually open
+     * the track — a Brazil-only release shouldn't badge as Apple for a US
+     * listener. null/empty = unknown (legacy/unresolved) -> treat as reachable.
+     */
+    val appleMusicStorefront: String? = null,
     val unavailable: Boolean = false,
     val unavailableReason: String? = null,
 ) {
@@ -65,14 +72,29 @@ data class CymbalTrack(
      * Direct link to the song's Apple Music page. Prefers the resolved
      * `appleMusicId`; falls back to extracting it from an `am:`-prefixed
      * trackId for Apple-only tracks where the id wasn't stored separately.
+     * Uses the id's home storefront in the path (Apple ids are storefront-
+     * specific) so the link resolves instead of 404-ing; defaults to "us".
      */
     val appleMusicURL: String?
         get() {
             val amid = appleMusicId?.takeIf { it.isNotEmpty() }
                 ?: id.takeIf { it.startsWith("am:") }?.removePrefix("am:")?.takeIf { it.isNotEmpty() }
                 ?: return null
-            return "https://music.apple.com/us/song/$amid"
+            val sf = appleMusicStorefront?.takeIf { it.isNotEmpty() }?.lowercase() ?: "us"
+            return "https://music.apple.com/$sf/song/$amid"
         }
+
+    /**
+     * Whether this track's Apple Music entry is reachable from the viewer's
+     * storefront [from]. Apple ids are storefront-specific: a track that resolved
+     * only in Brazil's catalog can't be opened by a US listener. "us" is treated
+     * as broadly available; unknown origin (null/empty) defaults to reachable so
+     * we never hide a valid badge.
+     */
+    fun appleMusicReachable(from: String): Boolean {
+        val origin = appleMusicStorefront?.takeIf { it.isNotEmpty() }?.lowercase() ?: return true
+        return origin == "us" || origin == from.lowercase()
+    }
 
     fun toSongDetailRoute() = SongDetailRoute(
         trackId = id,
@@ -127,6 +149,7 @@ data class CymbalTrack(
                 // confirmed NOT on Apple Music) vs null (unknown). See
                 // CymbalPost.fromMap and PostCard for why the distinction matters.
                 appleMusicId = data["appleMusicId"] as? String,
+                appleMusicStorefront = data["appleMusicStorefront"] as? String,
                 unavailable = data["trackUnavailable"] as? Boolean ?: false,
                 unavailableReason = (data["trackUnavailableReason"] as? String)?.ifEmpty { null },
             )

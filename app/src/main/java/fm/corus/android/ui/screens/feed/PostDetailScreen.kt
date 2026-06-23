@@ -745,10 +745,17 @@ private fun PostDetailSongInfo(
                 // Music — show that. TIDAL/Deezer viewers keep their own glyph.
                 // Mirrors iOS.
                 val isAppleMusic = post.track.source == TrackSource.APPLEMUSIC
-                // Only a CONFIRMED empty appleMusicId ("") flips to the source;
-                // null = unknown → keep the viewer's preference. Mirrors
-                // PostCard/iOS.
-                val hasAppleMusicEquivalent = isAppleMusic || post.track.appleMusicId != ""
+                // Flip to the source on a confirmed "" OR when the Apple id is in
+                // a storefront the viewer can't open. null = unknown -> keep the
+                // preference. Mirrors PostCard/iOS.
+                val hasAppleMusicEquivalent = when {
+                    isAppleMusic -> true
+                    post.track.appleMusicId == "" -> false
+                    post.track.appleMusicId == null -> true
+                    else -> post.track.appleMusicReachable(
+                        from = fm.corus.android.domain.MusicServiceLinkOut.deviceStorefront(),
+                    )
+                }
                 val displayedService = when {
                     isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY ->
                         fm.corus.android.data.model.MusicService.APPLE_MUSIC

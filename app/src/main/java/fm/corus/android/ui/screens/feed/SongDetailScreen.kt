@@ -122,12 +122,17 @@ fun SongDetailScreen(
         soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
     )
 
-    // Default: treat as on Apple Music (keep the viewer's preference). Only an
-    // explicit empty appleMusicId ("") — the backend's CONFIRMED "no Apple Music
-    // match" — flips to the source. null = unknown → no flip. Mirrors iOS.
-    val hasAppleMusicEquivalent = isAppleMusic ||
-        resolvedTrack.appleMusicId != "" ||
-        !effectiveAppleMusicURL.isNullOrBlank()
+    // Default: keep the viewer's preference. Flip to the source on a confirmed
+    // empty appleMusicId ("") OR when the Apple id is in a storefront the viewer
+    // can't open (foreign-catalog-only). null = unknown -> no flip. Mirrors iOS.
+    val hasAppleMusicEquivalent = when {
+        isAppleMusic -> true
+        resolvedTrack.appleMusicId == "" -> false
+        resolvedTrack.appleMusicId == null -> true
+        else -> resolvedTrack.appleMusicReachable(
+            from = fm.corus.android.domain.MusicServiceLinkOut.deviceStorefront(),
+        )
+    }
     // Service the Spotify-source link-out routes to and badges as. A genuinely
     // Spotify-only track can't open on Apple Music, so an Apple Music viewer is
     // sent to Spotify rather than a dead Apple Music search. Mirrors iOS.

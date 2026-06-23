@@ -848,14 +848,21 @@ fun PostCard(
                     )
                 } else {
                     // Glyph reflects the service the tap opens. Default is the
-                    // viewer's preference; we only fall back to the source when
-                    // the backend has CONFIRMED the track isn't on Apple Music
-                    // (appleMusicId == ""), which is rare. null appleMusicId means
-                    // unknown (legacy post, or the feed payload hasn't carried it
-                    // yet) and must NOT flip — otherwise the whole feed shows
-                    // Spotify to an Apple Music viewer. Apple-only tracks always
-                    // route a Spotify viewer to Apple Music. Mirrors iOS.
-                    val hasAppleMusicEquivalent = isAppleMusic || post.track.appleMusicId != ""
+                    // viewer's preference; fall back to the source only when the
+                    // backend CONFIRMED the track isn't on Apple Music ("") OR
+                    // when its Apple id lives in a storefront the viewer can't
+                    // open (foreign-catalog-only, e.g. a Brazil-only release for
+                    // a US listener). null = unknown -> keep the preference.
+                    // Apple-only tracks always route a Spotify viewer to Apple.
+                    // Mirrors iOS.
+                    val hasAppleMusicEquivalent = when {
+                        isAppleMusic -> true
+                        post.track.appleMusicId == "" -> false
+                        post.track.appleMusicId == null -> true
+                        else -> post.track.appleMusicReachable(
+                            from = fm.corus.android.domain.MusicServiceLinkOut.deviceStorefront(),
+                        )
+                    }
                     val displayedService = when {
                         isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY ->
                             fm.corus.android.data.model.MusicService.APPLE_MUSIC

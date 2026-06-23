@@ -55,15 +55,20 @@ object MusicServiceLinkOut {
     ): String? {
         if (service == MusicService.SPOTIFY) return null
         if (service == MusicService.APPLE_MUSIC) {
-            // appleMusicURL is non-null whenever appleMusicId is set, so this
-            // returns for every track with a resolved Apple Music id.
-            track.appleMusicURL?.let { return it }
+            val amid = track.appleMusicId
             // Empty id = backend CONFIRMED no Apple Music match: the badge shows
-            // Spotify, so open Spotify rather than leaving the tap dead. A null
-            // id is just "unknown" (legacy/feed payload) — fall through to the
-            // live lookup, which may still find a match. This keeps the tap in
-            // sync with the badge (which also only flips on a confirmed "").
-            if (track.appleMusicId == "") return spotifyFallbackUrl(track)
+            // Spotify, so open Spotify rather than leaving the tap dead.
+            if (amid == "") return spotifyFallbackUrl(track)
+            // Has an id, but Apple ids are storefront-specific. If the viewer
+            // can't open it (e.g. a Brazil-only release for a US listener) the
+            // badge shows Spotify, so open Spotify rather than a dead Apple Music
+            // page. Keeps the tap in sync with the storefront-aware badge.
+            if (!amid.isNullOrEmpty() && !track.appleMusicReachable(from = deviceStorefront())) {
+                return spotifyFallbackUrl(track)
+            }
+            // Reachable id -> storefront-correct appleMusicURL. A null id is just
+            // "unknown" -> fall through to the live lookup, which may find one.
+            track.appleMusicURL?.let { return it }
         }
         return resolveLinkOutUrlRaw(track.id, track.name, track.artistName, track.isrc, service, cloud)
     }
@@ -76,6 +81,14 @@ object MusicServiceLinkOut {
     private fun spotifyFallbackUrl(track: CymbalTrack): String? =
         track.spotifyWebURL.takeIf { it.isNotBlank() }
             ?: track.spotifyURI.takeIf { it.isNotBlank() }
+
+    /**
+     * Best-effort viewer storefront from the device locale. Android has no
+     * MusicKit, so the device region is our proxy for the user's Apple Music
+     * storefront. Apple ids are storefront-specific; defaults to "us".
+     */
+    fun deviceStorefront(): String =
+        java.util.Locale.getDefault().country.takeIf { it.isNotEmpty() }?.lowercase() ?: "us"
 
     /**
      * Same as [resolveLinkOutUrl] but from raw track fields rather than a

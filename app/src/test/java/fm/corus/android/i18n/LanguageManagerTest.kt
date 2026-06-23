@@ -50,6 +50,36 @@ class LanguageManagerTest {
     }
 
     @Test
+    fun `fromTag maps the new locales`() {
+        assertEquals(AppLanguage.JAPANESE, AppLanguage.fromTag("ja"))
+        assertEquals(AppLanguage.CHINESE_SIMPLIFIED, AppLanguage.fromTag("zh-Hans"))
+        assertEquals(AppLanguage.CHINESE_SIMPLIFIED, AppLanguage.fromTag("zh"))
+        assertEquals(AppLanguage.CHINESE_SIMPLIFIED, AppLanguage.fromTag("zh-CN"))
+        assertEquals(AppLanguage.GERMAN, AppLanguage.fromTag("de"))
+        assertEquals(AppLanguage.FRENCH, AppLanguage.fromTag("fr"))
+        assertEquals(AppLanguage.KOREAN, AppLanguage.fromTag("ko"))
+        assertEquals(AppLanguage.ITALIAN, AppLanguage.fromTag("it"))
+    }
+
+    @Test
+    fun `new locale tags are correct`() {
+        assertEquals("ja", AppLanguage.JAPANESE.tag)
+        assertEquals("zh-Hans", AppLanguage.CHINESE_SIMPLIFIED.tag)
+        assertEquals("de", AppLanguage.GERMAN.tag)
+        assertEquals("fr", AppLanguage.FRENCH.tag)
+        assertEquals("ko", AppLanguage.KOREAN.tag)
+        assertEquals("it", AppLanguage.ITALIAN.tag)
+    }
+
+    @Test
+    fun `wrapContext applies japanese locale when persisted`() {
+        context.getSharedPreferences("corus_locale", Context.MODE_PRIVATE)
+            .edit().putString("tag", "ja").apply()
+        val wrapped = LanguageManager.wrapContext(context)
+        assertEquals("ja", wrapped.resources.configuration.locales[0].language)
+    }
+
+    @Test
     fun `fromTag null returns SYSTEM`() {
         assertEquals(AppLanguage.SYSTEM, AppLanguage.fromTag(null))
     }

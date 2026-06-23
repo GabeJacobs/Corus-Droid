@@ -1,0 +1,976 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Corus</string>
+    <string name="post_noun">corus</string>
+    <string name="post_noun_plural">coruses</string>
+    <string name="club_name">Corus Club</string>
+
+    <!-- Common -->
+    <string name="common_back">뒤로</string>
+    <string name="common_selected">선택됨</string>
+    <string name="common_cancel">취소</string>
+    <string name="common_save">저장</string>
+    <string name="common_delete">삭제</string>
+    <string name="common_ok">확인</string>
+    <string name="common_submit">제출</string>
+    <string name="common_verify">인증</string>
+    <string name="common_confirm">확인</string>
+    <string name="common_error">오류</string>
+    <string name="common_unblock">차단 해제</string>
+    <string name="common_unmute">음소거 해제</string>
+
+    <!-- Settings: Language -->
+    <string name="settings_row_language">언어</string>
+    <string name="language_screen_title">언어</string>
+    <string name="language_section_title">앱 언어</string>
+    <string name="language_section_subtitle">Corus가 사용할 언어를 고르거나 기기 설정을 따르세요</string>
+    <string name="language_option_system">시스템 기본값</string>
+    <string name="language_option_english">English</string>
+    <string name="language_option_portuguese_br">Português (Brasil)</string>
+    <string name="language_option_spanish">Español</string>
+    <string name="language_option_japanese">日本語</string>
+    <string name="language_option_chinese_simplified">简体中文</string>
+    <string name="language_option_german">Deutsch</string>
+    <string name="language_option_french">Français</string>
+    <string name="language_option_korean">한국어</string>
+    <string name="language_option_italian">Italiano</string>
+
+    <!-- Settings: Main -->
+    <string name="settings_screen_title">설정</string>
+    <string name="settings_reauth_failed">재인증에 실패했어요. 다시 시도해 주세요.</string>
+    <string name="settings_reauth_could_not_start">재인증을 시작하지 못했어요.</string>
+    <string name="settings_reauth_signout_prompt">로그아웃했다가 다시 로그인한 뒤 다시 시도해 주세요.</string>
+    <string name="settings_account_deleted_toast">계정이 삭제되었어요.</string>
+    <string name="settings_section_corus_club">CORUS CLUB</string>
+    <string name="settings_row_join_club">Corus Club 가입</string>
+    <string name="settings_row_join_club_subtitle">맞춤 프로필 배지, 무제한 게시물 등</string>
+    <string name="settings_row_restore_purchases_subtitle">이미 멤버이신가요? 눌러서 구독을 동기화하세요</string>
+    <string name="settings_restore_toast_success">구독을 복원했어요</string>
+    <string name="settings_restore_toast_none">활성 구독을 찾을 수 없어요</string>
+    <string name="settings_restore_toast_failed">복원하지 못했어요. 다시 시도해 주세요.</string>
+    <string name="settings_section_invite">친구</string>
+    <string name="settings_row_invite_friends">친구 초대</string>
+    <string name="settings_row_invite_friends_subtitle">친구를 초대해 함께 Corus를 사용하세요</string>
+    <string name="settings_row_sync_contacts">연락처 동기화</string>
+    <string name="settings_row_sync_contacts_subtitle">연락처에서 친구 찾기</string>
+    <string name="sync_contacts_permission_denied">Corus에서 친구를 찾으려면 기기 설정에서 연락처 접근을 허용하세요</string>
+    <string name="settings_section_general">일반</string>
+    <string name="settings_row_music_service">음악 서비스</string>
+    <string name="settings_row_autoplay_title">다음 곡 자동 재생</string>
+    <string name="settings_row_autoplay_subtitle">곡이 끝나면 자동으로 다음 곡을 재생해요</string>
+    <string name="settings_row_feed_follows_now_playing_title">재생 중인 곡으로 자동 스크롤</string>
+    <string name="settings_row_feed_follows_now_playing_subtitle">재생되는 새 곡으로 피드를 스크롤해요</string>
+    <string name="settings_row_haptics">햅틱</string>
+    <string name="settings_row_haptics_subtitle">상호작용 시 진동 피드백</string>
+    <string name="settings_section_notifications_messaging">알림 및 메시지</string>
+    <string name="settings_row_notifications">알림</string>
+    <string name="settings_row_notifications_subtitle">푸시 알림 설정 관리</string>
+    <string name="settings_row_who_can_message">메시지를 보낼 수 있는 사람</string>
+    <string name="settings_message_everyone">모두</string>
+    <string name="settings_message_my_followers">내 팔로워</string>
+    <string name="settings_message_people_i_follow">내가 팔로우하는 사람</string>
+    <string name="settings_message_nobody">아무도 안 됨</string>
+    <string name="settings_section_account">계정</string>
+    <string name="settings_row_blocked_users">차단한 사용자</string>
+    <string name="settings_row_muted_users">음소거한 사용자</string>
+    <string name="settings_row_username">사용자 이름</string>
+    <string name="settings_row_phone_number">전화번호</string>
+    <string name="settings_row_sign_out">로그아웃</string>
+    <string name="settings_row_delete_account">계정 삭제</string>
+    <string name="settings_section_support">지원</string>
+    <string name="settings_share_app_text">Corus를 확인해 보세요. 음악과 영화 취향을 공유하세요! https://corus.fm</string>
+    <string name="settings_share_app_chooser">Corus 공유</string>
+    <string name="settings_row_send_feedback">의견 보내기</string>
+    <string name="settings_row_contact_us">문의하기</string>
+    <string name="settings_row_rate_app">앱 평가하기</string>
+    <string name="settings_row_privacy_policy">개인정보 처리방침</string>
+    <string name="settings_row_terms_of_service">서비스 약관</string>
+    <string name="settings_social_website">웹사이트</string>
+    <string name="settings_social_instagram">Instagram</string>
+    <string name="settings_social_x">X</string>
+    <string name="settings_social_discord">Discord</string>
+    <string name="settings_version_format">Corus v%s</string>
+    <string name="settings_dialog_delete_title">계정을 삭제할까요?</string>
+    <string name="settings_dialog_delete_message">회원님의 계정과 모든 coruses, 좋아요, 댓글, 팔로워가 영구적으로 삭제돼요. 이 작업은 되돌릴 수 없어요.</string>
+    <string name="settings_dialog_deleting_title">계정을 삭제하는 중…</string>
+    <string name="settings_dialog_deleting_message">잠시 걸릴 수 있어요.</string>
+    <string name="settings_dialog_verify_title">번호를 인증하세요</string>
+    <string name="settings_dialog_verify_message">회원님의 휴대폰으로 코드를 보냈어요. 계정 삭제를 확인하려면 코드를 입력하세요.</string>
+    <string name="settings_dialog_verify_code_label">코드</string>
+
+    <!-- Settings: Notifications screen -->
+    <string name="notifications_screen_title">알림</string>
+    <string name="notifications_row_likes">좋아요</string>
+    <string name="notifications_row_comments_replies">댓글 및 답글</string>
+    <string name="notifications_row_new_followers">새 팔로워</string>
+    <string name="notifications_row_follow_requests">팔로우 요청</string>
+    <string name="notifications_row_contact_joined">연락처 가입</string>
+    <string name="notifications_row_plays">재생</string>
+    <string name="notifications_row_messages">메시지</string>
+    <string name="notifications_row_read_receipts">읽음 확인</string>
+
+    <!-- Settings: Appearance -->
+    <string name="settings_section_appearance">화면 모드</string>
+    <string name="appearance_screen_title">화면 모드</string>
+    <string name="appearance_row_theme">테마</string>
+    <string name="appearance_row_theme_subtitle">라이트, 다크를 사용하거나 기기 설정을 따르세요</string>
+    <string name="appearance_option_light">라이트</string>
+    <string name="appearance_option_dark">다크</string>
+    <string name="appearance_option_system">시스템</string>
+
+    <!-- Settings: Blocked Users -->
+    <string name="blocked_users_screen_title">차단한 사용자</string>
+    <string name="blocked_users_empty">차단한 사용자가 없어요</string>
+
+    <!-- Settings: Muted Users -->
+    <string name="muted_users_screen_title">음소거한 사용자</string>
+    <string name="muted_users_empty">음소거한 사용자가 없어요</string>
+
+    <!-- Settings: Change Username -->
+    <string name="change_username_screen_title">사용자 이름 변경</string>
+    <string name="change_username_username_updated_toast">사용자 이름을 변경했어요!</string>
+    <string name="change_username_field_label">사용자 이름</string>
+    <string name="change_username_status_available">사용 가능한 사용자 이름이에요</string>
+    <string name="change_username_status_taken">이미 사용 중인 사용자 이름이에요</string>
+    <string name="change_username_status_invalid_default">글자, 숫자, 밑줄, 마침표만 사용할 수 있어요</string>
+    <string name="change_username_status_checking">사용 가능 여부 확인 중...</string>
+
+    <!-- Settings: Change Phone Number -->
+    <string name="change_phone_screen_title">전화번호</string>
+    <string name="change_phone_section_verification">인증 코드</string>
+    <string name="change_phone_code_placeholder">6자리 코드</string>
+    <string name="change_phone_resend_code">코드 재전송</string>
+    <string name="change_phone_resend_in_format">%ds 후 재전송</string>
+    <string name="change_phone_use_different_number">다른 번호 사용</string>
+    <string name="change_phone_code_sent_message_format">%1$s %2$s(으)로 전송된 6자리 코드를 입력하세요</string>
+    <string name="change_phone_section_new_number">새 전화번호</string>
+    <string name="change_phone_placeholder">전화번호</string>
+    <string name="change_phone_send_code">코드 전송</string>
+    <string name="change_phone_send_code_explainer">이 번호를 확인하기 위해 인증 코드를 보낼게요.</string>
+    <string name="change_phone_select_country_title">국가 선택</string>
+    <string name="change_phone_updated_title">전화번호 변경됨</string>
+    <string name="change_phone_updated_message">회원님의 전화번호를 변경했어요.</string>
+
+    <!-- Settings: Feedback -->
+    <string name="feedback_screen_title">의견 보내기</string>
+    <string name="feedback_subject_label">제목</string>
+    <string name="feedback_subject_placeholder">간단한 요약</string>
+    <string name="feedback_description_label">설명</string>
+    <string name="feedback_description_placeholder">더 자세히 알려 주세요...</string>
+    <string name="feedback_device_info_note">기기 정보가 자동으로 포함돼요.</string>
+    <string name="feedback_submitting">제출 중...</string>
+    <string name="feedback_success">의견 주셔서 감사해요!</string>
+
+    <!-- Feed: shared -->
+    <string name="feed_app_title">corus</string>
+    <string name="feed_screen_title_corus">corus</string>
+    <string name="feed_screen_title_Corus">Corus</string>
+    <string name="feed_cd_filter">필터</string>
+    <string name="feed_cd_generate_playlist">피드 플레이리스트 만들기</string>
+    <string name="feed_cd_more_options">더 보기</string>
+    <string name="feed_cd_back">뒤로</string>
+    <string name="feed_filter_all">전체</string>
+    <string name="feed_filter_music">음악만</string>
+    <string name="feed_filter_film">영화만</string>
+    <string name="feed_filter_music_new_releases">음악 신작</string>
+    <string name="feed_filter_film_new_releases">영화 신작</string>
+    <string name="feed_empty_new_releases_title">아직 신작이 없어요</string>
+    <string name="feed_empty_new_releases_subtitle">팔로우하는 사람들의 신작을 보려면 나중에 다시 확인해 주세요.</string>
+    <string name="feed_empty_new_releases_show_all">모든 게시물 보기</string>
+    <string name="feed_empty_favorites_title">아직 즐겨찾기가 없어요</string>
+    <string name="feed_empty_favorites_subtitle">프로필에서 ☆를 눌러 즐겨찾기에 추가하세요.</string>
+    <string name="feed_empty_favorites_button">팔로잉으로 돌아가기</string>
+    <!-- Favorites empty state when a filter is active: the user has favorites, none match the filter. -->
+    <string name="feed_empty_favorites_music_title">즐겨찾기의 음악이 없어요</string>
+    <string name="feed_empty_favorites_music_subtitle">즐겨찾기한 사람 중 아직 음악을 공유한 사람이 없어요. 다른 필터를 시도하거나 곧 다시 확인해 주세요.</string>
+    <string name="feed_empty_favorites_film_title">즐겨찾기의 영화가 없어요</string>
+    <string name="feed_empty_favorites_film_subtitle">즐겨찾기한 사람 중 아직 영화를 공유한 사람이 없어요. 다른 필터를 시도하거나 곧 다시 확인해 주세요.</string>
+    <string name="feed_empty_favorites_new_music_title">즐겨찾기의 새 음악이 없어요</string>
+    <string name="feed_empty_favorites_new_music_subtitle">즐겨찾기한 사람들이 아직 신작을 공유하지 않았어요. 다른 필터를 시도하거나 곧 다시 확인해 주세요.</string>
+    <string name="feed_empty_favorites_new_film_title">즐겨찾기의 새 영화가 없어요</string>
+    <string name="feed_empty_favorites_new_film_subtitle">즐겨찾기한 사람들이 아직 새 영화를 공유하지 않았어요. 다른 필터를 시도하거나 곧 다시 확인해 주세요.</string>
+    <string name="feed_empty_clear_filter">필터 지우기</string>
+    <string name="feed_empty_invite_title">corus는 친구 몇 명만 있어도\n즐거워요.</string>
+    <string name="feed_empty_invite_subtitle">취향 좋은 친구가 있나요?</string>
+    <string name="feed_empty_invite_button">친구 초대</string>
+    <string name="feed_empty_invite_share_text">Corus를 확인해 보세요. 음악과 영화 취향을 공유하세요! https://corus.fm</string>
+    <string name="feed_empty_invite_chooser">친구 초대</string>
+    <string name="feed_empty_curated_music">또는 큐레이션 음악 봇을 팔로우하세요</string>
+    <string name="feed_empty_curated_film">또는 큐레이션 영화 봇을 팔로우하세요</string>
+    <string name="feed_empty_see_all">모두 보기</string>
+    <string name="feed_offline_title">연결하지 못했어요</string>
+    <string name="feed_offline_subtitle">인터넷 연결을 확인하고 다시 시도해 주세요.</string>
+    <string name="feed_offline_retry">다시 시도</string>
+    <string name="search_service_unavailable_title">음, 뭔가 이상해요</string>
+    <string name="search_service_unavailable_subtitle">지금 검색 서비스에 연결하는 데 문제가 있어요. 잠시 후 다시 시도해 주세요.</string>
+    <string name="offline_banner_no_connection">인터넷 연결 없음</string>
+    <string name="feed_toast_failed_send_post">게시물을 보내지 못했어요</string>
+    <string name="feed_toast_post_reported">게시물을 신고했어요</string>
+    <string name="feed_toast_failed_report">게시물을 신고하지 못했어요</string>
+    <string name="feed_toast_user_blocked">사용자를 차단했어요</string>
+    <string name="feed_toast_failed_block">사용자를 차단하지 못했어요</string>
+    <string name="feed_toast_user_muted">사용자를 음소거했어요</string>
+    <string name="feed_toast_failed_mute">사용자를 음소거하지 못했어요</string>
+    <string name="feed_toast_post_deleted">게시물을 삭제했어요</string>
+    <string name="feed_toast_failed_delete">게시물을 삭제하지 못했어요</string>
+
+    <!-- Feed: post detail -->
+    <string name="post_detail_not_found">게시물을 찾을 수 없어요</string>
+    <string name="post_detail_reposted_from">리포스트:</string>
+    <string name="post_detail_reposted_from_username_format">@%1$s</string>
+    <string name="post_detail_finding_back_cover">뒷면 커버를 찾는 중…</string>
+    <string name="post_detail_no_back_cover">뒷면 커버가 없어요</string>
+    <string name="post_detail_cd_album_back_cover">앨범 뒷면 커버</string>
+    <string name="post_detail_cd_pause">일시정지</string>
+    <string name="post_detail_cd_watch_trailer">예고편 보기</string>
+    <string name="post_detail_cd_play_spotify">Spotify에서 재생</string>
+    <string name="post_detail_cd_save">저장</string>
+    <string name="post_detail_share_chooser">공유</string>
+    <string name="post_detail_view_all_comments_format">댓글 %1$d개 모두 보기</string>
+
+    <!-- Feed: comments -->
+    <string name="comments_screen_title">댓글</string>
+    <string name="comments_input_placeholder_add">댓글 추가...</string>
+    <string name="comments_input_placeholder_reply">답글...</string>
+    <string name="comments_input_placeholder_edit">댓글을 편집하세요...</string>
+    <string name="comments_editing_your_comment">내 댓글 편집 중</string>
+    <string name="comments_editing_comment">댓글 편집 중</string>
+    <string name="comments_replying_to_format">@%1$s님에게 답글</string>
+    <string name="comments_cd_cancel_edit">편집 취소</string>
+    <string name="comments_cd_cancel_reply">답글 취소</string>
+    <string name="comments_cd_send">보내기</string>
+    <string name="comments_cd_send_gif">GIF 보내기</string>
+    <string name="comments_cd_gif">GIF</string>
+    <string name="comments_cd_like_comment">댓글 좋아요</string>
+    <string name="comments_cd_like">좋아요</string>
+    <string name="comments_cd_options">댓글 옵션</string>
+    <string name="comments_cd_back_to_comments">댓글로 돌아가기</string>
+    <string name="comments_reply">답글</string>
+    <string name="comments_edited">수정됨</string>
+    <string name="comments_no_comments">아직 댓글이 없어요</string>
+    <string name="comments_be_the_first">첫 댓글을 남겨 보세요!</string>
+    <string name="comments_start_conversation">대화를 시작하세요</string>
+    <string name="comments_dialog_delete_title">댓글을 삭제할까요?</string>
+    <string name="comments_dialog_delete_message">이 댓글이 영구적으로 삭제돼요.</string>
+    <string name="comments_dialog_delete_confirm">삭제</string>
+    <string name="comments_dialog_block_title_format">@%1$s님을 차단할까요?</string>
+    <string name="comments_dialog_block_message">그 사람은 회원님의 프로필이나 게시물을 볼 수 없고, 회원님도 그 사람의 것을 볼 수 없어요.</string>
+    <string name="comments_dialog_block_confirm">차단</string>
+    <string name="comments_menu_copy">복사</string>
+    <string name="comments_menu_report">신고</string>
+    <string name="comments_menu_block">차단</string>
+    <string name="comments_menu_edit">편집</string>
+    <string name="comments_menu_delete">삭제</string>
+    <string name="comments_toast_copied">복사됨</string>
+    <string name="comments_send_error_send">댓글을 보내지 못했어요</string>
+    <string name="comments_send_error_gif">GIF를 보내지 못했어요</string>
+    <string name="comments_edit_error">변경 사항을 저장하지 못했어요. 다시 시도해 주세요.</string>
+
+    <!-- Comment attachments (song / film) -->
+    <string name="comment_attachment_attach">곡 또는 영화 첨부</string>
+    <string name="comment_attachment_remove">첨부 제거</string>
+    <string name="comment_attachment_play_preview">미리듣기 재생</string>
+    <string name="comment_attachment_pause_preview">미리듣기 일시정지</string>
+    <string name="comment_attachment_picker_title">댓글에 첨부</string>
+    <string name="comment_attachment_picker_reply_title">답글에 첨부</string>
+    <string name="comment_attachment_song">곡</string>
+    <string name="comment_attachment_film">영화</string>
+    <string name="comment_attachment_gif">GIF</string>
+
+    <!-- Feed: likes / comment likes -->
+    <string name="likes_title">좋아요</string>
+    <string name="likes_search_placeholder">검색</string>
+    <string name="likes_cd_search">검색</string>
+    <string name="likes_cd_clear">지우기</string>
+    <string name="likes_empty_no_likes">아직 좋아요가 없어요</string>
+    <string name="likes_empty_no_results">결과 없음</string>
+    <string name="likes_button_following">팔로잉</string>
+    <string name="likes_button_follow_back">맞팔로우</string>
+    <string name="likes_button_follow">팔로우</string>
+
+    <!-- Feed: edit caption -->
+    <string name="edit_caption_screen_title">캡션 편집</string>
+    <string name="edit_caption_placeholder">캡션을 작성하세요...</string>
+
+    <!-- Feed: film detail -->
+    <string name="film_detail_post_film">영화 게시</string>
+    <string name="film_detail_watch_trailer">예고편 보기</string>
+    <string name="film_detail_where_to_watch">볼 수 있는 곳</string>
+    <string name="film_detail_year_format">(%1$s)</string>
+    <string name="film_detail_posted_by">게시한 사람</string>
+    <string name="film_detail_load_error">게시물을 불러오지 못했어요</string>
+    <string name="film_detail_try_again">다시 시도</string>
+    <string name="film_detail_empty">아직 이 영화를 게시한 사람이 없어요</string>
+    <string name="film_detail_be_the_first">첫 번째가 되어 보세요!</string>
+
+    <!-- Feed: song detail -->
+    <string name="song_detail_post_song">+ 곡 게시</string>
+    <string name="song_detail_play_spotify">Spotify에서 재생</string>
+    <!-- Preference-aware playback CTA: %1$s is the music-service name (e.g. Spotify, Deezer) -->
+    <string name="song_detail_play_in_service">%1$s에서 재생</string>
+    <string name="song_detail_open_in_service">%1$s에서 열기</string>
+    <string name="song_detail_listen_soundcloud">SoundCloud에서 듣기</string>
+    <string name="song_detail_cd_pause_preview">미리듣기 일시정지</string>
+    <string name="song_detail_cd_play_preview">미리듣기 재생</string>
+    <string name="song_detail_posted_by">게시한 사람</string>
+    <string name="song_detail_load_error">게시물을 불러오지 못했어요</string>
+    <string name="song_detail_try_again">다시 시도</string>
+    <string name="song_detail_empty">아직 이 곡을 게시한 사람이 없어요</string>
+    <string name="song_detail_be_the_first">첫 번째가 되어 보세요!</string>
+
+    <!-- Feed: detail counts (plurals) -->
+    <plurals name="film_detail_posted_by_count">
+        <item quantity="one">%1$s명이 게시함</item>
+        <item quantity="other">%1$s명이 게시함</item>
+    </plurals>
+    <plurals name="song_detail_posted_by_count">
+        <item quantity="one">%1$s명이 게시함</item>
+        <item quantity="other">%1$s명이 게시함</item>
+    </plurals>
+
+    <!-- Profile -->
+    <string name="profile_cd_customize">프로필 꾸미기</string>
+    <string name="profile_cd_settings">설정</string>
+    <string name="profile_cd_playlist">플레이리스트</string>
+    <string name="profile_avatar_take_photo">사진 촬영</string>
+    <string name="profile_avatar_choose_library">보관함에서 선택</string>
+    <string name="profile_avatar_view_photo">사진 보기</string>
+    <string name="profile_avatar_share_link">프로필 링크 공유</string>
+    <string name="profile_toast_link_copied">프로필 링크를 복사했어요!</string>
+    <string name="profile_toast_avatar_updated">프로필 사진을 변경했어요!</string>
+    <string name="profile_toast_style_updated">스타일을 변경했어요!</string>
+    <string name="profile_toast_no_songs_for_playlist">플레이리스트를 만들 곡이 없어요</string>
+    <string name="profile_button_edit">프로필 편집</string>
+    <string name="profile_button_playlist">플레이리스트</string>
+    <string name="profile_stat_coruses">coruses</string>
+    <string name="profile_stat_followers">팔로워</string>
+    <string name="profile_stat_following">팔로잉</string>
+    <string name="profile_tab_music">음악</string>
+    <string name="profile_tab_film">영화</string>
+    <string name="profile_tab_likes">좋아요</string>
+    <string name="profile_tab_saves">저장</string>
+    <string name="profile_empty_music_title">무엇을 듣고 있나요?</string>
+    <string name="profile_empty_music_subtitle">첫 곡을 공유하고 무엇을 반복 재생 중인지\n모두에게 알려 주세요.</string>
+    <string name="profile_empty_music_button">첫 곡 게시하기</string>
+    <string name="profile_empty_film_title">최근에 좋은 거 봤나요?</string>
+    <string name="profile_empty_film_subtitle">첫 영화를 공유하고 무엇을 보고 있는지\n모두에게 알려 주세요.</string>
+    <string name="profile_empty_film_button">첫 영화 게시하기</string>
+    <string name="profile_empty_likes">아직 좋아요한 게시물이 없어요</string>
+    <string name="profile_empty_saves">아직 저장한 게시물이 없어요</string>
+    <string name="profile_empty_likes_music">아직 좋아요한 음악이 없어요</string>
+    <string name="profile_empty_likes_films">아직 좋아요한 영화가 없어요</string>
+    <string name="profile_empty_saves_music">아직 저장한 음악이 없어요</string>
+    <string name="profile_empty_saves_films">아직 저장한 영화가 없어요</string>
+    <string name="profile_share_another_track">다른 곡 공유하기</string>
+    <string name="profile_share_another_film">다른 영화 공유하기</string>
+    <string name="profile_share_another_subtitle">컬렉션을 만들어 보세요</string>
+
+    <!-- Other Profile -->
+    <string name="other_profile_cd_message">메시지</string>
+    <string name="other_profile_cd_menu">메뉴</string>
+    <string name="other_profile_cd_post_notifications">게시물 알림</string>
+    <string name="other_profile_cd_stop_notifying">알림 끄기</string>
+    <string name="other_profile_toast_will_notify_format">@%1$s님이 게시하면 알림을 받아요</string>
+    <string name="other_profile_toast_notifications_off_format">@%1$s님의 알림을 껐어요</string>
+    <string name="other_profile_cd_add_favorite">즐겨찾기에 추가</string>
+    <string name="other_profile_cd_remove_favorite">즐겨찾기에서 제거</string>
+    <string name="other_profile_toast_favorite_added_format">@%1$s님을 즐겨찾기에 추가했어요</string>
+    <string name="other_profile_toast_favorite_removed_format">@%1$s님을 즐겨찾기에서 제거했어요</string>
+    <string name="other_profile_menu_view_playlist">Spotify 플레이리스트 보기</string>
+    <string name="other_profile_menu_share_profile">프로필 공유</string>
+    <string name="other_profile_menu_mute">음소거</string>
+    <string name="other_profile_menu_unmute">음소거 해제</string>
+    <string name="other_profile_menu_report">신고</string>
+    <string name="other_profile_menu_block">차단</string>
+    <string name="other_profile_menu_unblock">차단 해제</string>
+    <string name="other_profile_blocked_message">이 사용자를 차단했어요</string>
+    <string name="other_profile_button_follow">팔로우</string>
+    <string name="other_profile_button_following">팔로잉</string>
+    <string name="other_profile_tab_likes">좋아요</string>
+    <string name="other_profile_empty_no_songs">아직 곡이 없어요</string>
+    <string name="other_profile_empty_no_films">아직 영화가 없어요</string>
+    <string name="other_profile_empty_no_liked">아직 좋아요한 게시물이 없어요</string>
+    <string name="other_profile_muting_format">@%1$s님을 음소거하는 중…</string>
+    <string name="other_profile_muting">음소거하는 중…</string>
+    <string name="other_profile_unmuting_format">@%1$s님의 음소거를 해제하는 중…</string>
+    <string name="other_profile_unmuting">음소거 해제하는 중…</string>
+    <string name="other_profile_muted_format">@%1$s님의 게시물을 음소거했어요</string>
+    <string name="other_profile_muted">음소거됨</string>
+    <string name="other_profile_unmuted_format">@%1$s님의 게시물 음소거를 해제했어요</string>
+    <string name="other_profile_unmuted">음소거 해제됨</string>
+    <string name="follow_limit_reached_hours">오늘의 팔로우 한도(%1$d)에 도달했어요. 약 %2$d시간 후에 더 팔로우할 수 있어요.</string>
+    <string name="follow_limit_reached_minutes">오늘의 팔로우 한도(%1$d)에 도달했어요. 약 %2$d분 후에 더 팔로우할 수 있어요.</string>
+    <string name="follow_limit_reached_soon">오늘의 팔로우 한도(%1$d)에 도달했어요. 잠시 후에 더 팔로우할 수 있어요.</string>
+
+    <!-- Edit Profile -->
+    <string name="edit_profile_screen_title">프로필 편집</string>
+    <string name="edit_profile_cd_cancel">취소</string>
+    <string name="edit_profile_save">저장</string>
+    <string name="edit_profile_dialog_unsaved_title">저장하지 않은 변경 사항</string>
+    <string name="edit_profile_dialog_unsaved_message">프로필에 저장하지 않은 변경 사항이 있어요.</string>
+    <string name="edit_profile_dialog_discard">취소</string>
+    <string name="edit_profile_dialog_keep_editing">계속 편집</string>
+    <string name="edit_profile_share_text_format">Corus에서 제 프로필을 확인해 보세요: https://corus.fm/user/%1$s</string>
+    <string name="edit_profile_share_chooser">프로필 공유</string>
+    <string name="edit_profile_field_name">이름</string>
+    <string name="edit_profile_field_username">사용자 이름</string>
+    <string name="edit_profile_field_bio">소개</string>
+    <string name="edit_profile_field_website">웹사이트</string>
+    <string name="edit_profile_field_featured_tab">대표 탭</string>
+    <string name="edit_profile_username_taken">이미 사용 중인 사용자 이름이에요</string>
+    <string name="edit_profile_username_invalid">글자, 숫자, 밑줄, 마침표만 사용할 수 있어요</string>
+    <string name="edit_profile_cd_available">사용 가능</string>
+    <string name="edit_profile_cd_taken">사용 중</string>
+    <string name="edit_profile_cd_invalid">잘못됨</string>
+    <string name="edit_profile_row_customize">프로필 스타일 꾸미기</string>
+    <string name="edit_profile_row_share_link">프로필 링크 공유</string>
+    <string name="edit_profile_save_error">변경 사항을 저장하지 못했어요. 다시 시도해 주세요.</string>
+    <string name="edit_profile_save_style_error">스타일 변경 사항을 저장하지 못했어요. 다시 시도해 주세요.</string>
+
+    <!-- Follow List -->
+    <string name="follow_list_followers">팔로워</string>
+    <string name="follow_list_following">팔로잉</string>
+    <string name="follow_list_search_placeholder">검색</string>
+    <string name="follow_list_cd_clear">지우기</string>
+    <string name="follow_list_no_results">결과 없음</string>
+    <string name="follow_list_no_followers">아직 팔로워가 없어요</string>
+    <string name="follow_list_not_following">아직 아무도 팔로우하지 않았어요</string>
+    <string name="follow_list_follows_you">회원님을 팔로우해요</string>
+    <string name="follow_list_button_following">팔로잉</string>
+    <string name="follow_list_button_follow_back">맞팔로우</string>
+    <string name="follow_list_button_follow">팔로우</string>
+
+    <!-- Style Picker -->
+    <string name="style_picker_cd_close">닫기</string>
+    <string name="style_picker_save_changes">변경 사항 저장</string>
+    <string name="style_picker_choose_vinyl">바이닐 색상 선택</string>
+    <string name="style_picker_choose_frame">프레임 색상 선택</string>
+    <string name="style_picker_choose_flair">배지 플레어 선택</string>
+    <string name="style_picker_username_placeholder">사용자이름</string>
+    <string name="style_picker_rain_effect">비 효과</string>
+    <string name="style_picker_snow_effect">눈 효과</string>
+    <string name="style_picker_disco_effect">디스코 효과</string>
+
+    <!-- Search -->
+    <string name="search_screen_title">검색</string>
+    <string name="search_cd_search">검색</string>
+    <string name="search_cd_clear">지우기</string>
+    <string name="search_cd_remove">삭제</string>
+    <string name="search_cd_filter_taste_matches">취향 매치 필터</string>
+    <string name="search_cd_filter_popular_users">인기 사용자 필터</string>
+    <string name="search_placeholder_users">사용자 이름으로 검색</string>
+    <string name="search_placeholder_songs">곡 검색</string>
+    <string name="search_placeholder_films">영화 검색</string>
+    <string name="search_placeholder_hashtags">해시태그 검색</string>
+    <string name="search_tab_users">사용자</string>
+    <string name="search_tab_songs">곡</string>
+    <string name="search_tab_films">영화</string>
+    <string name="search_tab_hashtags">해시태그</string>
+    <string name="search_section_trending_hashtags">인기 해시태그</string>
+    <string name="search_no_trending_hashtags">아직 인기 해시태그가 없어요</string>
+    <string name="search_no_hashtags_found">해시태그를 찾을 수 없어요</string>
+    <string name="search_recent">최근</string>
+    <string name="search_clear_all">모두 지우기</string>
+    <string name="search_section_friends_on_corus">CORUS의 친구</string>
+    <string name="search_section_taste_matches">취향 매치</string>
+    <string name="search_taste_matches_empty">게시물을 더 올리면 Corus가 취향이 비슷한 사람들과 연결해 드려요.</string>
+    <string name="search_section_mutual_connections">함께 아는 사람</string>
+    <string name="search_section_popular">CORUS 인기</string>
+    <string name="search_section_new">CORUS 신규</string>
+    <string name="search_section_club_members">CORUS CLUB 멤버</string>
+    <string name="search_section_curated_music_bots">큐레이션 음악 봇</string>
+    <string name="search_section_curated_film_bots">큐레이션 영화 봇</string>
+    <string name="search_section_trending_this_month">이번 달 인기</string>
+    <string name="search_section_trending_this">인기</string>
+    <string name="search_section_trending">인기</string>
+    <string name="search_section_trending_this_suffix"></string>
+    <string name="search_trending_window_week">주</string>
+    <string name="search_trending_window_month">달</string>
+    <string name="search_trending_window_year">해</string>
+    <string name="search_trending_window_aria">인기 기간</string>
+    <string name="hashtag_followers">팔로워</string>
+    <string name="hashtag_contributors">기여자</string>
+    <string name="hashtag_velocity_this_week">이번 주 %1$s coruses</string>
+    <string name="hashtag_velocity_this_week_one">이번 주 %1$s corus</string>
+    <string name="hashtag_followers_title">#%1$s 팔로워</string>
+    <string name="hashtag_contributors_title">#%1$s 기여자</string>
+    <string name="hashtag_followers_empty">아직 팔로워가 없어요</string>
+    <string name="hashtag_contributors_empty">아직 기여자가 없어요</string>
+    <string name="hashtag_back_to_tag">#%1$s(으)로 돌아가기</string>
+    <string name="hashtag_row_subtitle_with_followers">%1$s · %2$s</string>
+    <string name="hashtag_followers_count">%1$s %2$s</string>
+    <string name="hashtag_count_coruses">%1$s %2$s</string>
+    <string name="search_see_all">모두 보기</string>
+    <string name="search_taste_matches_title">취향 매치</string>
+    <string name="search_mutual_connections_title">함께 아는 사람</string>
+    <string name="search_popular_title">Corus 인기</string>
+    <string name="search_new_title">Corus 신규</string>
+    <string name="search_club_members_title">Corus Club 멤버</string>
+    <string name="search_filter_all">전체</string>
+    <string name="search_filter_unfollowed">팔로우 안 함</string>
+    <string name="search_subtitle_from_contacts">연락처에서</string>
+    <string name="search_invite_title">취향 좋은 친구가 있나요?</string>
+    <string name="search_invite_button">친구 초대</string>
+    <string name="search_contacts_card_title">Corus에서 친구를 찾아보세요</string>
+    <string name="search_contacts_card_subtitle">어떤 연락처가 이미 여기에 있는지 확인하세요</string>
+    <string name="search_contacts_card_sync">연락처 동기화</string>
+    <string name="search_contacts_card_not_now">나중에</string>
+    <string name="search_no_contact_matches_title">아직 Corus에 가입한 연락처가 없어요</string>
+    <string name="search_no_contact_matches_subtitle">가입하면 알려 드릴게요</string>
+    <string name="search_no_users_found">사용자를 찾을 수 없어요</string>
+    <string name="search_no_songs_found">곡을 찾을 수 없어요</string>
+    <string name="search_no_films_found">영화를 찾을 수 없어요</string>
+    <string name="search_nothing_trending">아직 인기 항목이 없어요</string>
+    <string name="search_post_some_songs">곡을 몇 개 올려서 시작해 보세요</string>
+    <string name="search_no_trending_films">아직 인기 영화가 없어요</string>
+    <string name="search_post_some_films">영화를 몇 개 올려서 시작해 보세요</string>
+    <string name="search_button_following">팔로잉</string>
+    <string name="search_button_follow">팔로우</string>
+    <string name="search_followed_by_one_format">@%1$s님이 팔로우</string>
+    <string name="search_followed_by_two_format">@%1$s님과 @%2$s님이 팔로우</string>
+    <string name="search_followed_by_many_format">@%1$s, @%2$s 외 %3$s명이 팔로우</string>
+    <string name="search_followers_count_format">팔로워 %1$d명</string>
+    <plurals name="search_others_count">
+        <item quantity="one">외 %d명</item>
+        <item quantity="other">외 %d명</item>
+    </plurals>
+    <plurals name="search_followers_count">
+        <item quantity="one">팔로워 %d명</item>
+        <item quantity="other">팔로워 %d명</item>
+    </plurals>
+
+    <!-- Bot List -->
+    <string name="bot_list_title_film">큐레이션 영화 봇</string>
+    <string name="bot_list_title_music">큐레이션 음악 봇</string>
+    <string name="bot_list_empty">사용할 수 있는 봇이 없어요</string>
+
+    <!-- Contact Friends List -->
+    <string name="contacts_list_title">Corus의 친구</string>
+    <string name="contacts_list_empty">Corus에서 연락처를 찾을 수 없어요</string>
+
+    <!-- Suggested Users List -->
+    <string name="suggested_users_default_title">취향 매치</string>
+    <string name="suggested_users_empty">사용할 수 있는 추천이 없어요</string>
+    <string name="suggested_users_joined_format">%1$s 전 가입</string>
+    <string name="suggested_users_member_since_format">%1$s 전부터 멤버</string>
+
+    <!-- Notifications: message templates (mirrors iOS localizedMessage by type) -->
+    <string name="notif_msg_like">님이 회원님의 %s을(를) 좋아합니다.</string>
+    <string name="notif_msg_comment_with_text">님이 댓글을 남겼습니다: %s</string>
+    <string name="notif_msg_comment_no_text">님이 회원님의 %s에 댓글을 남겼습니다.</string>
+    <string name="notif_msg_comment_like">님이 회원님의 댓글을 좋아합니다.</string>
+    <string name="notif_msg_mention_with_text">님이 회원님을 언급했습니다: %s</string>
+    <string name="notif_msg_mention_no_text">님이 댓글에서 회원님을 언급했습니다.</string>
+    <string name="notif_msg_tag">님이 %s에서 회원님을 언급했습니다.</string>
+    <string name="notif_msg_save">님이 회원님의 %s을(를) 저장했습니다.</string>
+    <string name="notif_msg_follow">님이 회원님을 팔로우하기 시작했습니다.</string>
+    <string name="notif_msg_new_post">님이 새 %s을(를) 올렸습니다.</string>
+    <string name="notif_msg_reply_with_text">님이 회원님의 댓글에 답글을 남겼습니다: %s</string>
+    <string name="notif_msg_reply_no_text">님이 회원님의 댓글에 답글을 남겼습니다.</string>
+    <string name="notif_msg_contact_joined">님이 %s에 가입했어요!</string>
+    <string name="notif_msg_repost">님이 회원님의 %s을(를) 리포스트했습니다.</string>
+    <string name="notif_msg_taste_match_default">님이 새로운 취향 매치예요.</string>
+    <string name="notif_msg_favorite">님이 회원님을 즐겨찾기에 추가했습니다.</string>
+    <string name="notif_msg_play_milestone">회원님의 corus가 %1$d번 재생되었어요.</string>
+    <string name="notif_favorite_someone">누군가</string>
+    <string name="notif_favorite_sheet_title">팬이 생겼어요</string>
+    <string name="notif_favorite_sheet_body">누군가 회원님을 즐겨찾기에 추가해서 회원님의 게시물을 더 쉽게 챙겨 볼 수 있게 되었어요.</string>
+    <string name="notif_favorite_sheet_nudge">회원님도 사람을 즐겨찾기할 수 있어요. 누구의 프로필에서든 ☆를 누르기만 하면 돼요.</string>
+    <string name="notif_favorite_sheet_dismiss">확인</string>
+
+    <!-- Tab bar -->
+    <string name="tab_feed">피드</string>
+    <string name="tab_search">검색</string>
+    <string name="tab_post">게시</string>
+    <string name="tab_activity">활동</string>
+    <string name="tab_profile">프로필</string>
+
+    <!-- Time / relative -->
+    <string name="relative_time_just_now">방금 전</string>
+    <string name="post_time_just_now">방금 전</string>
+    <plurals name="post_time_minutes_ago">
+        <item quantity="one">%d분 전</item>
+        <item quantity="other">%d분 전</item>
+    </plurals>
+    <plurals name="post_time_hours_ago">
+        <item quantity="one">%d시간 전</item>
+        <item quantity="other">%d시간 전</item>
+    </plurals>
+    <plurals name="post_time_days_ago">
+        <item quantity="one">%d일 전</item>
+        <item quantity="other">%d일 전</item>
+    </plurals>
+    <string name="post_time_date_format_same_year">M월 d일</string>
+    <string name="post_time_date_format_other_year">yyyy년 M월 d일</string>
+
+    <!-- Auth -->
+    <string name="auth_cd_corus_logo">Corus 로고</string>
+    <string name="auth_tagline">좋아하는 걸 공유하세요</string>
+    <string name="auth_button_google">Google로 계속하기</string>
+    <string name="auth_button_apple">Apple로 계속하기</string>
+    <string name="auth_button_phone">전화번호로 계속하기</string>
+    <string name="auth_phone_prompt">전화번호를 입력하세요</string>
+    <string name="auth_button_send_code">코드 전송</string>
+    <string name="auth_button_verify">인증</string>
+    <string name="auth_phone_code_sent_format">%1$s %2$s(으)로 전송된 6자리 코드를 입력하세요</string>
+    <string name="auth_code_placeholder">123456</string>
+    <string name="auth_google_signin_error">Google로 로그인하지 못했어요. 다시 시도해 주세요.</string>
+    <string name="auth_apple_signin_error">Apple로 로그인하지 못했어요. 다시 시도해 주세요.</string>
+    <string name="auth_error_account_suspended">회원님의 계정이 정지되었어요. 오류라고 생각되면 지원팀에 문의해 주세요.</string>
+    <string name="auth_error_verification_failed">인증에 실패했어요. 다시 시도해 주세요.</string>
+    <string name="auth_error_could_not_send_code">인증 코드를 전송하지 못했어요. 다시 시도해 주세요.</string>
+    <string name="auth_error_invalid_code">잘못된 인증 코드예요. 다시 시도해 주세요.</string>
+    <string name="auth_error_generic">문제가 발생했어요. 다시 시도해 주세요.</string>
+    <string name="auth_error_delete_account">계정을 삭제하지 못했어요. 다시 시도해 주세요.</string>
+    <string name="auth_error_invalid_phone_reauth_code">잘못된 코드예요. 다시 시도해 주세요.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">환영해요</string>
+    <string name="onboarding_subtitle">프로필을 설정하세요</string>
+    <string name="onboarding_cd_avatar">프로필 사진</string>
+    <string name="onboarding_add_photo">사진 추가</string>
+    <string name="onboarding_full_name">이름</string>
+    <string name="onboarding_terms">계정을 만들면 이용약관 및 개인정보 처리방침에 동의하는 것이에요.</string>
+    <string name="onboarding_button_continue">계속</string>
+    <!-- Music-service onboarding (Choose Your Player) -->
+    <string name="music_service_title">플레이어 선택</string>
+    <string name="music_service_subtitle">선호하는 음악 서비스를 고르세요</string>
+    <string name="music_service_more_soon">더 많은 스트리밍 서비스 지원을 기대해 주세요.</string>
+    <string name="music_service_full_playback">구독자를 위한 전체 재생</string>
+    <string name="music_service_get_started">시작하기</string>
+    <string name="music_service_skip">건너뛰기</string>
+    <string name="onboarding_dialog_photo_title">프로필 사진</string>
+    <string name="onboarding_remove_photo">사진 제거</string>
+    <string name="onboarding_avatar_nudge_title">프로필 사진을 추가할까요?</string>
+    <string name="onboarding_avatar_nudge_message">사진을 추가하면 친구들이 Corus에서 회원님을 더 쉽게 찾을 수 있어요</string>
+    <string name="onboarding_add_photo_button">사진 추가</string>
+    <string name="onboarding_skip">건너뛰기</string>
+
+    <!-- Social Setup -->
+    <string name="social_setup_cd_corus_logo">Corus</string>
+    <string name="social_setup_find_friends_title">친구 찾기</string>
+    <string name="social_setup_find_friends_subtitle">이미 Corus에 있는 사람을 확인하세요</string>
+    <string name="social_setup_sync_explainer">연락처를 동기화해 Corus에 있을지도 모르는\n친구를 찾아보세요.</string>
+    <string name="social_setup_sync_button">연락처 동기화</string>
+    <string name="social_setup_sync_later">나중에 동기화</string>
+    <string name="social_setup_curate_title">피드 꾸미기</string>
+    <string name="social_setup_curate_subtitle">사람을 팔로우해서 피드를 만드세요</string>
+    <string name="social_setup_section_friends">👥 Corus의 친구</string>
+    <string name="social_setup_section_popular">🔥 Corus 인기</string>
+    <string name="social_setup_will_notify">가입하면 알려 드릴게요</string>
+    <string name="social_setup_seeall_friends">Corus의 친구</string>
+    <string name="social_setup_seeall_popular">Corus 인기</string>
+    <string name="social_setup_seeall_music_bots">큐레이션 음악 봇</string>
+    <string name="social_setup_seeall_film_bots">큐레이션 영화 봇</string>
+
+    <!-- Messaging: thread -->
+    <string name="messaging_thread_replying_to_format">%1$s님에게 답장</string>
+    <string name="messaging_thread_editing">메시지 편집 중</string>
+    <string name="messaging_thread_edited">수정됨</string>
+    <string name="messaging_thread_yourself">회원님 자신</string>
+    <string name="messaging_thread_message_fallback">메시지</string>
+    <string name="messaging_thread_you">나</string>
+    <string name="messaging_thread_cd_add_attachment">첨부 추가</string>
+    <string name="messaging_thread_attachment_photo">사진</string>
+    <string name="messaging_thread_attachment_song">곡</string>
+    <string name="messaging_thread_attachment_film">영화</string>
+    <string name="messaging_thread_placeholder">메시지...</string>
+    <string name="messaging_thread_cd_shared_image">공유된 이미지</string>
+    <string name="messaging_thread_sending">보내는 중...</string>
+    <string name="messaging_thread_user_messaging_disabled">이 사용자는 메시지를 받지 않아요</string>
+    <string name="messaging_thread_failed_to_deliver">전송하지 못했어요</string>
+    <string name="messaging_thread_tap_to_retry">· 눌러서 다시 시도</string>
+
+    <!-- Messaging: list -->
+    <string name="messaging_list_title">메시지</string>
+    <string name="messaging_list_cd_new_message">새 메시지</string>
+    <string name="messaging_list_empty">아직 메시지가 없어요</string>
+    <string name="messaging_list_new_message_title">새 메시지</string>
+    <string name="messaging_list_search_placeholder">사용자 이름 검색</string>
+    <string name="messaging_list_no_suggestions">추천이 없어요</string>
+    <string name="messaging_list_inbox_search_placeholder">메시지 검색</string>
+    <string name="messaging_list_no_matches">결과 없음</string>
+
+    <!-- Notifications (activity feed) -->
+    <string name="notifications_activity_title">활동</string>
+    <string name="notifications_cd_messages">메시지</string>
+    <string name="notifications_cd_unlike">좋아요 취소</string>
+    <string name="notifications_cd_like">좋아요</string>
+    <string name="notifications_empty_title">아직 활동이 없어요</string>
+    <string name="notifications_empty_subtitle">다른 사람들이 회원님의 coruses에 좋아요, 댓글, 저장을 하면 여기에 표시돼요</string>
+    <string name="notifications_replying_to_format">%1$s님에게 답글</string>
+    <string name="notifications_reply_placeholder">답글…</string>
+    <string name="notifications_cd_send_reply">답글 보내기</string>
+    <string name="notifications_toast_reply_sent">답글을 보냈어요</string>
+    <string name="notifications_toast_reply_failed">답글을 보내지 못했어요</string>
+
+    <!-- PostCard -->
+    <string name="post_card_reposted_from">리포스트:</string>
+    <string name="post_card_cd_more_options">더 보기</string>
+    <string name="post_card_finding_back_cover">뒷면 커버를 찾는 중…</string>
+    <string name="post_card_no_back_cover">뒷면 커버가 없어요</string>
+    <string name="post_card_cd_pause">일시정지</string>
+    <string name="post_card_view_film_page">영화 페이지 보기</string>
+    <string name="post_card_watch_trailer">예고편 보기</string>
+    <string name="post_card_cd_album_back_cover">앨범 뒷면 커버</string>
+    <string name="post_card_cd_play_spotify">Spotify에서 재생</string>
+    <string name="post_card_cd_play_soundcloud">SoundCloud에서 재생</string>
+    <string name="post_card_cd_track_unavailable">이 곡은 더 이상 SoundCloud에서 들을 수 없어요</string>
+    <string name="post_card_cd_like">좋아요</string>
+    <string name="post_card_cd_comment">댓글</string>
+    <string name="post_card_cd_share">공유</string>
+    <string name="post_card_cd_repost">리포스트</string>
+    <string name="post_card_cd_save">저장</string>
+    <string name="post_card_cd_watch_trailer">예고편 보기</string>
+    <string name="post_card_cd_close_trailer">예고편 닫기</string>
+    <string name="post_card_liked_by_prefix">"좋아요 누른 사람: "</string>
+    <string name="post_card_liked_by_and">" 외 "</string>
+    <plurals name="post_card_others_count">
+        <item quantity="one">외 %d명</item>
+        <item quantity="other">외 %d명</item>
+    </plurals>
+
+    <!-- Featured cards -->
+    <string name="featured_cd_like">좋아요</string>
+    <string name="featured_cd_play_spotify">Spotify에서 재생</string>
+    <string name="featured_cd_watch_trailer">예고편 보기</string>
+
+    <!-- Full screen image / avatar -->
+    <string name="full_screen_cd_avatar">전체 화면 프로필 사진</string>
+    <string name="full_screen_cd_image">전체 화면 이미지</string>
+    <string name="full_screen_cd_close">닫기</string>
+
+    <!-- GIF picker -->
+    <string name="gif_picker_search_placeholder">KLIPY 검색</string>
+    <string name="gif_picker_cd_search">검색</string>
+    <string name="gif_picker_cd_clear">지우기</string>
+    <string name="gif_picker_cd_gif">GIF</string>
+    <string name="gif_picker_powered_by">KLIPY 제공</string>
+
+    <!-- Mention text / flair badges -->
+    <string name="mention_cd_corus">Corus</string>
+    <string name="mention_badge_first">1등</string>
+    <string name="mention_badge_new_release">신작</string>
+    <string name="mention_badge_bot">봇</string>
+    <string name="mention_searching">검색 중…</string>
+
+    <!-- Mini player -->
+    <string name="mini_player_cd_pause">일시정지</string>
+    <string name="mini_player_cd_play">재생</string>
+    <string name="mini_player_cd_next">다음</string>
+    <string name="mini_player_cd_open_spotify">Spotify에서 열기</string>
+
+    <!-- Post action menu -->
+    <string name="post_menu_play_in_service">%1$s에서 재생</string>
+    <string name="post_menu_open_soundcloud">SoundCloud에서 열기</string>
+    <string name="post_menu_view_film_page">영화 페이지 보기</string>
+    <string name="post_menu_view_song_page">곡 페이지 보기</string>
+    <string name="post_menu_view_front_cover">앞면 커버 보기</string>
+    <string name="post_menu_view_back_cover">뒷면 커버 보기</string>
+    <string name="post_menu_repost">리포스트</string>
+    <string name="post_menu_share">공유</string>
+    <string name="post_menu_copy_link">링크 복사</string>
+    <string name="post_menu_edit_caption">캡션 편집</string>
+    <string name="post_menu_delete_post">게시물 삭제</string>
+    <string name="post_menu_report">신고</string>
+    <string name="post_menu_block_user">사용자 차단</string>
+    <string name="post_menu_clip_label_post_link">게시물 링크</string>
+
+    <!-- Post menu sheets (dialogs / toasts) -->
+    <string name="post_menu_toast_post_sent">게시물을 보냈어요!</string>
+    <string name="post_menu_toast_link_copied">링크를 복사했어요</string>
+    <string name="post_menu_toast_caption_updated">캡션을 변경했어요</string>
+    <string name="post_menu_dialog_delete_title">게시물 삭제</string>
+    <string name="post_menu_dialog_delete_message">이 게시물을 정말 삭제할까요? 되돌릴 수 없어요.</string>
+    <string name="post_menu_dialog_delete_confirm">삭제</string>
+    <string name="post_menu_dialog_delete_cancel">취소</string>
+
+    <!-- Report sheet -->
+    <string name="report_cancel">취소</string>
+    <string name="report_title">신고</string>
+    <string name="report_submit">제출</string>
+    <string name="report_why_post">이 게시물을 신고하는 이유가 무엇인가요?</string>
+    <string name="report_why_comment">이 댓글을 신고하는 이유가 무엇인가요?</string>
+    <string name="report_why_user">이 사용자를 신고하는 이유가 무엇인가요?</string>
+    <string name="report_why_message">이 메시지를 신고하는 이유가 무엇인가요?</string>
+    <string name="report_reason_spam">스팸 또는 사기</string>
+    <string name="report_reason_harassment">괴롭힘 또는 따돌림</string>
+    <string name="report_reason_hate">혐오 발언</string>
+    <string name="report_reason_nudity">노출 또는 성적 콘텐츠</string>
+    <string name="report_reason_violence">폭력 또는 위협</string>
+    <string name="report_reason_false_info">허위 정보</string>
+    <string name="report_reason_ip_violation">지식재산권 침해</string>
+    <string name="report_reason_other">기타</string>
+    <string name="report_details_placeholder">추가 세부 정보 (선택)</string>
+    <string name="report_thanks_title">신고해 주셔서 감사해요</string>
+    <string name="report_thanks_message">검토 후 필요하면 조치할게요.</string>
+
+    <!-- Review prompt -->
+    <string name="review_prompt_title">Corus가 마음에 드시나요?</string>
+    <string name="review_prompt_message">Corus를 즐겁게 사용하고 계시다면 잠깐 시간을 내서 평가해 주시겠어요? 큰 힘이 돼요!</string>
+    <string name="review_prompt_button">리뷰 남기기</string>
+    <string name="review_prompt_not_now">나중에</string>
+
+    <!-- Selfie capture -->
+    <string name="selfie_cd_cancel">취소</string>
+    <string name="selfie_permission_title">카메라 접근이 필요해요</string>
+    <string name="selfie_permission_message">프로필 사진을 촬영하려면 카메라 접근을 허용하세요.</string>
+    <string name="selfie_permission_cancel">취소</string>
+    <string name="selfie_permission_allow">허용</string>
+
+    <!-- Share post sheet -->
+    <string name="share_post_search_placeholder">검색</string>
+    <string name="share_post_cd_clear">지우기</string>
+    <string name="share_post_cancel">취소</string>
+    <string name="share_post_no_results">결과를 찾을 수 없어요</string>
+    <string name="share_post_no_recent">최근 연락처가 없어요</string>
+    <string name="share_post_message_placeholder">메시지를 작성하세요...</string>
+    <string name="share_post_send">보내기</string>
+    <string name="share_post_repost">리포스트</string>
+    <string name="share_post_whatsapp">WhatsApp</string>
+    <string name="share_post_share_link">링크 공유</string>
+    <string name="share_post_share_chooser">공유 방법</string>
+    <string name="share_post_copy_link">링크 복사</string>
+    <string name="share_post_copied">복사됨</string>
+    <string name="share_post_clip_label">Corus 링크</string>
+    <string name="share_post_cd_selected">선택됨</string>
+    <string name="share_post_cd_instagram">Instagram</string>
+    <string name="share_post_instagram">Instagram</string>
+    <string name="share_post_x">X</string>
+    <string name="share_post_cd_x">X에 공유</string>
+
+    <!-- Song/Film picker sheet -->
+    <string name="song_film_picker_songs">곡</string>
+    <string name="song_film_picker_films">영화</string>
+    <string name="song_film_picker_search_song">곡 검색</string>
+    <string name="song_film_picker_search_film">영화 검색</string>
+    <string name="song_film_picker_cd_clear">지우기</string>
+
+    <!-- Trophy celebration -->
+    <string name="trophy_cd_trophy">트로피</string>
+    <string name="trophy_title">최초 공유!</string>
+    <string name="trophy_subtitle">회원님이 Corus에서 이걸 가장 먼저 올렸어요</string>
+    <string name="trophy_button">좋아요!</string>
+
+    <!-- User avatar -->
+    <string name="user_avatar_cd">사용자 프로필 사진</string>
+
+    <!-- Voice note recorder -->
+    <string name="voice_note_record">음성 메모 녹음</string>
+    <string name="voice_note_cd_stop">녹음 중지</string>
+    <string name="voice_note_cd_pause">일시정지</string>
+    <string name="voice_note_cd_play">재생</string>
+    <string name="voice_note_cd_delete">녹음 삭제</string>
+    <string name="voice_note_max_duration_format">/ %1$s</string>
+
+    <!-- Compose screen -->
+    <string name="compose_cd_back">뒤로</string>
+    <string name="compose_title">corus 정하기</string>
+    <string name="compose_cancel">취소</string>
+    <string name="compose_search_song">곡 검색</string>
+    <string name="compose_search_film">영화 검색</string>
+    <string name="compose_cd_pause">일시정지</string>
+    <string name="compose_cd_play_preview">미리듣기 재생</string>
+    <string name="compose_cd_pause_preview">미리듣기 일시정지</string>
+    <string name="compose_segment_songs">곡</string>
+    <string name="compose_segment_films">영화</string>
+    <string name="compose_segment_text">텍스트</string>
+    <string name="compose_segment_voice">음성</string>
+    <string name="compose_caption_placeholder">캡션을 작성하세요...</string>
+    <string name="compose_char_count_format">%1$d/700</string>
+    <string name="compose_post_button">CORUS 정하기 →</string>
+    <string name="compose_reposted_from_format">@%1$s님의 리포스트</string>
+    <string name="compose_director_unknown">알 수 없음</string>
+    <string name="compose_trending_songs">인기 곡</string>
+    <string name="compose_trending_films">인기 영화</string>
+
+    <!-- Cymbal Club / Subscription -->
+    <string name="club_cd_close">닫기</string>
+    <string name="club_title">Corus Club 가입하기</string>
+    <string name="club_subtitle_default">Corus를 응원하세요. 혜택을 받으세요.</string>
+    <string name="club_subtitle_vinyl_picker">바이닐을 꾸미고 더 많은 혜택을 누리세요.</string>
+    <string name="club_subtitle_frame_picker">프레임을 꾸미고 더 많은 혜택을 누리세요.</string>
+    <string name="club_subtitle_flair_picker">배지 플레어를 꾸미고 더 많은 혜택을 누리세요.</string>
+    <string name="club_subtitle_spin_picker">바이닐을 돌리고 더 많은 혜택을 누리세요.</string>
+    <string name="club_subtitle_style_picker">프로필 스타일을 꾸미고 더 많은 혜택을 누리세요.</string>
+    <string name="club_subtitle_post_limit">모든 기능을 잠금 해제하세요. Corus를 응원하세요.</string>
+    <string name="club_subtitle_post_limit_trial_format">%1$s 동안 무료 체험</string>
+    <string name="club_post_limit_eyebrow">일일 한도 도달</string>
+    <string name="club_subtitle_first_post">Corus를 응원하세요. 혜택을 받으세요.</string>
+    <string name="club_subtitle_tenth_post">Corus를 응원하세요. 혜택을 받으세요.</string>
+    <string name="club_subtitle_playlist_limit">플레이리스트 만들기를 잠금 해제하세요.</string>
+    <string name="club_subtitle_settings">Corus를 응원하세요. 혜택을 받으세요.</string>
+    <string name="club_feature_unlimited">무제한 게시물</string>
+    <string name="club_feature_favorites">무제한 즐겨찾기</string>
+    <string name="club_feature_verified">맞춤 프로필 배지</string>
+    <string name="club_feature_customization">프로필 꾸미기</string>
+    <string name="club_feature_playlists">플레이리스트 내보내기</string>
+    <string name="club_feature_support">Corus를 광고 없이 유지하기</string>
+    <string name="club_disclaimer">Corus는 광고가 없는 것을 자랑스럽게 생각해요. Club 멤버는 Corus가 독립적이고 지속 가능하도록 도와줘요.</string>
+    <string name="club_plan_monthly">월간</string>
+    <string name="club_plan_yearly">연간</string>
+    <string name="club_plan_monthly_price_format">%1$s/월</string>
+    <string name="club_plan_yearly_price_format">%1$s/년</string>
+    <string name="club_plan_monthly_default_price">$2.99</string>
+    <string name="club_plan_yearly_default_price">$19.99</string>
+    <string name="club_cta_member">회원님은 멤버예요!</string>
+    <string name="club_cta_try_free_format">%1$s 동안 무료 체험</string>
+    <string name="club_cta_join">Club 가입</string>
+    <string name="club_monthly_detail_trial_format">%1$s 무료, 이후 %2$s/월</string>
+    <string name="club_monthly_detail_billed_format">%1$s/월로 청구돼요.</string>
+    <string name="club_yearly_detail_trial_format">%1$s 무료, 이후 %2$s/년</string>
+    <string name="club_yearly_detail_only_format">월 %1$s만</string>
+    <string name="club_period_year_one">1년</string>
+    <string name="club_period_year_format">%1$d년</string>
+    <string name="club_period_month_one">1개월</string>
+    <string name="club_period_month_format">%1$d개월</string>
+    <string name="club_period_week_one">1주</string>
+    <string name="club_period_week_format">%1$d주</string>
+    <string name="club_period_day_one">1일</string>
+    <string name="club_period_day_format">%1$d일</string>
+    <string name="club_toast_welcome">Club에 오신 것을 환영해요!</string>
+    <string name="club_toast_restored">구매를 복원했어요!</string>
+    <string name="club_restore_purchases">구매 복원</string>
+    <string name="club_terms">약관</string>
+    <string name="club_privacy">개인정보</string>
+    <string name="club_error_purchase_failed">문제가 발생했어요. 다시 시도해 주세요.</string>
+    <string name="club_error_no_subscription">활성 구독을 찾을 수 없어요.</string>
+    <string name="club_error_no_subscription_log">No active subscription found</string>
+
+    <!-- Hashtag feed -->
+    <string name="hashtag_feed_cd_back">뒤로</string>
+    <string name="hashtag_feed_count_format">%1$s coruses</string>
+    <string name="hashtag_feed_load_error">게시물을 불러오지 못했어요</string>
+    <string name="hashtag_feed_try_again">다시 시도</string>
+    <string name="hashtag_feed_empty">아직 이 해시태그의 게시물이 없어요</string>
+    <string name="hashtag_feed_follow">팔로우</string>
+    <string name="hashtag_feed_following">팔로잉</string>
+
+    <!-- Navigation / tabs -->
+    <string name="nav_toast_caption_updated">캡션을 변경했어요</string>
+    <string name="tab_cd_compose">작성</string>
+
+    <!-- NowPlayingManager -->
+    <string name="now_playing_generating_playlist">플레이리스트를 만드는 중…</string>
+
+    <!-- Avatar crop -->
+    <string name="avatar_crop_cancel">취소</string>
+    <string name="avatar_crop_use_photo">사진 사용</string>
+
+    <!-- Full screen image -->
+    <string name="full_screen_image_cd">전체 화면 이미지</string>
+    <string name="full_screen_image_cd_close">닫기</string>
+
+    <!-- Comments audience -->
+    <string name="comments_audience_everyone">모두 댓글 가능</string>
+    <string name="comments_audience_followers">팔로워만</string>
+    <string name="comments_audience_following">내가 팔로우하는 계정</string>
+    <string name="comments_audience_off">댓글 끔</string>
+    <string name="comments_locked_off">댓글이 꺼져 있어요</string>
+    <string name="comments_locked_followers_known">@%1$s님의 팔로워만 댓글을 달 수 있어요.</string>
+    <string name="comments_locked_followers_unknown">작성자의 팔로워만 댓글을 달 수 있어요.</string>
+    <string name="comments_locked_authorfollow_known">@%1$s님이 팔로우하는 사람만 댓글을 달 수 있어요.</string>
+    <string name="comments_locked_authorfollow_unknown">작성자가 팔로우하는 사람만 댓글을 달 수 있어요.</string>
+    <string name="comments_locked_follow_cta">팔로우</string>
+    <string name="comments_locked_following_cta">팔로잉…</string>
+</resources>

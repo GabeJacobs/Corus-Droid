@@ -112,6 +112,12 @@ class SettingsViewModel @Inject constructor(
             AppLanguage.ENGLISH -> "en"
             AppLanguage.PORTUGUESE_BR -> "pt-BR"
             AppLanguage.SPANISH -> "es"
+            AppLanguage.JAPANESE -> "ja"
+            AppLanguage.CHINESE_SIMPLIFIED -> "zh-Hans"
+            AppLanguage.GERMAN -> "de"
+            AppLanguage.FRENCH -> "fr"
+            AppLanguage.KOREAN -> "ko"
+            AppLanguage.ITALIAN -> "it"
         }
         viewModelScope.launch(Dispatchers.IO) {
             try {

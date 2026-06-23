@@ -1,0 +1,976 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Corus</string>
+    <string name="post_noun">corus</string>
+    <string name="post_noun_plural">coruses</string>
+    <string name="club_name">Corus Club</string>
+
+    <!-- Common -->
+    <string name="common_back">返回</string>
+    <string name="common_selected">已选择</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_save">保存</string>
+    <string name="common_delete">删除</string>
+    <string name="common_ok">好</string>
+    <string name="common_submit">提交</string>
+    <string name="common_verify">验证</string>
+    <string name="common_confirm">确认</string>
+    <string name="common_error">错误</string>
+    <string name="common_unblock">取消屏蔽</string>
+    <string name="common_unmute">取消静音</string>
+
+    <!-- Settings: Language -->
+    <string name="settings_row_language">语言</string>
+    <string name="language_screen_title">语言</string>
+    <string name="language_section_title">应用语言</string>
+    <string name="language_section_subtitle">选择 Corus 使用的语言，或跟随你的设备</string>
+    <string name="language_option_system">跟随系统</string>
+    <string name="language_option_english">English</string>
+    <string name="language_option_portuguese_br">Português (Brasil)</string>
+    <string name="language_option_spanish">Español</string>
+    <string name="language_option_japanese">日本語</string>
+    <string name="language_option_chinese_simplified">简体中文</string>
+    <string name="language_option_german">Deutsch</string>
+    <string name="language_option_french">Français</string>
+    <string name="language_option_korean">한국어</string>
+    <string name="language_option_italian">Italiano</string>
+
+    <!-- Settings: Main -->
+    <string name="settings_screen_title">设置</string>
+    <string name="settings_reauth_failed">重新认证失败。请重试。</string>
+    <string name="settings_reauth_could_not_start">无法开始重新认证。</string>
+    <string name="settings_reauth_signout_prompt">请退出登录后重新登录，然后重试。</string>
+    <string name="settings_account_deleted_toast">你的账户已被删除。</string>
+    <string name="settings_section_corus_club">CORUS CLUB</string>
+    <string name="settings_row_join_club">加入 Corus Club</string>
+    <string name="settings_row_join_club_subtitle">自定义资料徽章、无限发布等更多权益</string>
+    <string name="settings_row_restore_purchases_subtitle">已经是会员？点按以同步你的订阅</string>
+    <string name="settings_restore_toast_success">订阅已恢复</string>
+    <string name="settings_restore_toast_none">未找到有效订阅</string>
+    <string name="settings_restore_toast_failed">无法恢复。请重试。</string>
+    <string name="settings_section_invite">好友</string>
+    <string name="settings_row_invite_friends">邀请好友</string>
+    <string name="settings_row_invite_friends_subtitle">邀请好友和你一起使用 Corus</string>
+    <string name="settings_row_sync_contacts">同步通讯录</string>
+    <string name="settings_row_sync_contacts_subtitle">从通讯录中找到好友</string>
+    <string name="sync_contacts_permission_denied">在设备设置中允许通讯录访问，以在 Corus 上找到好友</string>
+    <string name="settings_section_general">通用</string>
+    <string name="settings_row_music_service">音乐服务</string>
+    <string name="settings_row_autoplay_title">自动播放下一首</string>
+    <string name="settings_row_autoplay_subtitle">一首结束后自动播放下一首</string>
+    <string name="settings_row_feed_follows_now_playing_title">自动滚动到正在播放</string>
+    <string name="settings_row_feed_follows_now_playing_subtitle">每播放一首新歌就把动态滚动到该歌曲</string>
+    <string name="settings_row_haptics">触感反馈</string>
+    <string name="settings_row_haptics_subtitle">交互时的振动反馈</string>
+    <string name="settings_section_notifications_messaging">通知和私信</string>
+    <string name="settings_row_notifications">通知</string>
+    <string name="settings_row_notifications_subtitle">管理推送通知偏好</string>
+    <string name="settings_row_who_can_message">谁可以给我发私信</string>
+    <string name="settings_message_everyone">所有人</string>
+    <string name="settings_message_my_followers">我的粉丝</string>
+    <string name="settings_message_people_i_follow">我关注的人</string>
+    <string name="settings_message_nobody">无人</string>
+    <string name="settings_section_account">账户</string>
+    <string name="settings_row_blocked_users">已屏蔽用户</string>
+    <string name="settings_row_muted_users">已静音用户</string>
+    <string name="settings_row_username">用户名</string>
+    <string name="settings_row_phone_number">手机号</string>
+    <string name="settings_row_sign_out">退出登录</string>
+    <string name="settings_row_delete_account">删除账户</string>
+    <string name="settings_section_support">支持</string>
+    <string name="settings_share_app_text">来看看 Corus，分享你的音乐和电影品味！https://corus.fm</string>
+    <string name="settings_share_app_chooser">分享 Corus</string>
+    <string name="settings_row_send_feedback">发送反馈</string>
+    <string name="settings_row_contact_us">联系我们</string>
+    <string name="settings_row_rate_app">评价应用</string>
+    <string name="settings_row_privacy_policy">隐私政策</string>
+    <string name="settings_row_terms_of_service">服务条款</string>
+    <string name="settings_social_website">网站</string>
+    <string name="settings_social_instagram">Instagram</string>
+    <string name="settings_social_x">X</string>
+    <string name="settings_social_discord">Discord</string>
+    <string name="settings_version_format">Corus v%s</string>
+    <string name="settings_dialog_delete_title">删除账户？</string>
+    <string name="settings_dialog_delete_message">这将永久删除你的账户、所有 coruses、赞、评论和粉丝。此操作无法撤销。</string>
+    <string name="settings_dialog_deleting_title">正在删除你的账户…</string>
+    <string name="settings_dialog_deleting_message">这可能需要一点时间。</string>
+    <string name="settings_dialog_verify_title">验证你的号码</string>
+    <string name="settings_dialog_verify_message">我们已向你的手机发送了验证码。请输入以确认删除账户。</string>
+    <string name="settings_dialog_verify_code_label">验证码</string>
+
+    <!-- Settings: Notifications screen -->
+    <string name="notifications_screen_title">通知</string>
+    <string name="notifications_row_likes">赞</string>
+    <string name="notifications_row_comments_replies">评论和回复</string>
+    <string name="notifications_row_new_followers">新粉丝</string>
+    <string name="notifications_row_follow_requests">关注请求</string>
+    <string name="notifications_row_contact_joined">联系人加入</string>
+    <string name="notifications_row_plays">播放</string>
+    <string name="notifications_row_messages">消息</string>
+    <string name="notifications_row_read_receipts">已读回执</string>
+
+    <!-- Settings: Appearance -->
+    <string name="settings_section_appearance">外观</string>
+    <string name="appearance_screen_title">外观</string>
+    <string name="appearance_row_theme">主题</string>
+    <string name="appearance_row_theme_subtitle">使用浅色、深色，或跟随你的设备</string>
+    <string name="appearance_option_light">浅色</string>
+    <string name="appearance_option_dark">深色</string>
+    <string name="appearance_option_system">系统</string>
+
+    <!-- Settings: Blocked Users -->
+    <string name="blocked_users_screen_title">已屏蔽用户</string>
+    <string name="blocked_users_empty">没有已屏蔽的用户</string>
+
+    <!-- Settings: Muted Users -->
+    <string name="muted_users_screen_title">已静音用户</string>
+    <string name="muted_users_empty">没有已静音的用户</string>
+
+    <!-- Settings: Change Username -->
+    <string name="change_username_screen_title">修改用户名</string>
+    <string name="change_username_username_updated_toast">用户名已更新！</string>
+    <string name="change_username_field_label">用户名</string>
+    <string name="change_username_status_available">该用户名可用</string>
+    <string name="change_username_status_taken">该用户名已被使用</string>
+    <string name="change_username_status_invalid_default">仅限字母、数字、下划线和句点</string>
+    <string name="change_username_status_checking">正在检查可用性...</string>
+
+    <!-- Settings: Change Phone Number -->
+    <string name="change_phone_screen_title">手机号</string>
+    <string name="change_phone_section_verification">验证码</string>
+    <string name="change_phone_code_placeholder">6 位验证码</string>
+    <string name="change_phone_resend_code">重新发送验证码</string>
+    <string name="change_phone_resend_in_format">%d 秒后重新发送</string>
+    <string name="change_phone_use_different_number">使用其他号码</string>
+    <string name="change_phone_code_sent_message_format">输入发送至 %1$s %2$s 的 6 位验证码</string>
+    <string name="change_phone_section_new_number">新手机号</string>
+    <string name="change_phone_placeholder">手机号</string>
+    <string name="change_phone_send_code">发送验证码</string>
+    <string name="change_phone_send_code_explainer">我们会发送验证码以确认此号码。</string>
+    <string name="change_phone_select_country_title">选择国家/地区</string>
+    <string name="change_phone_updated_title">手机号已更新</string>
+    <string name="change_phone_updated_message">你的手机号已更新。</string>
+
+    <!-- Settings: Feedback -->
+    <string name="feedback_screen_title">发送反馈</string>
+    <string name="feedback_subject_label">主题</string>
+    <string name="feedback_subject_placeholder">简要概述</string>
+    <string name="feedback_description_label">描述</string>
+    <string name="feedback_description_placeholder">告诉我们更多...</string>
+    <string name="feedback_device_info_note">设备信息会自动包含在内。</string>
+    <string name="feedback_submitting">提交中...</string>
+    <string name="feedback_success">感谢你的反馈！</string>
+
+    <!-- Feed: shared -->
+    <string name="feed_app_title">corus</string>
+    <string name="feed_screen_title_corus">corus</string>
+    <string name="feed_screen_title_Corus">Corus</string>
+    <string name="feed_cd_filter">筛选</string>
+    <string name="feed_cd_generate_playlist">用动态生成歌单</string>
+    <string name="feed_cd_more_options">更多选项</string>
+    <string name="feed_cd_back">返回</string>
+    <string name="feed_filter_all">全部</string>
+    <string name="feed_filter_music">仅音乐</string>
+    <string name="feed_filter_film">仅电影</string>
+    <string name="feed_filter_music_new_releases">音乐新发布</string>
+    <string name="feed_filter_film_new_releases">电影新上映</string>
+    <string name="feed_empty_new_releases_title">还没有新发布</string>
+    <string name="feed_empty_new_releases_subtitle">稍后再来查看你关注的人发布的更多新作。</string>
+    <string name="feed_empty_new_releases_show_all">显示全部内容</string>
+    <string name="feed_empty_favorites_title">还没有收藏</string>
+    <string name="feed_empty_favorites_subtitle">点按某人资料页上的 ☆，即可把他们添加到这里。</string>
+    <string name="feed_empty_favorites_button">返回关注</string>
+    <!-- Favorites empty state when a filter is active: the user has favorites, none match the filter. -->
+    <string name="feed_empty_favorites_music_title">你的收藏还没有分享音乐</string>
+    <string name="feed_empty_favorites_music_subtitle">你的收藏还没有人分享过音乐。换个筛选条件或稍后再来看看。</string>
+    <string name="feed_empty_favorites_film_title">你的收藏还没有分享电影</string>
+    <string name="feed_empty_favorites_film_subtitle">你的收藏还没有人分享过电影。换个筛选条件或稍后再来看看。</string>
+    <string name="feed_empty_favorites_new_music_title">你的收藏还没有分享新音乐</string>
+    <string name="feed_empty_favorites_new_music_subtitle">你的收藏还没有分享任何新作。换个筛选条件或稍后再来看看。</string>
+    <string name="feed_empty_favorites_new_film_title">你的收藏还没有分享新电影</string>
+    <string name="feed_empty_favorites_new_film_subtitle">你的收藏还没有分享任何新电影。换个筛选条件或稍后再来看看。</string>
+    <string name="feed_empty_clear_filter">清除筛选</string>
+    <string name="feed_empty_invite_title">有几个好友，\ncorus 就很好玩了。</string>
+    <string name="feed_empty_invite_subtitle">认识品味不错的人吗？</string>
+    <string name="feed_empty_invite_button">邀请好友</string>
+    <string name="feed_empty_invite_share_text">来看看 Corus，分享你的音乐和电影品味！https://corus.fm</string>
+    <string name="feed_empty_invite_chooser">邀请好友</string>
+    <string name="feed_empty_curated_music">或关注一些精选音乐机器人</string>
+    <string name="feed_empty_curated_film">或一些精选影片机器人</string>
+    <string name="feed_empty_see_all">查看全部</string>
+    <string name="feed_offline_title">无法连接</string>
+    <string name="feed_offline_subtitle">请检查你的网络连接后重试。</string>
+    <string name="feed_offline_retry">重试</string>
+    <string name="search_service_unavailable_title">嗯，有点不对劲</string>
+    <string name="search_service_unavailable_subtitle">我们暂时无法连接到搜索服务。请稍后重试。</string>
+    <string name="offline_banner_no_connection">没有网络连接</string>
+    <string name="feed_toast_failed_send_post">无法发送内容</string>
+    <string name="feed_toast_post_reported">内容已举报</string>
+    <string name="feed_toast_failed_report">无法举报内容</string>
+    <string name="feed_toast_user_blocked">用户已屏蔽</string>
+    <string name="feed_toast_failed_block">无法屏蔽用户</string>
+    <string name="feed_toast_user_muted">用户已静音</string>
+    <string name="feed_toast_failed_mute">无法静音用户</string>
+    <string name="feed_toast_post_deleted">内容已删除</string>
+    <string name="feed_toast_failed_delete">无法删除内容</string>
+
+    <!-- Feed: post detail -->
+    <string name="post_detail_not_found">找不到内容</string>
+    <string name="post_detail_reposted_from">转发自</string>
+    <string name="post_detail_reposted_from_username_format">@%1$s</string>
+    <string name="post_detail_finding_back_cover">正在查找封底…</string>
+    <string name="post_detail_no_back_cover">没有可用的封底</string>
+    <string name="post_detail_cd_album_back_cover">专辑封底</string>
+    <string name="post_detail_cd_pause">暂停</string>
+    <string name="post_detail_cd_watch_trailer">观看预告片</string>
+    <string name="post_detail_cd_play_spotify">在 Spotify 上播放</string>
+    <string name="post_detail_cd_save">收藏</string>
+    <string name="post_detail_share_chooser">分享</string>
+    <string name="post_detail_view_all_comments_format">查看全部 %1$d 条评论</string>
+
+    <!-- Feed: comments -->
+    <string name="comments_screen_title">评论</string>
+    <string name="comments_input_placeholder_add">添加评论...</string>
+    <string name="comments_input_placeholder_reply">回复...</string>
+    <string name="comments_input_placeholder_edit">编辑你的评论...</string>
+    <string name="comments_editing_your_comment">正在编辑你的评论</string>
+    <string name="comments_editing_comment">正在编辑评论</string>
+    <string name="comments_replying_to_format">正在回复 @%1$s</string>
+    <string name="comments_cd_cancel_edit">取消编辑</string>
+    <string name="comments_cd_cancel_reply">取消回复</string>
+    <string name="comments_cd_send">发送</string>
+    <string name="comments_cd_send_gif">发送 GIF</string>
+    <string name="comments_cd_gif">GIF</string>
+    <string name="comments_cd_like_comment">赞评论</string>
+    <string name="comments_cd_like">赞</string>
+    <string name="comments_cd_options">评论选项</string>
+    <string name="comments_cd_back_to_comments">返回评论</string>
+    <string name="comments_reply">回复</string>
+    <string name="comments_edited">已编辑</string>
+    <string name="comments_no_comments">还没有评论</string>
+    <string name="comments_be_the_first">来当第一个评论的人吧！</string>
+    <string name="comments_start_conversation">开启对话</string>
+    <string name="comments_dialog_delete_title">删除评论？</string>
+    <string name="comments_dialog_delete_message">这条评论将被永久删除。</string>
+    <string name="comments_dialog_delete_confirm">删除</string>
+    <string name="comments_dialog_block_title_format">屏蔽 @%1$s？</string>
+    <string name="comments_dialog_block_message">他们将无法看到你的资料或内容，你也看不到他们的。</string>
+    <string name="comments_dialog_block_confirm">屏蔽</string>
+    <string name="comments_menu_copy">复制</string>
+    <string name="comments_menu_report">举报</string>
+    <string name="comments_menu_block">屏蔽</string>
+    <string name="comments_menu_edit">编辑</string>
+    <string name="comments_menu_delete">删除</string>
+    <string name="comments_toast_copied">已复制</string>
+    <string name="comments_send_error_send">无法发送评论</string>
+    <string name="comments_send_error_gif">无法发送 GIF</string>
+    <string name="comments_edit_error">无法保存更改。请重试。</string>
+
+    <!-- Comment attachments (song / film) -->
+    <string name="comment_attachment_attach">附加歌曲或电影</string>
+    <string name="comment_attachment_remove">移除附件</string>
+    <string name="comment_attachment_play_preview">播放试听</string>
+    <string name="comment_attachment_pause_preview">暂停试听</string>
+    <string name="comment_attachment_picker_title">附加到评论</string>
+    <string name="comment_attachment_picker_reply_title">附加到回复</string>
+    <string name="comment_attachment_song">歌曲</string>
+    <string name="comment_attachment_film">电影</string>
+    <string name="comment_attachment_gif">GIF</string>
+
+    <!-- Feed: likes / comment likes -->
+    <string name="likes_title">赞</string>
+    <string name="likes_search_placeholder">搜索</string>
+    <string name="likes_cd_search">搜索</string>
+    <string name="likes_cd_clear">清除</string>
+    <string name="likes_empty_no_likes">还没有赞</string>
+    <string name="likes_empty_no_results">没有结果</string>
+    <string name="likes_button_following">已关注</string>
+    <string name="likes_button_follow_back">回关</string>
+    <string name="likes_button_follow">关注</string>
+
+    <!-- Feed: edit caption -->
+    <string name="edit_caption_screen_title">编辑文字说明</string>
+    <string name="edit_caption_placeholder">写点文字说明...</string>
+
+    <!-- Feed: film detail -->
+    <string name="film_detail_post_film">发布电影</string>
+    <string name="film_detail_watch_trailer">观看预告片</string>
+    <string name="film_detail_where_to_watch">在哪观看</string>
+    <string name="film_detail_year_format">(%1$s)</string>
+    <string name="film_detail_posted_by">发布者</string>
+    <string name="film_detail_load_error">无法加载内容</string>
+    <string name="film_detail_try_again">重试</string>
+    <string name="film_detail_empty">还没有人发布过这部电影</string>
+    <string name="film_detail_be_the_first">来当第一个吧！</string>
+
+    <!-- Feed: song detail -->
+    <string name="song_detail_post_song">+ 发布歌曲</string>
+    <string name="song_detail_play_spotify">在 Spotify 中播放</string>
+    <!-- Preference-aware playback CTA: %1$s is the music-service name (e.g. Spotify, Deezer) -->
+    <string name="song_detail_play_in_service">在 %1$s 中播放</string>
+    <string name="song_detail_open_in_service">在 %1$s 中打开</string>
+    <string name="song_detail_listen_soundcloud">在 SoundCloud 上收听</string>
+    <string name="song_detail_cd_pause_preview">暂停试听</string>
+    <string name="song_detail_cd_play_preview">播放试听</string>
+    <string name="song_detail_posted_by">发布者</string>
+    <string name="song_detail_load_error">无法加载内容</string>
+    <string name="song_detail_try_again">重试</string>
+    <string name="song_detail_empty">还没有人发布过这首歌</string>
+    <string name="song_detail_be_the_first">来当第一个吧！</string>
+
+    <!-- Feed: detail counts (plurals) -->
+    <plurals name="film_detail_posted_by_count">
+        <item quantity="one">由 %1$s 位用户发布</item>
+        <item quantity="other">由 %1$s 位用户发布</item>
+    </plurals>
+    <plurals name="song_detail_posted_by_count">
+        <item quantity="one">由 %1$s 位用户发布</item>
+        <item quantity="other">由 %1$s 位用户发布</item>
+    </plurals>
+
+    <!-- Profile -->
+    <string name="profile_cd_customize">自定义资料</string>
+    <string name="profile_cd_settings">设置</string>
+    <string name="profile_cd_playlist">歌单</string>
+    <string name="profile_avatar_take_photo">拍照</string>
+    <string name="profile_avatar_choose_library">从相册选择</string>
+    <string name="profile_avatar_view_photo">查看照片</string>
+    <string name="profile_avatar_share_link">分享个人资料链接</string>
+    <string name="profile_toast_link_copied">个人资料链接已复制！</string>
+    <string name="profile_toast_avatar_updated">头像已更新！</string>
+    <string name="profile_toast_style_updated">样式已更新！</string>
+    <string name="profile_toast_no_songs_for_playlist">没有可用于创建歌单的歌曲</string>
+    <string name="profile_button_edit">编辑资料</string>
+    <string name="profile_button_playlist">歌单</string>
+    <string name="profile_stat_coruses">coruses</string>
+    <string name="profile_stat_followers">粉丝</string>
+    <string name="profile_stat_following">关注</string>
+    <string name="profile_tab_music">音乐</string>
+    <string name="profile_tab_film">电影</string>
+    <string name="profile_tab_likes">赞</string>
+    <string name="profile_tab_saves">收藏</string>
+    <string name="profile_empty_music_title">你在听什么？</string>
+    <string name="profile_empty_music_subtitle">分享你的第一首歌，\n让大家知道你在单曲循环什么。</string>
+    <string name="profile_empty_music_button">发布你的第一首歌</string>
+    <string name="profile_empty_film_title">最近看了什么好片吗？</string>
+    <string name="profile_empty_film_subtitle">分享你的第一部电影，\n让大家知道你在看什么。</string>
+    <string name="profile_empty_film_button">发布你的第一部电影</string>
+    <string name="profile_empty_likes">还没有赞过的内容</string>
+    <string name="profile_empty_saves">还没有收藏的内容</string>
+    <string name="profile_empty_likes_music">还没有赞过的音乐</string>
+    <string name="profile_empty_likes_films">还没有赞过的电影</string>
+    <string name="profile_empty_saves_music">还没有收藏的音乐</string>
+    <string name="profile_empty_saves_films">还没有收藏的电影</string>
+    <string name="profile_share_another_track">再分享一首歌</string>
+    <string name="profile_share_another_film">再分享一部电影</string>
+    <string name="profile_share_another_subtitle">打造你的收藏</string>
+
+    <!-- Other Profile -->
+    <string name="other_profile_cd_message">私信</string>
+    <string name="other_profile_cd_menu">菜单</string>
+    <string name="other_profile_cd_post_notifications">发布通知</string>
+    <string name="other_profile_cd_stop_notifying">停止通知</string>
+    <string name="other_profile_toast_will_notify_format">当 @%1$s 发布时你将收到通知</string>
+    <string name="other_profile_toast_notifications_off_format">已关闭 @%1$s 的通知</string>
+    <string name="other_profile_cd_add_favorite">加入收藏</string>
+    <string name="other_profile_cd_remove_favorite">取消收藏</string>
+    <string name="other_profile_toast_favorite_added_format">已收藏 @%1$s</string>
+    <string name="other_profile_toast_favorite_removed_format">已取消收藏 @%1$s</string>
+    <string name="other_profile_menu_view_playlist">查看 Spotify 歌单</string>
+    <string name="other_profile_menu_share_profile">分享个人资料</string>
+    <string name="other_profile_menu_mute">静音</string>
+    <string name="other_profile_menu_unmute">取消静音</string>
+    <string name="other_profile_menu_report">举报</string>
+    <string name="other_profile_menu_block">屏蔽</string>
+    <string name="other_profile_menu_unblock">取消屏蔽</string>
+    <string name="other_profile_blocked_message">你已屏蔽此用户</string>
+    <string name="other_profile_button_follow">关注</string>
+    <string name="other_profile_button_following">已关注</string>
+    <string name="other_profile_tab_likes">赞</string>
+    <string name="other_profile_empty_no_songs">还没有歌曲</string>
+    <string name="other_profile_empty_no_films">还没有电影</string>
+    <string name="other_profile_empty_no_liked">还没有赞过的内容</string>
+    <string name="other_profile_muting_format">正在静音 @%1$s…</string>
+    <string name="other_profile_muting">正在静音…</string>
+    <string name="other_profile_unmuting_format">正在取消静音 @%1$s…</string>
+    <string name="other_profile_unmuting">正在取消静音…</string>
+    <string name="other_profile_muted_format">已静音 @%1$s 的内容</string>
+    <string name="other_profile_muted">已静音</string>
+    <string name="other_profile_unmuted_format">已取消静音 @%1$s 的内容</string>
+    <string name="other_profile_unmuted">已取消静音</string>
+    <string name="follow_limit_reached_hours">你已达今日关注上限（%1$d）。约 %2$d 小时后可以关注更多人。</string>
+    <string name="follow_limit_reached_minutes">你已达今日关注上限（%1$d）。约 %2$d 分钟后可以关注更多人。</string>
+    <string name="follow_limit_reached_soon">你已达今日关注上限（%1$d）。稍候即可关注更多人。</string>
+
+    <!-- Edit Profile -->
+    <string name="edit_profile_screen_title">编辑资料</string>
+    <string name="edit_profile_cd_cancel">取消</string>
+    <string name="edit_profile_save">保存</string>
+    <string name="edit_profile_dialog_unsaved_title">未保存的更改</string>
+    <string name="edit_profile_dialog_unsaved_message">你的资料有未保存的更改。</string>
+    <string name="edit_profile_dialog_discard">舍弃</string>
+    <string name="edit_profile_dialog_keep_editing">继续编辑</string>
+    <string name="edit_profile_share_text_format">来看看我在 Corus 上的个人资料：https://corus.fm/user/%1$s</string>
+    <string name="edit_profile_share_chooser">分享个人资料</string>
+    <string name="edit_profile_field_name">姓名</string>
+    <string name="edit_profile_field_username">用户名</string>
+    <string name="edit_profile_field_bio">简介</string>
+    <string name="edit_profile_field_website">网站</string>
+    <string name="edit_profile_field_featured_tab">精选标签页</string>
+    <string name="edit_profile_username_taken">该用户名已被使用</string>
+    <string name="edit_profile_username_invalid">仅限字母、数字、下划线和句点</string>
+    <string name="edit_profile_cd_available">可用</string>
+    <string name="edit_profile_cd_taken">已被使用</string>
+    <string name="edit_profile_cd_invalid">无效</string>
+    <string name="edit_profile_row_customize">自定义资料样式</string>
+    <string name="edit_profile_row_share_link">分享个人资料链接</string>
+    <string name="edit_profile_save_error">无法保存更改。请重试。</string>
+    <string name="edit_profile_save_style_error">无法保存样式更改。请重试。</string>
+
+    <!-- Follow List -->
+    <string name="follow_list_followers">粉丝</string>
+    <string name="follow_list_following">关注</string>
+    <string name="follow_list_search_placeholder">搜索</string>
+    <string name="follow_list_cd_clear">清除</string>
+    <string name="follow_list_no_results">没有结果</string>
+    <string name="follow_list_no_followers">还没有粉丝</string>
+    <string name="follow_list_not_following">还没有关注任何人</string>
+    <string name="follow_list_follows_you">关注了你</string>
+    <string name="follow_list_button_following">已关注</string>
+    <string name="follow_list_button_follow_back">回关</string>
+    <string name="follow_list_button_follow">关注</string>
+
+    <!-- Style Picker -->
+    <string name="style_picker_cd_close">关闭</string>
+    <string name="style_picker_save_changes">保存更改</string>
+    <string name="style_picker_choose_vinyl">选择黑胶颜色</string>
+    <string name="style_picker_choose_frame">选择相框颜色</string>
+    <string name="style_picker_choose_flair">选择徽章样式</string>
+    <string name="style_picker_username_placeholder">用户名</string>
+    <string name="style_picker_rain_effect">下雨效果</string>
+    <string name="style_picker_snow_effect">下雪效果</string>
+    <string name="style_picker_disco_effect">迪斯科效果</string>
+
+    <!-- Search -->
+    <string name="search_screen_title">搜索</string>
+    <string name="search_cd_search">搜索</string>
+    <string name="search_cd_clear">清除</string>
+    <string name="search_cd_remove">移除</string>
+    <string name="search_cd_filter_taste_matches">筛选品味匹配</string>
+    <string name="search_cd_filter_popular_users">筛选热门用户</string>
+    <string name="search_placeholder_users">按用户名搜索</string>
+    <string name="search_placeholder_songs">搜索歌曲</string>
+    <string name="search_placeholder_films">搜索电影</string>
+    <string name="search_placeholder_hashtags">搜索话题标签</string>
+    <string name="search_tab_users">用户</string>
+    <string name="search_tab_songs">歌曲</string>
+    <string name="search_tab_films">电影</string>
+    <string name="search_tab_hashtags">话题标签</string>
+    <string name="search_section_trending_hashtags">热门话题标签</string>
+    <string name="search_no_trending_hashtags">还没有热门话题标签</string>
+    <string name="search_no_hashtags_found">未找到话题标签</string>
+    <string name="search_recent">最近</string>
+    <string name="search_clear_all">全部清除</string>
+    <string name="search_section_friends_on_corus">CORUS 上的好友</string>
+    <string name="search_section_taste_matches">品味匹配</string>
+    <string name="search_taste_matches_empty">随着你发布更多内容，Corus 会为你匹配品味相投的人。</string>
+    <string name="search_section_mutual_connections">共同关注</string>
+    <string name="search_section_popular">CORUS 上的热门</string>
+    <string name="search_section_new">CORUS 上的新人</string>
+    <string name="search_section_club_members">CORUS CLUB 会员</string>
+    <string name="search_section_curated_music_bots">精选音乐机器人</string>
+    <string name="search_section_curated_film_bots">精选影片机器人</string>
+    <string name="search_section_trending_this_month">本月热门</string>
+    <string name="search_section_trending_this">热门</string>
+    <string name="search_section_trending">热门</string>
+    <string name="search_section_trending_this_suffix"></string>
+    <string name="search_trending_window_week">周</string>
+    <string name="search_trending_window_month">月</string>
+    <string name="search_trending_window_year">年</string>
+    <string name="search_trending_window_aria">热门时间范围</string>
+    <string name="hashtag_followers">粉丝</string>
+    <string name="hashtag_contributors">贡献者</string>
+    <string name="hashtag_velocity_this_week">本周 %1$s 个 coruses</string>
+    <string name="hashtag_velocity_this_week_one">本周 %1$s 个 corus</string>
+    <string name="hashtag_followers_title">#%1$s 的粉丝</string>
+    <string name="hashtag_contributors_title">#%1$s 的贡献者</string>
+    <string name="hashtag_followers_empty">还没有粉丝</string>
+    <string name="hashtag_contributors_empty">还没有贡献者</string>
+    <string name="hashtag_back_to_tag">返回 #%1$s</string>
+    <string name="hashtag_row_subtitle_with_followers">%1$s · %2$s</string>
+    <string name="hashtag_followers_count">%1$s %2$s</string>
+    <string name="hashtag_count_coruses">%1$s %2$s</string>
+    <string name="search_see_all">查看全部</string>
+    <string name="search_taste_matches_title">品味匹配</string>
+    <string name="search_mutual_connections_title">共同关注</string>
+    <string name="search_popular_title">Corus 上的热门</string>
+    <string name="search_new_title">Corus 上的新人</string>
+    <string name="search_club_members_title">Corus Club 会员</string>
+    <string name="search_filter_all">全部</string>
+    <string name="search_filter_unfollowed">未关注</string>
+    <string name="search_subtitle_from_contacts">来自你的通讯录</string>
+    <string name="search_invite_title">认识品味不错的人吗？</string>
+    <string name="search_invite_button">邀请好友</string>
+    <string name="search_contacts_card_title">在 Corus 上找到你的好友</string>
+    <string name="search_contacts_card_subtitle">看看你的哪些通讯录好友已经在这里</string>
+    <string name="search_contacts_card_sync">同步通讯录</string>
+    <string name="search_contacts_card_not_now">暂不</string>
+    <string name="search_no_contact_matches_title">你的通讯录好友还没有人在 Corus 上</string>
+    <string name="search_no_contact_matches_subtitle">他们加入时我们会通知你</string>
+    <string name="search_no_users_found">未找到用户</string>
+    <string name="search_no_songs_found">未找到歌曲</string>
+    <string name="search_no_films_found">未找到电影</string>
+    <string name="search_nothing_trending">暂无热门内容</string>
+    <string name="search_post_some_songs">发布一些歌曲来活跃起来吧</string>
+    <string name="search_no_trending_films">还没有热门电影</string>
+    <string name="search_post_some_films">发布一些电影来活跃起来吧</string>
+    <string name="search_button_following">已关注</string>
+    <string name="search_button_follow">关注</string>
+    <string name="search_followed_by_one_format">@%1$s 关注了 TA</string>
+    <string name="search_followed_by_two_format">@%1$s 和 @%2$s 关注了 TA</string>
+    <string name="search_followed_by_many_format">@%1$s、@%2$s 和%3$s关注了 TA</string>
+    <string name="search_followers_count_format">%1$d 位粉丝</string>
+    <plurals name="search_others_count">
+        <item quantity="one">其他 %d 人</item>
+        <item quantity="other">其他 %d 人</item>
+    </plurals>
+    <plurals name="search_followers_count">
+        <item quantity="one">%d 位粉丝</item>
+        <item quantity="other">%d 位粉丝</item>
+    </plurals>
+
+    <!-- Bot List -->
+    <string name="bot_list_title_film">精选影片机器人</string>
+    <string name="bot_list_title_music">精选音乐机器人</string>
+    <string name="bot_list_empty">没有可用的机器人</string>
+
+    <!-- Contact Friends List -->
+    <string name="contacts_list_title">Corus 上的好友</string>
+    <string name="contacts_list_empty">没有在 Corus 上找到通讯录好友</string>
+
+    <!-- Suggested Users List -->
+    <string name="suggested_users_default_title">品味匹配</string>
+    <string name="suggested_users_empty">没有可用的推荐</string>
+    <string name="suggested_users_joined_format">%1$s前加入</string>
+    <string name="suggested_users_member_since_format">已加入 %1$s</string>
+
+    <!-- Notifications: message templates (mirrors iOS localizedMessage by type) -->
+    <string name="notif_msg_like">赞了你的%s。</string>
+    <string name="notif_msg_comment_with_text">评论：%s</string>
+    <string name="notif_msg_comment_no_text">评论了你的%s。</string>
+    <string name="notif_msg_comment_like">赞了你的评论。</string>
+    <string name="notif_msg_mention_with_text">提到了你：%s</string>
+    <string name="notif_msg_mention_no_text">在评论中提到了你。</string>
+    <string name="notif_msg_tag">在%s中提到了你。</string>
+    <string name="notif_msg_save">收藏了你的%s。</string>
+    <string name="notif_msg_follow">开始关注你。</string>
+    <string name="notif_msg_new_post">发布了新的%s。</string>
+    <string name="notif_msg_reply_with_text">回复了你的评论：%s</string>
+    <string name="notif_msg_reply_no_text">回复了你的评论。</string>
+    <string name="notif_msg_contact_joined">加入了 %s！</string>
+    <string name="notif_msg_repost">转发了你的%s。</string>
+    <string name="notif_msg_taste_match_default">是新的品味匹配。</string>
+    <string name="notif_msg_favorite">把你加入了收藏。</string>
+    <string name="notif_msg_play_milestone">你的 corus 已被播放 %1$d 次。</string>
+    <string name="notif_favorite_someone">有人</string>
+    <string name="notif_favorite_sheet_title">有人成了你的粉丝</string>
+    <string name="notif_favorite_sheet_body">有人把你加入了收藏，方便他们关注你发布的内容。</string>
+    <string name="notif_favorite_sheet_nudge">你也可以收藏别人，点按任何人资料页上的 ☆ 即可。</string>
+    <string name="notif_favorite_sheet_dismiss">知道了</string>
+
+    <!-- Tab bar -->
+    <string name="tab_feed">动态</string>
+    <string name="tab_search">搜索</string>
+    <string name="tab_post">发布</string>
+    <string name="tab_activity">通知</string>
+    <string name="tab_profile">我的</string>
+
+    <!-- Time / relative -->
+    <string name="relative_time_just_now">刚刚</string>
+    <string name="post_time_just_now">刚刚</string>
+    <plurals name="post_time_minutes_ago">
+        <item quantity="one">%d 分钟前</item>
+        <item quantity="other">%d 分钟前</item>
+    </plurals>
+    <plurals name="post_time_hours_ago">
+        <item quantity="one">%d 小时前</item>
+        <item quantity="other">%d 小时前</item>
+    </plurals>
+    <plurals name="post_time_days_ago">
+        <item quantity="one">%d 天前</item>
+        <item quantity="other">%d 天前</item>
+    </plurals>
+    <string name="post_time_date_format_same_year">M月d日</string>
+    <string name="post_time_date_format_other_year">yyyy年M月d日</string>
+
+    <!-- Auth -->
+    <string name="auth_cd_corus_logo">Corus 标志</string>
+    <string name="auth_tagline">分享你的热爱</string>
+    <string name="auth_button_google">通过 Google 继续</string>
+    <string name="auth_button_apple">通过 Apple 继续</string>
+    <string name="auth_button_phone">通过手机号继续</string>
+    <string name="auth_phone_prompt">输入你的手机号</string>
+    <string name="auth_button_send_code">发送验证码</string>
+    <string name="auth_button_verify">验证</string>
+    <string name="auth_phone_code_sent_format">输入发送至\n%1$s %2$s 的 6 位验证码</string>
+    <string name="auth_code_placeholder">123456</string>
+    <string name="auth_google_signin_error">无法通过 Google 登录。请重试。</string>
+    <string name="auth_apple_signin_error">无法通过 Apple 登录。请重试。</string>
+    <string name="auth_error_account_suspended">你的账户已被封禁。如果你认为这是误判，请联系支持。</string>
+    <string name="auth_error_verification_failed">验证失败。请重试。</string>
+    <string name="auth_error_could_not_send_code">无法发送验证码。请重试。</string>
+    <string name="auth_error_invalid_code">验证码无效。请重试。</string>
+    <string name="auth_error_generic">出错了。请重试。</string>
+    <string name="auth_error_delete_account">无法删除你的账户。请重试。</string>
+    <string name="auth_error_invalid_phone_reauth_code">验证码无效。请重试。</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">欢迎</string>
+    <string name="onboarding_subtitle">设置你的个人资料</string>
+    <string name="onboarding_cd_avatar">头像</string>
+    <string name="onboarding_add_photo">添加照片</string>
+    <string name="onboarding_full_name">全名</string>
+    <string name="onboarding_terms">创建账户即表示你同意我们的使用条款和隐私政策。</string>
+    <string name="onboarding_button_continue">继续</string>
+    <!-- Music-service onboarding (Choose Your Player) -->
+    <string name="music_service_title">选择你的播放器</string>
+    <string name="music_service_subtitle">选择你偏好的音乐服务</string>
+    <string name="music_service_more_soon">敬请期待更多流媒体服务的支持。</string>
+    <string name="music_service_full_playback">订阅用户可享完整播放</string>
+    <string name="music_service_get_started">开始使用</string>
+    <string name="music_service_skip">跳过</string>
+    <string name="onboarding_dialog_photo_title">头像</string>
+    <string name="onboarding_remove_photo">移除照片</string>
+    <string name="onboarding_avatar_nudge_title">添加头像？</string>
+    <string name="onboarding_avatar_nudge_message">照片能帮助好友在 Corus 上找到你</string>
+    <string name="onboarding_add_photo_button">添加照片</string>
+    <string name="onboarding_skip">跳过</string>
+
+    <!-- Social Setup -->
+    <string name="social_setup_cd_corus_logo">Corus</string>
+    <string name="social_setup_find_friends_title">找到你的好友</string>
+    <string name="social_setup_find_friends_subtitle">看看谁已经在 Corus 上了</string>
+    <string name="social_setup_sync_explainer">同步你的通讯录，发现\n可能在 Corus 上的好友。</string>
+    <string name="social_setup_sync_button">同步通讯录</string>
+    <string name="social_setup_sync_later">稍后同步</string>
+    <string name="social_setup_curate_title">打造你的动态</string>
+    <string name="social_setup_curate_subtitle">关注用户来打造你的动态</string>
+    <string name="social_setup_section_friends">👥 Corus 上的好友</string>
+    <string name="social_setup_section_popular">🔥 Corus 上的热门</string>
+    <string name="social_setup_will_notify">他们加入时我们会通知你</string>
+    <string name="social_setup_seeall_friends">Corus 上的好友</string>
+    <string name="social_setup_seeall_popular">Corus 上的热门</string>
+    <string name="social_setup_seeall_music_bots">精选音乐机器人</string>
+    <string name="social_setup_seeall_film_bots">精选影片机器人</string>
+
+    <!-- Messaging: thread -->
+    <string name="messaging_thread_replying_to_format">正在回复 %1$s</string>
+    <string name="messaging_thread_editing">正在编辑消息</string>
+    <string name="messaging_thread_edited">已编辑</string>
+    <string name="messaging_thread_yourself">你自己</string>
+    <string name="messaging_thread_message_fallback">消息</string>
+    <string name="messaging_thread_you">你</string>
+    <string name="messaging_thread_cd_add_attachment">添加附件</string>
+    <string name="messaging_thread_attachment_photo">照片</string>
+    <string name="messaging_thread_attachment_song">歌曲</string>
+    <string name="messaging_thread_attachment_film">电影</string>
+    <string name="messaging_thread_placeholder">发消息...</string>
+    <string name="messaging_thread_cd_shared_image">分享的图片</string>
+    <string name="messaging_thread_sending">发送中...</string>
+    <string name="messaging_thread_user_messaging_disabled">此用户已关闭私信</string>
+    <string name="messaging_thread_failed_to_deliver">发送失败</string>
+    <string name="messaging_thread_tap_to_retry">· 点按重试</string>
+
+    <!-- Messaging: list -->
+    <string name="messaging_list_title">消息</string>
+    <string name="messaging_list_cd_new_message">新消息</string>
+    <string name="messaging_list_empty">还没有消息</string>
+    <string name="messaging_list_new_message_title">新消息</string>
+    <string name="messaging_list_search_placeholder">搜索用户名</string>
+    <string name="messaging_list_no_suggestions">没有推荐</string>
+    <string name="messaging_list_inbox_search_placeholder">搜索消息</string>
+    <string name="messaging_list_no_matches">没有匹配结果</string>
+
+    <!-- Notifications (activity feed) -->
+    <string name="notifications_activity_title">通知</string>
+    <string name="notifications_cd_messages">消息</string>
+    <string name="notifications_cd_unlike">取消赞</string>
+    <string name="notifications_cd_like">赞</string>
+    <string name="notifications_empty_title">还没有动态</string>
+    <string name="notifications_empty_subtitle">当有人赞、评论或收藏你的 coruses 时，会显示在这里</string>
+    <string name="notifications_replying_to_format">正在回复 %1$s</string>
+    <string name="notifications_reply_placeholder">回复…</string>
+    <string name="notifications_cd_send_reply">发送回复</string>
+    <string name="notifications_toast_reply_sent">回复已发送</string>
+    <string name="notifications_toast_reply_failed">无法发送回复</string>
+
+    <!-- PostCard -->
+    <string name="post_card_reposted_from">转发自</string>
+    <string name="post_card_cd_more_options">更多选项</string>
+    <string name="post_card_finding_back_cover">正在查找封底…</string>
+    <string name="post_card_no_back_cover">没有可用的封底</string>
+    <string name="post_card_cd_pause">暂停</string>
+    <string name="post_card_view_film_page">查看电影页面</string>
+    <string name="post_card_watch_trailer">观看预告片</string>
+    <string name="post_card_cd_album_back_cover">专辑封底</string>
+    <string name="post_card_cd_play_spotify">在 Spotify 上播放</string>
+    <string name="post_card_cd_play_soundcloud">在 SoundCloud 上播放</string>
+    <string name="post_card_cd_track_unavailable">该歌曲在 SoundCloud 上已不再可用</string>
+    <string name="post_card_cd_like">赞</string>
+    <string name="post_card_cd_comment">评论</string>
+    <string name="post_card_cd_share">分享</string>
+    <string name="post_card_cd_repost">转发</string>
+    <string name="post_card_cd_save">收藏</string>
+    <string name="post_card_cd_watch_trailer">观看预告片</string>
+    <string name="post_card_cd_close_trailer">关闭预告片</string>
+    <string name="post_card_liked_by_prefix">"赞过的人："</string>
+    <string name="post_card_liked_by_and">" 和 "</string>
+    <plurals name="post_card_others_count">
+        <item quantity="one">其他 %d 人</item>
+        <item quantity="other">其他 %d 人</item>
+    </plurals>
+
+    <!-- Featured cards -->
+    <string name="featured_cd_like">赞</string>
+    <string name="featured_cd_play_spotify">在 Spotify 上播放</string>
+    <string name="featured_cd_watch_trailer">观看预告片</string>
+
+    <!-- Full screen image / avatar -->
+    <string name="full_screen_cd_avatar">全屏头像</string>
+    <string name="full_screen_cd_image">全屏图片</string>
+    <string name="full_screen_cd_close">关闭</string>
+
+    <!-- GIF picker -->
+    <string name="gif_picker_search_placeholder">搜索 KLIPY</string>
+    <string name="gif_picker_cd_search">搜索</string>
+    <string name="gif_picker_cd_clear">清除</string>
+    <string name="gif_picker_cd_gif">GIF</string>
+    <string name="gif_picker_powered_by">由 KLIPY 提供支持</string>
+
+    <!-- Mention text / flair badges -->
+    <string name="mention_cd_corus">Corus</string>
+    <string name="mention_badge_first">第 1</string>
+    <string name="mention_badge_new_release">新发布</string>
+    <string name="mention_badge_bot">机器人</string>
+    <string name="mention_searching">搜索中…</string>
+
+    <!-- Mini player -->
+    <string name="mini_player_cd_pause">暂停</string>
+    <string name="mini_player_cd_play">播放</string>
+    <string name="mini_player_cd_next">下一首</string>
+    <string name="mini_player_cd_open_spotify">在 Spotify 中打开</string>
+
+    <!-- Post action menu -->
+    <string name="post_menu_play_in_service">在 %1$s 中播放</string>
+    <string name="post_menu_open_soundcloud">在 SoundCloud 中打开</string>
+    <string name="post_menu_view_film_page">查看电影页面</string>
+    <string name="post_menu_view_song_page">查看歌曲页面</string>
+    <string name="post_menu_view_front_cover">查看封面</string>
+    <string name="post_menu_view_back_cover">查看封底</string>
+    <string name="post_menu_repost">转发</string>
+    <string name="post_menu_share">分享</string>
+    <string name="post_menu_copy_link">复制链接</string>
+    <string name="post_menu_edit_caption">编辑文字说明</string>
+    <string name="post_menu_delete_post">删除内容</string>
+    <string name="post_menu_report">举报</string>
+    <string name="post_menu_block_user">屏蔽用户</string>
+    <string name="post_menu_clip_label_post_link">内容链接</string>
+
+    <!-- Post menu sheets (dialogs / toasts) -->
+    <string name="post_menu_toast_post_sent">内容已发送！</string>
+    <string name="post_menu_toast_link_copied">链接已复制</string>
+    <string name="post_menu_toast_caption_updated">文字说明已更新</string>
+    <string name="post_menu_dialog_delete_title">删除内容</string>
+    <string name="post_menu_dialog_delete_message">确定要删除这条内容吗？此操作无法撤销。</string>
+    <string name="post_menu_dialog_delete_confirm">删除</string>
+    <string name="post_menu_dialog_delete_cancel">取消</string>
+
+    <!-- Report sheet -->
+    <string name="report_cancel">取消</string>
+    <string name="report_title">举报</string>
+    <string name="report_submit">提交</string>
+    <string name="report_why_post">你为什么要举报这条内容？</string>
+    <string name="report_why_comment">你为什么要举报这条评论？</string>
+    <string name="report_why_user">你为什么要举报这位用户？</string>
+    <string name="report_why_message">你为什么要举报这条消息？</string>
+    <string name="report_reason_spam">垃圾信息或诈骗</string>
+    <string name="report_reason_harassment">骚扰或欺凌</string>
+    <string name="report_reason_hate">仇恨言论</string>
+    <string name="report_reason_nudity">裸露或性相关内容</string>
+    <string name="report_reason_violence">暴力或威胁</string>
+    <string name="report_reason_false_info">虚假信息</string>
+    <string name="report_reason_ip_violation">侵犯知识产权</string>
+    <string name="report_reason_other">其他</string>
+    <string name="report_details_placeholder">补充说明（选填）</string>
+    <string name="report_thanks_title">感谢你的举报</string>
+    <string name="report_thanks_message">我们会进行审核，并在必要时采取措施。</string>
+
+    <!-- Review prompt -->
+    <string name="review_prompt_title">喜欢 Corus 吗？</string>
+    <string name="review_prompt_message">如果你喜欢使用 Corus，愿意花点时间评价一下吗？这对我们意义重大！</string>
+    <string name="review_prompt_button">留下评价</string>
+    <string name="review_prompt_not_now">暂不</string>
+
+    <!-- Selfie capture -->
+    <string name="selfie_cd_cancel">取消</string>
+    <string name="selfie_permission_title">需要相机权限</string>
+    <string name="selfie_permission_message">允许相机访问以拍摄头像。</string>
+    <string name="selfie_permission_cancel">取消</string>
+    <string name="selfie_permission_allow">允许</string>
+
+    <!-- Share post sheet -->
+    <string name="share_post_search_placeholder">搜索</string>
+    <string name="share_post_cd_clear">清除</string>
+    <string name="share_post_cancel">取消</string>
+    <string name="share_post_no_results">未找到结果</string>
+    <string name="share_post_no_recent">没有最近的联系人</string>
+    <string name="share_post_message_placeholder">写条消息...</string>
+    <string name="share_post_send">发送</string>
+    <string name="share_post_repost">转发</string>
+    <string name="share_post_whatsapp">WhatsApp</string>
+    <string name="share_post_share_link">分享链接</string>
+    <string name="share_post_share_chooser">分享方式</string>
+    <string name="share_post_copy_link">复制链接</string>
+    <string name="share_post_copied">已复制</string>
+    <string name="share_post_clip_label">Corus 链接</string>
+    <string name="share_post_cd_selected">已选择</string>
+    <string name="share_post_cd_instagram">Instagram</string>
+    <string name="share_post_instagram">Instagram</string>
+    <string name="share_post_x">X</string>
+    <string name="share_post_cd_x">分享到 X</string>
+
+    <!-- Song/Film picker sheet -->
+    <string name="song_film_picker_songs">歌曲</string>
+    <string name="song_film_picker_films">电影</string>
+    <string name="song_film_picker_search_song">搜索歌曲</string>
+    <string name="song_film_picker_search_film">搜索电影</string>
+    <string name="song_film_picker_cd_clear">清除</string>
+
+    <!-- Trophy celebration -->
+    <string name="trophy_cd_trophy">奖杯</string>
+    <string name="trophy_title">首位分享者！</string>
+    <string name="trophy_subtitle">你是 Corus 上第一个发布这条内容的人</string>
+    <string name="trophy_button">赞！</string>
+
+    <!-- User avatar -->
+    <string name="user_avatar_cd">用户头像</string>
+
+    <!-- Voice note recorder -->
+    <string name="voice_note_record">录制语音</string>
+    <string name="voice_note_cd_stop">停止录制</string>
+    <string name="voice_note_cd_pause">暂停</string>
+    <string name="voice_note_cd_play">播放</string>
+    <string name="voice_note_cd_delete">删除录音</string>
+    <string name="voice_note_max_duration_format">/ %1$s</string>
+
+    <!-- Compose screen -->
+    <string name="compose_cd_back">返回</string>
+    <string name="compose_title">设置 corus</string>
+    <string name="compose_cancel">取消</string>
+    <string name="compose_search_song">搜索歌曲</string>
+    <string name="compose_search_film">搜索电影</string>
+    <string name="compose_cd_pause">暂停</string>
+    <string name="compose_cd_play_preview">播放试听</string>
+    <string name="compose_cd_pause_preview">暂停试听</string>
+    <string name="compose_segment_songs">歌曲</string>
+    <string name="compose_segment_films">电影</string>
+    <string name="compose_segment_text">文字</string>
+    <string name="compose_segment_voice">语音</string>
+    <string name="compose_caption_placeholder">写点文字说明...</string>
+    <string name="compose_char_count_format">%1$d/700</string>
+    <string name="compose_post_button">设置你的 CORUS →</string>
+    <string name="compose_reposted_from_format">转发自 @%1$s</string>
+    <string name="compose_director_unknown">未知</string>
+    <string name="compose_trending_songs">热门歌曲</string>
+    <string name="compose_trending_films">热门电影</string>
+
+    <!-- Cymbal Club / Subscription -->
+    <string name="club_cd_close">关闭</string>
+    <string name="club_title">加入 Corus Club</string>
+    <string name="club_subtitle_default">支持 Corus，享受专属权益。</string>
+    <string name="club_subtitle_vinyl_picker">自定义你的黑胶等更多内容。</string>
+    <string name="club_subtitle_frame_picker">自定义你的相框等更多内容。</string>
+    <string name="club_subtitle_flair_picker">自定义你的资料徽章等更多内容。</string>
+    <string name="club_subtitle_spin_picker">让你的黑胶旋转起来等更多内容。</string>
+    <string name="club_subtitle_style_picker">自定义你的资料样式等更多内容。</string>
+    <string name="club_subtitle_post_limit">解锁全部功能。支持 Corus。</string>
+    <string name="club_subtitle_post_limit_trial_format">免费试用 %1$s</string>
+    <string name="club_post_limit_eyebrow">已达每日上限</string>
+    <string name="club_subtitle_first_post">支持 Corus，享受专属权益。</string>
+    <string name="club_subtitle_tenth_post">支持 Corus，享受专属权益。</string>
+    <string name="club_subtitle_playlist_limit">解锁歌单生成功能。</string>
+    <string name="club_subtitle_settings">支持 Corus，享受专属权益。</string>
+    <string name="club_feature_unlimited">无限发布</string>
+    <string name="club_feature_favorites">无限收藏</string>
+    <string name="club_feature_verified">自定义资料徽章</string>
+    <string name="club_feature_customization">资料个性化</string>
+    <string name="club_feature_playlists">导出歌单</string>
+    <string name="club_feature_support">让 Corus 保持无广告</string>
+    <string name="club_disclaimer">Corus 自豪地坚持无广告。会员帮助 Corus 保持独立和可持续。</string>
+    <string name="club_plan_monthly">按月</string>
+    <string name="club_plan_yearly">按年</string>
+    <string name="club_plan_monthly_price_format">%1$s/月</string>
+    <string name="club_plan_yearly_price_format">%1$s/年</string>
+    <string name="club_plan_monthly_default_price">$2.99</string>
+    <string name="club_plan_yearly_default_price">$19.99</string>
+    <string name="club_cta_member">你已是会员！</string>
+    <string name="club_cta_try_free_format">免费试用 %1$s</string>
+    <string name="club_cta_join">加入 Club</string>
+    <string name="club_monthly_detail_trial_format">免费 %1$s，之后 %2$s/月</string>
+    <string name="club_monthly_detail_billed_format">按 %1$s/月收费。</string>
+    <string name="club_yearly_detail_trial_format">免费 %1$s，之后 %2$s/年</string>
+    <string name="club_yearly_detail_only_format">仅需 %1$s/月</string>
+    <string name="club_period_year_one">1 年</string>
+    <string name="club_period_year_format">%1$d 年</string>
+    <string name="club_period_month_one">1 个月</string>
+    <string name="club_period_month_format">%1$d 个月</string>
+    <string name="club_period_week_one">1 周</string>
+    <string name="club_period_week_format">%1$d 周</string>
+    <string name="club_period_day_one">1 天</string>
+    <string name="club_period_day_format">%1$d 天</string>
+    <string name="club_toast_welcome">欢迎加入 Club！</string>
+    <string name="club_toast_restored">购买已恢复！</string>
+    <string name="club_restore_purchases">恢复购买</string>
+    <string name="club_terms">条款</string>
+    <string name="club_privacy">隐私</string>
+    <string name="club_error_purchase_failed">出错了。请重试。</string>
+    <string name="club_error_no_subscription">未找到有效订阅。</string>
+    <string name="club_error_no_subscription_log">No active subscription found</string>
+
+    <!-- Hashtag feed -->
+    <string name="hashtag_feed_cd_back">返回</string>
+    <string name="hashtag_feed_count_format">%1$s 个 coruses</string>
+    <string name="hashtag_feed_load_error">无法加载内容</string>
+    <string name="hashtag_feed_try_again">重试</string>
+    <string name="hashtag_feed_empty">这个话题标签还没有内容</string>
+    <string name="hashtag_feed_follow">关注</string>
+    <string name="hashtag_feed_following">已关注</string>
+
+    <!-- Navigation / tabs -->
+    <string name="nav_toast_caption_updated">文字说明已更新</string>
+    <string name="tab_cd_compose">撰写</string>
+
+    <!-- NowPlayingManager -->
+    <string name="now_playing_generating_playlist">正在生成歌单…</string>
+
+    <!-- Avatar crop -->
+    <string name="avatar_crop_cancel">取消</string>
+    <string name="avatar_crop_use_photo">使用照片</string>
+
+    <!-- Full screen image -->
+    <string name="full_screen_image_cd">全屏图片</string>
+    <string name="full_screen_image_cd_close">关闭</string>
+
+    <!-- Comments audience -->
+    <string name="comments_audience_everyone">所有人都可以评论</string>
+    <string name="comments_audience_followers">仅粉丝</string>
+    <string name="comments_audience_following">你关注的账户</string>
+    <string name="comments_audience_off">关闭评论</string>
+    <string name="comments_locked_off">评论已关闭</string>
+    <string name="comments_locked_followers_known">只有 @%1$s 的粉丝才能评论。</string>
+    <string name="comments_locked_followers_unknown">只有作者的粉丝才能评论。</string>
+    <string name="comments_locked_authorfollow_known">只有 @%1$s 关注的人才能评论。</string>
+    <string name="comments_locked_authorfollow_unknown">只有作者关注的人才能评论。</string>
+    <string name="comments_locked_follow_cta">关注</string>
+    <string name="comments_locked_following_cta">正在关注…</string>
+</resources>
