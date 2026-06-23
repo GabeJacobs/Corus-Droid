@@ -146,6 +146,10 @@ dependencies {
     implementation(libs.firebase.appcheck.playintegrity)
     debugImplementation(libs.firebase.appcheck.debug)
 
+    // reCAPTCHA Enterprise SDK — required for Firebase phone-auth app verification
+    // when reCAPTCHA SMS defense (phoneEnforcementState AUDIT/ENFORCE) is enabled.
+    implementation(libs.recaptcha)
+
     // Google Auth
     implementation(libs.play.services.auth)
     implementation(libs.credentials)
