@@ -1,23 +1,21 @@
 package fm.corus.android.data.remote
 
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.get
-import io.ktor.client.request.parameter
+import com.google.firebase.functions.FirebaseFunctions
+import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class TMDBApiService @Inject constructor(
-    private val client: HttpClient,
+    private val functions: FirebaseFunctions,
+    private val json: Json,
 ) {
     companion object {
-        private const val BASE_URL = "https://api.themoviedb.org/3"
         private const val IMAGE_BASE_URL = "https://image.tmdb.org/t/p/"
-        // Same API key as iOS app
-        private const val API_KEY = "90691b03278e1946fd03e6af62d75968"
 
         fun posterURL(path: String?, size: String = "w342"): String? {
             path ?: return null
@@ -27,25 +25,40 @@ class TMDBApiService @Inject constructor(
         fun posterLargeURL(path: String?): String? = posterURL(path, "w780")
     }
 
+    /**
+     * Calls the `tmdbProxy` Cloud Function and returns TMDB's raw JSON body.
+     *
+     * Movie data is fetched through the backend instead of straight from the
+     * device because `api.themoviedb.org` is network-blocked in some regions
+     * (e.g. Russia), where direct calls failed 100% of the time. The proxy
+     * runs on Google's network and keeps the TMDB API key server-side.
+     */
+    private suspend fun callTmdb(params: Map<String, Any?>): String {
+        val result = functions.getHttpsCallable("tmdbProxy").call(params).await()
+        val data = result.getData() as? Map<*, *>
+        return data?.get("body") as? String
+            ?: throw IllegalStateException("tmdbProxy returned no body")
+    }
+
     suspend fun searchMovies(query: String, page: Int = 1): TMDBSearchResponse {
-        return client.get("$BASE_URL/search/movie") {
-            parameter("api_key", API_KEY)
-            parameter("query", query)
-            parameter("page", page)
-        }.body()
+        val body = callTmdb(mapOf("action" to "search", "query" to query, "page" to page))
+        return json.decodeFromString(body)
     }
 
     suspend fun getMovieDetails(movieId: Int): TMDBMovieDetails {
-        return client.get("$BASE_URL/movie/$movieId") {
-            parameter("api_key", API_KEY)
-            parameter("append_to_response", "credits,videos")
-        }.body()
+        val body = callTmdb(
+            mapOf(
+                "action" to "details",
+                "movieId" to movieId,
+                "appendToResponse" to "credits,videos",
+            )
+        )
+        return json.decodeFromString(body)
     }
 
     suspend fun getMovieCredits(movieId: Int): TMDBCredits {
-        return client.get("$BASE_URL/movie/$movieId/credits") {
-            parameter("api_key", API_KEY)
-        }.body()
+        val body = callTmdb(mapOf("action" to "credits", "movieId" to movieId))
+        return json.decodeFromString(body)
     }
 }
 
