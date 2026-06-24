@@ -360,22 +360,46 @@ fun SkeletonProfileView() {
             .fillMaxWidth()
             .shimmer(),
     ) {
-        // Display name — vertical footprint matches CorusFont.displayName line height
-        Box(
-            modifier = Modifier
-                .padding(vertical = 4.dp)
-                .align(Alignment.CenterHorizontally)
-                .width(140.dp)
-                .height(16.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(CorusColors.Skeleton)
-        )
-
-        // Avatar + stats row
+        // Header row — mirrors the loaded header (40dp customize icon, centered
+        // display name, 24dp settings icon) so the skeleton reserves the same
+        // ~64dp top band and the content below doesn't jump up on load.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = avatarHPad, vertical = CorusSpacing.md),
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            // Customize icon placeholder (40dp drives the header row height)
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(CorusColors.Skeleton)
+            )
+            // Display name placeholder
+            Box(
+                modifier = Modifier
+                    .width(140.dp)
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            // Settings icon placeholder
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(CorusColors.Skeleton)
+            )
+        }
+
+        // Avatar + stats row — no vertical padding (matches the loaded row, which
+        // gets its gap from the Spacer below), so the avatar lines up exactly.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = avatarHPad),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Avatar circle — size matches the real header
@@ -445,7 +469,7 @@ fun SkeletonProfileView() {
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
 
         // Username + bio
         Column(

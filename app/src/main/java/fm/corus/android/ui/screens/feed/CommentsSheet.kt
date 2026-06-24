@@ -56,6 +56,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.alpha
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -210,6 +214,22 @@ private fun CommentsSheetContent(
     // loadedPostId), treat the list as loading so we show a skeleton, never the old sheet.
     val loadedPostId by viewModel.loadedPostId.collectAsState()
     val isStale = loadedPostId != postId
+
+    // A fast load (e.g. a post with no comments) used to flash the shimmer skeleton for a
+    // single frame and then hard-cut to the empty state. Only reveal the skeleton once loading
+    // has actually persisted past a short threshold, so quick loads settle straight to the
+    // result without the flash. (The LaunchedEffect is cancelled the moment loading ends, so
+    // reaching the line past the delay means we are still genuinely loading.)
+    val isLoadingNow = isStale || (isLoading && comments.isEmpty())
+    var showSkeleton by remember { mutableStateOf(false) }
+    LaunchedEffect(isLoadingNow) {
+        if (isLoadingNow) {
+            delay(180)
+            showSkeleton = true
+        } else {
+            showSkeleton = false
+        }
+    }
 
     val pendingSong by viewModel.pendingSong.collectAsState()
     val pendingFilm by viewModel.pendingFilm.collectAsState()
@@ -439,15 +459,19 @@ private fun CommentsSheetContent(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.sm),
                 ) {
-            if (isStale || (isLoading && comments.isEmpty())) {
+            if (showSkeleton) {
                 val skeletonCount = if (isStale) 3 else post?.let { maxOf(minOf(it.commentCount, 5), 2) } ?: 3
                 items(skeletonCount) { SkeletonCommentRow() }
             } else if (comments.isEmpty() && !isLoading && post?.caption.isNullOrEmpty() == true && post?.voiceNoteURL.isNullOrEmpty() == true) {
                 item(key = "empty") {
+                    // Ease the empty state in so it never appears as a hard cut.
+                    val emptyAlpha = remember { Animatable(0f) }
+                    LaunchedEffect(Unit) { emptyAlpha.animateTo(1f, tween(220)) }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 200.dp),
+                            .heightIn(min = 200.dp)
+                            .alpha(emptyAlpha.value),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
