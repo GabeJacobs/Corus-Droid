@@ -1,6 +1,7 @@
 package fm.corus.android.data.remote
 
 import android.util.Log
+import fm.corus.android.domain.UsernameValidator
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.firestore.DocumentSnapshot
@@ -186,6 +187,9 @@ class FirestoreDataSource @Inject constructor(
     }
 
     suspend fun checkUsernameAvailable(username: String): Boolean {
+        // Reserved handles (brand/support/system) are never available; treat as
+        // taken without a network round-trip.
+        if (UsernameValidator.isReserved(username)) return false
         val query = firestore.collection("users_v2")
             .whereEqualTo("username", username.lowercase())
             .limit(1)

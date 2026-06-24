@@ -1,6 +1,7 @@
 package fm.corus.android.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -115,5 +116,27 @@ class UsernameValidatorTest {
     @Test fun `clean truncates to max length`() {
         val long = "a".repeat(50)
         assertEquals(20, UsernameValidator.clean(long).length)
+    }
+
+    @Test fun `reserved brand and system handles are reserved`() {
+        assertTrue(UsernameValidator.isReserved("corus"))
+        assertTrue(UsernameValidator.isReserved("corushelp"))
+        assertTrue(UsernameValidator.isReserved("admin"))
+        assertTrue(UsernameValidator.isReserved("support"))
+        assertTrue(UsernameValidator.isReserved("official"))
+    }
+
+    @Test fun `isReserved is case-insensitive`() {
+        assertTrue(UsernameValidator.isReserved("Corus"))
+        assertTrue(UsernameValidator.isReserved("ADMIN"))
+    }
+
+    @Test fun `ordinary handles are not reserved`() {
+        assertFalse(UsernameValidator.isReserved("jane.doe_42"))
+        assertFalse(UsernameValidator.isReserved("coruscant"))
+    }
+
+    @Test fun `there are exactly 50 reserved handles`() {
+        assertEquals(50, UsernameValidator.RESERVED.size)
     }
 }

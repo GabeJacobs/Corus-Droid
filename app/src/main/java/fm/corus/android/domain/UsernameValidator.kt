@@ -38,4 +38,23 @@ object UsernameValidator {
 
         return Result.Valid
     }
+
+    // Reserved handles strangers can't register (brand, support, system,
+    // impersonation-bait). Keep in sync with the iOS/web UsernameValidator
+    // RESERVED sets and `reservedUsernames()` in backend/firestore.rules (the
+    // server source of truth). Enforced via FirestoreDataSource.checkUsernameAvailable.
+    val RESERVED: Set<String> = setOf(
+        "corus", "corusapp", "corusofficial", "corusmedia", "corusfm",
+        "corushq", "teamcorus", "corusclub", "official", "verified",
+        "corushelp", "help", "support", "corussupport", "admin",
+        "administrator", "moderator", "mod", "staff", "corusstaff",
+        "team", "abuse", "report", "trust", "safety",
+        "contact", "info", "feedback", "press", "media",
+        "legal", "privacy", "security", "billing", "payments",
+        "root", "system", "api", "www", "mail",
+        "noreply", "notifications", "bot", "corusbot", "everyone",
+        "founder", "ceo", "null", "anonymous", "user",
+    )
+
+    fun isReserved(input: String): Boolean = input.lowercase() in RESERVED
 }
