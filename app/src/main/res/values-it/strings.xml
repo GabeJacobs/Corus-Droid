@@ -989,6 +989,7 @@
     <string name="messaging_group_leave_confirm">Uscire da questo gruppo?</string>
     <string name="messaging_group_name_label">Nome del gruppo</string>
     <string name="messaging_group_name_optional">Nome del gruppo (facoltativo)</string>
+    <string name="messaging_group_change_name"></string>
     <string name="messaging_group_change_photo">Cambia foto</string>
     <string name="messaging_group_remove">Rimuovi</string>
     <string name="messaging_group_not_addable">Deve aggiornare per unirsi ai gruppi</string>

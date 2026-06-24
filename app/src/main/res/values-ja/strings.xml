@@ -864,6 +864,7 @@
     <string name="messaging_group_leave_confirm">このグループを退出しますか？</string>
     <string name="messaging_group_name_label">グループ名</string>
     <string name="messaging_group_name_optional">グループ名（任意）</string>
+    <string name="messaging_group_change_name"></string>
     <string name="messaging_group_change_photo">写真を変更</string>
     <string name="messaging_group_remove">削除</string>
     <string name="messaging_group_not_addable">グループに参加するにはアップデートが必要です</string>

@@ -989,6 +989,7 @@
     <string name="messaging_group_leave_confirm">이 그룹을 나갈까요?</string>
     <string name="messaging_group_name_label">그룹 이름</string>
     <string name="messaging_group_name_optional">그룹 이름 (선택 사항)</string>
+    <string name="messaging_group_change_name"></string>
     <string name="messaging_group_change_photo">사진 변경</string>
     <string name="messaging_group_remove">삭제</string>
     <string name="messaging_group_not_addable">그룹에 참여하려면 업데이트가 필요해요</string>
