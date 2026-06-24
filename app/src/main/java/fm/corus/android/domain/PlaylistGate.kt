@@ -27,3 +27,33 @@ fun shouldShowSpotifyPlaylistAlert(service: MusicService, hasSoundCloud: Boolean
  */
 fun usesSpotifyFallback(service: MusicService): Boolean =
     service == MusicService.APPLE_MUSIC || service == MusicService.DEEZER
+
+/**
+ * Eligible-song count for the playlist source the given profile tab maps to,
+ * using the server-maintained denormalized counts. Posts → trackCount (films
+ * already excluded), Likes → likesCount, Saves → savesCount. Unknown counts
+ * (null on older payloads) read as 0. Segment mapping mirrors the screens
+ * (0/1 = posts, 2 = likes, 3 = saves).
+ */
+fun profilePlaylistEligibleCount(
+    selectedSegment: Int,
+    trackCount: Int?,
+    likesCount: Int?,
+    savesCount: Int,
+): Int = when (selectedSegment) {
+    2 -> likesCount ?: 0
+    3 -> savesCount
+    else -> trackCount ?: 0
+}
+
+/**
+ * Whether to offer the "quick vs export all" chooser. Only meaningful above 75
+ * eligible songs — at or below, the quick snapshot already is the whole source,
+ * so there's no choice to make.
+ */
+fun shouldOfferProfileFullExport(
+    selectedSegment: Int,
+    trackCount: Int?,
+    likesCount: Int?,
+    savesCount: Int,
+): Boolean = profilePlaylistEligibleCount(selectedSegment, trackCount, likesCount, savesCount) > 75

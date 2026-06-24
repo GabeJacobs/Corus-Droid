@@ -1,6 +1,7 @@
 package fm.corus.android.domain
 
 import fm.corus.android.data.model.MusicService
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -49,5 +50,35 @@ class PlaylistGateTest {
     fun `tidal and spotify export natively`() {
         assertFalse(usesSpotifyFallback(MusicService.TIDAL))
         assertFalse(usesSpotifyFallback(MusicService.SPOTIFY))
+    }
+
+    // ── Full-export gate ─────────────────────────────────────────────────────
+
+    @Test
+    fun `eligible count maps posts to trackCount, likes to likesCount, saves to savesCount`() {
+        // Music tab (0) and Film tab (1) both source from posts → trackCount.
+        assertEquals(120, profilePlaylistEligibleCount(0, trackCount = 120, likesCount = 5, savesCount = 9))
+        assertEquals(120, profilePlaylistEligibleCount(1, trackCount = 120, likesCount = 5, savesCount = 9))
+        // Likes tab (2) → likesCount.
+        assertEquals(5, profilePlaylistEligibleCount(2, trackCount = 120, likesCount = 5, savesCount = 9))
+        // Saves tab (3) → savesCount.
+        assertEquals(9, profilePlaylistEligibleCount(3, trackCount = 120, likesCount = 5, savesCount = 9))
+    }
+
+    @Test
+    fun `unknown counts read as zero`() {
+        assertEquals(0, profilePlaylistEligibleCount(0, trackCount = null, likesCount = null, savesCount = 0))
+        assertEquals(0, profilePlaylistEligibleCount(2, trackCount = 50, likesCount = null, savesCount = 0))
+    }
+
+    @Test
+    fun `full export offered only above 75 eligible songs`() {
+        assertFalse(shouldOfferProfileFullExport(0, trackCount = 75, likesCount = 0, savesCount = 0))
+        assertTrue(shouldOfferProfileFullExport(0, trackCount = 76, likesCount = 0, savesCount = 0))
+        // Likes/saves gate on their own counts.
+        assertTrue(shouldOfferProfileFullExport(2, trackCount = 0, likesCount = 200, savesCount = 0))
+        assertTrue(shouldOfferProfileFullExport(3, trackCount = 0, likesCount = 0, savesCount = 300))
+        // Below threshold on the active tab → no chooser even if another count is large.
+        assertFalse(shouldOfferProfileFullExport(2, trackCount = 9999, likesCount = 10, savesCount = 9999))
     }
 }

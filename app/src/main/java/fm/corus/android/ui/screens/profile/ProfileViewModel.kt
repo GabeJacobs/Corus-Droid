@@ -282,11 +282,13 @@ class ProfileViewModel @Inject constructor(
 
     fun generatePlaylist(
         source: CloudFunctionsDataSource.ProfilePlaylistSource = CloudFunctionsDataSource.ProfilePlaylistSource.Posts,
+        // Lifts the backend's 75-track snapshot cap to export the whole source.
+        fullExport: Boolean = false,
     ) {
         val userId = authRepository.currentUserId ?: return
         analyticsService.logProfilePlaylistTapped(userId)
         viewModelScope.launch {
-            nowPlayingManager.generateProfilePlaylist(userId, source)
+            nowPlayingManager.generateProfilePlaylist(userId, source, isOwnProfile = true, fullExport = fullExport)
         }
     }
 

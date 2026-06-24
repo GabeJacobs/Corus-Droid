@@ -154,6 +154,7 @@ fun ProfileScreen(
     val posts by viewModel.posts.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     var showPlaylistAlert by remember { mutableStateOf(false) }
+    var showPlaylistChooser by remember { mutableStateOf(false) }
     val likedPosts by viewModel.likedPosts.collectAsState()
     val savedPosts by viewModel.savedPosts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -546,6 +547,13 @@ fun ProfileScreen(
                                     .clickable(enabled = !isGeneratingPlaylist) {
                                         if (!hasSongs) {
                                             ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
+                                        } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
+                                                selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
+                                            )
+                                        ) {
+                                            // >75 eligible songs → quick-vs-all chooser, which also
+                                            // folds in the Spotify/SoundCloud caveat (no stacked popups).
+                                            showPlaylistChooser = true
                                         } else {
                                             // TIDAL builds on the user's own account (generates
                                             // directly); Apple Music / Deezer and SoundCloud-on-
@@ -1169,6 +1177,51 @@ fun ProfileScreen(
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { showPlaylistAlert = false }) {
                     androidx.compose.material3.Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showPlaylistChooser) {
+        val chooserSource = when (selectedSegment) {
+            2 -> CloudFunctionsDataSource.ProfilePlaylistSource.Likes
+            3 -> CloudFunctionsDataSource.ProfilePlaylistSource.Saves
+            else -> CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+        }
+        val count = fm.corus.android.domain.profilePlaylistEligibleCount(
+            selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
+        )
+        val hasSoundCloud = chooserSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+            && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+        // Fold the Spotify/SoundCloud caveat into this one dialog so we never
+        // stack a second popup on top of the chooser.
+        val caveat = when {
+            hasSoundCloud && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY
+                || fm.corus.android.domain.usesSpotifyFallback(musicService)) -> " SoundCloud tracks are skipped."
+            fm.corus.android.domain.usesSpotifyFallback(musicService) -> " This creates a Spotify playlist."
+            else -> ""
+        }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showPlaylistChooser = false },
+            title = { androidx.compose.material3.Text("Generate a playlist?") },
+            text = {
+                androidx.compose.material3.Text(
+                    "Make a quick 75-song playlist, or export all $count songs.$caveat"
+                )
+            },
+            confirmButton = {
+                androidx.compose.foundation.layout.Column {
+                    androidx.compose.material3.TextButton(onClick = {
+                        showPlaylistChooser = false
+                        viewModel.generatePlaylist(chooserSource, fullExport = false)
+                    }) { androidx.compose.material3.Text("Quick playlist · 75 songs") }
+                    androidx.compose.material3.TextButton(onClick = {
+                        showPlaylistChooser = false
+                        viewModel.generatePlaylist(chooserSource, fullExport = true)
+                    }) { androidx.compose.material3.Text("All $count songs") }
+                    androidx.compose.material3.TextButton(onClick = { showPlaylistChooser = false }) {
+                        androidx.compose.material3.Text("Cancel")
+                    }
                 }
             },
         )

@@ -301,9 +301,11 @@ class NowPlayingManager @Inject constructor(
         userId: String,
         source: CloudFunctionsDataSource.ProfilePlaylistSource = CloudFunctionsDataSource.ProfilePlaylistSource.Posts,
         isOwnProfile: Boolean = true,
+        // Lifts the backend's 75-track snapshot cap to export the whole source.
+        fullExport: Boolean = false,
     ) {
         if (musicServicePreference.current.value == MusicService.TIDAL) {
-            generateProfilePlaylistTidal(userId, source, isOwnProfile)
+            generateProfilePlaylistTidal(userId, source, isOwnProfile, fullExport)
             return
         }
         _isGeneratingPlaylist.value = true
@@ -316,7 +318,7 @@ class NowPlayingManager @Inject constructor(
         }
 
         try {
-            val result = cloudFunctions.generateProfilePlaylist(userId, source)
+            val result = cloudFunctions.generateProfilePlaylist(userId, source, fullExport)
             if (result.soundcloudSkipped > 0) {
                 android.util.Log.i("NowPlaying", "Profile playlist skipped ${result.soundcloudSkipped} SoundCloud track(s)")
             }
@@ -400,6 +402,7 @@ class NowPlayingManager @Inject constructor(
         userId: String,
         source: CloudFunctionsDataSource.ProfilePlaylistSource,
         isOwnProfile: Boolean,
+        fullExport: Boolean = false,
     ) {
         if (!isNetworkAvailable()) {
             _playlistError.value = "Couldn't connect. Check your connection."
@@ -410,7 +413,7 @@ class NowPlayingManager @Inject constructor(
         _isGeneratingPlaylist.value = true
         val toastId = ToastManager.showLoading("Generating playlist…")
         try {
-            when (val outcome = cloudFunctions.generateProfilePlaylistTracks(userId, source)) {
+            when (val outcome = cloudFunctions.generateProfilePlaylistTracks(userId, source, fullExport)) {
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Paywall ->
                     _paywallRequested.value = true
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Failure ->

@@ -15,6 +15,9 @@ import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -26,6 +29,11 @@ class MessageRepository @Inject constructor(
     private val storageDataSource: FirebaseStorageDataSource,
     private val firestore: FirebaseFirestore,
 ) {
+    // Emits a threadId when the caller leaves a group, so the inbox can drop the
+    // row immediately (the live snapshot merge only adds/updates, never removes).
+    private val _leftThreads = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val leftThreads: SharedFlow<String> = _leftThreads.asSharedFlow()
+
     suspend fun listThreads(userId: String): List<CymbalThread> {
         return cloudFunctions.listThreads(userId)
     }
@@ -167,7 +175,10 @@ class MessageRepository @Inject constructor(
     suspend fun removeGroupMember(threadId: String, userId: String) =
         cloudFunctions.removeGroupMember(threadId, userId)
 
-    suspend fun leaveGroup(threadId: String) = cloudFunctions.leaveGroup(threadId)
+    suspend fun leaveGroup(threadId: String) {
+        cloudFunctions.leaveGroup(threadId)
+        _leftThreads.tryEmit(threadId)
+    }
 
     suspend fun renameGroup(threadId: String, name: String) = cloudFunctions.renameGroup(threadId, name)
 
@@ -179,7 +190,7 @@ class MessageRepository @Inject constructor(
         return storageDataSource.uploadMessageImage(userId, threadId, photoId, imageData)
     }
 
-    suspend fun checkGroupAddable(userIds: List<String>, threadId: String? = null): Map<String, Boolean> =
+    suspend fun checkGroupAddable(userIds: List<String>, threadId: String? = null): Map<String, CloudFunctionsDataSource.GroupAddability> =
         cloudFunctions.checkGroupAddable(userIds, threadId)
 
     /**

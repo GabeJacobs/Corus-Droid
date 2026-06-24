@@ -91,6 +91,12 @@ class ThreadListViewModel @Inject constructor(
     val groupMembersById: StateFlow<Map<String, CymbalUser>> = _groupMembersById.asStateFlow()
 
     init {
+        // Drop a group from the inbox the instant the user leaves it.
+        viewModelScope.launch {
+            messageRepository.leftThreads.collect { id ->
+                _threads.value = _threads.value.filterNot { it.id == id }
+            }
+        }
         viewModelScope.launch {
             _threads.collect { list ->
                 val groups = list.filter { it.isGroup }
@@ -111,7 +117,7 @@ class ThreadListViewModel @Inject constructor(
     suspend fun createGroup(userIds: List<String>, name: String?): String =
         messageRepository.createGroupThread(userIds, name)
 
-    suspend fun checkAddable(userIds: List<String>): Map<String, Boolean> =
+    suspend fun checkAddable(userIds: List<String>): Map<String, fm.corus.android.data.remote.CloudFunctionsDataSource.GroupAddability> =
         messageRepository.checkGroupAddable(userIds)
 
     /** Suggestion + search helpers for the multi-select group picker. */

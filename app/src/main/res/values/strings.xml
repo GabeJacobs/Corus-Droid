@@ -714,6 +714,7 @@
     <string name="messaging_group_change_photo">Change photo</string>
     <string name="messaging_group_remove">Remove</string>
     <string name="messaging_group_not_addable">Needs to update to join groups</string>
+    <string name="messaging_group_soft_hint">May not see this yet</string>
     <string name="messaging_group_sender_preview">%1$s: %2$s</string>
     <string name="messaging_group_cancel">Cancel</string>
 

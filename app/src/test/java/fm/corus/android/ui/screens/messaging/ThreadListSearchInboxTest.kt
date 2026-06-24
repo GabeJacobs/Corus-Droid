@@ -59,7 +59,9 @@ class ThreadListSearchInboxTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        messageRepository = mock()
+        messageRepository = mock {
+            on { leftThreads } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
+        }
         authRepository = mock {
             on { currentUserId } doReturn "me"
         }

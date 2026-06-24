@@ -252,7 +252,7 @@ class MessageThreadViewModel @Inject constructor(
         }
     }
 
-    suspend fun checkAddable(userIds: List<String>): Map<String, Boolean> =
+    suspend fun checkAddable(userIds: List<String>): Map<String, fm.corus.android.data.remote.CloudFunctionsDataSource.GroupAddability> =
         messageRepository.checkGroupAddable(userIds, currentThreadId)
 
     suspend fun fetchSuggestionsList(): List<fm.corus.android.data.model.CymbalUser> {

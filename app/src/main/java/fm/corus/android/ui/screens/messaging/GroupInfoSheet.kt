@@ -223,7 +223,6 @@ internal fun GroupInfoSheet(
                 excludeIds = (memberIds + (currentUserId ?: "")).toSet(),
                 loadSuggestions = { viewModel.fetchSuggestionsList() },
                 search = { viewModel.searchUsersList(it) },
-                checkAddable = { viewModel.checkAddable(it) },
                 onCancel = { showAddPeople = false },
                 onConfirm = { selectedUsers, _ ->
                     viewModel.addGroupMembers(selectedUsers.map { it.id })

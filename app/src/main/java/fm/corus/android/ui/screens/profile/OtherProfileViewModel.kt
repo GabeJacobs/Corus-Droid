@@ -86,10 +86,12 @@ class OtherProfileViewModel @Inject constructor(
     fun generatePlaylist(
         userId: String,
         source: CloudFunctionsDataSource.ProfilePlaylistSource = CloudFunctionsDataSource.ProfilePlaylistSource.Posts,
+        // Lifts the backend's 75-track snapshot cap to export the whole source.
+        fullExport: Boolean = false,
     ) {
         viewModelScope.launch {
             // Someone else's profile → TIDAL playlist is titled with their username.
-            nowPlayingManager.generateProfilePlaylist(userId, source, isOwnProfile = false)
+            nowPlayingManager.generateProfilePlaylist(userId, source, isOwnProfile = false, fullExport = fullExport)
         }
     }
 

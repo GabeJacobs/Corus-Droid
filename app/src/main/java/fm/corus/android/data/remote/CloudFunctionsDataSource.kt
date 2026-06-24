@@ -824,16 +824,25 @@ class CloudFunctionsDataSource @Inject constructor(
         ).await()
     }
 
-    /** Pre-check which users can be added to a group, so the picker can grey out
-     *  those on a build that hasn't advertised group-chat support. Fails open. */
+    /** ok=false is a hard block (bot/blocked/etc.); ok=true+soft=true means addable
+     *  but on a not-yet-updated build (the picker shows a soft hint). */
+    data class GroupAddability(val ok: Boolean, val soft: Boolean)
+
+    /** Pre-check which users can be added to a group. Fails open. */
     @Suppress("UNCHECKED_CAST")
-    suspend fun checkGroupAddable(userIds: List<String>, threadId: String? = null): Map<String, Boolean> {
+    suspend fun checkGroupAddable(userIds: List<String>, threadId: String? = null): Map<String, GroupAddability> {
         val params = mutableMapOf<String, Any>("userIds" to userIds)
         threadId?.let { params["threadId"] = it }
         val result = functions.getHttpsCallable("checkGroupAddable").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyMap()
         val addable = data["addable"] as? Map<String, Any?> ?: return emptyMap()
-        return addable.mapValues { (_, v) -> (v as? Map<String, Any?>)?.get("ok") as? Boolean ?: false }
+        return addable.mapValues { (_, v) ->
+            val entry = v as? Map<String, Any?>
+            GroupAddability(
+                ok = entry?.get("ok") as? Boolean ?: false,
+                soft = entry?.get("soft") as? Boolean ?: false,
+            )
+        }
     }
 
     // ── GIF Search (Klipy via Cloud Function) ──
@@ -1257,6 +1266,8 @@ class CloudFunctionsDataSource @Inject constructor(
     suspend fun generateProfilePlaylist(
         userId: String,
         source: ProfilePlaylistSource = ProfilePlaylistSource.Posts,
+        // Lifts the backend's 75-track snapshot cap to export the whole source.
+        fullExport: Boolean = false,
     ): PlaylistResult {
         // Only attach `source` for the new branches so the request shape stays
         // identical to older clients for the posts case.
@@ -1267,6 +1278,7 @@ class CloudFunctionsDataSource @Inject constructor(
         if (source != ProfilePlaylistSource.Posts) {
             payload["source"] = source.wire
         }
+        if (fullExport) payload["fullExport"] = true
         val result = functions.getHttpsCallable("generateProfilePlaylist").call(payload).await()
         val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
         return parsePlaylistResponse(data)
@@ -1280,6 +1292,8 @@ class CloudFunctionsDataSource @Inject constructor(
     suspend fun generateProfilePlaylistTracks(
         userId: String,
         source: ProfilePlaylistSource = ProfilePlaylistSource.Posts,
+        // Lifts the backend's 75-track snapshot cap to export the whole source.
+        fullExport: Boolean = false,
     ): PlaylistTracksOutcome {
         val payload = mutableMapOf<String, Any>(
             "userId" to userId,
@@ -1287,6 +1301,7 @@ class CloudFunctionsDataSource @Inject constructor(
             "appleMusicTracks" to true,
         )
         if (source != ProfilePlaylistSource.Posts) payload["source"] = source.wire
+        if (fullExport) payload["fullExport"] = true
         val result = functions.getHttpsCallable("generateProfilePlaylist").call(payload).await()
         val data = result.getData() as? Map<String, Any?> ?: return PlaylistTracksOutcome.Failure(0)
         return parsePlaylistTracksResponse(data)

@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -43,8 +42,8 @@ import kotlinx.coroutines.launch
  * Reusable multi-select people picker (create a group, or add people to one),
  * mirroring the iOS NewMessagePickerView. Lambda-driven so it works for either
  * host VM. In create mode (`showNameField`) one selection means a 1:1 DM and
- * two+ means a group. Un-addable users (haven't adopted a group-capable build)
- * render greyed out via `checkAddable`.
+ * two+ means a group. Anyone is selectable — a not-yet-updated member just gets
+ * the old 1:1-style experience until they update (rollout is gated until then).
  */
 @Composable
 internal fun MultiUserPickerContent(
@@ -53,7 +52,6 @@ internal fun MultiUserPickerContent(
     excludeIds: Set<String>,
     loadSuggestions: suspend () -> List<CymbalUser>,
     search: suspend (String) -> List<CymbalUser>,
-    checkAddable: suspend (List<String>) -> Map<String, Boolean>,
     onCancel: () -> Unit,
     onConfirm: (selected: List<CymbalUser>, groupName: String?) -> Unit,
 ) {
@@ -64,7 +62,6 @@ internal fun MultiUserPickerContent(
     var searching by remember { mutableStateOf(false) }
     val selected = remember { mutableStateListOf<CymbalUser>() }
     var groupName by remember { mutableStateOf("") }
-    val addable = remember { mutableStateMapOf<String, Boolean>() }
     var submitting by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -86,18 +83,8 @@ internal fun MultiUserPickerContent(
 
     val displayed = if (searchText.isBlank()) (suggestions ?: emptyList()) else results
 
-    // Pre-check addability for shown users (fails open).
-    LaunchedEffect(displayed) {
-        val ids = displayed.map { it.id }.filter { it !in addable }
-        if (ids.isEmpty()) return@LaunchedEffect
-        val res = runCatching { checkAddable(ids) }.getOrDefault(emptyMap())
-        ids.forEach { addable[it] = res[it] ?: true }
-    }
-
     val isLoading = (searchText.isBlank() && suggestions == null) || (searchText.isNotBlank() && searching)
     val selectedIds = selected.map { it.id }.toSet()
-
-    fun rowAddable(u: CymbalUser): Boolean = addable[u.id] != false
 
     val confirmLabel = when {
         !showNameField -> stringResource(id = R.string.messaging_group_add_cta)
@@ -200,13 +187,10 @@ internal fun MultiUserPickerContent(
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(displayed, key = { it.id }) { user ->
                         val checked = user.id in selectedIds
-                        val enabled = rowAddable(user) || checked
                         MultiPickRow(
                             user = user,
                             checked = checked,
-                            enabled = enabled,
                             onClick = {
-                                if (!enabled) return@MultiPickRow
                                 if (checked) selected.removeAll { it.id == user.id } else selected.add(user)
                             },
                         )
@@ -269,13 +253,12 @@ private fun FlowChips(selected: List<CymbalUser>, onRemove: (CymbalUser) -> Unit
 }
 
 @Composable
-private fun MultiPickRow(user: CymbalUser, checked: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun MultiPickRow(user: CymbalUser, checked: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md)
-            .then(if (enabled) Modifier else Modifier.alpha(0.5f)),
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         UserAvatarView(avatarURL = user.avatarURL, avatarThumbURL = user.avatarThumbURL, displayName = user.displayName, username = user.username, size = CorusSpacing.avatarMedium)
@@ -283,7 +266,7 @@ private fun MultiPickRow(user: CymbalUser, checked: Boolean, enabled: Boolean, o
         Column(modifier = Modifier.weight(1f)) {
             Text("@${user.username}", style = CorusFont.username, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                if (enabled) user.displayName else stringResource(id = R.string.messaging_group_not_addable),
+                user.displayName,
                 style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }

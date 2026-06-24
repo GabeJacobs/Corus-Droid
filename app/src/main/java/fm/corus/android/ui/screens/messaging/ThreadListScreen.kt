@@ -218,7 +218,6 @@ fun ThreadListScreen(
                     excludeIds = setOf(viewModel.currentUserId ?: ""),
                     loadSuggestions = { viewModel.fetchSuggestionsList() },
                     search = { viewModel.searchUsersList(it) },
-                    checkAddable = { viewModel.checkAddable(it) },
                     onCancel = { showGroupCreate = false }, // back to the DM list
                     onConfirm = { selectedUsers, name ->
                         showGroupCreate = false
