@@ -921,16 +921,16 @@ class FeedViewModel @Inject constructor(
 
     fun generateFeedPlaylist() {
         analyticsService.logFeedPlaylistTapped()
-        // Build the playlist from whichever feed is on screen, and (for
-        // Trending) from the exact ranked session the user is scrolling. The
-        // server names it per mode ("Corus Trending" / "Corus Favorites" /
-        // "Corus Feed").
+        // Build the playlist from whichever feed is on screen, and (for the
+        // ranked modes — Trending AND Taste Matches) from the exact ranked
+        // session the user is scrolling. The server names it per mode
+        // ("Corus Trending" / "Corus Taste Matches" / "Corus Favorites" / "Corus Feed").
         val mode = feedMode.value
         viewModelScope.launch {
             nowPlayingManager.generateFeedPlaylist(
                 newReleasesOnly = _feedFilter.value.newReleasesOnly,
                 feedMode = mode,
-                sessionToken = if (mode == "trending") forYouSessionToken else null,
+                sessionToken = if (mode == "trending" || mode == "tasteMatches") forYouSessionToken else null,
             )
         }
     }
