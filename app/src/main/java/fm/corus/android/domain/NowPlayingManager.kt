@@ -548,6 +548,7 @@ class NowPlayingManager @Inject constructor(
 
     private fun feedPlaylistName(feedMode: String): String = when (feedMode) {
         "trending" -> "Corus Trending"
+        "tasteMatches" -> "Corus Taste Matches"
         "favorites" -> "Corus Favorites"
         else -> "Corus Feed"
     }
