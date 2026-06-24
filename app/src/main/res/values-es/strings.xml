@@ -997,4 +997,9 @@
     <string name="messaging_group_member_count">%1$d miembros</string>
     <string name="messaging_group_and_others">y %1$d más</string>
     <string name="messaging_group_sender_preview">%1$s: %2$s</string>
+    <string name="club_feature_taste_matches">Feed de coincidencias de gustos</string>
+    <string name="feed_taste_matches_coldstart_title">¿Cuáles son 3 canciones o películas que amas?</string>
+    <string name="feed_taste_matches_coldstart_body">Corus creará un feed personalizado para ti y te conectará con personas que tienen un gusto similar.</string>
+    <string name="feed_taste_matches_coldstart_progress">%1$d de %2$d publicaciones</string>
+    <string name="feed_taste_matches_coldstart_cta">Publicar un corus</string>
 </resources>

@@ -192,6 +192,34 @@ class FeedViewModel @Inject constructor(
     val newReleaseFilterPaywall: StateFlow<PaywallSource?> = _newReleaseFilterPaywall.asStateFlow()
     fun clearNewReleaseFilterPaywall() { _newReleaseFilterPaywall.value = null }
 
+    // ── Taste Matches (premium curator-first feed) gate ──
+    /** Server-authoritative gate for the Taste Matches feed: cold-start (post
+     *  more) or paywall. Null for a served feed. Only meaningful while
+     *  feedMode == "tasteMatches". Mirrors iOS TasteMatchesGateState. */
+    sealed interface TasteMatchesGate {
+        data class NeedMorePosts(val postCount: Int, val threshold: Int) : TasteMatchesGate
+        data object Paywall : TasteMatchesGate
+    }
+    private val _tasteMatchesGate = MutableStateFlow<TasteMatchesGate?>(null)
+    val tasteMatchesGate: StateFlow<TasteMatchesGate?> = _tasteMatchesGate.asStateFlow()
+
+    /** Trigger for the Club paywall when a non-member taps Taste Matches. */
+    private val _tasteMatchesPaywall = MutableStateFlow<PaywallSource?>(null)
+    val tasteMatchesPaywall: StateFlow<PaywallSource?> = _tasteMatchesPaywall.asStateFlow()
+    fun clearTasteMatchesPaywall() { _tasteMatchesPaywall.value = null }
+
+    /** Cover art for the cold-start seed slots: already-counted posts (fetched)
+     *  plus posts made optimistically this session. */
+    private val _tasteMatchesSeedArt = MutableStateFlow<List<String>>(emptyList())
+    val tasteMatchesSeedArt: StateFlow<List<String>> = _tasteMatchesSeedArt.asStateFlow()
+    /** Count of posts made this session while on the cold-start (optimistic). */
+    private val _tasteMatchesSeedCount = MutableStateFlow(0)
+    val tasteMatchesSeedCount: StateFlow<Int> = _tasteMatchesSeedCount.asStateFlow()
+    /** True during the post-3rd hand-off: keep the skeleton up while the server
+     *  count catches up and serves the real feed. */
+    private val _tasteMatchesSeeding = MutableStateFlow(false)
+    val tasteMatchesSeeding: StateFlow<Boolean> = _tasteMatchesSeeding.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     private val _hasLoaded = MutableStateFlow(false)
     val hasLoaded: StateFlow<Boolean> = _hasLoaded.asStateFlow()
@@ -212,10 +240,15 @@ class FeedViewModel @Inject constructor(
     // the user taps a mode it's persisted and wins. (A device that persisted
     // the long-gone "discovery" value falls through to the default — that mode
     // never shipped, so no real user is affected.)
+    /** Taste Matches is available when the RC master switch is on OR the viewer
+     *  is a comped internal tester. Mirrors iOS `tasteMatchesAvailable`. */
+    private val tasteMatchesAvailable: Boolean
+        get() = remoteConfig.tasteMatchesEnabled || remoteConfig.tasteMatchesTester
+
     private fun resolveFeedMode(stored: String): String {
         // First resolve the stored / default choice…
         val resolved = when (stored) {
-            "following", "forYou", "trending", "favorites" -> stored
+            "following", "forYou", "trending", "favorites", "tasteMatches" -> stored
             else ->
                 if (remoteConfig.defaultForYouFeedEnabled && remoteConfig.forYouEnabled) "forYou"
                 else "following"
@@ -231,6 +264,7 @@ class FeedViewModel @Inject constructor(
             "forYou" -> if (remoteConfig.forYouEnabled) "forYou" else "following"
             "trending" -> if (remoteConfig.trendingFeedEnabled) "trending" else "following"
             "favorites" -> if (remoteConfig.favoritesEnabled) "favorites" else "following"
+            "tasteMatches" -> if (tasteMatchesAvailable) "tasteMatches" else "following"
             else -> "following"
         }
     }
@@ -255,6 +289,10 @@ class FeedViewModel @Inject constructor(
     // selected while the posts are Following. Tracking what each load used lets
     // the init collector below re-sync when the resolved mode diverges.
     private var lastLoadedMode: String? = null
+
+    /** Fires `taste_matches_feed_viewed` once per session the first time the
+     *  SERVED (non-gated) Taste Matches feed loads with posts. */
+    private var loggedTasteMatchesFeedViewed = false
 
     private var forYouSessionToken: String? = null
     private var forYouPageIndex: Int = 0
@@ -428,12 +466,22 @@ class FeedViewModel @Inject constructor(
                 if (feedMode.value == "following") {
                     delay(500) // brief delay for Firestore propagation
                     loadFeed(refresh = true)
+                } else if (feedMode.value == "tasteMatches") {
+                    // Seeding the cold-start: fill the next slot optimistically.
+                    handleTasteMatchesSeedPost()
                 }
             }
         }
         viewModelScope.launch {
             postDeletionEvent.events.collect { deletedId ->
                 _posts.value = _posts.value.filter { it.id != deletedId }
+                // On the Taste Matches cold-start a delete changes your post count
+                // — reconcile with the server so the meter and slot art drop the
+                // removed post instead of showing stale optimistic state.
+                if (feedMode.value == "tasteMatches") {
+                    delay(500) // let the count trigger propagate
+                    loadFeed(refresh = true)
+                }
             }
         }
         // Keep the Favorites feed live when the viewer toggles a favorite from a
@@ -504,9 +552,23 @@ class FeedViewModel @Inject constructor(
         // and resolveFeedMode already handles the unset case via the RC default.
         val mode = feedMode.value
         lastLoadedMode = mode
-        val useRanked = mode == "forYou" || mode == "trending"
+        val useRanked = mode == "forYou" || mode == "trending" || mode == "tasteMatches"
         val useFavorites = mode == "favorites"
-        val rankedScope = if (mode == "trending") "trending" else "forYou"
+        val rankedScope = when (mode) {
+            "trending" -> "trending"
+            "tasteMatches" -> "tasteMatches"
+            else -> "forYou"
+        }
+        // A fresh (user-driven) load resets the optimistic seed slots so the
+        // count reflects pure server truth. During the post-3rd hand-off
+        // (`_tasteMatchesSeeding`) we keep them so the meter never flickers back
+        // while the server count catches up. Mirrors iOS.
+        if (!_tasteMatchesSeeding.value) {
+            _tasteMatchesSeedCount.value = 0
+            _tasteMatchesSeedArt.value = emptyList()
+        }
+        // Clear any stale gate from another mode; the ranked branch re-sets it.
+        if (mode != "tasteMatches") _tasteMatchesGate.value = null
 
         try {
             val newPosts: List<CymbalPost>
@@ -530,6 +592,33 @@ class FeedViewModel @Inject constructor(
                     // newest posts lead. First load / pagination doesn't.
                     isRefresh = refresh,
                 )
+                // Taste Matches gate: a {gated:...} response carries no posts and
+                // drives the cold-start / paywall screen instead of the feed.
+                if (mode == "tasteMatches") {
+                    when (forYouPage.gated) {
+                        "needMorePosts" -> {
+                            _tasteMatchesGate.value = TasteMatchesGate.NeedMorePosts(
+                                forYouPage.gatedPostCount, forYouPage.gatedThreshold,
+                            )
+                            // Seed the leftmost slots with the caller's existing covers.
+                            loadTasteMatchesSeedArt(forYouPage.gatedPostCount, forYouPage.gatedThreshold)
+                        }
+                        "paywall" -> _tasteMatchesGate.value = TasteMatchesGate.Paywall
+                        else -> _tasteMatchesGate.value = null
+                    }
+                    if (forYouPage.gated != null) {
+                        // Gated → no feed. Reset paging state, surface empty, bail.
+                        if (feedMode.value != mode) return
+                        _posts.value = emptyList()
+                        _hasMore.value = false
+                        _lastLoadFailed.value = false
+                        _forYouLoadFailed.value = false
+                        _isLoading.value = false
+                        _isRefreshing.value = false
+                        _hasLoaded.value = true
+                        return
+                    }
+                }
                 if (forYouPage.sessionToken != (forYouSessionToken ?: "") && forYouPage.sessionToken.isNotEmpty()) {
                     forYouSessionToken = forYouPage.sessionToken
                     forYouPageIndex = 0
@@ -538,6 +627,12 @@ class FeedViewModel @Inject constructor(
                 }
                 newPosts = forYouPage.posts
                 pageHasMore = forYouPage.hasMore
+                // The served Taste Matches feed loaded (gated == null guaranteed —
+                // the gated branch returned above) with posts. Log once per session.
+                if (mode == "tasteMatches" && !loggedTasteMatchesFeedViewed && newPosts.isNotEmpty()) {
+                    loggedTasteMatchesFeedViewed = true
+                    analyticsService.logTasteMatchesFeedViewed(newPosts.size)
+                }
                 // Update seen-IDs ring buffer (cap 500).
                 for (p in newPosts) {
                     if (!forYouSeenIds.contains(p.id)) forYouSeenIds.add(p.id)
@@ -679,6 +774,18 @@ class FeedViewModel @Inject constructor(
      */
     fun setFeedMode(mode: String) {
         if (feedMode.value == mode) return
+        // Premium gate: a non-member (and non-tester) tapping Taste Matches gets
+        // the paywall, not the feed. The server enforces the same rule; this just
+        // avoids a wasted gated round-trip. Mirrors iOS.
+        if (mode == "tasteMatches") {
+            // Log the tap before the gate so the funnel captures both access tiers.
+            val hasAccess = subscriptionRepository.hasFullAccess || remoteConfig.tasteMatchesTester
+            analyticsService.logTasteMatchesSelected(hasAccess)
+            if (!hasAccess) {
+                _tasteMatchesPaywall.value = PaywallSource.TASTE_MATCHES
+                return
+            }
+        }
         // Claim this mode now so the feedMode collector (init) treats the
         // upcoming DataStore emission as already-handled — this path persists
         // and reloads directly, so we don't want the collector to fire a second
@@ -700,6 +807,74 @@ class FeedViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesDataStore.setFeedMode(mode)
             loadFeedSuspending(refresh = true)
+        }
+    }
+
+    // ── Taste Matches cold-start seeding ──
+
+    /** Fetch the caller's already-counted post covers (songs AND films) so the
+     *  leftmost seed slots show real art on first load. No-op if there's nothing
+     *  to count or we already have art. */
+    private fun loadTasteMatchesSeedArt(base: Int, threshold: Int) {
+        if (base <= 0 || _tasteMatchesSeedArt.value.isNotEmpty()) return
+        refreshTasteMatchesSeedArt(threshold)
+    }
+
+    private fun refreshTasteMatchesSeedArt(limit: Int) {
+        val uid = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            runCatching {
+                postRepository.getProfilePosts(uid, uid, limit = limit.coerceAtLeast(1))
+            }.onSuccess { posts ->
+                // Large art so the 64dp slots render sharp, not a blurry thumbnail.
+                val urls = posts.mapNotNull { it.displayImageLargeURL ?: it.displayImageURL }.take(limit)
+                if (urls.isNotEmpty()) _tasteMatchesSeedArt.value = urls
+            }
+        }
+    }
+
+    /** A post arrived while on the cold-start: fill the next slot immediately and,
+     *  if it completes the meter, hand off to the real feed. Mirrors iOS. */
+    private fun handleTasteMatchesSeedPost() {
+        val gate = _tasteMatchesGate.value as? TasteMatchesGate.NeedMorePosts ?: return
+        val filledBefore = minOf(gate.threshold, gate.postCount + _tasteMatchesSeedCount.value)
+        if (filledBefore >= gate.threshold) return
+        _tasteMatchesSeedCount.value = _tasteMatchesSeedCount.value + 1
+        // Pull the just-posted cover into the slots (after a beat for propagation).
+        viewModelScope.launch {
+            delay(600)
+            refreshTasteMatchesSeedArt(gate.threshold)
+        }
+        val filledAfter = minOf(gate.threshold, gate.postCount + _tasteMatchesSeedCount.value)
+        if (filledAfter >= gate.threshold) beginTasteMatchesSeedHandoff()
+    }
+
+    /** After the final seed post: celebrate briefly, then poll the ranked feed
+     *  until the server count catches up and serves it (keeping the skeleton up
+     *  across gated retries so the meter never flickers back). Mirrors iOS. */
+    private fun beginTasteMatchesSeedHandoff() {
+        _tasteMatchesSeeding.value = true
+        viewModelScope.launch {
+            delay(700) // celebrate the last slot
+            if (feedMode.value != "tasteMatches") { _tasteMatchesSeeding.value = false; return@launch }
+            _tasteMatchesGate.value = null
+            for (attempt in 0 until 5) {
+                loadFeedSuspending(refresh = true)
+                if (feedMode.value != "tasteMatches") break
+                if (_tasteMatchesGate.value == null) break   // served — feed is live
+                if (attempt < 4) delay(1200)
+            }
+            // Either way, drop the optimistic seed so the cold-start (if the
+            // server is still catching up) reflects the real server count rather
+            // than a stale over-count — e.g. after deleting a seed post.
+            _tasteMatchesSeedCount.value = 0
+            _tasteMatchesSeedArt.value = emptyList()
+            // If we fell back to the cold-start, refetch sharp covers for the
+            // reconciled (real) post count.
+            (_tasteMatchesGate.value as? TasteMatchesGate.NeedMorePosts)?.let {
+                refreshTasteMatchesSeedArt(it.threshold)
+            }
+            _tasteMatchesSeeding.value = false
         }
     }
 

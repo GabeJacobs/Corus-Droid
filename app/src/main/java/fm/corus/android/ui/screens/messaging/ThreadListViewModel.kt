@@ -48,6 +48,7 @@ internal data class LiveThreadMerge(
 internal fun applyLiveThreadUpdates(
     existing: List<CymbalThread>,
     live: List<CymbalThread>,
+    pageSize: Int,
 ): LiveThreadMerge {
     val byId = existing.associateBy { it.id }.toMutableMap()
     val newThreads = mutableListOf<CymbalThread>()
@@ -62,10 +63,31 @@ internal fun applyLiveThreadUpdates(
                 lastMessageAt = lt.lastMessageAt,
                 lastMessageFromUserId = lt.lastMessageFromUserId,
                 unreadCount = lt.unreadCount,
+                // Reflect group edits (rename / new photo / membership) made here
+                // or by another member. The live mirror carries the new name/photo
+                // and memberIds but not the resolved member profiles, so keep those.
+                groupName = lt.groupName ?: ex.groupName,
+                groupPhotoURL = lt.groupPhotoURL ?: ex.groupPhotoURL,
+                memberIds = if (lt.memberIds.isNotEmpty()) lt.memberIds else ex.memberIds,
+                createdBy = ex.createdBy ?: lt.createdBy,
             )
         } else {
             newThreads.add(lt)
         }
+    }
+    // Prune threads that vanished from the live window — left, removed by someone
+    // else, or deleted on another device. The snapshot is the newest `pageSize`
+    // threads by recency, so it's authoritative for that window; older paginated
+    // threads (below it) are kept.
+    val liveIds = live.map { it.id }.toSet()
+    val snapshotComplete = live.size < pageSize
+    val windowOldest = live.minOfOrNull { it.lastMessageAt.time }
+    if (windowOldest != null) {
+        val kept = byId.filterValues { t ->
+            liveIds.contains(t.id) || !(snapshotComplete || t.lastMessageAt.time >= windowOldest)
+        }
+        byId.clear()
+        byId.putAll(kept)
     }
     val merged = byId.values.sortedByDescending { it.lastMessageAt.time }
     return LiveThreadMerge(merged, newThreads)
@@ -197,7 +219,8 @@ class ThreadListViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 val page = messageRepository.listThreadsPage(userId, limit = pageSize)
-                _threads.value = page.threads.filter { it.lastMessageFromUserId != null }
+                val left = messageRepository.recentlyLeftThreadIds()
+                _threads.value = page.threads.filter { it.lastMessageFromUserId != null && it.id !in left }
                 nextCursor = page.nextCursor
                 _hasMoreThreads.value = page.hasMore && page.nextCursor != null
                 hasLoadedThreads = true
@@ -218,15 +241,30 @@ class ThreadListViewModel @Inject constructor(
     private fun startThreadSummaryListener(userId: String) {
         if (threadSummaryJob != null) return
         threadSummaryJob = viewModelScope.launch {
-            messageRepository.listenToThreadSummaries(userId, pageSize.toLong()).collect { live ->
-                val (merged, newThreads) = applyLiveThreadUpdates(_threads.value, live)
-                _threads.value = merged
+            messageRepository.listenToThreadSummaries(userId, pageSize.toLong()).collect { liveRaw ->
+                // Drop threads the user just left before merging: a stale cache
+                // snapshot can still carry their mirror doc, and the async profile
+                // resolution below would otherwise re-add them after they're gone.
+                val left = messageRepository.recentlyLeftThreadIds()
+                val live = if (left.isEmpty()) liveRaw else liveRaw.filterNot { it.id in left }
+                val (merged, newThreads) = applyLiveThreadUpdates(_threads.value, live, pageSize)
+                _threads.value = if (left.isEmpty()) merged else merged.filterNot { it.id in left }
                 if (newThreads.isEmpty()) return@collect
                 val resolved = newThreads.mapNotNull { lt ->
-                    val profile = runCatching {
-                        userRepository.fetchUserProfile(lt.otherUserId)
-                    }.getOrNull()
-                    profile?.let { lt.copy(otherUser = it) }
+                    if (lt.isGroup) {
+                        // Resolve member profiles for a group someone added you to
+                        // while you were sitting on the inbox (1:1 rows resolve the
+                        // single otherUser below).
+                        val members = lt.memberIds
+                            .filter { it != currentUserId }
+                            .mapNotNull { runCatching { userRepository.fetchUserProfile(it) }.getOrNull() }
+                        lt.copy(members = members)
+                    } else {
+                        val profile = runCatching {
+                            userRepository.fetchUserProfile(lt.otherUserId)
+                        }.getOrNull()
+                        profile?.let { lt.copy(otherUser = it) }
+                    }
                 }
                 if (resolved.isNotEmpty()) {
                     // resolved goes last so it wins over any stale duplicate.
@@ -250,8 +288,9 @@ class ThreadListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val page = messageRepository.listThreadsPage(userId, limit = pageSize)
-                val refreshed = page.threads.filter { it.lastMessageFromUserId != null }
-                val merged = mergeRefreshedThreads(_threads.value, refreshed)
+                val left = messageRepository.recentlyLeftThreadIds()
+                val refreshed = page.threads.filter { it.lastMessageFromUserId != null && it.id !in left }
+                val merged = mergeRefreshedThreads(_threads.value, refreshed).filterNot { it.id in left }
                 val tailEmpty = merged.size == refreshed.size
                 _threads.value = merged
                 if (tailEmpty) {

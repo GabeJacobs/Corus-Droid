@@ -997,4 +997,9 @@
     <string name="messaging_group_member_count">멤버 %1$d명</string>
     <string name="messaging_group_and_others">외 %1$d명</string>
     <string name="messaging_group_sender_preview">%1$s: %2$s</string>
+    <string name="club_feature_taste_matches">취향 매치 피드</string>
+    <string name="feed_taste_matches_coldstart_title">좋아하는 노래나 영화 3가지는 무엇인가요?</string>
+    <string name="feed_taste_matches_coldstart_body">Corus가 맞춤 피드를 만들고 취향이 비슷한 사람들과 연결해 줍니다.</string>
+    <string name="feed_taste_matches_coldstart_progress">%2$d개 중 %1$d개 게시물</string>
+    <string name="feed_taste_matches_coldstart_cta">corus 게시하기</string>
 </resources>

@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
@@ -203,6 +204,28 @@ fun CymbalClubOfferScreen(
                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
             }
 
+            // Feature eyebrow when arriving from Taste Matches — names the perk in
+            // the brand color, mirroring the cold-start eyebrow.
+            if (viewModel.source == PaywallSource.TASTE_MATCHES) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = CorusColors.Accent,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.search_section_taste_matches),
+                        style = CorusFont.sectionHeader,
+                        color = CorusColors.Accent,
+                    )
+                }
+                Spacer(modifier = Modifier.height(CorusSpacing.xs))
+            }
+
             Text(
                 text = stringResource(R.string.club_title),
                 style = CorusFont.appTitle,
@@ -229,16 +252,24 @@ fun CymbalClubOfferScreen(
 
             Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
 
-            // Features
+            // Features. When Taste Matches is live, advertise it as the headline
+            // perk right under Unlimited posts, taking the badge row's slot so the
+            // list stays at 5 (mirrors iOS).
+            val tasteMatchesEnabled = viewModel.remoteConfig.tasteMatchesEnabled
             Column(
                 modifier = Modifier.padding(horizontal = CorusSpacing.xl),
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
                 FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+                if (tasteMatchesEnabled) {
+                    FeatureRow(icon = Icons.Filled.AutoAwesome, text = stringResource(R.string.club_feature_taste_matches))
+                }
                 FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
                 FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
                 FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
-                FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+                if (!tasteMatchesEnabled) {
+                    FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+                }
             }
 
             Spacer(modifier = Modifier.height(CorusSpacing.md))
@@ -260,9 +291,9 @@ fun CymbalClubOfferScreen(
                     .padding(horizontal = CorusSpacing.xl),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$2.99"
-                val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$19.99"
-                val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 19.99) / 12)}"
+                val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$3.99"
+                val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$24.99"
+                val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 24.99) / 12)}"
 
                 PlanCard(
                     label = stringResource(R.string.club_plan_monthly),
@@ -535,7 +566,7 @@ fun CymbalClubOfferSheet(
         ) {
             val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_monthly_default_price)
             val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_yearly_default_price)
-            val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 19.99) / 12)}"
+            val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 24.99) / 12)}"
 
             PlanCard(
                 label = stringResource(R.string.club_plan_monthly),

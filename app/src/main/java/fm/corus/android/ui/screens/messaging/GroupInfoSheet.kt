@@ -50,6 +50,7 @@ internal fun GroupInfoSheet(
     membersById: Map<String, CymbalUser>,
     onDismiss: () -> Unit,
     onLeft: () -> Unit,
+    onNavigateToProfile: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val currentUserId = viewModel.currentUserId
@@ -58,9 +59,12 @@ internal fun GroupInfoSheet(
     val otherMembers = memberIds.filter { it != currentUserId }.mapNotNull { membersById[it] }
 
     var name by remember(groupInfo.name) { mutableStateOf(groupInfo.name ?: "") }
+    var editingName by remember { mutableStateOf(false) }
     var showAddPeople by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf<CymbalUser?>(null) }
+    var leaving by remember { mutableStateOf(false) }
+    val uploadingPhoto by viewModel.isUploadingGroupPhoto.collectAsState()
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -80,7 +84,8 @@ internal fun GroupInfoSheet(
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
     ) {
         CorusSystemBars()
-        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f)) {
+        Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f)) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Text(
                 stringResource(id = R.string.messaging_group_info_title),
                 style = CorusFont.screenTitle,
@@ -94,41 +99,79 @@ internal fun GroupInfoSheet(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.lg),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (groupInfo.photoURL != null) {
-                    UserAvatarView(avatarURL = groupInfo.photoURL, displayName = "", username = "", size = 84.dp)
-                } else {
-                    StackedGroupAvatar(members = otherMembers, size = 84.dp)
+                fun launchPhotoPicker() {
+                    photoPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
                 }
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                Text(
-                    stringResource(id = R.string.messaging_group_change_photo),
-                    style = CorusFont.body,
-                    color = CorusColors.Accent,
-                    modifier = Modifier.clickable {
-                        photoPicker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    },
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.md))
+                // Tappable avatar → photo; a spinner replaces it while uploading.
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(CorusColors.CardBackground)
-                        .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                        .size(84.dp)
+                        .clip(CircleShape)
+                        .clickable(enabled = !uploadingPhoto) { launchPhotoPicker() },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    if (name.isEmpty()) {
-                        Text(stringResource(id = R.string.messaging_group_name_label), style = CorusFont.body, color = CorusColors.Tertiary)
+                    when {
+                        uploadingPhoto -> Box(
+                            modifier = Modifier.fillMaxSize().clip(CircleShape).background(CorusColors.CardBackground),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(28.dp), color = CorusColors.Secondary, strokeWidth = 2.dp)
+                        }
+                        groupInfo.photoURL != null -> UserAvatarView(avatarURL = groupInfo.photoURL, displayName = "", username = "", size = 84.dp)
+                        else -> StackedGroupAvatar(members = otherMembers, size = 84.dp)
                     }
-                    BasicTextField(
-                        value = name,
-                        onValueChange = { name = it.take(60) },
-                        textStyle = CorusFont.body.copy(color = CorusColors.Text, textAlign = TextAlign.Center),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { viewModel.renameGroup(name) }),
-                        modifier = Modifier.fillMaxWidth(),
+                }
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
+                // Title: custom name, else the members' names; editing toggles the field.
+                if (editingName) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CorusColors.CardBackground)
+                            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                    ) {
+                        if (name.isEmpty()) {
+                            Text(stringResource(id = R.string.messaging_group_name_label), style = CorusFont.body, color = CorusColors.Tertiary)
+                        }
+                        BasicTextField(
+                            value = name,
+                            onValueChange = { name = it.take(60) },
+                            textStyle = CorusFont.body.copy(color = CorusColors.Text, textAlign = TextAlign.Center),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = {
+                                viewModel.renameGroup(name)
+                                editingName = false
+                            }),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                } else {
+                    Text(
+                        groupDisplayTitle(name.ifBlank { null }, otherMembers, context),
+                        style = CorusFont.username,
+                        color = CorusColors.Text,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg)) {
+                    Text(
+                        stringResource(id = R.string.messaging_group_change_name),
+                        style = CorusFont.body, color = CorusColors.Accent,
+                        modifier = Modifier.clickable { editingName = true },
+                    )
+                    Text(
+                        stringResource(id = R.string.messaging_group_change_photo),
+                        style = CorusFont.body, color = CorusColors.Accent,
+                        modifier = Modifier.clickable(enabled = !uploadingPhoto) { launchPhotoPicker() },
                     )
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
@@ -170,7 +213,13 @@ internal fun GroupInfoSheet(
                     val u = membersById[id]
                     if (u != null) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onDismiss()
+                                    onNavigateToProfile(id)
+                                }
+                                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             UserAvatarView(avatarURL = u.avatarURL, avatarThumbURL = u.avatarThumbURL, displayName = u.displayName, username = u.username, size = CorusSpacing.avatarMedium)
@@ -204,6 +253,14 @@ internal fun GroupInfoSheet(
                     .clickable { confirmLeave = true }
                     .padding(vertical = CorusSpacing.md),
             )
+        }
+        // Non-blocking spinner while the leave request is in flight (swipe-down
+        // still dismisses the sheet, so it can't lock).
+        if (leaving) {
+            Box(modifier = Modifier.matchParentSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CorusColors.Accent)
+            }
+        }
         }
     }
 
@@ -239,6 +296,7 @@ internal fun GroupInfoSheet(
             confirmButton = {
                 TextButton(onClick = {
                     confirmLeave = false
+                    leaving = true
                     viewModel.leaveGroup { onLeft() }
                 }) { Text(stringResource(id = R.string.messaging_group_leave), color = Color.Red) }
             },

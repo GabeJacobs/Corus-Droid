@@ -247,6 +247,16 @@ class AnalyticsService @Inject constructor(
         logEvent("taste_match_feed_row_tapped", mapOf("subtype" to subtype, "from_user_id" to fromUserId))
     fun logTasteMatchSettingsToggled(enabled: Boolean) =
         logEvent("taste_match_settings_toggled", mapOf("enabled" to enabled))
+
+    // ── Taste Matches feed funnel (selection → cold-start → served feed) ──
+    // Event names + param keys are kept identical across iOS / Web / Android so
+    // GA4 can report the funnel cross-platform.
+    fun logTasteMatchesSelected(hasAccess: Boolean) =
+        logEvent("taste_matches_selected", mapOf("has_access" to hasAccess))
+    fun logTasteMatchesColdstartShown() = logEvent("taste_matches_coldstart_shown")
+    fun logTasteMatchesColdstartPostTapped() = logEvent("taste_matches_coldstart_post_tapped")
+    fun logTasteMatchesFeedViewed(postCount: Int) =
+        logEvent("taste_matches_feed_viewed", mapOf("post_count" to postCount))
     fun logMessageThreadOpened(threadId: String) = logEvent("message_thread_opened", mapOf("thread_id" to threadId))
     fun logMessageSent(threadId: String, type: String) = logEvent("message_sent", mapOf("thread_id" to threadId, "message_type" to type))
     fun logMessageError(threadId: String, error: String) = logEvent("message_error", mapOf("thread_id" to threadId, "error" to error.take(100)))
@@ -260,8 +270,8 @@ class AnalyticsService @Inject constructor(
 
     fun logPaywallShown(source: String, defaultPlan: String = "monthly") = logEvent("paywall_shown", mapOf("source" to source, "default_plan" to defaultPlan))
     fun logPaywallDismissed() = logEvent("paywall_dismissed")
-    fun logPurchaseStarted(plan: String) = logEvent("purchase_started", mapOf("plan" to plan))
-    fun logPurchaseCompleted(plan: String) = logEvent("purchase_completed", mapOf("plan" to plan))
+    fun logPurchaseStarted(plan: String, source: String) = logEvent("purchase_started", mapOf("plan" to plan, "source" to source))
+    fun logPurchaseCompleted(plan: String, source: String) = logEvent("purchase_completed", mapOf("plan" to plan, "source" to source))
     fun logPurchaseFailed(plan: String, error: String) = logEvent("purchase_failed", mapOf("plan" to plan, "error" to error.take(100)))
     fun logPurchaseRestored() = logEvent("purchase_restored")
     fun logPurchaseRestoreFailed(error: String) = logEvent("purchase_restore_failed", mapOf("error" to error.take(100)))

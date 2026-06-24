@@ -65,6 +65,22 @@ internal fun parseForYouFeedResponse(
 
 internal data class Quadruple<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
 
+/** A premium Taste Matches gate parsed from a `getForYouFeed` payload:
+ *  `gated` is "needMorePosts" | "paywall" | "unavailable". */
+internal data class TasteMatchesGateInfo(val gated: String, val postCount: Int, val threshold: Int)
+
+/**
+ * Parses the Taste Matches gate from a `getForYouFeed` payload, or null when the
+ * server returned a normal (un-gated) feed. Top-level + pure so it's unit-tested
+ * without mocking FirebaseFunctions (mirrors [parseForYouFeedResponse]).
+ */
+internal fun parseTasteMatchesGate(data: Map<String, Any?>?): TasteMatchesGateInfo? {
+    val gated = data?.get("gated") as? String ?: return null
+    val postCount = (data["postCount"] as? Number)?.toInt() ?: 0
+    val threshold = (data["threshold"] as? Number)?.toInt() ?: 0
+    return TasteMatchesGateInfo(gated, postCount, threshold)
+}
+
 /**
  * Wraps all Firebase callable Cloud Functions.
  * Mirrors the iOS DatabaseService's cloud function calls.
@@ -147,6 +163,12 @@ class CloudFunctionsDataSource @Inject constructor(
         val hasMore: Boolean,
         val sessionToken: String,
         val fellBackToFollowing: Boolean,
+        /** Premium Taste Matches gate: "needMorePosts" | "paywall" |
+         *  "unavailable" when the server returns a gated response (no posts),
+         *  else null. Lets the feed render the cold-start / paywall state. */
+        val gated: String? = null,
+        val gatedPostCount: Int = 0,
+        val gatedThreshold: Int = 0,
     )
 
     /**
@@ -188,6 +210,14 @@ class CloudFunctionsDataSource @Inject constructor(
 
         val result = functions.getHttpsCallable("getForYouFeed").call(params).await()
         val data = result.getData() as? Map<String, Any?>
+        // Premium Taste Matches gate: the server returns {gated:...} with no
+        // posts when the caller must subscribe or post more. Surface it so the
+        // feed renders the cold-start / paywall state, not a generic empty.
+        parseTasteMatchesGate(data)?.let { gate ->
+            return ForYouFeedPage(
+                emptyList(), false, "", false, gate.gated, gate.postCount, gate.threshold,
+            )
+        }
         val parsed = parseForYouFeedResponse(data)
         val posts = parsed.a.map { CymbalPost.fromCloudData(it) }
         return ForYouFeedPage(posts, parsed.b, parsed.c, parsed.d)

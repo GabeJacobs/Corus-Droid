@@ -371,6 +371,15 @@ fun MainTabScreen(
                     scrollToTopTrigger = feedScrollToTop.intValue,
                     isFeedTabSelected = selectedTab == CorusTab.FEED,
                     onShowComments = { commentPostId = it },
+                    onNavigateToCompose = {
+                        if (viewModel.subscriptionRepository.canPost) {
+                            composeViewModel.reset()
+                            showCompose = true
+                        } else {
+                            clubOfferSource = PaywallSource.POST_LIMIT
+                            showClubOffer = true
+                        }
+                    },
                 )
             }
             TabContent(visible = selectedTab == CorusTab.EXPLORE) {

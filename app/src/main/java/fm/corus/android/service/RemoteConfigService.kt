@@ -168,6 +168,16 @@ class RemoteConfigService @Inject constructor(
     val favoritesEnabled: Boolean
         get() = feedFlag("favorites_enabled")
 
+    /// Gate for the premium "Taste Matches" feed mode (Club-gated curator-first
+    /// discovery). Shares the `taste_matches_enabled` RC key with iOS/web. Off by
+    /// default → zero UI change. `tasteMatchesTester` comps internal testers so
+    /// they can see the feed (and bypass the paywall) while it's dark.
+    val tasteMatchesEnabled: Boolean
+        get() = feedFlag("taste_matches_enabled")
+
+    val tasteMatchesTester: Boolean
+        get() = feedFlag("taste_matches_tester")
+
     /// Gates the "Someone added you to their favorites" push + in-app row.
     /// Server-authoritative on the backend; mirrored here for completeness.
     val favoritesPushEnabled: Boolean

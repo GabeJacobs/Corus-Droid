@@ -31,6 +31,10 @@ enum class PaywallSource(val subtitle: String, val analyticsName: String) {
     FAVORITE_LIMIT("Unlock unlimited favorites.", "favorite_people_cap"),
     SETTINGS("Support Corus. Get Perks.", "settings"),
     NEW_RELEASE_FILTER("Unlock new release feeds.", "new_release_filter"),
+    TASTE_MATCHES(
+        "Get an always-fresh feed of music and film from people who match your taste.",
+        "taste_matches",
+    ),
 }
 
 @HiltViewModel
@@ -76,7 +80,7 @@ class CymbalClubViewModel @Inject constructor(
     fun purchase(activity: Activity, pkg: Package, planName: String) {
         _isPurchasing.value = true
         _errorMessage.value = null
-        analyticsService.logPurchaseStarted(planName)
+        analyticsService.logPurchaseStarted(planName, source.analyticsName)
         viewModelScope.launch {
             // Never let the purchase fire against RevenueCat's anonymous id: make
             // sure the SDK is aliased to the Firebase UID first. Otherwise the
@@ -87,7 +91,7 @@ class CymbalClubViewModel @Inject constructor(
                 _isPurchasing.value = false
                 when (outcome) {
                     is PurchaseOutcome.Success -> {
-                        analyticsService.logPurchaseCompleted(planName)
+                        analyticsService.logPurchaseCompleted(planName, source.analyticsName)
                         _purchaseResult.value = PurchaseResult.Success
                     }
                     is PurchaseOutcome.Cancelled -> {

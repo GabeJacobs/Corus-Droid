@@ -98,6 +98,7 @@ fun FeedNavGraph(
     scrollToTopTrigger: Int = 0,
     isFeedTabSelected: Boolean = true,
     onShowComments: (String) -> Unit = {},
+    onNavigateToCompose: () -> Unit = {},
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
@@ -155,6 +156,7 @@ fun FeedNavGraph(
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
                 onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
+                onNavigateToCompose = onNavigateToCompose,
             )
         }
         sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isFeedTabSelected)

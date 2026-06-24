@@ -911,6 +911,7 @@ fun MessageThreadScreen(
                 showGroupInfo = false
                 onBack()
             },
+            onNavigateToProfile = onNavigateToProfile,
         )
     }
 }

@@ -1,5 +1,10 @@
 package fm.corus.android.ui.screens.messaging
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -210,60 +215,77 @@ fun ThreadListScreen(
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {
             CorusSystemBars()
-            if (showGroupCreate) {
-                // Multi-select: one selection starts a 1:1 DM, two+ creates a group.
-                MultiUserPickerContent(
-                    title = stringResource(id = R.string.messaging_group_new_title),
-                    showNameField = true,
-                    excludeIds = setOf(viewModel.currentUserId ?: ""),
-                    loadSuggestions = { viewModel.fetchSuggestionsList() },
-                    search = { viewModel.searchUsersList(it) },
-                    onCancel = { showGroupCreate = false }, // back to the DM list
-                    onConfirm = { selectedUsers, name ->
-                        showGroupCreate = false
-                        showNewMessagePicker = false
-                        isCreatingThread = true
-                        scope.launch {
-                            try {
-                                if (selectedUsers.size == 1) {
-                                    val u = selectedUsers.first()
-                                    val threadId = viewModel.getOrCreateThread(u.id)
-                                    onThreadTap(threadId, u.id)
-                                } else if (selectedUsers.size >= 2) {
-                                    val threadId = viewModel.createGroup(selectedUsers.map { it.id }, name)
-                                    onThreadTap(threadId, "")
+            // Push the DM list and the group-create flow as panels (mirrors iOS):
+            // entering group-create slides in from the trailing edge, back slides
+            // in from the leading edge.
+            AnimatedContent(
+                targetState = showGroupCreate,
+                transitionSpec = {
+                    if (targetState) {
+                        slideInHorizontally(tween(280), initialOffsetX = { it }) togetherWith
+                            slideOutHorizontally(tween(280), targetOffsetX = { -it / 3 })
+                    } else {
+                        slideInHorizontally(tween(280), initialOffsetX = { -it / 3 }) togetherWith
+                            slideOutHorizontally(tween(280), targetOffsetX = { it })
+                    }
+                },
+                label = "pickerModeSlide",
+            ) { isGroupCreate ->
+                if (isGroupCreate) {
+                    // Multi-select: one selection starts a 1:1 DM, two+ creates a group.
+                    MultiUserPickerContent(
+                        title = stringResource(id = R.string.messaging_group_new_title),
+                        showNameField = true,
+                        excludeIds = setOf(viewModel.currentUserId ?: ""),
+                        loadSuggestions = { viewModel.fetchSuggestionsList() },
+                        search = { viewModel.searchUsersList(it) },
+                        onCancel = { showGroupCreate = false }, // back to the DM list
+                        onConfirm = { selectedUsers, name ->
+                            showGroupCreate = false
+                            showNewMessagePicker = false
+                            isCreatingThread = true
+                            scope.launch {
+                                try {
+                                    if (selectedUsers.size == 1) {
+                                        val u = selectedUsers.first()
+                                        val threadId = viewModel.getOrCreateThread(u.id)
+                                        onThreadTap(threadId, u.id)
+                                    } else if (selectedUsers.size >= 2) {
+                                        val threadId = viewModel.createGroup(selectedUsers.map { it.id }, name)
+                                        onThreadTap(threadId, "")
+                                    }
+                                } catch (_: Exception) {
+                                } finally {
+                                    isCreatingThread = false
                                 }
-                            } catch (_: Exception) {
-                            } finally {
-                                isCreatingThread = false
                             }
-                        }
-                    },
-                )
-            } else {
-                NewMessagePickerContent(
-                    viewModel = viewModel,
-                    groupMessagingEnabled = viewModel.groupMessagingEnabled,
-                    onGroupChat = { showGroupCreate = true },
-                    onCancel = {
-                        viewModel.clearSearch()
-                        showNewMessagePicker = false
-                    },
-                    onUserSelected = { user ->
-                        viewModel.clearSearch()
-                        showNewMessagePicker = false
-                        isCreatingThread = true
-                        scope.launch {
-                            try {
-                                val threadId = viewModel.getOrCreateThread(user.id)
-                                onThreadTap(threadId, user.id)
-                            } catch (_: Exception) {
-                            } finally {
-                                isCreatingThread = false
+                        },
+                    )
+                } else {
+                    NewMessagePickerContent(
+                        viewModel = viewModel,
+                        groupMessagingEnabled = viewModel.groupMessagingEnabled,
+                        onGroupChat = { showGroupCreate = true },
+                        onCancel = {
+                            viewModel.clearSearch()
+                            showNewMessagePicker = false
+                        },
+                        onUserSelected = { user ->
+                            viewModel.clearSearch()
+                            showNewMessagePicker = false
+                            isCreatingThread = true
+                            scope.launch {
+                                try {
+                                    val threadId = viewModel.getOrCreateThread(user.id)
+                                    onThreadTap(threadId, user.id)
+                                } catch (_: Exception) {
+                                } finally {
+                                    isCreatingThread = false
+                                }
                             }
-                        }
-                    },
-                )
+                        },
+                    )
+                }
             }
         }
     }

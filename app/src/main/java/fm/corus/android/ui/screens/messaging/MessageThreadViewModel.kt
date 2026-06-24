@@ -271,14 +271,20 @@ class MessageThreadViewModel @Inject constructor(
             .getOrDefault(emptyList())
 
     /** Upload an image and set it as the group photo. Returns true on success. */
+    private val _isUploadingGroupPhoto = MutableStateFlow(false)
+    val isUploadingGroupPhoto: StateFlow<Boolean> = _isUploadingGroupPhoto.asStateFlow()
+
     fun uploadAndSetGroupPhoto(imageData: ByteArray) {
         val id = currentThreadId ?: return
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
+            _isUploadingGroupPhoto.value = true
             try {
                 val url = messageRepository.uploadGroupPhoto(userId, id, imageData)
                 messageRepository.setGroupPhoto(id, url)
-            } catch (_: Exception) {}
+            } catch (_: Exception) {} finally {
+                _isUploadingGroupPhoto.value = false
+            }
         }
     }
 

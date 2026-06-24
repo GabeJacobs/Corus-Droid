@@ -55,6 +55,7 @@ class MessageThreadViewModelTest {
         Dispatchers.setMain(testDispatcher)
         messageRepository = mock {
             on { listenToMessages(any()) } doReturn emptyFlow()
+            on { listenToGroupThreadInfo(any()) } doReturn emptyFlow()
         }
         authRepository = mock {
             on { currentUserId } doReturn "user1"

@@ -2,7 +2,16 @@ package fm.corus.android.ui.screens.feed
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocalFireDepartment
@@ -86,6 +96,7 @@ fun FeedScreen(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
     onRepost: (CymbalPost) -> Unit = {},
+    onNavigateToCompose: () -> Unit = {},
 ) {
     val posts by viewModel.filteredPosts.collectAsState()
     val allPosts by viewModel.posts.collectAsState()
@@ -125,6 +136,12 @@ fun FeedScreen(
     val forYouEnabled = viewModel.remoteConfig.forYouEnabled
     val trendingFeedEnabled = viewModel.remoteConfig.trendingFeedEnabled
     val favoritesEnabled = viewModel.remoteConfig.favoritesEnabled
+    val tasteMatchesAvailable =
+        viewModel.remoteConfig.tasteMatchesEnabled || viewModel.remoteConfig.tasteMatchesTester
+    val tasteMatchesGate by viewModel.tasteMatchesGate.collectAsState()
+    val tasteMatchesSeeding by viewModel.tasteMatchesSeeding.collectAsState()
+    val tasteMatchesSeedArt by viewModel.tasteMatchesSeedArt.collectAsState()
+    val tasteMatchesSeedCount by viewModel.tasteMatchesSeedCount.collectAsState()
     val context = LocalContext.current
     var filterMenuExpanded by remember { mutableStateOf(false) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -154,6 +171,23 @@ fun FeedScreen(
             clubOfferSource = newReleaseFilterPaywall!!
             showClubOffer = true
             viewModel.clearNewReleaseFilterPaywall()
+        }
+    }
+
+    // Taste Matches paywall — either a non-member tapping the menu, or the
+    // server returning a gated:"paywall" backstop. Both open the Club sheet.
+    val tasteMatchesPaywall by viewModel.tasteMatchesPaywall.collectAsState()
+    LaunchedEffect(tasteMatchesPaywall) {
+        if (tasteMatchesPaywall != null) {
+            clubOfferSource = tasteMatchesPaywall!!
+            showClubOffer = true
+            viewModel.clearTasteMatchesPaywall()
+        }
+    }
+    LaunchedEffect(tasteMatchesGate) {
+        if (tasteMatchesGate is FeedViewModel.TasteMatchesGate.Paywall) {
+            clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_MATCHES
+            showClubOffer = true
         }
     }
 
@@ -270,6 +304,7 @@ fun FeedScreen(
             forYouEnabled = forYouEnabled,
             trendingFeedEnabled = trendingFeedEnabled,
             favoritesEnabled = favoritesEnabled,
+            tasteMatchesAvailable = tasteMatchesAvailable,
             feedMode = feedMode,
             onSetFeedMode = { viewModel.setFeedMode(it) },
         )
@@ -286,9 +321,10 @@ fun FeedScreen(
         modifier = Modifier.fillMaxSize(),
     ) {
         when {
-            // Loading skeleton state — show until first load completes, or
-            // while a refresh (e.g. filter change) is in flight with no posts yet
-            posts.isEmpty() && (!hasLoaded || isLoading || isRefreshing) -> {
+            // Loading skeleton state — show until first load completes, while a
+            // refresh (e.g. filter change) is in flight with no posts yet, or
+            // during the Taste Matches seed hand-off (post 3 → loading the feed).
+            posts.isEmpty() && (!hasLoaded || isLoading || isRefreshing || tasteMatchesSeeding) -> {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     item { header() }
                     items(3) {
@@ -297,6 +333,33 @@ fun FeedScreen(
                             HorizontalDivider(color = CorusColors.Divider)
                         }
                     }
+                }
+            }
+
+            // Premium Taste Matches cold-start: a Club member / tester who hasn't
+            // posted enough yet. Album-art seed slots invite the next post.
+            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
+                feedMode == "tasteMatches" &&
+                tasteMatchesGate is FeedViewModel.TasteMatchesGate.NeedMorePosts -> {
+                val gate = tasteMatchesGate as FeedViewModel.TasteMatchesGate.NeedMorePosts
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    header()
+                    TasteMatchesColdStart(
+                        postCount = gate.postCount,
+                        threshold = gate.threshold,
+                        seedArt = tasteMatchesSeedArt,
+                        seedCount = tasteMatchesSeedCount,
+                        onShown = { viewModel.analyticsService.logTasteMatchesColdstartShown() },
+                        onPost = {
+                            viewModel.analyticsService.logTasteMatchesColdstartPostTapped()
+                            onNavigateToCompose()
+                        },
+                    )
                 }
             }
 
@@ -848,6 +911,7 @@ private fun FeedTitleWithModeMenu(
     forYouEnabled: Boolean,
     trendingFeedEnabled: Boolean,
     favoritesEnabled: Boolean,
+    tasteMatchesAvailable: Boolean,
     onSetFeedMode: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -904,6 +968,17 @@ private fun FeedTitleWithModeMenu(
                     tint = CorusColors.Secondary,
                 )
             }
+            if (tasteMatchesAvailable) {
+                DropdownMenuItem(
+                    text = { Text("Taste Matches") },
+                    leadingIcon = { leadingIcon("tasteMatches") },
+                    trailingIcon = if (feedMode == "tasteMatches") activeCheckmark else null,
+                    onClick = {
+                        onSetFeedMode("tasteMatches")
+                        expanded = false
+                    },
+                )
+            }
             if (trendingFeedEnabled) {
                 DropdownMenuItem(
                     text = { Text("Trending") },
@@ -958,8 +1033,143 @@ private fun FeedTitleWithModeMenu(
 private fun feedModeIcon(mode: String, filled: Boolean = true): ImageVector = when (mode) {
     "trending" -> if (filled) Icons.Filled.TrendingUp else Icons.Outlined.TrendingUp
     "forYou" -> if (filled) Icons.Filled.AutoAwesome else Icons.Outlined.AutoAwesome
+    "tasteMatches" -> if (filled) Icons.Filled.AutoAwesome else Icons.Outlined.AutoAwesome
     "favorites" -> if (filled) Icons.Filled.Star else Icons.Outlined.Star
     else -> if (filled) Icons.Filled.People else Icons.Outlined.People
+}
+
+/**
+ * Cold-start screen for the premium Taste Matches feed: album-art seed slots
+ * show progress (each filled slot is the cover of a post you've made — songs
+ * AND films), the slot you're on pulses to invite the next post, and the
+ * subtitle explains the payoff. Mirrors iOS / web. Posting fills the next slot
+ * optimistically; the third hands off to the loading feed (handled in the VM).
+ */
+@Composable
+private fun TasteMatchesColdStart(
+    postCount: Int,
+    threshold: Int,
+    seedArt: List<String>,
+    seedCount: Int,
+    onShown: () -> Unit,
+    onPost: () -> Unit,
+) {
+    // Fire once when the cold-start first appears (funnel: selection → shown).
+    LaunchedEffect(Unit) { onShown() }
+    val base = postCount.coerceIn(0, threshold)
+    val filled = (base + seedCount).coerceIn(base, threshold)
+    val infinite = rememberInfiniteTransition(label = "seedPulse")
+    val pulse by infinite.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "seedPulseAlpha",
+    )
+    val slotShape = RoundedCornerShape(15.dp)
+
+    Spacer(modifier = Modifier.height(80.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        for (i in 0 until threshold) {
+            val art = seedArt.getOrNull(i)
+            val isFilled = i < filled
+            val isActive = i == filled
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(slotShape)
+                    .then(
+                        when {
+                            isFilled && art != null -> Modifier
+                            isFilled -> Modifier.background(CorusColors.Accent)
+                            isActive -> Modifier
+                                .background(CorusColors.Accent.copy(alpha = 0.10f))
+                                .border(2.dp, CorusColors.Accent, slotShape)
+                            else -> Modifier.border(2.dp, CorusColors.Tertiary.copy(alpha = 0.4f), slotShape)
+                        }
+                    )
+                    // Open slots (active / empty) shortcut to the composer.
+                    .then(if (!isFilled) Modifier.clickable { onPost() } else Modifier),
+                contentAlignment = Alignment.Center,
+            ) {
+                when {
+                    isFilled && art != null -> AsyncImage(
+                        model = art,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                    isActive -> Icon(
+                        imageVector = Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = CorusColors.Accent.copy(alpha = pulse),
+                        modifier = Modifier.size(28.dp),
+                    )
+                    !isFilled -> Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = null,
+                        tint = CorusColors.Tertiary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+        }
+    }
+    Spacer(modifier = Modifier.height(CorusSpacing.md))
+    Text(
+        text = stringResource(R.string.feed_taste_matches_coldstart_progress, filled, threshold),
+        style = CorusFont.caption,
+        color = CorusColors.Tertiary,
+    )
+    Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+    // Eyebrow naming the feature (reuses the already-translated label).
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = CorusColors.Accent,
+            modifier = Modifier.size(14.dp),
+        )
+        Text(
+            text = stringResource(R.string.search_section_taste_matches),
+            style = CorusFont.sectionHeader,
+            color = CorusColors.Accent,
+        )
+    }
+    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+    Text(
+        text = stringResource(R.string.feed_taste_matches_coldstart_title),
+        style = CorusFont.songTitleLarge,
+        color = CorusColors.Text,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(horizontal = CorusSpacing.xxxl),
+    )
+    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+    Text(
+        text = stringResource(R.string.feed_taste_matches_coldstart_body),
+        style = CorusFont.body,
+        color = CorusColors.Secondary,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(horizontal = CorusSpacing.xxxl),
+    )
+    Spacer(modifier = Modifier.height(CorusSpacing.xl))
+    Button(
+        onClick = onPost,
+        colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.feed_taste_matches_coldstart_cta),
+            style = CorusFont.button,
+            color = Color.White,
+        )
+    }
+    Spacer(modifier = Modifier.height(80.dp))
 }
 
 /**
@@ -979,6 +1189,7 @@ private fun FeedHeader(
     forYouEnabled: Boolean = false,
     trendingFeedEnabled: Boolean = false,
     favoritesEnabled: Boolean = false,
+    tasteMatchesAvailable: Boolean = false,
     feedMode: String = "following",
     onSetFeedMode: (String) -> Unit = {},
 ) {
@@ -988,12 +1199,13 @@ private fun FeedHeader(
             .padding(top = CorusSpacing.sm),
         contentAlignment = Alignment.Center,
     ) {
-        if (forYouEnabled || trendingFeedEnabled || favoritesEnabled) {
+        if (forYouEnabled || trendingFeedEnabled || favoritesEnabled || tasteMatchesAvailable) {
             FeedTitleWithModeMenu(
                 feedMode = feedMode,
                 forYouEnabled = forYouEnabled,
                 trendingFeedEnabled = trendingFeedEnabled,
                 favoritesEnabled = favoritesEnabled,
+                tasteMatchesAvailable = tasteMatchesAvailable,
                 onSetFeedMode = onSetFeedMode,
             )
         } else {

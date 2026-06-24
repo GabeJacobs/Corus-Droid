@@ -11,6 +11,7 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MessageType
 import fm.corus.android.data.model.TrackSource
 import java.util.Date
+import java.util.concurrent.ConcurrentHashMap
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import kotlinx.coroutines.channels.awaitClose
@@ -33,6 +34,22 @@ class MessageRepository @Inject constructor(
     // row immediately (the live snapshot merge only adds/updates, never removes).
     private val _leftThreads = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val leftThreads: SharedFlow<String> = _leftThreads.asSharedFlow()
+
+    // Durable companion to `leftThreads`: thread IDs the caller just left, each
+    // with an expiry. The one-shot emit above removes the row once; this set lets
+    // the inbox keep filtering it while a stale Firestore cache snapshot (whose
+    // mirror doc hasn't yet learned of the server delete) could otherwise re-add
+    // it via the live-merge's async profile resolution. Entries expire after the
+    // delete has surely propagated, so a later re-add to the same thread still
+    // shows. Lazily pruned on read.
+    private val leftThreadExpiry = ConcurrentHashMap<String, Long>()
+
+    /** Snapshot of thread IDs the user recently left (expired entries dropped). */
+    fun recentlyLeftThreadIds(): Set<String> {
+        val now = System.currentTimeMillis()
+        leftThreadExpiry.entries.removeAll { it.value <= now }
+        return leftThreadExpiry.keys.toSet()
+    }
 
     suspend fun listThreads(userId: String): List<CymbalThread> {
         return cloudFunctions.listThreads(userId)
@@ -177,6 +194,7 @@ class MessageRepository @Inject constructor(
 
     suspend fun leaveGroup(threadId: String) {
         cloudFunctions.leaveGroup(threadId)
+        leftThreadExpiry[threadId] = System.currentTimeMillis() + 30_000L
         _leftThreads.tryEmit(threadId)
     }
 

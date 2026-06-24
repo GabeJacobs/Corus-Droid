@@ -712,6 +712,7 @@
     <string name="messaging_group_name_label">Group name</string>
     <string name="messaging_group_name_optional">Group name (optional)</string>
     <string name="messaging_group_change_photo">Change photo</string>
+    <string name="messaging_group_change_name">Change name</string>
     <string name="messaging_group_remove">Remove</string>
     <string name="messaging_group_not_addable">Needs to update to join groups</string>
     <string name="messaging_group_soft_hint">May not see this yet</string>
@@ -933,7 +934,13 @@
     <string name="club_feature_customization">Profile customization</string>
     <string name="club_feature_playlists">Export playlists</string>
     <string name="club_feature_support">Keep Corus ad-free</string>
+    <string name="club_feature_taste_matches">Taste Matches feed</string>
     <string name="club_disclaimer">Corus is proudly ad-free. Club members help keep Corus independent and sustainable.</string>
+    <!-- Taste Matches cold-start (premium feed, not enough posts yet) -->
+    <string name="feed_taste_matches_coldstart_title">What are 3 songs or films you love?</string>
+    <string name="feed_taste_matches_coldstart_body">Corus will build you a personalized feed and match you with others who have a similar taste.</string>
+    <string name="feed_taste_matches_coldstart_progress">%1$d of %2$d posts</string>
+    <string name="feed_taste_matches_coldstart_cta">Set a corus</string>
     <string name="club_plan_monthly">Monthly</string>
     <string name="club_plan_yearly">Yearly</string>
     <string name="club_plan_monthly_price_format">%1$s/mo</string>
