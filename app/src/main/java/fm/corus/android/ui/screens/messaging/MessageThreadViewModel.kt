@@ -36,6 +36,7 @@ class MessageThreadViewModel @Inject constructor(
     private val remoteConfigService: RemoteConfigService,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
     val nowPlayingManager: fm.corus.android.domain.NowPlayingManager,
+    private val analyticsService: fm.corus.android.service.AnalyticsService,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -225,29 +226,52 @@ class MessageThreadViewModel @Inject constructor(
 
     fun renameGroup(name: String) {
         val id = currentThreadId ?: return
-        viewModelScope.launch { try { messageRepository.renameGroup(id, name.trim()) } catch (_: Exception) {} }
+        viewModelScope.launch {
+            try {
+                messageRepository.renameGroup(id, name.trim())
+                analyticsService.logGroupRenamed(id)
+            } catch (_: Exception) {}
+        }
     }
 
     fun setGroupPhoto(url: String) {
         val id = currentThreadId ?: return
-        viewModelScope.launch { try { messageRepository.setGroupPhoto(id, url) } catch (_: Exception) {} }
+        viewModelScope.launch {
+            try {
+                messageRepository.setGroupPhoto(id, url)
+                analyticsService.logGroupPhotoChanged(id)
+            } catch (_: Exception) {}
+        }
     }
 
     fun addGroupMembers(userIds: List<String>) {
         val id = currentThreadId ?: return
         if (userIds.isEmpty()) return
-        viewModelScope.launch { try { messageRepository.addGroupMembers(id, userIds) } catch (_: Exception) {} }
+        viewModelScope.launch {
+            try {
+                val result = messageRepository.addGroupMembers(id, userIds)
+                if (result.added.isNotEmpty()) analyticsService.logGroupMembersAdded(id, result.added.size)
+            } catch (_: Exception) {}
+        }
     }
 
     fun removeGroupMember(userId: String) {
         val id = currentThreadId ?: return
-        viewModelScope.launch { try { messageRepository.removeGroupMember(id, userId) } catch (_: Exception) {} }
+        viewModelScope.launch {
+            try {
+                messageRepository.removeGroupMember(id, userId)
+                analyticsService.logGroupMemberRemoved(id)
+            } catch (_: Exception) {}
+        }
     }
 
     fun leaveGroup(onDone: () -> Unit) {
         val id = currentThreadId ?: return
         viewModelScope.launch {
-            try { messageRepository.leaveGroup(id) } catch (_: Exception) {}
+            try {
+                messageRepository.leaveGroup(id)
+                analyticsService.logGroupLeft(id)
+            } catch (_: Exception) {}
             onDone()
         }
     }
@@ -282,6 +306,7 @@ class MessageThreadViewModel @Inject constructor(
             try {
                 val url = messageRepository.uploadGroupPhoto(userId, id, imageData)
                 messageRepository.setGroupPhoto(id, url)
+                analyticsService.logGroupPhotoChanged(id)
             } catch (_: Exception) {} finally {
                 _isUploadingGroupPhoto.value = false
             }

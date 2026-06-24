@@ -99,6 +99,7 @@ class ThreadListViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
+    private val analyticsService: fm.corus.android.service.AnalyticsService,
 ) : ViewModel() {
 
     val groupMessagingEnabled: Boolean
@@ -136,8 +137,11 @@ class ThreadListViewModel @Inject constructor(
         }
     }
 
-    suspend fun createGroup(userIds: List<String>, name: String?): String =
-        messageRepository.createGroupThread(userIds, name)
+    suspend fun createGroup(userIds: List<String>, name: String?): String {
+        val threadId = messageRepository.createGroupThread(userIds, name)
+        analyticsService.logGroupCreated(memberCount = userIds.size + 1, hasName = !name.isNullOrBlank())
+        return threadId
+    }
 
     suspend fun checkAddable(userIds: List<String>): Map<String, fm.corus.android.data.remote.CloudFunctionsDataSource.GroupAddability> =
         messageRepository.checkGroupAddable(userIds)

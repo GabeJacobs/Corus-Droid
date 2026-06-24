@@ -48,6 +48,7 @@ class MessageThreadViewModelTest {
     private lateinit var remoteConfigService: RemoteConfigService
     private lateinit var gifRepository: fm.corus.android.data.repository.GifRepository
     private lateinit var nowPlayingManager: fm.corus.android.domain.NowPlayingManager
+    private lateinit var analyticsService: fm.corus.android.service.AnalyticsService
     private lateinit var viewModel: MessageThreadViewModel
 
     @Before
@@ -66,6 +67,7 @@ class MessageThreadViewModelTest {
         }
         gifRepository = mock()
         nowPlayingManager = mock()
+        analyticsService = mock()
         viewModel = MessageThreadViewModel(
             messageRepository = messageRepository,
             authRepository = authRepository,
@@ -73,6 +75,7 @@ class MessageThreadViewModelTest {
             remoteConfigService = remoteConfigService,
             gifRepository = gifRepository,
             nowPlayingManager = nowPlayingManager,
+            analyticsService = analyticsService,
             context = mock(),
         )
     }

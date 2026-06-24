@@ -261,6 +261,16 @@ class AnalyticsService @Inject constructor(
     fun logMessageSent(threadId: String, type: String) = logEvent("message_sent", mapOf("thread_id" to threadId, "message_type" to type))
     fun logMessageError(threadId: String, error: String) = logEvent("message_error", mapOf("thread_id" to threadId, "error" to error.take(100)))
 
+    // MARK: - Group Messaging Events
+    fun logGroupCreated(memberCount: Int, hasName: Boolean) =
+        logEvent("group_created", mapOf("member_count" to memberCount, "has_name" to hasName))
+    fun logGroupMembersAdded(threadId: String, addedCount: Int) =
+        logEvent("group_members_added", mapOf("thread_id" to threadId, "added_count" to addedCount))
+    fun logGroupMemberRemoved(threadId: String) = logEvent("group_member_removed", mapOf("thread_id" to threadId))
+    fun logGroupLeft(threadId: String) = logEvent("group_left", mapOf("thread_id" to threadId))
+    fun logGroupRenamed(threadId: String) = logEvent("group_renamed", mapOf("thread_id" to threadId))
+    fun logGroupPhotoChanged(threadId: String) = logEvent("group_photo_changed", mapOf("thread_id" to threadId))
+
     // MARK: - Settings Events
 
     fun logSettingToggled(setting: String, enabled: Boolean) = logEvent("setting_toggled", mapOf("setting" to setting, "enabled" to enabled))

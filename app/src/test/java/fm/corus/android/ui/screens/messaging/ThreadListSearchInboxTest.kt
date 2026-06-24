@@ -19,6 +19,7 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
@@ -40,6 +41,7 @@ class ThreadListSearchInboxTest {
     private lateinit var messageRepository: MessageRepository
     private lateinit var authRepository: AuthRepository
     private lateinit var userRepository: UserRepository
+    private lateinit var analyticsService: fm.corus.android.service.AnalyticsService
     private lateinit var viewModel: ThreadListViewModel
 
     private fun user(id: String, username: String, displayName: String) = CymbalUser(
@@ -67,7 +69,8 @@ class ThreadListSearchInboxTest {
         }
         userRepository = mock()
         val remoteConfigService = mock<fm.corus.android.service.RemoteConfigService>()
-        viewModel = ThreadListViewModel(messageRepository, authRepository, userRepository, remoteConfigService)
+        analyticsService = mock()
+        viewModel = ThreadListViewModel(messageRepository, authRepository, userRepository, remoteConfigService, analyticsService)
     }
 
     @After
@@ -127,6 +130,29 @@ class ThreadListSearchInboxTest {
 
         assertEquals(listOf(walasia), viewModel.inboxSearchResults.first())
         verify(messageRepository, org.mockito.kotlin.never()).searchThreads(any(), eq("wal"), any())
+    }
+
+    @Test
+    fun createGroupLogsGroupCreatedEvent() = runTest(testDispatcher) {
+        whenever(messageRepository.createGroupThread(any(), anyOrNull(), anyOrNull()))
+            .doSuspendableAnswer { "grp_1" }
+
+        viewModel.createGroup(listOf("u1", "u2"), "Trip")
+        advanceUntilIdle()
+
+        // member_count includes the creator: 2 invitees + self = 3; the group was named.
+        verify(analyticsService).logGroupCreated(3, true)
+    }
+
+    @Test
+    fun createGroupWithoutNameReportsHasNameFalse() = runTest(testDispatcher) {
+        whenever(messageRepository.createGroupThread(any(), anyOrNull(), anyOrNull()))
+            .doSuspendableAnswer { "grp_2" }
+
+        viewModel.createGroup(listOf("u1", "u2", "u3"), null)
+        advanceUntilIdle()
+
+        verify(analyticsService).logGroupCreated(4, false)
     }
 
     @Test
