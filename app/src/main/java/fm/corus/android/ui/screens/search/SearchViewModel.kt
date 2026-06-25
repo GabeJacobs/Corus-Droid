@@ -666,6 +666,15 @@ class SearchViewModel @Inject constructor(
                     }
                 }
                 _searchHasError.value = false
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // A newer keystroke (or clearSearch) cancelled this job — that's
+                // normal editing flow, not a failure. Rethrow so it's never
+                // misread as a server error: swallowing it here flashed the
+                // "service unavailable" state mid-type whenever the cancelled
+                // request's tab happened to be empty. Far more visible since
+                // movie search began routing through the slower tmdbProxy
+                // callable, which widened the in-flight cancellation window.
+                throw e
             } catch (_: Exception) {
                 val empty = when (tab) {
                     0 -> _userSearchResults.value.isEmpty()
