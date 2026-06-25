@@ -165,6 +165,9 @@ class ThreadListViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
@@ -216,7 +219,7 @@ class ThreadListViewModel @Inject constructor(
     fun loadThreads() {
         val userId = authRepository.currentUserId ?: return
         if (hasLoadedThreads) {
-            refreshThreads(userId)
+            viewModelScope.launch { refreshThreads(userId) }
             return
         }
         viewModelScope.launch {
@@ -288,25 +291,33 @@ class ThreadListViewModel @Inject constructor(
         inboxSearchJob?.cancel()
     }
 
-    private fun refreshThreads(userId: String) {
+    fun pullRefresh() {
+        val userId = authRepository.currentUserId ?: return
+        if (_isRefreshing.value) return
         viewModelScope.launch {
-            try {
-                val page = messageRepository.listThreadsPage(userId, limit = pageSize)
-                val left = messageRepository.recentlyLeftThreadIds()
-                val refreshed = page.threads.filter { it.lastMessageFromUserId != null && it.id !in left }
-                val merged = mergeRefreshedThreads(_threads.value, refreshed).filterNot { it.id in left }
-                val tailEmpty = merged.size == refreshed.size
-                _threads.value = merged
-                if (tailEmpty) {
-                    // Everything loaded fits in the refreshed page, so its cursor is
-                    // the list's cursor. With a tail, the existing cursor still
-                    // points at the last fetched thread (the tail's end) and stays
-                    // valid.
-                    nextCursor = page.nextCursor
-                    _hasMoreThreads.value = page.hasMore && page.nextCursor != null
-                }
-            } catch (_: Exception) { }
+            _isRefreshing.value = true
+            refreshThreads(userId)
+            _isRefreshing.value = false
         }
+    }
+
+    private suspend fun refreshThreads(userId: String) {
+        try {
+            val page = messageRepository.listThreadsPage(userId, limit = pageSize)
+            val left = messageRepository.recentlyLeftThreadIds()
+            val refreshed = page.threads.filter { it.lastMessageFromUserId != null && it.id !in left }
+            val merged = mergeRefreshedThreads(_threads.value, refreshed).filterNot { it.id in left }
+            val tailEmpty = merged.size == refreshed.size
+            _threads.value = merged
+            if (tailEmpty) {
+                // Everything loaded fits in the refreshed page, so its cursor is
+                // the list's cursor. With a tail, the existing cursor still
+                // points at the last fetched thread (the tail's end) and stays
+                // valid.
+                nextCursor = page.nextCursor
+                _hasMoreThreads.value = page.hasMore && page.nextCursor != null
+            }
+        } catch (_: Exception) { }
     }
 
     fun loadMoreThreads() {

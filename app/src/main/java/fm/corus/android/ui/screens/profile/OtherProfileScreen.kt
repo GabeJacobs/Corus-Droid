@@ -122,7 +122,9 @@ fun OtherProfileScreen(
     // taste-match pill below it.
     val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
     val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
-    val followHPad = if (isWideHeader) 28.dp else 20.dp
+    // The FOLLOWING pill no longer carries its own horizontal padding: it's
+    // weighted to fill the leftover row width with a shrink-to-fit label, so
+    // only the unweighted PLAYLIST pill needs an explicit inset.
     val playlistHPad = if (isWideHeader) CorusSpacing.xxl else CorusSpacing.md
     val headerAvatarSize = if (isWideHeader) CorusSpacing.avatarLarge else 68.dp
     // Avatar + username + bio sit slightly inside the taste-match pill's left
@@ -139,6 +141,7 @@ fun OtherProfileScreen(
     var showPlaylistChooser by remember { mutableStateOf(false) }
     val isLoading by viewModel.isLoading.collectAsState()
     val isFollowing by viewModel.isFollowing.collectAsState()
+    val followsMe by viewModel.followsMe.collectAsState()
     val isBlocked by viewModel.isBlocked.collectAsState()
     val isMuted by viewModel.isMuted.collectAsState()
     val isSubscribedToNotifications by viewModel.isSubscribedToNotifications.collectAsState()
@@ -472,9 +475,9 @@ fun OtherProfileScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
                                     ) {
-                                        StatItem(count = initialCymbalCount ?: 0, label = stringResource(fm.corus.android.R.string.profile_stat_coruses))
-                                        StatItem(count = initialFollowerCount ?: 0, label = stringResource(fm.corus.android.R.string.profile_stat_followers))
-                                        StatItem(count = initialFollowingCount ?: 0, label = stringResource(fm.corus.android.R.string.profile_stat_following))
+                                        StatItemOrSkeleton(count = initialCymbalCount, label = stringResource(fm.corus.android.R.string.profile_stat_coruses))
+                                        StatItemOrSkeleton(count = initialFollowerCount, label = stringResource(fm.corus.android.R.string.profile_stat_followers))
+                                        StatItemOrSkeleton(count = initialFollowingCount, label = stringResource(fm.corus.android.R.string.profile_stat_following))
                                     }
 
                                     Spacer(modifier = Modifier.height(CorusSpacing.sm))
@@ -484,29 +487,10 @@ fun OtherProfileScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
                                     ) {
-                                        val followShape = RoundedCornerShape(50)
                                         val hintFollowing = initialIsFollowing == true
-                                        Box(
-                                            modifier = Modifier
-                                                // Flex into the leftover row width so the
-                                                // unweighted PLAYLIST pill (measured first)
-                                                // always gets its full intrinsic width.
-                                                .weight(1f)
-                                                .clip(followShape)
-                                                .then(
-                                                    if (hintFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
-                                                    else Modifier.background(CorusColors.Accent)
-                                                )
-                                                .padding(vertical = 6.dp, horizontal = followHPad),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Text(
-                                                text = if (hintFollowing) stringResource(fm.corus.android.R.string.other_profile_button_following) else stringResource(fm.corus.android.R.string.other_profile_button_follow),
-                                                style = CorusFont.button,
-                                                color = if (hintFollowing) CorusColors.Secondary else Color.White,
-                                                maxLines = 1,
-                                            )
-                                        }
+                                        // Non-interactive placeholder; shares the live pill so
+                                        // the skeleton matches it and never clips.
+                                        ProfileFollowPill(isFollowing = hintFollowing)
 
                                         Box(
                                             modifier = Modifier
@@ -762,30 +746,11 @@ fun OtherProfileScreen(
                                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
                             ) {
                                 // Follow button — matching iOS Capsule with fill/stroke
-                                val followShape = RoundedCornerShape(50)
-                                Box(
-                                    modifier = Modifier
-                                        // Flex into the leftover row width so the unweighted
-                                        // PLAYLIST pill (measured first) always gets its full
-                                        // intrinsic width and never clips (e.g. "PLAYLI" on
-                                        // the Pixel 9 Pro's wide-header padding).
-                                        .weight(1f)
-                                        .clip(followShape)
-                                        .then(
-                                            if (isFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
-                                            else Modifier.background(CorusColors.Accent)
-                                        )
-                                        .clickable { viewModel.toggleFollow(userId) }
-                                        .padding(vertical = 6.dp, horizontal = followHPad),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        text = if (isFollowing) stringResource(fm.corus.android.R.string.other_profile_button_following) else stringResource(fm.corus.android.R.string.other_profile_button_follow),
-                                        style = CorusFont.button,
-                                        color = if (isFollowing) CorusColors.Secondary else Color.White,
-                                        maxLines = 1,
-                                    )
-                                }
+                                ProfileFollowPill(
+                                    isFollowing = isFollowing,
+                                    followsMe = followsMe,
+                                    onClick = { viewModel.toggleFollow(userId) },
+                                )
 
                                 // Playlist button
                                 val playlistContext = LocalContext.current
@@ -1280,36 +1245,33 @@ fun OtherProfileScreen(
         )
         val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
             && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-        // Fold the Spotify/SoundCloud caveat into the one dialog (no stacked popups).
-        val caveat = when {
-            hasSoundCloud && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY
-                || fm.corus.android.domain.usesSpotifyFallback(musicService)) -> " SoundCloud tracks are skipped."
-            fm.corus.android.domain.usesSpotifyFallback(musicService) -> " This creates a Spotify playlist."
-            else -> ""
+        // Fold the service caveat into the one dialog (no stacked popups). Deezer /
+        // Apple Music can't build playlists on Android and fall back to Spotify —
+        // name the service so the substitution is clear.
+        val showSpotifyFallbackNote = fm.corus.android.domain.usesSpotifyFallback(musicService)
+        val showSoundCloudNote = hasSoundCloud &&
+            (musicService == fm.corus.android.data.model.MusicService.SPOTIFY || showSpotifyFallbackNote)
+        val caveat = buildString {
+            if (showSpotifyFallbackNote) {
+                append("${musicService.displayLabel} can't build playlists, so this creates a Spotify playlist.")
+            }
+            if (showSoundCloudNote) {
+                if (isNotEmpty()) append(" ")
+                append("SoundCloud tracks are skipped.")
+            }
         }
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showPlaylistChooser = false },
-            title = { androidx.compose.material3.Text("Generate a playlist?") },
-            text = {
-                androidx.compose.material3.Text(
-                    "Make a quick 75-song playlist, or export all $count songs.$caveat"
-                )
+        PlaylistExportChooserDialog(
+            count = count,
+            caveat = caveat,
+            onQuick = {
+                showPlaylistChooser = false
+                viewModel.generatePlaylist(userId, playlistSource, fullExport = false)
             },
-            confirmButton = {
-                androidx.compose.foundation.layout.Column {
-                    androidx.compose.material3.TextButton(onClick = {
-                        showPlaylistChooser = false
-                        viewModel.generatePlaylist(userId, playlistSource, fullExport = false)
-                    }) { androidx.compose.material3.Text("Quick playlist · 75 songs") }
-                    androidx.compose.material3.TextButton(onClick = {
-                        showPlaylistChooser = false
-                        viewModel.generatePlaylist(userId, playlistSource, fullExport = true)
-                    }) { androidx.compose.material3.Text("All $count songs") }
-                    androidx.compose.material3.TextButton(onClick = { showPlaylistChooser = false }) {
-                        androidx.compose.material3.Text("Cancel")
-                    }
-                }
+            onAll = {
+                showPlaylistChooser = false
+                viewModel.generatePlaylist(userId, playlistSource, fullExport = true)
             },
+            onDismiss = { showPlaylistChooser = false },
         )
     }
 
@@ -1334,9 +1296,80 @@ private fun StatItem(count: Int, label: String, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Loading-header stat: shows the number when it's known, or a shimmer pill in the
+ * number's place when it isn't. Counts are unknown when the profile is opened from
+ * a feed post (the denormalized author preview carries no counts) — shimmering
+ * avoids flashing a wrong "0" until the live profile lands. The label stays visible
+ * so the row keeps its shape and doesn't jump on swap.
+ */
+@Composable
+private fun StatItemOrSkeleton(count: Int?, label: String, modifier: Modifier = Modifier) {
+    if (count != null) {
+        StatItem(count = count, label = label, modifier = modifier)
+        return
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .padding(vertical = 4.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(CorusColors.Divider)
+                .shimmer()
+                .size(width = 24.dp, height = 14.dp),
+        )
+        Text(text = label, style = CorusFont.statLabel, color = CorusColors.Secondary)
+    }
+}
+
 @Composable
 private fun StatDivider() {
     Spacer(modifier = Modifier.width(CorusSpacing.sm))
     Text("|", style = CorusFont.statLabel, color = CorusColors.Tertiary)
     Spacer(modifier = Modifier.width(CorusSpacing.sm))
+}
+
+/**
+ * The FOLLOW / FOLLOW BACK / FOLLOWING capsule on another user's profile, sitting
+ * next to the PLAYLIST pill. It shows FOLLOW BACK when [followsMe] (the viewed user
+ * follows the local user) and we don't follow them yet, matching iOS. It is weighted
+ * to absorb the row width left over by the (unweighted, measured-first) PLAYLIST
+ * pill, carries no horizontal padding, and uses a shrink-to-fit label so the text
+ * centers and never clips or wraps (the label is single-line, softWrap=false, and
+ * steps its font down to fit). "FOLLOW BACK" is the longest label it carries; on
+ * narrow phones it renders a touch smaller rather than truncating. This mirrors the
+ * own-profile EDIT button. Regression history: the row clipped "PLAYLI" when neither
+ * pill was weighted, then "FOLLOWING" -> "FOLLOWI" when this pill was weighted but
+ * kept its padding + a fixed-size label. Shared by the live header and the loading
+ * placeholder (which passes followsMe=false) so both stay in sync. Call inside a Row.
+ */
+@Composable
+internal fun RowScope.ProfileFollowPill(
+    isFollowing: Boolean,
+    followsMe: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
+    val followShape = RoundedCornerShape(50)
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .clip(followShape)
+            .then(
+                if (isFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
+                else Modifier.background(CorusColors.Accent)
+            )
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        ShrinkToFitText(
+            text = when {
+                isFollowing -> stringResource(fm.corus.android.R.string.other_profile_button_following)
+                followsMe -> stringResource(fm.corus.android.R.string.other_profile_button_follow_back)
+                else -> stringResource(fm.corus.android.R.string.other_profile_button_follow)
+            },
+            style = CorusFont.button,
+            color = if (isFollowing) CorusColors.Secondary else Color.White,
+        )
+    }
 }

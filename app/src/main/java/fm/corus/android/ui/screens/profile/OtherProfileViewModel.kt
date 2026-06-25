@@ -153,6 +153,14 @@ class OtherProfileViewModel @Inject constructor(
     private val _isFollowing = MutableStateFlow(false)
     val isFollowing: StateFlow<Boolean> = _isFollowing.asStateFlow()
 
+    // Whether the *viewed* user follows the local user — drives the "FOLLOW BACK"
+    // label on the follow pill (matches iOS `followsMe`). Resolved server-side in
+    // loadProfile/refresh via a single following-edge read; defaults false so the
+    // pill shows plain "FOLLOW" until the answer lands and never flashes a wrong
+    // label. On read error it stays false (graceful: shows FOLLOW, never lies).
+    private val _followsMe = MutableStateFlow(false)
+    val followsMe: StateFlow<Boolean> = _followsMe.asStateFlow()
+
 
     private val _isBlocked = MutableStateFlow(false)
     val isBlocked: StateFlow<Boolean> = _isBlocked.asStateFlow()
@@ -227,6 +235,10 @@ class OtherProfileViewModel @Inject constructor(
                 if (viewerIdForSub != null) {
                     _isSubscribedToNotifications.value = userRepository.isSubscribedToUserPosts(viewerIdForSub, userId)
                     _isFavorite.value = userRepository.isFavorite(viewerIdForSub, userId)
+                    // Does the viewed user follow me? Drives the FOLLOW BACK label.
+                    _followsMe.value = runCatching {
+                        userRepository.doesUserFollow(userId, viewerIdForSub)
+                    }.getOrDefault(false)
                 }
 
                 val viewerId = authRepository.currentUserId ?: return@launch
@@ -314,6 +326,9 @@ class OtherProfileViewModel @Inject constructor(
                 _isMuted.value = userRepository.isUserMuted(userId)
                 _isSubscribedToNotifications.value =
                     userRepository.isSubscribedToUserPosts(viewerId, userId)
+                _followsMe.value = runCatching {
+                    userRepository.doesUserFollow(userId, viewerId)
+                }.getOrDefault(false)
 
                 val page = postRepository.getProfilePosts(
                     userId = userId,

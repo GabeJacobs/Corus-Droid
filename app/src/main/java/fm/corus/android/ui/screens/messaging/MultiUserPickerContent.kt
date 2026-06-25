@@ -54,6 +54,9 @@ internal fun MultiUserPickerContent(
     search: suspend (String) -> List<CymbalUser>,
     onCancel: () -> Unit,
     onConfirm: (selected: List<CymbalUser>, groupName: String?) -> Unit,
+    // When false, the host renders a shared header above this content (so the
+    // header stays fixed while the bodies slide).
+    showHeader: Boolean = true,
 ) {
     val scope = rememberCoroutineScope()
     var searchText by remember { mutableStateOf("") }
@@ -95,49 +98,26 @@ internal fun MultiUserPickerContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.9f),
+            .fillMaxHeight(),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onClick = onCancel) {
-                Text(stringResource(id = R.string.messaging_group_cancel), style = CorusFont.body, color = CorusColors.Accent)
+        if (showHeader) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onCancel) {
+                    Text(stringResource(id = R.string.messaging_group_cancel), style = CorusFont.body, color = CorusColors.Accent)
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                Text(title, style = CorusFont.screenTitle, color = CorusColors.Text)
+                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(64.dp))
             }
-            Spacer(modifier = Modifier.weight(1f))
-            Text(title, style = CorusFont.screenTitle, color = CorusColors.Text)
-            Spacer(modifier = Modifier.weight(1f))
-            Spacer(modifier = Modifier.width(64.dp))
         }
 
         // Selected chips
         if (selected.isNotEmpty()) {
             FlowChips(selected = selected, onRemove = { u -> selected.removeAll { it.id == u.id } })
-        }
-
-        // Optional group name (create mode, 2+ selected).
-        if (showNameField && selected.size >= 2) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
-            ) {
-                if (groupName.isEmpty()) {
-                    Text(
-                        stringResource(id = R.string.messaging_group_name_optional),
-                        style = CorusFont.body,
-                        color = CorusColors.Tertiary,
-                    )
-                }
-                BasicTextField(
-                    value = groupName,
-                    onValueChange = { groupName = it.take(60) },
-                    textStyle = CorusFont.body.copy(color = CorusColors.Text),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            HorizontalDivider(color = CorusColors.Divider)
         }
 
         // Search bar
@@ -199,8 +179,34 @@ internal fun MultiUserPickerContent(
             }
         }
 
-        // Confirm button
+        // Optional group name (create mode, 2+ selected). Sits just above the
+        // Create button to match iOS and avoid shifting the list mid-flow.
         HorizontalDivider(color = CorusColors.Divider)
+        if (showNameField && selected.size >= 2) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+            ) {
+                if (groupName.isEmpty()) {
+                    Text(
+                        stringResource(id = R.string.messaging_group_name_optional),
+                        style = CorusFont.body,
+                        color = CorusColors.Tertiary,
+                    )
+                }
+                BasicTextField(
+                    value = groupName,
+                    onValueChange = { groupName = it.take(60) },
+                    textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            HorizontalDivider(color = CorusColors.Divider)
+        }
+
+        // Confirm button
         Box(modifier = Modifier.fillMaxWidth().padding(CorusSpacing.lg)) {
             val canConfirm = selected.isNotEmpty() && !submitting
             Text(

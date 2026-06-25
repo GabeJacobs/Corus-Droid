@@ -124,12 +124,17 @@ class MessageThreadViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Load other user's profile for the header
-                val profile = userRepository.fetchUserProfile(otherUserId)
-                _otherUsername.value = profile?.username ?: ""
-                _otherDisplayName.value = profile?.displayName ?: ""
-                _otherAvatarURL.value = profile?.avatarURL
-                _otherAvatarThumbURL.value = profile?.avatarThumbURL
+                // Load other user's profile for the header (1:1 only; group threads
+                // have no single otherUserId so skip to avoid an empty-string Firestore error).
+                if (otherUserId.isNotBlank()) {
+                    runCatching {
+                        val profile = userRepository.fetchUserProfile(otherUserId)
+                        _otherUsername.value = profile?.username ?: ""
+                        _otherDisplayName.value = profile?.displayName ?: ""
+                        _otherAvatarURL.value = profile?.avatarURL
+                        _otherAvatarThumbURL.value = profile?.avatarThumbURL
+                    }
+                }
 
                 // Resolve threadId if empty (e.g. navigating from a user profile)
                 var resolvedId = threadId
@@ -244,9 +249,23 @@ class MessageThreadViewModel @Inject constructor(
         }
     }
 
-    fun addGroupMembers(userIds: List<String>) {
+    fun addGroupMembers(users: List<fm.corus.android.data.model.CymbalUser>) {
         val id = currentThreadId ?: return
-        if (userIds.isEmpty()) return
+        if (users.isEmpty()) return
+        val userIds = users.map { it.id }
+
+        // Optimistically reflect the new members so the group-info list updates
+        // immediately; the live group-info listener reconciles with the server.
+        _membersById.value = _membersById.value.toMutableMap().apply {
+            for (u in users) putIfAbsent(u.id, u)
+        }
+        _groupInfo.value?.let { info ->
+            val merged = (info.memberIds + userIds).distinct()
+            if (merged.size != info.memberIds.size) {
+                _groupInfo.value = info.copy(memberIds = merged)
+            }
+        }
+
         viewModelScope.launch {
             try {
                 val result = messageRepository.addGroupMembers(id, userIds)

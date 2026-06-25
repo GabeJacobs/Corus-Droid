@@ -1,8 +1,15 @@
 package fm.corus.android.ui.screens.messaging
 
+import android.graphics.Bitmap
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -31,10 +37,15 @@ import androidx.compose.ui.unit.dp
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.uriToBitmap
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Group details bottom sheet (mirrors iOS GroupInfoView): photo + name (any
@@ -53,13 +64,21 @@ internal fun GroupInfoSheet(
     onNavigateToProfile: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
+    val decodeScope = rememberCoroutineScope()
+    // Picked photo awaiting crop. The crop overlay is hosted INSIDE this sheet's own
+    // window (below): a Compose Dialog or a screen-root overlay would render behind
+    // the bottom sheet, and a Dialog also zeroes out the nav-bar insets the crop
+    // needs (see CorusDraggableSheet).
+    var cropBitmap by remember { mutableStateOf<Bitmap?>(null) }
     val currentUserId = viewModel.currentUserId
     val isCreator = groupInfo.createdBy == currentUserId
     val memberIds = groupInfo.memberIds
     val otherMembers = memberIds.filter { it != currentUserId }.mapNotNull { membersById[it] }
 
     var name by remember(groupInfo.name) { mutableStateOf(groupInfo.name ?: "") }
-    var editingName by remember { mutableStateOf(false) }
+    // Rename is a dialog (mirrors iOS .alert), not inline editing.
+    var showRename by remember { mutableStateOf(false) }
+    var renameDraft by remember { mutableStateOf("") }
     var showAddPeople by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf<CymbalUser?>(null) }
@@ -68,11 +87,14 @@ internal fun GroupInfoSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // Decode + EXIF rotation runs on IO; the bitmap is sent up to the crop overlay
+    // (the actual upload happens once the crop is confirmed).
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
-            runCatching {
-                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            }.getOrNull()?.let { viewModel.uploadAndSetGroupPhoto(it) }
+            decodeScope.launch {
+                val bmp = withContext(Dispatchers.IO) { uriToBitmap(context, uri) }
+                if (bmp != null) cropBitmap = bmp
+            }
         }
     }
 
@@ -84,15 +106,60 @@ internal fun GroupInfoSheet(
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
     ) {
         CorusSystemBars()
-        Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f)) {
+        // Back returns from the add-people panel to the group info (not the whole sheet).
+        BackHandler(enabled = showAddPeople) { showAddPeople = false }
+        // Add-people is an IN-SHEET sliding panel (mirrors the create-group flow), not a
+        // second ModalBottomSheet stacked on top: stacking two modal sheet windows made
+        // the open animation stutter (pause at half height). Both panels share one fixed
+        // height so the sheet never resizes between them.
+        AnimatedContent(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f),
+            targetState = showAddPeople,
+            transitionSpec = {
+                if (targetState) {
+                    slideInHorizontally(tween(280), initialOffsetX = { it }) togetherWith
+                        slideOutHorizontally(tween(280), targetOffsetX = { -it / 3 })
+                } else {
+                    slideInHorizontally(tween(280), initialOffsetX = { -it / 3 }) togetherWith
+                        slideOutHorizontally(tween(280), targetOffsetX = { it })
+                }
+            },
+            label = "groupInfoAddPeopleSlide",
+        ) { addingPeople ->
+            if (addingPeople) {
+                MultiUserPickerContent(
+                    title = stringResource(id = R.string.messaging_group_add_people),
+                    showNameField = false,
+                    excludeIds = (memberIds + (currentUserId ?: "")).toSet(),
+                    loadSuggestions = { viewModel.fetchSuggestionsList() },
+                    search = { viewModel.searchUsersList(it) },
+                    onCancel = { showAddPeople = false },
+                    onConfirm = { selectedUsers, _ ->
+                        viewModel.addGroupMembers(selectedUsers)
+                        showAddPeople = false
+                    },
+                )
+            } else {
+        Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Text(
-                stringResource(id = R.string.messaging_group_info_title),
-                style = CorusFont.screenTitle,
-                color = CorusColors.Text,
-                modifier = Modifier.fillMaxWidth().padding(CorusSpacing.lg),
-                textAlign = TextAlign.Center,
-            )
+            // Centered title with a trailing "Done" to dismiss (mirrors iOS toolbar).
+            Box(modifier = Modifier.fillMaxWidth().padding(CorusSpacing.lg)) {
+                Text(
+                    stringResource(id = R.string.messaging_group_info_title),
+                    style = CorusFont.screenTitle,
+                    color = CorusColors.Text,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    stringResource(id = R.string.messaging_group_done),
+                    style = CorusFont.button,
+                    color = CorusColors.Accent,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .clickable { onDismiss() },
+                )
+            }
 
             // Photo + name + member count
             Column(
@@ -125,48 +192,25 @@ internal fun GroupInfoSheet(
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-                // Title: custom name, else the members' names; editing toggles the field.
-                if (editingName) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(CorusColors.CardBackground)
-                            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
-                    ) {
-                        if (name.isEmpty()) {
-                            Text(stringResource(id = R.string.messaging_group_name_label), style = CorusFont.body, color = CorusColors.Tertiary)
-                        }
-                        BasicTextField(
-                            value = name,
-                            onValueChange = { name = it.take(60) },
-                            textStyle = CorusFont.body.copy(color = CorusColors.Text, textAlign = TextAlign.Center),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = {
-                                viewModel.renameGroup(name)
-                                editingName = false
-                            }),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                } else {
-                    Text(
-                        groupDisplayTitle(name.ifBlank { null }, otherMembers, context),
-                        style = CorusFont.username,
-                        color = CorusColors.Text,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                // Title: custom name, else the members' names. Renaming is a dialog.
+                Text(
+                    groupDisplayTitle(name.ifBlank { null }, otherMembers, context),
+                    style = CorusFont.username,
+                    color = CorusColors.Text,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg)) {
                     Text(
                         stringResource(id = R.string.messaging_group_change_name),
                         style = CorusFont.body, color = CorusColors.Accent,
-                        modifier = Modifier.clickable { editingName = true },
+                        modifier = Modifier.clickable {
+                            renameDraft = name
+                            showRename = true
+                        },
                     )
                     Text(
                         stringResource(id = R.string.messaging_group_change_photo),
@@ -261,32 +305,61 @@ internal fun GroupInfoSheet(
                 CircularProgressIndicator(color = CorusColors.Accent)
             }
         }
+
+        // Square crop overlay (parity with iOS + the profile-photo flow). Rendered
+        // as the last child so it covers the group-info content, and inside this
+        // sheet's window so its nav-bar insets resolve correctly. On confirm the
+        // cropped bytes are uploaded; cancel returns to the group info.
+        cropBitmap?.let { bmp ->
+            Box(modifier = Modifier.matchParentSize()) {
+                AvatarCropView(
+                    bitmap = bmp,
+                    onConfirm = { bytes ->
+                        cropBitmap = null
+                        viewModel.uploadAndSetGroupPhoto(bytes)
+                    },
+                    onCancel = { cropBitmap = null },
+                )
+            }
+        }
+            }
+        }
         }
     }
 
-    if (showAddPeople) {
-        val addSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
-            onDismissRequest = { showAddPeople = false },
-            sheetState = addSheetState,
+    if (showRename) {
+        AlertDialog(
+            onDismissRequest = { showRename = false },
+            title = { Text(stringResource(id = R.string.messaging_group_name_label)) },
+            text = {
+                OutlinedTextField(
+                    value = renameDraft,
+                    onValueChange = { renameDraft = it.take(60) },
+                    placeholder = { Text(stringResource(id = R.string.messaging_group_name_label)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        name = renameDraft.trim()
+                        viewModel.renameGroup(name)
+                        showRename = false
+                    }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    name = renameDraft.trim()
+                    viewModel.renameGroup(name)
+                    showRename = false
+                }) { Text(stringResource(id = R.string.common_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRename = false }) {
+                    Text(stringResource(id = R.string.messaging_group_cancel))
+                }
+            },
             containerColor = CorusColors.Background,
-            dragHandle = null,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        ) {
-            CorusSystemBars()
-            MultiUserPickerContent(
-                title = stringResource(id = R.string.messaging_group_add_people),
-                showNameField = false,
-                excludeIds = (memberIds + (currentUserId ?: "")).toSet(),
-                loadSuggestions = { viewModel.fetchSuggestionsList() },
-                search = { viewModel.searchUsersList(it) },
-                onCancel = { showAddPeople = false },
-                onConfirm = { selectedUsers, _ ->
-                    viewModel.addGroupMembers(selectedUsers.map { it.id })
-                    showAddPeople = false
-                },
-            )
-        }
+        )
     }
 
     if (confirmLeave) {

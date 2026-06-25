@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.messaging
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
@@ -64,6 +66,7 @@ fun ThreadListScreen(
 ) {
     val threads by viewModel.threads.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val hasMoreThreads by viewModel.hasMoreThreads.collectAsState()
     val inboxSearchResults by viewModel.inboxSearchResults.collectAsState()
     val isSearchingInbox by viewModel.isSearchingInbox.collectAsState()
@@ -133,6 +136,11 @@ fun ThreadListScreen(
             )
             HorizontalDivider(color = CorusColors.Divider)
 
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { viewModel.pullRefresh() },
+                modifier = Modifier.fillMaxSize(),
+            ) {
             if (isLoading && threads.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = CorusColors.Accent)
@@ -175,6 +183,7 @@ fun ThreadListScreen(
                     }
                 }
             }
+            }
         }
     }
 
@@ -215,22 +224,62 @@ fun ThreadListScreen(
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {
             CorusSystemBars()
-            // Push the DM list and the group-create flow as panels (mirrors iOS):
-            // entering group-create slides in from the trailing edge, back slides
-            // in from the leading edge.
-            AnimatedContent(
-                targetState = showGroupCreate,
-                transitionSpec = {
-                    if (targetState) {
-                        slideInHorizontally(tween(280), initialOffsetX = { it }) togetherWith
-                            slideOutHorizontally(tween(280), targetOffsetX = { -it / 3 })
-                    } else {
-                        slideInHorizontally(tween(280), initialOffsetX = { -it / 3 }) togetherWith
-                            slideOutHorizontally(tween(280), targetOffsetX = { it })
+            // Back pops the group-create panel before dismissing the whole sheet.
+            BackHandler(enabled = showGroupCreate) { showGroupCreate = false }
+            // A single FIXED header sits above the sliding panels (iOS-style): the
+            // leading button morphs Cancel <-> back and the title cross-fades, while
+            // only the bodies slide. Sliding the whole panel made the near-identical
+            // headers look like they were shuffling. One fixed height = no resize.
+            Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // Fixed height so the header doesn't jump as the leading swaps
+                        // between the (taller) icon button and the Cancel text button.
+                        .height(56.dp)
+                        .padding(horizontal = CorusSpacing.lg),
+                ) {
+                    // Header updates instantly (no cross-fade) so the two titles never
+                    // overlap; only the body slides, which carries the navigation feel.
+                    Box(modifier = Modifier.align(Alignment.CenterStart)) {
+                        if (showGroupCreate) {
+                            IconButton(onClick = { showGroupCreate = false }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(id = R.string.common_back),
+                                    tint = CorusColors.Accent,
+                                )
+                            }
+                        } else {
+                            TextButton(onClick = {
+                                viewModel.clearSearch()
+                                showNewMessagePicker = false
+                            }) {
+                                Text(stringResource(id = R.string.common_cancel), style = CorusFont.body, color = CorusColors.Accent)
+                            }
+                        }
                     }
-                },
-                label = "pickerModeSlide",
-            ) { isGroupCreate ->
+                    Text(
+                        stringResource(id = if (showGroupCreate) R.string.messaging_group_new_title else R.string.messaging_list_new_message_title),
+                        style = CorusFont.screenTitle,
+                        color = CorusColors.Text,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+                AnimatedContent(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    targetState = showGroupCreate,
+                    transitionSpec = {
+                        if (targetState) {
+                            slideInHorizontally(tween(280), initialOffsetX = { it }) togetherWith
+                                slideOutHorizontally(tween(280), targetOffsetX = { -it / 3 })
+                        } else {
+                            slideInHorizontally(tween(280), initialOffsetX = { -it / 3 }) togetherWith
+                                slideOutHorizontally(tween(280), targetOffsetX = { it })
+                        }
+                    },
+                    label = "pickerModeSlide",
+                ) { isGroupCreate ->
                 if (isGroupCreate) {
                     // Multi-select: one selection starts a 1:1 DM, two+ creates a group.
                     MultiUserPickerContent(
@@ -260,6 +309,7 @@ fun ThreadListScreen(
                                 }
                             }
                         },
+                        showHeader = false,
                     )
                 } else {
                     NewMessagePickerContent(
@@ -284,8 +334,10 @@ fun ThreadListScreen(
                                 }
                             }
                         },
+                        showHeader = false,
                     )
                 }
+            }
             }
         }
     }
@@ -298,6 +350,9 @@ private fun NewMessagePickerContent(
     onUserSelected: (CymbalUser) -> Unit,
     groupMessagingEnabled: Boolean = false,
     onGroupChat: () -> Unit = {},
+    // When false, the host renders a shared header above this content (so the
+    // header stays fixed while the bodies slide). See the new-message sheet.
+    showHeader: Boolean = true,
 ) {
     val suggestedContacts by viewModel.suggestedContacts.collectAsState()
     val isLoadingSuggestions by viewModel.isLoadingSuggestions.collectAsState()
@@ -318,23 +373,25 @@ private fun NewMessagePickerContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.85f),
+            .fillMaxHeight(),
     ) {
-        // Title bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onClick = onCancel) {
-                Text(stringResource(id = R.string.common_cancel), style = CorusFont.body, color = CorusColors.Accent)
+        // Title bar (omitted when the host renders a shared header).
+        if (showHeader) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onCancel) {
+                    Text(stringResource(id = R.string.common_cancel), style = CorusFont.body, color = CorusColors.Accent)
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                Text(stringResource(id = R.string.messaging_list_new_message_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+                Spacer(modifier = Modifier.weight(1f))
+                // Invisible spacer to balance the Cancel button
+                Spacer(modifier = Modifier.width(64.dp))
             }
-            Spacer(modifier = Modifier.weight(1f))
-            Text(stringResource(id = R.string.messaging_list_new_message_title), style = CorusFont.screenTitle, color = CorusColors.Text)
-            Spacer(modifier = Modifier.weight(1f))
-            // Invisible spacer to balance the Cancel button
-            Spacer(modifier = Modifier.width(64.dp))
         }
 
         // Search bar

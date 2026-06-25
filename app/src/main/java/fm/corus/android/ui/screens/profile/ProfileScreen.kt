@@ -1193,37 +1193,34 @@ fun ProfileScreen(
         )
         val hasSoundCloud = chooserSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
             && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-        // Fold the Spotify/SoundCloud caveat into this one dialog so we never
-        // stack a second popup on top of the chooser.
-        val caveat = when {
-            hasSoundCloud && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY
-                || fm.corus.android.domain.usesSpotifyFallback(musicService)) -> " SoundCloud tracks are skipped."
-            fm.corus.android.domain.usesSpotifyFallback(musicService) -> " This creates a Spotify playlist."
-            else -> ""
+        // Fold the service caveat into this one dialog so we never stack a second
+        // popup on the chooser. Deezer / Apple Music can't build playlists on
+        // Android, so they always fall back to Spotify — name the service so the
+        // substitution is clear, not a surprise.
+        val showSpotifyFallbackNote = fm.corus.android.domain.usesSpotifyFallback(musicService)
+        val showSoundCloudNote = hasSoundCloud &&
+            (musicService == fm.corus.android.data.model.MusicService.SPOTIFY || showSpotifyFallbackNote)
+        val caveat = buildString {
+            if (showSpotifyFallbackNote) {
+                append("${musicService.displayLabel} can't build playlists, so this creates a Spotify playlist.")
+            }
+            if (showSoundCloudNote) {
+                if (isNotEmpty()) append(" ")
+                append("SoundCloud tracks are skipped.")
+            }
         }
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showPlaylistChooser = false },
-            title = { androidx.compose.material3.Text("Generate a playlist?") },
-            text = {
-                androidx.compose.material3.Text(
-                    "Make a quick 75-song playlist, or export all $count songs.$caveat"
-                )
+        PlaylistExportChooserDialog(
+            count = count,
+            caveat = caveat,
+            onQuick = {
+                showPlaylistChooser = false
+                viewModel.generatePlaylist(chooserSource, fullExport = false)
             },
-            confirmButton = {
-                androidx.compose.foundation.layout.Column {
-                    androidx.compose.material3.TextButton(onClick = {
-                        showPlaylistChooser = false
-                        viewModel.generatePlaylist(chooserSource, fullExport = false)
-                    }) { androidx.compose.material3.Text("Quick playlist · 75 songs") }
-                    androidx.compose.material3.TextButton(onClick = {
-                        showPlaylistChooser = false
-                        viewModel.generatePlaylist(chooserSource, fullExport = true)
-                    }) { androidx.compose.material3.Text("All $count songs") }
-                    androidx.compose.material3.TextButton(onClick = { showPlaylistChooser = false }) {
-                        androidx.compose.material3.Text("Cancel")
-                    }
-                }
+            onAll = {
+                showPlaylistChooser = false
+                viewModel.generatePlaylist(chooserSource, fullExport = true)
             },
+            onDismiss = { showPlaylistChooser = false },
         )
     }
 }
@@ -1238,7 +1235,9 @@ fun ProfileScreen(
  * stable `autoSize` parameter isn't available on our Compose BOM (1.7.x).
  */
 @Composable
-private fun ShrinkToFitText(
+// Shared with OtherProfileScreen (same package) so the FOLLOWING pill can shrink
+// to fit on one line instead of clipping, exactly like the EDIT button here.
+internal fun ShrinkToFitText(
     text: String,
     style: TextStyle,
     color: Color,

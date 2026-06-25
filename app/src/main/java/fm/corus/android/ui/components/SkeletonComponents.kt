@@ -370,13 +370,9 @@ fun SkeletonProfileView() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            // Customize icon placeholder (40dp drives the header row height)
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(CorusColors.Skeleton)
-            )
+            // Reserve the 40dp customize-icon slot (no shimmer — it's an action
+            // button, not loading content) so the header height still matches.
+            Spacer(modifier = Modifier.size(40.dp))
             // Display name placeholder
             Box(
                 modifier = Modifier

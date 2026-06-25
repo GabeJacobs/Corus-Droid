@@ -11,6 +11,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.content.TextContent
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.addJsonObject
@@ -52,6 +53,8 @@ class TidalPlaylistService @Inject constructor(
          *  was added). The caller should re-authenticate and retry once. */
         object InsufficientScope : PlaylistException("TIDAL needs permission to manage your playlists.")
         object NoTracks : PlaylistException("None of these songs are available on TIDAL.")
+        /** 429 — TIDAL is throttling. The add loop retries with backoff. */
+        object RateLimited : PlaylistException("TIDAL is busy. Try again in a moment.")
         class RequestFailed(message: String) : PlaylistException(message)
     }
 
@@ -66,10 +69,33 @@ class TidalPlaylistService @Inject constructor(
         val country = runCatching { currentUserCountry(token) }.getOrNull() ?: "US"
         val playlistId = createEmptyPlaylist(name, description, country, token)
 
+        // Add in batches, resiliently. A larger export is both more likely to
+        // include a track TIDAL rejects and to trip rate-limiting, and the loop
+        // used to be all-or-nothing — one bad batch sank the whole playlist
+        // (worked at 75 tracks / 4 batches, failed at 142 / 8). Now: retry on
+        // 429 with backoff, skip a genuinely-rejected batch, keep the rest, and
+        // only surface an error if nothing made it in. InsufficientScope still
+        // propagates so the caller can re-consent and retry.
         var added = 0
-        tidalTrackIds.chunked(ADD_BATCH_SIZE).forEach { batch ->
-            added += addItems(playlistId, batch, country, token)
+        var lastError: Exception? = null
+        for (batch in tidalTrackIds.chunked(ADD_BATCH_SIZE)) {
+            var attempt = 0
+            while (true) {
+                try {
+                    added += addItems(playlistId, batch, country, token)
+                    break
+                } catch (e: PlaylistException.InsufficientScope) {
+                    throw e
+                } catch (e: PlaylistException.RateLimited) {
+                    if (++attempt > ADD_MAX_RETRIES) { lastError = e; break }
+                    delay(ADD_RETRY_DELAY_MS * attempt)
+                } catch (e: Exception) {
+                    lastError = e
+                    break
+                }
+            }
         }
+        if (added == 0) throw (lastError ?: PlaylistException.NoTracks)
 
         // tidal.com/playlist/{id} is picked up by the TIDAL app via universal
         // links when installed, else opens the web player.
@@ -152,6 +178,7 @@ class TidalPlaylistService @Inject constructor(
     private suspend fun ensureSuccess(resp: HttpResponse) {
         val code = resp.status.value
         if (code == 401 || code == 403) throw PlaylistException.InsufficientScope
+        if (code == 429) throw PlaylistException.RateLimited
         if (code !in 200..299) {
             val detail = runCatching { resp.bodyAsText() }.getOrDefault("").take(200)
             throw PlaylistException.RequestFailed("TIDAL $code: $detail")
@@ -169,6 +196,9 @@ class TidalPlaylistService @Inject constructor(
         private val JSON_API = ContentType("application", "vnd.api+json")
         /** Tracks per add-items request — TIDAL caps relationship batch size. */
         private const val ADD_BATCH_SIZE = 20
+        /** Per-batch retries when TIDAL returns 429, with linear backoff. */
+        private const val ADD_MAX_RETRIES = 3
+        private const val ADD_RETRY_DELAY_MS = 600L
         private val JSON = Json { ignoreUnknownKeys = true }
     }
 }

@@ -82,6 +82,18 @@ internal fun parseTasteMatchesGate(data: Map<String, Any?>?): TasteMatchesGateIn
 }
 
 /**
+ * Whether a feed mode builds its playlist from a live ranked session, so the
+ * server can rebuild the exact list the user is scrolling. True for the ranked
+ * modes ("trending" and "tasteMatches"); false for "following" / "favorites",
+ * which the server reconstructs from durable sources. Forgetting "tasteMatches"
+ * here drops the session token from the request, leaving the server with no
+ * list to build from — which surfaced as a generic "Something went wrong" on
+ * Taste Matches playlist exports.
+ */
+internal fun feedModeUsesRankedSession(feedMode: String): Boolean =
+    feedMode == "trending" || feedMode == "tasteMatches"
+
+/**
  * Wraps all Firebase callable Cloud Functions.
  * Mirrors the iOS DatabaseService's cloud function calls.
  */
@@ -1395,11 +1407,11 @@ class CloudFunctionsDataSource @Inject constructor(
     @Suppress("UNCHECKED_CAST")
     /**
      * @param feedMode Which feed the user is viewing ("following" / "trending" /
-     *   "favorites"). Drives both the playlist's source and its name on the
-     *   server. Defaults to "following" for back-compat.
-     * @param sessionToken The live Trending ranked-session token the user is
-     *   scrolling, so the server builds the playlist from the exact list shown.
-     *   Only meaningful for "trending"; ignored otherwise.
+     *   "tasteMatches" / "favorites"). Drives both the playlist's source and its
+     *   name on the server. Defaults to "following" for back-compat.
+     * @param sessionToken The live ranked-session token the user is scrolling,
+     *   so the server builds the playlist from the exact list shown. Meaningful
+     *   for the ranked modes ("trending" and "tasteMatches"); ignored otherwise.
      */
     suspend fun generateFeedPlaylist(
         newReleasesOnly: Boolean = false,
@@ -1408,7 +1420,8 @@ class CloudFunctionsDataSource @Inject constructor(
     ): PlaylistResult {
         val params = mutableMapOf<String, Any>("supportsGating" to true, "feedMode" to feedMode)
         if (newReleasesOnly) params["newReleasesOnly"] = true
-        if (feedMode == "trending" && !sessionToken.isNullOrEmpty()) params["sessionToken"] = sessionToken
+        if (feedModeUsesRankedSession(feedMode) && !sessionToken.isNullOrEmpty())
+            params["sessionToken"] = sessionToken
         val result = functions.getHttpsCallable("generateFeedPlaylist").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
         return parsePlaylistResponse(data)
@@ -1428,7 +1441,8 @@ class CloudFunctionsDataSource @Inject constructor(
             "appleMusicTracks" to true,
         )
         if (newReleasesOnly) params["newReleasesOnly"] = true
-        if (feedMode == "trending" && !sessionToken.isNullOrEmpty()) params["sessionToken"] = sessionToken
+        if (feedModeUsesRankedSession(feedMode) && !sessionToken.isNullOrEmpty())
+            params["sessionToken"] = sessionToken
         val result = functions.getHttpsCallable("generateFeedPlaylist").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return PlaylistTracksOutcome.Failure(0)
         return parsePlaylistTracksResponse(data)

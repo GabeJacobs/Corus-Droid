@@ -612,6 +612,7 @@ fun MessageThreadScreen(
                             showSenderLabel = showSenderLabel,
                             showAvatar = showAvatar,
                             replyName = replyName,
+                            onSenderTap = { sender?.id?.let { onNavigateToProfile(it) } },
                             onLongPress = {
                                 bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
                                 reactionTarget = message
@@ -1061,6 +1062,7 @@ private fun MessageBubble(
     showSenderLabel: Boolean = false,
     showAvatar: Boolean = false,
     replyName: String? = null,
+    onSenderTap: () -> Unit = {},
     onLongPress: () -> Unit,
     onDoubleTap: () -> Unit,
     onReactionTap: (String) -> Unit,
@@ -1120,6 +1122,7 @@ private fun MessageBubble(
                 displayName = sender.displayName,
                 username = sender.username,
                 size = 26.dp,
+                modifier = Modifier.clickable(onClick = onSenderTap),
             )
         } else {
             Spacer(modifier = Modifier.width(26.dp))
@@ -1135,7 +1138,9 @@ private fun MessageBubble(
                 text = sender.displayName.ifBlank { sender.username },
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,
-                modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
+                modifier = Modifier
+                    .clickable(onClick = onSenderTap)
+                    .padding(start = 2.dp, bottom = 2.dp),
             )
         }
         // Message bubble — quoted reply context is rendered inside

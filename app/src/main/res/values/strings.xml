@@ -385,6 +385,7 @@
     <string name="other_profile_menu_unblock">Unblock</string>
     <string name="other_profile_blocked_message">You blocked this user</string>
     <string name="other_profile_button_follow">FOLLOW</string>
+    <string name="other_profile_button_follow_back">FOLLOW BACK</string>
     <string name="other_profile_button_following">FOLLOWING</string>
     <string name="other_profile_tab_likes">LIKES</string>
     <string name="other_profile_empty_no_songs">No songs yet</string>
@@ -703,7 +704,7 @@
     <string name="messaging_group_creator">Creator</string>
     <string name="messaging_group_add_people">Add people</string>
     <string name="messaging_group_create">Create group</string>
-    <string name="messaging_group_new_title">New group</string>
+    <string name="messaging_group_new_title">New Group</string>
     <string name="messaging_group_chat">Group chat</string>
     <string name="messaging_group_message_cta">Message</string>
     <string name="messaging_group_add_cta">Add</string>
@@ -718,6 +719,7 @@
     <string name="messaging_group_soft_hint">May not see this yet</string>
     <string name="messaging_group_sender_preview">%1$s: %2$s</string>
     <string name="messaging_group_cancel">Cancel</string>
+    <string name="messaging_group_done">Done</string>
 
     <!-- Notifications (activity feed) -->
     <string name="notifications_activity_title">Activity</string>

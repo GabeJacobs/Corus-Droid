@@ -128,4 +128,77 @@ class TidalPlaylistServiceTest {
         val ex = runCatching { service.createPlaylist("X", "Y", listOf("a"), "tok") }.exceptionOrNull()
         assertTrue(ex is TidalPlaylistService.PlaylistException.RequestFailed)
     }
+
+    // Resilient add loop (the "All N export" fix): a single bad/throttled batch
+    // must not sink the whole playlist the way it used to (worked at 75 tracks /
+    // 4 batches, failed at 142 / 8).
+
+    @Test
+    fun `a rejected batch is skipped and the rest still export`() = runTest {
+        var itemCalls = 0
+        val service = serviceWith { request ->
+            val path = request.url.encodedPath
+            when {
+                path.endsWith("/users/me") -> respond("""{"data":{"attributes":{"countryCode":"US"}}}""", HttpStatusCode.OK)
+                path.endsWith("/playlists") -> respond("""{"data":{"id":"PL1"}}""", HttpStatusCode.Created)
+                path.contains("/relationships/items") -> {
+                    itemCalls++
+                    // First batch (20) rejected; second (5) accepted.
+                    if (itemCalls == 1) respond("bad track", HttpStatusCode.BadRequest)
+                    else respond("", HttpStatusCode.Created)
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val ids = (1..25).map { "t$it" } // 2 batches: 20 then 5
+        val result = service.createPlaylist("X", "Y", ids, "tok")
+
+        // Playlist is still created and opened, with only the surviving batch.
+        assertEquals(5, result.addedCount)
+        assertEquals(25, result.requestedCount)
+        assertEquals("https://tidal.com/playlist/PL1", result.url)
+    }
+
+    @Test
+    fun `a rate-limited batch is retried then succeeds`() = runTest {
+        var itemCalls = 0
+        val service = serviceWith { request ->
+            val path = request.url.encodedPath
+            when {
+                path.endsWith("/users/me") -> respond("""{"data":{"attributes":{"countryCode":"US"}}}""", HttpStatusCode.OK)
+                path.endsWith("/playlists") -> respond("""{"data":{"id":"PL2"}}""", HttpStatusCode.Created)
+                path.contains("/relationships/items") -> {
+                    itemCalls++
+                    // First attempt throttled; the retry goes through.
+                    if (itemCalls == 1) respond("", HttpStatusCode.TooManyRequests)
+                    else respond("", HttpStatusCode.Created)
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val ids = (1..25).map { "t$it" } // 2 batches
+        val result = service.createPlaylist("X", "Y", ids, "tok")
+
+        assertEquals(25, result.addedCount)
+        // batch1: 429 then retried OK (2 calls) + batch2 OK (1 call) = 3 item calls.
+        val itemCallCount = recorded.count { it.url.encodedPath.contains("/relationships/items") }
+        assertEquals(3, itemCallCount)
+    }
+
+    @Test
+    fun `throws when every batch fails`() = runTest {
+        val service = serviceWith { request ->
+            val path = request.url.encodedPath
+            when {
+                path.endsWith("/users/me") -> respond("""{"data":{"attributes":{"countryCode":"US"}}}""", HttpStatusCode.OK)
+                path.endsWith("/playlists") -> respond("""{"data":{"id":"PL3"}}""", HttpStatusCode.Created)
+                else -> respond("nope", HttpStatusCode.BadRequest) // every add rejected
+            }
+        }
+
+        val ex = runCatching { service.createPlaylist("X", "Y", listOf("a"), "tok") }.exceptionOrNull()
+        assertTrue(ex is TidalPlaylistService.PlaylistException.RequestFailed)
+    }
 }

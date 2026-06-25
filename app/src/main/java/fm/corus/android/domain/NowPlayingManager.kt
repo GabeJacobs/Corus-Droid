@@ -292,6 +292,7 @@ class NowPlayingManager @Inject constructor(
         } catch (e: SocketTimeoutException) {
             _playlistError.value = "Couldn't connect. Check your connection."
         } catch (e: Exception) {
+            android.util.Log.e("NowPlaying", "Feed playlist failed (feedMode=$feedMode)", e)
             _playlistError.value = "Something went wrong. Try again later."
         }
         _isGeneratingPlaylist.value = false
@@ -338,6 +339,7 @@ class NowPlayingManager @Inject constructor(
         } catch (e: SocketTimeoutException) {
             _playlistError.value = "Couldn't connect. Check your connection."
         } catch (e: Exception) {
+            android.util.Log.e("NowPlaying", "Profile playlist failed", e)
             _playlistError.value = "Something went wrong. Try again later."
         }
         _isGeneratingPlaylist.value = false

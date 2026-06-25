@@ -134,9 +134,11 @@ fun FeedNavGraph(
                         initialDisplayName = user.displayName,
                         initialUsername = user.username,
                         initialBio = user.bio,
-                        initialCymbalCount = user.cymbalCount,
-                        initialFollowerCount = user.followerCount,
-                        initialFollowingCount = user.followingCount,
+                        // The feed post's author is denormalized preview data
+                        // (fromAuthorPreview) that never carries counts, so these
+                        // are always 0 here. Leave them null so the loading header
+                        // shimmers the stats instead of flashing "0 coruses/
+                        // followers/following" until the live profile lands.
                         initialIsVerified = user.isVerified,
                         initialIsClubMember = user.isClubMember,
                         // Seed the real follow state from the cached following set
