@@ -21,6 +21,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
+import fm.corus.android.domain.CommentLikeChangedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
@@ -50,6 +51,7 @@ class CommentsViewModel @Inject constructor(
     private val postDeletionEvent: PostDeletionEvent,
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
+    private val commentLikeChangedEvent: CommentLikeChangedEvent,
     val nowPlayingManager: NowPlayingManager,
     private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
@@ -707,6 +709,10 @@ class CommentsViewModel @Inject constructor(
                     // duplicate it here. Matches iOS + Web.
                     postRepository.likeComment(userId, postId, commentId)
                 }
+                // Broadcast the persisted change so the Activity/Notifications
+                // screen's own likedCommentIds cache stays in sync without a
+                // refetch. Mirrors CommentDeletedEvent / CommentEditedEvent.
+                commentLikeChangedEvent.notifyCommentLikeChanged(postId, commentId, !isCurrentlyLiked)
             } catch (_: Exception) {
                 // Revert optimistic update on failure
                 if (isCurrentlyLiked) {

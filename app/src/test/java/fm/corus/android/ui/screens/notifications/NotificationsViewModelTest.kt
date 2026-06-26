@@ -7,6 +7,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.NotificationRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.CommentLikeChangedEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.NetworkMonitor
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +45,7 @@ class NotificationsViewModelTest {
     private lateinit var userRepository: UserRepository
     private lateinit var postRepository: PostRepository
     private lateinit var engagementManager: PostEngagementManager
+    private lateinit var commentLikeChangedEvent: CommentLikeChangedEvent
 
     @Before
     fun setUp() {
@@ -59,6 +61,7 @@ class NotificationsViewModelTest {
         }
         postRepository = mock()
         engagementManager = mock()
+        commentLikeChangedEvent = CommentLikeChangedEvent()
     }
 
     @After
@@ -71,6 +74,7 @@ class NotificationsViewModelTest {
         authRepository = authRepository,
         userRepository = userRepository,
         postRepository = postRepository,
+        commentLikeChangedEvent = commentLikeChangedEvent,
         engagementManager = engagementManager,
         nowPlayingManager = mock(),
         analyticsService = mock(),
@@ -154,6 +158,7 @@ class NotificationsViewModelTest {
             authRepository = signedOutAuth,
             userRepository = userRepository,
             postRepository = postRepository,
+            commentLikeChangedEvent = commentLikeChangedEvent,
             engagementManager = engagementManager,
             nowPlayingManager = mock(),
             analyticsService = mock(),
@@ -168,6 +173,29 @@ class NotificationsViewModelTest {
 
         verify(notificationRepository, never()).markAllRead(any())
         verify(notificationRepository, never()).updateLastSeenNotificationsAt(any())
+    }
+
+    // ── Comment-like state syncs from the post detail without a refetch ──
+    //
+    // Repro of the iOS-reported bug: open a comment notification, like the
+    // comment inside the pushed post detail / comments sheet, swipe back — the
+    // Activity row heart stayed empty because the Notifications VM keeps its own
+    // likedCommentIds cache that only refreshed on a notifications refetch (which
+    // a busy account masked via incidental listener fires). The post-detail
+    // toggle now emits CommentLikeChangedEvent; the Notifications VM collects it.
+    @Test
+    fun `comment like event updates likedCommentIds without a notifications refetch`() = runTest {
+        val viewModel = createViewModel()
+        advanceUntilIdle() // let the event collector subscribe before we emit
+
+        commentLikeChangedEvent.notifyCommentLikeChanged(postId = "p1", commentId = "c1", isLiked = true)
+        advanceUntilIdle()
+        assertEquals(setOf("c1"), viewModel.likedCommentIds.value)
+
+        // Unliking it from the post detail clears the row heart too.
+        commentLikeChangedEvent.notifyCommentLikeChanged(postId = "p1", commentId = "c1", isLiked = false)
+        advanceUntilIdle()
+        assertEquals(emptySet<String>(), viewModel.likedCommentIds.value)
     }
 
     @Test

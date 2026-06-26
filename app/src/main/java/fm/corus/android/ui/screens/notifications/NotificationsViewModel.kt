@@ -15,6 +15,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.NotificationRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.CommentLikeChangedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
@@ -37,6 +38,7 @@ class NotificationsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val postRepository: PostRepository,
+    private val commentLikeChangedEvent: CommentLikeChangedEvent,
     private val engagementManager: PostEngagementManager,
     val nowPlayingManager: NowPlayingManager,
     private val analyticsService: AnalyticsService,
@@ -100,6 +102,22 @@ class NotificationsViewModel @Inject constructor(
 
     private val _likedCommentIds = MutableStateFlow<Set<String>>(emptySet())
     val likedCommentIds: StateFlow<Set<String>> = _likedCommentIds.asStateFlow()
+
+    init {
+        // A comment liked/unliked from the post detail or comments sheet broadcasts
+        // here so the row heart stays in sync without waiting for a notifications
+        // refetch. Mirrors the CommentDeletedEvent / CommentEditedEvent collectors
+        // on the feed/profile screens.
+        viewModelScope.launch {
+            commentLikeChangedEvent.events.collect { payload ->
+                _likedCommentIds.value = if (payload.isLiked) {
+                    _likedCommentIds.value + payload.commentId
+                } else {
+                    _likedCommentIds.value - payload.commentId
+                }
+            }
+        }
+    }
 
     private val _replyingToNotification = MutableStateFlow<CymbalNotification?>(null)
     val replyingToNotification: StateFlow<CymbalNotification?> = _replyingToNotification.asStateFlow()
