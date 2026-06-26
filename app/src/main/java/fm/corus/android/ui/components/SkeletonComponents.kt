@@ -1173,22 +1173,33 @@ fun SkeletonTasteMatchCard(modifier: Modifier = Modifier) {
                     .clip(CircleShape)
                     .background(CorusColors.Skeleton)
             )
-            Column(verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs)) {
-                Box(
-                    modifier = Modifier
-                        .width(70.dp)
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(CorusColors.Skeleton)
-                )
-                Box(
-                    modifier = Modifier
-                        .width(50.dp)
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(CorusColors.Skeleton)
-                )
-            }
+            Box(
+                modifier = Modifier
+                    .width(70.dp)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+        }
+
+        // Subtitle — TWO lines, matching the 2-line artist subtitle the real
+        // TasteMatchCard reserves in the grid, so the card doesn't grow taller
+        // when the real data replaces this skeleton.
+        Column(verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.Skeleton)
+            )
         }
 
         // Follow button

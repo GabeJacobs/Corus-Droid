@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -74,6 +75,10 @@ fun PopularUsersInfiniteGrid(
     onFollowTap: (CymbalUser) -> Unit,
     modifier: Modifier = Modifier,
     state: LazyGridState = rememberLazyGridState(),
+    // Vertical padding around the "POPULAR ON …" header. Onboarding passes 0 so
+    // the header spacing is driven entirely by the surrounding layout (matching
+    // iOS); the empty-feed state keeps the default breathing room.
+    headerVerticalPadding: Dp = CorusSpacing.sm,
     topContent: (@Composable () -> Unit)? = null,
     viewModel: PopularUsersInfiniteGridViewModel = hiltViewModel(),
 ) {
@@ -118,7 +123,7 @@ fun PopularUsersInfiniteGrid(
         }
 
         item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
-            SectionHeader()
+            SectionHeader(verticalPadding = headerVerticalPadding)
         }
 
         if (matches.isEmpty() && isLoading) {
@@ -146,11 +151,11 @@ fun PopularUsersInfiniteGrid(
 }
 
 @Composable
-private fun SectionHeader() {
+private fun SectionHeader(verticalPadding: Dp = CorusSpacing.sm) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = CorusSpacing.sm),
+            .padding(vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(

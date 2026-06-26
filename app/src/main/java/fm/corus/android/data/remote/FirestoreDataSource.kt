@@ -1163,23 +1163,18 @@ class FirestoreDataSource @Inject constructor(
         // filter bots/inactive users client-side to avoid composite index requirement.
         val fetchCount = 40 + excludeIds.size
         val snapshot = firestore.collection("users_v2")
-            .orderBy("followerCount", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .orderBy("buzzScore", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(fetchCount.toLong())
             .get().await()
-        val twoWeeksAgo = System.currentTimeMillis() - (14L * 24 * 60 * 60 * 1000)
         return snapshot.documents.mapNotNull { doc ->
             if (excludeIds.contains(doc.id)) return@mapNotNull null
             if (cachedBannedSet.contains(doc.id)) return@mapNotNull null
             val data = doc.data ?: return@mapNotNull null
             val user = CymbalUser.fromMap(doc.id, data)
-            // Client-side filtering matching iOS: no bots, active users only
+            // Eligibility (active / not-bot / not-banned / not-hidden) is enforced
+            // server-side via buzzScore; only real-time safety filters remain here.
             if (user.isBot) return@mapNotNull null
             if (hiddenUsernames.contains(user.username)) return@mapNotNull null
-            if (user.cymbalCount <= 0) return@mapNotNull null
-            if (user.followerCount < 5) return@mapNotNull null
-            // If lastPostedAt exists, require it to be within 2 weeks
-            val lastPosted = user.lastPostedAt
-            if (lastPosted != null && lastPosted.time < twoWeeksAgo) return@mapNotNull null
             user
         }.take(limit)
     }
@@ -1191,7 +1186,7 @@ class FirestoreDataSource @Inject constructor(
     ): List<CymbalUser> {
         val fetchCount = limit * 3 + excludeIds.size
         var query = firestore.collection("users_v2")
-            .orderBy("followerCount", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .orderBy("buzzScore", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(fetchCount.toLong())
 
         if (afterDocId != null) {
@@ -1202,19 +1197,15 @@ class FirestoreDataSource @Inject constructor(
         }
 
         val snapshot = query.get().await()
-        val twoWeeksAgo = System.currentTimeMillis() - (14L * 24 * 60 * 60 * 1000)
         val users = mutableListOf<CymbalUser>()
         for (doc in snapshot.documents) {
             if (excludeIds.contains(doc.id)) continue
             if (cachedBannedSet.contains(doc.id)) continue
             val data = doc.data ?: continue
             val user = CymbalUser.fromMap(doc.id, data)
+            // Eligibility enforced server-side via buzzScore; keep only safety filters.
             if (user.isBot) continue
             if (hiddenUsernames.contains(user.username)) continue
-            if (user.cymbalCount <= 0) continue
-            if (user.followerCount < 5) continue
-            val lastPosted = user.lastPostedAt
-            if (lastPosted != null && lastPosted.time < twoWeeksAgo) continue
             users.add(user)
             if (users.size >= limit) break
         }

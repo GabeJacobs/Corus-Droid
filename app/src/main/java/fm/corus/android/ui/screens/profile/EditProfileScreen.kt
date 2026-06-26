@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -271,6 +272,15 @@ fun EditProfileScreen(
                 singleLine = false,
                 minLines = 3,
                 maxLines = 6,
+            )
+            // Bio character counter (matches web + iOS)
+            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+            Text(
+                text = "${bio.length}/${EditProfileViewModel.BIO_MAX_LENGTH}",
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.End,
             )
 
             // Website field

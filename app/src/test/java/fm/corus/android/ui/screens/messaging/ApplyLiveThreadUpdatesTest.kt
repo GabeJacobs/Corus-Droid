@@ -73,6 +73,32 @@ class ApplyLiveThreadUpdatesTest {
     }
 
     @Test
+    fun staleCacheSnapshotDoesNotRegressFreshThreadOrReorder() {
+        // The callable loaded fresh order: "c" is on top after a message sent on
+        // another device bumped it to t=9000. The inbox listener's first emission
+        // is Firestore's offline-cache replay, which predates that message and
+        // still shows c at its old t=1000. It must NOT clobber c's preview or drop
+        // it from the top (the cold-open "non-updated list" bug).
+        val existing = listOf(
+            loaded("c", "fresh ping", at = 9_000),
+            loaded("a", at = 3_000),
+            loaded("b", at = 2_000),
+        )
+        val live = listOf(
+            summary("c", "stale old text", at = 1_000),
+            summary("a", at = 3_000),
+            summary("b", at = 2_000),
+        )
+
+        val result = applyLiveThreadUpdates(existing, live, pageSize)
+
+        assertEquals(listOf("c", "a", "b"), result.merged.map { it.id })
+        val c = result.merged.first { it.id == "c" }
+        assertEquals("fresh ping", c.lastMessageText)
+        assertEquals(9_000L, c.lastMessageAt.time)
+    }
+
+    @Test
     fun unknownThreadIsReportedForProfileResolutionNotDropped() {
         val existing = listOf(loaded("a", at = 1_000))
         // Full snapshot: the new thread plus the already-known one.

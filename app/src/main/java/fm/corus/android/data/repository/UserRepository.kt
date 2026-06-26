@@ -356,13 +356,31 @@ class UserRepository @Inject constructor(
         suggestedMatchesCache = CacheEntry(matches, fetchedAt)
     }
 
+    /**
+     * Last-known suggestions from the in-memory cache or DataStore, with NO
+     * network call and NO staleness gate. Used for stale-while-revalidate so the
+     * Search taste rail paints instantly on a fresh launch instead of shimmering
+     * through the network fetch (the async [prefetchSuggestedMatches] often loses
+     * the race to the user opening Search, and >4h-old data is otherwise hidden).
+     */
+    suspend fun peekPersistedSuggestions(userId: String): List<SuggestedUserMatch>? {
+        suggestedMatchesCache?.let { return it.value }
+        val persisted = preferencesDataStore.loadSuggestedMatchesAsync(userId) ?: return null
+        val (matches, fetchedAt) = persisted
+        suggestedMatchesCache = CacheEntry(matches, fetchedAt)
+        return matches
+    }
+
     suspend fun getSuggestedUsers(userId: String, forceRefresh: Boolean = false): List<SuggestedUserMatch> {
         if (!forceRefresh) {
             suggestedMatchesCache?.let { entry ->
                 if (entry.isValid(SUGGESTED_MATCHES_TTL_MS)) return entry.value
             }
         }
-        val result = cloudFunctions.getSuggestedUsers(userId)
+        // 15 (not 50): the inline rail shows a handful; the full list is the
+        // paginated See-All page. 50 made the backend pre-enrich 50 users (a
+        // per-user post-scan each) before returning a single card.
+        val result = cloudFunctions.getSuggestedUsers(userId, limit = 15)
         suggestedMatchesCache = CacheEntry(result)
         preferencesDataStore.persistSuggestedMatches(result, userId)
         return result

@@ -368,6 +368,18 @@ class SearchViewModel @Inject constructor(
                 _followingIds.value = ids
             }
         }
+        // Stale-while-revalidate: paint the last-known suggestions instantly on a
+        // fresh launch so the taste rail doesn't shimmer for ~5s while the network
+        // call runs. The parallel fetch below overwrites this with fresh data.
+        if (!forceRefresh) {
+            viewModelScope.launch {
+                val cached = userRepository.peekPersistedSuggestions(uid)
+                if (!cached.isNullOrEmpty() && _suggestedMatches.value.isEmpty()) {
+                    _suggestedMatches.value = cached
+                    _isSuggestedLoading.value = false
+                }
+            }
+        }
         // Fetch taste matches and mutual connections (Firestore) in parallel,
         // then merge them — matching how iOS loads suggestions. Taste matches go
         // through the repository's 4h cache (warmed from DataStore at sign-in) so

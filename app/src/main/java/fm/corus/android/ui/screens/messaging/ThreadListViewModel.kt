@@ -57,6 +57,13 @@ internal fun applyLiveThreadUpdates(
         if (lt.lastMessageFromUserId == null) continue
         val ex = byId[lt.id]
         if (ex != null) {
+            // A thread's last-message time only moves forward in normal use, so a
+            // strictly-older live snapshot is a stale replica — typically
+            // Firestore's offline cache replaying the row on attach before it
+            // learns about a message sent on another device. Don't let it
+            // overwrite/reorder the fresher data the callable already loaded;
+            // doing so regressed the inbox order on cold open until a refresh.
+            if (lt.lastMessageAt.time < ex.lastMessageAt.time) continue
             byId[lt.id] = ex.copy(
                 lastMessageText = lt.lastMessageText,
                 lastMessageType = lt.lastMessageType,

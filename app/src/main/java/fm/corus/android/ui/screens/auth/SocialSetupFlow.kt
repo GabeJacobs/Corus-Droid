@@ -70,14 +70,15 @@ import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.util.PushNotificationPermission
 
-private enum class SetupStep { MUSIC_SERVICE, SYNC_CONTACTS, FOLLOW_FRIENDS }
+// Order mirrors iOS: find friends → curate feed → choose player (last).
+private enum class SetupStep { SYNC_CONTACTS, FOLLOW_FRIENDS, MUSIC_SERVICE }
 
 @Composable
 fun SocialSetupFlow(
     onFinished: () -> Unit,
     viewModel: SocialSetupViewModel = hiltViewModel(),
 ) {
-    var step by remember { mutableStateOf(SetupStep.MUSIC_SERVICE) }
+    var step by remember { mutableStateOf(SetupStep.SYNC_CONTACTS) }
 
     AnimatedContent(
         targetState = step,
@@ -85,10 +86,6 @@ fun SocialSetupFlow(
         label = "social-setup",
     ) { currentStep ->
         when (currentStep) {
-            SetupStep.MUSIC_SERVICE -> MusicServiceScreen(
-                viewModel = viewModel,
-                onContinue = { step = SetupStep.SYNC_CONTACTS },
-            )
             SetupStep.SYNC_CONTACTS -> SyncContactsScreen(
                 viewModel = viewModel,
                 onContinue = {
@@ -97,6 +94,12 @@ fun SocialSetupFlow(
                 },
             )
             SetupStep.FOLLOW_FRIENDS -> FollowFriendsScreen(
+                viewModel = viewModel,
+                onContinue = { step = SetupStep.MUSIC_SERVICE },
+            )
+            // Choose Your Player is the final step — its "GET STARTED" button
+            // ends onboarding (and fires the push-permission prompt).
+            SetupStep.MUSIC_SERVICE -> MusicServiceScreen(
                 viewModel = viewModel,
                 onFinished = onFinished,
             )
@@ -111,11 +114,30 @@ fun SocialSetupFlow(
 @Composable
 private fun MusicServiceScreen(
     viewModel: SocialSetupViewModel,
-    onContinue: () -> Unit,
+    onFinished: () -> Unit,
 ) {
     var selected by remember { mutableStateOf(MusicService.SPOTIFY) }
     val tidalEnabled = viewModel.tidalEnabled
     val deezerEnabled = viewModel.deezerEnabled
+
+    // This is the last onboarding step, so the push-permission prompt fires here
+    // (just before entering the app) regardless of which service was chosen.
+    val context = LocalContext.current
+    val pushPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        viewModel.analyticsService.logNotificationPermissionResult(granted)
+        viewModel.markPushPermissionRequested()
+        onFinished()
+    }
+    val finishWithPushPrompt: () -> Unit = {
+        if (PushNotificationPermission.shouldRequestPushPermission(context)) {
+            pushPermissionLauncher.launch(PushNotificationPermission.permission)
+        } else {
+            viewModel.markPushPermissionRequested()
+            onFinished()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -199,7 +221,7 @@ private fun MusicServiceScreen(
 
         TextButton(onClick = {
             viewModel.saveMusicService(MusicService.SPOTIFY)
-            onContinue()
+            finishWithPushPrompt()
         }) {
             Text(
                 stringResource(id = R.string.music_service_skip),
@@ -211,7 +233,7 @@ private fun MusicServiceScreen(
         Button(
             onClick = {
                 viewModel.saveMusicService(selected)
-                onContinue()
+                finishWithPushPrompt()
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -565,26 +587,13 @@ private fun RadarAnimation() {
 @Composable
 private fun FollowFriendsScreen(
     viewModel: SocialSetupViewModel,
-    onFinished: () -> Unit,
+    onContinue: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val pushPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        viewModel.analyticsService.logNotificationPermissionResult(granted)
-        // Finish regardless — the permission prompt is best-effort.
-        viewModel.markPushPermissionRequested()
-        onFinished()
-    }
-
-    val finishWithPushPrompt: () -> Unit = {
+    // Curate Your Feed is a middle step now; just log completion and advance to
+    // the music-service picker. The push prompt fires on that final step.
+    val advanceToMusicService: () -> Unit = {
         viewModel.logFollowFriendsOnboardingCompleted()
-        if (PushNotificationPermission.shouldRequestPushPermission(context)) {
-            pushPermissionLauncher.launch(PushNotificationPermission.permission)
-        } else {
-            viewModel.markPushPermissionRequested()
-            onFinished()
-        }
+        onContinue()
     }
 
     val contactMatches by viewModel.contactMatches.collectAsState()
@@ -652,7 +661,7 @@ private fun FollowFriendsScreen(
                     viewModel.analyticsService.logOnboardingSeeAllTapped(destination.analyticsName)
                     showSeeAll = destination
                 },
-                onFinished = finishWithPushPrompt,
+                onFinished = advanceToMusicService,
             )
         }
     }
@@ -759,15 +768,24 @@ private fun FollowFriendsMainContent(
             // Suggestion mode — vertical, paginated grid of popular users.
             // Friends section (when present) renders as topContent above the grid
             // so the entire surface scrolls together.
+            //
+            // When contact sync was skipped there's no friends section, so pass a
+            // null topContent (no empty leading row) and zero header padding. The
+            // "POPULAR ON CORUS" header then sits 16dp below the search bar (the
+            // Spacer above) and 12dp above the first card (grid spacing) — matching
+            // the iOS Curate Your Feed layout.
+            val hasFriendsSection = contactMatches.isNotEmpty() || contactsSynced
             PopularUsersInfiniteGrid(
                 excludeIds = emptySet(),
                 followedIds = followedIds,
                 onUserTap = { user -> viewModel.openUserPreview(user) },
                 onFollowTap = { user -> viewModel.toggleFollow(user.id) },
                 modifier = Modifier.weight(1f),
-                topContent = {
-                    if (!isLoading) {
-                        if (contactMatches.isNotEmpty()) {
+                headerVerticalPadding = 0.dp,
+                topContent = if (!hasFriendsSection) null else {
+                    {
+                        if (!isLoading) {
+                            if (contactMatches.isNotEmpty()) {
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 OnboardingSectionHeader(
                                     title = stringResource(id = R.string.social_setup_section_friends),
@@ -809,6 +827,7 @@ private fun FollowFriendsMainContent(
                                 }
                             }
                         }
+                    }
                     }
                 },
             )
