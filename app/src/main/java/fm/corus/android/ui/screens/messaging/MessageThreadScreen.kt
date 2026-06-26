@@ -724,12 +724,23 @@ fun MessageThreadScreen(
                 val mine = message.fromUserId == viewModel.currentUserId
                 val incomingInGroup = isGroup && !mine && !message.isSystem
                 val sender = if (incomingInGroup) membersById[message.fromUserId] else null
+                // A sender no longer in memberIds (deleted their account / was
+                // removed) gets a neutral "Deleted account" placeholder instead
+                // of a blank name + avatar. Gated on groupInfo being loaded so a
+                // still-current sender doesn't flash the placeholder mid-load.
+                val senderMissing = incomingInGroup && groupInfo != null &&
+                    message.fromUserId !in (groupInfo?.memberIds ?: emptyList())
                 val showSenderLabel = incomingInGroup &&
                     (older == null || older.isSystem || older.fromUserId != message.fromUserId)
                 val showAvatar = incomingInGroup &&
                     (newer == null || newer.isSystem || newer.fromUserId != message.fromUserId)
+                val deletedAccountLabel = stringResource(id = R.string.messaging_thread_deleted_account)
                 val replyName = if (isGroup && message.replyToUserId != null && !mine)
-                    membersById[message.replyToUserId]?.username else null
+                    membersById[message.replyToUserId]?.username
+                        ?: if (groupInfo != null &&
+                            message.replyToUserId !in (groupInfo?.memberIds ?: emptyList())
+                        ) deletedAccountLabel else null
+                else null
 
                 Column(modifier = Modifier.fillMaxWidth()) {
                     if (shouldShowSeparator(older?.createdAt, message.createdAt)) {
@@ -755,6 +766,7 @@ fun MessageThreadScreen(
                             nowPlayingManager = nowPlayingManager,
                             isGroup = isGroup,
                             sender = sender,
+                            senderMissing = senderMissing,
                             showSenderLabel = showSenderLabel,
                             showAvatar = showAvatar,
                             replyName = replyName,
@@ -1229,6 +1241,9 @@ private fun MessageBubble(
     showHeartBurst: Boolean = false,
     isGroup: Boolean = false,
     sender: fm.corus.android.data.model.CymbalUser? = null,
+    // Sender is no longer a participant (deleted account / removed); render a
+    // neutral placeholder since `sender` will be null.
+    senderMissing: Boolean = false,
     showSenderLabel: Boolean = false,
     showAvatar: Boolean = false,
     replyName: String? = null,
@@ -1295,6 +1310,16 @@ private fun MessageBubble(
                 size = 26.dp,
                 modifier = Modifier.clickable(onClick = onSenderTap),
             )
+        } else if (showAvatar && senderMissing) {
+            // Neutral avatar for a former member (blank name renders the "?"
+            // placeholder), not tappable since there's no profile to open.
+            UserAvatarView(
+                avatarURL = null,
+                avatarThumbURL = null,
+                displayName = "",
+                username = "",
+                size = 26.dp,
+            )
         } else {
             Spacer(modifier = Modifier.width(26.dp))
         }
@@ -1312,6 +1337,13 @@ private fun MessageBubble(
                 modifier = Modifier
                     .clickable(onClick = onSenderTap)
                     .padding(start = 2.dp, bottom = 2.dp),
+            )
+        } else if (showSenderLabel && senderMissing) {
+            Text(
+                text = stringResource(id = R.string.messaging_thread_deleted_account),
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
             )
         }
         // The "edited" label sits ABOVE the bubble (on the message's own side) so it

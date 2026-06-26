@@ -671,6 +671,7 @@
     <string name="messaging_thread_editing">Editing message</string>
     <string name="messaging_thread_edited">edited</string>
     <string name="messaging_thread_yourself">yourself</string>
+    <string name="messaging_thread_deleted_account">Deleted account</string>
     <string name="messaging_thread_message_fallback">Message</string>
     <string name="messaging_thread_you">You</string>
     <string name="messaging_thread_cd_add_attachment">Add attachment</string>
