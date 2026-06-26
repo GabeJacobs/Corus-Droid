@@ -28,7 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import coil3.compose.AsyncImage
+import com.valentinilk.shimmer.shimmer
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -56,6 +56,11 @@ fun TasteMatchCard(
      *  a grid stay the same height when subtitles wrap variably; pass 1 from
      *  rails whose subtitle is guaranteed to fit on one line. */
     subtitleLines: Int = 2,
+    /** True while the user's album art is still being fetched (the card is shown
+     *  immediately with name/followers, then artwork streams in). Shows a shimmer
+     *  in the collage instead of the empty logo placeholder so the load reads as
+     *  "loading" rather than flashing an empty state. */
+    isArtLoading: Boolean = false,
 ) {
     val user = match.user
     val matchData = match.matchData
@@ -97,19 +102,30 @@ fun TasteMatchCard(
                 .aspectRatio(1f)
                 .clip(gridShape),
         ) {
-            // Edge-to-edge — matches iOS `gap = 0` in TasteMatchCard.
-            Column {
-                Row(modifier = Modifier.weight(1f)) {
-                    GridTile(url = previewImages.getOrNull(0), modifier = Modifier.weight(1f).fillMaxHeight())
-                    GridTile(url = previewImages.getOrNull(1), modifier = Modifier.weight(1f).fillMaxHeight())
-                }
-                Row(modifier = Modifier.weight(1f)) {
-                    GridTile(url = previewImages.getOrNull(2), modifier = Modifier.weight(1f).fillMaxHeight())
-                    GridTile(url = previewImages.getOrNull(3), modifier = Modifier.weight(1f).fillMaxHeight())
+            if (isArtLoading) {
+                // Artwork still streaming in — shimmer the whole collage rather
+                // than flashing the empty logo-placeholder tiles.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .shimmer()
+                        .background(CorusColors.Skeleton),
+                )
+            } else {
+                // Edge-to-edge — matches iOS `gap = 0` in TasteMatchCard.
+                Column {
+                    Row(modifier = Modifier.weight(1f)) {
+                        GridTile(url = previewImages.getOrNull(0), modifier = Modifier.weight(1f).fillMaxHeight())
+                        GridTile(url = previewImages.getOrNull(1), modifier = Modifier.weight(1f).fillMaxHeight())
+                    }
+                    Row(modifier = Modifier.weight(1f)) {
+                        GridTile(url = previewImages.getOrNull(2), modifier = Modifier.weight(1f).fillMaxHeight())
+                        GridTile(url = previewImages.getOrNull(3), modifier = Modifier.weight(1f).fillMaxHeight())
+                    }
                 }
             }
 
-            if (showPreviewButton) {
+            if (showPreviewButton && !isArtLoading) {
                 PreviewButton(
                     isLoading = isPreviewLoading,
                     isPlaying = isPreviewing,
@@ -236,7 +252,7 @@ private fun GridTile(url: String?, modifier: Modifier = Modifier) {
     // Tiles abut flush — outer parent Box clips with gridShape, so per-tile
     // rounding would only create unwanted gaps inside the rounded card.
     if (url != null) {
-        AsyncImage(
+        ShimmerAsyncImage(
             model = url,
             contentDescription = null,
             modifier = modifier,

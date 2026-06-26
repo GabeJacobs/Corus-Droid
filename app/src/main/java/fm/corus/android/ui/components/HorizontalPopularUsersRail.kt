@@ -261,8 +261,11 @@ class PopularUsersRailViewModel @Inject constructor(
                     // Bounded retry so a transient cold-start callable failure
                     // doesn't cache an empty grid until the app is relaunched —
                     // see fetchListWithRetry.
+                    // Fetch more than the 4 tiles we show: the card dedups tiles by
+                    // album art, so a user who posted the same song (or album) twice
+                    // would otherwise leave an empty tile.
                     val posts = fetchListWithRetry {
-                        postRepository.getProfilePosts(user.id, viewerId, limit = 4)
+                        postRepository.getProfilePosts(user.id, viewerId, limit = 8)
                     }
 
                     // Prefer the high-res field — the 2x2 grid tiles are big

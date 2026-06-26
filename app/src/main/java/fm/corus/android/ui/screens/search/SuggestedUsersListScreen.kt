@@ -189,7 +189,9 @@ fun SuggestedUsersListScreen(
                     }
                 }
                 if (isLoadingMore) {
-                    repeat(3) { item { SkeletonTasteMatchCard() } }
+                    // One clean row in the 2-column grid — 3 left a lopsided
+                    // dangling card in a second row.
+                    repeat(2) { item { SkeletonTasteMatchCard() } }
                 }
             }
         }

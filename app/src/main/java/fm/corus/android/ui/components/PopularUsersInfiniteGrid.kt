@@ -42,13 +42,11 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -139,6 +137,9 @@ fun PopularUsersInfiniteGrid(
                     onFollowTap = { onFollowTap(match.user) },
                     subtitle = followerCountSubtitle(match.user.followerCount),
                     subtitleLines = 1,
+                    // Cards stream in before their artwork; shimmer the collage
+                    // until this user's previews have loaded.
+                    isArtLoading = match.matchData == null,
                 )
             }
             if (isLoading && matches.isNotEmpty()) {
@@ -236,54 +237,67 @@ class PopularUsersInfiniteGridViewModel @Inject constructor(
 
             afterDocId = users.lastOrNull()?.id ?: afterDocId
 
-            val newMatches = matchesWithPreviews(users)
-            val appended = newMatches.filter { seenIds.add(it.user.id) }
-            if (appended.isNotEmpty()) {
-                _matches.value = _matches.value + appended
+            // Show the user cards immediately. Avatar, username and follower count
+            // all live on CymbalUser, so a card renders fully without its artwork —
+            // the 2x2 collage just falls through to placeholder tiles until it loads.
+            // Only the collage needs the per-user getProfilePosts cloud call, which
+            // can be slow; fetching it inline (awaitAll) used to block the ENTIRE
+            // page on the single slowest call, leaving blank skeletons on screen.
+            // Instead we append the cards now and patch each one's artwork in as it
+            // arrives, so no card waits on another.
+            val fresh = users.filter { seenIds.add(it.id) }
+            if (fresh.isEmpty()) return
+            _matches.update { it + fresh.map { user -> SuggestedUserMatch(user) } }
+
+            fresh.forEach { user ->
+                viewModelScope.launch {
+                    val match = matchWithPreviews(user)
+                    // Atomic patch: concurrent per-user updates can't clobber each other.
+                    _matches.update { current ->
+                        current.map { if (it.user.id == user.id) match else it }
+                    }
+                }
             }
         } finally {
             _isLoading.value = false
         }
     }
 
-    private suspend fun matchesWithPreviews(users: List<CymbalUser>): List<SuggestedUserMatch> {
-        val viewerId = authRepository.currentUserId ?: return users.map { SuggestedUserMatch(it) }
-        return coroutineScope {
-            users.map { user ->
-                async {
-                    val posts = runCatching {
-                        postRepository.getProfilePosts(user.id, viewerId, limit = 4)
-                    }.getOrDefault(emptyList())
+    private suspend fun matchWithPreviews(user: CymbalUser): SuggestedUserMatch {
+        val viewerId = authRepository.currentUserId ?: return SuggestedUserMatch(user)
+        // Fetch more than the 4 tiles we show: the card dedups tiles by album art,
+        // so a user who posted the same song (or album) twice would otherwise leave
+        // an empty tile. The extra posts give enough unique artwork to fill the grid.
+        val posts = runCatching {
+            postRepository.getProfilePosts(user.id, viewerId, limit = 8)
+        }.getOrDefault(emptyList())
 
-                    // Prefer the high-res field — the 2x2 grid tiles are big
-                    // enough on phones that the thumbnail-sized URL renders blurry.
-                    val trackPreviews = posts.filter { it.isTrack }.map { post ->
-                        SharedTrackPreview(
-                            trackId = post.track.id,
-                            trackName = post.track.name,
-                            artistName = post.track.artistName,
-                            albumArtURL = post.track.albumArtLargeURL ?: post.track.albumArtURL,
-                            posterURL = null,
-                            isMovie = false,
-                        )
-                    }
-                    val moviePreviews = posts.filter { it.isMovie }.map { post ->
-                        SharedMoviePreview(
-                            movieId = post.movieId.orEmpty(),
-                            movieTitle = post.movieTitle.orEmpty(),
-                            directorName = post.directorName.orEmpty(),
-                            posterURL = post.posterLargeURL ?: post.posterURL,
-                        )
-                    }
-                    SuggestedUserMatch(
-                        user = user,
-                        matchData = MusicMatchData(
-                            sharedTrackPreviews = trackPreviews,
-                            sharedMoviePreviews = moviePreviews,
-                        ),
-                    )
-                }
-            }.awaitAll()
+        // Prefer the high-res field — the 2x2 grid tiles are big enough on phones
+        // that the thumbnail-sized URL renders blurry.
+        val trackPreviews = posts.filter { it.isTrack }.map { post ->
+            SharedTrackPreview(
+                trackId = post.track.id,
+                trackName = post.track.name,
+                artistName = post.track.artistName,
+                albumArtURL = post.track.albumArtLargeURL ?: post.track.albumArtURL,
+                posterURL = null,
+                isMovie = false,
+            )
         }
+        val moviePreviews = posts.filter { it.isMovie }.map { post ->
+            SharedMoviePreview(
+                movieId = post.movieId.orEmpty(),
+                movieTitle = post.movieTitle.orEmpty(),
+                directorName = post.directorName.orEmpty(),
+                posterURL = post.posterLargeURL ?: post.posterURL,
+            )
+        }
+        return SuggestedUserMatch(
+            user = user,
+            matchData = MusicMatchData(
+                sharedTrackPreviews = trackPreviews,
+                sharedMoviePreviews = moviePreviews,
+            ),
+        )
     }
 }
