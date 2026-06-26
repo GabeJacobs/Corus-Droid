@@ -59,7 +59,7 @@ class PostRepository @Inject constructor(
         seenPostIds: List<String> = emptyList(),
         mediaType: MediaType? = null,
         newReleasesOnly: Boolean = false,
-        scope: String = "forYou",
+        scope: String = "trending",
         isRefresh: Boolean = false,
     ): CloudFunctionsDataSource.ForYouFeedPage {
         return cloudFunctions.getForYouFeed(

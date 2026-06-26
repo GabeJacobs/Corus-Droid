@@ -30,6 +30,7 @@ import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.extractMentions
 import fm.corus.android.ui.components.parseMentionQuery
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -261,6 +262,12 @@ class ComposeViewModel @Inject constructor(
                     cachedMovies = withDirectors
                     _filmResults.value = withDirectors
                 }
+            } catch (e: CancellationException) {
+                // The search was superseded by a newer keystroke (searchJob.cancel()),
+                // not a real failure. Rethrow so the cancelled coroutine unwinds
+                // cleanly instead of flashing the "something's off" error state.
+                // Mirrors iOS, which guards superseded searches with Task.isCancelled.
+                throw e
             } catch (_: Exception) {
                 _searchResults.value = emptyList()
                 _filmResults.value = emptyList()
@@ -652,6 +659,7 @@ class ComposeViewModel @Inject constructor(
         _searchResults.value = emptyList()
         _filmResults.value = emptyList()
         _isSearching.value = false
+        _searchHasError.value = false
         _isPosting.value = false
         _postSuccess.value = false
         _error.value = null

@@ -288,11 +288,10 @@ class PreferencesDataStore @Inject constructor(
     }
 
     /**
-     * Per-device feed mode toggle ("following" | "forYou" | "trending").
-     * Empty string = the user has never explicitly picked a mode; the
-     * ViewModel resolves the opening mode from Remote Config
-     * (`default_for_you_feed_enabled`) in that case. Once the user taps a
-     * mode it's persisted here and sticks.
+     * Per-device feed mode toggle ("following" | "trending" | "favorites" |
+     * "tasteMatches"). Empty string = the user has never explicitly picked a
+     * mode, in which case the ViewModel opens on Following. Once the user taps
+     * a mode it's persisted here and sticks.
      *
      * The emitted raw value is also write-through mirrored to the synchronous
      * `corus_prefs` store so [feedModeSyncSeed] can seed the header icon on the

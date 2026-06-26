@@ -2,13 +2,17 @@ package fm.corus.android.domain
 
 import android.content.Context
 import fm.corus.android.data.local.PreferencesDataStore
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -161,5 +165,39 @@ class NowPlayingManagerLookupTest {
                 spotifyTrackId = eq("t"),
             )
         }
+    }
+
+    @Test
+    fun `user-initiated play of a track with no preview emits previewUnavailable`() = runTest(testDispatcher) {
+        val cloudFunctions = mock<CloudFunctionsDataSource> {
+            onBlocking { appleMusicLookup(any(), any(), anyOrNull(), anyOrNull()) } doReturn null
+        }
+        val manager = newManager(cloudFunctions)
+
+        // Subscribe eagerly (unconfined) so the hot SharedFlow has a collector
+        // before play() emits — replay is 0, so a late subscriber would miss it.
+        val events = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            manager.previewUnavailable.collect { events.add(Unit) }
+        }
+
+        // A Spotify track with no inline preview and no Apple match resolves to
+        // null. The user tapped it, so they get a "No preview available" toast.
+        manager.play(
+            trackId = "no-preview-track",
+            trackName = "Obscure",
+            artistName = "Unknown Artist",
+            albumArtURL = null,
+            previewUrl = null,
+            isrc = null,
+            source = TrackSource.SPOTIFY,
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            "tapping a song with no resolvable preview must emit exactly one event",
+            1,
+            events.size,
+        )
     }
 }

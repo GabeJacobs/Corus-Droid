@@ -1000,6 +1000,11 @@
     <string name="club_feature_taste_matches">취향 매치 피드</string>
     <string name="feed_taste_matches_coldstart_title">좋아하는 노래나 영화 3가지는 무엇인가요?</string>
     <string name="feed_taste_matches_coldstart_body">Corus가 맞춤 피드를 만들고 취향이 비슷한 사람들과 연결해 줍니다.</string>
-    <string name="feed_taste_matches_coldstart_progress">%2$d개 중 %1$d개 게시물</string>
+    <string name="feed_taste_matches_coldstart_progress">%1$d개 더</string>
     <string name="feed_taste_matches_coldstart_cta">corus 게시하기</string>
+    <string name="feed_taste_matches_unavailable_title">지금은 취향 매치가 없어요</string>
+    <string name="feed_taste_matches_unavailable_body">잠시 후 다시 확인하거나 당겨서 새로고침하세요.</string>
+    <string name="feed_taste_matches_paywall_title">취향 매치</string>
+    <string name="feed_taste_matches_paywall_body">당신과 같은 것을 좋아하는 사람들, 취향 매치에서 추천을 받아보세요.</string>
+    <string name="feed_taste_matches_paywall_cta">자세히 보기</string>
 </resources>

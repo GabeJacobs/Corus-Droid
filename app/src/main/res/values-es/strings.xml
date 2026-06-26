@@ -1000,6 +1000,11 @@
     <string name="club_feature_taste_matches">Feed de coincidencias de gustos</string>
     <string name="feed_taste_matches_coldstart_title">¿Cuáles son 3 canciones o películas que amas?</string>
     <string name="feed_taste_matches_coldstart_body">Corus creará un feed personalizado para ti y te conectará con personas que tienen un gusto similar.</string>
-    <string name="feed_taste_matches_coldstart_progress">%1$d de %2$d publicaciones</string>
+    <string name="feed_taste_matches_coldstart_progress">%1$d más</string>
     <string name="feed_taste_matches_coldstart_cta">Publicar un corus</string>
+    <string name="feed_taste_matches_unavailable_title">No hay coincidencias de gustos por ahora</string>
+    <string name="feed_taste_matches_unavailable_body">Vuelve pronto, o desliza para actualizar.</string>
+    <string name="feed_taste_matches_paywall_title">Coincidencias de gustos</string>
+    <string name="feed_taste_matches_paywall_body">Recibe recomendaciones de tus coincidencias de gustos, personas que aman lo mismo que tú.</string>
+    <string name="feed_taste_matches_paywall_cta">Más información</string>
 </resources>

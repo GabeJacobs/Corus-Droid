@@ -1000,6 +1000,11 @@
     <string name="club_feature_taste_matches">品味匹配动态</string>
     <string name="feed_taste_matches_coldstart_title">你喜欢哪3首歌曲或电影？</string>
     <string name="feed_taste_matches_coldstart_body">Corus 会为你打造个性化动态，并将你与品味相近的人联系起来。</string>
-    <string name="feed_taste_matches_coldstart_progress">%2$d 篇中的 %1$d 篇</string>
+    <string name="feed_taste_matches_coldstart_progress">还差 %1$d</string>
     <string name="feed_taste_matches_coldstart_cta">发布一个 corus</string>
+    <string name="feed_taste_matches_unavailable_title">暂时没有品味匹配</string>
+    <string name="feed_taste_matches_unavailable_body">稍后再来看看，或下拉刷新。</string>
+    <string name="feed_taste_matches_paywall_title">品味匹配</string>
+    <string name="feed_taste_matches_paywall_body">从与你品味相同的人那里获得推荐，他们也喜欢你所爱的。</string>
+    <string name="feed_taste_matches_paywall_cta">了解更多</string>
 </resources>

@@ -200,6 +200,8 @@
     <string name="feed_empty_see_all">See all</string>
     <string name="feed_offline_title">Couldn\'t connect</string>
     <string name="feed_offline_subtitle">Check your internet connection and try again.</string>
+    <string name="feed_error_title">Something\'s off on our end</string>
+    <string name="feed_error_subtitle">We couldn\'t load your feed. Tap to try again.</string>
     <string name="feed_offline_retry">Retry</string>
     <string name="search_service_unavailable_title">Hmm, something\'s off</string>
     <string name="search_service_unavailable_subtitle">We\'re having trouble reaching our search service right now. Please try again later.</string>
@@ -902,6 +904,7 @@
     <string name="compose_cd_pause">Pause</string>
     <string name="compose_cd_play_preview">Play preview</string>
     <string name="compose_cd_pause_preview">Pause preview</string>
+    <string name="now_playing_no_preview">No preview available</string>
     <string name="compose_segment_songs">Songs</string>
     <string name="compose_segment_films">Films</string>
     <string name="compose_segment_text">Text</string>
@@ -941,8 +944,14 @@
     <!-- Taste Matches cold-start (premium feed, not enough posts yet) -->
     <string name="feed_taste_matches_coldstart_title">What are 3 songs or films you love?</string>
     <string name="feed_taste_matches_coldstart_body">Corus will build you a personalized feed and match you with others who have a similar taste.</string>
-    <string name="feed_taste_matches_coldstart_progress">%1$d of %2$d posts</string>
+    <string name="feed_taste_matches_coldstart_progress">%1$d more to go</string>
     <string name="feed_taste_matches_coldstart_cta">Set a corus</string>
+    <!-- Taste Matches served-empty (no cohort yet) and paywall backstop -->
+    <string name="feed_taste_matches_unavailable_title">No Taste Matches right now</string>
+    <string name="feed_taste_matches_unavailable_body">Check back soon, or pull to refresh.</string>
+    <string name="feed_taste_matches_paywall_title">Taste Matches</string>
+    <string name="feed_taste_matches_paywall_body">Get recommendations from your taste matches, people who also love the same things you love.</string>
+    <string name="feed_taste_matches_paywall_cta">Learn more</string>
     <string name="club_plan_monthly">Monthly</string>
     <string name="club_plan_yearly">Yearly</string>
     <string name="club_plan_monthly_price_format">%1$s/mo</string>

@@ -132,7 +132,30 @@ data class SuggestedUserMatch(
     val suggestionReason: SuggestionReason? = null,
 ) {
     val id: String get() = user.id
+
+    /**
+     * A taste match = the viewer shares >=3 DISTINCT artists (or directors) with
+     * this user. Songs/films alone do not qualify. Gating on the NAMED shared
+     * artists (the exact names the Taste Match card lists) guarantees a taste-
+     * match cell always has >=3 artists to show — no blank cards. (2026-06-26)
+     */
+    val isTasteMatch: Boolean
+        get() {
+            val data = matchData ?: return false
+            return data.sharedArtistNames.size + data.sharedDirectorNames.size >= TASTE_MATCH_MIN_ARTISTS
+        }
+
+    companion object {
+        const val TASTE_MATCH_MIN_ARTISTS = 3
+    }
 }
+
+/** One page of the live, cursor-paginated taste-matches list. */
+data class TasteMatchesPage(
+    val matches: List<SuggestedUserMatch>,
+    val nextCursor: String?,
+    val hasMore: Boolean,
+)
 
 data class CymbalMessagingSettings(
     val pushEnabled: Boolean = true,

@@ -875,6 +875,11 @@
     <string name="club_feature_taste_matches">好みの一致フィード</string>
     <string name="feed_taste_matches_coldstart_title">好きな曲や映画を3つ教えてください。</string>
     <string name="feed_taste_matches_coldstart_body">Corusがあなた専用のフィードを作り、好みの近い人とつなげます。</string>
-    <string name="feed_taste_matches_coldstart_progress">%2$d件中%1$d件の投稿</string>
+    <string name="feed_taste_matches_coldstart_progress">あと%1$d</string>
     <string name="feed_taste_matches_coldstart_cta">corusを投稿</string>
+    <string name="feed_taste_matches_unavailable_title">今は好みの一致がありません</string>
+    <string name="feed_taste_matches_unavailable_body">また後で確認するか、引っ張って更新してください。</string>
+    <string name="feed_taste_matches_paywall_title">好みの一致</string>
+    <string name="feed_taste_matches_paywall_body">あなたと同じものを好きな人たち、好みの一致からおすすめが届きます。</string>
+    <string name="feed_taste_matches_paywall_cta">詳しく見る</string>
 </resources>

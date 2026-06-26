@@ -540,8 +540,7 @@ class SearchViewModel @Inject constructor(
         }
     }
 
-    private fun SuggestedUserMatch.hasTasteMatch(): Boolean =
-        matchData?.hasSimilarityData == true || (user.artistsInCommonCount ?: 0) > 0
+    private fun SuggestedUserMatch.hasTasteMatch(): Boolean = isTasteMatch
 
     private fun loadNewUsers() {
         val uid = authRepository.currentUserId ?: return

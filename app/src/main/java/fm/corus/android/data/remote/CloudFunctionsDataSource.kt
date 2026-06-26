@@ -191,8 +191,10 @@ class CloudFunctionsDataSource @Inject constructor(
      * posts when a session expires mid-scroll.
      */
     /**
-     * `scope` is "forYou" (pool = your follows) or "trending" (pool = the
-     * whole app). Both use the same ranked callable + pagination machinery.
+     * `scope` is "trending" (pool = the whole app) or "tasteMatches" (the
+     * premium curator pool). Both use the same ranked callable + pagination
+     * machinery. (The callable is named getForYouFeed for historical reasons;
+     * the standalone "For You" feed mode was retired in favor of Taste Matches.)
      */
     @Suppress("UNCHECKED_CAST")
     suspend fun getForYouFeed(
@@ -203,7 +205,7 @@ class CloudFunctionsDataSource @Inject constructor(
         seenPostIds: List<String> = emptyList(),
         mediaType: MediaType? = null,
         newReleasesOnly: Boolean = false,
-        scope: String = "forYou",
+        scope: String = "trending",
         isRefresh: Boolean = false,
     ): ForYouFeedPage {
         val params = mutableMapOf<String, Any>(
@@ -1052,6 +1054,25 @@ class CloudFunctionsDataSource @Inject constructor(
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val rows = data["users"] as? List<Map<String, Any?>> ?: return emptyList()
         return parseUserRows(rows).filter { !it.user.isBot }
+    }
+
+    /** One page of the LIVE taste-matches list. The backend resolves the uid from
+     *  auth; pass the prior page's nextCursor to load the next 15. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun getTasteMatchesPage(limit: Int = 15, cursor: String? = null): TasteMatchesPage {
+        val params = mutableMapOf<String, Any>("limit" to limit.coerceIn(1, 30))
+        cursor?.let { params["cursor"] = it }
+        val result = withTimeout(SUGGESTED_USERS_TIMEOUT_MS) {
+            functions.getHttpsCallable("getTasteMatchesPage").call(params).await()
+        }
+        val data = result.getData() as? Map<String, Any?>
+            ?: return TasteMatchesPage(emptyList(), null, false)
+        val rows = data["users"] as? List<Map<String, Any?>> ?: emptyList()
+        return TasteMatchesPage(
+            matches = parseUserRows(rows).filter { !it.user.isBot },
+            nextCursor = data["nextCursor"] as? String,
+            hasMore = data["hasMore"] as? Boolean ?: false,
+        )
     }
 
     @Suppress("UNCHECKED_CAST")

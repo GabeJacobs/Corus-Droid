@@ -97,6 +97,10 @@ class FeedModeStaleResponseRaceTest {
             on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
             on { feedFilter } doReturn MutableStateFlow("ALL")
             on { feedMode } doReturn modeFlow
+            // Synchronous seed read during construction; unstubbed it returns
+            // null and resolveFeedMode() NPEs. "" resolves to the "following"
+            // default (an unmirrored fresh install).
+            on { feedModeSyncSeed() } doReturn ""
             on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
             on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
             on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)

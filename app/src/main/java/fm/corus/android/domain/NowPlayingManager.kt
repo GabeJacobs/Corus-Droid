@@ -34,8 +34,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -217,6 +220,15 @@ class NowPlayingManager @Inject constructor(
 
     private val _loadingTrackId = MutableStateFlow<String?>(null)
     val loadingTrackId: StateFlow<String?> = _loadingTrackId.asStateFlow()
+
+    /**
+     * One-shot event emitted when a *user-initiated* play resolves to no playable
+     * preview (e.g. a Spotify track with no Apple Music match). The UI shows a
+     * "No preview available" toast. Auto-advance does NOT emit — it silently
+     * moves on rather than spamming a toast per dead track in the queue.
+     */
+    private val _previewUnavailable = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val previewUnavailable: SharedFlow<Unit> = _previewUnavailable.asSharedFlow()
 
     /** Incremented on each cancel; play() checks this to bail out after URL resolution. */
     private var playGeneration = 0
@@ -685,7 +697,7 @@ class NowPlayingManager @Inject constructor(
         )
     }
 
-    private suspend fun playInternal(track: QueuedTrack) {
+    private suspend fun playInternal(track: QueuedTrack, userInitiated: Boolean = true) {
         val trackId = track.trackId
 
         // Audio sources are mutually exclusive: starting music stops any inline
@@ -727,7 +739,13 @@ class NowPlayingManager @Inject constructor(
 
         _loadingTrackId.value = null
 
-        if (resolvedUrl == null) return
+        if (resolvedUrl == null) {
+            // No playable preview (e.g. a Spotify track with no Apple Music
+            // match). Tell the user, but only on an explicit tap — auto-advance
+            // just stops rather than spamming a toast per dead track.
+            if (userInitiated) _previewUnavailable.tryEmit(Unit)
+            return
+        }
 
         // Cache for future taps
         previewCache[trackId] = resolvedUrl
@@ -862,7 +880,7 @@ class NowPlayingManager @Inject constructor(
         if (localNext != null) {
             managerScope.launch {
                 currentQueueIndex = idx + 1
-                playInternal(localNext)
+                playInternal(localNext, userInitiated = false)
             }
             return
         }
@@ -878,7 +896,7 @@ class NowPlayingManager @Inject constructor(
             val currentIdx = currentQueueIndex ?: return@launch
             val next = queue.getOrNull(currentIdx + 1) ?: return@launch
             currentQueueIndex = currentIdx + 1
-            playInternal(next)
+            playInternal(next, userInitiated = false)
         }
     }
 

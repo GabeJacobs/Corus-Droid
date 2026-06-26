@@ -61,9 +61,13 @@ class SearchViewModelTasteMatchPollingTest {
     private lateinit var analyticsService: AnalyticsService
     private lateinit var nowPlayingManager: NowPlayingManager
 
+    // A real taste match = >=3 distinct shared artists (the names the card lists).
     private val tasteMatch = SuggestedUserMatch(
         user = CymbalUser(id = "match-1", username = "rodrigofan", displayName = "Rodrigo Fan"),
-        matchData = MusicMatchData(similarityScore = 0.4, sharedPostedTracks = 2),
+        matchData = MusicMatchData(
+            similarityScore = 0.4,
+            sharedArtistNames = listOf("Caetano Veloso", "Gilberto Gil", "Os Mutantes"),
+        ),
     )
 
     @Before
@@ -130,7 +134,7 @@ class SearchViewModelTasteMatchPollingTest {
 
         // Initial fetch returned empty → polling should be active and no taste matches yet.
         assertTrue("polling should activate after empty initial fetch", vm.isTasteMatchPolling.value)
-        assertTrue("no taste matches yet", vm.suggestedMatches.value.none { it.matchData?.hasSimilarityData == true })
+        assertTrue("no taste matches yet", vm.suggestedMatches.value.none { it.isTasteMatch })
 
         // One poll tick (750ms) — second call lands with the match.
         advanceTimeBy(800)
@@ -158,7 +162,7 @@ class SearchViewModelTasteMatchPollingTest {
         advanceUntilIdle()
 
         assertFalse("polling has ended", vm.isTasteMatchPolling.value)
-        assertTrue("no taste matches", vm.suggestedMatches.value.none { it.matchData?.hasSimilarityData == true })
+        assertTrue("no taste matches", vm.suggestedMatches.value.none { it.isTasteMatch })
         // Initial call + 4 poll attempts.
         verify(cloudFunctions, times(5)).getSuggestedUsers(eq("viewer"))
     }

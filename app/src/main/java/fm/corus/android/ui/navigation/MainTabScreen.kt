@@ -140,6 +140,17 @@ fun MainTabScreen(
         }
     }
 
+    // Surface a toast when a tapped song has no playable preview. The event is
+    // emitted by the shared NowPlayingManager, so this single collector covers
+    // every surface (feed, compose search, profile) without per-screen wiring.
+    LaunchedEffect(Unit) {
+        viewModel.nowPlayingManager.previewUnavailable.collect {
+            fm.corus.android.ui.components.ToastManager.show(
+                context.getString(R.string.now_playing_no_preview)
+            )
+        }
+    }
+
     // Observe pre-selected media IDs for compose-with-preselection flow.
     val preSelectedTrackId by viewModel.preSelectedTrackId.collectAsState()
     val preSelectedTrack by viewModel.preSelectedTrack.collectAsState()

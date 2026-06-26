@@ -1,8 +1,9 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.remote.CloudFunctionsDataSource
-import fm.corus.android.data.remote.TMDBApiService
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
@@ -12,6 +13,7 @@ import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,29 +26,30 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.eq
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.verifyBlocking
 import org.mockito.kotlin.whenever
 import org.mockito.kotlin.wheneverBlocking
 
 /**
- * Regression: feedMode resolves from DataStore asynchronously, but its StateFlow
- * is seeded eagerly with "following". On a cold launch the feed screen's first
- * loadFeed() can run before the persisted ranked mode lands — fetching Following
- * while the menu later shows e.g. Trending as selected. The posts then never
- * match the selected mode. FeedViewModel's init collector must re-sync the feed
- * when the resolved mode diverges from what the current page was loaded with.
+ * Regression: a feed load that fails while the device is online must NOT be
+ * painted as "you're offline." On a cold launch the first callable often throws
+ * a transient FirebaseFunctionsException (App Check / Play Integrity token still
+ * minting, a Functions UNAVAILABLE/INTERNAL) even on strong wifi — the exact
+ * blip a manual "Retry" clears. The ViewModel now retries that load once,
+ * silently, before surfacing any error; the offline panel only appears when the
+ * retry also fails. When the device is genuinely offline, there is no silent
+ * retry — the failure surfaces immediately.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class FeedModeResyncOnLateResolveTest {
+class FeedTransientRetryTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -56,7 +59,6 @@ class FeedModeResyncOnLateResolveTest {
     private lateinit var userRepository: UserRepository
     private lateinit var messageRepository: MessageRepository
     private lateinit var cloudFunctions: CloudFunctionsDataSource
-    private lateinit var tmdbApiService: TMDBApiService
     private lateinit var nowPlayingManager: NowPlayingManager
     private lateinit var remoteConfig: RemoteConfigService
     private lateinit var analyticsService: AnalyticsService
@@ -64,9 +66,11 @@ class FeedModeResyncOnLateResolveTest {
     private lateinit var postDeletionEvent: PostDeletionEvent
     private lateinit var preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore
 
-    // Handle to the DataStore-backed feed mode so the test can emit the persisted
-    // value *after* the initial load, mimicking the cold-start resolution lag.
     private val modeFlow = MutableStateFlow("following")
+
+    private fun user(id: String) = CymbalUser(id = id, username = id, displayName = id)
+    private fun track() = CymbalTrack(id = "t1", name = "n", artistName = "a", albumName = "al")
+    private fun post(id: String) = CymbalPost(id = id, user = user("poster"), track = track())
 
     @Before
     fun setUp() {
@@ -83,7 +87,6 @@ class FeedModeResyncOnLateResolveTest {
         }
         messageRepository = mock()
         cloudFunctions = mock()
-        tmdbApiService = mock()
         nowPlayingManager = mock()
         remoteConfig = mock()
         analyticsService = mock()
@@ -93,10 +96,9 @@ class FeedModeResyncOnLateResolveTest {
             on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
             on { feedFilter } doReturn MutableStateFlow("ALL")
             on { feedMode } doReturn modeFlow
-            // Synchronous seed read during construction; unstubbed it returns
-            // null and resolveFeedMode() NPEs. "" resolves to the "following"
-            // default — exactly the eager seed this test depends on.
-            on { feedModeSyncSeed() } doReturn ""
+            // Synchronous seed read during FeedViewModel construction; an
+            // unstubbed mock returns null and resolveFeedMode() NPEs on it.
+            on { feedModeSyncSeed() } doReturn "following"
             on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
             on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
             on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)
@@ -108,7 +110,8 @@ class FeedModeResyncOnLateResolveTest {
         Dispatchers.resetMain()
     }
 
-    private fun vm(): FeedViewModel = FeedViewModel(
+    /** Builds a ViewModel whose NetworkMonitor reports [connected]. */
+    private fun vm(connected: Boolean): FeedViewModel = FeedViewModel(
         postRepository = postRepository,
         authRepository = authRepository,
         subscriptionRepository = mock(),
@@ -116,7 +119,7 @@ class FeedModeResyncOnLateResolveTest {
         userRepository = userRepository,
         messageRepository = messageRepository,
         cloudFunctions = cloudFunctions,
-        tmdbApiService = tmdbApiService,
+        tmdbApiService = mock(),
         nowPlayingManager = nowPlayingManager,
         remoteConfig = remoteConfig,
         analyticsService = analyticsService,
@@ -126,70 +129,83 @@ class FeedModeResyncOnLateResolveTest {
         commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
         favoriteChangedEvent = fm.corus.android.domain.FavoriteChangedEvent(),
         musicServicePreference = mock(),
-        networkMonitor = mock { on { isConnected } doReturn MutableStateFlow(true) },
+        networkMonitor = mock { on { isConnected } doReturn MutableStateFlow(connected) },
         preferencesDataStore = preferencesDataStore,
         context = mock(),
         feedScrollRouter = fm.corus.android.domain.FeedScrollRouter(),
     )
 
     @Test
-    fun `late-resolved trending re-syncs the feed away from the raced following load`() =
+    fun `transient failure while online retries once and recovers without an error`() =
         runTest(testDispatcher) {
-            whenever(remoteConfig.trendingFeedEnabled).doReturn(true)
+            var calls = 0
             wheneverBlocking {
                 postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
-            }.doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
-            wheneverBlocking {
-                postRepository.getForYouFeed(
-                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(),
-                )
-            }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
+            }.doSuspendableAnswer {
+                calls++
+                // First attempt fails (cold-start token blip); the retry succeeds.
+                if (calls == 1) throw RuntimeException("transient cold-start failure")
+                CloudFunctionsDataSource.FeedPage(listOf(post("p1"), post("p2")), false)
+            }
 
-            val viewModel = vm()
+            val viewModel = vm(connected = true)
             advanceUntilIdle()
-            // Mode still seeded to following; the screen's first load races ahead.
-            assertEquals("following", viewModel.feedMode.value)
+
             viewModel.loadFeed()
             advanceUntilIdle()
-            verifyBlocking(postRepository) {
-                getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
-            }
 
-            // The persisted mode lands late — collector must re-sync to Trending.
-            modeFlow.value = "trending"
-            advanceUntilIdle()
-
-            assertEquals("trending", viewModel.feedMode.value)
-            verifyBlocking(postRepository) {
-                getForYouFeed(
-                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(),
-                    eq("trending"), any(),
-                )
-            }
+            // Exactly one silent retry, and the user never sees an error.
+            assertEquals(2, calls)
+            assertFalse(viewModel.lastLoadFailed.value)
+            assertEquals(listOf("p1", "p2"), viewModel.posts.value.map { it.id })
         }
 
     @Test
-    fun `no re-sync when the load already used the resolved mode`() =
+    fun `persistent failure while online surfaces the error after one retry`() =
         runTest(testDispatcher) {
-            whenever(remoteConfig.trendingFeedEnabled).doReturn(true)
+            var calls = 0
             wheneverBlocking {
-                postRepository.getForYouFeed(
-                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(),
-                )
-            }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+            }.doSuspendableAnswer {
+                calls++
+                throw RuntimeException("server still unreachable")
+            }
 
-            // Persisted mode is already present before the screen loads.
-            modeFlow.value = "trending"
-            val viewModel = vm()
+            val viewModel = vm(connected = true)
             advanceUntilIdle()
-            assertEquals("trending", viewModel.feedMode.value)
 
             viewModel.loadFeed()
             advanceUntilIdle()
 
-            // The chronological Following feed must never be fetched.
-            verifyBlocking(postRepository, never()) {
-                getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+            // One initial attempt + exactly one silent retry, then the error
+            // surfaces. The screen keys its copy off isConnected (true here), so
+            // the user sees "something's off on our end," not a wifi blame.
+            assertEquals(2, calls)
+            assertTrue(viewModel.lastLoadFailed.value)
+            assertTrue(viewModel.posts.value.isEmpty())
+        }
+
+    @Test
+    fun `failure while offline surfaces immediately without a retry`() =
+        runTest(testDispatcher) {
+            var calls = 0
+            wheneverBlocking {
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+            }.doSuspendableAnswer {
+                calls++
+                throw RuntimeException("no network")
             }
+
+            val viewModel = vm(connected = false)
+            advanceUntilIdle()
+
+            viewModel.loadFeed()
+            advanceUntilIdle()
+
+            // Genuinely offline: no point auto-retrying, so the failure is shown
+            // on the first attempt (the screen then shows the "check your
+            // internet" copy because isConnected is false).
+            assertEquals(1, calls)
+            assertTrue(viewModel.lastLoadFailed.value)
         }
 }

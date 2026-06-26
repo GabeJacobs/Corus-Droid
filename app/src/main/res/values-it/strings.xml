@@ -1000,6 +1000,11 @@
     <string name="club_feature_taste_matches">Feed di affinità di gusti</string>
     <string name="feed_taste_matches_coldstart_title">Quali sono 3 canzoni o film che ami?</string>
     <string name="feed_taste_matches_coldstart_body">Corus ti crea un feed personalizzato e ti mette in contatto con persone dai gusti simili.</string>
-    <string name="feed_taste_matches_coldstart_progress">%1$d di %2$d post</string>
+    <string name="feed_taste_matches_coldstart_progress">Ancora %1$d</string>
     <string name="feed_taste_matches_coldstart_cta">Pubblica un corus</string>
+    <string name="feed_taste_matches_unavailable_title">Nessuna affinità di gusti al momento</string>
+    <string name="feed_taste_matches_unavailable_body">Torna presto, o trascina per aggiornare.</string>
+    <string name="feed_taste_matches_paywall_title">Affinità di gusti</string>
+    <string name="feed_taste_matches_paywall_body">Ricevi consigli dalle tue affinità di gusti, persone che amano le stesse cose che ami tu.</string>
+    <string name="feed_taste_matches_paywall_cta">Scopri di più</string>
 </resources>

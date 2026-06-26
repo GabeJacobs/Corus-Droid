@@ -52,12 +52,10 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -136,7 +134,6 @@ fun ProfileScreen(
     onOpenCompose: (String) -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
 
     // Responsive header spacing — see OtherProfileScreen for rationale.
     val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
@@ -440,9 +437,13 @@ fun ProfileScreen(
                                 text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_share_link), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showAvatarMenu = false
-                                    val link = "https://corus.fm/u/${currentProfile.username}"
-                                    clipboardManager.setText(AnnotatedString(link))
-                                    ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_link_copied))
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, "https://corus.fm/u/${currentProfile.username}")
+                                    }
+                                    try {
+                                        context.startActivity(Intent.createChooser(shareIntent, null))
+                                    } catch (_: Exception) { }
                                 },
                             )
                         }

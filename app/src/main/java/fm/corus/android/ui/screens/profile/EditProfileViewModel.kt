@@ -94,6 +94,23 @@ class EditProfileViewModel @Inject constructor(
         IDLE, CHECKING, AVAILABLE, TAKEN, INVALID
     }
 
+    companion object {
+        /** Max bio length enforced for new edits (matches web + iOS + firestore.rules). */
+        const val BIO_MAX_LENGTH = 400
+
+        /**
+         * Caps [value] for the bio field. Existing longer bios are grandfathered:
+         * the ceiling is the larger of [BIO_MAX_LENGTH] and the originally loaded
+         * bio's length, so a pre-existing long bio is never force-truncated on edit
+         * and the user can't grow it further. The load path assigns `_bio` directly
+         * (not through this), so opening the editor never truncates.
+         */
+        fun capBio(value: String, originalBio: String): String {
+            val cap = maxOf(BIO_MAX_LENGTH, originalBio.length)
+            return if (value.length > cap) value.take(cap) else value
+        }
+    }
+
     fun loadProfile() {
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
@@ -187,7 +204,7 @@ class EditProfileViewModel @Inject constructor(
     }
 
     fun updateBio(value: String) {
-        _bio.value = value
+        _bio.value = capBio(value, originalBio)
     }
 
     fun updateWebsite(value: String) {

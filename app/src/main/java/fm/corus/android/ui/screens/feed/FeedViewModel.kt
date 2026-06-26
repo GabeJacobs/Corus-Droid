@@ -33,6 +33,7 @@ import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.PostMenuActions
 import fm.corus.android.ui.components.ToastManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +60,12 @@ internal fun isNewAlbumArtHintAccount(creationTimestampMs: Long?): Boolean {
     val created = creationTimestampMs ?: return false
     return created >= ALBUM_ART_HINT_CUTOFF_MS
 }
+
+/** Backoff before the one silent retry of a feed load that failed while the
+ *  device is online. Long enough for a cold-start App Check / Play Integrity
+ *  token to finish minting (the usual culprit), short enough to feel like part
+ *  of the initial load rather than a second attempt. */
+private const val FEED_TRANSIENT_RETRY_BACKOFF_MS = 1200L
 
 /** Patches the matching post's preview-comments entry with the edited text so
  *  recycled post cards re-bind to fresh text instead of the stale denormalized
@@ -199,6 +206,9 @@ class FeedViewModel @Inject constructor(
     sealed interface TasteMatchesGate {
         data class NeedMorePosts(val postCount: Int, val threshold: Int) : TasteMatchesGate
         data object Paywall : TasteMatchesGate
+        /** Server returned the feature disabled / no cohort yet (gated:"unavailable").
+         *  Renders a neutral "No Taste Matches right now" empty (mirrors iOS). */
+        data object Unavailable : TasteMatchesGate
     }
     private val _tasteMatchesGate = MutableStateFlow<TasteMatchesGate?>(null)
     val tasteMatchesGate: StateFlow<TasteMatchesGate?> = _tasteMatchesGate.asStateFlow()
@@ -233,35 +243,33 @@ class FeedViewModel @Inject constructor(
 
     private var lastTimestamp: Long? = null
 
-    // ── For You feed state ──
-    // Effective feed mode: "following" | "forYou" | "trending". The stored
-    // value may be empty ("never picked") — in that case we resolve the
-    // opening mode from Remote Config (`default_for_you_feed_enabled`). Once
-    // the user taps a mode it's persisted and wins. (A device that persisted
-    // the long-gone "discovery" value falls through to the default — that mode
-    // never shipped, so no real user is affected.)
+    // ── Ranked feed state ──
+    // Shared by the ranked modes (Trending + Taste Matches) that call
+    // `getForYouFeed`. The `forYou*` field names below are historical (that
+    // callable's name); the standalone "For You" feed MODE was retired in
+    // favor of Taste Matches. Effective feed mode: "following" | "trending" |
+    // "favorites" | "tasteMatches". An empty/unrecognized stored value (incl.
+    // the retired "forYou" or never-shipped "discovery") opens on Following.
     /** Taste Matches is available when the RC master switch is on OR the viewer
      *  is a comped internal tester. Mirrors iOS `tasteMatchesAvailable`. */
     private val tasteMatchesAvailable: Boolean
         get() = remoteConfig.tasteMatchesEnabled || remoteConfig.tasteMatchesTester
 
     private fun resolveFeedMode(stored: String): String {
-        // First resolve the stored / default choice…
+        // First resolve the stored choice. Anything unrecognized — empty
+        // ("never picked"), the retired "forYou" mode, or the never-shipped
+        // "discovery" — opens on Following.
         val resolved = when (stored) {
-            "following", "forYou", "trending", "favorites", "tasteMatches" -> stored
-            else ->
-                if (remoteConfig.defaultForYouFeedEnabled && remoteConfig.forYouEnabled) "forYou"
-                else "following"
+            "following", "trending", "favorites", "tasteMatches" -> stored
+            else -> "following"
         }
-        // …then guarantee it's a mode that's actually AVAILABLE. A ranked mode
-        // is only valid while its RC gate is on, but feedMode is device-persisted
-        // and can outlive the flag — e.g. logging into an account where for_you
-        // is off after another picked "forYou", or a default pointing at a
-        // disabled feed. Returning a disabled mode leaves the menu with nothing
-        // selected and loads a feed the user can't switch away from. Following
-        // has no gate, so it's the safe fallback.
+        // …then guarantee it's a mode that's actually AVAILABLE. A ranked/gated
+        // mode is only valid while its RC gate is on, but feedMode is
+        // device-persisted and can outlive the flag — e.g. Favorites after the
+        // flag is turned off. Returning a disabled mode leaves the menu with
+        // nothing selected and loads a feed the user can't switch away from.
+        // Following has no gate, so it's the safe fallback.
         return when (resolved) {
-            "forYou" -> if (remoteConfig.forYouEnabled) "forYou" else "following"
             "trending" -> if (remoteConfig.trendingFeedEnabled) "trending" else "following"
             "favorites" -> if (remoteConfig.favoritesEnabled) "favorites" else "following"
             "tasteMatches" -> if (tasteMatchesAvailable) "tasteMatches" else "following"
@@ -532,7 +540,7 @@ class FeedViewModel @Inject constructor(
         viewModelScope.launch { loadFeedSuspending(refresh) }
     }
 
-    private suspend fun loadFeedSuspending(refresh: Boolean) {
+    private suspend fun loadFeedSuspending(refresh: Boolean, attempt: Int = 0) {
         val userId = authRepository.currentUserId ?: return
 
         if (refresh) {
@@ -543,21 +551,21 @@ class FeedViewModel @Inject constructor(
             _isLoading.value = true
         }
 
-        // Ranked feed covers both For You (pool = follows) and Trending
-        // (pool = whole app). Both hit the same callable with a `scope` arg.
-        // Keyed off the resolved/persisted mode, NOT the Remote Config flags:
-        // on a cold launch the flags can briefly read false before RC fetches,
-        // which used to load Recent instead of the user's chosen ranked feed.
-        // A ranked mode can only have been persisted while its flag was on,
-        // and resolveFeedMode already handles the unset case via the RC default.
+        // Ranked feed covers Trending (pool = whole app) and Taste Matches
+        // (premium curator pool). Both hit the same callable with a `scope`
+        // arg. Keyed off the resolved/persisted mode, NOT the Remote Config
+        // flags: on a cold launch the flags can briefly read false before RC
+        // fetches, which used to load Recent instead of the user's chosen
+        // ranked feed. A ranked mode can only have been persisted while its
+        // flag was on.
         val mode = feedMode.value
         lastLoadedMode = mode
-        val useRanked = mode == "forYou" || mode == "trending" || mode == "tasteMatches"
+        val useRanked = mode == "trending" || mode == "tasteMatches"
         val useFavorites = mode == "favorites"
         val rankedScope = when (mode) {
             "trending" -> "trending"
             "tasteMatches" -> "tasteMatches"
-            else -> "forYou"
+            else -> "trending"
         }
         // A fresh (user-driven) load resets the optimistic seed slots so the
         // count reflects pure server truth. During the post-3rd hand-off
@@ -604,6 +612,7 @@ class FeedViewModel @Inject constructor(
                             loadTasteMatchesSeedArt(forYouPage.gatedPostCount, forYouPage.gatedThreshold)
                         }
                         "paywall" -> _tasteMatchesGate.value = TasteMatchesGate.Paywall
+                        "unavailable" -> _tasteMatchesGate.value = TasteMatchesGate.Unavailable
                         else -> _tasteMatchesGate.value = null
                     }
                     if (forYouPage.gated != null) {
@@ -720,7 +729,25 @@ class FeedViewModel @Inject constructor(
             engagementManager.checkLikeStatuses(newPosts.map { it.id }, userId)
             engagementManager.checkSaveStatuses(newPosts.map { it.id }, userId)
             _lastLoadFailed.value = false
+        } catch (e: CancellationException) {
+            // Coroutine cancellation is NOT a load failure. Swallowing it here
+            // would paint a normal cancellation (the ViewModel scope tearing
+            // down, a superseding load) as "couldn't connect" — the same
+            // false-error class of bug we fixed in search. Always rethrow.
+            throw e
         } catch (_: Exception) {
+            // A transient cold-start hiccup (App Check / Play Integrity token
+            // still minting, a Functions UNAVAILABLE/INTERNAL, a dropped first
+            // request) lands here even on strong wifi — exactly the blip a manual
+            // "Retry" clears. When the screen has nothing to show and we ARE
+            // connected, retry once automatically before surfacing any error, so
+            // a momentary server blip never masquerades as "you're offline." The
+            // loading flag stays set through the backoff so the skeleton holds.
+            if (attempt == 0 && isConnected.value && _posts.value.isEmpty()) {
+                delay(FEED_TRANSIENT_RETRY_BACKOFF_MS)
+                loadFeedSuspending(refresh = true, attempt = attempt + 1)
+                return
+            }
             _lastLoadFailed.value = true
             if (useRanked) _forYouLoadFailed.value = true
         }
@@ -768,9 +795,10 @@ class FeedViewModel @Inject constructor(
     }
 
     /**
-     * Flip between Following ("following") and For You ("forYou"). Persists to
-     * DataStore and resets the For You session state, then refetches. No-op
-     * when the requested mode matches the current value.
+     * Switch the active feed mode ("following" / "trending" / "favorites" /
+     * "tasteMatches"). Persists to DataStore and resets the ranked-feed session
+     * state, then refetches. No-op when the requested mode matches the current
+     * value.
      */
     fun setFeedMode(mode: String) {
         if (feedMode.value == mode) return
@@ -826,8 +854,13 @@ class FeedViewModel @Inject constructor(
             runCatching {
                 postRepository.getProfilePosts(uid, uid, limit = limit.coerceAtLeast(1))
             }.onSuccess { posts ->
-                // Large art so the 64dp slots render sharp, not a blurry thumbnail.
-                val urls = posts.mapNotNull { it.displayImageLargeURL ?: it.displayImageURL }.take(limit)
+                // getProfilePosts is newest-first; the seed slots fill left→right in
+                // the order you posted (your first post anchors slot 0 and stays
+                // there), so flip to oldest-first. Large art so the 72dp slots render
+                // sharp, not a blurry thumbnail.
+                val urls = posts.mapNotNull { it.displayImageLargeURL ?: it.displayImageURL }
+                    .take(limit)
+                    .reversed()
                 if (urls.isNotEmpty()) _tasteMatchesSeedArt.value = urls
             }
         }

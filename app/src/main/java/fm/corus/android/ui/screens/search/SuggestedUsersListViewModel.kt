@@ -77,7 +77,20 @@ class SuggestedUsersListViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     private val pageSize = 20
-    private val isPaginated: Boolean get() = source == "popular" || source == "new"
+    // Cursor for the live taste-matches pagination (opaque, from the backend).
+    private var tmCursor: String? = null
+    private val isPaginated: Boolean
+        get() = source == "popular" || source == "new" || source == "tasteMatches"
+
+    /** Fetch one page of the live taste-matches list, advancing the cursor and
+     *  hasMore from the backend response (not page-size heuristics). */
+    private suspend fun loadTasteMatchesPage(reset: Boolean): List<SuggestedUserMatch> {
+        if (reset) tmCursor = null
+        val page = userRepository.getTasteMatchesPage(cursor = tmCursor, limit = 15)
+        tmCursor = page.nextCursor
+        _hasMore.value = page.hasMore
+        return page.matches
+    }
 
     /** Ids currently being enriched with post previews (clubMembers only).
      *  Mutated only from the main dispatcher via viewModelScope, so no lock. */
@@ -102,10 +115,14 @@ class SuggestedUsersListViewModel @Inject constructor(
                         "popular" -> loadPopularUsersPage(uid, afterDocId = null)
                         "new" -> loadNewUsersPage(uid, afterDocId = null)
                         "clubMembers" -> loadClubMembers(uid)
+                        "tasteMatches" -> loadTasteMatchesPage(reset = true)
                         else -> userRepository.getSuggestedUsers(uid)
                     }
                     _suggestions.value = initial
-                    _hasMore.value = isPaginated && initial.size >= pageSize
+                    // tasteMatches sets hasMore from the cursor response above.
+                    if (source != "tasteMatches") {
+                        _hasMore.value = isPaginated && initial.size >= pageSize
+                    }
                 } catch (_: Exception) { }
                 _isLoading.value = false
                 if (source == "clubMembers") {
@@ -126,6 +143,7 @@ class SuggestedUsersListViewModel @Inject constructor(
                     "popular" -> loadPopularUsersPage(uid, afterDocId = null)
                     "new" -> loadNewUsersPage(uid, afterDocId = null)
                     "clubMembers" -> loadClubMembers(uid)
+                    "tasteMatches" -> loadTasteMatchesPage(reset = true)
                     // Pull-to-refresh must bypass the 4-hour suggested-matches
                     // cache: serving cached data here returns synchronously (no
                     // network suspension), so isRefreshing flips true→false
@@ -135,7 +153,9 @@ class SuggestedUsersListViewModel @Inject constructor(
                     else -> userRepository.getSuggestedUsers(uid, forceRefresh = true)
                 }
                 _suggestions.value = initial
-                _hasMore.value = isPaginated && initial.size >= pageSize
+                if (source != "tasteMatches") {
+                    _hasMore.value = isPaginated && initial.size >= pageSize
+                }
             } catch (_: Exception) { }
             _isRefreshing.value = false
             if (source == "clubMembers") {
@@ -157,12 +177,17 @@ class SuggestedUsersListViewModel @Inject constructor(
                 val page = when (source) {
                     "popular" -> loadPopularUsersPage(uid, afterDocId = lastId)
                     "new" -> loadNewUsersPage(uid, afterDocId = lastId)
+                    "tasteMatches" -> loadTasteMatchesPage(reset = false)
                     else -> emptyList()
                 }
                 val existingIds = _suggestions.value.map { it.user.id }.toSet()
                 val deduped = page.filter { it.user.id !in existingIds }
                 _suggestions.value = _suggestions.value + deduped
-                _hasMore.value = page.size >= pageSize
+                // tasteMatches sets hasMore from the cursor response inside
+                // loadTasteMatchesPage; the size heuristic is for popular/new.
+                if (source != "tasteMatches") {
+                    _hasMore.value = page.size >= pageSize
+                }
             } catch (_: Exception) {
                 _hasMore.value = false
             }

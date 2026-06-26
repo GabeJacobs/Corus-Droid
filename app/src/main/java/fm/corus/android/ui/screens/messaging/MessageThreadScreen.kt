@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextLayoutResult
@@ -53,8 +55,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -73,6 +75,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -106,11 +109,13 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
-private val REACTION_EMOJIS = listOf("❤️", "😂", "👍", "😮", "😢", "🔥")
+// internal (not private) so the sibling MessageReactionsSheet.kt can share the
+// emoji ↔ legacy-key mapping for the group "Reactions" list.
+internal val REACTION_EMOJIS = listOf("❤️", "😂", "👍", "😮", "😢", "🔥")
 
 /** Messages can be edited for 15 minutes after sending (mirrors the server gate). */
 private const val EDIT_WINDOW_MS = 15 * 60 * 1000L
-private val REACTION_KEYS = listOf("heart", "laugh", "thumbsup", "wow", "cry", "fire")
+internal val REACTION_KEYS = listOf("heart", "laugh", "thumbsup", "wow", "cry", "fire")
 
 private val URL_REGEX = Regex("""https?://\S+""", RegexOption.IGNORE_CASE)
 
@@ -296,41 +301,180 @@ private fun BubbleMeta(
     modifier: Modifier = Modifier,
 ) {
     if (message.sendStatus == MessageSendStatus.FAILED) return
-    // The time now lives in the day/time separators above (mirrors iOS), so a
-    // received, unedited message carries no meta line at all.
-    if (!isFromCurrentUser && !message.isEdited) return
+    // Delivery status (the check marks) shows only on your own sent messages. The
+    // "edited" label now lives ABOVE the bubble (see MessageBubble) so it never
+    // collides with the reaction badge overlapping the bubble's bottom edge, and a
+    // received message carries no meta line at all (its time is in the separator).
+    if (!isFromCurrentUser) return
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (message.isEdited) {
-            Text(
-                text = stringResource(id = R.string.messaging_thread_edited),
-                fontSize = 10.sp,
-                color = CorusColors.Tertiary,
+        when (deliveryStatus) {
+            MessageDeliveryStatus.SENDING -> Icon(
+                imageVector = Icons.Filled.Schedule,
+                contentDescription = null,
+                modifier = Modifier.size(10.dp),
+                tint = CorusColors.Tertiary,
+            )
+            MessageDeliveryStatus.SENT -> Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                modifier = Modifier.size(10.dp),
+                tint = CorusColors.Tertiary,
+            )
+            MessageDeliveryStatus.READ -> Icon(
+                imageVector = Icons.Filled.DoneAll,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = CorusColors.Accent,
             )
         }
-        if (isFromCurrentUser) {
-            when (deliveryStatus) {
-                MessageDeliveryStatus.SENDING -> Icon(
-                    imageVector = Icons.Filled.Schedule,
-                    contentDescription = null,
-                    modifier = Modifier.size(10.dp),
-                    tint = CorusColors.Tertiary,
-                )
-                MessageDeliveryStatus.SENT -> Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    modifier = Modifier.size(10.dp),
-                    tint = CorusColors.Tertiary,
-                )
-                MessageDeliveryStatus.READ -> Icon(
-                    imageVector = Icons.Filled.DoneAll,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                    tint = CorusColors.Accent,
-                )
+    }
+}
+
+/**
+ * The reaction badge that overlays a bubble's bottom edge. Group threads collapse
+ * every reaction into one tappable badge (the distinct emojis, up to 3, plus the
+ * total reactor count) that opens the "Reactions" list; 1:1 threads keep the inline
+ * per-emoji pills. The heart springs in via [heartScale] on a fresh double-tap like
+ * (read inside graphicsLayer so it only redraws, never recomposes, per frame).
+ */
+@Composable
+private fun ReactionBadge(
+    message: CymbalMessage,
+    isGroup: Boolean,
+    currentUserId: String,
+    heartScale: () -> Float,
+    onReactionTap: (String) -> Unit,
+    onShowReactions: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (isGroup) {
+            val total = message.reactions.values.sumOf { it.size }
+            val emojiChars = orderedReactionEmojiChars(message.reactions)
+            val heartPresent = message.reactions.any { (k, v) ->
+                reactionEmojiChar(k) == REACTION_EMOJIS[0] && v.isNotEmpty()
+            }
+            Box(
+                modifier = Modifier
+                    .then(
+                        if (heartPresent) Modifier.graphicsLayer {
+                            val s = heartScale(); scaleX = s; scaleY = s
+                        } else Modifier
+                    )
+                    .shadow(
+                        elevation = 2.dp,
+                        shape = CircleShape,
+                        spotColor = Color.Black.copy(alpha = 0.08f),
+                        ambientColor = Color.Black.copy(alpha = 0.08f),
+                    )
+                    .clip(CircleShape)
+                    .background(CorusColors.Background)
+                    .clickable { onShowReactions() }
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    emojiChars.take(3).forEach { Text(text = it, fontSize = 12.sp) }
+                    if (total > 1) {
+                        Text(
+                            text = "$total",
+                            style = CorusFont.caption,
+                            color = CorusColors.Secondary,
+                        )
+                    }
+                }
+            }
+        } else {
+            message.reactions.forEach { (emojiKey, userIds) ->
+                if (userIds.isNotEmpty()) {
+                    val emojiChar = REACTION_EMOJIS.getOrNull(REACTION_KEYS.indexOf(emojiKey)) ?: emojiKey
+                    val reactedByMe = currentUserId in userIds
+                    val isHeart = emojiChar == REACTION_EMOJIS[0]
+                    Box(
+                        modifier = Modifier
+                            .then(
+                                if (isHeart) Modifier.graphicsLayer {
+                                    val s = heartScale(); scaleX = s; scaleY = s
+                                } else Modifier
+                            )
+                            .shadow(
+                                elevation = 2.dp,
+                                shape = CircleShape,
+                                spotColor = Color.Black.copy(alpha = 0.08f),
+                                ambientColor = Color.Black.copy(alpha = 0.08f),
+                            )
+                            .clip(CircleShape)
+                            .background(
+                                if (reactedByMe) CorusColors.Accent.copy(alpha = 0.15f)
+                                else CorusColors.Background
+                            )
+                            .clickable { onReactionTap(emojiKey) }
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(text = emojiChar, fontSize = 12.sp)
+                            if (userIds.size > 1) {
+                                Text(
+                                    text = "${userIds.size}",
+                                    style = CorusFont.caption,
+                                    color = if (reactedByMe) CorusColors.Accent else CorusColors.Secondary,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Stacks the reaction [badge] so it straddles the [bubble]'s bottom edge —
+ * overlapping it by [overlap], Instagram-style — instead of floating on a detached
+ * line below. The badge is a pure overlay: it never changes the bubble's width, and
+ * the stack reserves only the slice of the badge hanging past the bubble so the next
+ * message isn't shoved down. The badge tucks into the bottom corner toward screen
+ * center: [edgeInset] in from the leading corner of a sent bubble (on the right),
+ * the trailing corner of a received one (on the left).
+ */
+@Composable
+private fun BubbleWithReactionBadge(
+    isFromCurrentUser: Boolean,
+    overlap: Dp,
+    edgeInset: Dp,
+    badge: (@Composable () -> Unit)?,
+    modifier: Modifier = Modifier,
+    bubble: @Composable () -> Unit,
+) {
+    Layout(
+        modifier = modifier,
+        content = {
+            bubble()
+            if (badge != null) badge()
+        },
+    ) { measurables, constraints ->
+        val bubblePlaceable = measurables[0].measure(constraints)
+        // Measure the badge unbounded so it keeps its intrinsic size and never
+        // stretches or compresses the bubble it sits on.
+        val badgePlaceable = measurables.getOrNull(1)
+            ?.measure(constraints.copy(minWidth = 0, minHeight = 0))
+        val overlapPx = overlap.roundToPx()
+        // Reserve only the part of the badge that hangs below the bubble.
+        val overhang = badgePlaceable?.let { maxOf(0, it.height - overlapPx) } ?: 0
+        layout(bubblePlaceable.width, bubblePlaceable.height + overhang) {
+            bubblePlaceable.place(0, 0)
+            if (badgePlaceable != null) {
+                val inset = edgeInset.roundToPx()
+                val x = if (isFromCurrentUser) inset
+                        else (bubblePlaceable.width - badgePlaceable.width - inset)
+                badgePlaceable.place(x, bubblePlaceable.height - overlapPx)
             }
         }
     }
@@ -390,6 +534,8 @@ fun MessageThreadScreen(
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     val listState = rememberLazyListState()
     var reactionTarget by remember { mutableStateOf<CymbalMessage?>(null) }
+    // The group message whose "Reactions" list bottom sheet is open, if any.
+    var reactionsSheetMessage by remember { mutableStateOf<CymbalMessage?>(null) }
     // Drives the big-heart burst over a bubble on a fresh double-tap like (iOS parity).
     var heartBurstMessageId by remember { mutableStateOf<String?>(null) }
     var showGifPicker by remember { mutableStateOf(false) }
@@ -630,6 +776,7 @@ fun MessageThreadScreen(
                                 bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
                                 viewModel.toggleReaction(threadId, message.id, emoji)
                             },
+                            onShowReactions = { reactionsSheetMessage = message },
                             onImageTap = { url ->
                                 if (reactionTarget == null) {
                                     fullScreenImageUrl = url
@@ -915,6 +1062,29 @@ fun MessageThreadScreen(
             onNavigateToProfile = onNavigateToProfile,
         )
     }
+
+    // Group "Reactions" list sheet — who reacted with what; tap your own row to
+    // remove. Opened by tapping a group message's collapsed reaction badge.
+    val reactionsMsg = reactionsSheetMessage
+    if (reactionsMsg != null) {
+        // Re-resolve from the live message list so the sheet reflects reactions
+        // that arrive (or are removed) while it's open.
+        val liveMsg = messages.firstOrNull { it.id == reactionsMsg.id } ?: reactionsMsg
+        MessageReactionsBottomSheet(
+            message = liveMsg,
+            membersById = membersById,
+            currentUserId = viewModel.currentUserId ?: "",
+            onRemove = { emojiKey ->
+                viewModel.toggleReaction(threadId, liveMsg.id, emojiKey)
+                reactionsSheetMessage = null
+            },
+            onUserClick = { userId ->
+                reactionsSheetMessage = null
+                onNavigateToProfile(userId)
+            },
+            onDismiss = { reactionsSheetMessage = null },
+        )
+    }
 }
 
 @Composable
@@ -1066,6 +1236,7 @@ private fun MessageBubble(
     onLongPress: () -> Unit,
     onDoubleTap: () -> Unit,
     onReactionTap: (String) -> Unit,
+    onShowReactions: () -> Unit = {},
     onImageTap: (String) -> Unit = {},
     onRetry: () -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
@@ -1143,6 +1314,38 @@ private fun MessageBubble(
                     .padding(start = 2.dp, bottom = 2.dp),
             )
         }
+        // The "edited" label sits ABOVE the bubble (on the message's own side) so it
+        // never competes with the reaction badge that overlaps the bubble's bottom
+        // edge below. Kept to one line so a narrow bubble can't wrap it to slivers.
+        if (message.isEdited && message.sendStatus != MessageSendStatus.FAILED) {
+            Text(
+                text = stringResource(id = R.string.messaging_thread_edited),
+                fontSize = 10.sp,
+                color = CorusColors.Tertiary,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 1.dp),
+            )
+        }
+        // Message bubble — the reaction badge overlaps its bottom edge so it reads as
+        // attached (Instagram-style) instead of floating on a detached line below.
+        BubbleWithReactionBadge(
+            isFromCurrentUser = isFromCurrentUser,
+            overlap = 8.dp,
+            edgeInset = 8.dp,
+            badge = if (message.reactions.isNotEmpty()) {
+                {
+                    ReactionBadge(
+                        message = message,
+                        isGroup = isGroup,
+                        currentUserId = currentUserId,
+                        heartScale = { heartPopScale.value },
+                        onReactionTap = onReactionTap,
+                        onShowReactions = onShowReactions,
+                    )
+                }
+            } else null,
+        ) {
         // Message bubble — quoted reply context is rendered inside
         Box(
             modifier = Modifier
@@ -1339,82 +1542,17 @@ private fun MessageBubble(
 
             }
         }
-
-        // Reaction pills share the metadata line (opposite the timestamp) so
-        // reacting never pushes the timestamp down or overlaps text. The row is
-        // sized to the measured bubble width; SpaceBetween pins the timestamp to
-        // the message's own side and the pills to the opposite side. The heart
-        // springs in via heartPopScale on a fresh like.
-        if (message.reactions.isNotEmpty()) {
-            val density = LocalDensity.current
-            val bubbleWidthDp = bubbleCoords?.size?.width?.let { with(density) { it.toDp() } }
-            val pills: @Composable () -> Unit = {
-                // Lift the pills up a few dp so the heart's top overlaps the
-                // bubble's bottom edge (over its padding, never text), WhatsApp-style.
-                Row(
-                    modifier = Modifier.offset(y = (-8).dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    message.reactions.forEach { (emojiKey, userIds) ->
-                        if (userIds.isNotEmpty()) {
-                            val emojiChar = REACTION_EMOJIS.getOrNull(REACTION_KEYS.indexOf(emojiKey)) ?: emojiKey
-                            val reactedByMe = currentUserId in userIds
-                            val isHeart = emojiChar == REACTION_EMOJIS[0]
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (reactedByMe) CorusColors.Accent.copy(alpha = 0.15f) else CorusColors.Background,
-                                shadowElevation = 2.dp,
-                                modifier = Modifier
-                                    .then(
-                                        if (isHeart) Modifier.graphicsLayer {
-                                            scaleX = heartPopScale.value
-                                            scaleY = heartPopScale.value
-                                        } else Modifier
-                                    )
-                                    .clickable { onReactionTap(emojiKey) },
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                ) {
-                                    Text(text = emojiChar, fontSize = 12.sp)
-                                    if (userIds.size > 1) {
-                                        Text(
-                                            text = "${userIds.size}",
-                                            style = CorusFont.caption,
-                                            color = if (reactedByMe) CorusColors.Accent else CorusColors.Secondary,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .then(if (bubbleWidthDp != null) Modifier.width(bubbleWidthDp) else Modifier),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (isFromCurrentUser) {
-                    pills()
-                    BubbleMeta(message = message, isFromCurrentUser = isFromCurrentUser, deliveryStatus = deliveryStatus)
-                } else {
-                    BubbleMeta(message = message, isFromCurrentUser = isFromCurrentUser, deliveryStatus = deliveryStatus)
-                    pills()
-                }
-            }
-        } else {
-            BubbleMeta(
-                message = message,
-                isFromCurrentUser = isFromCurrentUser,
-                deliveryStatus = deliveryStatus,
-                modifier = Modifier.padding(top = 2.dp),
-            )
         }
+
+        // Delivery status (the check marks) sits below the bubble on your own sent
+        // messages; reactions now overlap the bubble above (not this line), so it
+        // never gets squeezed. Received messages render nothing here.
+        BubbleMeta(
+            message = message,
+            isFromCurrentUser = isFromCurrentUser,
+            deliveryStatus = deliveryStatus,
+            modifier = Modifier.padding(top = 2.dp),
+        )
 
         if (isFailed) {
             Row(

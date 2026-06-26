@@ -999,6 +999,11 @@
     <string name="club_feature_taste_matches">Feed de combinações de gosto</string>
     <string name="feed_taste_matches_coldstart_title">Quais são 3 músicas ou filmes que você ama?</string>
     <string name="feed_taste_matches_coldstart_body">O Corus cria um feed personalizado para você e conecta você com pessoas de gosto parecido.</string>
-    <string name="feed_taste_matches_coldstart_progress">%1$d de %2$d publicações</string>
+    <string name="feed_taste_matches_coldstart_progress">Mais %1$d</string>
     <string name="feed_taste_matches_coldstart_cta">Publicar um corus</string>
+    <string name="feed_taste_matches_unavailable_title">Nenhuma combinação de gosto por enquanto</string>
+    <string name="feed_taste_matches_unavailable_body">Volte em breve, ou puxe para atualizar.</string>
+    <string name="feed_taste_matches_paywall_title">Combinações de gosto</string>
+    <string name="feed_taste_matches_paywall_body">Receba recomendações das suas combinações de gosto, pessoas que amam as mesmas coisas que você.</string>
+    <string name="feed_taste_matches_paywall_cta">Saiba mais</string>
 </resources>

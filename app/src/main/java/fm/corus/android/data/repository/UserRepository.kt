@@ -368,6 +368,15 @@ class UserRepository @Inject constructor(
         return result
     }
 
+    /** One page of the live, cursor-paginated taste-matches list. No repo cache:
+     *  the backend snapshots the ranking per session so pages 2..N are cheap. */
+    suspend fun getTasteMatchesPage(
+        cursor: String? = null,
+        limit: Int = 15,
+    ): fm.corus.android.data.model.TasteMatchesPage {
+        return cloudFunctions.getTasteMatchesPage(limit = limit, cursor = cursor)
+    }
+
     // ── Popular ──
 
     suspend fun fetchPopularUsers(limit: Int = 10, excludeIds: Set<String> = emptySet()): List<CymbalUser> {

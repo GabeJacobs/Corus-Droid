@@ -97,6 +97,11 @@ fun ClubMembersCardRail(
                         onUserTap = { onUserTap(user) },
                         onFollowTap = { onFollowTap(user) },
                         subtitle = user.clubMemberSince?.let(memberSinceLabel).orEmpty(),
+                        // "Member since X ago" is always one line — don't reserve
+                        // a permanently-empty second line. Matches iOS
+                        // (subtitleReservesTwoLines: false) and the Popular /
+                        // Mutual Connections rails, which also pass subtitleLines = 1.
+                        subtitleLines = 1,
                         modifier = Modifier.width(cardWidth),
                     )
                 } else {

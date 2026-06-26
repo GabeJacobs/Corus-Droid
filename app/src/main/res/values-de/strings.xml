@@ -1000,6 +1000,11 @@
     <string name="club_feature_taste_matches">Geschmacks-Matches-Feed</string>
     <string name="feed_taste_matches_coldstart_title">Was sind 3 Songs oder Filme, die du liebst?</string>
     <string name="feed_taste_matches_coldstart_body">Corus stellt dir einen personalisierten Feed zusammen und bringt dich mit Menschen mit ähnlichem Geschmack zusammen.</string>
-    <string name="feed_taste_matches_coldstart_progress">%1$d von %2$d Beiträgen</string>
+    <string name="feed_taste_matches_coldstart_progress">Noch %1$d</string>
     <string name="feed_taste_matches_coldstart_cta">Einen corus posten</string>
+    <string name="feed_taste_matches_unavailable_title">Gerade keine Geschmacks-Matches</string>
+    <string name="feed_taste_matches_unavailable_body">Schau bald wieder vorbei oder ziehe zum Aktualisieren.</string>
+    <string name="feed_taste_matches_paywall_title">Geschmacks-Matches</string>
+    <string name="feed_taste_matches_paywall_body">Erhalte Empfehlungen von deinen Geschmacks-Matches, von Menschen, die dasselbe lieben wie du.</string>
+    <string name="feed_taste_matches_paywall_cta">Mehr erfahren</string>
 </resources>

@@ -142,15 +142,9 @@ internal fun GroupInfoSheet(
             } else {
         Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Centered title with a trailing "Done" to dismiss (mirrors iOS toolbar).
+            // Title-less top bar with just a trailing "Done" (Instagram-style): the
+            // group name below acts as the header.
             Box(modifier = Modifier.fillMaxWidth().padding(CorusSpacing.lg)) {
-                Text(
-                    stringResource(id = R.string.messaging_group_info_title),
-                    style = CorusFont.screenTitle,
-                    color = CorusColors.Text,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
-                )
                 Text(
                     stringResource(id = R.string.messaging_group_done),
                     style = CorusFont.button,
@@ -192,13 +186,14 @@ internal fun GroupInfoSheet(
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-                // Title: custom name, else the members' names. Renaming is a dialog.
+                // The group name is the header (Instagram-style): custom name, else
+                // the members' names, wrapping up to two lines. Renaming is a dialog.
                 Text(
                     groupDisplayTitle(name.ifBlank { null }, otherMembers, context),
-                    style = CorusFont.username,
+                    style = CorusFont.displayName,
                     color = CorusColors.Text,
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))

@@ -70,6 +70,9 @@ class FeedMediaTypeFilterTest {
             on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
             on { feedFilter } doReturn savedFeedFilter
             on { feedMode } doReturn MutableStateFlow("following")
+            // Synchronous seed read during construction; unstubbed it returns
+            // null and resolveFeedMode() NPEs. "" resolves to "following".
+            on { feedModeSyncSeed() } doReturn ""
             // FeedViewModel's init collects these too; stub them so they emit a
             // real value instead of a null Flow (null upstreams NPE the eager
             // stateIn / .first() during runTest's coroutine drain on the CLI).

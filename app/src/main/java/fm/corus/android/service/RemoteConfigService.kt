@@ -151,15 +151,9 @@ class RemoteConfigService @Inject constructor(
     val corusFlairOpen: Boolean
         get() = remoteConfig.getBoolean("corus_flair_open")
 
-    /// Master gate for the algorithmically-ranked "For You" feed mode.
-    /// When false, the chevron toggle next to the Corus wordmark is hidden
-    /// and the feed behaves identically to today (Following-only).
-    val forYouEnabled: Boolean
-        get() = feedFlag("for_you_enabled")
-
-    /// Gate for the "Trending" feed mode — same ranking as For You but the
-    /// candidate pool is the whole app, not just your follows. Shares the
-    /// `trending_feed_enabled` RC key with iOS.
+    /// Gate for the "Trending" feed mode — the ranked `getForYouFeed` callable
+    /// scoped to the whole app's most-engaged posts (not just your follows).
+    /// Shares the `trending_feed_enabled` RC key with iOS.
     val trendingFeedEnabled: Boolean
         get() = feedFlag("trending_feed_enabled")
 
@@ -189,11 +183,6 @@ class RemoteConfigService @Inject constructor(
     /// Shares the `play_milestone_enabled` RC key with iOS/web.
     val playMilestoneEnabled: Boolean
         get() = feedFlag("play_milestone_enabled")
-
-    /// When true, users who have never explicitly picked a feed mode open in
-    /// For You instead of Recent. Only applies until the user picks a mode.
-    val defaultForYouFeedEnabled: Boolean
-        get() = feedFlag("default_for_you_feed_enabled")
 
     /**
      * Per-post comments-audience picker (Everyone / Followers / Off).
@@ -295,12 +284,10 @@ class RemoteConfigService @Inject constructor(
                     "new_release_filter_club_only" to false,
                     "style_pack_1_enabled" to false,
                     "corus_flair_open" to true,
-                    "for_you_enabled" to false,
                     "trending_feed_enabled" to true,
                     "favorites_enabled" to true,
                     "favorites_push_enabled" to true,
                     "play_milestone_enabled" to false,
-                    "default_for_you_feed_enabled" to false,
                 )
             ).await()
             val activated = remoteConfig.fetchAndActivate().await()
@@ -316,11 +303,9 @@ class RemoteConfigService @Inject constructor(
     /// Reads straight from Remote Config — by this point the fetch has activated.
     private fun cacheFeedFlags() {
         flagCache.edit()
-            .putBoolean("for_you_enabled", remoteConfig.getBoolean("for_you_enabled"))
             .putBoolean("trending_feed_enabled", remoteConfig.getBoolean("trending_feed_enabled"))
             .putBoolean("favorites_enabled", remoteConfig.getBoolean("favorites_enabled"))
             .putBoolean("play_milestone_enabled", remoteConfig.getBoolean("play_milestone_enabled"))
-            .putBoolean("default_for_you_feed_enabled", remoteConfig.getBoolean("default_for_you_feed_enabled"))
             .apply()
     }
 
@@ -345,7 +330,6 @@ class RemoteConfigService @Inject constructor(
                 "new_release_filter_club_only=$newReleaseFilterClubOnly " +
                 "style_pack_1_enabled=$stylePack1Enabled " +
                 "corus_flair_open=$corusFlairOpen " +
-                "for_you_enabled=${remoteConfig.getBoolean("for_you_enabled")} " +
                 "trending_feed_enabled=${remoteConfig.getBoolean("trending_feed_enabled")} " +
                 "favorites_enabled=${remoteConfig.getBoolean("favorites_enabled")} " +
                 "uid=${auth.currentUser?.uid}"

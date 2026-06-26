@@ -220,7 +220,7 @@ fun SearchScreen(
     // Derived suggestion categories (matching iOS logic)
     val musicMatchUsers = remember(suggestedMatches) {
         suggestedMatches
-            .filter { it.matchData?.hasSimilarityData == true || (it.user.artistsInCommonCount ?: 0) > 0 }
+            .filter { it.isTasteMatch }
             .sortedByDescending { it.matchData?.similarityScore ?: 0.0 }
     }
 
@@ -261,7 +261,7 @@ fun SearchScreen(
     val mutualConnectionUsers = remember(suggestedMatches, allFollowedIds) {
         suggestedMatches
             .filter { !allFollowedIds.contains(it.user.id) }
-            .filter { it.matchData?.hasSimilarityData != true && (it.user.artistsInCommonCount ?: 0) == 0 }
+            .filter { !it.isTasteMatch }
             .filter { it.user.cymbalCount > 0 }
             .filter { it.suggestionReason?.mutualNames?.isNotEmpty() == true }
             .sortedByDescending { it.suggestionReason?.mutualCount ?: 0 }

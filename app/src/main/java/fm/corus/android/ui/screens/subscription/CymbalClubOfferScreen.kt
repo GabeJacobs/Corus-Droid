@@ -178,151 +178,169 @@ fun CymbalClubOfferScreen(
             )
         },
     ) { padding ->
+        // Two-zone layout (mirrors iOS): the header + features scroll in a
+        // flexible region, while the plan cards, CTA, and footer links are
+        // PINNED to the bottom so "Restore Purchases" / "Terms" / "Privacy" are
+        // always visible and can never be pushed under the CTA. The Scaffold's
+        // content padding already reserves the system navigation-bar inset.
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState()),
+                .padding(padding),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+            // ── Scrollable header + features ──
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(modifier = Modifier.height(CorusSpacing.xxl))
 
-            // Spinning vinyl record
-            fm.corus.android.ui.components.CymbalClubVinyl(size = 140.dp)
+                // Spinning vinyl record
+                fm.corus.android.ui.components.CymbalClubVinyl(size = 140.dp)
 
-            Spacer(modifier = Modifier.height(CorusSpacing.xl))
+                Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
-            if (viewModel.source == PaywallSource.POST_LIMIT) {
-                Text(
-                    text = stringResource(R.string.club_post_limit_eyebrow),
-                    style = CorusFont.caption.copy(
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp),
-                    ),
-                    color = CorusColors.Accent,
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.xs))
-            }
-
-            // Feature eyebrow when arriving from Taste Matches — names the perk in
-            // the brand color, mirroring the cold-start eyebrow.
-            if (viewModel.source == PaywallSource.TASTE_MATCHES) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.AutoAwesome,
-                        contentDescription = null,
-                        tint = CorusColors.Accent,
-                        modifier = Modifier.size(14.dp),
-                    )
+                if (viewModel.source == PaywallSource.POST_LIMIT) {
                     Text(
-                        text = stringResource(R.string.search_section_taste_matches),
-                        style = CorusFont.sectionHeader,
+                        text = stringResource(R.string.club_post_limit_eyebrow),
+                        style = CorusFont.caption.copy(
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp),
+                        ),
                         color = CorusColors.Accent,
                     )
+                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
                 }
-                Spacer(modifier = Modifier.height(CorusSpacing.xs))
+
+                // Feature eyebrow when arriving from Taste Matches — names the perk in
+                // the brand color, mirroring the cold-start eyebrow.
+                if (viewModel.source == PaywallSource.TASTE_MATCHES) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.AutoAwesome,
+                            contentDescription = null,
+                            tint = CorusColors.Accent,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.search_section_taste_matches),
+                            style = CorusFont.sectionHeader,
+                            color = CorusColors.Accent,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                }
+
+                Text(
+                    text = stringResource(R.string.club_title),
+                    style = CorusFont.appTitle,
+                    color = CorusColors.Text,
+                )
+
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
+                // Post-limit: surface the trial with its duration when available,
+                // otherwise the source's default subtitle ("Remove posting limits").
+                val trial = trialDurationText(context, selectedPackage)
+                val subtitleText = if (viewModel.source == PaywallSource.POST_LIMIT && trial != null)
+                    context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
+                else
+                    viewModel.source.subtitle
+
+                Text(
+                    text = subtitleText,
+                    style = CorusFont.body,
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                )
+
+                Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+
+                // Features. When Taste Matches is live, advertise it as the headline
+                // perk right under Unlimited posts, taking the badge row's slot so the
+                // list stays at 5 (mirrors iOS).
+                val tasteMatchesEnabled = viewModel.remoteConfig.tasteMatchesEnabled
+                Column(
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                    verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                ) {
+                    FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+                    if (tasteMatchesEnabled) {
+                        FeatureRow(icon = Icons.Filled.AutoAwesome, text = stringResource(R.string.club_feature_taste_matches))
+                    }
+                    FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
+                    FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+                    FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
+                    if (!tasteMatchesEnabled) {
+                        FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
+
+                Text(
+                    text = stringResource(R.string.club_disclaimer),
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
+                )
+
+                Spacer(modifier = Modifier.height(CorusSpacing.xl))
             }
 
-            Text(
-                text = stringResource(R.string.club_title),
-                style = CorusFont.appTitle,
-                color = CorusColors.Text,
-            )
-
-            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-
-            // Post-limit: surface the trial with its duration when available,
-            // otherwise the source's default subtitle ("Remove posting limits").
-            val trial = trialDurationText(context, selectedPackage)
-            val subtitleText = if (viewModel.source == PaywallSource.POST_LIMIT && trial != null)
-                context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
-            else
-                viewModel.source.subtitle
-
-            Text(
-                text = subtitleText,
-                style = CorusFont.body,
-                color = CorusColors.Secondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-            )
-
-            Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
-
-            // Features. When Taste Matches is live, advertise it as the headline
-            // perk right under Unlimited posts, taking the badge row's slot so the
-            // list stays at 5 (mirrors iOS).
-            val tasteMatchesEnabled = viewModel.remoteConfig.tasteMatchesEnabled
+            // ── Pinned bottom: plan cards, CTA, footer (always visible) ──
+            // Extra top padding sets the plan cards apart from the features
+            // above, while the gap below them (before the CTA) stays tight —
+            // grouping the cards with the button (matches iOS).
             Column(
-                modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-                verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-            ) {
-                FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
-                if (tasteMatchesEnabled) {
-                    FeatureRow(icon = Icons.Filled.AutoAwesome, text = stringResource(R.string.club_feature_taste_matches))
-                }
-                FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
-                FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
-                FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
-                if (!tasteMatchesEnabled) {
-                    FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
-                }
-            }
-
-            Spacer(modifier = Modifier.height(CorusSpacing.md))
-
-            Text(
-                text = stringResource(R.string.club_disclaimer),
-                style = CorusFont.caption,
-                color = CorusColors.Secondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
-            )
-
-            Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
-
-            // Plan selector
-            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = CorusSpacing.xl),
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                    .padding(top = CorusSpacing.xl),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$3.99"
-                val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$24.99"
-                val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 24.99) / 12)}"
+                // Plan selector
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = CorusSpacing.xl),
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                ) {
+                    val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$3.99"
+                    val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$24.99"
+                    val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 24.99) / 12)}"
 
-                PlanCard(
-                    label = stringResource(R.string.club_plan_monthly),
-                    price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
-                    detail = monthlyDetailText(context, monthlyPackage, monthlyPrice),
-                    isSelected = selectedPlan == "monthly",
-                    onClick = { selectedPlan = "monthly" },
-                    modifier = Modifier.weight(1f),
-                )
-                PlanCard(
-                    label = stringResource(R.string.club_plan_yearly),
-                    price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
-                    detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly),
-                    isSelected = selectedPlan == "yearly",
-                    onClick = { selectedPlan = "yearly" },
-                    modifier = Modifier.weight(1f),
-                    badge = savingsBadge(monthlyPackage, yearlyPackage),
-                )
-            }
+                    PlanCard(
+                        label = stringResource(R.string.club_plan_monthly),
+                        price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
+                        detail = monthlyDetailText(context, monthlyPackage, monthlyPrice),
+                        isSelected = selectedPlan == "monthly",
+                        onClick = { selectedPlan = "monthly" },
+                        modifier = Modifier.weight(1f),
+                    )
+                    PlanCard(
+                        label = stringResource(R.string.club_plan_yearly),
+                        price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
+                        detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly),
+                        isSelected = selectedPlan == "yearly",
+                        onClick = { selectedPlan = "yearly" },
+                        modifier = Modifier.weight(1f),
+                        badge = savingsBadge(monthlyPackage, yearlyPackage),
+                    )
+                }
 
-            // Fixed-height slot the inline error renders inside, so the CTA
-            // and footer links don't jump when it appears or disappears.
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp),
-                contentAlignment = Alignment.Center,
-            ) {
+                // Inline purchase error (rare) renders only when present, so it
+                // doesn't reserve a permanent gap between the plan cards and the CTA.
                 errorMessage?.let {
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
                     Text(
                         text = it,
                         style = CorusFont.caption,
@@ -331,63 +349,65 @@ fun CymbalClubOfferScreen(
                         modifier = Modifier.padding(horizontal = CorusSpacing.xl),
                     )
                 }
-            }
 
-            // CTA button
-            Button(
-                onClick = {
-                    if (activity != null && selectedPackage != null) {
-                        viewModel.purchase(activity, selectedPackage!!, selectedPlan)
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
+
+                // CTA button
+                Button(
+                    onClick = {
+                        if (activity != null && selectedPackage != null) {
+                            viewModel.purchase(activity, selectedPackage!!, selectedPlan)
+                        }
+                    },
+                    enabled = !isPurchasing && selectedPackage != null && !isClubMember,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = CorusSpacing.xl)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CorusColors.Accent,
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    if (isPurchasing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White,
+                        )
+                    } else {
+                        Text(
+                            text = ctaText(context, selectedPackage, isClubMember),
+                            style = CorusFont.button,
+                        )
                     }
-                },
-                enabled = !isPurchasing && selectedPackage != null && !isClubMember,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CorusSpacing.xl)
-                    .height(52.dp),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CorusColors.Accent,
-                    contentColor = Color.White,
-                ),
-            ) {
-                if (isPurchasing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = Color.White,
-                    )
-                } else {
-                    Text(
-                        text = ctaText(context, selectedPackage, isClubMember),
-                        style = CorusFont.button,
-                    )
                 }
+
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
+
+                // Restore purchases + links
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = { viewModel.restorePurchases() }) {
+                        Text(stringResource(R.string.club_restore_purchases), style = CorusFont.caption, color = CorusColors.Secondary)
+                    }
+                    TextButton(onClick = {
+                        try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/terms"))) } catch (_: Exception) { }
+                    }) {
+                        Text(stringResource(R.string.club_terms), style = CorusFont.caption, color = CorusColors.Secondary)
+                    }
+                    TextButton(onClick = {
+                        try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/privacy"))) } catch (_: Exception) { }
+                    }) {
+                        Text(stringResource(R.string.club_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(CorusSpacing.lg))
             }
-
-            Spacer(modifier = Modifier.height(CorusSpacing.md))
-
-            // Restore purchases + links
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = { viewModel.restorePurchases() }) {
-                    Text(stringResource(R.string.club_restore_purchases), style = CorusFont.caption, color = CorusColors.Secondary)
-                }
-                TextButton(onClick = {
-                    try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/terms"))) } catch (_: Exception) { }
-                }) {
-                    Text(stringResource(R.string.club_terms), style = CorusFont.caption, color = CorusColors.Secondary)
-                }
-                TextButton(onClick = {
-                    try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/privacy"))) } catch (_: Exception) { }
-                }) {
-                    Text(stringResource(R.string.club_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
         }
     }
 }
@@ -449,20 +469,27 @@ fun CymbalClubOfferSheet(
         }
     }
 
-    // The Club paywall is always content-heavy (vinyl, 5 feature rows, two
+    // The Club paywall is always content-heavy (vinyl, ~5 feature rows, two
     // plan cards, CTA, footer), so it naturally lands near the top of the
     // screen anyway. Cap it just shy of full height (94%) so it reads as a
     // deliberate tall sheet that always sits slightly below the status
     // bar / camera cutout — never stopping at an awkward in-between height
     // and never crowding the system area at the top.
+    //
+    // Two-zone layout (mirrors iOS): the header + features scroll in a flexible
+    // region, while the plan cards, CTA, and footer links are PINNED to the
+    // bottom. This guarantees "Restore Purchases" / "Terms" / "Privacy" are
+    // always visible — they can never be pushed under the CTA or the system
+    // navigation bar (navigationBarsPadding reserves the gesture/button-bar
+    // inset, since a ModalBottomSheet only insets its top edge).
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight(0.94f)
-            .verticalScroll(rememberScrollState()),
+            .navigationBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Close button
+        // Close button (fixed at the top)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -481,121 +508,164 @@ fun CymbalClubOfferSheet(
             }
         }
 
-        // Spinning vinyl record
-        fm.corus.android.ui.components.CymbalClubVinyl(size = 120.dp)
-
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-
-        if (source == PaywallSource.POST_LIMIT) {
-            Text(
-                text = stringResource(R.string.club_post_limit_eyebrow),
-                style = CorusFont.caption.copy(
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp),
-                ),
-                color = CorusColors.Accent,
-            )
-            Spacer(modifier = Modifier.height(CorusSpacing.xs))
-        }
-
-        Text(
-            text = stringResource(R.string.club_title),
-            style = CorusFont.appTitle,
-            color = CorusColors.Text,
-        )
-
-        Spacer(modifier = Modifier.height(CorusSpacing.xs))
-
-        // Post-limit: surface the trial with its duration when available,
-        // otherwise the source's default subtitle ("Remove posting limits").
-        val trial = trialDurationText(context, selectedPackage)
-        val subtitleText = if (source == PaywallSource.POST_LIMIT && trial != null)
-            context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
-        else
-            source.subtitle
-
-        Text(
-            text = subtitleText,
-            style = CorusFont.body,
-            color = CorusColors.Secondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-        )
-
-        Spacer(modifier = Modifier.height(CorusSpacing.xl))
-
+        // ── Scrollable header + features (absorbs overflow on short screens) ──
         Column(
-            modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-            verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (source != PaywallSource.FIRST_POST) {
-                FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+            // Spinning vinyl record
+            fm.corus.android.ui.components.CymbalClubVinyl(size = 120.dp)
+
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+
+            if (source == PaywallSource.POST_LIMIT) {
+                Text(
+                    text = stringResource(R.string.club_post_limit_eyebrow),
+                    style = CorusFont.caption.copy(
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp),
+                    ),
+                    color = CorusColors.Accent,
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.xs))
             }
-            // Source-specific perk sits right under posts so it's in the list,
-            // not just the subtitle.
-            if (source == PaywallSource.FAVORITE_LIMIT) {
-                FeatureRow(icon = Icons.Filled.Star, text = stringResource(R.string.club_feature_favorites))
+
+            // Feature eyebrow when arriving from Taste Matches — names the perk
+            // in the brand color (mirrors the full-screen paywall + iOS).
+            if (source == PaywallSource.TASTE_MATCHES) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = CorusColors.Accent,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.search_section_taste_matches),
+                        style = CorusFont.sectionHeader,
+                        color = CorusColors.Accent,
+                    )
+                }
+                Spacer(modifier = Modifier.height(CorusSpacing.xs))
             }
-            FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
-            FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
-            FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
-            // Drop the badge line on the favorites paywall to keep the list at
-            // 5 rows on phones (room is tight).
-            if (source != PaywallSource.FAVORITE_LIMIT) {
-                FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+
+            Text(
+                text = stringResource(R.string.club_title),
+                style = CorusFont.appTitle,
+                color = CorusColors.Text,
+            )
+
+            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+
+            // Post-limit: surface the trial with its duration when available,
+            // otherwise the source's default subtitle ("Remove posting limits").
+            val trial = trialDurationText(context, selectedPackage)
+            val subtitleText = if (source == PaywallSource.POST_LIMIT && trial != null)
+                context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
+            else
+                source.subtitle
+
+            Text(
+                text = subtitleText,
+                style = CorusFont.body,
+                color = CorusColors.Secondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+            )
+
+            Spacer(modifier = Modifier.height(CorusSpacing.xl))
+
+            // Features. When Taste Matches is live, advertise it as the headline
+            // perk right under Unlimited posts, taking the badge row's slot so
+            // the list stays compact (mirrors the full-screen paywall + iOS).
+            val tasteMatchesEnabled = viewModel.remoteConfig.tasteMatchesEnabled
+            Column(
+                modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            ) {
+                if (source != PaywallSource.FIRST_POST) {
+                    FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+                }
+                if (tasteMatchesEnabled) {
+                    FeatureRow(icon = Icons.Filled.AutoAwesome, text = stringResource(R.string.club_feature_taste_matches))
+                }
+                // Source-specific perk sits right under posts so it's in the list,
+                // not just the subtitle.
+                if (source == PaywallSource.FAVORITE_LIMIT) {
+                    FeatureRow(icon = Icons.Filled.Star, text = stringResource(R.string.club_feature_favorites))
+                }
+                FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
+                FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+                FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
+                // Drop the badge line on the favorites or Taste Matches paywalls
+                // to keep the list compact on phones (room is tight).
+                if (source != PaywallSource.FAVORITE_LIMIT && !tasteMatchesEnabled) {
+                    FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+                }
             }
+
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
+            Text(
+                text = stringResource(R.string.club_disclaimer),
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
+            )
+
+            Spacer(modifier = Modifier.height(CorusSpacing.md))
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.sm))
-
-        Text(
-            text = stringResource(R.string.club_disclaimer),
-            style = CorusFont.caption,
-            color = CorusColors.Secondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
-        )
-
-        Spacer(modifier = Modifier.height(CorusSpacing.xl))
-
-        Row(
+        // ── Pinned bottom: plan cards, CTA, footer (always visible) ──
+        // Extra top padding sets the plan cards apart from the features above,
+        // while the gap below them (before the CTA) stays tight — grouping the
+        // cards with the button (matches iOS).
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.xl),
-            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                .padding(top = CorusSpacing.xl),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_monthly_default_price)
-            val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_yearly_default_price)
-            val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 24.99) / 12)}"
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.xl),
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+            ) {
+                val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_monthly_default_price)
+                val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_yearly_default_price)
+                val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 24.99) / 12)}"
 
-            PlanCard(
-                label = stringResource(R.string.club_plan_monthly),
-                price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
-                detail = monthlyDetailText(context, monthlyPackage, monthlyPrice),
-                isSelected = selectedPlan == "monthly",
-                onClick = { selectedPlan = "monthly" },
-                modifier = Modifier.weight(1f),
-            )
-            PlanCard(
-                label = stringResource(R.string.club_plan_yearly),
-                price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
-                detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly),
-                isSelected = selectedPlan == "yearly",
-                onClick = { selectedPlan = "yearly" },
-                modifier = Modifier.weight(1f),
-                badge = savingsBadge(monthlyPackage, yearlyPackage),
-            )
-        }
+                PlanCard(
+                    label = stringResource(R.string.club_plan_monthly),
+                    price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
+                    detail = monthlyDetailText(context, monthlyPackage, monthlyPrice),
+                    isSelected = selectedPlan == "monthly",
+                    onClick = { selectedPlan = "monthly" },
+                    modifier = Modifier.weight(1f),
+                )
+                PlanCard(
+                    label = stringResource(R.string.club_plan_yearly),
+                    price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
+                    detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly),
+                    isSelected = selectedPlan == "yearly",
+                    onClick = { selectedPlan = "yearly" },
+                    modifier = Modifier.weight(1f),
+                    badge = savingsBadge(monthlyPackage, yearlyPackage),
+                )
+            }
 
-        // Fixed-height slot the inline error renders inside, so the CTA
-        // and footer links don't jump when it appears or disappears.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(32.dp),
-            contentAlignment = Alignment.Center,
-        ) {
+            // Inline purchase error (rare) renders only when present, so it
+            // doesn't reserve a permanent gap between the plan cards and the CTA.
             errorMessage?.let {
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
                 Text(
                     text = it,
                     style = CorusFont.caption,
@@ -604,61 +674,63 @@ fun CymbalClubOfferSheet(
                     modifier = Modifier.padding(horizontal = CorusSpacing.xl),
                 )
             }
-        }
 
-        Button(
-            onClick = {
-                if (activity != null && selectedPackage != null) {
-                    viewModel.purchase(activity, selectedPackage!!, selectedPlan)
+            Spacer(modifier = Modifier.height(CorusSpacing.md))
+
+            Button(
+                onClick = {
+                    if (activity != null && selectedPackage != null) {
+                        viewModel.purchase(activity, selectedPackage!!, selectedPlan)
+                    }
+                },
+                enabled = !isPurchasing && selectedPackage != null && !isClubMember,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.xl)
+                    .height(48.dp),
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CorusColors.Accent,
+                    contentColor = Color.White,
+                ),
+            ) {
+                if (isPurchasing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White,
+                    )
+                } else {
+                    Text(
+                        text = ctaText(context, selectedPackage, isClubMember),
+                        style = CorusFont.button,
+                    )
                 }
-            },
-            enabled = !isPurchasing && selectedPackage != null && !isClubMember,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.xl)
-                .height(48.dp),
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = CorusColors.Accent,
-                contentColor = Color.White,
-            ),
-        ) {
-            if (isPurchasing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = Color.White,
-                )
-            } else {
-                Text(
-                    text = ctaText(context, selectedPackage, isClubMember),
-                    style = CorusFont.button,
-                )
             }
+
+            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = { viewModel.restorePurchases() }) {
+                    Text(stringResource(R.string.club_restore_purchases), style = CorusFont.caption, color = CorusColors.Secondary)
+                }
+                TextButton(onClick = {
+                    try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/terms"))) } catch (_: Exception) { }
+                }) {
+                    Text(stringResource(R.string.club_terms), style = CorusFont.caption, color = CorusColors.Secondary)
+                }
+                TextButton(onClick = {
+                    try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/privacy"))) } catch (_: Exception) { }
+                }) {
+                    Text(stringResource(R.string.club_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.xs))
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onClick = { viewModel.restorePurchases() }) {
-                Text(stringResource(R.string.club_restore_purchases), style = CorusFont.caption, color = CorusColors.Secondary)
-            }
-            TextButton(onClick = {
-                try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/terms"))) } catch (_: Exception) { }
-            }) {
-                Text(stringResource(R.string.club_terms), style = CorusFont.caption, color = CorusColors.Secondary)
-            }
-            TextButton(onClick = {
-                try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/privacy"))) } catch (_: Exception) { }
-            }) {
-                Text(stringResource(R.string.club_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
     }
 }
 

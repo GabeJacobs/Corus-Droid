@@ -34,11 +34,13 @@ import org.mockito.kotlin.whenever
 
 /**
  * Regression: a feed mode is device-persisted (DataStore), so it can outlive the
- * Remote Config flag that gated it — e.g. a device that persisted "forYou" then
- * logs into an account where for_you_enabled is off. The menu only shows enabled
- * modes, so returning a disabled mode left nothing selected and loaded a feed the
- * user couldn't switch away from. `resolveFeedMode` must fall back to "following"
- * whenever the chosen ranked mode's flag is off. Mirrors the iOS fix.
+ * Remote Config flag that gated it — e.g. a device that persisted "trending"
+ * then logs into a context where trending_feed_enabled is off. The menu only
+ * shows enabled modes, so returning a disabled mode left nothing selected and
+ * loaded a feed the user couldn't switch away from. `resolveFeedMode` must fall
+ * back to "following" whenever the chosen mode is unavailable. Also covers the
+ * retired "forYou" feed mode: any device that still has it persisted must
+ * migrate to "following". Mirrors the iOS fix.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class FeedModeAvailabilityGuardTest {
@@ -92,6 +94,9 @@ class FeedModeAvailabilityGuardTest {
             on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
             on { feedFilter } doReturn MutableStateFlow("ALL")
             on { feedMode } doReturn MutableStateFlow(storedMode)
+            // Synchronous seed read during construction (mirrors the persisted
+            // mode); unstubbed it returns null and resolveFeedMode() NPEs.
+            on { feedModeSyncSeed() } doReturn storedMode
             on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
             on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
             on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)
@@ -122,8 +127,9 @@ class FeedModeAvailabilityGuardTest {
     }
 
     @Test
-    fun `persisted forYou falls back to following when for_you flag is off`() = runTest(testDispatcher) {
-        whenever(remoteConfig.forYouEnabled).doReturn(false)
+    fun `persisted forYou migrates to following (mode retired)`() = runTest(testDispatcher) {
+        // "forYou" is no longer a selectable mode; any device that still has it
+        // persisted must resolve to Following, regardless of other flags.
         whenever(remoteConfig.trendingFeedEnabled).doReturn(true)
         val viewModel = vm("forYou")
         advanceUntilIdle()
@@ -131,17 +137,8 @@ class FeedModeAvailabilityGuardTest {
     }
 
     @Test
-    fun `persisted forYou is honored when for_you flag is on`() = runTest(testDispatcher) {
-        whenever(remoteConfig.forYouEnabled).doReturn(true)
-        val viewModel = vm("forYou")
-        advanceUntilIdle()
-        assertEquals("forYou", viewModel.feedMode.value)
-    }
-
-    @Test
     fun `persisted trending falls back to following when trending flag is off`() = runTest(testDispatcher) {
         whenever(remoteConfig.trendingFeedEnabled).doReturn(false)
-        whenever(remoteConfig.forYouEnabled).doReturn(false)
         val viewModel = vm("trending")
         advanceUntilIdle()
         assertEquals("following", viewModel.feedMode.value)
@@ -156,18 +153,7 @@ class FeedModeAvailabilityGuardTest {
     }
 
     @Test
-    fun `unset mode opens in forYou only when default and for_you are both on`() = runTest(testDispatcher) {
-        whenever(remoteConfig.defaultForYouFeedEnabled).doReturn(true)
-        whenever(remoteConfig.forYouEnabled).doReturn(true)
-        val viewModel = vm("")
-        advanceUntilIdle()
-        assertEquals("forYou", viewModel.feedMode.value)
-    }
-
-    @Test
-    fun `unset mode opens in following when for_you is off`() = runTest(testDispatcher) {
-        whenever(remoteConfig.defaultForYouFeedEnabled).doReturn(true)
-        whenever(remoteConfig.forYouEnabled).doReturn(false)
+    fun `unset mode opens in following`() = runTest(testDispatcher) {
         val viewModel = vm("")
         advanceUntilIdle()
         assertEquals("following", viewModel.feedMode.value)
