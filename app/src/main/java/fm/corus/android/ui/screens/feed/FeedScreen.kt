@@ -85,6 +85,7 @@ import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.SkeletonPostCard
 import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -1004,12 +1005,19 @@ private fun FeedTitleWithModeMenu(
                     .background(CorusColors.Accent),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = feedModeIcon(feedMode),
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(13.dp),
-                )
+                // Taste Matches uses the custom two-circle Venn (matching the
+                // post action row and the Search header); other modes use their
+                // Material icon.
+                if (feedMode == "tasteMatches") {
+                    VennDiagramIcon(size = 15.dp, color = Color.White, shadedIntersection = true)
+                } else {
+                    Icon(
+                        imageVector = feedModeIcon(feedMode),
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(13.dp),
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(4.dp))
             Icon(
@@ -1030,11 +1038,15 @@ private fun FeedTitleWithModeMenu(
                 )
             }
             val leadingIcon: @Composable (String) -> Unit = { mode ->
-                Icon(
-                    imageVector = feedModeIcon(mode, filled = false),
-                    contentDescription = null,
-                    tint = CorusColors.Secondary,
-                )
+                if (mode == "tasteMatches") {
+                    VennDiagramIcon(size = 24.dp, color = CorusColors.Secondary, shadedIntersection = true)
+                } else {
+                    Icon(
+                        imageVector = feedModeIcon(mode, filled = false),
+                        contentDescription = null,
+                        tint = CorusColors.Secondary,
+                    )
+                }
             }
             if (tasteMatchesAvailable) {
                 DropdownMenuItem(
@@ -1084,7 +1096,8 @@ private fun FeedTitleWithModeMenu(
 
 /**
  * Icon representing a feed mode (mirrors iOS / Web): Trending → trend line,
- * Following → people, Favorites → filled star, For You → sparkle. Used for the
+ * Following → people, Favorites → filled star. Taste Matches is special-cased
+ * to the custom two-circle [VennDiagramIcon] at the call sites. Used for the
  * header accent pill and the mode-switcher menu rows.
  */
 private fun feedModeIcon(mode: String, filled: Boolean = true): ImageVector = when (mode) {
@@ -1195,12 +1208,11 @@ private fun TasteMatchesColdStart(
                             contentScale = ContentScale.Crop,
                         )
                     }
-                    isActive -> Icon(
-                        imageVector = Icons.Filled.AutoAwesome,
-                        contentDescription = null,
-                        tint = CorusColors.Accent.copy(alpha = pulseAlpha),
+                    isActive -> VennDiagramIcon(
+                        size = 28.dp,
+                        color = CorusColors.Accent.copy(alpha = pulseAlpha),
+                        shadedIntersection = true,
                         modifier = Modifier
-                            .size(28.dp)
                             .graphicsLayer {
                                 scaleX = pulseScale
                                 scaleY = pulseScale
@@ -1238,11 +1250,10 @@ private fun TasteMatchesColdStart(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Icon(
-            imageVector = Icons.Filled.AutoAwesome,
-            contentDescription = null,
-            tint = CorusColors.Accent,
-            modifier = Modifier.size(14.dp),
+        VennDiagramIcon(
+            size = 15.dp,
+            color = CorusColors.Accent,
+            shadedIntersection = true,
         )
         Text(
             text = stringResource(R.string.search_section_taste_matches),
@@ -1288,11 +1299,10 @@ private fun TasteMatchesColdStart(
 @Composable
 private fun TasteMatchesNeutralEmpty() {
     Spacer(modifier = Modifier.height(60.dp))
-    Icon(
-        imageVector = Icons.Filled.AutoAwesome,
-        contentDescription = null,
-        tint = CorusColors.Tertiary,
-        modifier = Modifier.size(36.dp),
+    VennDiagramIcon(
+        size = 40.dp,
+        color = CorusColors.Tertiary,
+        shadedIntersection = true,
     )
     Spacer(modifier = Modifier.height(CorusSpacing.md))
     Text(
@@ -1320,11 +1330,10 @@ private fun TasteMatchesNeutralEmpty() {
 @Composable
 private fun TasteMatchesPaywallState(onLearnMore: () -> Unit) {
     Spacer(modifier = Modifier.height(60.dp))
-    Icon(
-        imageVector = Icons.Filled.AutoAwesome,
-        contentDescription = null,
-        tint = CorusColors.Accent,
-        modifier = Modifier.size(36.dp),
+    VennDiagramIcon(
+        size = 40.dp,
+        color = CorusColors.Accent,
+        shadedIntersection = true,
     )
     Spacer(modifier = Modifier.height(CorusSpacing.md))
     Text(

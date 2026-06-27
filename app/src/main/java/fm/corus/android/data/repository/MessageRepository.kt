@@ -51,6 +51,29 @@ class MessageRepository @Inject constructor(
         return leftThreadExpiry.keys.toSet()
     }
 
+    /**
+     * Last-rendered inbox, kept alive across [ThreadListViewModel] instances. The
+     * inbox screen is a `navigate()` / `popBackStack()` destination, so its
+     * ViewModel (and its threads) are discarded every time the user leaves and
+     * returns, forcing a cold `listThreads` fetch behind the skeleton on each
+     * reopen. Seeding a fresh ViewModel from this snapshot renders the last-known
+     * inbox instantly and reconciles in place (no skeleton). Keyed by `userId` so
+     * a different signed-in user never inherits the previous user's threads, which
+     * also means there's nothing to clear on sign-out.
+     */
+    data class CachedInbox(
+        val userId: String,
+        val threads: List<CymbalThread>,
+        val nextCursor: Long?,
+        val hasMore: Boolean,
+    )
+
+    @Volatile
+    var cachedInbox: CachedInbox? = null
+        private set
+
+    fun cacheInbox(snapshot: CachedInbox) { cachedInbox = snapshot }
+
     suspend fun listThreads(userId: String): List<CymbalThread> {
         return cloudFunctions.listThreads(userId)
     }

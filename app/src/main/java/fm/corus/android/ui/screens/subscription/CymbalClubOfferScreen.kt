@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
@@ -39,6 +38,7 @@ import com.revenuecat.purchases.Package
 import com.revenuecat.purchases.models.Period
 import fm.corus.android.R
 import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -223,11 +223,10 @@ fun CymbalClubOfferScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.AutoAwesome,
-                            contentDescription = null,
-                            tint = CorusColors.Accent,
-                            modifier = Modifier.size(14.dp),
+                        VennDiagramIcon(
+                            size = 15.dp,
+                            color = CorusColors.Accent,
+                            shadedIntersection = true,
                         )
                         Text(
                             text = stringResource(R.string.search_section_taste_matches),
@@ -274,7 +273,9 @@ fun CymbalClubOfferScreen(
                 ) {
                     FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
                     if (tasteMatchesEnabled) {
-                        FeatureRow(icon = Icons.Filled.AutoAwesome, text = stringResource(R.string.club_feature_taste_matches))
+                        FeatureRow(text = stringResource(R.string.club_feature_taste_matches)) {
+                            VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
+                        }
                     }
                     FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
                     FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
@@ -540,11 +541,10 @@ fun CymbalClubOfferSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.AutoAwesome,
-                        contentDescription = null,
-                        tint = CorusColors.Accent,
-                        modifier = Modifier.size(14.dp),
+                    VennDiagramIcon(
+                        size = 15.dp,
+                        color = CorusColors.Accent,
+                        shadedIntersection = true,
                     )
                     Text(
                         text = stringResource(R.string.search_section_taste_matches),
@@ -593,7 +593,9 @@ fun CymbalClubOfferSheet(
                     FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
                 }
                 if (tasteMatchesEnabled) {
-                    FeatureRow(icon = Icons.Filled.AutoAwesome, text = stringResource(R.string.club_feature_taste_matches))
+                    FeatureRow(text = stringResource(R.string.club_feature_taste_matches)) {
+                        VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
+                    }
                 }
                 // Source-specific perk sits right under posts so it's in the list,
                 // not just the subtitle.
@@ -736,16 +738,24 @@ fun CymbalClubOfferSheet(
 
 @Composable
 private fun FeatureRow(icon: ImageVector, text: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-    ) {
+    FeatureRow(text = text) {
         Icon(
             icon,
             contentDescription = null,
             tint = CorusColors.Accent,
             modifier = Modifier.size(20.dp),
         )
+    }
+}
+
+/** Feature row with a custom leading icon (e.g. the Taste Matches Venn). */
+@Composable
+private fun FeatureRow(text: String, icon: @Composable () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+    ) {
+        icon()
         Text(text = text, style = CorusFont.bodyMedium, color = CorusColors.Text)
     }
 }

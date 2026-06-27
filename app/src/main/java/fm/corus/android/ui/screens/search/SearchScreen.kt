@@ -92,6 +92,7 @@ import fm.corus.android.ui.components.SkeletonSearchSongRow
 import fm.corus.android.ui.components.SkeletonSearchUserRow
 import fm.corus.android.ui.components.SkeletonTrendingFilmRow
 import fm.corus.android.ui.components.SkeletonTrendingSongRow
+import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.components.SkeletonTasteMatchCard
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.TasteMatchCard
@@ -1125,7 +1126,6 @@ internal fun SectionHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val iconVector = when (icon) {
-            "sparkles" -> Icons.Filled.AutoAwesome
             "people" -> Icons.Filled.People
             "trending" -> Icons.Filled.AutoAwesome
             "new" -> Icons.Filled.PersonAdd
@@ -1141,6 +1141,15 @@ internal fun SectionHeader(
                 contentDescription = null,
                 tint = CorusColors.Accent,
                 modifier = Modifier.size(24.dp),
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        } else if (icon == "sparkles") {
+            // Taste Matches: the custom two-circle Venn with the lens-shaped
+            // overlap shaded in (matches the taste-match sheet hero on iOS).
+            VennDiagramIcon(
+                size = 24.dp,
+                color = CorusColors.Accent,
+                shadedIntersection = true,
             )
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
         } else if (icon == "club") {

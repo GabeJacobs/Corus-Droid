@@ -112,7 +112,18 @@ class ThreadListViewModel @Inject constructor(
     val groupMessagingEnabled: Boolean
         get() = remoteConfigService.groupMessagingEnabled
 
-    private val _threads = MutableStateFlow<List<CymbalThread>>(emptyList())
+    /**
+     * Last-rendered inbox from the singleton repository, scoped to the current
+     * user. Non-null when reopening Messages: the ViewModel seeds its threads,
+     * cursor and "loaded" flags from it so the screen renders immediately and
+     * reconciles in place via `refreshThreads()` instead of showing the skeleton.
+     * Null on a cold first open or after a user switch, which keeps the full
+     * skeleton + `loadThreads()` path.
+     */
+    private val seededInbox: MessageRepository.CachedInbox? =
+        messageRepository.cachedInbox?.takeIf { it.userId == authRepository.currentUserId }
+
+    private val _threads = MutableStateFlow(seededInbox?.threads ?: emptyList())
     val threads: StateFlow<List<CymbalThread>> = _threads.asStateFlow()
 
     // Resolved member profiles for group rows (stacked avatars + titles). The
@@ -169,7 +180,8 @@ class ThreadListViewModel @Inject constructor(
         runCatching { userRepository.searchUsers(query, limit = 15, includeFollowed = true) }
             .getOrDefault(emptyList())
 
-    private val _isLoading = MutableStateFlow(true)
+    // Skip the skeleton entirely when we seeded a known inbox.
+    private val _isLoading = MutableStateFlow(seededInbox == null)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -178,21 +190,39 @@ class ThreadListViewModel @Inject constructor(
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
-    private val _hasMoreThreads = MutableStateFlow(false)
+    private val _hasMoreThreads = MutableStateFlow(seededInbox?.hasMore ?: false)
     val hasMoreThreads: StateFlow<Boolean> = _hasMoreThreads.asStateFlow()
 
     private val pageSize = 30
 
     /** Cursor for the next page — the `updatedAt` of the last thread fetched, in millis. */
-    private var nextCursor: Long? = null
+    private var nextCursor: Long? = seededInbox?.nextCursor
 
     /**
      * The screen's LaunchedEffect re-runs every time it's recomposed after a
      * back navigation. After the first successful load, reloads refresh in
      * place instead of resetting to the first page, which would drop
      * paginated-in threads and yank the scroll position.
+     *
+     * Starts true when seeded from the cross-instance inbox cache so the first
+     * `loadThreads()` after a reopen refreshes in place instead of cold-loading.
      */
-    private var hasLoadedThreads = false
+    private var hasLoadedThreads = seededInbox != null
+
+    init {
+        // Mirror the live list into the singleton repository so the next reopen
+        // can seed from it instantly. Keyed by userId so a different user never
+        // inherits it. Only writes once a real load has populated the list.
+        viewModelScope.launch {
+            _threads.collect { list ->
+                if (!hasLoadedThreads) return@collect
+                val uid = authRepository.currentUserId ?: return@collect
+                messageRepository.cacheInbox(
+                    MessageRepository.CachedInbox(uid, list, nextCursor, _hasMoreThreads.value)
+                )
+            }
+        }
+    }
 
     // New Message picker state
     private val _suggestedContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
@@ -226,6 +256,10 @@ class ThreadListViewModel @Inject constructor(
     fun loadThreads() {
         val userId = authRepository.currentUserId ?: return
         if (hasLoadedThreads) {
+            // Already loaded, or seeded from the cross-instance cache on reopen.
+            // Attach the live listener (a no-op if it's already running, but it
+            // isn't yet on a cache-seeded cold start) and reconcile in place.
+            startThreadSummaryListener(userId)
             viewModelScope.launch { refreshThreads(userId) }
             return
         }
