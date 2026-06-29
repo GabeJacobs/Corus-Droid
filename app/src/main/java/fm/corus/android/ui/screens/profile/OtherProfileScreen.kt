@@ -611,7 +611,9 @@ fun OtherProfileScreen(
                         avatarThumbURL = initialAvatarThumbURL,
                     )
                 } else {
-                    SkeletonProfileView()
+                    // OtherProfileScreen keeps the nav icons in the TopAppBar, so
+                    // the body header is just a centered name (no 40dp icon band).
+                    SkeletonProfileView(showIconHeaderRow = false)
                 }
                 SkeletonProfileGrid()
             }

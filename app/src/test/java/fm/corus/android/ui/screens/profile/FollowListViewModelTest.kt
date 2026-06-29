@@ -259,6 +259,26 @@ class FollowListViewModelTest {
         }
 
     @Test
+    fun `follow status syncs when the shared following set changes off-screen`() =
+        runTest(testDispatcher) {
+            // The user taps a row into that profile and follows there — the shared
+            // following set updates and the list's button must reflect it on return.
+            val followingFlow = MutableStateFlow<Set<String>>(emptySet())
+            whenever(userRepository.followingIds).thenReturn(followingFlow)
+            whenever(userRepository.fetchFollowingPaginated(any(), any(), anyOrNull()))
+                .thenReturn(UserRepository.PaginatedUsersResult(listOf(makeUser("vivi")), null))
+
+            val vm = makeViewModel()
+            vm.loadFollowList("target", FollowListMode.FOLLOWING)
+            advanceUntilIdle()
+            assertEquals(false, vm.followingStatus.value["vivi"])
+
+            followingFlow.value = setOf("vivi")
+            advanceUntilIdle()
+            assertEquals(true, vm.followingStatus.value["vivi"])
+        }
+
+    @Test
     fun `loadMutualCount uses the cheap repo count and resolves the tab`() =
         runTest(testDispatcher) {
             whenever(userRepository.mutualFollowerCount(eq("viewer-1"), eq("target"), any()))

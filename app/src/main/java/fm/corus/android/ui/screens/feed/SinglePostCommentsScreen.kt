@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -995,9 +996,9 @@ private fun CommentContentRow(
                                     .data(comment.gifURL).build(),
                                 contentDescription = stringResource(R.string.comments_cd_gif),
                                 modifier = Modifier
-                                    .widthIn(max = if (isReply) 160.dp else 200.dp)
-                                    .heightIn(max = if (isReply) 120.dp else 150.dp)
-                                    .clip(RoundedCornerShape(if (isReply) 8.dp else 12.dp)),
+                                    .widthIn(max = 200.dp)
+                                    .heightIn(max = 150.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
                                 contentScale = ContentScale.Fit,
                             )
                         }
@@ -1029,21 +1030,21 @@ private fun CommentContentRow(
                     modifier = Modifier.padding(start = CorusSpacing.sm),
                 ) {
                     val haptic = LocalHapticFeedback.current
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(if (isReply) 28.dp else 32.dp)
-                            .combinedClickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = onLike,
-                                onLongClick = {
-                                    if (comment.likeCount > 0) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        onLikeLongPress()
-                                    }
-                                },
-                            ),
+                    // Heart stacked over its like count, mirroring CommentsSheet
+                    // (and iOS). The count is only shown when > 0.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.combinedClickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onLike,
+                            onLongClick = {
+                                if (comment.likeCount > 0) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onLikeLongPress()
+                                }
+                            },
+                        ),
                     ) {
                         Icon(
                             if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
@@ -1051,9 +1052,17 @@ private fun CommentContentRow(
                             tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
                             modifier = Modifier.size(if (isReply) 14.dp else 16.dp),
                         )
+                        if (comment.likeCount > 0) {
+                            Text(
+                                text = "${comment.likeCount}",
+                                style = CorusFont.caption.copy(fontSize = 11.sp),
+                                color = CorusColors.Secondary,
+                            )
+                        }
                     }
                     if (isOwnComment) {
                         var showMenu by remember { mutableStateOf(false) }
+                        Spacer(modifier = Modifier.width(CorusSpacing.sm))
                         Box {
                             Icon(
                                 imageVector = Icons.Filled.MoreHoriz,

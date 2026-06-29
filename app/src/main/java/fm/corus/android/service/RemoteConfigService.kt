@@ -8,6 +8,7 @@ import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.BuildConfig
+import fm.corus.android.domain.FeedModeOrder
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -70,6 +71,18 @@ class RemoteConfigService @Inject constructor(
             default
         } else {
             value.asBoolean()
+        }
+    }
+
+    /// String mirror of [feedFlag]: returns the live activated value when Remote
+    /// Config has one this process, otherwise the last value we persisted (so
+    /// feed-gated UI renders correctly before the disk-cached config loads).
+    private fun feedString(key: String): String {
+        val value = remoteConfig.getValue(key)
+        return if (value.source == FirebaseRemoteConfig.VALUE_SOURCE_REMOTE) {
+            value.asString()
+        } else {
+            flagCache.getString(key, value.asString()) ?: value.asString()
         }
     }
     // Existing flags
@@ -197,6 +210,15 @@ class RemoteConfigService @Inject constructor(
     val tasteMatchesTester: Boolean
         get() = feedFlag("taste_matches_tester")
 
+    /// Order of the feed switcher menu, driven by the `feed_mode_order` Remote
+    /// Config string (comma-separated camelCase tokens, e.g.
+    /// "following,trending,tasteMatches,favorites"). Parsed leniently — see
+    /// [FeedModeOrder.parse]. Shares the key with iOS/web so a single console
+    /// change reorders every client. Per-mode availability gates still apply on
+    /// top, so this only reorders the rows that are already eligible to show.
+    val feedModeOrder: List<String>
+        get() = FeedModeOrder.parse(feedString("feed_mode_order"))
+
     /// Gates the "Someone added you to their favorites" push + in-app row.
     /// Server-authoritative on the backend; mirrored here for completeness.
     val favoritesPushEnabled: Boolean
@@ -299,6 +321,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("trending_feed_enabled", remoteConfig.getBoolean("trending_feed_enabled"))
             .putBoolean("favorites_enabled", remoteConfig.getBoolean("favorites_enabled"))
             .putBoolean("play_milestone_enabled", remoteConfig.getBoolean("play_milestone_enabled"))
+            .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
             .apply()
     }
 
@@ -364,6 +387,7 @@ class RemoteConfigService @Inject constructor(
             "favorites_enabled" to true,
             "favorites_push_enabled" to true,
             "play_milestone_enabled" to false,
+            "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
         )
     }
 }

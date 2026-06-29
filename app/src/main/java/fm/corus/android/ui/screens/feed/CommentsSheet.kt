@@ -1194,7 +1194,7 @@ private fun CommentRow(
                         if (comment.likeCount > 0) {
                             Text(
                                 text = "${comment.likeCount}",
-                                style = CorusFont.caption,
+                                style = CorusFont.caption.copy(fontSize = 11.sp),
                                 color = CorusColors.Secondary,
                             )
                         }

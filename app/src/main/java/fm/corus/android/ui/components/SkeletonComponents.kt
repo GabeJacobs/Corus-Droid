@@ -347,7 +347,13 @@ fun SkeletonSuggestedUserRow() {
 
 // 1. SkeletonProfileView — Full profile header
 @Composable
-fun SkeletonProfileView() {
+fun SkeletonProfileView(
+    // Own ProfileScreen has a 40dp customize/settings icon band above the name,
+    // so its skeleton reserves it. OtherProfileScreen keeps those icons in the
+    // TopAppBar and renders the name as a plain centered Text flush at the top —
+    // passing false drops the icon band so the name doesn't sit ~20dp too low.
+    showIconHeaderRow: Boolean = true,
+) {
     val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
     val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
     val headerAvatarSize = if (isWideHeader) CorusSpacing.avatarLarge else 68.dp
@@ -360,42 +366,63 @@ fun SkeletonProfileView() {
             .fillMaxWidth()
             .shimmer(),
     ) {
-        // Header row — mirrors the loaded header (40dp customize icon, centered
-        // display name, 24dp settings icon) so the skeleton reserves the same
-        // ~64dp top band and the content below doesn't jump up on load.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            // Reserve the 40dp customize-icon slot (no shimmer — it's an action
-            // button, not loading content) so the header height still matches.
-            Spacer(modifier = Modifier.size(40.dp))
-            // Display name placeholder
+        if (showIconHeaderRow) {
+            // Header row — mirrors the loaded OWN-profile header (40dp customize
+            // icon, centered display name, 24dp settings icon) so the skeleton
+            // reserves the same ~64dp top band and content doesn't jump on load.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                // Reserve the 40dp customize-icon slot (no shimmer — it's an action
+                // button, not loading content) so the header height still matches.
+                Spacer(modifier = Modifier.size(40.dp))
+                // Display name placeholder
+                Box(
+                    modifier = Modifier
+                        .width(140.dp)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(CorusColors.Skeleton)
+                )
+                // Settings icon placeholder
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(CorusColors.Skeleton)
+                )
+            }
+        } else {
+            // OtherProfileScreen header: the real layout is just a centered display
+            // name Text at the very top (icons are in the TopAppBar). Match it — a
+            // centered placeholder with the displayName line-height footprint, no
+            // icon band — so the skeleton name lines up with the loaded name.
+            // Mirrors SkeletonProfileWithAvatar's name placeholder.
             Box(
                 modifier = Modifier
+                    .padding(vertical = 4.dp)
+                    .align(Alignment.CenterHorizontally)
                     .width(140.dp)
                     .height(16.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(CorusColors.Skeleton)
             )
-            // Settings icon placeholder
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(CorusColors.Skeleton)
-            )
         }
 
-        // Avatar + stats row — no vertical padding (matches the loaded row, which
-        // gets its gap from the Spacer below), so the avatar lines up exactly.
+        // Avatar + stats row. Own ProfileScreen's loaded row has no vertical
+        // padding (its gap comes from the Spacer below), but OtherProfileScreen's
+        // loaded row uses vertical = md — so match each to keep the avatar aligned.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = avatarHPad),
+                .padding(
+                    horizontal = avatarHPad,
+                    vertical = if (showIconHeaderRow) 0.dp else CorusSpacing.md,
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Avatar circle — size matches the real header
@@ -1613,41 +1640,19 @@ fun SkeletonFeaturedMoviePoster(frameStyle: fm.corus.android.data.model.FrameSty
 // 13. SkeletonFeaturedCymbal — Large rectangle for featured post area
 @Composable
 fun SkeletonFeaturedCymbal() {
-    Column(
+    // Single block matching the real FeaturedCymbalView canvas height
+    // (w * 448/585). The real view overlays the title/artist row at the BOTTOM
+    // of this same area, so it adds no height below the art. Earlier this
+    // skeleton stacked two title/artist bars *below* the block, which both
+    // floated on white as orphan lines and pushed the grid ~one row down. The
+    // block already covers where that text lands, so we drop the stacked bars:
+    // the grid now sits flush under the featured area, matching iOS and the
+    // loaded layout (no jump when the real art fades in).
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .shimmer(),
-    ) {
-        // Main featured area (~0.76 aspect ratio matching vinyl canvas: 448/585)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(585f / 448f)
-                .background(CorusColors.Skeleton)
-        )
-
-        // Title + artist bars below
-        Column(
-            modifier = Modifier.padding(
-                horizontal = CorusSpacing.lg,
-                vertical = CorusSpacing.md,
-            ),
-            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(130.dp)
-                    .height(14.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.Skeleton)
-            )
-            Box(
-                modifier = Modifier
-                    .width(90.dp)
-                    .height(11.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.Skeleton)
-            )
-        }
-    }
+            .aspectRatio(585f / 448f)
+            .shimmer()
+            .background(CorusColors.Skeleton)
+    )
 }

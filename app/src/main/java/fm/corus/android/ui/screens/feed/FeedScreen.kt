@@ -78,6 +78,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.domain.FeedModeOrder
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.PopularUsersInfiniteGrid
@@ -155,6 +156,7 @@ fun FeedScreen(
     val favoritesEnabled = viewModel.remoteConfig.favoritesEnabled
     val tasteMatchesAvailable =
         viewModel.remoteConfig.tasteMatchesEnabled || viewModel.remoteConfig.tasteMatchesTester
+    val feedModeOrder = viewModel.remoteConfig.feedModeOrder
     val tasteMatchesGate by viewModel.tasteMatchesGate.collectAsState()
     val tasteMatchesSeeding by viewModel.tasteMatchesSeeding.collectAsState()
     val tasteMatchesSeedArt by viewModel.tasteMatchesSeedArt.collectAsState()
@@ -317,6 +319,7 @@ fun FeedScreen(
             trendingFeedEnabled = trendingFeedEnabled,
             favoritesEnabled = favoritesEnabled,
             tasteMatchesAvailable = tasteMatchesAvailable,
+            feedModeOrder = feedModeOrder,
             feedMode = feedMode,
             onSetFeedMode = { viewModel.setFeedMode(it) },
         )
@@ -981,6 +984,7 @@ private fun FeedTitleWithModeMenu(
     trendingFeedEnabled: Boolean,
     favoritesEnabled: Boolean,
     tasteMatchesAvailable: Boolean,
+    feedModeOrder: List<String>,
     onSetFeedMode: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -1048,44 +1052,31 @@ private fun FeedTitleWithModeMenu(
                     )
                 }
             }
-            if (tasteMatchesAvailable) {
+            // Order comes from the `feed_mode_order` Remote Config string (see
+            // FeedModeOrder); each row still renders only when its availability
+            // gate is satisfied. Following has no gate, so it always shows.
+            feedModeOrder.forEach { mode ->
+                val available = when (mode) {
+                    FeedModeOrder.TASTE_MATCHES -> tasteMatchesAvailable
+                    FeedModeOrder.TRENDING -> trendingFeedEnabled
+                    FeedModeOrder.FOLLOWING -> true
+                    FeedModeOrder.FAVORITES -> favoritesEnabled
+                    else -> false
+                }
+                if (!available) return@forEach
+                val label = when (mode) {
+                    FeedModeOrder.TASTE_MATCHES -> "Taste Matches"
+                    FeedModeOrder.TRENDING -> "Trending"
+                    FeedModeOrder.FOLLOWING -> "Following"
+                    FeedModeOrder.FAVORITES -> "Favorites"
+                    else -> return@forEach
+                }
                 DropdownMenuItem(
-                    text = { Text("Taste Matches") },
-                    leadingIcon = { leadingIcon("tasteMatches") },
-                    trailingIcon = if (feedMode == "tasteMatches") activeCheckmark else null,
+                    text = { Text(label) },
+                    leadingIcon = { leadingIcon(mode) },
+                    trailingIcon = if (feedMode == mode) activeCheckmark else null,
                     onClick = {
-                        onSetFeedMode("tasteMatches")
-                        expanded = false
-                    },
-                )
-            }
-            if (trendingFeedEnabled) {
-                DropdownMenuItem(
-                    text = { Text("Trending") },
-                    leadingIcon = { leadingIcon("trending") },
-                    trailingIcon = if (feedMode == "trending") activeCheckmark else null,
-                    onClick = {
-                        onSetFeedMode("trending")
-                        expanded = false
-                    },
-                )
-            }
-            DropdownMenuItem(
-                text = { Text("Following") },
-                leadingIcon = { leadingIcon("following") },
-                trailingIcon = if (feedMode == "following") activeCheckmark else null,
-                onClick = {
-                    onSetFeedMode("following")
-                    expanded = false
-                },
-            )
-            if (favoritesEnabled) {
-                DropdownMenuItem(
-                    text = { Text("Favorites") },
-                    leadingIcon = { leadingIcon("favorites") },
-                    trailingIcon = if (feedMode == "favorites") activeCheckmark else null,
-                    onClick = {
-                        onSetFeedMode("favorites")
+                        onSetFeedMode(mode)
                         expanded = false
                     },
                 )
@@ -1404,6 +1395,7 @@ private fun FeedHeader(
     trendingFeedEnabled: Boolean = false,
     favoritesEnabled: Boolean = false,
     tasteMatchesAvailable: Boolean = false,
+    feedModeOrder: List<String> = FeedModeOrder.DEFAULT,
     feedMode: String = "following",
     onSetFeedMode: (String) -> Unit = {},
 ) {
@@ -1419,6 +1411,7 @@ private fun FeedHeader(
                 trendingFeedEnabled = trendingFeedEnabled,
                 favoritesEnabled = favoritesEnabled,
                 tasteMatchesAvailable = tasteMatchesAvailable,
+                feedModeOrder = feedModeOrder,
                 onSetFeedMode = onSetFeedMode,
             )
         } else {

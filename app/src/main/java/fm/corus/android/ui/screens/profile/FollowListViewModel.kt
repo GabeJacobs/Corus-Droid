@@ -80,6 +80,29 @@ class FollowListViewModel @Inject constructor(
 
     private var didStartMutualCount = false
 
+    init {
+        // Keep the list's follow buttons in sync when the viewer follows/unfollows
+        // someone off this screen (e.g. tapped a row into that profile and followed
+        // there): the shared following-id set updates, so reconcile already-loaded
+        // rows instead of leaving a stale "Follow"/"Following" label on return.
+        viewModelScope.launch {
+            userRepository.followingIds.collect { ids ->
+                val current = _followingStatus.value
+                if (current.isEmpty()) return@collect
+                var changed = false
+                val updated = current.toMutableMap()
+                for ((id, was) in current) {
+                    val now = ids.contains(id)
+                    if (was != now) {
+                        updated[id] = now
+                        changed = true
+                    }
+                }
+                if (changed) _followingStatus.value = updated
+            }
+        }
+    }
+
     /**
      * Cheap mutual COUNT for the tab label/visibility, computed on-device from
      * the cached following set (reads ≈ overlap) and cached per profile. Drives
