@@ -1098,157 +1098,161 @@ private fun CommentRow(
                 }
             }
 
-            // Text, then GIF (left-aligned), then song/film attachment.
-            // Text + GIF can co-exist (caption + GIF in one comment).
-            val displayedText = if (comment.textIsAttachmentFallback) "" else comment.text
-            if (displayedText.isNotEmpty()) {
-                val annotatedText = remember(displayedText) {
-                    buildMentionAnnotatedString(
-                        text = displayedText,
-                        baseStyle = SpanStyle(
-                            fontFamily = CorusFont.body.fontFamily,
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 15.sp,
-                        ),
-                    )
-                }
-                TappableMentionText(
-                    text = annotatedText,
-                    style = CorusFont.body.copy(fontSize = 15.sp),
-                    onMentionTap = onMentionTap,
-                    onHashtagTap = onHashtagTap,
-                )
-            }
-
-            if (comment.gifURL != null) {
-                Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(comment.gifURL)
-                            .build(),
-                        contentDescription = stringResource(R.string.comments_cd_gif),
-                        modifier = Modifier
-                            .widthIn(max = 200.dp)
-                            .heightIn(max = 150.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Fit,
-                    )
-                }
-            } else if ((comment.attachedSong != null || comment.attachedFilm != null) && nowPlaying != null) {
-                if (displayedText.isNotEmpty()) Spacer(Modifier.height(CorusSpacing.xs))
-                CommentAttachmentCard(
-                    attachedSong = comment.attachedSong,
-                    attachedFilm = comment.attachedFilm,
-                    nowPlaying = nowPlaying,
-                    onNavigateToSong = onNavigateToSong,
-                    onNavigateToFilm = onNavigateToFilm,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(CorusSpacing.xs))
-
-            // Reply button
-            Text(
-                text = stringResource(R.string.comments_reply),
-                style = CorusFont.captionMedium,
-                color = CorusColors.Secondary,
-                modifier = Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onReplyTap,
-                ),
-            )
-        }
-
-        // Like button + menu — vertically centered on the row
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .align(Alignment.CenterVertically)
-                .padding(start = CorusSpacing.sm),
-        ) {
-            val haptic = LocalHapticFeedback.current
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.combinedClickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onLikeTap,
-                    onLongClick = {
-                        if (comment.likeCount > 0) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onLikeLongPress()
+            // Body and the like control share a row so the heart top-aligns
+            // with the first line of the comment text (Instagram-style).
+            Row(verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f)) {
+                    // Text, then GIF (left-aligned), then song/film attachment.
+                    // Text + GIF can co-exist (caption + GIF in one comment).
+                    val displayedText = if (comment.textIsAttachmentFallback) "" else comment.text
+                    if (displayedText.isNotEmpty()) {
+                        val annotatedText = remember(displayedText) {
+                            buildMentionAnnotatedString(
+                                text = displayedText,
+                                baseStyle = SpanStyle(
+                                    fontFamily = CorusFont.body.fontFamily,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 15.sp,
+                                ),
+                            )
                         }
-                    },
-                ),
-            ) {
-                Icon(
-                    imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = stringResource(R.string.comments_cd_like_comment),
-                    modifier = Modifier.size(14.dp),
-                    tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
-                )
-                if (comment.likeCount > 0) {
-                    Text(
-                        text = "${comment.likeCount}",
-                        style = CorusFont.caption,
-                        color = CorusColors.Secondary,
-                    )
-                }
-            }
-
-            // "..." menu button for own comments (matching iOS)
-            if (isOwnComment) {
-                var showMenu by remember { mutableStateOf(false) }
-                Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                Box {
-                Icon(
-                    imageVector = Icons.Filled.MoreHoriz,
-                    contentDescription = stringResource(R.string.comments_cd_options),
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { showMenu = true },
-                        ),
-                    tint = CorusColors.Secondary,
-                )
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                ) {
-                    if (comment.gifURL == null && !comment.textIsAttachmentFallback) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    stringResource(R.string.comments_menu_edit),
-                                    style = CorusFont.body,
-                                    color = CorusColors.Text,
-                                )
-                            },
-                            onClick = {
-                                showMenu = false
-                                onEditTap()
-                            },
+                        TappableMentionText(
+                            text = annotatedText,
+                            style = CorusFont.body.copy(fontSize = 15.sp),
+                            onMentionTap = onMentionTap,
+                            onHashtagTap = onHashtagTap,
                         )
                     }
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                stringResource(R.string.comments_menu_delete),
-                                style = CorusFont.body,
-                                color = CorusColors.Error,
+
+                    if (comment.gifURL != null) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(comment.gifURL)
+                                    .build(),
+                                contentDescription = stringResource(R.string.comments_cd_gif),
+                                modifier = Modifier
+                                    .widthIn(max = 200.dp)
+                                    .heightIn(max = 150.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Fit,
                             )
-                        },
-                        onClick = {
-                            showMenu = false
-                            showDeleteConfirm = true
-                        },
+                        }
+                    } else if ((comment.attachedSong != null || comment.attachedFilm != null) && nowPlaying != null) {
+                        if (displayedText.isNotEmpty()) Spacer(Modifier.height(CorusSpacing.xs))
+                        CommentAttachmentCard(
+                            attachedSong = comment.attachedSong,
+                            attachedFilm = comment.attachedFilm,
+                            nowPlaying = nowPlaying,
+                            onNavigateToSong = onNavigateToSong,
+                            onNavigateToFilm = onNavigateToFilm,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+
+                    // Reply button
+                    Text(
+                        text = stringResource(R.string.comments_reply),
+                        style = CorusFont.captionMedium,
+                        color = CorusColors.Secondary,
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onReplyTap,
+                        ),
                     )
                 }
-            }
+
+                // Like button + menu — top-aligned with the first line of text
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = CorusSpacing.sm),
+                ) {
+                    val haptic = LocalHapticFeedback.current
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.combinedClickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onLikeTap,
+                            onLongClick = {
+                                if (comment.likeCount > 0) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onLikeLongPress()
+                                }
+                            },
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = stringResource(R.string.comments_cd_like_comment),
+                            modifier = Modifier.size(14.dp),
+                            tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
+                        )
+                        if (comment.likeCount > 0) {
+                            Text(
+                                text = "${comment.likeCount}",
+                                style = CorusFont.caption,
+                                color = CorusColors.Secondary,
+                            )
+                        }
+                    }
+
+                    // "..." menu button for own comments (matching iOS)
+                    if (isOwnComment) {
+                        var showMenu by remember { mutableStateOf(false) }
+                        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                        Box {
+                            Icon(
+                                imageVector = Icons.Filled.MoreHoriz,
+                                contentDescription = stringResource(R.string.comments_cd_options),
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { showMenu = true },
+                                    ),
+                                tint = CorusColors.Secondary,
+                            )
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                            ) {
+                                if (comment.gifURL == null && !comment.textIsAttachmentFallback) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                stringResource(R.string.comments_menu_edit),
+                                                style = CorusFont.body,
+                                                color = CorusColors.Text,
+                                            )
+                                        },
+                                        onClick = {
+                                            showMenu = false
+                                            onEditTap()
+                                        },
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            stringResource(R.string.comments_menu_delete),
+                                            style = CorusFont.body,
+                                            color = CorusColors.Error,
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        showDeleteConfirm = true
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

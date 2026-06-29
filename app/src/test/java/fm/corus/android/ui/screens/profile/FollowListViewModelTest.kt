@@ -103,7 +103,7 @@ class FollowListViewModelTest {
                 .thenReturn(setOf("isa", "isaac"))
 
             val vm = makeViewModel()
-            vm.loadFollowList("target", isFollowers = false)
+            vm.loadFollowList("target", FollowListMode.FOLLOWING)
             advanceUntilIdle()
 
             vm.search("isa")
@@ -127,7 +127,7 @@ class FollowListViewModelTest {
                 .thenReturn(setOf("isa"))
 
             val vm = makeViewModel()
-            vm.loadFollowList("target", isFollowers = true)
+            vm.loadFollowList("target", FollowListMode.FOLLOWERS)
             advanceUntilIdle()
 
             vm.search("isa")
@@ -143,7 +143,7 @@ class FollowListViewModelTest {
         runTest(testDispatcher) {
             stubInitialLoad(isFollowers = false)
             val vm = makeViewModel()
-            vm.loadFollowList("target", isFollowers = false)
+            vm.loadFollowList("target", FollowListMode.FOLLOWING)
             advanceUntilIdle()
 
             vm.search("   ")
@@ -166,7 +166,7 @@ class FollowListViewModelTest {
                 .thenReturn(setOf("isa", "isaac"))
 
             val vm = makeViewModel()
-            vm.loadFollowList("target", isFollowers = false)
+            vm.loadFollowList("target", FollowListMode.FOLLOWING)
             advanceUntilIdle()
 
             // Fire two queries back to back; the first job is cancelled by the second.
@@ -175,5 +175,140 @@ class FollowListViewModelTest {
             advanceUntilIdle()
 
             assertEquals(listOf("isaac"), vm.searchResults.value.map { it.id })
+        }
+
+    // ── Mutual tab ──
+
+    @Test
+    fun `mutual load surfaces users, count, and cursor from the callable`() =
+        runTest(testDispatcher) {
+            whenever(userRepository.fetchMutualFollowers(eq("target"), anyOrNull(), any()))
+                .thenReturn(
+                    CloudFunctionsDataSource.MutualFollowersPage(
+                        users = listOf(makeUser("ben"), makeUser("cleo")),
+                        nextCursor = "cursor-2",
+                        mutualCount = 16,
+                        mutualCountCapped = false,
+                    )
+                )
+
+            val vm = makeViewModel()
+            vm.loadFollowList("target", FollowListMode.MUTUAL)
+            advanceUntilIdle()
+
+            assertEquals(listOf("ben", "cleo"), vm.users.value.map { it.id })
+            assertEquals(16, vm.mutualCount.value)
+            // The viewer follows every mutual by definition.
+            assertEquals(true, vm.followingStatus.value["ben"])
+            assertEquals(true, vm.followingStatus.value["cleo"])
+            // A non-null cursor means there's another page.
+            assertEquals(true, vm.hasMore.value)
+        }
+
+    @Test
+    fun `mutual search scopes to followers-of-profile intersect viewer-following`() =
+        runTest(testDispatcher) {
+            whenever(userRepository.fetchMutualFollowers(eq("target"), anyOrNull(), any()))
+                .thenReturn(
+                    CloudFunctionsDataSource.MutualFollowersPage(emptyList(), null, 5, false)
+                )
+            val ranked = listOf(makeUser("ava"), makeUser("ben"), makeUser("cleo"), makeUser("dan"))
+            whenever(userRepository.searchUsers(eq("a"), any(), any())).thenReturn(ranked)
+            // ava+ben+cleo follow the profile; ben+cleo+dan are followed by the viewer.
+            whenever(userRepository.checkFollowerStatusBatch(eq("target"), any()))
+                .thenReturn(setOf("ava", "ben", "cleo"))
+            whenever(userRepository.checkFollowingStatusBatch(eq("viewer-1"), any()))
+                .thenReturn(setOf("ben", "cleo", "dan"))
+
+            val vm = makeViewModel()
+            vm.loadFollowList("target", FollowListMode.MUTUAL)
+            advanceUntilIdle()
+
+            vm.search("a")
+            advanceUntilIdle()
+
+            // Only the intersection (ben, cleo) survives; rank order preserved.
+            assertEquals(listOf("ben", "cleo"), vm.searchResults.value.map { it.id })
+        }
+
+    @Test
+    fun `mutualCount is unknown until the first page loads`() {
+        val vm = makeViewModel()
+        // -1 sentinel lets the screen keep the tab hidden until we know it's > 0.
+        assertEquals(-1, vm.mutualCount.value)
+    }
+
+    @Test
+    fun `mutualResolved gates the tab strip until the first page settles`() =
+        runTest(testDispatcher) {
+            whenever(userRepository.fetchMutualFollowers(eq("target"), anyOrNull(), any()))
+                .thenReturn(
+                    CloudFunctionsDataSource.MutualFollowersPage(emptyList(), null, 0, false)
+                )
+
+            val vm = makeViewModel()
+            // Before loading, the tab strip must wait (false), so it can paint
+            // complete with the Mutual tab already in its leftmost slot.
+            assertFalse(vm.mutualResolved.value)
+
+            vm.loadFollowList("target", FollowListMode.MUTUAL)
+            advanceUntilIdle()
+
+            // Even with zero mutuals, resolution completes so the strip can render.
+            assertEquals(true, vm.mutualResolved.value)
+        }
+
+    @Test
+    fun `loadMutualCount uses the cheap repo count and resolves the tab`() =
+        runTest(testDispatcher) {
+            whenever(userRepository.mutualFollowerCount(eq("viewer-1"), eq("target"), any()))
+                .thenReturn(UserRepository.MutualCount(16, false))
+
+            val vm = makeViewModel()
+            vm.loadMutualCount("viewer-1", "target")
+            advanceUntilIdle()
+
+            assertEquals(16, vm.mutualCount.value)
+            assertEquals(true, vm.mutualResolved.value)
+            // The cheap path must NOT hit the paginated backend list endpoint.
+            verify(userRepository, never()).fetchMutualFollowers(any(), anyOrNull(), any())
+        }
+
+    @Test
+    fun `loadMutualCount is idempotent`() =
+        runTest(testDispatcher) {
+            whenever(userRepository.mutualFollowerCount(any(), any(), any()))
+                .thenReturn(UserRepository.MutualCount(3, false))
+
+            val vm = makeViewModel()
+            vm.loadMutualCount("viewer-1", "target")
+            vm.loadMutualCount("viewer-1", "target")
+            advanceUntilIdle()
+
+            verify(userRepository).mutualFollowerCount(eq("viewer-1"), eq("target"), any())
+        }
+
+    @Test
+    fun `loadFollowList is idempotent across repeat calls`() =
+        runTest(testDispatcher) {
+            whenever(userRepository.fetchMutualFollowers(eq("target"), anyOrNull(), any()))
+                .thenReturn(
+                    CloudFunctionsDataSource.MutualFollowersPage(
+                        users = listOf(makeUser("ben")),
+                        nextCursor = null,
+                        mutualCount = 1,
+                        mutualCountCapped = false,
+                    )
+                )
+
+            val vm = makeViewModel()
+            // The eager count load and the pager page can both call this.
+            vm.loadFollowList("target", FollowListMode.MUTUAL)
+            vm.loadFollowList("target", FollowListMode.MUTUAL)
+            advanceUntilIdle()
+
+            assertEquals(1, vm.mutualCount.value)
+            // Only one network fetch despite two calls.
+            verify(userRepository).fetchMutualFollowers(eq("target"), anyOrNull(), any())
         }
 }

@@ -204,6 +204,8 @@ class UserRepository @Inject constructor(
         cloudFunctions.followUser(targetUserId)
         _followingIds.value = _followingIds.value + targetUserId
         preferencesDataStore.persistFollowingIds(_followingIds.value, userId)
+        // Following set changed → mutual counts for any profile may shift.
+        invalidateMutualCounts()
         // The server bumps targetUser.followerCount and userId.followingCount.
         // Drop both cache entries so the next profile fetch reflects the new
         // counts instead of serving a stale entry (target: 5-min TTL; self:
@@ -218,6 +220,8 @@ class UserRepository @Inject constructor(
         _followingIds.value = _followingIds.value - targetUserId
         preferencesDataStore.persistFollowingIds(_followingIds.value, userId)
         _unfollowEvents.tryEmit(targetUserId)
+        // Following set changed → mutual counts for any profile may shift.
+        invalidateMutualCounts()
         invalidateUserProfileCache(targetUserId)
         invalidateUserProfileCache(userId)
     }
@@ -264,6 +268,76 @@ class UserRepository @Inject constructor(
         val result = firestoreDataSource.fetchFollowingIdsPaginated(userId, limit, startAfter)
         val profiles = fetchUsersByIdsBatched(result.ids)
         return PaginatedUsersResult(users = profiles, lastDocument = result.lastDocument)
+    }
+
+    /**
+     * Instagram-style "Mutual" tab: accounts the viewer follows who also follow
+     * [profileId] (viewer.following ∩ profile.followers). Server-side
+     * intersection via the `getMutualFollowers` callable, which returns
+     * ready-to-render users + an opaque string cursor (no id→profile hydration
+     * needed). [cursor] paginates; `mutualCount` is only set on the first page.
+     */
+    suspend fun fetchMutualFollowers(
+        profileId: String,
+        cursor: String? = null,
+        limit: Int,
+    ): CloudFunctionsDataSource.MutualFollowersPage {
+        return cloudFunctions.fetchMutualFollowers(profileId, cursor, limit)
+    }
+
+    data class MutualCount(val count: Int, val capped: Boolean)
+
+    private data class CachedMutualCount(val value: MutualCount, val viewerId: String, val atMs: Long)
+    // Per-profile mutual-COUNT cache (viewer-specific). Cleared on follow/unfollow
+    // since the viewer's following set drives the count.
+    private val mutualCountCache = mutableMapOf<String, CachedMutualCount>()
+    private val mutualCountTtlMs = 5 * 60 * 1000L
+
+    fun invalidateMutualCounts() {
+        mutualCountCache.clear()
+    }
+
+    /**
+     * Cheap mutual-follower COUNT for [profileId]: intersect the viewer's
+     * (cached) following set with the profile's followers via
+     * [checkFollowerStatusBatch] — reads ≈ the overlap, not the graph. Used to
+     * render the Mutual tab label/visibility instantly without the paginated
+     * `getMutualFollowers` callable (only hit when the tab is opened). Cached per
+     * profile with a short TTL; warmed by the profile view. Returns (0,false) on
+     * your own profile / signed out.
+     */
+    suspend fun mutualFollowerCount(
+        viewerId: String,
+        profileId: String,
+        forceRefresh: Boolean = false,
+    ): MutualCount {
+        if (viewerId.isEmpty() || viewerId == profileId) return MutualCount(0, false)
+        val now = System.currentTimeMillis()
+        if (!forceRefresh) {
+            val cached = mutualCountCache[profileId]
+            if (cached != null && cached.viewerId == viewerId && now - cached.atMs < mutualCountTtlMs) {
+                return cached.value
+            }
+        }
+
+        // Reuse the in-memory following set (free); fall back to a one-time read.
+        var ids = _followingIds.value
+        if (ids.isEmpty()) {
+            prefetchFollowingSet(viewerId)
+            ids = _followingIds.value
+        }
+        if (ids.isEmpty()) {
+            val zero = MutualCount(0, false)
+            mutualCountCache[profileId] = CachedMutualCount(zero, viewerId, now)
+            return zero
+        }
+
+        val mutuals = checkFollowerStatusBatch(profileId, ids.toList())
+        val n = mutuals.size
+        val cap = 1000
+        val result = MutualCount(minOf(n, cap), n > cap)
+        mutualCountCache[profileId] = CachedMutualCount(result, viewerId, now)
+        return result
     }
 
     /**

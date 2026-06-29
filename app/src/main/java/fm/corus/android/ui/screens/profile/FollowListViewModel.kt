@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** Which follow list a [FollowListViewModel] instance is driving. */
+enum class FollowListMode { FOLLOWERS, FOLLOWING, MUTUAL }
+
 @HiltViewModel
 class FollowListViewModel @Inject constructor(
     private val userRepository: UserRepository,
@@ -55,47 +58,105 @@ class FollowListViewModel @Inject constructor(
 
     private val _followersOfTarget = MutableStateFlow<Set<String>>(emptySet())
 
+    // Mutual tab only: total mutual count (capped server-side). -1 until the
+    // first page resolves, so the tab can stay hidden until we know it's > 0.
+    private val _mutualCount = MutableStateFlow(-1)
+    val mutualCount: StateFlow<Int> = _mutualCount.asStateFlow()
+    private val _mutualCountCapped = MutableStateFlow(false)
+    val mutualCountCapped: StateFlow<Boolean> = _mutualCountCapped.asStateFlow()
+    // Flips true once the mutuals first-page load has settled (success OR error)
+    // so the tab strip can wait and paint complete instead of adding the Mutual
+    // tab a beat after the list is already on screen.
+    private val _mutualResolved = MutableStateFlow(false)
+    val mutualResolved: StateFlow<Boolean> = _mutualResolved.asStateFlow()
+
     val currentUserId: String? get() = authRepository.currentUserId
 
     private var lastDocument: DocumentSnapshot? = null
+    private var mutualCursor: String? = null
     private var currentUserId_: String = ""
-    private var currentIsFollowers: Boolean = true
+    private var currentMode: FollowListMode = FollowListMode.FOLLOWERS
+    private var didStartLoad = false
 
-    fun loadFollowList(userId: String, isFollowers: Boolean) {
+    private var didStartMutualCount = false
+
+    /**
+     * Cheap mutual COUNT for the tab label/visibility, computed on-device from
+     * the cached following set (reads ≈ overlap) and cached per profile. Drives
+     * the tab strip; the paginated mutual LIST is loaded separately by
+     * [loadFollowList] only when the Mutual tab is actually opened.
+     */
+    fun loadMutualCount(viewerId: String, profileId: String) {
+        if (didStartMutualCount) return
+        didStartMutualCount = true
+        viewModelScope.launch {
+            try {
+                val r = userRepository.mutualFollowerCount(viewerId, profileId)
+                _mutualCount.value = r.count
+                _mutualCountCapped.value = r.capped
+            } catch (_: Exception) {
+                _mutualCount.value = 0 // resolve (tab hidden) on error
+            } finally {
+                _mutualResolved.value = true
+            }
+        }
+    }
+
+    /**
+     * Idempotent: the tab wrapper may trigger this from both an eager
+     * mutual-count load and the pager page's own LaunchedEffect, so only the
+     * first call does work.
+     */
+    fun loadFollowList(userId: String, mode: FollowListMode) {
+        if (didStartLoad) return
+        didStartLoad = true
         viewModelScope.launch {
             _isLoading.value = true
             _hasMore.value = true
             lastDocument = null
+            mutualCursor = null
             currentUserId_ = userId
-            currentIsFollowers = isFollowers
+            currentMode = mode
             try {
-                val result = if (isFollowers) {
-                    userRepository.fetchFollowersPaginated(userId, PAGE_SIZE)
+                if (mode == FollowListMode.MUTUAL) {
+                    val page = userRepository.fetchMutualFollowers(userId, null, PAGE_SIZE)
+                    _mutualCount.value = page.mutualCount
+                    _mutualCountCapped.value = page.mutualCountCapped
+                    mutualCursor = page.nextCursor
+                    _users.value = page.users
+                    if (page.nextCursor == null) _hasMore.value = false
+                    // The viewer follows every mutual by definition.
+                    _followingStatus.value = page.users.associate { it.id to true }
                 } else {
-                    userRepository.fetchFollowingPaginated(userId, PAGE_SIZE)
-                }
-
-                _users.value = result.users
-                lastDocument = result.lastDocument
-                if (result.users.size < PAGE_SIZE) {
-                    _hasMore.value = false
-                }
-
-                // Check follow status for each
-                val myFollowing = userRepository.followingIds.value.ifEmpty {
-                    authRepository.currentUserId?.let { myId ->
-                        userRepository.prefetchFollowingSet(myId)
+                    val result = if (mode == FollowListMode.FOLLOWERS) {
+                        userRepository.fetchFollowersPaginated(userId, PAGE_SIZE)
+                    } else {
+                        userRepository.fetchFollowingPaginated(userId, PAGE_SIZE)
                     }
-                    userRepository.followingIds.value
-                }
-                val statuses = result.users.associate { it.id to myFollowing.contains(it.id) }
-                _followingStatus.value = statuses
 
-                // If viewing followers, track who follows back
-                if (isFollowers) {
-                    _followersOfTarget.value = result.users.map { it.id }.toSet()
+                    _users.value = result.users
+                    lastDocument = result.lastDocument
+                    if (result.users.size < PAGE_SIZE) {
+                        _hasMore.value = false
+                    }
+
+                    // Check follow status for each
+                    val myFollowing = userRepository.followingIds.value.ifEmpty {
+                        authRepository.currentUserId?.let { myId ->
+                            userRepository.prefetchFollowingSet(myId)
+                        }
+                        userRepository.followingIds.value
+                    }
+                    val statuses = result.users.associate { it.id to myFollowing.contains(it.id) }
+                    _followingStatus.value = statuses
+
+                    // If viewing followers, track who follows back
+                    if (mode == FollowListMode.FOLLOWERS) {
+                        _followersOfTarget.value = result.users.map { it.id }.toSet()
+                    }
                 }
             } catch (_: Exception) { }
+            if (mode == FollowListMode.MUTUAL) _mutualResolved.value = true
             _isLoading.value = false
         }
     }
@@ -148,20 +209,37 @@ class FollowListViewModel @Inject constructor(
                 )
                 val candidateIds = candidates.map { it.id }
 
-                // Keep only candidates who are in this list (followers/following
-                // of the viewed profile).
-                val memberIds = if (currentIsFollowers) {
-                    userRepository.checkFollowerStatusBatch(currentUserId_, candidateIds)
-                } else {
-                    userRepository.checkFollowingStatusBatch(currentUserId_, candidateIds)
+                // Keep only candidates who are in this list. For mutual that's
+                // the intersection of the profile's followers and the viewer's
+                // following (someone you follow who also follows the profile).
+                val memberIds = when (currentMode) {
+                    FollowListMode.FOLLOWERS ->
+                        userRepository.checkFollowerStatusBatch(currentUserId_, candidateIds)
+                    FollowListMode.FOLLOWING ->
+                        userRepository.checkFollowingStatusBatch(currentUserId_, candidateIds)
+                    FollowListMode.MUTUAL -> {
+                        val inProfileFollowers =
+                            userRepository.checkFollowerStatusBatch(currentUserId_, candidateIds)
+                        val viewerId = authRepository.currentUserId
+                        if (viewerId != null) {
+                            val inViewerFollowing =
+                                userRepository.checkFollowingStatusBatch(viewerId, candidateIds)
+                            inProfileFollowers intersect inViewerFollowing
+                        } else {
+                            emptySet()
+                        }
+                    }
                 }
                 val members = candidates.filter { memberIds.contains(it.id) }
 
                 // Follow-button state for the matches, relative to the viewer.
+                // Mutual matches are followed by the viewer by definition.
                 val myFollowing = userRepository.followingIds.value
                 _followingStatus.value = _followingStatus.value +
-                    members.associate { it.id to myFollowing.contains(it.id) }
-                if (currentIsFollowers) {
+                    members.associate {
+                        it.id to (currentMode == FollowListMode.MUTUAL || myFollowing.contains(it.id))
+                    }
+                if (currentMode == FollowListMode.FOLLOWERS) {
                     _followersOfTarget.value =
                         _followersOfTarget.value + members.map { it.id }.toSet()
                 }
@@ -174,7 +252,19 @@ class FollowListViewModel @Inject constructor(
     }
 
     private suspend fun appendNextPage() {
-        val result = if (currentIsFollowers) {
+        if (currentMode == FollowListMode.MUTUAL) {
+            val cursor = mutualCursor
+            if (cursor == null) { _hasMore.value = false; return }
+            val page = userRepository.fetchMutualFollowers(currentUserId_, cursor, PAGE_SIZE)
+            _users.value = _users.value + page.users
+            mutualCursor = page.nextCursor
+            if (page.nextCursor == null) _hasMore.value = false
+            _followingStatus.value = _followingStatus.value +
+                page.users.associate { it.id to true }
+            return
+        }
+
+        val result = if (currentMode == FollowListMode.FOLLOWERS) {
             userRepository.fetchFollowersPaginated(currentUserId_, PAGE_SIZE, lastDocument)
         } else {
             userRepository.fetchFollowingPaginated(currentUserId_, PAGE_SIZE, lastDocument)
@@ -192,7 +282,7 @@ class FollowListViewModel @Inject constructor(
         _followingStatus.value = _followingStatus.value + newStatuses
 
         // If viewing followers, update follow-back tracking
-        if (currentIsFollowers) {
+        if (currentMode == FollowListMode.FOLLOWERS) {
             _followersOfTarget.value = _followersOfTarget.value + result.users.map { it.id }.toSet()
         }
     }

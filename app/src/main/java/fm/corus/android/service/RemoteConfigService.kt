@@ -18,6 +18,16 @@ class RemoteConfigService @Inject constructor(
     private val auth: FirebaseAuth,
     @ApplicationContext private val context: Context,
 ) {
+    init {
+        // Apply in-app defaults the moment this service is constructed. This is a
+        // purely local operation (no network), so unlike fetchAndActivate() it is
+        // never delayed by a slow/failing fetch or App Check token minting. Without
+        // this, getBoolean() returns the Boolean type-default (false) for any flag
+        // until the network fetch's setDefaultsAsync lands, which on a fresh signup
+        // silently dropped the flag-gated TIDAL/Deezer cards from the player picker.
+        remoteConfig.setDefaultsAsync(DEFAULTS)
+    }
+
     /// Dev override store. SharedPreferences-backed so toggles persist
     /// across app restarts. Reads only happen in DEBUG builds — see
     /// `commentControlsOnPosts` getter. Never read in release.
@@ -45,6 +55,21 @@ class RemoteConfigService @Inject constructor(
             value.asBoolean()
         } else {
             flagCache.getBoolean(key, value.asBoolean())
+        }
+    }
+
+    /// Returns the live/activated value, falling back to [default] while Remote
+    /// Config has no value at all for [key] (source == STATIC). That STATIC
+    /// window happens on a fresh signup before the in-app defaults are applied —
+    /// without this fallback getBoolean returns the Boolean type-default (false),
+    /// which silently drops flag-gated UI. Defaults are applied locally in init(),
+    /// so the window is small, but the picker must be correct from its first frame.
+    private fun flagWithDefault(key: String, default: Boolean): Boolean {
+        val value = remoteConfig.getValue(key)
+        return if (value.source == FirebaseRemoteConfig.VALUE_SOURCE_STATIC) {
+            default
+        } else {
+            value.asBoolean()
         }
     }
     // Existing flags
@@ -129,13 +154,13 @@ class RemoteConfigService @Inject constructor(
     /// user could pick TIDAL on one client with no support on another. Mirrors
     /// iOS/web `tidal_enabled`.
     val tidalEnabled: Boolean
-        get() = remoteConfig.getBoolean("tidal_enabled")
+        get() = flagWithDefault("tidal_enabled", true)
 
     /// Master gate for the Deezer link-out integration (onboarding + settings
     /// service picker + post link-out). Mirrors `tidalEnabled` / iOS+web
     /// `deezer_enabled`. Keep OFF until web + iOS + Android all ship.
     val deezerEnabled: Boolean
-        get() = remoteConfig.getBoolean("deezer_enabled")
+        get() = flagWithDefault("deezer_enabled", true)
 
     val newReleaseFilterClubOnly: Boolean
         get() = remoteConfig.getBoolean("new_release_filter_club_only")
@@ -257,39 +282,7 @@ class RemoteConfigService @Inject constructor(
                 .setMinimumFetchIntervalInSeconds(minIntervalSeconds)
                 .build()
             remoteConfig.setConfigSettingsAsync(settings).await()
-            remoteConfig.setDefaultsAsync(
-                mapOf(
-                    "movie_mode" to true,
-                    "maintenance_mode" to false,
-                    "instagram_share_enabled" to true,
-                    "corus_club_enabled" to true,
-                    "vinyl_flip_enabled" to true,
-                    "review_prompt_enabled" to true,
-                    "maintenance_message" to "",
-                    "daily_post_limit_enabled" to true,
-                    "paywall_default_yearly" to false,
-                    "gif_support" to false,
-                    "group_messaging_enabled" to false,
-                    "server_notifications_enabled" to true,
-                    "save_count_enabled" to true,
-                    "save_cap_enforced" to true,
-                    "save_cap_limit" to 20L,
-                    "save_cap_warning_at" to 17L,
-                    "favorite_people_cap_enforced" to true,
-                    "favorite_people_cap_limit" to 4L,
-                    "soundcloud_enabled" to false,
-                    "tidal_enabled" to true,
-                    "deezer_enabled" to true,
-                    "comment_controls_on_posts" to true,
-                    "new_release_filter_club_only" to false,
-                    "style_pack_1_enabled" to false,
-                    "corus_flair_open" to true,
-                    "trending_feed_enabled" to true,
-                    "favorites_enabled" to true,
-                    "favorites_push_enabled" to true,
-                    "play_milestone_enabled" to false,
-                )
-            ).await()
+            remoteConfig.setDefaultsAsync(DEFAULTS).await()
             val activated = remoteConfig.fetchAndActivate().await()
             cacheFeedFlags()
             logValues(activated)
@@ -333,6 +326,44 @@ class RemoteConfigService @Inject constructor(
                 "trending_feed_enabled=${remoteConfig.getBoolean("trending_feed_enabled")} " +
                 "favorites_enabled=${remoteConfig.getBoolean("favorites_enabled")} " +
                 "uid=${auth.currentUser?.uid}"
+        )
+    }
+
+    companion object {
+        /// In-app Remote Config defaults. Applied locally in init() (so flag-gated
+        /// UI is correct before any network fetch) and re-applied in
+        /// fetchAndActivate(). Single source of truth — keep in sync with the
+        /// server template and the iOS/web defaults.
+        private val DEFAULTS: Map<String, Any> = mapOf(
+            "movie_mode" to true,
+            "maintenance_mode" to false,
+            "instagram_share_enabled" to true,
+            "corus_club_enabled" to true,
+            "vinyl_flip_enabled" to true,
+            "review_prompt_enabled" to true,
+            "maintenance_message" to "",
+            "daily_post_limit_enabled" to true,
+            "paywall_default_yearly" to false,
+            "gif_support" to false,
+            "group_messaging_enabled" to false,
+            "server_notifications_enabled" to true,
+            "save_count_enabled" to true,
+            "save_cap_enforced" to true,
+            "save_cap_limit" to 20L,
+            "save_cap_warning_at" to 17L,
+            "favorite_people_cap_enforced" to true,
+            "favorite_people_cap_limit" to 4L,
+            "soundcloud_enabled" to false,
+            "tidal_enabled" to true,
+            "deezer_enabled" to true,
+            "comment_controls_on_posts" to true,
+            "new_release_filter_club_only" to false,
+            "style_pack_1_enabled" to false,
+            "corus_flair_open" to true,
+            "trending_feed_enabled" to true,
+            "favorites_enabled" to true,
+            "favorites_push_enabled" to true,
+            "play_milestone_enabled" to false,
         )
     }
 }

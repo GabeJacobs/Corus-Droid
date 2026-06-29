@@ -128,7 +128,7 @@ fun ProfileScreen(
     onStylePickerConsumed: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToEditProfile: (String) -> Unit = {},
-    onNavigateToFollowList: (String, Boolean) -> Unit = { _, _ -> },
+    onNavigateToFollowList: (String, Boolean, String, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
     onNavigateToClub: () -> Unit = {},
     onOpenCompose: (String) -> Unit = {},
@@ -465,12 +465,12 @@ fun ProfileScreen(
                             StatItem(
                                 count = currentProfile.followerCount,
                                 label = stringResource(fm.corus.android.R.string.profile_stat_followers),
-                                onClick = { onNavigateToFollowList(currentProfile.id, true) },
+                                onClick = { onNavigateToFollowList(currentProfile.id, true, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
                             )
                             StatItem(
                                 count = currentProfile.followingCount,
                                 label = stringResource(fm.corus.android.R.string.profile_stat_following),
-                                onClick = { onNavigateToFollowList(currentProfile.id, false) },
+                                onClick = { onNavigateToFollowList(currentProfile.id, false, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
                             )
                         }
 

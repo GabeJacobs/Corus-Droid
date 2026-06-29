@@ -303,8 +303,8 @@ fun ProfileNavGraph(
                 },
                 onNavigateToSettings = { navController.navigate(SettingsRoute) },
                 onNavigateToEditProfile = { navController.navigate(EditProfileRoute(it)) },
-                onNavigateToFollowList = { userId, isFollowers ->
-                    navController.navigate(FollowListRoute(userId, isFollowers))
+                onNavigateToFollowList = { userId, isFollowers, username, followerCount, followingCount ->
+                    navController.navigate(FollowListRoute(userId, isFollowers, username, followerCount, followingCount))
                 },
                 onNavigateToProfileFeed = { userId, username, postId, segment ->
                     navController.navigate(ProfileFeedRoute(userId, username, segment, postId))
@@ -402,8 +402,8 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 navController.navigate(ProfileFeedRoute(userId, username, segment, postId))
             },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-            onNavigateToFollowList = { userId, isFollowers ->
-                navController.navigate(FollowListRoute(userId, isFollowers))
+            onNavigateToFollowList = { userId, isFollowers, username, followerCount, followingCount ->
+                navController.navigate(FollowListRoute(userId, isFollowers, username, followerCount, followingCount))
             },
             onNavigateToMessages = { threadId, otherUserId ->
                 navController.navigate(MessageThreadRoute(threadId, otherUserId))
@@ -433,8 +433,8 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                     navController.navigate(ProfileFeedRoute(uid, uname, segment, postId))
                 },
                 onNavigateToUser = { uid -> navController.navigate(OtherProfileRoute(uid)) },
-                onNavigateToFollowList = { uid, isFollowers ->
-                    navController.navigate(FollowListRoute(uid, isFollowers))
+                onNavigateToFollowList = { uid, isFollowers, username, followerCount, followingCount ->
+                    navController.navigate(FollowListRoute(uid, isFollowers, username, followerCount, followingCount))
                 },
                 onNavigateToMessages = { threadId, otherUserId ->
                     navController.navigate(MessageThreadRoute(threadId, otherUserId))
@@ -526,7 +526,10 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<FollowListRoute>()
         FollowListScreen(
             userId = route.userId,
-            isFollowers = route.isFollowers,
+            title = route.username,
+            followerCount = route.followerCount,
+            followingCount = route.followingCount,
+            initialShowFollowers = route.isFollowers,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
         )

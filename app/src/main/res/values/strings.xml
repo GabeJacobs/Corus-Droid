@@ -433,11 +433,16 @@
     <!-- Follow List -->
     <string name="follow_list_followers">Followers</string>
     <string name="follow_list_following">Following</string>
+    <!-- Instagram-style count-bearing tab labels, e.g. "436 followers" -->
+    <string name="follow_list_tab_followers">%1$s followers</string>
+    <string name="follow_list_tab_following">%1$s following</string>
+    <string name="follow_list_tab_mutual">%1$s mutual</string>
     <string name="follow_list_search_placeholder">Search</string>
     <string name="follow_list_cd_clear">Clear</string>
     <string name="follow_list_no_results">No results</string>
     <string name="follow_list_no_followers">No followers yet</string>
     <string name="follow_list_not_following">Not following anyone yet</string>
+    <string name="follow_list_no_mutuals">No mutual followers</string>
     <string name="follow_list_follows_you">Follows you</string>
     <string name="follow_list_button_following">Following</string>
     <string name="follow_list_button_follow_back">Follow back</string>

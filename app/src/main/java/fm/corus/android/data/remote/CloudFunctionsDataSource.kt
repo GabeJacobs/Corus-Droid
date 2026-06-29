@@ -533,6 +533,46 @@ class CloudFunctionsDataSource @Inject constructor(
             .call(mapOf("targetUserId" to targetUserId)).await()
     }
 
+    data class MutualFollowersPage(
+        val users: List<CymbalUser>,
+        val nextCursor: String?,
+        // Total mutual count, capped server-side. Only meaningful on the first
+        // page (cursor == null); -1 afterwards.
+        val mutualCount: Int,
+        val mutualCountCapped: Boolean,
+    )
+
+    /**
+     * Instagram-style "Mutual" tab ("Followed by people you follow"): accounts
+     * the signed-in viewer follows who also follow [profileId]
+     * (viewer.following ∩ profile.followers). Server-side intersection via the
+     * `getMutualFollowers` callable so every client shares one definition;
+     * empty on your own profile. Pass [cursor] from a prior page to paginate.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchMutualFollowers(
+        profileId: String,
+        cursor: String? = null,
+        limit: Int = 20,
+    ): MutualFollowersPage {
+        val params = mutableMapOf<String, Any>("profileId" to profileId, "limit" to limit)
+        cursor?.let { params["cursor"] = it }
+        val result = functions.getHttpsCallable("getMutualFollowers").call(params).await()
+        val data = result.getData() as? Map<String, Any?>
+            ?: return MutualFollowersPage(emptyList(), null, 0, false)
+        val rows = data["users"] as? List<Map<String, Any?>> ?: emptyList()
+        val users = rows.mapNotNull { row ->
+            val id = row["id"] as? String ?: return@mapNotNull null
+            if (id.isEmpty()) null else CymbalUser.fromMap(id, row)
+        }
+        return MutualFollowersPage(
+            users = users,
+            nextCursor = data["nextCursor"] as? String,
+            mutualCount = (data["mutualCount"] as? Number)?.toInt() ?: 0,
+            mutualCountCapped = data["mutualCountCapped"] as? Boolean ?: false,
+        )
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun reconcileSavesCount(): Int {
         val result = functions.getHttpsCallable("reconcileSavesCount")

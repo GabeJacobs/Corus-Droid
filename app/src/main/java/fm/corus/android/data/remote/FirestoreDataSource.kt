@@ -231,18 +231,8 @@ class FirestoreDataSource @Inject constructor(
      * of 30 to respect Firestore's `whereIn` limit. Mirrors iOS
      * `checkFollowerStatusBatch`.
      */
-    suspend fun checkFollowerStatusBatch(userId: String, candidateIds: List<String>): Set<String> {
-        if (candidateIds.isEmpty()) return emptySet()
-        val result = mutableSetOf<String>()
-        candidateIds.chunked(30).forEach { chunk ->
-            val snapshot = firestore.collection("users_v2").document(userId)
-                .collection("followers")
-                .whereIn(FieldPath.documentId(), chunk)
-                .get().await()
-            snapshot.documents.forEach { result.add(it.id) }
-        }
-        return result
-    }
+    suspend fun checkFollowerStatusBatch(userId: String, candidateIds: List<String>): Set<String> =
+        membershipBatch(userId, "followers", candidateIds)
 
     /**
      * Returns the subset of [candidateIds] that appear in [userId]'s following
@@ -250,17 +240,30 @@ class FirestoreDataSource @Inject constructor(
      * chunks of 30 to respect Firestore's `whereIn` limit. Used to scope a
      * follow-list search to members of the list.
      */
-    suspend fun checkFollowingStatusBatch(userId: String, candidateIds: List<String>): Set<String> {
-        if (candidateIds.isEmpty()) return emptySet()
-        val result = mutableSetOf<String>()
-        candidateIds.chunked(30).forEach { chunk ->
-            val snapshot = firestore.collection("users_v2").document(userId)
-                .collection("following")
-                .whereIn(FieldPath.documentId(), chunk)
-                .get().await()
-            snapshot.documents.forEach { result.add(it.id) }
-        }
-        return result
+    suspend fun checkFollowingStatusBatch(userId: String, candidateIds: List<String>): Set<String> =
+        membershipBatch(userId, "following", candidateIds)
+
+    /**
+     * Which of [candidateIds] exist in `users_v2/{ownerId}/{subcollection}`,
+     * checked via `documentId() in` chunks of 30 run CONCURRENTLY. A sequential
+     * loop here was dozens of serial round-trips for a well-connected viewer
+     * (the 5-6s mutual-count stall); fanning the chunks out collapses it to ~one.
+     */
+    private suspend fun membershipBatch(
+        ownerId: String,
+        subcollection: String,
+        candidateIds: List<String>,
+    ): Set<String> = coroutineScope {
+        if (candidateIds.isEmpty()) return@coroutineScope emptySet()
+        candidateIds.chunked(30).map { chunk ->
+            async {
+                firestore.collection("users_v2").document(ownerId)
+                    .collection(subcollection)
+                    .whereIn(FieldPath.documentId(), chunk)
+                    .get().await()
+                    .documents.map { it.id }
+            }
+        }.awaitAll().flatten().toSet()
     }
 
     /**

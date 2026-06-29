@@ -112,7 +112,7 @@ fun OtherProfileScreen(
     onBack: () -> Unit = {},
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
     onNavigateToUser: (String) -> Unit = {},
-    onNavigateToFollowList: (String, Boolean) -> Unit = { _, _ -> },
+    onNavigateToFollowList: (String, Boolean, String, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onNavigateToMessages: (String, String) -> Unit = { _, _ -> },
     onNavigateToPost: (postId: String) -> Unit = {},
 ) {
@@ -728,12 +728,12 @@ fun OtherProfileScreen(
                                 StatItem(
                                     count = currentProfile.followerCount,
                                     label = stringResource(fm.corus.android.R.string.profile_stat_followers),
-                                    modifier = Modifier.clickable { onNavigateToFollowList(userId, true) },
+                                    modifier = Modifier.clickable { onNavigateToFollowList(userId, true, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
                                 )
                                 StatItem(
                                     count = currentProfile.followingCount,
                                     label = stringResource(fm.corus.android.R.string.profile_stat_following),
-                                    modifier = Modifier.clickable { onNavigateToFollowList(userId, false) },
+                                    modifier = Modifier.clickable { onNavigateToFollowList(userId, false, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
                                 )
                             }
 
