@@ -296,7 +296,18 @@ class ThreadListViewModel @Inject constructor(
                 val left = messageRepository.recentlyLeftThreadIds()
                 val live = if (left.isEmpty()) liveRaw else liveRaw.filterNot { it.id in left }
                 val (merged, newThreads) = applyLiveThreadUpdates(_threads.value, live, pageSize)
-                _threads.value = if (left.isEmpty()) merged else merged.filterNot { it.id in left }
+                val mergedFiltered = if (left.isEmpty()) merged else merged.filterNot { it.id in left }
+
+                // The merge can transiently drop everything: a partial snapshot whose
+                // only threads are brand-new (still awaiting the profile resolution
+                // below) prunes the known rows, leaving nothing yet to show. Publishing
+                // that empty list blinks the inbox to "No messages yet" and poisons the
+                // reopen cache. Hold the current rows in that case and publish once,
+                // after resolution — the final state is identical, minus the flash.
+                val deferEmptyPublish = mergedFiltered.isEmpty() && newThreads.isNotEmpty()
+                if (!deferEmptyPublish) {
+                    _threads.value = mergedFiltered
+                }
                 if (newThreads.isEmpty()) return@collect
                 val resolved = newThreads.mapNotNull { lt ->
                     if (lt.isGroup) {
@@ -315,11 +326,20 @@ class ThreadListViewModel @Inject constructor(
                     }
                 }
                 if (resolved.isNotEmpty()) {
-                    // resolved goes last so it wins over any stale duplicate.
-                    _threads.value = (_threads.value + resolved)
+                    // When the empty publish was deferred, fold the resolved rows into
+                    // the authoritative merged result (not the still-shown stale list,
+                    // which holds the rows the snapshot intentionally pruned). resolved
+                    // goes last so it wins over any stale duplicate.
+                    val base = if (deferEmptyPublish) mergedFiltered else _threads.value
+                    _threads.value = (base + resolved)
                         .associateBy { it.id }
                         .values
                         .sortedByDescending { it.lastMessageAt.time }
+                } else if (deferEmptyPublish) {
+                    // Resolution yielded nothing (every profile lookup failed). Publish
+                    // the merged result now so state stays consistent rather than stuck
+                    // on the stale rows; an empty inbox here is the honest result.
+                    _threads.value = mergedFiltered
                 }
             }
         }
