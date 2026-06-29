@@ -1050,7 +1050,7 @@ private fun CommentContentRow(
                             if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                             contentDescription = stringResource(R.string.comments_cd_like),
                             tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
-                            modifier = Modifier.size(if (isReply) 14.dp else 16.dp),
+                            modifier = Modifier.size(14.dp),
                         )
                         if (comment.likeCount > 0) {
                             Text(
