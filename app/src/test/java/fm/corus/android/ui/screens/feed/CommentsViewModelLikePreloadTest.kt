@@ -144,6 +144,7 @@ class CommentsViewModelLikePreloadTest {
         postRepository = postRepo,
         authRepository = authRepo,
         userRepository = userRepo,
+        exploreRepository = mock(),
         messageRepository = messageRepo,
         engagementManager = engagementManager,
         postDeletionEvent = postDeletionEvent,

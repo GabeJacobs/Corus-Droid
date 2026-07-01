@@ -15,7 +15,9 @@ import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.HashtagSuggestion
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
@@ -46,6 +48,7 @@ class CommentsViewModel @Inject constructor(
     private val postRepository: PostRepository,
     val authRepository: AuthRepository,
     val userRepository: UserRepository,
+    private val exploreRepository: ExploreRepository,
     private val messageRepository: MessageRepository,
     private val engagementManager: PostEngagementManager,
     private val postDeletionEvent: PostDeletionEvent,
@@ -242,6 +245,11 @@ class CommentsViewModel @Inject constructor(
     val isSearchingMentions: StateFlow<Boolean> = _isSearchingMentions.asStateFlow()
 
     private var mentionSearchJob: Job? = null
+
+    private val _hashtagSuggestions = MutableStateFlow<List<HashtagSuggestion>>(emptyList())
+    val hashtagSuggestions: StateFlow<List<HashtagSuggestion>> = _hashtagSuggestions.asStateFlow()
+
+    private var hashtagSearchJob: Job? = null
 
     private val _post = MutableStateFlow<CymbalPost?>(null)
     val post: StateFlow<CymbalPost?> = _post.asStateFlow()
@@ -766,6 +774,26 @@ class CommentsViewModel @Inject constructor(
         mentionSearchJob = null
         _mentionSuggestions.value = emptyList()
         _isSearchingMentions.value = false
+    }
+
+    // ── Hashtag Search ──
+
+    /** Trending tags for a bare "#" (empty query), prefix matches otherwise. */
+    fun searchHashtags(query: String) {
+        hashtagSearchJob?.cancel()
+        hashtagSearchJob = viewModelScope.launch {
+            try {
+                _hashtagSuggestions.value = exploreRepository.fetchHashtagSuggestions(query, limit = 6)
+            } catch (_: Exception) {
+                _hashtagSuggestions.value = emptyList()
+            }
+        }
+    }
+
+    fun clearHashtags() {
+        hashtagSearchJob?.cancel()
+        hashtagSearchJob = null
+        _hashtagSuggestions.value = emptyList()
     }
 
     // ── Post Engagement ──

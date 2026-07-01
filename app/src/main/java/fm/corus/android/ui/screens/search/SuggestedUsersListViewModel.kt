@@ -69,12 +69,39 @@ class SuggestedUsersListViewModel @Inject constructor(
     private val _hasMore = MutableStateFlow(false)
     val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
 
+    // Taste-matches See-All filter. Off = show every match (default), on = only
+    // people you don't follow yet. Filters client-side over the paginated list;
+    // when a whole page is people you already follow we auto-page until
+    // unfollowed ones surface (capped so we never loop the whole list). Only
+    // meaningful for the tasteMatches source.
+    private val _filterUnfollowed = MutableStateFlow(false)
+    val filterUnfollowed: StateFlow<Boolean> = _filterUnfollowed.asStateFlow()
+
+    // True while auto-paging to find unfollowed matches, so the screen shows a
+    // skeleton instead of flashing the "followed all" empty state.
+    private val _isFilling = MutableStateFlow(false)
+    val isFilling: StateFlow<Boolean> = _isFilling.asStateFlow()
+
     // Follow state
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
     private val _localFollowedIds = MutableStateFlow<Set<String>>(emptySet())
 
     val followedIds: StateFlow<Set<String>> = combine(_followingIds, _localFollowedIds) { a, b -> a + b }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    /**
+     * The list the screen renders. For the tasteMatches source under the
+     * "Unfollowed" filter, this drops people the viewer already follows (client
+     * side, over the paginated list). Following someone must not reflow the list:
+     * the order comes from the backend ranking and is never re-derived on follow;
+     * a followed card simply drops out under the filter. All other sources pass
+     * [suggestions] through unchanged.
+     */
+    val visibleSuggestions: StateFlow<List<SuggestedUserMatch>> =
+        combine(_suggestions, _filterUnfollowed, followedIds) { matches, filter, followed ->
+            if (source != "tasteMatches" || !filter) matches
+            else matches.filter { it.user.id !in followed }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val pageSize = 20
     // Cursor for the live taste-matches pagination (opaque, from the backend).
@@ -192,6 +219,53 @@ class SuggestedUsersListViewModel @Inject constructor(
                 _hasMore.value = false
             }
             _isLoadingMore.value = false
+        }
+    }
+
+    /**
+     * Flip the taste-matches filter. Sets [isFilling] synchronously when turning
+     * "Unfollowed" on (so the skeleton shows this frame instead of the empty
+     * state flashing), then auto-pages until unfollowed matches surface or the
+     * list is exhausted. No-op for non-tasteMatches sources.
+     */
+    fun setTasteMatchFilter(enabled: Boolean) {
+        if (source != "tasteMatches") return
+        if (_filterUnfollowed.value == enabled) return
+        _filterUnfollowed.value = enabled
+        if (enabled && _hasMore.value) _isFilling.value = true
+        viewModelScope.launch { fillIfNeeded() }
+    }
+
+    /** Everything currently loaded that the filter would show. */
+    private fun visibleUnfollowedEmpty(): Boolean {
+        val followed = _followingIds.value + _localFollowedIds.value
+        return _suggestions.value.none { it.user.id !in followed }
+    }
+
+    /**
+     * When filtering to unfollowed, a whole loaded page can be people you already
+     * follow, leaving nothing visible. Keep paging until some unfollowed matches
+     * show or we run out (capped at 10 pages so we never loop the whole list).
+     */
+    private suspend fun fillIfNeeded() {
+        if (source != "tasteMatches") return
+        try {
+            if (!_filterUnfollowed.value || !visibleUnfollowedEmpty() || !_hasMore.value) return
+            _isFilling.value = true
+            var pagesLoaded = 0
+            while (_filterUnfollowed.value &&
+                visibleUnfollowedEmpty() &&
+                _hasMore.value &&
+                pagesLoaded < 10
+            ) {
+                pagesLoaded++
+                val page = loadTasteMatchesPage(reset = false)
+                val existingIds = _suggestions.value.map { it.user.id }.toSet()
+                val deduped = page.filter { it.user.id !in existingIds }
+                _suggestions.value = _suggestions.value + deduped
+            }
+        } finally {
+            _isFilling.value = false
         }
     }
 

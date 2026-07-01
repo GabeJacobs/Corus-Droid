@@ -85,6 +85,7 @@ import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ClubMembersCardRail
 import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.HorizontalPopularUsersRail
+import fm.corus.android.ui.components.HorizontalTasteMatchesRail
 import fm.corus.android.ui.components.MutualConnectionsCardRail
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.SkeletonFilmRow
@@ -95,7 +96,7 @@ import fm.corus.android.ui.components.SkeletonTrendingSongRow
 import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.components.SkeletonTasteMatchCard
 import fm.corus.android.ui.components.SkeletonUserRow
-import fm.corus.android.ui.components.TasteMatchCard
+// TasteMatchCard is now rendered inside HorizontalTasteMatchesRail, not here.
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
@@ -140,6 +141,7 @@ fun SearchScreen(
     val isSuggestedLoading by viewModel.isSuggestedLoading.collectAsState()
     val isTasteMatchPolling by viewModel.isTasteMatchPolling.collectAsState()
     val tasteMatchLoadFailed by viewModel.tasteMatchLoadFailed.collectAsState()
+    val belowTasteMatchThreshold by viewModel.belowTasteMatchThreshold.collectAsState()
     val recentSearchUsers by viewModel.recentSearchUsers.collectAsState()
     val contactMatches by viewModel.contactMatches.collectAsState()
     val isSyncingContacts by viewModel.isSyncingContacts.collectAsState()
@@ -225,14 +227,11 @@ fun SearchScreen(
             .sortedByDescending { it.matchData?.similarityScore ?: 0.0 }
     }
 
-    var filterUnfollowedMatches by rememberSaveable { mutableStateOf(true) }
+    // Default to "All" (followed + unfollowed): the paginated taste-matches rail
+    // pages the full strength-ranked list, so the toggle is always available and
+    // "Unfollowed" auto-pages until unfollowed matches surface. Matches iOS.
+    var filterUnfollowedMatches by rememberSaveable { mutableStateOf(false) }
     val allFollowedIds = remember(followingIds, localFollowedIds) { followingIds + localFollowedIds }
-    val filteredMusicMatchUsers = remember(musicMatchUsers, filterUnfollowedMatches, allFollowedIds) {
-        filteredUnfollowedUsers(filterUnfollowedMatches, musicMatchUsers, allFollowedIds)
-    }
-    val showUnfollowedMatchesToggle = remember(musicMatchUsers, allFollowedIds) {
-        shouldShowUnfollowedFilter(musicMatchUsers, allFollowedIds)
-    }
 
     // Popular-on-Corus filter. When "Unfollowed" is on, the rail excludes
     // already-followed accounts at the *fetch* level (folded into excludeIds
@@ -246,7 +245,9 @@ fun SearchScreen(
     // → reconcile), and a frozen snapshot used to leak follows that landed after
     // the first emission back into the "Unfollowed" list. A change here refetches
     // the rail against the corrected exclusion.
-    var filterUnfollowedPopular by rememberSaveable { mutableStateOf(true) }
+    // Default to "All" (show everyone popular); the toggle narrows to unfollowed.
+    // Matches iOS default flip.
+    var filterUnfollowedPopular by rememberSaveable { mutableStateOf(false) }
     val onSetFilterUnfollowedPopular: (Boolean) -> Unit = { enabled ->
         filterUnfollowedPopular = enabled
     }
@@ -355,8 +356,6 @@ fun SearchScreen(
                             SuggestedUsersContent(
                                 listState = usersListState,
                                 musicMatchUsers = musicMatchUsers,
-                                filteredMusicMatchUsers = filteredMusicMatchUsers,
-                                showUnfollowedMatchesToggle = showUnfollowedMatchesToggle,
                                 filterUnfollowedMatches = filterUnfollowedMatches,
                                 onSetFilterUnfollowed = { filterUnfollowedMatches = it },
                                 popularRailFilterFollowedIds = popularRailFilterFollowedIds,
@@ -374,6 +373,7 @@ fun SearchScreen(
                                 isSuggestedLoading = isSuggestedLoading,
                                 isTasteMatchPolling = isTasteMatchPolling,
                                 tasteMatchLoadFailed = tasteMatchLoadFailed,
+                                belowTasteMatchThreshold = belowTasteMatchThreshold,
                                 viewModel = viewModel,
                                 onNavigateToUser = onNavigateToUser,
                                 onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
@@ -642,8 +642,6 @@ private fun RecentSearchesOverlay(
 private fun SuggestedUsersContent(
     listState: LazyListState = rememberLazyListState(),
     musicMatchUsers: List<SuggestedUserMatch>,
-    filteredMusicMatchUsers: List<SuggestedUserMatch>,
-    showUnfollowedMatchesToggle: Boolean,
     filterUnfollowedMatches: Boolean,
     onSetFilterUnfollowed: (Boolean) -> Unit,
     popularRailFilterFollowedIds: Set<String>,
@@ -661,6 +659,7 @@ private fun SuggestedUsersContent(
     isSuggestedLoading: Boolean,
     isTasteMatchPolling: Boolean,
     tasteMatchLoadFailed: Boolean,
+    belowTasteMatchThreshold: Boolean,
     viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
@@ -757,58 +756,53 @@ private fun SuggestedUsersContent(
         // ── Taste Matches section ──
         // Always present the section: real cards when we have matches, a skeleton
         // while we're still loading/polling, and a short explainer whenever a user
-        // has no taste matches yet (regardless of post count) so the slot reads as
-        // "coming soon" rather than missing. (For brand-new users with no posts the
-        // ViewModel skips the cold-start poll, so they reach the explainer fast.)
+        // has no taste matches yet so the slot reads as "coming soon" rather than
+        // missing. A viewer below the post threshold skips the skeleton entirely
+        // (the ViewModel also skips their fetch and poll), so they reach the
+        // explainer immediately instead of shimmering through a scan that can't
+        // produce matches.
         if (musicMatchUsers.isNotEmpty()) {
             item {
-                SectionHeader(
-                    icon = "sparkles",
-                    title = stringResource(fm.corus.android.R.string.search_section_taste_matches),
-                    showSeeAll = filteredMusicMatchUsers.size > 2,
+                // Paginated rail backed by getTasteMatchesPage — pages the FULL
+                // strength-ranked list (not the capped top-15 preview), so the
+                // filter toggle is always available and "Unfollowed" can reach
+                // matches ranked below the top-15. The rail owns its own data,
+                // pagination, and filter; the parent only gates section
+                // visibility on musicMatchUsers (from getSuggestedUsers), the
+                // same way iOS keeps its parent gate.
+                val tasteFilterCd = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches)
+                HorizontalTasteMatchesRail(
+                    followedIds = allFollowedIds,
+                    filterUnfollowed = filterUnfollowedMatches,
+                    onClearFilter = { onSetFilterUnfollowed(false) },
+                    onUserTap = { match ->
+                        // Keep music_match_tapped (carries similarity_score, unique to this section)
+                        viewModel.logMusicMatchTapped(match.user.id, match.matchData?.similarityScore ?: 0.0)
+                        // Also fire the unified event so cross-section comparisons work.
+                        viewModel.logSearchSectionUserTapped(SearchSection.TasteMatches, match.user.id)
+                        onNavigateToUser(match.user.id)
+                    },
+                    onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.TasteMatches) },
                     onSeeAll = {
                         viewModel.logSearchSectionSeeAllTapped(SearchSection.TasteMatches)
                         onNavigateToSuggestedUsers(tasteMatchesTitle, false, "tasteMatches")
                     },
-                    trailingAction = if (showUnfollowedMatchesToggle) {
+                    // Always available when the viewer follows anyone (mirrors
+                    // iOS showFilterToggle: !currentUserFollowingIds.isEmpty),
+                    // not gated on a fragile "mix in the top-15" condition.
+                    trailingAction = if (allFollowedIds.isNotEmpty()) {
                         {
                             UnfollowedUsersFilterMenu(
                                 filterUnfollowed = filterUnfollowedMatches,
                                 onSetFilterUnfollowed = onSetFilterUnfollowed,
-                                contentDescription = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches),
+                                contentDescription = tasteFilterCd,
                             )
                         }
                     } else null,
                 )
-            }
-            item {
-                // Horizontal rail — peek of next card on the right edge so the
-                // user can see it scrolls. Matches iOS SearchView.tasteMatchesRail.
-                val cardWidth = horizontalRailCardWidth()
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
-                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-                ) {
-                    items(filteredMusicMatchUsers, key = { it.user.id }) { match ->
-                        TasteMatchCard(
-                            match = match,
-                            isFollowing = viewModel.isFollowed(match.user.id),
-                            onUserTap = {
-                                // Keep music_match_tapped (carries similarity_score, unique to this section)
-                                viewModel.logMusicMatchTapped(match.user.id, match.matchData?.similarityScore ?: 0.0)
-                                // Also fire the unified event so cross-section comparisons work.
-                                viewModel.logSearchSectionUserTapped(SearchSection.TasteMatches, match.user.id)
-                                onNavigateToUser(match.user.id)
-                            },
-                            onFollowTap = { viewModel.toggleFollow(match.user, SearchSection.TasteMatches) },
-                            modifier = Modifier.width(cardWidth),
-                        )
-                    }
-                }
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
             }
-        } else if (isSuggestedLoading || isTasteMatchPolling) {
+        } else if ((isSuggestedLoading || isTasteMatchPolling) && !belowTasteMatchThreshold) {
             item {
                 SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
             }

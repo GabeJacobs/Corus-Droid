@@ -500,6 +500,7 @@
     <string name="hashtag_contributors">기여자</string>
     <string name="hashtag_velocity_this_week">이번 주 %1$s coruses</string>
     <string name="hashtag_velocity_this_week_one">이번 주 %1$s corus</string>
+    <string name="hashtag_suggestion_trending">인기 급상승</string>
     <string name="hashtag_followers_title">#%1$s 팔로워</string>
     <string name="hashtag_contributors_title">#%1$s 기여자</string>
     <string name="hashtag_followers_empty">아직 팔로워가 없어요</string>

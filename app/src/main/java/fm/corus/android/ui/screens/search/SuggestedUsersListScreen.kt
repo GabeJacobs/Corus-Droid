@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -47,6 +48,15 @@ fun SuggestedUsersListScreen(
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
     onLoadMore: () -> Unit = {},
+    // Taste-matches All/Unfollowed filter. Only wired for the tasteMatches
+    // source; other sources leave these at their defaults so the toggle is
+    // hidden and the followed-all empty state never shows.
+    showFilterToggle: Boolean = false,
+    filterUnfollowed: Boolean = false,
+    onSetFilterUnfollowed: (Boolean) -> Unit = {},
+    // True while auto-paging to surface unfollowed matches — show a skeleton
+    // instead of the followed-all empty state so it doesn't flash mid-fill.
+    isFilling: Boolean = false,
     // Pass the followed-id set (not a lambda) so this screen recomposes when
     // the viewer follows/unfollows someone — a captured-viewModel lambda is
     // stable and would cause the Follow buttons to visually freeze.
@@ -76,6 +86,15 @@ fun SuggestedUsersListScreen(
                         contentDescription = stringResource(fm.corus.android.R.string.common_back),
                     )
                 },
+                actions = {
+                    if (showFilterToggle) {
+                        UnfollowedUsersFilterMenu(
+                            filterUnfollowed = filterUnfollowed,
+                            onSetFilterUnfollowed = onSetFilterUnfollowed,
+                            contentDescription = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches),
+                        )
+                    }
+                },
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
             )
@@ -104,12 +123,46 @@ fun SuggestedUsersListScreen(
                     repeat(12) { item { SkeletonTasteMatchCard() } }
                 }
             }
+        } else if (isFilling) {
+            // Auto-paging to surface unfollowed matches: show a skeleton grid
+            // rather than flashing the followed-all empty state for a frame.
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(start = CorusSpacing.lg, end = CorusSpacing.lg, bottom = CorusSpacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                repeat(12) { item { SkeletonTasteMatchCard() } }
+            }
         } else if (matches.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(stringResource(fm.corus.android.R.string.suggested_users_empty), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                if (filterUnfollowed) {
+                    // Filtered to unfollowed, but you follow all of your matches.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                        modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                    ) {
+                        Text(
+                            // No em dashes in user-facing copy (repo rule).
+                            text = stringResource(fm.corus.android.R.string.suggested_users_followed_all_taste_matches),
+                            style = CorusFont.bodyMedium,
+                            color = CorusColors.Secondary,
+                        )
+                        Text(
+                            text = stringResource(fm.corus.android.R.string.suggested_users_show_all),
+                            style = CorusFont.captionMedium,
+                            color = CorusColors.Accent,
+                            modifier = Modifier.clickable { onSetFilterUnfollowed(false) },
+                        )
+                    }
+                } else {
+                    Text(stringResource(fm.corus.android.R.string.suggested_users_empty), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                }
             }
         } else if (useRowLayout) {
             LazyColumn(

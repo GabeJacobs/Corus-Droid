@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fm.corus.android.data.model.HashtagSuggestion
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
@@ -29,6 +30,7 @@ import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.extractMentions
+import fm.corus.android.ui.components.parseHashtagQuery
 import fm.corus.android.ui.components.parseMentionQuery
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -189,6 +191,9 @@ class ComposeViewModel @Inject constructor(
     private val _mentionSuggestions = MutableStateFlow<List<CymbalUser>>(emptyList())
     val mentionSuggestions: StateFlow<List<CymbalUser>> = _mentionSuggestions.asStateFlow()
 
+    private val _hashtagSuggestions = MutableStateFlow<List<HashtagSuggestion>>(emptyList())
+    val hashtagSuggestions: StateFlow<List<HashtagSuggestion>> = _hashtagSuggestions.asStateFlow()
+
     // Pre-selection loading (hides search mode while fetching track/movie by ID)
     private val _isLoadingPreSelection = MutableStateFlow(false)
     val isLoadingPreSelection: StateFlow<Boolean> = _isLoadingPreSelection.asStateFlow()
@@ -228,6 +233,7 @@ class ComposeViewModel @Inject constructor(
 
     private var searchJob: Job? = null
     private var mentionJob: Job? = null
+    private var hashtagJob: Job? = null
     private var cachedTracks: List<CymbalTrack> = emptyList()
     private var cachedMovies: List<CymbalMovie> = emptyList()
 
@@ -597,6 +603,7 @@ class ComposeViewModel @Inject constructor(
     fun checkForMention(caption: String, caret: Int = caption.length) {
         val query = parseMentionQuery(caption, caret)
         if (query != null) {
+            clearHashtagSuggestions()
             mentionJob?.cancel()
             mentionJob = viewModelScope.launch {
                 delay(200)
@@ -607,15 +614,40 @@ class ComposeViewModel @Inject constructor(
                     _mentionSuggestions.value = emptyList()
                 }
             }
-        } else {
-            mentionJob?.cancel()
-            _mentionSuggestions.value = emptyList()
+            return
+        }
+
+        mentionJob?.cancel()
+        _mentionSuggestions.value = emptyList()
+        checkForHashtag(caption, caret)
+    }
+
+    private fun checkForHashtag(caption: String, caret: Int) {
+        val query = parseHashtagQuery(caption, caret)
+        if (query == null) {
+            clearHashtagSuggestions()
+            return
+        }
+        hashtagJob?.cancel()
+        hashtagJob = viewModelScope.launch {
+            delay(200)
+            try {
+                _hashtagSuggestions.value = exploreRepository.fetchHashtagSuggestions(query, limit = 6)
+            } catch (_: Exception) {
+                _hashtagSuggestions.value = emptyList()
+            }
         }
     }
 
     fun clearMentionSuggestions() {
         mentionJob?.cancel()
         _mentionSuggestions.value = emptyList()
+        clearHashtagSuggestions()
+    }
+
+    fun clearHashtagSuggestions() {
+        hashtagJob?.cancel()
+        _hashtagSuggestions.value = emptyList()
     }
 
     // ── Preview playback ──

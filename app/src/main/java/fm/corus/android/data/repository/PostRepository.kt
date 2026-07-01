@@ -175,8 +175,8 @@ class PostRepository @Inject constructor(
         return cloudFunctions.createPost(effective)
     }
 
-    suspend fun updateCaption(postId: String, caption: String) {
-        firestoreDataSource.updateCaption(postId, caption)
+    suspend fun updateCaption(postId: String, caption: String, hashtags: List<String>) {
+        firestoreDataSource.updateCaption(postId, caption, hashtags)
     }
 
     suspend fun createNotification(

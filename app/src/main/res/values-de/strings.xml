@@ -500,6 +500,7 @@
     <string name="hashtag_contributors">Beitragende</string>
     <string name="hashtag_velocity_this_week">%1$s coruses diese Woche</string>
     <string name="hashtag_velocity_this_week_one">%1$s corus diese Woche</string>
+    <string name="hashtag_suggestion_trending">Im Trend</string>
     <string name="hashtag_followers_title">Follower von #%1$s</string>
     <string name="hashtag_contributors_title">Beitragende zu #%1$s</string>
     <string name="hashtag_followers_empty">Noch keine Follower</string>

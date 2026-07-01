@@ -173,6 +173,85 @@ class MentionTextTest {
         assertEquals(8, result.selection.start)
     }
 
+    // ── parseHashtagQuery ──
+
+    @Test
+    fun `hashtag returns null when no hashtag present`() {
+        assertNull(parseHashtagQuery("hello world"))
+    }
+
+    @Test
+    fun `hashtag returns empty string for a bare hash so trending can open`() {
+        // Distinct from parseMentionQuery, which returns null for a lone "@".
+        assertEquals("", parseHashtagQuery("hey #"))
+    }
+
+    @Test
+    fun `hashtag detects query after space`() {
+        assertEquals("jaz", parseHashtagQuery("love #jaz"))
+    }
+
+    @Test
+    fun `hashtag detects query at start of text`() {
+        assertEquals("music", parseHashtagQuery("#music"))
+    }
+
+    @Test
+    fun `hashtag lowercases the query`() {
+        assertEquals("jazztuesday", parseHashtagQuery("#JazzTuesday"))
+    }
+
+    @Test
+    fun `hashtag only reads the word containing the caret`() {
+        assertEquals("jazz", parseHashtagQuery("#jazz #film", caret = 5))
+        assertEquals("film", parseHashtagQuery("#jazz #film", caret = 11))
+    }
+
+    @Test
+    fun `hashtag closes once trailing punctuation is typed`() {
+        assertNull(parseHashtagQuery("#jazz,", caret = 6))
+    }
+
+    @Test
+    fun `hashtag ignores an at-mention token`() {
+        assertNull(parseHashtagQuery("@gabe"))
+    }
+
+    // ── applyHashtag ──
+
+    @Test
+    fun `applyHashtag replaces partial tag with full tag and trailing space`() {
+        assertEquals("love #jazztuesday ", applyHashtag("love #jaz", "jazztuesday"))
+    }
+
+    @Test
+    fun `applyHashtag completes a bare hash into a tapped trending tag`() {
+        assertEquals("hey #nowplaying ", applyHashtag("hey #", "nowplaying"))
+    }
+
+    @Test
+    fun `applyHashtag preserves text with no tag in progress`() {
+        assertEquals("hello world", applyHashtag("hello world", "jazz"))
+    }
+
+    @Test
+    fun `applyHashtag(TextFieldValue) preserves text after caret and parks cursor after the space`() {
+        // Caret sits right after "#jaz" (position 7), before the space.
+        val value = TextFieldValue("go #jaz here", selection = TextRange(7))
+        val result = applyHashtag(value, "jazz")
+        assertEquals("go #jazz here", result.text)
+        // Cursor lands after the reused space, before "here".
+        assertEquals(9, result.selection.start)
+    }
+
+    @Test
+    fun `applyHashtag(TextFieldValue) does not double-space when a trailing space is present`() {
+        val value = TextFieldValue("#jaz rest", selection = TextRange(4))
+        val result = applyHashtag(value, "jazz")
+        assertEquals("#jazz rest", result.text)
+        assertEquals(6, result.selection.start)
+    }
+
     // ── buildMentionAnnotatedString ──
     // Regression coverage: comment bodies in SinglePostCommentsScreen and the inline
     // comment row in PostDetailScreen render through this builder. @mentions and

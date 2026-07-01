@@ -512,6 +512,7 @@
     <string name="hashtag_contributors">contributors</string>
     <string name="hashtag_velocity_this_week">%1$s coruses this week</string>
     <string name="hashtag_velocity_this_week_one">%1$s corus this week</string>
+    <string name="hashtag_suggestion_trending">Trending</string>
     <string name="hashtag_followers_title">Followers of #%1$s</string>
     <string name="hashtag_contributors_title">Contributors of #%1$s</string>
     <string name="hashtag_followers_empty">No followers yet</string>
@@ -571,6 +572,8 @@
     <!-- Suggested Users List -->
     <string name="suggested_users_default_title">Taste Matches</string>
     <string name="suggested_users_empty">No suggestions available</string>
+    <string name="suggested_users_followed_all_taste_matches">You already follow all of your taste matches.</string>
+    <string name="suggested_users_show_all">Show all</string>
     <string name="suggested_users_joined_format">Joined %1$s ago</string>
     <string name="suggested_users_member_since_format">Member since %1$s ago</string>
 

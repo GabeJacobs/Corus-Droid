@@ -952,6 +952,7 @@
     <string name="hashtag_contributors">contribuidores</string>
     <string name="hashtag_velocity_this_week">%1$s coruses esta semana</string>
     <string name="hashtag_velocity_this_week_one">%1$s corus esta semana</string>
+    <string name="hashtag_suggestion_trending">Em alta</string>
     <string name="hashtag_followers_title">Seguidores de #%1$s</string>
     <string name="hashtag_contributors_title">Contribuidores de #%1$s</string>
     <string name="hashtag_followers_empty">Nenhum seguidor ainda</string>

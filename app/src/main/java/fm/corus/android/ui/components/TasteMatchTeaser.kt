@@ -10,11 +10,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -201,6 +205,10 @@ fun TasteMatchSheet(
         sheetState = sheetState,
         containerColor = CorusColors.Background,
         dragHandle = null,
+        // Clear the display cutout (punch-hole/notch), not just the status bar,
+        // so the hero header stops just under the safe zone instead of riding up
+        // into the camera. Default windowInsets only accounts for system bars.
+        contentWindowInsets = { WindowInsets.systemBars.union(WindowInsets.displayCutout) },
     ) {
         CorusSystemBars()
         val sharedSongs = match.sharedTrackPreviews.filter { it.kind == SharedPreviewKind.SHARED_SONG }

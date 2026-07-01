@@ -68,6 +68,7 @@ import fm.corus.android.ui.components.SkeletonSongRow
 import fm.corus.android.ui.components.TrophyCelebrationView
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.VoiceNoteRecorderView
+import fm.corus.android.ui.components.applyHashtag
 import fm.corus.android.ui.components.applyMention
 import fm.corus.android.ui.components.rememberVoiceNoteRecorderState
 import fm.corus.android.ui.theme.CorusColors
@@ -97,6 +98,7 @@ fun ComposeScreen(
     val searchHasError by viewModel.searchHasError.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
+    val hashtagSuggestions by viewModel.hashtagSuggestions.collectAsState()
     val showTrophy by viewModel.showTrophy.collectAsState()
     val trophyPost by viewModel.trophyPost.collectAsState()
     val showPostLimitPaywall by viewModel.showPostLimitPaywall.collectAsState()
@@ -285,6 +287,11 @@ fun ComposeScreen(
                         onMentionSelected = { user ->
                             caption = applyMention(caption, user.username)
                             viewModel.clearMentionSuggestions()
+                        },
+                        hashtagSuggestions = hashtagSuggestions,
+                        onHashtagSelected = { tag ->
+                            caption = applyHashtag(caption, tag.name)
+                            viewModel.clearHashtagSuggestions()
                         },
                         captionMode = captionMode,
                         onCaptionModeChange = { captionMode = it },
@@ -966,6 +973,8 @@ private fun ComposeModeContent(
     onPost: () -> Unit,
     mentionSuggestions: List<CymbalUser> = emptyList(),
     onMentionSelected: (CymbalUser) -> Unit = {},
+    hashtagSuggestions: List<fm.corus.android.data.model.HashtagSuggestion> = emptyList(),
+    onHashtagSelected: (fm.corus.android.data.model.HashtagSuggestion) -> Unit = {},
     captionMode: String = "text",
     onCaptionModeChange: (String) -> Unit = {},
     voiceRecorderState: fm.corus.android.ui.components.VoiceNoteRecorderState? = null,
@@ -1212,6 +1221,84 @@ private fun ComposeModeContent(
                             )
                         }
                         if (index < mentionSuggestions.lastIndex) {
+                            HorizontalDivider(color = CorusColors.Divider)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Hashtag suggestions (trending on a bare "#", prefix matches as typed) ──
+        if (hashtagSuggestions.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = CorusSpacing.xs),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = CorusColors.CardBackground),
+            ) {
+                Column {
+                    hashtagSuggestions.forEachIndexed { index, tag ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onHashtagSelected(tag) }
+                                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .background(CorusColors.Accent.copy(alpha = 0.15f), CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(text = "#", style = CorusFont.songTitle, color = CorusColors.Accent)
+                            }
+                            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                            Column {
+                                Text(
+                                    text = "#${tag.name}",
+                                    style = CorusFont.songTitle,
+                                    color = CorusColors.Text,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                if (tag.trending || tag.count > 0) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (tag.trending) {
+                                            Text(
+                                                text = stringResource(R.string.hashtag_suggestion_trending),
+                                                style = CorusFont.caption,
+                                                color = CorusColors.Accent,
+                                                maxLines = 1,
+                                            )
+                                        }
+                                        if (tag.trending && tag.count > 0) {
+                                            Text(
+                                                text = " · ",
+                                                style = CorusFont.caption,
+                                                color = CorusColors.Secondary,
+                                            )
+                                        }
+                                        if (tag.count > 0) {
+                                            val velocityRes = if (tag.count == 1) {
+                                                R.string.hashtag_velocity_this_week_one
+                                            } else {
+                                                R.string.hashtag_velocity_this_week
+                                            }
+                                            Text(
+                                                text = stringResource(velocityRes, tag.count.toString()),
+                                                style = CorusFont.caption,
+                                                color = CorusColors.Secondary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (index < hashtagSuggestions.lastIndex) {
                             HorizontalDivider(color = CorusColors.Divider)
                         }
                     }

@@ -7,6 +7,7 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.ui.components.extractHashtags
 import fm.corus.android.ui.components.extractMentions
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,7 +44,7 @@ class EditCaptionViewModel @Inject constructor(
         viewModelScope.launch {
             _isSaving.value = true
             try {
-                postRepository.updateCaption(postId, caption)
+                postRepository.updateCaption(postId, caption, extractHashtags(caption))
                 notifyNewMentions(postId, caption, oldCaption, postAlbumArtURL)
                 onSuccess()
             } catch (_: Exception) { }

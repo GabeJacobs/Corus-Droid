@@ -75,6 +75,7 @@ import fm.corus.android.ui.components.CorusDraggableSheet
 import fm.corus.android.ui.components.CorusSheetState
 import fm.corus.android.ui.components.CorusSheetValue
 import fm.corus.android.ui.components.rememberCorusSheetState
+import fm.corus.android.ui.components.HashtagSuggestionsList
 import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.ReportContentType
@@ -87,8 +88,10 @@ import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.components.VoiceNotePlayerView
+import fm.corus.android.ui.components.applyHashtag
 import fm.corus.android.ui.components.applyMention
 import fm.corus.android.ui.components.buildMentionAnnotatedString
+import fm.corus.android.ui.components.parseHashtagQuery
 import fm.corus.android.ui.components.parseMentionQuery
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -250,6 +253,7 @@ private fun CommentsSheetContent(
     val showCounter = commentText.text.length >= 650
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
     val isSearchingMentions by viewModel.isSearchingMentions.collectAsState()
+    val hashtagSuggestions by viewModel.hashtagSuggestions.collectAsState()
     var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
@@ -618,6 +622,15 @@ private fun CommentsSheetContent(
             isSearching = isSearchingMentions,
         )
 
+        // ── Hashtag suggestions (trending on a bare "#", prefix matches as typed) ──
+        HashtagSuggestionsList(
+            hashtags = hashtagSuggestions.take(6),
+            onSelect = { tag ->
+                commentText = applyHashtag(commentText, tag.name)
+                viewModel.clearHashtags()
+            },
+        )
+
         // ── Input bar pinned at the bottom ──
 
         if (sendError != null) {
@@ -751,8 +764,16 @@ private fun CommentsSheetContent(
                             mentionSearchJob?.cancel()
                             mentionSearchJob = coroutineScope.launch {
                                 delay(200)
-                                val query = parseMentionQuery(newValue.text, newValue.selection.start)
-                                if (query != null) viewModel.searchMentions(query) else viewModel.clearMentions()
+                                val caret = newValue.selection.start
+                                val mention = parseMentionQuery(newValue.text, caret)
+                                if (mention != null) {
+                                    viewModel.clearHashtags()
+                                    viewModel.searchMentions(mention)
+                                } else {
+                                    viewModel.clearMentions()
+                                    val hashtag = parseHashtagQuery(newValue.text, caret)
+                                    if (hashtag != null) viewModel.searchHashtags(hashtag) else viewModel.clearHashtags()
+                                }
                             }
                         }
                     }

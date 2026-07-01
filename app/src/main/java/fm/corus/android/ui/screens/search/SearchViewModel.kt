@@ -112,6 +112,14 @@ class SearchViewModel @Inject constructor(
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
     init {
+        // Keep the below-threshold gate in sync with the viewer's post count so
+        // the skeleton suppression flips live (e.g. the moment their 2nd post
+        // lands while they're on Search).
+        viewModelScope.launch {
+            authRepository.userProfile.collect { profile ->
+                _belowTasteMatchThreshold.value = isBelowTasteMatchThreshold(profile?.cymbalCount)
+            }
+        }
         viewModelScope.launch {
             networkMonitor.isConnected.collect { connected ->
                 // Auto-retry the active search when the network returns if the
@@ -281,6 +289,13 @@ class SearchViewModel @Inject constructor(
         // hung backend (mirrors iOS's 15s race; the callable itself is also
         // bounded at the data source).
         private const val SUGGESTIONS_LOAD_TIMEOUT_MS = 15_000L
+
+        // Minimum posts before taste matches are worth fetching. A taste match
+        // needs >=3 shared artists, which a user with one post can't clear, so
+        // fetching for them only ever resolves to empty after a ~5s skeleton.
+        // Below this we skip the fetch, the skeleton, and the cold-start poll.
+        // Mirrors iOS `tasteMatchMinimumPosts` and web `TASTE_MATCH_MIN_POSTS`.
+        const val TASTE_MATCH_MIN_POSTS = 2
     }
 
     // Suggestions
@@ -303,6 +318,15 @@ class SearchViewModel @Inject constructor(
     // successful fetch that genuinely returns no taste matches shows the explainer.
     private val _tasteMatchLoadFailed = MutableStateFlow(false)
     val tasteMatchLoadFailed: StateFlow<Boolean> = _tasteMatchLoadFailed.asStateFlow()
+
+    // True once we positively know the viewer hasn't posted enough for taste
+    // matches to be possible (count < TASTE_MATCH_MIN_POSTS). Drives skipping the
+    // skeleton in the UI so a below-threshold viewer sees the explainer
+    // immediately instead of a ~5s shimmer. Kept in sync by an init-block
+    // collector (below); the fetch and poll read the profile directly for a
+    // guard that can't lag this flow.
+    private val _belowTasteMatchThreshold = MutableStateFlow(false)
+    val belowTasteMatchThreshold: StateFlow<Boolean> = _belowTasteMatchThreshold.asStateFlow()
 
     // Follow state
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
@@ -385,14 +409,24 @@ class SearchViewModel @Inject constructor(
         // through the repository's 4h cache (warmed from DataStore at sign-in) so
         // repeat opens render instantly; pull-to-refresh forces a fresh fetch.
         viewModelScope.launch {
+            // Below the post threshold the viewer can't have taste matches yet, so
+            // skip the expensive suggest scan and treat it as a successful empty
+            // result (emptyList, not null) — the explainer renders, no skeleton.
+            // Read the profile directly (not the derived flow, whose collection can
+            // lag) so the guard is deterministic on the first load.
+            val belowThreshold = isBelowTasteMatchThreshold(authRepository.userProfile.value?.cymbalCount)
             val musicMatchesDeferred = async {
-                try {
-                    // null (not empty) signals a failed/timed-out load so the UI can
-                    // distinguish "couldn't load" from "loaded, genuinely no matches".
-                    userRepository.getSuggestedUsers(uid, forceRefresh = forceRefresh)
-                } catch (e: Exception) {
-                    Log.e("SearchVM", "Failed to load suggested users", e)
-                    null
+                if (belowThreshold) {
+                    emptyList<SuggestedUserMatch>()
+                } else {
+                    try {
+                        // null (not empty) signals a failed/timed-out load so the UI can
+                        // distinguish "couldn't load" from "loaded, genuinely no matches".
+                        userRepository.getSuggestedUsers(uid, forceRefresh = forceRefresh)
+                    } catch (e: Exception) {
+                        Log.e("SearchVM", "Failed to load suggested users", e)
+                        null
+                    }
                 }
             }
             val mutualConnectionsDeferred = async {
@@ -508,12 +542,12 @@ class SearchViewModel @Inject constructor(
     // backend's eager recompute (fired by a recent post create) may still be
     // in flight. Refetch up to ~3s before giving up.
     private suspend fun pollTasteMatchesIfMissing(uid: String) {
-        // Brand-new user with no posts: the eager recompute we'd be waiting on
-        // only fires on a post create, so there's nothing in flight. Skip the
-        // poll entirely so the skeleton never shows for them. Read the profile
+        // Viewer below the post threshold: they can't have taste matches yet and
+        // we skipped the fetch, so there's nothing in flight. Skip the poll
+        // entirely so the skeleton never shows for them. Read the profile
         // directly (not the derived StateFlow, whose collection can lag) so the
         // guard is deterministic.
-        if ((authRepository.userProfile.value?.cymbalCount ?: -1) == 0) return
+        if (isBelowTasteMatchThreshold(authRepository.userProfile.value?.cymbalCount)) return
         if (_suggestedMatches.value.any { it.hasTasteMatch() }) return
 
         _isTasteMatchPolling.value = true
@@ -553,6 +587,12 @@ class SearchViewModel @Inject constructor(
     }
 
     private fun SuggestedUserMatch.hasTasteMatch(): Boolean = isTasteMatch
+
+    // Below the post threshold, taste matches can't exist yet (they need >=3
+    // shared artists). A null count (profile not loaded) is treated as "not
+    // below" so we fall back to normal skeleton behavior, matching iOS.
+    private fun isBelowTasteMatchThreshold(cymbalCount: Int?): Boolean =
+        cymbalCount != null && cymbalCount < TASTE_MATCH_MIN_POSTS
 
     private fun loadNewUsers() {
         val uid = authRepository.currentUserId ?: return

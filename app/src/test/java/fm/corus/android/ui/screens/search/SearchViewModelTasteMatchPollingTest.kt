@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.search
 
+import android.util.Log
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MusicMatchData
@@ -18,7 +19,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -29,20 +29,29 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.MockedStatic
+import org.mockito.Mockito.mockStatic
+import org.mockito.kotlin.any
 import org.mockito.kotlin.atLeast
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 /**
- * Tests for the cold-start poll that keeps the taste-match rail skeleton up
- * for up to ~3s when the initial getSuggestedUsers response is empty. This is
- * the load-bearing UX behavior for the "just signed up and posted 3 songs"
- * scenario where the backend's eager recompute may still be in flight when
- * the user lands on Search.
+ * Tests for the Search taste-match gate + cold-start poll.
+ *
+ * The gate: a viewer below [SearchViewModel.TASTE_MATCH_MIN_POSTS] posts can't
+ * have taste matches (those need >=3 shared artists), so we skip the expensive
+ * suggest scan, its cold-start poll, and the loading skeleton entirely — they
+ * see the explainer immediately instead of a multi-second shimmer.
+ *
+ * The poll: once a viewer clears the threshold, an empty initial response keeps
+ * the skeleton up for ~3s in case the backend's eager recompute (fired by a
+ * recent post) is still in flight.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchViewModelTasteMatchPollingTest {
@@ -61,6 +70,10 @@ class SearchViewModelTasteMatchPollingTest {
     private lateinit var analyticsService: AnalyticsService
     private lateinit var nowPlayingManager: NowPlayingManager
 
+    // android.util.Log is a stub in JVM unit tests; loadInitialData's fan-out
+    // (loadNewUsers etc.) logs in its catch blocks, so mock it or those throw.
+    private lateinit var logMock: MockedStatic<Log>
+
     // A real taste match = >=3 distinct shared artists (the names the card lists).
     private val tasteMatch = SuggestedUserMatch(
         user = CymbalUser(id = "match-1", username = "rodrigofan", displayName = "Rodrigo Fan"),
@@ -70,17 +83,20 @@ class SearchViewModelTasteMatchPollingTest {
         ),
     )
 
+    private fun viewerWith(cymbalCount: Int) = MutableStateFlow(
+        CymbalUser(id = "viewer", username = "viewer", displayName = "Viewer", cymbalCount = cymbalCount),
+    )
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        logMock = mockStatic(Log::class.java)
         firestoreDataSource = mock()
-        // Default viewer has posted (cymbalCount > 0) so the cold-start poll is
-        // allowed to run; the no-taste-data path is covered by its own test.
+        // Default viewer clears the post threshold, so the fetch + cold-start poll
+        // run; the below-threshold path is covered by its own tests.
         authRepository = mock {
             on { currentUserId } doReturn "viewer"
-            on { userProfile } doReturn MutableStateFlow(
-                CymbalUser(id = "viewer", username = "viewer", displayName = "Viewer", cymbalCount = 3),
-            )
+            on { userProfile } doReturn viewerWith(3)
         }
         userRepository = mock {
             on { followingIds } doReturn MutableStateFlow(emptySet())
@@ -92,6 +108,11 @@ class SearchViewModelTasteMatchPollingTest {
         preferencesDataStore = mock {
             on { recentSearchUsers } doReturn kotlinx.coroutines.flow.flowOf(emptyList())
             on { contactsSyncStatus } doReturn kotlinx.coroutines.flow.flowOf("notAsked")
+            // The VM eagerly maps these window prefs at construction; leaving them
+            // unstubbed (null) NPEs the eager stateIn collector before any test runs.
+            on { trendingSongsWindow } doReturn kotlinx.coroutines.flow.flowOf("week")
+            on { trendingFilmsWindow } doReturn kotlinx.coroutines.flow.flowOf("week")
+            on { trendingHashtagsWindow } doReturn kotlinx.coroutines.flow.flowOf("month")
         }
         remoteConfigService = mock()
         analyticsService = mock()
@@ -100,6 +121,7 @@ class SearchViewModelTasteMatchPollingTest {
 
     @After
     fun tearDown() {
+        logMock.close()
         Dispatchers.resetMain()
     }
 
@@ -121,23 +143,15 @@ class SearchViewModelTasteMatchPollingTest {
     )
 
     @Test
-    fun `empty initial response triggers polling and merges late-arriving taste matches`() = runTest(testDispatcher) {
+    fun `an empty initial response polls and merges a late-arriving taste match`() = runTest(testDispatcher) {
         // First call: empty (the backend's eager recompute is still in flight).
-        // Subsequent calls: the recompute has finished and a taste match lands.
-        whenever(cloudFunctions.getSuggestedUsers(eq("viewer")))
+        // Second call (poll): the recompute has finished and a taste match lands.
+        whenever(userRepository.getSuggestedUsers(eq("viewer"), any()))
             .thenReturn(emptyList())
             .thenReturn(listOf(tasteMatch))
 
         val vm = createViewModel()
         vm.loadInitialData()
-        advanceUntilIdle()
-
-        // Initial fetch returned empty → polling should be active and no taste matches yet.
-        assertTrue("polling should activate after empty initial fetch", vm.isTasteMatchPolling.value)
-        assertTrue("no taste matches yet", vm.suggestedMatches.value.none { it.isTasteMatch })
-
-        // One poll tick (750ms) — second call lands with the match.
-        advanceTimeBy(800)
         advanceUntilIdle()
 
         assertFalse("polling stops once a taste match lands", vm.isTasteMatchPolling.value)
@@ -146,48 +160,26 @@ class SearchViewModelTasteMatchPollingTest {
             listOf("match-1"),
             vm.suggestedMatches.value.map { it.user.id },
         )
-        verify(cloudFunctions, atLeast(2)).getSuggestedUsers(eq("viewer"))
+        verify(userRepository, atLeast(2)).getSuggestedUsers(eq("viewer"), any())
     }
 
     @Test
-    fun `polling stops after ~3s when no taste matches ever arrive`() = runTest(testDispatcher) {
-        whenever(cloudFunctions.getSuggestedUsers(eq("viewer"))).thenReturn(emptyList())
+    fun `polling runs the full window then stops when no taste matches ever arrive`() = runTest(testDispatcher) {
+        whenever(userRepository.getSuggestedUsers(eq("viewer"), any())).thenReturn(emptyList())
 
         val vm = createViewModel()
         vm.loadInitialData()
-        advanceUntilIdle()
-
-        // Walk past the full 4 × 750ms poll window plus a small buffer.
-        advanceTimeBy(3_500)
         advanceUntilIdle()
 
         assertFalse("polling has ended", vm.isTasteMatchPolling.value)
         assertTrue("no taste matches", vm.suggestedMatches.value.none { it.isTasteMatch })
         // Initial call + 4 poll attempts.
-        verify(cloudFunctions, times(5)).getSuggestedUsers(eq("viewer"))
-    }
-
-    @Test
-    fun `new user with no posts skips polling even on an empty response`() = runTest(testDispatcher) {
-        // Brand-new user: no posts means no taste data can exist and no eager
-        // recompute is in flight, so the poll (and its skeleton) must be skipped.
-        whenever(authRepository.userProfile).thenReturn(
-            MutableStateFlow(CymbalUser(id = "viewer", username = "viewer", displayName = "Viewer", cymbalCount = 0)),
-        )
-        whenever(cloudFunctions.getSuggestedUsers(eq("viewer"))).thenReturn(emptyList())
-
-        val vm = createViewModel()
-        vm.loadInitialData()
-        advanceUntilIdle()
-
-        assertFalse("polling must never activate for a no-posts user", vm.isTasteMatchPolling.value)
-        // Only the initial fetch — no follow-up poll attempts.
-        verify(cloudFunctions, times(1)).getSuggestedUsers(eq("viewer"))
+        verify(userRepository, times(5)).getSuggestedUsers(eq("viewer"), any())
     }
 
     @Test
     fun `non-empty initial response skips polling entirely`() = runTest(testDispatcher) {
-        whenever(cloudFunctions.getSuggestedUsers(eq("viewer"))).thenReturn(listOf(tasteMatch))
+        whenever(userRepository.getSuggestedUsers(eq("viewer"), any())).thenReturn(listOf(tasteMatch))
 
         val vm = createViewModel()
         vm.loadInitialData()
@@ -195,6 +187,52 @@ class SearchViewModelTasteMatchPollingTest {
 
         assertFalse("polling should never activate when taste matches arrive on the first call", vm.isTasteMatchPolling.value)
         // Only the initial call — no follow-up polls.
-        verify(cloudFunctions, times(1)).getSuggestedUsers(eq("viewer"))
+        verify(userRepository, times(1)).getSuggestedUsers(eq("viewer"), any())
+    }
+
+    @Test
+    fun `a zero-post viewer skips the fetch, the poll, and the skeleton gate`() = runTest(testDispatcher) {
+        whenever(authRepository.userProfile).thenReturn(viewerWith(0))
+        whenever(userRepository.getSuggestedUsers(eq("viewer"), any())).thenReturn(emptyList())
+
+        val vm = createViewModel()
+        vm.loadInitialData()
+        advanceUntilIdle()
+
+        assertTrue("below-threshold gate drives the skeleton off", vm.belowTasteMatchThreshold.value)
+        assertFalse("polling must never activate below the threshold", vm.isTasteMatchPolling.value)
+        // The scan is skipped entirely — no taste matches can exist yet.
+        verify(userRepository, never()).getSuggestedUsers(eq("viewer"), any())
+    }
+
+    @Test
+    fun `a one-post viewer skips the fetch, the poll, and the skeleton gate`() = runTest(testDispatcher) {
+        // The exact case from the report: one post, five seconds of skeleton, then
+        // an empty state. Below the 2-post threshold we skip straight to the empty
+        // state with no fetch and no shimmer.
+        whenever(authRepository.userProfile).thenReturn(viewerWith(1))
+        whenever(userRepository.getSuggestedUsers(eq("viewer"), any())).thenReturn(emptyList())
+
+        val vm = createViewModel()
+        vm.loadInitialData()
+        advanceUntilIdle()
+
+        assertTrue("below-threshold gate drives the skeleton off", vm.belowTasteMatchThreshold.value)
+        assertFalse("polling must never activate below the threshold", vm.isTasteMatchPolling.value)
+        verify(userRepository, never()).getSuggestedUsers(eq("viewer"), any())
+    }
+
+    @Test
+    fun `a viewer exactly at the post threshold fetches taste matches`() = runTest(testDispatcher) {
+        whenever(authRepository.userProfile).thenReturn(viewerWith(SearchViewModel.TASTE_MATCH_MIN_POSTS))
+        whenever(userRepository.getSuggestedUsers(eq("viewer"), any())).thenReturn(listOf(tasteMatch))
+
+        val vm = createViewModel()
+        vm.loadInitialData()
+        advanceUntilIdle()
+
+        assertFalse("at the threshold the gate is off — normal loading", vm.belowTasteMatchThreshold.value)
+        assertTrue("taste matches load for a viewer at the threshold", vm.suggestedMatches.value.any { it.isTasteMatch })
+        verify(userRepository, atLeast(1)).getSuggestedUsers(eq("viewer"), any())
     }
 }

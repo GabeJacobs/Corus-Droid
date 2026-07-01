@@ -700,12 +700,16 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     composable<SuggestedUsersListRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<SuggestedUsersListRoute>()
         val viewModel: SuggestedUsersListViewModel = hiltViewModel()
-        val suggestions by viewModel.suggestions.collectAsState()
+        // Render the filtered view so the tasteMatches "Unfollowed" filter drops
+        // already-followed matches; all other sources pass through unchanged.
+        val suggestions by viewModel.visibleSuggestions.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
         val isLoadingMore by viewModel.isLoadingMore.collectAsState()
         val isRefreshing by viewModel.isRefreshing.collectAsState()
         val hasMore by viewModel.hasMore.collectAsState()
         val followedIds by viewModel.followedIds.collectAsState()
+        val filterUnfollowed by viewModel.filterUnfollowed.collectAsState()
+        val isFilling by viewModel.isFilling.collectAsState()
 
         SuggestedUsersListScreen(
             matches = suggestions,
@@ -718,6 +722,13 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             isRefreshing = isRefreshing,
             onRefresh = { viewModel.refresh() },
             onLoadMore = { viewModel.loadMore() },
+            // Toggle available for the taste-matches list once the viewer follows
+            // anyone. Mirrors iOS TasteMatchesListView (toolbar filter shown when
+            // currentUserFollowingIds is non-empty).
+            showFilterToggle = route.source == "tasteMatches" && followedIds.isNotEmpty(),
+            filterUnfollowed = filterUnfollowed,
+            onSetFilterUnfollowed = { viewModel.setTasteMatchFilter(it) },
+            isFilling = isFilling,
             followedIds = followedIds,
             onFollow = { viewModel.toggleFollow(it) },
             onUserTapped = { userId -> viewModel.logUserTapped(userId) },

@@ -1,6 +1,7 @@
 package fm.corus.android.data.repository
 
 import fm.corus.android.data.model.CymbalHashtag
+import fm.corus.android.data.model.HashtagSuggestion
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
@@ -29,6 +30,22 @@ class ExploreRepository @Inject constructor(
         }
     }
 
+    /** Composer hashtag autocomplete. A bare "#" (empty query) shows the
+     *  trending list (no badge; count = weekly windowed). A typed prefix runs a
+     *  trending-first merge (see [mergeHashtagSuggestions]). Trending is served
+     *  from the 5-minute cache. */
+    suspend fun fetchHashtagSuggestions(query: String, limit: Int = 6): List<HashtagSuggestion> {
+        if (query.isEmpty()) {
+            // A bare "#" is a small "what's hot" teaser — fewer rows than a
+            // typed search.
+            return fetchTrendingHashtags(3)
+                .map { HashtagSuggestion(name = it.name, count = it.cymbalCount, trending = false) }
+        }
+        val trending = fetchTrendingHashtags(20)
+        val prefix = firestoreDataSource.searchHashtagsByPrefix(query, 15)
+        return mergeHashtagSuggestions(query, trending, prefix, limit)
+    }
+
     suspend fun fetchTrendingSongs(
         window: TrendingWindow = TrendingWindow.DEFAULT,
         limit: Int = 20,
@@ -54,4 +71,32 @@ class ExploreRepository @Inject constructor(
         trendingMoviesCache = null
         trendingHashtagsCache = null
     }
+}
+
+/**
+ * Trending-first merge for a typed prefix — mirrors the web/iOS
+ * `mergeHashtagSuggestions`. Trending matches come first (badge + weekly
+ * count); the rest are ranked by this-week activity (`recentCount`, then
+ * all-time) with a light floor that hides one-off / likely-typo tags but
+ * always keeps an exact-name match. Pure function for unit testing.
+ */
+fun mergeHashtagSuggestions(
+    query: String,
+    trending: List<CymbalHashtag>,
+    prefix: List<CymbalHashtag>,
+    limit: Int,
+): List<HashtagSuggestion> {
+    val trendingMatches = trending
+        .filter { it.name.startsWith(query) }
+        .take(limit)
+        .map { HashtagSuggestion(name = it.name, count = it.cymbalCount, trending = true) }
+    val trendingNames = trendingMatches.map { it.name }.toSet()
+    val others = prefix
+        .filter { it.name !in trendingNames }
+        .filter { it.recentCount > 0 || it.cymbalCount >= 2 || it.name == query }
+        .sortedWith(
+            compareByDescending<CymbalHashtag> { it.recentCount }.thenByDescending { it.cymbalCount },
+        )
+        .map { HashtagSuggestion(name = it.name, count = it.recentCount, trending = false) }
+    return (trendingMatches + others).take(limit)
 }

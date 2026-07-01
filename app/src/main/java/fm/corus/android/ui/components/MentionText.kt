@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.HorizontalDivider
 import fm.corus.android.R
+import fm.corus.android.data.model.HashtagSuggestion
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.FlairStyle
 import fm.corus.android.ui.theme.CorusColors
@@ -556,6 +558,28 @@ fun parseMentionQuery(text: String, caret: Int = text.length): String? {
     return if (word.startsWith("@") && word.length > 1) word.drop(1) else null
 }
 
+/**
+ * Parse the current #hashtag query from text at the given caret position.
+ * Returns the query (without #) if the word containing the caret is an active
+ * #hashtag, or null otherwise. Unlike [parseMentionQuery], a bare "#" (empty
+ * query) is valid — it opens the suggestions list to trending tags. Stays
+ * active only while every char after "#" is a valid tag char ([a-z0-9_], the
+ * `#(\w+)` charset used at post time); trailing punctuation closes it.
+ */
+fun parseHashtagQuery(text: String, caret: Int = text.length): String? {
+    val clamped = caret.coerceIn(0, text.length)
+    var wordStart = clamped
+    while (wordStart > 0) {
+        val c = text[wordStart - 1]
+        if (c == ' ' || c == '\n' || c == '\t' || c == '\r') break
+        wordStart--
+    }
+    if (wordStart >= clamped || text[wordStart] != '#') return null
+    val body = text.substring(wordStart + 1, clamped)
+    if (!Regex("^[a-z0-9_]*$", RegexOption.IGNORE_CASE).matches(body)) return null
+    return body.lowercase()
+}
+
 /** Extract @mention usernames from text. */
 fun extractMentions(text: String): List<String> {
     return Regex("@([\\w.]+)").findAll(text).map { it.groupValues[1].lowercase() }.toList()
@@ -598,6 +622,40 @@ private fun applyMentionWithCaret(text: String, caret: Int, username: String): P
     }
     val hasTrailingSpace = clamped < text.length && text[clamped] == ' '
     val replacement = if (hasTrailingSpace) "@$username" else "@$username "
+    val before = text.substring(0, wordStart)
+    val after = text.substring(clamped)
+    val newText = before + replacement + after
+    val newCaret = wordStart + replacement.length + if (hasTrailingSpace) 1 else 0
+    return newText to newCaret
+}
+
+/**
+ * [applyHashtag] for [TextFieldValue]: replaces the `#partial` token containing
+ * the caret with `#tag `, preserves any text after it, and moves the cursor to
+ * just after the inserted tag (and any trailing space).
+ */
+fun applyHashtag(value: TextFieldValue, tag: String): TextFieldValue {
+    val (newText, newCaret) = applyHashtagWithCaret(value.text, value.selection.start, tag)
+    return TextFieldValue(newText, selection = TextRange(newCaret))
+}
+
+/** Replace the in-progress `#query` at the end of [text] with `#tag `. */
+fun applyHashtag(text: String, tag: String): String =
+    applyHashtagWithCaret(text, text.length, tag).first
+
+private fun applyHashtagWithCaret(text: String, caret: Int, tag: String): Pair<String, Int> {
+    val clamped = caret.coerceIn(0, text.length)
+    var wordStart = clamped
+    while (wordStart > 0) {
+        val c = text[wordStart - 1]
+        if (c == ' ' || c == '\n' || c == '\t' || c == '\r') break
+        wordStart--
+    }
+    if (wordStart >= clamped || text[wordStart] != '#') {
+        return text to clamped
+    }
+    val hasTrailingSpace = clamped < text.length && text[clamped] == ' '
+    val replacement = if (hasTrailingSpace) "#$tag" else "#$tag "
     val before = text.substring(0, wordStart)
     val after = text.substring(clamped)
     val newText = before + replacement + after
@@ -655,6 +713,100 @@ private fun MentionSearchingRow() {
             style = CorusFont.caption,
             color = CorusColors.Secondary,
         )
+    }
+}
+
+/**
+ * A list of hashtag suggestions rendered as tappable rows. Mirrors
+ * [MentionSuggestionsList] so "#" feels identical to "@" — same divider rhythm
+ * and row height, with a "#" glyph where the avatar would be. Trending rows
+ * carry a "Trending" badge and the count is a bounded this-week number.
+ */
+@Composable
+fun HashtagSuggestionsList(
+    hashtags: List<HashtagSuggestion>,
+    onSelect: (HashtagSuggestion) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (hashtags.isEmpty()) return
+    Column(modifier = modifier) {
+        HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+        hashtags.forEachIndexed { index, tag ->
+            HashtagSuggestionRow(tag = tag, onClick = { onSelect(tag) })
+            if (index < hashtags.lastIndex) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = CorusSpacing.lg + 28.dp + CorusSpacing.sm),
+                    color = CorusColors.Divider,
+                    thickness = 0.5.dp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HashtagSuggestionRow(
+    tag: HashtagSuggestion,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(CorusColors.Accent.copy(alpha = 0.15f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = "#", style = CorusFont.username, color = CorusColors.Accent)
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Column {
+            Text(
+                text = "#${tag.name}",
+                style = CorusFont.username,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (tag.trending || tag.count > 0) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (tag.trending) {
+                        Text(
+                            text = stringResource(R.string.hashtag_suggestion_trending),
+                            style = CorusFont.caption,
+                            color = CorusColors.Accent,
+                            maxLines = 1,
+                        )
+                    }
+                    if (tag.trending && tag.count > 0) {
+                        Text(
+                            text = " · ",
+                            style = CorusFont.caption,
+                            color = CorusColors.Secondary,
+                        )
+                    }
+                    if (tag.count > 0) {
+                        val velocityRes = if (tag.count == 1) {
+                            R.string.hashtag_velocity_this_week_one
+                        } else {
+                            R.string.hashtag_velocity_this_week
+                        }
+                        Text(
+                            text = stringResource(velocityRes, tag.count.toString()),
+                            style = CorusFont.caption,
+                            color = CorusColors.Secondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

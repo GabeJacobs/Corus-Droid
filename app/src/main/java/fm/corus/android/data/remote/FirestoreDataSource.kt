@@ -528,9 +528,19 @@ class FirestoreDataSource @Inject constructor(
             .await()
     }
 
-    suspend fun updateCaption(postId: String, caption: String) {
+    suspend fun updateCaption(postId: String, caption: String, hashtags: List<String>) {
+        // Write the parsed hashtags alongside the caption. This edit path goes
+        // direct to Firestore (no createPost callable), so nothing normalizes
+        // the array server-side — lowercase here so the backend
+        // onHashtagPostsChanged trigger re-indexes and array-contains queries
+        // match. iOS / Web do the same on edit.
         firestore.collection("posts").document(postId)
-            .update(mapOf("caption" to caption))
+            .update(
+                mapOf(
+                    "caption" to caption,
+                    "hashtags" to hashtags.map { it.lowercase() },
+                )
+            )
             .await()
     }
 
@@ -943,6 +953,9 @@ class FirestoreDataSource @Inject constructor(
                 name = data["name"] as? String ?: doc.id,
                 cymbalCount = (data["cymbalCount"] as? Number)?.toInt() ?: 0,
                 coverArtURLs = (data["coverArtURLs"] as? List<String>) ?: emptyList(),
+                // Trailing 7-day count — the composer autocomplete ranks + labels
+                // by this so stale tags sink and the number stays bounded.
+                recentCount = (data["recentCount"] as? Number)?.toInt() ?: 0,
             )
         }.sortedByDescending { it.cymbalCount }
     }
