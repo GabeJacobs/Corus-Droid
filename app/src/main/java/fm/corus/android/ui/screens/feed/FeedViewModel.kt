@@ -209,6 +209,9 @@ class FeedViewModel @Inject constructor(
         /** Server returned the feature disabled / no cohort yet (gated:"unavailable").
          *  Renders a neutral "No Taste Matches right now" empty (mirrors iOS). */
         data object Unavailable : TasteMatchesGate
+        /** Posted enough, but shares no artist/director with anyone yet
+         *  (gated:"noMatchesYet"). Actionable empty: post more (mirrors iOS). */
+        data object NoMatchesYet : TasteMatchesGate
     }
     private val _tasteMatchesGate = MutableStateFlow<TasteMatchesGate?>(null)
     val tasteMatchesGate: StateFlow<TasteMatchesGate?> = _tasteMatchesGate.asStateFlow()
@@ -389,9 +392,6 @@ class FeedViewModel @Inject constructor(
      *  until this flips so it never flashes "Follow" for an author the viewer
      *  may already follow while membership is still unknown on a cold start. */
     val followingLoaded: StateFlow<Boolean> = userRepository.followingLoaded
-
-    // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
-    private val activeListenerPostIds = mutableSetOf<String>()
 
     init {
         // Restore the persisted feed filter on startup so a music/film/new-releases
@@ -613,6 +613,7 @@ class FeedViewModel @Inject constructor(
                         }
                         "paywall" -> _tasteMatchesGate.value = TasteMatchesGate.Paywall
                         "unavailable" -> _tasteMatchesGate.value = TasteMatchesGate.Unavailable
+                        "noMatchesYet" -> _tasteMatchesGate.value = TasteMatchesGate.NoMatchesYet
                         else -> _tasteMatchesGate.value = null
                     }
                     if (forYouPage.gated != null) {
@@ -718,12 +719,14 @@ class FeedViewModel @Inject constructor(
                 lastTimestamp = newPosts.last().timestamp.time
             }
 
-            // Start real-time listeners for new posts (matching iOS PostEngagementStore)
-            newPosts.forEach { post ->
-                if (activeListenerPostIds.add(post.id)) {
-                    engagementManager.startListening(post.id)
-                }
-            }
+            // NO per-post real-time listeners on the feed (matching iOS). Counts
+            // render from the denormalized values seeded via initState() above;
+            // live per-post Firestore listeners are attached ONLY in PostDetail /
+            // Comments. Feed-wide per-post listeners were the dominant source of
+            // /posts reads (~30 open listeners per feed page, re-attached on
+            // scroll). Optimistic like/save/comment still work (they mutate the
+            // engagement store directly), and an FCM notification about a post
+            // triggers a one-shot refreshCountsFromServer for that post.
 
             // Check actual like status from Firestore (backend doesn't return isLiked)
             engagementManager.checkLikeStatuses(newPosts.map { it.id }, userId)
@@ -1173,11 +1176,6 @@ class FeedViewModel @Inject constructor(
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        activeListenerPostIds.forEach { engagementManager.stopListening(it) }
-        activeListenerPostIds.clear()
-    }
 }
 
 /** Target number of contacts before we stop reaching for fallback sources. */

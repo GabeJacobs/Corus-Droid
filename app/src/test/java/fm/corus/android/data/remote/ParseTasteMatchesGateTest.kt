@@ -44,6 +44,14 @@ class ParseTasteMatchesGateTest {
     }
 
     @Test
+    fun `noMatchesYet gate parses (posted enough, no shared artist yet)`() {
+        val gate = parseTasteMatchesGate(mapOf("gated" to "noMatchesYet"))
+        assertEquals("noMatchesYet", gate?.gated)
+        assertEquals(0, gate?.postCount)
+        assertEquals(0, gate?.threshold)
+    }
+
+    @Test
     fun `numeric fields tolerate Double (Firebase number) without throwing`() {
         val gate = parseTasteMatchesGate(
             mapOf("gated" to "needMorePosts", "postCount" to 2.0, "threshold" to 3.0),

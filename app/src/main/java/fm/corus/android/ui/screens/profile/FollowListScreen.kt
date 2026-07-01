@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -176,7 +177,11 @@ private fun FollowListPager(
             tabs.forEachIndexed { index, mode ->
                 val label = when (mode) {
                     FollowListMode.FOLLOWERS ->
-                        stringResource(fm.corus.android.R.string.follow_list_tab_followers, formatCount(followerCount))
+                        pluralStringResource(
+                            fm.corus.android.R.plurals.follow_list_tab_followers,
+                            followerCount,
+                            formatCount(followerCount),
+                        )
                     FollowListMode.FOLLOWING ->
                         stringResource(fm.corus.android.R.string.follow_list_tab_following, formatCount(followingCount))
                     FollowListMode.MUTUAL ->

@@ -879,6 +879,9 @@
     <string name="feed_taste_matches_coldstart_cta">corusを投稿</string>
     <string name="feed_taste_matches_unavailable_title">今は好みの一致がありません</string>
     <string name="feed_taste_matches_unavailable_body">また後で確認するか、引っ張って更新してください。</string>
+    <string name="feed_taste_matches_no_matches_title">まだ一致がありません</string>
+    <string name="feed_taste_matches_no_matches_body">好きな音楽や映画をもっと投稿すると、好みの合う人がここに表示されます。</string>
+    <string name="feed_taste_matches_end_more">シェアするほど、好みの一致が増えます。</string>
     <string name="feed_taste_matches_paywall_title">好みの一致</string>
     <string name="feed_taste_matches_paywall_body">あなたと同じものを好きな人たち、好みの一致からおすすめが届きます。</string>
     <string name="feed_taste_matches_paywall_cta">詳しく見る</string>

@@ -1004,6 +1004,9 @@
     <string name="feed_taste_matches_coldstart_cta">发布一个 corus</string>
     <string name="feed_taste_matches_unavailable_title">暂时没有品味匹配</string>
     <string name="feed_taste_matches_unavailable_body">稍后再来看看，或下拉刷新。</string>
+    <string name="feed_taste_matches_no_matches_title">还没有匹配</string>
+    <string name="feed_taste_matches_no_matches_body">多发布你喜欢的音乐和电影，品味相近的人就会出现在这里。</string>
+    <string name="feed_taste_matches_end_more">分享得越多，你的品味匹配就越多。</string>
     <string name="feed_taste_matches_paywall_title">品味匹配</string>
     <string name="feed_taste_matches_paywall_body">从与你品味相同的人那里获得推荐，他们也喜欢你所爱的。</string>
     <string name="feed_taste_matches_paywall_cta">了解更多</string>

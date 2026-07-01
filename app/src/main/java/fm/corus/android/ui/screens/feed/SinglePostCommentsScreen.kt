@@ -812,7 +812,7 @@ private fun SingleCommentRow(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun CommentContentRow(
+internal fun CommentContentRow(
     comment: CymbalComment,
     isOwnComment: Boolean,
     isLiked: Boolean,

@@ -35,7 +35,9 @@ import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.isNull
+import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.util.Date
@@ -202,5 +204,39 @@ class ProfileFeedViewModelRefreshTest {
             pageSize = any(),
             beforeMs = isNull(),
         )
+    }
+
+    @Test
+    fun `profile feed opens NO per-post real-time listeners (iOS parity)`() = runTest {
+        // Regression for the read-cost fix: list surfaces (feed + profile feeds)
+        // must NOT open a live Firestore listener per post. That was the dominant
+        // source of /posts reads (~30 open listeners per feed page, re-attached on
+        // scroll). Counts render from the denormalized post fields; live per-post
+        // listeners live ONLY in PostDetail / Comments — matching iOS.
+        ProfileFeedCache.posts = listOf(makePost("p1"), makePost("p2"))
+        ProfileFeedCache.hasMore = true
+        whenever(
+            cloudFunctions.getProfilePosts(
+                userId = eq("u1"),
+                viewerId = eq("viewer1"),
+                limit = any(),
+                lastTimestamp = isNull(),
+                mediaType = anyOrNull(),
+            )
+        ).doReturn(listOf(makePost("p1"), makePost("p2")))
+
+        val vm = createViewModel()
+        vm.initFeed("u1", segment = 0)
+        advanceUntilIdle()
+        vm.refresh() // exercises the load path that used to attach listeners
+        advanceUntilIdle()
+
+        assertEquals(listOf("p1", "p2"), vm.posts.value.map { it.id })
+        // THE regression: zero per-post listeners on a list surface.
+        verify(engagementManager, never()).startListening(any())
+        // But the cheap batched like/save reconcile still runs (one query each),
+        // so the heart/bookmark fill state stays correct.
+        verify(engagementManager, atLeastOnce()).checkLikeStatuses(any(), any())
+        verify(engagementManager, atLeastOnce()).checkSaveStatuses(any(), any())
     }
 }

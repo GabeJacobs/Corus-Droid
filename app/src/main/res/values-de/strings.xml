@@ -1004,6 +1004,9 @@
     <string name="feed_taste_matches_coldstart_cta">Einen corus posten</string>
     <string name="feed_taste_matches_unavailable_title">Gerade keine Geschmacks-Matches</string>
     <string name="feed_taste_matches_unavailable_body">Schau bald wieder vorbei oder ziehe zum Aktualisieren.</string>
+    <string name="feed_taste_matches_no_matches_title">Noch keine Matches</string>
+    <string name="feed_taste_matches_no_matches_body">Poste mehr Musik und Filme, die du liebst, und Menschen mit deinem Geschmack erscheinen hier.</string>
+    <string name="feed_taste_matches_end_more">Je mehr du teilst, desto mehr Matches bekommst du.</string>
     <string name="feed_taste_matches_paywall_title">Geschmacks-Matches</string>
     <string name="feed_taste_matches_paywall_body">Erhalte Empfehlungen von deinen Geschmacks-Matches, von Menschen, die dasselbe lieben wie du.</string>
     <string name="feed_taste_matches_paywall_cta">Mehr erfahren</string>

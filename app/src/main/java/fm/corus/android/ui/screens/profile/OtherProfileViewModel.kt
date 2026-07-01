@@ -119,6 +119,17 @@ class OtherProfileViewModel @Inject constructor(
     private val _hasFetchedFilmPage = MutableStateFlow(false)
     val hasFetchedFilmPage: StateFlow<Boolean> = _hasFetchedFilmPage.asStateFlow()
 
+    // Song-backfill state, symmetric to the film fetch above. The MUSIC grid is
+    // a client-side filter over the recency-ordered [posts] window, so a
+    // film-dominant poster whose latest ~PAGE_SIZE posts are all films arrives
+    // with no songs in that window. These drive a mediaType="track" backfill so
+    // the MUSIC tab shows a skeleton → songs instead of flashing "No songs yet".
+    private val _isLoadingSongs = MutableStateFlow(false)
+    val isLoadingSongs: StateFlow<Boolean> = _isLoadingSongs.asStateFlow()
+
+    private val _hasFetchedSongPage = MutableStateFlow(false)
+    val hasFetchedSongPage: StateFlow<Boolean> = _hasFetchedSongPage.asStateFlow()
+
     // Liked posts — a separate, lazily-loaded list for the LIKES tab (segment 2).
     // These are the posts the profile *owner* has liked, NOT their own posts.
     // The MUSIC/FILM tabs filter the owner's own [posts]; likes come from a
@@ -195,8 +206,6 @@ class OtherProfileViewModel @Inject constructor(
         engagementManager.toggleLike(postId, userId)
     }
 
-    // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
-    private val activeListenerPostIds = mutableSetOf<String>()
 
     // Tracks the userId this ViewModel has loaded data for. Used to skip
     // redundant fetches when the composable re-enters composition after
@@ -225,6 +234,10 @@ class OtherProfileViewModel @Inject constructor(
         _likedPosts.value = emptyList()
         _likedHasMore.value = true
         _hasFetchedLikedPage.value = false
+        // Reset the song-backfill state too, so a reused ViewModel (profile ->
+        // profile navigation) never carries the previous owner's fetched flag.
+        _hasFetchedSongPage.value = false
+        _isLoadingSongs.value = false
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -285,12 +298,16 @@ class OtherProfileViewModel @Inject constructor(
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
-                    if (activeListenerPostIds.add(post.id)) {
-                        engagementManager.startListening(post.id)
-                    }
                 }
                 engagementManager.checkLikeStatuses(page.map { it.id }, viewerId)
                 engagementManager.checkSaveStatuses(page.map { it.id }, viewerId)
+                // Backfill songs when the recency window is film-only so the
+                // MUSIC tab shows skeleton → songs instead of flashing "No
+                // songs yet". Symmetric to the FILM tab's loadFilmPageIfNeeded.
+                // Bots have a single tab, so skip the backfill for them.
+                if (_profile.value?.isBot != true && page.none { it.mediaType == MediaType.TRACK }) {
+                    loadSongPageIfNeeded(userId)
+                }
             } catch (_: Exception) { }
             _isLoading.value = false
         }
@@ -315,6 +332,14 @@ class OtherProfileViewModel @Inject constructor(
             (!_hasMore.value && _posts.value.none { it.mediaType == MediaType.MOVIE })
         if (!certainlyZeroFilms) {
             _hasFetchedFilmPage.value = false
+        }
+        // Same for songs: allow the backfill to run again unless we're certain
+        // there are none, so a post-refresh film-only window re-fetches songs.
+        val knownZeroSongs = _profile.value?.trackCount == 0
+        val certainlyZeroSongs = knownZeroSongs ||
+            (!_hasMore.value && _posts.value.none { it.mediaType == MediaType.TRACK })
+        if (!certainlyZeroSongs) {
+            _hasFetchedSongPage.value = false
         }
         _isRefreshing.value = true
         viewModelScope.launch {
@@ -363,12 +388,15 @@ class OtherProfileViewModel @Inject constructor(
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
-                    if (activeListenerPostIds.add(post.id)) {
-                        engagementManager.startListening(post.id)
-                    }
                 }
                 engagementManager.checkLikeStatuses(merged.map { it.id }, viewerId)
                 engagementManager.checkSaveStatuses(merged.map { it.id }, viewerId)
+                // Re-backfill songs if the refreshed recency window has none, so
+                // the MUSIC tab never settles on "No songs yet" for a film-heavy
+                // poster whose songs live deeper in history. Bots skip this.
+                if (_profile.value?.isBot != true && merged.none { it.mediaType == MediaType.TRACK }) {
+                    loadSongPageIfNeeded(userId)
+                }
 
                 if (includeLikes) {
                     val liked = cloudFunctions.getLikedPosts(userId, viewerId, limit = PAGE_SIZE, offset = 0)
@@ -420,9 +448,6 @@ class OtherProfileViewModel @Inject constructor(
                             isLiked = post.isLiked,
                             isSaved = false,
                         )
-                        if (activeListenerPostIds.add(post.id)) {
-                            engagementManager.startListening(post.id)
-                        }
                     }
                     engagementManager.checkLikeStatuses(additions.map { it.id }, viewerId)
                     engagementManager.checkSaveStatuses(additions.map { it.id }, viewerId)
@@ -431,6 +456,56 @@ class OtherProfileViewModel @Inject constructor(
                 _hasFetchedFilmPage.value = false
             }
             _isLoadingFilms.value = false
+        }
+    }
+
+    /**
+     * Backfills the most-recent songs when the recency-ordered first page held
+     * only films. The MUSIC grid is a client-side filter over the mixed [posts]
+     * window, so a film-dominant poster whose latest ~PAGE_SIZE posts are all
+     * films would otherwise read "No songs yet" despite having songs deeper in
+     * their history. Symmetric to [loadFilmPageIfNeeded].
+     */
+    fun loadSongPageIfNeeded(userId: String) {
+        if (_hasFetchedSongPage.value || _isLoadingSongs.value) return
+        val viewerId = authRepository.currentUserId ?: return
+        val hasAnySongs = _posts.value.any { it.mediaType == MediaType.TRACK }
+        // Prefer the counter (authoritative); fall back to the "all posts loaded,
+        // none are songs" free guard for older backends without the field.
+        val knownZeroSongs = _profile.value?.trackCount == 0
+        if (knownZeroSongs || (!_hasMore.value && !hasAnySongs)) {
+            _hasFetchedSongPage.value = true
+            return
+        }
+        // If the counter is present and we've already cached at least that many
+        // songs, there's nothing left to backfill.
+        val total = _profile.value?.trackCount
+        val cachedSongs = _posts.value.count { it.mediaType == MediaType.TRACK }
+        if (total != null && cachedSongs >= total) {
+            _hasFetchedSongPage.value = true
+            return
+        }
+        _hasFetchedSongPage.value = true
+        if (!hasAnySongs) _isLoadingSongs.value = true
+        viewModelScope.launch {
+            try {
+                val songs = postRepository.getProfilePosts(
+                    userId = userId,
+                    viewerId = viewerId,
+                    limit = PAGE_SIZE,
+                    lastTimestamp = null,
+                    mediaType = "track",
+                )
+                val existing = _posts.value
+                val additions = songs.filter { s -> existing.none { it.id == s.id } }
+                if (additions.isNotEmpty()) {
+                    _posts.value = existing + additions
+                    initEngagement(additions, viewerId)
+                }
+            } catch (_: Exception) {
+                _hasFetchedSongPage.value = false
+            }
+            _isLoadingSongs.value = false
         }
     }
 
@@ -462,9 +537,6 @@ class OtherProfileViewModel @Inject constructor(
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
-                    if (activeListenerPostIds.add(post.id)) {
-                        engagementManager.startListening(post.id)
-                    }
                 }
                 engagementManager.checkLikeStatuses(newPosts.map { it.id }, viewerId)
                 engagementManager.checkSaveStatuses(newPosts.map { it.id }, viewerId)
@@ -538,9 +610,6 @@ class OtherProfileViewModel @Inject constructor(
                 isLiked = post.isLiked,
                 isSaved = false,
             )
-            if (activeListenerPostIds.add(post.id)) {
-                engagementManager.startListening(post.id)
-            }
         }
         if (posts.isNotEmpty()) engagementManager.checkLikeStatuses(posts.map { it.id }, viewerId)
         if (posts.isNotEmpty()) engagementManager.checkSaveStatuses(posts.map { it.id }, viewerId)
@@ -705,7 +774,5 @@ class OtherProfileViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        activeListenerPostIds.forEach { engagementManager.stopListening(it) }
-        activeListenerPostIds.clear()
     }
 }

@@ -31,8 +31,10 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.stub
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.util.Date
@@ -101,11 +103,12 @@ class ProfileViewModelTest {
         networkMonitor = mock { on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true) },
     )
 
-    private fun makeUser(id: String = "user1", movieCount: Int? = null) = CymbalUser(
+    private fun makeUser(id: String = "user1", movieCount: Int? = null, trackCount: Int? = null) = CymbalUser(
         id = id,
         username = "u",
         displayName = "U",
         movieCount = movieCount,
+        trackCount = trackCount,
     )
 
     private fun makeMoviePost(id: String, timestampMs: Long) = CymbalPost(
@@ -113,6 +116,14 @@ class ProfileViewModelTest {
         user = makeUser(),
         track = CymbalTrack(id = "t-$id", name = "t", artistName = "a", albumName = "al"),
         mediaType = MediaType.MOVIE,
+        timestamp = Date(timestampMs),
+    )
+
+    private fun makeTrackPost(id: String, timestampMs: Long) = CymbalPost(
+        id = id,
+        user = makeUser(),
+        track = CymbalTrack(id = "t-$id", name = "t", artistName = "a", albumName = "al"),
+        mediaType = MediaType.TRACK,
         timestamp = Date(timestampMs),
     )
 
@@ -272,6 +283,118 @@ class ProfileViewModelTest {
         // Sanity: refreshProfile ran and settled the loading flags.
         assertEquals(false, viewModel.isLoading.value)
         assertEquals(false, viewModel.isRefreshing.value)
+    }
+
+    @Test
+    fun `loadSongPageIfNeeded backfills tracks when the recency window is film-only`() = runTest {
+        // The MUSIC tab is a client-side filter over the recency-ordered posts
+        // window. A film-dominant poster whose latest page is all films arrives
+        // with zero tracks in that window. With trackCount>0, the backfill must
+        // fetch mediaType="track" and append songs so the music grid isn't empty.
+        val profileFlow = MutableStateFlow<CymbalUser?>(makeUser(trackCount = 3))
+        authRepository = mock {
+            on { currentUserId } doReturn "user1"
+            on { userProfile } doReturn profileFlow
+        }
+        // Initial mixed page — a FULL page (>= PAGE_SIZE) of films, no tracks, so
+        // hasMore[0] stays true (songs may live deeper in history). A short page
+        // would prove everything is loaded and correctly skip the backfill.
+        val films = (1..30).map { makeMoviePost("f-$it", timestampMs = (100_000 - it).toLong()) }
+        whenever(
+            cloudFunctions.getProfilePosts(eq("user1"), eq("user1"), any(), eq(null), eq(null))
+        ).thenReturn(films)
+        // Song-only backfill — the user does have songs deeper in history.
+        val songs = (1..3).map { makeTrackPost("s-$it", timestampMs = (5_000 - it).toLong()) }
+        whenever(
+            cloudFunctions.getProfilePosts(eq("user1"), eq("user1"), any(), eq(null), eq("track"))
+        ).thenReturn(songs)
+
+        val viewModel = createViewModel()
+        viewModel.loadProfile()
+        advanceUntilIdle()
+
+        // The film-only recency window auto-triggered the song backfill.
+        verify(cloudFunctions).getProfilePosts(eq("user1"), eq("user1"), any(), eq(null), eq("track"))
+        val tracks = viewModel.posts.value.filter { it.mediaType == MediaType.TRACK }
+        assertEquals(listOf("s-1", "s-2", "s-3"), tracks.map { it.id })
+        // After a successful backfill the page is marked fetched and not loading,
+        // so the MUSIC tab can resolve (skeleton-hold released).
+        assertTrue(viewModel.hasFetchedSongPage.value)
+        assertEquals(false, viewModel.isLoadingSongs.value)
+    }
+
+    @Test
+    fun `loadSongPageIfNeeded does not fetch when trackCount is zero`() = runTest {
+        // A genuinely film-only poster (trackCount==0) must NOT fire the backfill
+        // and must mark the page fetched so the MUSIC tab can immediately show
+        // the empty state (no skeleton flash, no wasted round-trip).
+        val profileFlow = MutableStateFlow<CymbalUser?>(makeUser(trackCount = 0))
+        authRepository = mock {
+            on { currentUserId } doReturn "user1"
+            on { userProfile } doReturn profileFlow
+        }
+        val films = (1..3).map { makeMoviePost("f-$it", timestampMs = (10_000 - it).toLong()) }
+        whenever(
+            cloudFunctions.getProfilePosts(eq("user1"), eq("user1"), any(), eq(null), eq(null))
+        ).thenReturn(films)
+
+        val viewModel = createViewModel()
+        viewModel.loadProfile()
+        advanceUntilIdle()
+
+        // No mediaType="track" fetch — trackCount==0 short-circuits it.
+        verify(cloudFunctions, org.mockito.kotlin.never()).getProfilePosts(
+            eq("user1"), eq("user1"), any(), any(), eq("track"),
+        )
+        // Marked fetched (so the empty state is allowed) and never entered loading.
+        assertTrue(viewModel.hasFetchedSongPage.value)
+        assertEquals(false, viewModel.isLoadingSongs.value)
+    }
+
+    @Test
+    fun `song backfill keeps isLoadingSongs true in flight then false after`() = runTest {
+        // The skeleton-hold signal (segment 0) keys off isLoadingSongs while the
+        // backfill is in flight, so the "No songs yet" empty state is gated until
+        // it resolves. Use a suspended fetch to observe the loading flag mid-flight.
+        val profileFlow = MutableStateFlow<CymbalUser?>(makeUser(trackCount = 2))
+        authRepository = mock {
+            on { currentUserId } doReturn "user1"
+            on { userProfile } doReturn profileFlow
+        }
+        // Full initial film page so hasMore[0] stays true and the backfill runs.
+        val films = (1..30).map { makeMoviePost("f-$it", timestampMs = (100_000 - it).toLong()) }
+        whenever(
+            cloudFunctions.getProfilePosts(eq("user1"), eq("user1"), any(), eq(null), eq(null))
+        ).thenReturn(films)
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val songs = (1..2).map { makeTrackPost("s-$it", timestampMs = (5_000 - it).toLong()) }
+        // doSuspendableAnswer parks the coroutine on the gate (a real suspend,
+        // not a thread block) so advanceUntilIdle can still drive the dispatcher.
+        cloudFunctions.stub {
+            onBlocking {
+                getProfilePosts(eq("user1"), eq("user1"), any(), eq(null), eq("track"))
+            }.doSuspendableAnswer {
+                gate.await()
+                songs
+            }
+        }
+
+        val viewModel = createViewModel()
+        viewModel.loadProfile()
+        advanceUntilIdle()
+
+        // Backfill is launched but parked on the gate: skeleton-hold is active.
+        assertTrue("expected backfill in flight", viewModel.isLoadingSongs.value)
+        assertTrue(viewModel.hasFetchedSongPage.value)
+
+        // Release the fetch and let it settle.
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.isLoadingSongs.value)
+        assertTrue(viewModel.hasFetchedSongPage.value)
+        val tracks = viewModel.posts.value.filter { it.mediaType == MediaType.TRACK }
+        assertEquals(2, tracks.size)
     }
 
     @Test

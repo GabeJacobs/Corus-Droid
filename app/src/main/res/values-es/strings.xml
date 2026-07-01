@@ -1004,6 +1004,9 @@
     <string name="feed_taste_matches_coldstart_cta">Publicar un corus</string>
     <string name="feed_taste_matches_unavailable_title">No hay coincidencias de gustos por ahora</string>
     <string name="feed_taste_matches_unavailable_body">Vuelve pronto, o desliza para actualizar.</string>
+    <string name="feed_taste_matches_no_matches_title">Aún no tienes coincidencias</string>
+    <string name="feed_taste_matches_no_matches_body">Publica más música y cine que te encanten y aquí aparecerán las personas que comparten tus gustos.</string>
+    <string name="feed_taste_matches_end_more">Cuanto más compartes, más coincidencias de gustos tendrás.</string>
     <string name="feed_taste_matches_paywall_title">Coincidencias de gustos</string>
     <string name="feed_taste_matches_paywall_body">Recibe recomendaciones de tus coincidencias de gustos, personas que aman lo mismo que tú.</string>
     <string name="feed_taste_matches_paywall_cta">Más información</string>

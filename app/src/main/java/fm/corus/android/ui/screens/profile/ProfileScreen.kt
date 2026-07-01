@@ -161,6 +161,8 @@ fun ProfileScreen(
     val isLoadingSaved by viewModel.isLoadingSaved.collectAsState()
     val isLoadingFilms by viewModel.isLoadingFilms.collectAsState()
     val hasFetchedFilmPage by viewModel.hasFetchedFilmPage.collectAsState()
+    val isLoadingSongs by viewModel.isLoadingSongs.collectAsState()
+    val hasFetchedSongPage by viewModel.hasFetchedSongPage.collectAsState()
     val isClubMember by viewModel.isClubMember.collectAsState()
     val hasFullAccess by viewModel.hasFullAccess.collectAsState()
     val isSavingStyle by viewModel.isSavingStyle.collectAsState()
@@ -799,8 +801,24 @@ fun ProfileScreen(
                 val filmFetchPending = selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)
                 val filmFeaturedPost = if (selectedSegment == 1) filteredPosts.firstOrNull() else null
 
+                // Hold the MUSIC tab on the skeleton (never the "No songs yet"
+                // empty prompt) while songs the recency window missed are still
+                // being backfilled. Resolves to the empty state only once we've
+                // confirmed there are no songs: trackCount == 0, or the backfill
+                // returned nothing (hasFetchedSongPage set, isLoadingSongs
+                // cleared). The trackCount null-or-positive check keeps the
+                // skeleton up while the counter is still unknown so it can't
+                // flash empty. Mirrors iOS ProfileViewModel.isSegmentLoading.
+                val songFetchPending = selectedSegment == 0 && filteredPosts.isEmpty() &&
+                    (isLoadingSongs || (!hasFetchedSongPage && (currentProfile.trackCount ?: 1) > 0 && hasMoreMixedPosts))
+
                 // ── Featured Post — only for Music/Film tabs (matching iOS) ──
-                if (selectedSegment == 1 && (filmFetchPending || filmFeaturedPost != null)) {
+                if (selectedSegment == 0 && songFetchPending) {
+                    // No songs in the recency window yet — backfill is pending.
+                    // Show the skeleton (covers featured + grid) instead of the
+                    // empty prompt; the grid block below emits nothing for it.
+                    fm.corus.android.ui.components.SkeletonProfileGrid(isFilmStyle = false)
+                } else if (selectedSegment == 1 && (filmFetchPending || filmFeaturedPost != null)) {
                     val featuredEngagement = filmFeaturedPost?.let { engagementStates[it.id] }
                     fm.corus.android.ui.components.FeaturedMoviePosterView(
                         post = filmFeaturedPost,
@@ -927,10 +945,17 @@ fun ProfileScreen(
             it.mediaType == fm.corus.android.data.model.MediaType.TRACK
         }
         val filmFetchPending = selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)
+        // Recomputed here (different LazyGrid scope than the featured block).
+        // When pending, the featured block renders SkeletonProfileGrid which
+        // already covers the grid region, so this block emits nothing — exactly
+        // like the music isFeaturedArtLoading path above it.
+        val songFetchPending = selectedSegment == 0 &&
+            posts.none { it.mediaType == fm.corus.android.data.model.MediaType.TRACK } &&
+            (isLoadingSongs || (!hasFetchedSongPage && (currentProfile.trackCount ?: 1) > 0 && hasMoreMixedPosts))
         val isSegmentLoading = (selectedSegment == 2 && isLoadingLiked && likedPosts.isEmpty())
             || (selectedSegment == 3 && isLoadingSaved && savedPosts.isEmpty())
 
-        if (isFeaturedArtLoading) {
+        if (isFeaturedArtLoading || songFetchPending) {
             // Music featured uses SkeletonProfileGrid in the header which covers the grid; emit nothing.
         } else if (filmFetchPending) {
             // FILM tab now uses the in-place FeaturedMoviePosterView shell, so we

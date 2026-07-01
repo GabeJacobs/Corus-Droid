@@ -429,6 +429,23 @@ fun FeedScreen(
                 }
             }
 
+            // Taste Matches "no matches yet": posted enough but no shared
+            // artist/director with anyone yet (gated:"noMatchesYet"). Actionable
+            // empty — post more (mirrors iOS tasteMatchesNoMatchesYetState).
+            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
+                feedMode == "tasteMatches" &&
+                tasteMatchesGate is FeedViewModel.TasteMatchesGate.NoMatchesYet -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    header()
+                    TasteMatchesNoMatchesYet(onPost = onNavigateToCompose)
+                }
+            }
+
             // Offline / load-failed empty state. Two distinct cases share this
             // panel but must NOT share copy: when the device is genuinely offline
             // (!isConnected) we tell the user to check their connection; when the
@@ -583,14 +600,14 @@ fun FeedScreen(
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                     Text(
                         text = stringResource(titleRes),
-                        style = CorusFont.body,
+                        style = CorusFont.songTitle,
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
                     Text(
                         text = stringResource(subtitleRes),
-                        style = CorusFont.caption,
+                        style = CorusFont.body,
                         color = CorusColors.Tertiary,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = CorusSpacing.xl),
@@ -834,6 +851,15 @@ fun FeedScreen(
                                     strokeWidth = 2.dp,
                                 )
                             }
+                        }
+                    }
+
+                    // Taste Matches reached the end: this feed is finite (only
+                    // people you share an artist/director with), so nudge to post
+                    // more instead of the generic invite footer.
+                    if (feedMode == "tasteMatches" && !hasMore && !isLoading && posts.isNotEmpty()) {
+                        item {
+                            TasteMatchesEndOfFeed(onPost = onNavigateToCompose)
                         }
                     }
                 }
@@ -1272,13 +1298,47 @@ private fun TasteMatchesColdStart(
     Button(
         onClick = onPost,
         colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
     ) {
         Text(
             text = stringResource(R.string.feed_taste_matches_coldstart_cta),
             style = CorusFont.button,
             color = Color.White,
         )
+    }
+}
+
+/**
+ * End-of-feed footer for Taste Matches: this feed is finite (only people you
+ * share an artist/director with), so reaching the bottom is a natural nudge to
+ * post more, which grows your matches. Replaces the generic invite footer here.
+ */
+@Composable
+private fun TasteMatchesEndOfFeed(onPost: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.xl, vertical = CorusSpacing.xxxl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.feed_taste_matches_end_more),
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        Button(
+            onClick = onPost,
+            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+            shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+        ) {
+            Text(
+                text = stringResource(R.string.feed_taste_matches_coldstart_cta),
+                style = CorusFont.button,
+                color = Color.White,
+            )
+        }
     }
 }
 
@@ -1310,6 +1370,50 @@ private fun TasteMatchesNeutralEmpty() {
         textAlign = TextAlign.Center,
         modifier = Modifier.padding(horizontal = CorusSpacing.xl),
     )
+    Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+}
+
+/**
+ * "No matches yet": posted enough to clear the cold-start gate, but no shared
+ * artist/director with anyone yet (gated:"noMatchesYet"). Unlike the neutral
+ * empty, this is actionable — keep posting and your matches fill in. Mirrors
+ * iOS tasteMatchesNoMatchesYetState.
+ */
+@Composable
+private fun TasteMatchesNoMatchesYet(onPost: () -> Unit) {
+    Spacer(modifier = Modifier.height(60.dp))
+    VennDiagramIcon(
+        size = 36.dp,
+        color = CorusColors.Tertiary,
+        shadedIntersection = true,
+    )
+    Spacer(modifier = Modifier.height(CorusSpacing.md))
+    Text(
+        text = stringResource(R.string.feed_taste_matches_no_matches_title),
+        style = CorusFont.songTitle,
+        color = CorusColors.Secondary,
+        textAlign = TextAlign.Center,
+    )
+    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+    Text(
+        text = stringResource(R.string.feed_taste_matches_no_matches_body),
+        style = CorusFont.body,
+        color = CorusColors.Tertiary,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+    )
+    Spacer(modifier = Modifier.height(CorusSpacing.lg))
+    Button(
+        onClick = onPost,
+        colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+    ) {
+        Text(
+            text = stringResource(R.string.feed_taste_matches_coldstart_cta),
+            style = CorusFont.button,
+            color = Color.White,
+        )
+    }
     Spacer(modifier = Modifier.height(CorusSpacing.xxl))
 }
 

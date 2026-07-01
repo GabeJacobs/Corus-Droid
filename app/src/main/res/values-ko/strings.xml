@@ -1004,6 +1004,9 @@
     <string name="feed_taste_matches_coldstart_cta">corus 게시하기</string>
     <string name="feed_taste_matches_unavailable_title">지금은 취향 매치가 없어요</string>
     <string name="feed_taste_matches_unavailable_body">잠시 후 다시 확인하거나 당겨서 새로고침하세요.</string>
+    <string name="feed_taste_matches_no_matches_title">아직 매치가 없어요</string>
+    <string name="feed_taste_matches_no_matches_body">좋아하는 음악과 영화를 더 올리면 취향이 맞는 사람들이 여기에 표시됩니다.</string>
+    <string name="feed_taste_matches_end_more">더 많이 공유할수록 취향 매치가 늘어납니다.</string>
     <string name="feed_taste_matches_paywall_title">취향 매치</string>
     <string name="feed_taste_matches_paywall_body">당신과 같은 것을 좋아하는 사람들, 취향 매치에서 추천을 받아보세요.</string>
     <string name="feed_taste_matches_paywall_cta">자세히 보기</string>

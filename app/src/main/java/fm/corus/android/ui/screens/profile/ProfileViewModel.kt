@@ -176,6 +176,17 @@ class ProfileViewModel @Inject constructor(
     private val _hasFetchedFilmPage = MutableStateFlow(false)
     val hasFetchedFilmPage: StateFlow<Boolean> = _hasFetchedFilmPage.asStateFlow()
 
+    // Song-backfill state, symmetric to the film fetch above. The MUSIC grid is
+    // a client-side filter over the recency-ordered [posts] window, so a
+    // film-dominant poster whose latest ~PAGE_SIZE posts are all films arrives
+    // with no songs in that window. These drive a mediaType="track" backfill so
+    // the MUSIC tab shows a skeleton → songs instead of flashing "No songs yet".
+    private val _isLoadingSongs = MutableStateFlow(false)
+    val isLoadingSongs: StateFlow<Boolean> = _isLoadingSongs.asStateFlow()
+
+    private val _hasFetchedSongPage = MutableStateFlow(false)
+    val hasFetchedSongPage: StateFlow<Boolean> = _hasFetchedSongPage.asStateFlow()
+
     private val _isSavingStyle = MutableStateFlow(false)
     val isSavingStyle: StateFlow<Boolean> = _isSavingStyle.asStateFlow()
 
@@ -355,6 +366,10 @@ class ProfileViewModel @Inject constructor(
                 engagementManager.checkSaveStatuses(page.map { it.id }, userId)
                 lastFeaturedRefreshAt = clock()
                 _hasLoadError.value = false
+                // Backfill songs when the recency window is film-only so the
+                // MUSIC tab shows skeleton → songs instead of flashing "No
+                // songs yet". Symmetric to the FILM tab's loadFilmPageIfNeeded.
+                if (page.none { it.mediaType == MediaType.TRACK }) loadSongPageIfNeeded()
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "loadProfile failed", e)
                 if (_profile.value == null) {
@@ -390,6 +405,15 @@ class ProfileViewModel @Inject constructor(
         val noFilmsCached = _posts.value.none { it.mediaType == fm.corus.android.data.model.MediaType.MOVIE }
         if (!(onFilmsTab || knownZeroFilms || (allPostsLoaded && noFilmsCached))) {
             _hasFetchedFilmPage.value = false
+        }
+        // Same for songs: allow the backfill to run again unless we're certain
+        // there are none, so a post-refresh film-only window re-fetches songs.
+        // Unlike films, the music grid swaps silently (no on-tab inline fetch),
+        // so there's no on-MUSIC-tab carve-out to make here.
+        val knownZeroSongs = _profile.value?.trackCount == 0
+        val noSongsCached = _posts.value.none { it.mediaType == fm.corus.android.data.model.MediaType.TRACK }
+        if (!(knownZeroSongs || (allPostsLoaded && noSongsCached))) {
+            _hasFetchedSongPage.value = false
         }
         viewModelScope.launch {
             _isLoading.value = true
@@ -432,6 +456,10 @@ class ProfileViewModel @Inject constructor(
                 engagementManager.checkLikeStatuses(merged.map { it.id }, userId)
                 engagementManager.checkSaveStatuses(merged.map { it.id }, userId)
                 lastFeaturedRefreshAt = clock()
+                // Re-backfill songs if the refreshed recency window has none, so
+                // the MUSIC tab never settles on "No songs yet" for a film-heavy
+                // poster whose songs live deeper in history.
+                if (merged.none { it.mediaType == MediaType.TRACK }) loadSongPageIfNeeded()
                 // Reset lazy-loaded segments so they reload on next visit
                 likedLoaded = false
                 savedLoaded = false
@@ -525,7 +553,9 @@ class ProfileViewModel @Inject constructor(
         _currentSegment.value = index
         analyticsService.logProfileSegmentChanged(segmentAnalyticsName(index))
         when (index) {
-            0 -> { /* Posts already loaded in loadProfile */ }
+            // Posts already loaded in loadProfile; backfill songs if this tab's
+            // recency window held only films (mirrors the FILM tab's fetch).
+            0 -> loadSongPageIfNeeded()
             1 -> loadFilmPageIfNeeded()
             2 -> if (!likedLoaded) loadLikedPosts()
             3 -> if (!savedLoaded) loadSavedPosts()
@@ -596,6 +626,75 @@ class ProfileViewModel @Inject constructor(
                 android.util.Log.e("ProfileViewModel", "loadFilmPageIfNeeded failed", e)
             }
             _isLoadingFilms.value = false
+        }
+    }
+
+    /**
+     * Fetches a page of song-only posts so the MUSIC tab isn't empty when the
+     * recency-sorted initial page contained only films. Symmetric to
+     * [loadFilmPageIfNeeded]. Idempotent — [_hasFetchedSongPage] prevents
+     * re-entry once it has run (or once we've proven there are zero songs).
+     */
+    fun loadSongPageIfNeeded() {
+        if (_hasFetchedSongPage.value || _isLoadingSongs.value) return
+        val userId = authRepository.currentUserId ?: return
+        // Synchronous "we know there are zero songs" short-circuit (matches
+        // iOS): skip the fetch and mark the page fetched so the empty state
+        // renders immediately, no skeleton flash. Two signals:
+        //   1. trackCount == 0 (counter is authoritative when present)
+        //   2. The initial posts page returned everything (hasMore[0] is false)
+        //      and no songs are cached. Covers fresh users whose trackCount
+        //      field hasn't been initialized yet (still null).
+        val knownZeroSongs = _profile.value?.trackCount == 0
+        val allPostsLoaded = _hasMore.value[0] != true
+        val noSongsCached = _posts.value.none { it.mediaType == MediaType.TRACK }
+        if (knownZeroSongs || (allPostsLoaded && noSongsCached)) {
+            _hasFetchedSongPage.value = true
+            return
+        }
+        // When the counter is present and we've already cached at least that
+        // many songs, there's nothing left to backfill.
+        val total = _profile.value?.trackCount
+        val cachedSongs = _posts.value.count { it.mediaType == MediaType.TRACK }
+        if (total != null && cachedSongs >= total) {
+            _hasFetchedSongPage.value = true
+            return
+        }
+        // Set the flag up-front to prevent re-entry while the network call is
+        // awaiting; reset on failure so a retry is possible. isLoadingSongs
+        // keeps the skeleton up during the fetch.
+        _hasFetchedSongPage.value = true
+        _isLoadingSongs.value = true
+        viewModelScope.launch {
+            try {
+                val songs = cloudFunctions.getProfilePosts(
+                    userId, userId,
+                    limit = PAGE_SIZE,
+                    lastTimestamp = null,
+                    mediaType = "track",
+                )
+                val existing = _posts.value
+                val additions = songs.filter { s -> existing.none { it.id == s.id } }
+                if (additions.isNotEmpty()) {
+                    _posts.value = existing + additions
+                    additions.forEach { post ->
+                        engagementManager.initState(
+                            postId = post.id,
+                            likeCount = post.likeCount,
+                            commentCount = post.commentCount,
+                            repostCount = post.repostCount, saveCount = post.saveCount,
+                            isLiked = post.isLiked,
+                            isSaved = false,
+                        )
+                    }
+                    engagementManager.checkLikeStatuses(additions.map { it.id }, userId)
+                    engagementManager.checkSaveStatuses(additions.map { it.id }, userId)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "loadSongPageIfNeeded failed", e)
+                _hasFetchedSongPage.value = false
+            }
+            _isLoadingSongs.value = false
         }
     }
 

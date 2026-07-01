@@ -154,6 +154,8 @@ fun OtherProfileScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingFilms by viewModel.isLoadingFilms.collectAsState()
     val hasFetchedFilmPage by viewModel.hasFetchedFilmPage.collectAsState()
+    val isLoadingSongs by viewModel.isLoadingSongs.collectAsState()
+    val hasFetchedSongPage by viewModel.hasFetchedSongPage.collectAsState()
     val likedPosts by viewModel.likedPosts.collectAsState()
     val isLoadingLiked by viewModel.isLoadingLiked.collectAsState()
     val likedHasMore by viewModel.likedHasMore.collectAsState()
@@ -243,6 +245,16 @@ fun OtherProfileScreen(
         val isFilmsTab = profile?.isBot == false && selectedSegment == 1
         if (isFilmsTab) {
             viewModel.loadFilmPageIfNeeded(userId)
+        }
+    }
+
+    // When the user switches to the MUSIC tab, backfill song-only posts so songs
+    // older than the recency-sorted first page still appear (and the empty state
+    // is held off behind the skeleton). Symmetric to the FILM tab fetch above.
+    LaunchedEffect(selectedSegment, userId, profile?.isBot) {
+        val isMusicTab = profile?.isBot == false && selectedSegment == 0
+        if (isMusicTab) {
+            viewModel.loadSongPageIfNeeded(userId)
         }
     }
 
@@ -373,25 +385,28 @@ fun OtherProfileScreen(
                                     menuContext.startActivity(Intent.createChooser(shareIntent, null))
                                 },
                             )
-                            // Mute/Unmute
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (isMuted) stringResource(fm.corus.android.R.string.other_profile_menu_unmute) else stringResource(fm.corus.android.R.string.other_profile_menu_mute),
-                                        style = CorusFont.body,
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        if (isMuted) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
-                                        contentDescription = null,
-                                    )
-                                },
-                                onClick = {
-                                    viewModel.toggleMute(userId)
-                                    showMenu = false
-                                },
-                            )
+                            // Mute/Unmute (hidden for the official @corusteam account,
+                            // which can never be muted — also enforced server-side)
+                            if (!fm.corus.android.data.OfficialAccounts.isOfficial(userId)) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (isMuted) stringResource(fm.corus.android.R.string.other_profile_menu_unmute) else stringResource(fm.corus.android.R.string.other_profile_menu_mute),
+                                            style = CorusFont.body,
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            if (isMuted) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+                                            contentDescription = null,
+                                        )
+                                    },
+                                    onClick = {
+                                        viewModel.toggleMute(userId)
+                                        showMenu = false
+                                    },
+                                )
+                            }
                             if (profile?.isBot != true) {
                                 HorizontalDivider()
                                 // Report
@@ -405,21 +420,24 @@ fun OtherProfileScreen(
                                     },
                                     onClick = { showMenu = false },
                                 )
-                                // Block/Unblock
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            if (isBlocked) stringResource(fm.corus.android.R.string.other_profile_menu_unblock) else stringResource(fm.corus.android.R.string.other_profile_menu_block),
-                                            style = CorusFont.body,
-                                            color = CorusColors.Error,
-                                        )
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        if (isBlocked) viewModel.unblockUser(userId)
-                                        else viewModel.blockUser(userId)
-                                    },
-                                )
+                                // Block/Unblock (hidden for the official @corusteam account,
+                                // which can never be blocked — also enforced server-side)
+                                if (!fm.corus.android.data.OfficialAccounts.isOfficial(userId)) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                if (isBlocked) stringResource(fm.corus.android.R.string.other_profile_menu_unblock) else stringResource(fm.corus.android.R.string.other_profile_menu_block),
+                                                style = CorusFont.body,
+                                                color = CorusColors.Error,
+                                            )
+                                        },
+                                        onClick = {
+                                            showMenu = false
+                                            if (isBlocked) viewModel.unblockUser(userId)
+                                            else viewModel.blockUser(userId)
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -972,7 +990,22 @@ fun OtherProfileScreen(
                     // restart, no frame Image re-decode).
                     val filmFetchPending = !currentProfile.isBot && selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)
                     val filmFeaturedPost = if (selectedSegment == 1) filteredPosts.firstOrNull() else null
-                    if (selectedSegment == 1 && (filmFetchPending || filmFeaturedPost != null)) {
+                    // Hold the MUSIC tab on the skeleton (never the "No songs
+                    // yet" empty state) while songs the recency window missed
+                    // are still being backfilled. Resolves to the empty state
+                    // only once we've confirmed there are no songs: trackCount
+                    // == 0, or the backfill returned nothing. The trackCount
+                    // null-or-positive check keeps the skeleton up while the
+                    // counter is still unknown so it can't flash empty. Mirrors
+                    // iOS OtherProfileView's songsPending in segmentAndGrid.
+                    val songsPending = !currentProfile.isBot && selectedSegment == 0 && filteredPosts.isEmpty() &&
+                        (isLoadingSongs || (!hasFetchedSongPage && (currentProfile.trackCount ?: 1) > 0 && hasMore))
+                    if (selectedSegment == 0 && songsPending) {
+                        // Backfill pending — show skeleton (covers featured +
+                        // grid) instead of the empty state. The grid block below
+                        // emits nothing for it.
+                        SkeletonProfileGrid(isFilmStyle = false)
+                    } else if (selectedSegment == 1 && (filmFetchPending || filmFeaturedPost != null)) {
                         val userProfile = profile
                         val featuredEngagement = filmFeaturedPost?.let { engagementStates[it.id] }
                         FeaturedMoviePosterView(
@@ -1103,9 +1136,18 @@ fun OtherProfileScreen(
             val filmGridLoading = !currentProfile.isBot && selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)
             val likesGridLoading = !currentProfile.isBot && selectedSegment == 2 &&
                 (isLoadingLiked || !hasFetchedLikedPage) && likedPosts.isEmpty()
+            // Recomputed here (different scope than the featured block). When
+            // pending, the featured block renders SkeletonProfileGrid which
+            // already covers the grid region, so this block emits nothing —
+            // exactly like the music isFeaturedArtReady path below.
+            val songGridPending = !currentProfile.isBot && selectedSegment == 0 &&
+                filteredPosts.isEmpty() &&
+                (isLoadingSongs || (!hasFetchedSongPage && (currentProfile.trackCount ?: 1) > 0 && hasMore))
             // Hide grid while featured art is loading (skeleton in header covers both areas)
             if (isFeaturedTab && selectedSegment == 0 && !isFeaturedArtReady && filteredPosts.isNotEmpty()) {
                 // Music featured uses SkeletonProfileGrid in the header; emit nothing.
+            } else if (songGridPending) {
+                // Music backfill pending — featured block shows SkeletonProfileGrid; emit nothing.
             } else if (likesGridLoading) {
                 // Skeleton grid cells while the owner's likes load (matching iOS + self profile).
                 items(15) { index ->

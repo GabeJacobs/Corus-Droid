@@ -342,7 +342,7 @@ private fun Tile(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
+                .aspectRatio(tasteMatchTileAspectRatio(item is PreviewItem.Movie))
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
                 .background(CorusColors.Divider),
         ) {
@@ -409,6 +409,11 @@ private fun sharedNames(match: MusicMatchData): List<String> {
  *  so this counts the discrete things the user actually sees. */
 internal fun totalSheetItems(match: MusicMatchData): Int =
     match.sharedTrackPreviews.size + match.sharedMoviePreviews.size
+
+/** Artwork aspect ratio for a sheet tile: films keep their native 2:3 poster,
+ *  songs and artists stay square. Mirrors iOS (MoviePosterView vs AlbumArtView)
+ *  and web (poster variant). */
+internal fun tasteMatchTileAspectRatio(isMovie: Boolean): Float = if (isMovie) 2f / 3f else 1f
 
 /** Fallback label when there are no usable names to lead with. */
 private fun emptyLabel(match: MusicMatchData): String = when {

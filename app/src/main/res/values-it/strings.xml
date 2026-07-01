@@ -1004,6 +1004,9 @@
     <string name="feed_taste_matches_coldstart_cta">Pubblica un corus</string>
     <string name="feed_taste_matches_unavailable_title">Nessuna affinità di gusti al momento</string>
     <string name="feed_taste_matches_unavailable_body">Torna presto, o trascina per aggiornare.</string>
+    <string name="feed_taste_matches_no_matches_title">Ancora nessuna affinità</string>
+    <string name="feed_taste_matches_no_matches_body">Pubblica altra musica e film che ami e qui appariranno le persone che condividono i tuoi gusti.</string>
+    <string name="feed_taste_matches_end_more">Più condividi, più affinità di gusti otterrai.</string>
     <string name="feed_taste_matches_paywall_title">Affinità di gusti</string>
     <string name="feed_taste_matches_paywall_body">Ricevi consigli dalle tue affinità di gusti, persone che amano le stesse cose che ami tu.</string>
     <string name="feed_taste_matches_paywall_cta">Scopri di più</string>

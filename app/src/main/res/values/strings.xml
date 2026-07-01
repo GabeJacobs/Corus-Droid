@@ -433,8 +433,11 @@
     <!-- Follow List -->
     <string name="follow_list_followers">Followers</string>
     <string name="follow_list_following">Following</string>
-    <!-- Instagram-style count-bearing tab labels, e.g. "436 followers" -->
-    <string name="follow_list_tab_followers">%1$s followers</string>
+    <!-- Instagram-style count-bearing tab labels, e.g. "436 followers" / "1 follower" -->
+    <plurals name="follow_list_tab_followers">
+        <item quantity="one">%1$s follower</item>
+        <item quantity="other">%1$s followers</item>
+    </plurals>
     <string name="follow_list_tab_following">%1$s following</string>
     <string name="follow_list_tab_mutual">%1$s mutual</string>
     <string name="follow_list_search_placeholder">Search</string>
@@ -955,6 +958,9 @@
     <!-- Taste Matches served-empty (no cohort yet) and paywall backstop -->
     <string name="feed_taste_matches_unavailable_title">No Taste Matches right now</string>
     <string name="feed_taste_matches_unavailable_body">Check back soon, or pull to refresh.</string>
+    <string name="feed_taste_matches_no_matches_title">No matches yet</string>
+    <string name="feed_taste_matches_no_matches_body">Post more music and film you love and the people who share your taste will show up here.</string>
+    <string name="feed_taste_matches_end_more">The more you share, the more taste matches you\'ll get.</string>
     <string name="feed_taste_matches_paywall_title">Taste Matches</string>
     <string name="feed_taste_matches_paywall_body">Get recommendations from your taste matches, people who also love the same things you love.</string>
     <string name="feed_taste_matches_paywall_cta">Learn more</string>

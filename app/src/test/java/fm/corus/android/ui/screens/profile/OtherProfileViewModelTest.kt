@@ -29,9 +29,11 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.stub
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.util.Date
@@ -128,6 +130,44 @@ class OtherProfileViewModelTest {
             albumName = "Album",
         ),
         timestamp = Date(),
+        mediaType = MediaType.TRACK,
+    )
+
+    private fun makeUserWithCounts(
+        id: String,
+        trackCount: Int? = null,
+        movieCount: Int? = null,
+    ): CymbalUser = CymbalUser(
+        id = id,
+        username = "user_$id",
+        displayName = "User $id",
+        trackCount = trackCount,
+        movieCount = movieCount,
+    )
+
+    private fun makeMoviePost(id: String, userId: String, timestampMs: Long = 1L): CymbalPost = CymbalPost(
+        id = id,
+        user = makeUser(userId, 0),
+        track = CymbalTrack(
+            id = "t_$id",
+            name = "Film $id",
+            artistName = "Director",
+            albumName = "Film",
+        ),
+        timestamp = Date(timestampMs),
+        mediaType = MediaType.MOVIE,
+    )
+
+    private fun makeTrackPostTs(id: String, userId: String, timestampMs: Long): CymbalPost = CymbalPost(
+        id = id,
+        user = makeUser(userId, 0),
+        track = CymbalTrack(
+            id = "t_$id",
+            name = "Track $id",
+            artistName = "Artist",
+            albumName = "Album",
+        ),
+        timestamp = Date(timestampMs),
         mediaType = MediaType.TRACK,
     )
 
@@ -275,5 +315,97 @@ class OtherProfileViewModelTest {
         assertEquals(31, viewModel.likedPosts.value.size)
         // The second page is fetched at offset = size of the first page.
         verify(cloudFunctions).getLikedPosts(eq(targetId), eq("viewer1"), any(), eq(30))
+    }
+
+    /**
+     * Regression guard for the film-dominant poster "No songs yet" bug: the
+     * MUSIC tab filters the recency-ordered posts window, so a poster whose
+     * latest page is all films shows zero songs there. With trackCount>0 the
+     * ViewModel must backfill mediaType="track" so the music grid is non-empty.
+     */
+    @Test
+    fun `loadSongPageIfNeeded backfills tracks when the recency window is film-only`() = runTest {
+        val targetId = "filmposter1"
+        // A FULL page (>= PAGE_SIZE) of films so hasMore stays true (songs may
+        // live deeper in history). A short page would prove everything is loaded
+        // and correctly skip the backfill.
+        val films = (1..30).map { makeMoviePost("f$it", targetId, timestampMs = (100_000 - it).toLong()) }
+        // getProfileData returns a film-only first page; trackCount says songs exist.
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(CloudFunctionsDataSource.ProfileData(makeUserWithCounts(targetId, trackCount = 3, movieCount = 3), films))
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+        // Song-only backfill — the songs live deeper in history.
+        val songs = (1..3).map { makeTrackPostTs("s$it", targetId, timestampMs = (5_000 - it).toLong()) }
+        whenever(postRepository.getProfilePosts(eq(targetId), eq("viewer1"), any(), eq(null), eq("track")))
+            .thenReturn(songs)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        // Film-only recency window auto-triggered the song backfill.
+        verify(postRepository).getProfilePosts(eq(targetId), eq("viewer1"), any(), eq(null), eq("track"))
+        val tracks = viewModel.posts.value.filter { it.mediaType == MediaType.TRACK }
+        assertEquals(listOf("s1", "s2", "s3"), tracks.map { it.id })
+        assertEquals(true, viewModel.hasFetchedSongPage.value)
+        assertEquals(false, viewModel.isLoadingSongs.value)
+    }
+
+    @Test
+    fun `loadSongPageIfNeeded does not fetch when trackCount is zero`() = runTest {
+        val targetId = "filmonly1"
+        val films = (1..2).map { makeMoviePost("f$it", targetId, timestampMs = (10_000 - it).toLong()) }
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(CloudFunctionsDataSource.ProfileData(makeUserWithCounts(targetId, trackCount = 0, movieCount = 2), films))
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        // trackCount==0 short-circuits — no mediaType="track" fetch.
+        verify(postRepository, never()).getProfilePosts(
+            eq(targetId), eq("viewer1"), any(), anyOrNull(), eq("track"),
+        )
+        // Marked fetched so the empty state is allowed; never entered loading.
+        assertEquals(true, viewModel.hasFetchedSongPage.value)
+        assertEquals(false, viewModel.isLoadingSongs.value)
+    }
+
+    @Test
+    fun `song backfill keeps isLoadingSongs true in flight then false after`() = runTest {
+        // The screen's songsPending skeleton-hold keys off isLoadingSongs, so the
+        // "No songs yet" empty state is gated until the backfill resolves.
+        val targetId = "filmposter2"
+        // Full initial film page so hasMore stays true and the backfill runs.
+        val films = (1..30).map { makeMoviePost("f$it", targetId, timestampMs = (100_000 - it).toLong()) }
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(CloudFunctionsDataSource.ProfileData(makeUserWithCounts(targetId, trackCount = 2, movieCount = 30), films))
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val songs = (1..2).map { makeTrackPostTs("s$it", targetId, timestampMs = (5_000 - it).toLong()) }
+        postRepository.stub {
+            onBlocking {
+                getProfilePosts(eq(targetId), eq("viewer1"), any(), eq(null), eq("track"))
+            }.doSuspendableAnswer {
+                gate.await()
+                songs
+            }
+        }
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        // Backfill launched but parked on the gate: skeleton-hold is active.
+        assertEquals(true, viewModel.isLoadingSongs.value)
+        assertEquals(true, viewModel.hasFetchedSongPage.value)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.isLoadingSongs.value)
+        assertEquals(true, viewModel.hasFetchedSongPage.value)
+        assertEquals(2, viewModel.posts.value.count { it.mediaType == MediaType.TRACK })
     }
 }

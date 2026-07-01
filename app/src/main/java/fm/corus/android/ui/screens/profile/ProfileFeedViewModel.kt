@@ -135,8 +135,6 @@ class ProfileFeedViewModel @Inject constructor(
 
     private var shareSearchJob: Job? = null
 
-    // Track which posts have active real-time listeners (matching iOS PostEngagementStore)
-    private val activeListenerPostIds = mutableSetOf<String>()
 
     init {
         // Keep NowPlayingManager's queue in sync with the paginated profile feed
@@ -224,9 +222,6 @@ class ProfileFeedViewModel @Inject constructor(
                 isLiked = post.isLiked,
                 isSaved = false,
             )
-            if (activeListenerPostIds.add(post.id)) {
-                engagementManager.startListening(post.id)
-            }
         }
         viewModelScope.launch {
             engagementManager.checkLikeStatuses(_posts.value.map { it.id }, viewerId)
@@ -308,9 +303,6 @@ class ProfileFeedViewModel @Inject constructor(
                         isLiked = post.isLiked,
                         isSaved = false,
                     )
-                    if (activeListenerPostIds.add(post.id)) {
-                        engagementManager.startListening(post.id)
-                    }
                 }
                 if (newPosts.isNotEmpty()) {
                     engagementManager.checkLikeStatuses(newPosts.map { it.id }, viewerId)
@@ -355,9 +347,6 @@ class ProfileFeedViewModel @Inject constructor(
                                 isLiked = post.isLiked,
                                 isSaved = false,
                             )
-                            if (activeListenerPostIds.add(post.id)) {
-                                engagementManager.startListening(post.id)
-                            }
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
@@ -385,9 +374,6 @@ class ProfileFeedViewModel @Inject constructor(
                                 isLiked = post.isLiked,
                                 isSaved = false,
                             )
-                            if (activeListenerPostIds.add(post.id)) {
-                                engagementManager.startListening(post.id)
-                            }
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
@@ -414,9 +400,6 @@ class ProfileFeedViewModel @Inject constructor(
                                 isLiked = post.isLiked,
                                 isSaved = false,
                             )
-                            if (activeListenerPostIds.add(post.id)) {
-                                engagementManager.startListening(post.id)
-                            }
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
@@ -448,9 +431,6 @@ class ProfileFeedViewModel @Inject constructor(
                                 isLiked = post.isLiked,
                                 isSaved = false,
                             )
-                            if (activeListenerPostIds.add(post.id)) {
-                                engagementManager.startListening(post.id)
-                            }
                         }
                         if (unique.isNotEmpty()) {
                             engagementManager.checkLikeStatuses(unique.map { it.id }, viewerId)
@@ -651,7 +631,5 @@ class ProfileFeedViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        activeListenerPostIds.forEach { engagementManager.stopListening(it) }
-        activeListenerPostIds.clear()
     }
 }

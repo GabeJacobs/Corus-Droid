@@ -1003,6 +1003,9 @@
     <string name="feed_taste_matches_coldstart_cta">Publicar um corus</string>
     <string name="feed_taste_matches_unavailable_title">Nenhuma combinação de gosto por enquanto</string>
     <string name="feed_taste_matches_unavailable_body">Volte em breve, ou puxe para atualizar.</string>
+    <string name="feed_taste_matches_no_matches_title">Ainda sem combinações</string>
+    <string name="feed_taste_matches_no_matches_body">Poste mais música e filmes que você ama e as pessoas com o mesmo gosto vão aparecer aqui.</string>
+    <string name="feed_taste_matches_end_more">Quanto mais você compartilha, mais combinações de gosto você terá.</string>
     <string name="feed_taste_matches_paywall_title">Combinações de gosto</string>
     <string name="feed_taste_matches_paywall_body">Receba recomendações das suas combinações de gosto, pessoas que amam as mesmas coisas que você.</string>
     <string name="feed_taste_matches_paywall_cta">Saiba mais</string>
