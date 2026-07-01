@@ -88,10 +88,17 @@ fun SuggestedUsersListScreen(
                 },
                 actions = {
                     if (showFilterToggle) {
+                        // The M3 TopAppBar actions slot ends 4.dp from the screen
+                        // edge, and the 16.dp icon centers inside its 24.dp
+                        // IconButton (4.dp inset), leaving the icon ~8.dp from the
+                        // edge. The card grid pads 16.dp (CorusSpacing.lg), so add
+                        // 8.dp (CorusSpacing.sm) to line the icon's edge up with
+                        // the right column instead of overhanging it.
                         UnfollowedUsersFilterMenu(
                             filterUnfollowed = filterUnfollowed,
                             onSetFilterUnfollowed = onSetFilterUnfollowed,
                             contentDescription = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches),
+                            modifier = Modifier.padding(end = CorusSpacing.sm),
                         )
                     }
                 },

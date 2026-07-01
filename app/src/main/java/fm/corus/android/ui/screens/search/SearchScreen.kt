@@ -1184,9 +1184,10 @@ internal fun UnfollowedUsersFilterMenu(
     filterUnfollowed: Boolean,
     onSetFilterUnfollowed: (Boolean) -> Unit,
     contentDescription: String,
+    modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Box {
+    Box(modifier = modifier) {
         IconButton(
             onClick = { expanded = true },
             modifier = Modifier.size(24.dp),

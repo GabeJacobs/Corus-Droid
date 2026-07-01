@@ -783,7 +783,7 @@ class CommentsViewModel @Inject constructor(
         hashtagSearchJob?.cancel()
         hashtagSearchJob = viewModelScope.launch {
             try {
-                _hashtagSuggestions.value = exploreRepository.fetchHashtagSuggestions(query, limit = 6)
+                _hashtagSuggestions.value = exploreRepository.fetchHashtagSuggestions(query, limit = 3)
             } catch (_: Exception) {
                 _hashtagSuggestions.value = emptyList()
             }

@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -205,10 +207,10 @@ fun TasteMatchSheet(
         sheetState = sheetState,
         containerColor = CorusColors.Background,
         dragHandle = null,
-        // Clear the display cutout (punch-hole/notch), not just the status bar,
-        // so the hero header stops just under the safe zone instead of riding up
-        // into the camera. Default windowInsets only accounts for system bars.
-        contentWindowInsets = { WindowInsets.systemBars.union(WindowInsets.displayCutout) },
+        // We size the sheet ourselves (below), so opt out of the default content
+        // insets — otherwise Material3 would pad the content down while the sheet
+        // surface still fills to the top of the window.
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
         CorusSystemBars()
         val sharedSongs = match.sharedTrackPreviews.filter { it.kind == SharedPreviewKind.SHARED_SONG }
@@ -217,65 +219,80 @@ fun TasteMatchSheet(
         val directorFillFilms = match.sharedMoviePreviews.filter { it.kind == SharedPreviewKind.SHARED_ARTIST }
 
         val scroll = rememberScrollState()
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(scroll)
-                .padding(top = CorusSpacing.xxl, bottom = CorusSpacing.xxl),
-            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xl),
-        ) {
-            // Hero header
+        // Cap the sheet's height so, when the content is long enough to fully
+        // expand, its top edge stops just below the safe zone (status bar /
+        // display cutout) with a small gap — leaving scrim visible so it clearly
+        // reads as a draggable sheet rather than a full-screen takeover. Short
+        // content still wraps naturally and rests at the bottom.
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val safeInsets = WindowInsets.systemBars
+                .union(WindowInsets.displayCutout)
+                .asPaddingValues()
+            val topGap = safeInsets.calculateTopPadding() + CorusSpacing.md
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxHeight - topGap)
+                    .verticalScroll(scroll)
+                    .padding(
+                        top = CorusSpacing.xxl,
+                        bottom = CorusSpacing.xxl + safeInsets.calculateBottomPadding(),
+                    ),
+                verticalArrangement = Arrangement.spacedBy(CorusSpacing.xl),
             ) {
-                VennDiagramIcon(size = 40.dp, color = CorusColors.Text, shadedIntersection = true)
-                Text(
-                    text = "TASTE MATCH",
-                    style = CorusFont.sectionHeader.copy(letterSpacing = 1.5.sp),
-                    color = CorusColors.Secondary,
-                )
-                Text(
-                    text = "You and @$username",
-                    style = CorusFont.displayName,
-                    color = CorusColors.Text,
-                )
-            }
+                // Hero header
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                ) {
+                    VennDiagramIcon(size = 40.dp, color = CorusColors.Text, shadedIntersection = true)
+                    Text(
+                        text = "TASTE MATCH",
+                        style = CorusFont.sectionHeader.copy(letterSpacing = 1.5.sp),
+                        color = CorusColors.Secondary,
+                    )
+                    Text(
+                        text = "You and @$username",
+                        style = CorusFont.displayName,
+                        color = CorusColors.Text,
+                    )
+                }
 
-            if (sharedSongs.isNotEmpty()) {
-                Section(
-                    title = "Songs in common",
-                    items = sharedSongs.map(PreviewItem::Track),
-                    onSelectPost = onSelectPost,
-                    onDismiss = onDismiss,
-                )
-            }
-            if (sharedFilms.isNotEmpty()) {
-                Section(
-                    title = "Films in common",
-                    items = sharedFilms.map(PreviewItem::Movie),
-                    onSelectPost = onSelectPost,
-                    onDismiss = onDismiss,
-                )
-            }
-            if (artistFillSongs.isNotEmpty()) {
-                Section(
-                    title = "Artists in common",
-                    items = artistFillSongs.map(PreviewItem::Track),
-                    nameFirst = true,
-                    onSelectPost = onSelectPost,
-                    onDismiss = onDismiss,
-                )
-            }
-            if (directorFillFilms.isNotEmpty()) {
-                Section(
-                    title = "Directors in common",
-                    items = directorFillFilms.map(PreviewItem::Movie),
-                    nameFirst = true,
-                    onSelectPost = onSelectPost,
-                    onDismiss = onDismiss,
-                )
+                if (sharedSongs.isNotEmpty()) {
+                    Section(
+                        title = "Songs in common",
+                        items = sharedSongs.map(PreviewItem::Track),
+                        onSelectPost = onSelectPost,
+                        onDismiss = onDismiss,
+                    )
+                }
+                if (sharedFilms.isNotEmpty()) {
+                    Section(
+                        title = "Films in common",
+                        items = sharedFilms.map(PreviewItem::Movie),
+                        onSelectPost = onSelectPost,
+                        onDismiss = onDismiss,
+                    )
+                }
+                if (artistFillSongs.isNotEmpty()) {
+                    Section(
+                        title = "Artists in common",
+                        items = artistFillSongs.map(PreviewItem::Track),
+                        nameFirst = true,
+                        onSelectPost = onSelectPost,
+                        onDismiss = onDismiss,
+                    )
+                }
+                if (directorFillFilms.isNotEmpty()) {
+                    Section(
+                        title = "Directors in common",
+                        items = directorFillFilms.map(PreviewItem::Movie),
+                        nameFirst = true,
+                        onSelectPost = onSelectPost,
+                        onDismiss = onDismiss,
+                    )
+                }
             }
         }
     }

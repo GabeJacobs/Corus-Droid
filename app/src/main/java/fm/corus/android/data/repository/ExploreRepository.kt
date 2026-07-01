@@ -34,12 +34,12 @@ class ExploreRepository @Inject constructor(
      *  trending list (no badge; count = weekly windowed). A typed prefix runs a
      *  trending-first merge (see [mergeHashtagSuggestions]). Trending is served
      *  from the 5-minute cache. */
-    suspend fun fetchHashtagSuggestions(query: String, limit: Int = 6): List<HashtagSuggestion> {
+    suspend fun fetchHashtagSuggestions(query: String, limit: Int = 3): List<HashtagSuggestion> {
         if (query.isEmpty()) {
-            // A bare "#" is a small "what's hot" teaser — fewer rows than a
-            // typed search.
-            return fetchTrendingHashtags(3)
-                .map { HashtagSuggestion(name = it.name, count = it.cymbalCount, trending = false) }
+            // A bare "#" surfaces popular/trending tags to tap. Every row is
+            // from the trending set, so each shows the "Trending" badge.
+            return fetchTrendingHashtags(limit)
+                .map { HashtagSuggestion(name = it.name, count = it.cymbalCount, trending = true) }
         }
         val trending = fetchTrendingHashtags(20)
         val prefix = firestoreDataSource.searchHashtagsByPrefix(query, 15)

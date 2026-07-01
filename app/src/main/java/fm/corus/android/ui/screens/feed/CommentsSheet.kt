@@ -624,7 +624,7 @@ private fun CommentsSheetContent(
 
         // ── Hashtag suggestions (trending on a bare "#", prefix matches as typed) ──
         HashtagSuggestionsList(
-            hashtags = hashtagSuggestions.take(6),
+            hashtags = hashtagSuggestions.take(3),
             onSelect = { tag ->
                 commentText = applyHashtag(commentText, tag.name)
                 viewModel.clearHashtags()

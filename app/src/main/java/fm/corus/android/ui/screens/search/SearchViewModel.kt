@@ -111,6 +111,20 @@ class SearchViewModel @Inject constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    // True once we positively know the viewer hasn't posted enough for taste
+    // matches to be possible (count < TASTE_MATCH_MIN_POSTS). Drives skipping the
+    // skeleton in the UI so a below-threshold viewer sees the explainer
+    // immediately instead of a ~5s shimmer. Kept in sync by the init-block
+    // collector below; the fetch and poll read the profile directly for a
+    // guard that can't lag this flow.
+    //
+    // MUST be declared before `init`: the collector's first emission runs
+    // synchronously during construction (viewModelScope uses Main.immediate and
+    // userProfile is a StateFlow), so a later declaration leaves this field null
+    // and the emit NPEs — crashing the app on launch.
+    private val _belowTasteMatchThreshold = MutableStateFlow(false)
+    val belowTasteMatchThreshold: StateFlow<Boolean> = _belowTasteMatchThreshold.asStateFlow()
+
     init {
         // Keep the below-threshold gate in sync with the viewer's post count so
         // the skeleton suppression flips live (e.g. the moment their 2nd post
@@ -318,15 +332,6 @@ class SearchViewModel @Inject constructor(
     // successful fetch that genuinely returns no taste matches shows the explainer.
     private val _tasteMatchLoadFailed = MutableStateFlow(false)
     val tasteMatchLoadFailed: StateFlow<Boolean> = _tasteMatchLoadFailed.asStateFlow()
-
-    // True once we positively know the viewer hasn't posted enough for taste
-    // matches to be possible (count < TASTE_MATCH_MIN_POSTS). Drives skipping the
-    // skeleton in the UI so a below-threshold viewer sees the explainer
-    // immediately instead of a ~5s shimmer. Kept in sync by an init-block
-    // collector (below); the fetch and poll read the profile directly for a
-    // guard that can't lag this flow.
-    private val _belowTasteMatchThreshold = MutableStateFlow(false)
-    val belowTasteMatchThreshold: StateFlow<Boolean> = _belowTasteMatchThreshold.asStateFlow()
 
     // Follow state
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
