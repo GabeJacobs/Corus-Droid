@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
@@ -33,6 +34,7 @@ class MessageThreadViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
+    private val postRepository: fm.corus.android.data.repository.PostRepository,
     private val remoteConfigService: RemoteConfigService,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
     val nowPlayingManager: fm.corus.android.domain.NowPlayingManager,
@@ -225,6 +227,20 @@ class MessageThreadViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    // Resolve a shared-post message's post by id for the DM card. Mirrors iOS,
+    // where the `sharedPost` message stores only the id and the bubble fetches
+    // the post to render artwork/title. Cached so re-renders don't re-fetch.
+    private val sharedPostCache = mutableMapOf<String, CymbalPost>()
+
+    suspend fun fetchSharedPost(postId: String): CymbalPost? {
+        if (postId.isBlank()) return null
+        sharedPostCache[postId]?.let { return it }
+        val userId = authRepository.currentUserId ?: return null
+        val post = runCatching { postRepository.getPostDetail(postId, userId) }.getOrNull()
+        if (post != null) sharedPostCache[postId] = post
+        return post
     }
 
     // ── Group actions (driven by the Group Info sheet) ──
@@ -641,6 +657,18 @@ class MessageThreadViewModel @Inject constructor(
                                 threadId = message.threadId,
                                 fromUserId = message.fromUserId,
                                 movie = film.asCymbalMovie(),
+                                clientMessageId = messageId,
+                            )
+                        }
+                    }
+                    MessageType.SHARED_POST -> {
+                        val sharedPostId = message.sharedPostId
+                        if (!sharedPostId.isNullOrBlank()) {
+                            messageRepository.sendSharedPostMessage(
+                                threadId = message.threadId,
+                                fromUserId = message.fromUserId,
+                                postId = sharedPostId,
+                                text = message.text ?: "",
                                 clientMessageId = messageId,
                             )
                         }

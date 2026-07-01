@@ -166,6 +166,14 @@
     <string name="feed_empty_favorites_new_music_subtitle">お気に入りの人はまだ新着をシェアしていません。別のフィルターを試すか、しばらくしてからご確認ください。</string>
     <string name="feed_empty_favorites_new_film_title">お気に入りからの新着映画はありません</string>
     <string name="feed_empty_favorites_new_film_subtitle">お気に入りの人はまだ新着の映画をシェアしていません。別のフィルターを試すか、しばらくしてからご確認ください。</string>
+    <string name="feed_empty_taste_matches_music_title">好みの一致からの音楽はありません</string>
+    <string name="feed_empty_taste_matches_music_subtitle">好みの一致の人はまだ音楽をシェアしていません。別のフィルターを試すか、しばらくしてからご確認ください。</string>
+    <string name="feed_empty_taste_matches_film_title">好みの一致からの映画はありません</string>
+    <string name="feed_empty_taste_matches_film_subtitle">好みの一致の人はまだ映画をシェアしていません。別のフィルターを試すか、しばらくしてからご確認ください。</string>
+    <string name="feed_empty_taste_matches_new_music_title">好みの一致からの新着音楽はありません</string>
+    <string name="feed_empty_taste_matches_new_music_subtitle">好みの一致の人はまだ新着をシェアしていません。別のフィルターを試すか、しばらくしてからご確認ください。</string>
+    <string name="feed_empty_taste_matches_new_film_title">好みの一致からの新着映画はありません</string>
+    <string name="feed_empty_taste_matches_new_film_subtitle">好みの一致の人はまだ新着の映画をシェアしていません。別のフィルターを試すか、しばらくしてからご確認ください。</string>
     <string name="feed_empty_clear_filter">フィルターを解除</string>
     <string name="feed_empty_invite_title">corus は\n少しの友だちがいれば楽しい。</string>
     <string name="feed_empty_invite_subtitle">センスのいい人を知っていますか？</string>

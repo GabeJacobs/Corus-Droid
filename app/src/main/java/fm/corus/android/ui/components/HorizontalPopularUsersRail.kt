@@ -4,12 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,6 +33,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.horizontalRailCardWidth
 import kotlinx.coroutines.async
@@ -66,10 +69,10 @@ fun HorizontalPopularUsersRail(
     onFollowTap: (CymbalUser) -> Unit,
     modifier: Modifier = Modifier,
     onSeeAll: (() -> Unit)? = null,
-    // Snapshot of follow ids the filter should hide. Empty = filter off.
-    // Snapshot (not live `followedIds`) so a fresh follow via this rail
-    // doesn't make the card vanish — see SearchScreen for the snapshot lifecycle.
-    filterFollowedIds: Set<String> = emptySet(),
+    // When true, the "Unfollowed" filter is active. Followed accounts are already
+    // excluded upstream via [excludeIds] (fetch-level, matching iOS), so this only
+    // drives the "you follow everyone popular" empty state below.
+    filterUnfollowed: Boolean = false,
     trailingAction: (@Composable () -> Unit)? = null,
     viewModel: PopularUsersRailViewModel = hiltViewModel(),
 ) {
@@ -77,15 +80,16 @@ fun HorizontalPopularUsersRail(
     val isLoading by viewModel.isLoading.collectAsState()
     val endReached by viewModel.endReached.collectAsState()
 
+    // excludeIds carries the followed-id set when the filter is on, so a change
+    // (toggle flip, or the following set finishing its layered load) refetches
+    // the rail against the new exclusion. The viewModel no-ops if it's unchanged.
     LaunchedEffect(excludeIds) {
         viewModel.loadInitial(excludeIds)
     }
 
-    val displayedMatches = fm.corus.android.ui.screens.search.filteredUnfollowedUsers(
-        enabled = filterFollowedIds.isNotEmpty(),
-        users = matches,
-        followedIds = filterFollowedIds,
-    )
+    // Nothing to filter client-side: already-followed accounts never come back
+    // from the query, so whatever loaded is the unfollowed set.
+    val displayedMatches = matches
 
     val listState = rememberLazyListState()
     LaunchedEffect(listState, endReached, isLoading) {
@@ -115,6 +119,17 @@ fun HorizontalPopularUsersRail(
 
         if (displayedMatches.isEmpty() && isLoading) {
             SkeletonRow(cardWidth = cardWidth)
+        } else if (filterUnfollowed && displayedMatches.isEmpty() && endReached) {
+            // Viewer already follows every popular account the backend returned.
+            Text(
+                text = "You already follow every popular account.",
+                style = CorusFont.body,
+                color = CorusColors.Secondary,
+                modifier = Modifier.padding(
+                    horizontal = CorusSpacing.lg,
+                    vertical = CorusSpacing.md,
+                ),
+            )
         } else if (displayedMatches.isNotEmpty()) {
             LazyRow(
                 state = listState,
@@ -195,18 +210,28 @@ class PopularUsersRailViewModel @Inject constructor(
 
     private var afterDocId: String? = null
     private val seenIds = mutableSetOf<String>()
-    private var hasLoadedInitial = false
+    // The excludeIds the current results were loaded against. When it changes
+    // (filter toggle, or the following set finishing its layered load) we drop
+    // the old page and refetch. A monotonic generation guards against a slow
+    // in-flight fetch from the previous excludeIds writing stale results.
+    private var loadedExcludeIds: Set<String>? = null
+    private var generation = 0
     private val pageSize = 8
 
     fun loadInitial(excludeIds: Set<String>) {
-        if (hasLoadedInitial) return
-        hasLoadedInitial = true
-        viewModelScope.launch { fetchPage(excludeIds) }
+        if (loadedExcludeIds == excludeIds) return
+        loadedExcludeIds = excludeIds
+        val gen = ++generation
+        _matches.value = emptyList()
+        _endReached.value = false
+        afterDocId = null
+        seenIds.clear()
+        viewModelScope.launch { fetchPage(excludeIds, gen) }
     }
 
     fun loadMore(excludeIds: Set<String>) {
         if (_isLoading.value || _endReached.value) return
-        viewModelScope.launch { fetchPage(excludeIds) }
+        viewModelScope.launch { fetchPage(excludeIds, generation) }
     }
 
     /** Public for test injection: reset the rail (e.g. after sign-out). */
@@ -216,10 +241,11 @@ class PopularUsersRailViewModel @Inject constructor(
         _endReached.value = false
         afterDocId = null
         seenIds.clear()
-        hasLoadedInitial = false
+        loadedExcludeIds = null
+        generation++
     }
 
-    private suspend fun fetchPage(excludeIds: Set<String>) {
+    private suspend fun fetchPage(excludeIds: Set<String>, gen: Int) {
         _isLoading.value = true
         try {
             val viewerExcludes = excludeIds + seenIds + listOfNotNull(authRepository.currentUserId)
@@ -231,6 +257,10 @@ class PopularUsersRailViewModel @Inject constructor(
                 )
             }.getOrDefault(emptyList())
 
+            // A newer excludeIds superseded this fetch while it was in flight;
+            // discard so we don't append stale (differently-filtered) results.
+            if (gen != generation) return
+
             if (users.isEmpty()) {
                 _endReached.value = true
                 return
@@ -241,12 +271,13 @@ class PopularUsersRailViewModel @Inject constructor(
             afterDocId = users.lastOrNull()?.id ?: afterDocId
 
             val newMatches = matchesWithPreviews(users)
+            if (gen != generation) return
             val appended = newMatches.filter { seenIds.add(it.user.id) }
             if (appended.isNotEmpty()) {
                 _matches.value = _matches.value + appended
             }
         } finally {
-            _isLoading.value = false
+            if (gen == generation) _isLoading.value = false
         }
     }
 

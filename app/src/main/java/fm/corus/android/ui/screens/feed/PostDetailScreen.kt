@@ -266,13 +266,7 @@ fun PostDetailScreen(
                             onLikeTap = { viewModel.toggleLike(currentPost.id) },
                             onCommentTap = { onNavigateToComments(currentPost.id) },
                             onRepostTap = { onRepost(currentPost) },
-                            onShareTap = {
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, "https://corus.fm/post/${currentPost.id}")
-                                }
-                                try { context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.post_detail_share_chooser))) } catch (_: Exception) { }
-                            },
+                            onShareTap = { sharePost = currentPost },
                             onSaveTap = { viewModel.toggleSave(currentPost.id) },
                             onSongCountTap = {
                                 if (currentPost.isMovie) {

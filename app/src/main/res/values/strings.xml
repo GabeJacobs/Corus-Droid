@@ -42,8 +42,8 @@
     <string name="settings_reauth_signout_prompt">Please sign out and sign back in, then try again.</string>
     <string name="settings_account_deleted_toast">Your account has been deleted.</string>
     <string name="settings_section_corus_club">CORUS CLUB</string>
-    <string name="settings_row_join_club">Join Corus Club</string>
-    <string name="settings_row_join_club_subtitle">Custom profile badge, unlimited posts &amp; more</string>
+    <string name="settings_row_join_club">Join the Corus Club</string>
+    <string name="settings_row_join_club_subtitle">Customize your profile, unlimited posts &amp; more</string>
     <string name="settings_row_restore_purchases_subtitle">Already a member? Tap to sync your subscription</string>
     <string name="settings_restore_toast_success">Subscription restored</string>
     <string name="settings_restore_toast_none">No active subscription found</string>
@@ -189,6 +189,15 @@
     <string name="feed_empty_favorites_new_music_subtitle">Your favorites haven\'t shared any new releases yet. Try another filter or check back soon.</string>
     <string name="feed_empty_favorites_new_film_title">No new films from your favorites</string>
     <string name="feed_empty_favorites_new_film_subtitle">Your favorites haven\'t shared any new film releases yet. Try another filter or check back soon.</string>
+    <!-- Taste Matches empty state when a filter is active: the user has taste matches, none match the filter. -->
+    <string name="feed_empty_taste_matches_music_title">No music from your Taste Matches</string>
+    <string name="feed_empty_taste_matches_music_subtitle">None of your Taste Matches have shared music yet. Try another filter or check back soon.</string>
+    <string name="feed_empty_taste_matches_film_title">No films from your Taste Matches</string>
+    <string name="feed_empty_taste_matches_film_subtitle">None of your Taste Matches have shared a film yet. Try another filter or check back soon.</string>
+    <string name="feed_empty_taste_matches_new_music_title">No new music from your Taste Matches</string>
+    <string name="feed_empty_taste_matches_new_music_subtitle">Your Taste Matches haven\'t shared any new releases yet. Try another filter or check back soon.</string>
+    <string name="feed_empty_taste_matches_new_film_title">No new films from your Taste Matches</string>
+    <string name="feed_empty_taste_matches_new_film_subtitle">Your Taste Matches haven\'t shared any new film releases yet. Try another filter or check back soon.</string>
     <string name="feed_empty_clear_filter">Clear filter</string>
     <string name="feed_empty_invite_title">corus is fun with\njust a few friends.</string>
     <string name="feed_empty_invite_subtitle">know someone with good taste?</string>
@@ -686,6 +695,7 @@
     <string name="messaging_thread_attachment_photo">Photo</string>
     <string name="messaging_thread_attachment_song">Song</string>
     <string name="messaging_thread_attachment_film">Film</string>
+    <string name="messaging_thread_attachment_post">Corus</string>
     <string name="messaging_thread_placeholder">Message...</string>
     <string name="messaging_thread_cd_shared_image">Shared image</string>
     <string name="messaging_thread_sending">Sending...</string>

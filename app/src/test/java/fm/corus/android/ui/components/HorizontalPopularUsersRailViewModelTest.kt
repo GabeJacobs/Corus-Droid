@@ -118,6 +118,25 @@ class HorizontalPopularUsersRailViewModelTest {
     }
 
     @Test
+    fun `loadInitial re-fetches when excludeIds changes so the filter toggle refreshes the rail`() =
+        runTest(testDispatcher) {
+            stubPostsEmpty()
+            whenever(userRepository.fetchPopularUsersPaginated(any(), any(), anyOrNull()))
+                .thenReturn(listOf(makeUser("a")))
+
+            val vm = makeViewModel()
+            vm.loadInitial(emptySet())
+            advanceUntilIdle()
+            // "Unfollowed" filter flips on (or the following set finishes loading):
+            // a different exclusion set must drop the old page and refetch.
+            vm.loadInitial(setOf("followed-1"))
+            advanceUntilIdle()
+
+            verify(userRepository, times(2)).fetchPopularUsersPaginated(any(), any(), anyOrNull())
+            assertEquals(listOf("a"), vm.matches.value.map { it.user.id })
+        }
+
+    @Test
     fun `loadMore advances cursor to last user's id and appends results`() = runTest(testDispatcher) {
         stubPostsEmpty()
         val page1 = listOf(makeUser("a"), makeUser("b"))

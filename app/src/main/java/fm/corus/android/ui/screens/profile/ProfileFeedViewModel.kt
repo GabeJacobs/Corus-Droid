@@ -567,22 +567,12 @@ class ProfileFeedViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
-                val text = message.trim()
-                if (post.isMovie) {
-                    messageRepository.sendSharedFilmMessage(
-                        threadId = threadId,
-                        fromUserId = currentUserId,
-                        text = text,
-                        movie = post.toSharedMovie(),
-                    )
-                } else {
-                    messageRepository.sendSharedTrackMessage(
-                        threadId = threadId,
-                        fromUserId = currentUserId,
-                        text = text,
-                        track = post.track,
-                    )
-                }
+                messageRepository.sendSharedPostMessage(
+                    threadId = threadId,
+                    fromUserId = currentUserId,
+                    postId = post.id,
+                    text = message.trim(),
+                )
             } catch (_: Exception) {
                 ToastManager.show(context.getString(R.string.feed_toast_failed_send_post))
             }

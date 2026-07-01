@@ -189,6 +189,14 @@
     <string name="feed_empty_favorites_new_music_subtitle">I tuoi preferiti non hanno ancora condiviso nuove uscite. Prova un altro filtro o torna presto.</string>
     <string name="feed_empty_favorites_new_film_title">Nessun nuovo film dai tuoi preferiti</string>
     <string name="feed_empty_favorites_new_film_subtitle">I tuoi preferiti non hanno ancora condiviso nuove uscite di film. Prova un altro filtro o torna presto.</string>
+    <string name="feed_empty_taste_matches_music_title">Nessuna musica dalle tue affinità di gusti</string>
+    <string name="feed_empty_taste_matches_music_subtitle">Nessuna delle tue affinità di gusti ha ancora condiviso musica. Prova un altro filtro o torna presto.</string>
+    <string name="feed_empty_taste_matches_film_title">Nessun film dalle tue affinità di gusti</string>
+    <string name="feed_empty_taste_matches_film_subtitle">Nessuna delle tue affinità di gusti ha ancora condiviso un film. Prova un altro filtro o torna presto.</string>
+    <string name="feed_empty_taste_matches_new_music_title">Nessuna nuova musica dalle tue affinità di gusti</string>
+    <string name="feed_empty_taste_matches_new_music_subtitle">Le tue affinità di gusti non hanno ancora condiviso nuove uscite. Prova un altro filtro o torna presto.</string>
+    <string name="feed_empty_taste_matches_new_film_title">Nessun nuovo film dalle tue affinità di gusti</string>
+    <string name="feed_empty_taste_matches_new_film_subtitle">Le tue affinità di gusti non hanno ancora condiviso nuove uscite di film. Prova un altro filtro o torna presto.</string>
     <string name="feed_empty_clear_filter">Rimuovi filtro</string>
     <string name="feed_empty_invite_title">corus è divertente anche\ncon pochi amici.</string>
     <string name="feed_empty_invite_subtitle">conosci qualcuno con buon gusto?</string>

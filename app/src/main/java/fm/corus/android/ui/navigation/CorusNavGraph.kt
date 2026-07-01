@@ -693,6 +693,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToFilm = { movie ->
                 navController.navigate(movie.toFilmDetailRoute())
             },
+            onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
         )
     }
 

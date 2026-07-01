@@ -234,25 +234,24 @@ fun SearchScreen(
         shouldShowUnfollowedFilter(musicMatchUsers, allFollowedIds)
     }
 
-    // Popular-on-Corus filter — mirrors taste matches but uses a *snapshot* of
-    // followed ids so following someone via the rail doesn't make their card
-    // disappear immediately. Snapshot is refreshed only when followingIds first
-    // populates or when the user re-toggles the filter.
+    // Popular-on-Corus filter. When "Unfollowed" is on, the rail excludes
+    // already-followed accounts at the *fetch* level (folded into excludeIds
+    // below), the way iOS does — the backend over-fetches and skips them, so a
+    // viewer who follows most popular accounts still gets a full page of
+    // unfollowed ones instead of an empty/flashing rail.
+    //
+    // We subtract session-local follows so a card you just followed via the rail
+    // isn't excluded and doesn't vanish under your finger. The set is *live* (not
+    // a one-time snapshot): followingIds arrives in layers (DataStore → Firestore
+    // → reconcile), and a frozen snapshot used to leak follows that landed after
+    // the first emission back into the "Unfollowed" list. A change here refetches
+    // the rail against the corrected exclusion.
     var filterUnfollowedPopular by rememberSaveable { mutableStateOf(true) }
-    var popularFilterSnapshot by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var hasPrimedPopularSnapshot by remember { mutableStateOf(false) }
-    LaunchedEffect(followingIds) {
-        if (!hasPrimedPopularSnapshot && followingIds.isNotEmpty()) {
-            popularFilterSnapshot = followingIds
-            hasPrimedPopularSnapshot = true
-        }
-    }
     val onSetFilterUnfollowedPopular: (Boolean) -> Unit = { enabled ->
         filterUnfollowedPopular = enabled
-        popularFilterSnapshot = followingIds
-        hasPrimedPopularSnapshot = true
     }
-    val popularRailFilterFollowedIds = if (filterUnfollowedPopular) popularFilterSnapshot else emptySet()
+    val popularRailFilterFollowedIds =
+        if (filterUnfollowedPopular) followingIds - localFollowedIds else emptySet()
     val showUnfollowedPopularToggle = allFollowedIds.isNotEmpty()
 
     // Mutual-connection users sorted by mutual-count DESC. The underlying
@@ -842,7 +841,11 @@ private fun SuggestedUsersContent(
         item {
             val popularFilterCd = stringResource(fm.corus.android.R.string.search_cd_filter_popular_users)
             HorizontalPopularUsersRail(
-                excludeIds = railExcludeIds,
+                // Fold the followed-id set into excludeIds so the query never
+                // returns already-followed accounts under the "Unfollowed"
+                // filter — same as iOS. Empty when the filter is off, so "All"
+                // shows everyone.
+                excludeIds = railExcludeIds + popularRailFilterFollowedIds,
                 followedIds = allFollowedIds,
                 onUserTap = { user ->
                     viewModel.logSearchSectionUserTapped(SearchSection.Popular, user.id)
@@ -853,7 +856,7 @@ private fun SuggestedUsersContent(
                     viewModel.logSearchSectionSeeAllTapped(SearchSection.Popular)
                     onNavigateToSuggestedUsers(popularOnCorusTitle, false, "popular")
                 },
-                filterFollowedIds = popularRailFilterFollowedIds,
+                filterUnfollowed = filterUnfollowedPopular,
                 trailingAction = if (showUnfollowedPopularToggle) {
                     {
                         UnfollowedUsersFilterMenu(

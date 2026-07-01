@@ -414,9 +414,10 @@ fun FeedScreen(
             // Taste Matches served-empty / unavailable: a Club member / tester
             // whose cohort has nothing right now (gated:"unavailable"). A neutral
             // branded empty, NOT the generic invite grid (mirrors iOS
-            // tasteMatchesNeutralEmptyState).
+            // tasteMatchesNeutralEmptyState). Only when unfiltered — a filter
+            // active routes to the filter-aware empty below.
             posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
-                feedMode == "tasteMatches" &&
+                feedMode == "tasteMatches" && feedFilter == FeedFilter.ALL &&
                 tasteMatchesGate is FeedViewModel.TasteMatchesGate.Unavailable -> {
                 Column(
                     modifier = Modifier
@@ -431,9 +432,11 @@ fun FeedScreen(
 
             // Taste Matches "no matches yet": posted enough but no shared
             // artist/director with anyone yet (gated:"noMatchesYet"). Actionable
-            // empty — post more (mirrors iOS tasteMatchesNoMatchesYetState).
+            // empty — post more (mirrors iOS tasteMatchesNoMatchesYetState). Only
+            // when unfiltered — a filter active routes to the filter-aware empty
+            // below so the user gets "try another filter" + a way to clear it.
             posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
-                feedMode == "tasteMatches" &&
+                feedMode == "tasteMatches" && feedFilter == FeedFilter.ALL &&
                 tasteMatchesGate is FeedViewModel.TasteMatchesGate.NoMatchesYet -> {
                 Column(
                     modifier = Modifier
@@ -497,6 +500,82 @@ fun FeedScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.feed_offline_retry),
+                            style = CorusFont.button,
+                            color = CorusColors.Background,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+                }
+            }
+
+            // Taste Matches with a filter active but no matching posts. The user
+            // HAS taste matches (or the served feed is simply empty for this
+            // narrowing) — they just filtered to a content type nobody's shared,
+            // so name the filter and offer to clear it instead of falling through
+            // to the generic invite grid. Mirrors the favorites filter-aware
+            // empty below (and iOS tasteMatchesFilteredEmptyState).
+            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
+                feedMode == "tasteMatches" && feedFilter != FeedFilter.ALL -> {
+                val icon = when (feedFilter) {
+                    FeedFilter.MUSIC -> Icons.Filled.MusicNote
+                    FeedFilter.FILM -> Icons.Filled.Movie
+                    FeedFilter.MUSIC_NEW_RELEASES, FeedFilter.FILM_NEW_RELEASES -> Icons.Filled.LocalFireDepartment
+                    FeedFilter.ALL -> Icons.Filled.Movie
+                }
+                val titleRes = when (feedFilter) {
+                    FeedFilter.MUSIC -> R.string.feed_empty_taste_matches_music_title
+                    FeedFilter.FILM -> R.string.feed_empty_taste_matches_film_title
+                    FeedFilter.MUSIC_NEW_RELEASES -> R.string.feed_empty_taste_matches_new_music_title
+                    FeedFilter.FILM_NEW_RELEASES -> R.string.feed_empty_taste_matches_new_film_title
+                    FeedFilter.ALL -> R.string.feed_empty_taste_matches_film_title
+                }
+                val subtitleRes = when (feedFilter) {
+                    FeedFilter.MUSIC -> R.string.feed_empty_taste_matches_music_subtitle
+                    FeedFilter.FILM -> R.string.feed_empty_taste_matches_film_subtitle
+                    FeedFilter.MUSIC_NEW_RELEASES -> R.string.feed_empty_taste_matches_new_music_subtitle
+                    FeedFilter.FILM_NEW_RELEASES -> R.string.feed_empty_taste_matches_new_film_subtitle
+                    FeedFilter.ALL -> R.string.feed_empty_taste_matches_film_subtitle
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    header()
+                    Spacer(modifier = Modifier.height(60.dp))
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = CorusColors.Tertiary,
+                        modifier = Modifier.size(36.dp),
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    Text(
+                        text = stringResource(titleRes),
+                        style = CorusFont.songTitle,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    Text(
+                        text = stringResource(subtitleRes),
+                        style = CorusFont.body,
+                        color = CorusColors.Tertiary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                    Button(
+                        onClick = {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                            viewModel.setFeedFilter(FeedFilter.ALL)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.feed_empty_clear_filter),
                             style = CorusFont.button,
                             color = CorusColors.Background,
                         )

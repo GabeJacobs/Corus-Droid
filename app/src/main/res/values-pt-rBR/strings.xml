@@ -902,6 +902,14 @@
     <string name="feed_empty_favorites_new_music_subtitle">Seus favoritos ainda não compartilharam nenhum lançamento. Tente outro filtro ou volte em breve.</string>
     <string name="feed_empty_favorites_new_film_title">Nenhum filme novo dos seus favoritos</string>
     <string name="feed_empty_favorites_new_film_subtitle">Seus favoritos ainda não compartilharam nenhum lançamento de filme. Tente outro filtro ou volte em breve.</string>
+    <string name="feed_empty_taste_matches_music_title">Nenhuma música das suas Combinações de Gosto</string>
+    <string name="feed_empty_taste_matches_music_subtitle">Nenhuma das suas Combinações de Gosto compartilhou música ainda. Tente outro filtro ou volte em breve.</string>
+    <string name="feed_empty_taste_matches_film_title">Nenhum filme das suas Combinações de Gosto</string>
+    <string name="feed_empty_taste_matches_film_subtitle">Nenhuma das suas Combinações de Gosto compartilhou um filme ainda. Tente outro filtro ou volte em breve.</string>
+    <string name="feed_empty_taste_matches_new_music_title">Nenhuma música nova das suas Combinações de Gosto</string>
+    <string name="feed_empty_taste_matches_new_music_subtitle">Suas Combinações de Gosto ainda não compartilharam nenhum lançamento. Tente outro filtro ou volte em breve.</string>
+    <string name="feed_empty_taste_matches_new_film_title">Nenhum filme novo das suas Combinações de Gosto</string>
+    <string name="feed_empty_taste_matches_new_film_subtitle">Suas Combinações de Gosto ainda não compartilharam nenhum lançamento de filme. Tente outro filtro ou volte em breve.</string>
     <string name="feed_empty_clear_filter">Limpar filtro</string>
     <string name="feed_offline_title">Não foi possível conectar</string>
     <string name="feed_offline_subtitle">Verifique sua conexão com a internet e tente novamente.</string>

@@ -189,6 +189,14 @@
     <string name="feed_empty_favorites_new_music_subtitle">你的收藏还没有分享任何新作。换个筛选条件或稍后再来看看。</string>
     <string name="feed_empty_favorites_new_film_title">你的收藏还没有分享新电影</string>
     <string name="feed_empty_favorites_new_film_subtitle">你的收藏还没有分享任何新电影。换个筛选条件或稍后再来看看。</string>
+    <string name="feed_empty_taste_matches_music_title">你的品味匹配还没有分享音乐</string>
+    <string name="feed_empty_taste_matches_music_subtitle">你的品味匹配还没有人分享过音乐。换个筛选条件或稍后再来看看。</string>
+    <string name="feed_empty_taste_matches_film_title">你的品味匹配还没有分享电影</string>
+    <string name="feed_empty_taste_matches_film_subtitle">你的品味匹配还没有人分享过电影。换个筛选条件或稍后再来看看。</string>
+    <string name="feed_empty_taste_matches_new_music_title">你的品味匹配还没有分享新音乐</string>
+    <string name="feed_empty_taste_matches_new_music_subtitle">你的品味匹配还没有分享任何新作。换个筛选条件或稍后再来看看。</string>
+    <string name="feed_empty_taste_matches_new_film_title">你的品味匹配还没有分享新电影</string>
+    <string name="feed_empty_taste_matches_new_film_subtitle">你的品味匹配还没有分享任何新电影。换个筛选条件或稍后再来看看。</string>
     <string name="feed_empty_clear_filter">清除筛选</string>
     <string name="feed_empty_invite_title">有几个好友，\ncorus 就很好玩了。</string>
     <string name="feed_empty_invite_subtitle">认识品味不错的人吗？</string>

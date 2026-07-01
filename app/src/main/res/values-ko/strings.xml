@@ -189,6 +189,14 @@
     <string name="feed_empty_favorites_new_music_subtitle">즐겨찾기한 사람들이 아직 신작을 공유하지 않았어요. 다른 필터를 시도하거나 곧 다시 확인해 주세요.</string>
     <string name="feed_empty_favorites_new_film_title">즐겨찾기의 새 영화가 없어요</string>
     <string name="feed_empty_favorites_new_film_subtitle">즐겨찾기한 사람들이 아직 새 영화를 공유하지 않았어요. 다른 필터를 시도하거나 곧 다시 확인해 주세요.</string>
+    <string name="feed_empty_taste_matches_music_title">취향 매치의 음악이 없어요</string>
+    <string name="feed_empty_taste_matches_music_subtitle">취향 매치 중 아직 음악을 공유한 사람이 없어요. 다른 필터를 시도하거나 곧 다시 확인해 주세요.</string>
+    <string name="feed_empty_taste_matches_film_title">취향 매치의 영화가 없어요</string>
+    <string name="feed_empty_taste_matches_film_subtitle">취향 매치 중 아직 영화를 공유한 사람이 없어요. 다른 필터를 시도하거나 곧 다시 확인해 주세요.</string>
+    <string name="feed_empty_taste_matches_new_music_title">취향 매치의 새 음악이 없어요</string>
+    <string name="feed_empty_taste_matches_new_music_subtitle">취향 매치가 아직 신작을 공유하지 않았어요. 다른 필터를 시도하거나 곧 다시 확인해 주세요.</string>
+    <string name="feed_empty_taste_matches_new_film_title">취향 매치의 새 영화가 없어요</string>
+    <string name="feed_empty_taste_matches_new_film_subtitle">취향 매치가 아직 새 영화를 공유하지 않았어요. 다른 필터를 시도하거나 곧 다시 확인해 주세요.</string>
     <string name="feed_empty_clear_filter">필터 지우기</string>
     <string name="feed_empty_invite_title">corus는 친구 몇 명만 있어도\n즐거워요.</string>
     <string name="feed_empty_invite_subtitle">취향 좋은 친구가 있나요?</string>

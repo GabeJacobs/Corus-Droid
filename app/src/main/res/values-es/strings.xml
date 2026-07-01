@@ -189,6 +189,14 @@
     <string name="feed_empty_favorites_new_music_subtitle">Tus favoritos aún no han compartido ningún lanzamiento. Prueba otro filtro o vuelve pronto.</string>
     <string name="feed_empty_favorites_new_film_title">No hay películas nuevas de tus favoritos</string>
     <string name="feed_empty_favorites_new_film_subtitle">Tus favoritos aún no han compartido ningún lanzamiento de películas. Prueba otro filtro o vuelve pronto.</string>
+    <string name="feed_empty_taste_matches_music_title">No hay música de tus coincidencias de gustos</string>
+    <string name="feed_empty_taste_matches_music_subtitle">Ninguna de tus coincidencias de gustos ha compartido música todavía. Prueba otro filtro o vuelve pronto.</string>
+    <string name="feed_empty_taste_matches_film_title">No hay películas de tus coincidencias de gustos</string>
+    <string name="feed_empty_taste_matches_film_subtitle">Ninguna de tus coincidencias de gustos ha compartido una película todavía. Prueba otro filtro o vuelve pronto.</string>
+    <string name="feed_empty_taste_matches_new_music_title">No hay música nueva de tus coincidencias de gustos</string>
+    <string name="feed_empty_taste_matches_new_music_subtitle">Tus coincidencias de gustos aún no han compartido ningún lanzamiento. Prueba otro filtro o vuelve pronto.</string>
+    <string name="feed_empty_taste_matches_new_film_title">No hay películas nuevas de tus coincidencias de gustos</string>
+    <string name="feed_empty_taste_matches_new_film_subtitle">Tus coincidencias de gustos aún no han compartido ningún lanzamiento de películas. Prueba otro filtro o vuelve pronto.</string>
     <string name="feed_empty_clear_filter">Quitar filtro</string>
     <string name="feed_empty_invite_title">corus es divertido con\nunos pocos amigos.</string>
     <string name="feed_empty_invite_subtitle">¿conoces a alguien con buen gusto?</string>

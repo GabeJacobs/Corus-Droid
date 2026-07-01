@@ -172,6 +172,28 @@ class MessageRepository @Inject constructor(
         )
     }
 
+    /**
+     * Share a post to a DM. Mirrors iOS: the message stores only `sharedPostId`
+     * (no track/film denormalization). The recipient's thread renderer resolves
+     * the post by id to build the card and deep-links to post detail on tap.
+     */
+    suspend fun sendSharedPostMessage(
+        threadId: String,
+        fromUserId: String,
+        postId: String,
+        text: String = "",
+        clientMessageId: String? = null,
+    ) {
+        cloudFunctions.sendMessage(
+            threadId = threadId,
+            fromUserId = fromUserId,
+            text = text,
+            type = "sharedPost",
+            sharedPostId = postId,
+            clientMessageId = clientMessageId,
+        )
+    }
+
     suspend fun sendSharedFilmMessage(
         threadId: String,
         fromUserId: String,

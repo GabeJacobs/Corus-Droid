@@ -72,6 +72,7 @@ class MessageThreadViewModelTest {
             messageRepository = messageRepository,
             authRepository = authRepository,
             userRepository = userRepository,
+            postRepository = mock(),
             remoteConfigService = remoteConfigService,
             gifRepository = gifRepository,
             nowPlayingManager = nowPlayingManager,

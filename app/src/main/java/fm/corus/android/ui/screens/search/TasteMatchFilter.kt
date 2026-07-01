@@ -3,9 +3,13 @@ package fm.corus.android.ui.screens.search
 import fm.corus.android.data.model.SuggestedUserMatch
 
 /**
- * Generic "hide already-followed users" filter used by both the Taste Matches
- * section and the Popular on Corus rail. If every user is already followed,
- * falls back to the unfiltered list so the rail isn't empty.
+ * Generic "hide already-followed users" filter used by the Taste Matches
+ * section. If every user is already followed, falls back to the unfiltered list
+ * so the section isn't empty.
+ *
+ * The Popular on Corus rail does NOT use this — it excludes followed accounts at
+ * the fetch level (see [HorizontalPopularUsersRail]) the way iOS does, so it
+ * never has to fall back to showing already-followed users.
  */
 internal fun filteredUnfollowedUsers(
     enabled: Boolean,

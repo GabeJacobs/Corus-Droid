@@ -68,6 +68,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -88,6 +89,7 @@ import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
 import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.domain.NowPlayingManager
@@ -128,6 +130,7 @@ internal fun replyPreviewText(msg: CymbalMessage, context: android.content.Conte
         MessageType.GIF -> context.getString(R.string.comments_cd_gif)
         MessageType.SHARED_TRACK -> msg.trackName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_song)
         MessageType.SHARED_FILM -> msg.movieTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_film)
+        MessageType.SHARED_POST -> context.getString(R.string.messaging_thread_attachment_post)
         else -> context.getString(R.string.messaging_thread_message_fallback)
     }
 }
@@ -512,6 +515,7 @@ fun MessageThreadScreen(
     onNavigateToProfile: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
+    onNavigateToPost: (String) -> Unit = {},
     viewModel: MessageThreadViewModel = hiltViewModel(),
 ) {
     val nowPlayingManager = viewModel.nowPlayingManager
@@ -797,6 +801,8 @@ fun MessageThreadScreen(
                             onRetry = { viewModel.retrySendMessage(message.id) },
                             onNavigateToSong = onNavigateToSong,
                             onNavigateToFilm = onNavigateToFilm,
+                            onNavigateToPost = onNavigateToPost,
+                            resolvePost = { viewModel.fetchSharedPost(it) },
                         )
                     }
                 }
@@ -1256,6 +1262,8 @@ private fun MessageBubble(
     onRetry: () -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
+    onNavigateToPost: (String) -> Unit = {},
+    resolvePost: suspend (String) -> CymbalPost? = { null },
 ) {
     val context = LocalContext.current
     val isSending = message.sendStatus == MessageSendStatus.SENDING
@@ -1553,6 +1561,20 @@ private fun MessageBubble(
                     }
                 }
 
+                // Shared post content — resolves the post by id (mirrors iOS)
+                // and deep-links to post detail on tap.
+                if (message.type == MessageType.SHARED_POST) {
+                    SharedPostContent(
+                        postId = message.sharedPostId.orEmpty(),
+                        isFromCurrentUser = isFromCurrentUser,
+                        resolvePost = resolvePost,
+                        onNavigate = { message.sharedPostId?.takeIf { it.isNotBlank() }?.let(onNavigateToPost) },
+                    )
+                    if (!message.text.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    }
+                }
+
                 // Text content
                 if (!message.text.isNullOrBlank()) {
                     if (emojiOnly) {
@@ -1776,6 +1798,75 @@ private fun SharedTrackContent(
                 modifier = Modifier.size(14.dp),
             )
         }
+    }
+}
+
+/**
+ * Shared-post message bubble. The `sharedPost` message stores only the post id
+ * (mirrors iOS and the backend, which does not denormalize track/film fields for
+ * this type), so we resolve the post to render artwork/title. Tapping anywhere
+ * deep-links to the in-app post detail page — NOT the song/film page.
+ */
+@Composable
+private fun SharedPostContent(
+    postId: String,
+    isFromCurrentUser: Boolean,
+    resolvePost: suspend (String) -> CymbalPost?,
+    onNavigate: () -> Unit,
+) {
+    var post by remember(postId) { mutableStateOf<CymbalPost?>(null) }
+    LaunchedEffect(postId) {
+        if (postId.isNotBlank()) post = resolvePost(postId)
+    }
+
+    val textColor = if (isFromCurrentUser) Color.White else CorusColors.Text
+    val subtitleColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f) else CorusColors.Secondary
+    val title = post?.displayTitle.orEmpty()
+    val subtitle = post?.displaySubtitle.orEmpty()
+
+    Row(
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .clickable { onNavigate() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                .background(CorusColors.Secondary.copy(alpha = 0.15f)),
+        ) {
+            ShimmerAsyncImage(
+                model = post?.displayImageLargeURL ?: post?.displayImageURL,
+                contentDescription = title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            )
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = CorusFont.body,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = subtitle,
+                style = CorusFont.caption,
+                color = subtitleColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.xs))
+        Icon(
+            painter = painterResource(R.drawable.ic_stat_corus),
+            contentDescription = null,
+            tint = subtitleColor,
+            modifier = Modifier.size(14.dp),
+        )
     }
 }
 

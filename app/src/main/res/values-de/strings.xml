@@ -189,6 +189,14 @@
     <string name="feed_empty_favorites_new_music_subtitle">Deine Favoriten haben bisher keine neuen Releases geteilt. Probiere einen anderen Filter oder schau bald wieder vorbei.</string>
     <string name="feed_empty_favorites_new_film_title">Keine neuen Filme von deinen Favoriten</string>
     <string name="feed_empty_favorites_new_film_subtitle">Deine Favoriten haben bisher keine neuen Film-Releases geteilt. Probiere einen anderen Filter oder schau bald wieder vorbei.</string>
+    <string name="feed_empty_taste_matches_music_title">Keine Musik von deinen Geschmacks-Matches</string>
+    <string name="feed_empty_taste_matches_music_subtitle">Keines deiner Geschmacks-Matches hat bisher Musik geteilt. Probiere einen anderen Filter oder schau bald wieder vorbei.</string>
+    <string name="feed_empty_taste_matches_film_title">Keine Filme von deinen Geschmacks-Matches</string>
+    <string name="feed_empty_taste_matches_film_subtitle">Keines deiner Geschmacks-Matches hat bisher einen Film geteilt. Probiere einen anderen Filter oder schau bald wieder vorbei.</string>
+    <string name="feed_empty_taste_matches_new_music_title">Keine neue Musik von deinen Geschmacks-Matches</string>
+    <string name="feed_empty_taste_matches_new_music_subtitle">Deine Geschmacks-Matches haben bisher keine neuen Releases geteilt. Probiere einen anderen Filter oder schau bald wieder vorbei.</string>
+    <string name="feed_empty_taste_matches_new_film_title">Keine neuen Filme von deinen Geschmacks-Matches</string>
+    <string name="feed_empty_taste_matches_new_film_subtitle">Deine Geschmacks-Matches haben bisher keine neuen Film-Releases geteilt. Probiere einen anderen Filter oder schau bald wieder vorbei.</string>
     <string name="feed_empty_clear_filter">Filter entfernen</string>
     <string name="feed_empty_invite_title">corus macht schon mit\nein paar Freunden Spaß.</string>
     <string name="feed_empty_invite_subtitle">kennst du jemanden mit gutem Geschmack?</string>
