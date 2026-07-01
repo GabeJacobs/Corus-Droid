@@ -1184,172 +1184,204 @@ private fun ComposeModeContent(
             )
         }
 
-        // ── Mention suggestions ──
-        if (mentionSuggestions.isNotEmpty()) {
-            Card(
+        } // end else (text mode)
+
+        // Mention/hashtag suggestions sit at the very bottom (above the keyboard)
+        // and REPLACE the audience picker + Set button while active — mirroring
+        // iOS. Rendering them inline above the button instead squeezed the
+        // weight(1f) caption to zero height (couldn't see what you typed) and
+        // overflowed the button (its label vanished) once the keyboard was up.
+        val showingSuggestions = captionMode == "text" &&
+            (mentionSuggestions.isNotEmpty() || hashtagSuggestions.isNotEmpty())
+        if (showingSuggestions) {
+            ComposeMentionSuggestionsCard(
+                mentionSuggestions = mentionSuggestions,
+                onMentionSelected = onMentionSelected,
+            )
+            ComposeHashtagSuggestionsCard(
+                hashtagSuggestions = hashtagSuggestions,
+                onHashtagSelected = onHashtagSelected,
+            )
+            // Small gap so the card isn't flush against the keyboard (iOS parity).
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        } else {
+            if (commentControlsOnPosts) {
+                fm.corus.android.ui.components.CommentsAudiencePicker(
+                    selection = commentsAudience,
+                    onSelect = onCommentsAudienceChange,
+                    modifier = Modifier.padding(top = CorusSpacing.xs),
+                )
+            }
+
+            // ── Post button — "SET YOUR CORUS →" like iOS ──
+            Button(
+                onClick = {
+                    keyboardController?.hide()
+                    // Tapping "Set your Corus" mid-recording should upload the
+                    // take, not error out. stopRecording() is synchronous and
+                    // populates audioData before onPost() reads it.
+                    if (voiceRecorderState?.isRecording == true) {
+                        voiceRecorderState.stopRecording()
+                    }
+                    onPost()
+                },
+                enabled = !isPosting,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = CorusSpacing.xs),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = CorusColors.CardBackground),
+                    .padding(vertical = CorusSpacing.lg),
+                shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CorusColors.Accent,
+                    disabledContainerColor = CorusColors.Accent.copy(alpha = 0.5f),
+                ),
+                contentPadding = PaddingValues(vertical = CorusSpacing.lg),
             ) {
-                Column {
-                    mentionSuggestions.forEachIndexed { index, user ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onMentionSelected(user) }
-                                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = 28.dp)
-                            Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                            Text(
-                                text = user.username,
-                                style = CorusFont.songTitle,
-                                color = CorusColors.Text,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Spacer(modifier = Modifier.width(CorusSpacing.xs))
-                            Text(
-                                text = user.displayName,
-                                style = CorusFont.caption,
-                                color = CorusColors.Secondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        if (index < mentionSuggestions.lastIndex) {
-                            HorizontalDivider(color = CorusColors.Divider)
-                        }
-                    }
+                if (isPosting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.compose_post_button),
+                        style = CorusFont.button,
+                        color = Color.White,
+                    )
                 }
             }
         }
+    }
+}
 
-        // ── Hashtag suggestions (trending on a bare "#", prefix matches as typed) ──
-        if (hashtagSuggestions.isNotEmpty()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = CorusSpacing.xs),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = CorusColors.CardBackground),
-            ) {
-                Column {
-                    hashtagSuggestions.forEachIndexed { index, tag ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onHashtagSelected(tag) }
-                                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .background(CorusColors.Accent.copy(alpha = 0.15f), CircleShape),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(text = "#", style = CorusFont.songTitle, color = CorusColors.Accent)
-                            }
-                            Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                            Column {
-                                Text(
-                                    text = "#${tag.name}",
-                                    style = CorusFont.songTitle,
-                                    color = CorusColors.Text,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                if (tag.trending || tag.count > 0) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        if (tag.trending) {
-                                            Text(
-                                                text = stringResource(R.string.hashtag_suggestion_trending),
-                                                style = CorusFont.caption,
-                                                color = CorusColors.Accent,
-                                                maxLines = 1,
-                                            )
-                                        }
-                                        if (tag.trending && tag.count > 0) {
-                                            Text(
-                                                text = " · ",
-                                                style = CorusFont.caption,
-                                                color = CorusColors.Secondary,
-                                            )
-                                        }
-                                        if (tag.count > 0) {
-                                            val velocityRes = if (tag.count == 1) {
-                                                R.string.hashtag_velocity_this_week_one
-                                            } else {
-                                                R.string.hashtag_velocity_this_week
-                                            }
-                                            Text(
-                                                text = stringResource(velocityRes, tag.count.toString()),
-                                                style = CorusFont.caption,
-                                                color = CorusColors.Secondary,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        }
+// The compose-screen suggestion cards use a rounded Card look (vs. the flat
+// list in the comments sheet). Kept as small composables so the bottom of
+// ComposeModeContent can swap between them and the Set button.
+@Composable
+private fun ComposeMentionSuggestionsCard(
+    mentionSuggestions: List<CymbalUser>,
+    onMentionSelected: (CymbalUser) -> Unit,
+) {
+    if (mentionSuggestions.isEmpty()) return
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = CorusSpacing.xs),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = CorusColors.CardBackground),
+    ) {
+        Column {
+            mentionSuggestions.forEachIndexed { index, user ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onMentionSelected(user) }
+                        .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = 28.dp)
+                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                    Text(
+                        text = user.username,
+                        style = CorusFont.songTitle,
+                        color = CorusColors.Text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                    Text(
+                        text = user.displayName,
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (index < mentionSuggestions.lastIndex) {
+                    HorizontalDivider(color = CorusColors.Divider)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComposeHashtagSuggestionsCard(
+    hashtagSuggestions: List<fm.corus.android.data.model.HashtagSuggestion>,
+    onHashtagSelected: (fm.corus.android.data.model.HashtagSuggestion) -> Unit,
+) {
+    if (hashtagSuggestions.isEmpty()) return
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = CorusSpacing.xs),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = CorusColors.CardBackground),
+    ) {
+        Column {
+            hashtagSuggestions.forEachIndexed { index, tag ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onHashtagSelected(tag) }
+                        .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(CorusColors.Accent.copy(alpha = 0.15f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(text = "#", style = CorusFont.songTitle, color = CorusColors.Accent)
+                    }
+                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                    Column {
+                        Text(
+                            text = "#${tag.name}",
+                            style = CorusFont.songTitle,
+                            color = CorusColors.Text,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (tag.trending || tag.count > 0) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (tag.trending) {
+                                    Text(
+                                        text = stringResource(R.string.hashtag_suggestion_trending),
+                                        style = CorusFont.caption,
+                                        color = CorusColors.Accent,
+                                        maxLines = 1,
+                                    )
+                                }
+                                if (tag.trending && tag.count > 0) {
+                                    Text(
+                                        text = " · ",
+                                        style = CorusFont.caption,
+                                        color = CorusColors.Secondary,
+                                    )
+                                }
+                                if (tag.count > 0) {
+                                    val velocityRes = if (tag.count == 1) {
+                                        R.string.hashtag_velocity_this_week_one
+                                    } else {
+                                        R.string.hashtag_velocity_this_week
                                     }
+                                    Text(
+                                        text = stringResource(velocityRes, tag.count.toString()),
+                                        style = CorusFont.caption,
+                                        color = CorusColors.Secondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
                                 }
                             }
                         }
-                        if (index < hashtagSuggestions.lastIndex) {
-                            HorizontalDivider(color = CorusColors.Divider)
-                        }
                     }
                 }
-            }
-        }
-        } // end else (text mode)
-
-        if (commentControlsOnPosts) {
-            fm.corus.android.ui.components.CommentsAudiencePicker(
-                selection = commentsAudience,
-                onSelect = onCommentsAudienceChange,
-                modifier = Modifier.padding(top = CorusSpacing.xs),
-            )
-        }
-
-        // ── Post button — "SET YOUR CORUS →" like iOS ──
-        Button(
-            onClick = {
-                keyboardController?.hide()
-                // Tapping "Set your Corus" mid-recording should upload the
-                // take, not error out. stopRecording() is synchronous and
-                // populates audioData before onPost() reads it.
-                if (voiceRecorderState?.isRecording == true) {
-                    voiceRecorderState.stopRecording()
+                if (index < hashtagSuggestions.lastIndex) {
+                    HorizontalDivider(color = CorusColors.Divider)
                 }
-                onPost()
-            },
-            enabled = !isPosting,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = CorusSpacing.lg),
-            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = CorusColors.Accent,
-                disabledContainerColor = CorusColors.Accent.copy(alpha = 0.5f),
-            ),
-            contentPadding = PaddingValues(vertical = CorusSpacing.lg),
-        ) {
-            if (isPosting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.compose_post_button),
-                    style = CorusFont.button,
-                    color = Color.White,
-                )
             }
         }
     }

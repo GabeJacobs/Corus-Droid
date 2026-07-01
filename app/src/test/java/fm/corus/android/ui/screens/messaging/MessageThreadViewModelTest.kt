@@ -408,6 +408,61 @@ class MessageThreadViewModelTest {
         advanceUntilIdle()
     }
 
+    // ── Instant header seed from the inbox cache (iOS parity) ──
+
+    @Test
+    fun `loadMessages seeds 1-1 header from cached inbox immediately`() = runTest {
+        // Profile fetch is suspended so it can't be the source of the header values.
+        val neverCompletes = CompletableDeferred<fm.corus.android.data.model.CymbalUser?>()
+        whenever(userRepository.fetchUserProfile(any())).doSuspendableAnswer { neverCompletes.await() }
+        whenever(messageRepository.listenToRecipientUnreadCount(any(), any())).doReturn(emptyFlow())
+        whenever(messageRepository.listenToReadReceiptsEnabled(any())).doReturn(emptyFlow())
+
+        val other = fm.corus.android.data.model.CymbalUser(
+            id = "other", username = "arielle", displayName = "arielle lana",
+            avatarURL = "https://img/a.jpg", avatarThumbURL = "https://img/a_thumb.jpg",
+        )
+        val cachedThread = fm.corus.android.data.model.CymbalThread(
+            id = "thread1", otherUser = other, otherUserId = "other",
+        )
+        whenever(messageRepository.cachedInbox).doReturn(
+            MessageRepository.CachedInbox("user1", listOf(cachedThread), null, false)
+        )
+
+        // No advanceUntilIdle: the seed must be synchronous, before the async load runs.
+        viewModel.loadMessages("thread1", "other")
+
+        assertEquals("arielle", viewModel.otherUsername.first())
+        assertEquals("arielle lana", viewModel.otherDisplayName.first())
+        assertEquals("https://img/a.jpg", viewModel.otherAvatarURL.first())
+        assertEquals("https://img/a_thumb.jpg", viewModel.otherAvatarThumbURL.first())
+    }
+
+    @Test
+    fun `loadMessages seeds group header from cached inbox immediately`() = runTest {
+        whenever(messageRepository.listenToRecipientUnreadCount(any(), any())).doReturn(emptyFlow())
+        whenever(messageRepository.listenToReadReceiptsEnabled(any())).doReturn(emptyFlow())
+
+        val m1 = fm.corus.android.data.model.CymbalUser(id = "m1", username = "arielle", displayName = "arielle lana")
+        val m2 = fm.corus.android.data.model.CymbalUser(id = "m2", username = "aiden", displayName = "Aiden Baxter")
+        val cachedGroup = fm.corus.android.data.model.CymbalThread(
+            id = "grp1", otherUserId = "", isGroup = true, groupName = "corus squad",
+            memberIds = listOf("user1", "m1", "m2"), members = listOf(m1, m2),
+        )
+        whenever(messageRepository.cachedInbox).doReturn(
+            MessageRepository.CachedInbox("user1", listOf(cachedGroup), null, false)
+        )
+
+        // Group threads pass an empty otherUserId; seed must still fill the header.
+        viewModel.loadMessages("grp1", "")
+
+        val info = viewModel.groupInfo.first()
+        assertEquals(true, info?.isGroup)
+        assertEquals("corus squad", info?.name)
+        assertEquals(listOf("user1", "m1", "m2"), info?.memberIds)
+        assertEquals(setOf("m1", "m2"), viewModel.membersById.first().keys)
+    }
+
     @Test
     fun `startEditing sets editing target and clears reply`() = runTest {
         viewModel.setReplyTo(CymbalMessage(id = "r1", threadId = "thread1", fromUserId = "other", text = "hi", type = MessageType.TEXT))
