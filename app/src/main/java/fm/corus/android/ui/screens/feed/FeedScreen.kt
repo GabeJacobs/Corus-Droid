@@ -414,10 +414,11 @@ fun FeedScreen(
             // Taste Matches served-empty / unavailable: a Club member / tester
             // whose cohort has nothing right now (gated:"unavailable"). A neutral
             // branded empty, NOT the generic invite grid (mirrors iOS
-            // tasteMatchesNeutralEmptyState). Only when unfiltered — a filter
-            // active routes to the filter-aware empty below.
+            // tasteMatchesNeutralEmptyState). Shown regardless of filter — an
+            // unavailable cohort has no matches, so naming a filter would wrongly
+            // imply you have taste matches.
             posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
-                feedMode == "tasteMatches" && feedFilter == FeedFilter.ALL &&
+                feedMode == "tasteMatches" &&
                 tasteMatchesGate is FeedViewModel.TasteMatchesGate.Unavailable -> {
                 Column(
                     modifier = Modifier
@@ -432,11 +433,14 @@ fun FeedScreen(
 
             // Taste Matches "no matches yet": posted enough but no shared
             // artist/director with anyone yet (gated:"noMatchesYet"). Actionable
-            // empty — post more (mirrors iOS tasteMatchesNoMatchesYetState). Only
-            // when unfiltered — a filter active routes to the filter-aware empty
-            // below so the user gets "try another filter" + a way to clear it.
+            // empty — post more (mirrors iOS tasteMatchesNoMatchesYetState). Shown
+            // regardless of filter: the server returns this gate on a filtered
+            // request only when you have NO taste matches at all, so it's the base
+            // "no matches" state, not a filter-specific empty. (When you DO have
+            // matches but none in this media type, the server returns an ungated
+            // empty page, which the filter-aware branch below handles.)
             posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
-                feedMode == "tasteMatches" && feedFilter == FeedFilter.ALL &&
+                feedMode == "tasteMatches" &&
                 tasteMatchesGate is FeedViewModel.TasteMatchesGate.NoMatchesYet -> {
                 Column(
                     modifier = Modifier
