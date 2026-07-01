@@ -281,6 +281,17 @@ private fun CommentsSheetContent(
         viewModel.loadPost(postId)
     }
 
+    // The ViewModel is scoped to the host (hiltViewModel), so it outlives this
+    // sheet — mention/hashtag suggestions from one session would otherwise still
+    // be showing when the sheet is reopened (before the user types anything).
+    // Reset them when the sheet leaves composition so each open starts clean.
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.clearMentions()
+            viewModel.clearHashtags()
+        }
+    }
+
     // Keyboard ⟺ Expanded invariant (iOS parity): the keyboard only belongs at the full
     // detent. As soon as the sheet is dragged toward a lower detent, dismiss the keyboard
     // and drop focus, so you can't get stuck half-collapsed with the keyboard still up.

@@ -123,6 +123,12 @@ class MessageThreadViewModel @Inject constructor(
         // Arm active-thread tracking right away when the id is already known, so
         // suppression is in effect before the (async) profile fetch completes.
         if (threadId.isNotBlank()) _resolvedThreadId.value = threadId
+        // iOS parity: seed the header (name/avatar, or group title/avatars) from the
+        // inbox's already-loaded thread so it renders instantly instead of showing a
+        // blank header during the profile/group fetch. Reconciled by the async load
+        // and live listeners below. No-op when the thread wasn't in the inbox cache
+        // (e.g. opened from a profile or notification), which keeps prior behavior.
+        seedHeaderFromCachedInbox(threadId)
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -160,6 +166,40 @@ class MessageThreadViewModel @Inject constructor(
                 }
             } catch (_: Exception) { }
             _isLoading.value = false
+        }
+    }
+
+    /**
+     * Seed the header state from the last-rendered inbox snapshot (kept in
+     * [MessageRepository.cachedInbox]) so opening a thread from the inbox shows the
+     * known name/avatar (1:1) or group title/avatars immediately, mirroring how iOS
+     * seeds `MessageThreadView` from the inbox row. Only fills values that are still
+     * empty, so it never clobbers anything the live load has already resolved.
+     */
+    private fun seedHeaderFromCachedInbox(threadId: String) {
+        if (threadId.isBlank()) return
+        val cached = messageRepository.cachedInbox
+            ?.threads?.firstOrNull { it.id == threadId } ?: return
+        if (cached.isGroup) {
+            if (_groupInfo.value == null) {
+                _groupInfo.value = MessageRepository.GroupThreadInfo(
+                    isGroup = true,
+                    name = cached.groupName,
+                    photoURL = cached.groupPhotoURL,
+                    memberIds = cached.memberIds,
+                    createdBy = cached.createdBy,
+                )
+            }
+            if (cached.members.isNotEmpty() && _membersById.value.isEmpty()) {
+                _membersById.value = cached.members.associateBy { it.id }
+            }
+        } else {
+            cached.otherUser?.let { u ->
+                if (_otherUsername.value.isBlank()) _otherUsername.value = u.username
+                if (_otherDisplayName.value.isBlank()) _otherDisplayName.value = u.displayName
+                if (_otherAvatarURL.value == null) _otherAvatarURL.value = u.avatarURL
+                if (_otherAvatarThumbURL.value == null) _otherAvatarThumbURL.value = u.avatarThumbURL
+            }
         }
     }
 
