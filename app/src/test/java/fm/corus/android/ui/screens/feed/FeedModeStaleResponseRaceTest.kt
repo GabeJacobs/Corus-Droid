@@ -185,4 +185,88 @@ class FeedModeStaleResponseRaceTest {
                 viewModel.posts.value.map { it.id },
             )
         }
+
+    /**
+     * The subtler ranked→ranked variant. Trending and Taste Matches SHARE the
+     * ranked pagination cursor (`forYouSessionToken`) and seen-ID set. A Taste
+     * Matches fetch that lands *after* the user switched to Trending must not
+     * write its session token into that shared field: the backend keys the
+     * ranked pool off the token, so the next Trending page would paginate with
+     * the Taste Matches cursor and splice Taste Matches posts into Trending.
+     *
+     * The posts-level guard alone does NOT catch this — the stale response's own
+     * posts are dropped, but the poisoned cursor only bites on the *next* page.
+     * The mock below models the backend faithfully: a request carrying the
+     * "tm-token" cursor returns Taste Matches posts regardless of the `scope`
+     * argument, so a polluted cursor surfaces as Taste Matches ids in Trending.
+     */
+    @Test
+    fun `late taste matches response must not pollute the trending pagination cursor`() =
+        runTest(testDispatcher) {
+            whenever(remoteConfig.trendingFeedEnabled).doReturn(true)
+            whenever(remoteConfig.tasteMatchesEnabled).doReturn(true)
+
+            val tmPage = listOf(post("tm1"))
+            val tmLeaked = listOf(post("tmLeak1"))
+            val trendingPage1 = listOf(post("tr1"))
+            val trendingPage2 = listOf(post("tr2"))
+
+            // The Taste Matches fetch parks in-flight until released, mimicking a
+            // slow response that lands after the user has moved to Trending.
+            val tmGate = CompletableDeferred<Unit>()
+            wheneverBlocking {
+                postRepository.getForYouFeed(
+                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(),
+                )
+            }.doSuspendableAnswer {
+                val sessionToken = it.getArgument<String?>(2)
+                val scope = it.getArgument<String>(7)
+                when {
+                    scope == "tasteMatches" -> {
+                        tmGate.await()
+                        CloudFunctionsDataSource.ForYouFeedPage(tmPage, true, "tm-token", false)
+                    }
+                    // Backend honors the (stale) Taste Matches cursor: the pool it
+                    // returns follows the token, not the requested scope.
+                    sessionToken == "tm-token" ->
+                        CloudFunctionsDataSource.ForYouFeedPage(tmLeaked, true, "tm-token-2", false)
+                    sessionToken == null ->
+                        CloudFunctionsDataSource.ForYouFeedPage(trendingPage1, true, "trending-token", false)
+                    sessionToken == "trending-token" ->
+                        CloudFunctionsDataSource.ForYouFeedPage(trendingPage2, true, "trending-token-2", false)
+                    else -> CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "", false)
+                }
+            }
+
+            // Open on Taste Matches; that ranked load parks on the gate.
+            modeFlow.value = "tasteMatches"
+            val viewModel = vm()
+            advanceUntilIdle()
+            viewModel.loadFeed()
+            advanceUntilIdle()
+            assertEquals("tasteMatches", viewModel.feedMode.value)
+
+            // User switches to Trending before Taste Matches resolves; Trending
+            // loads page 1 and takes over the (shared) cursor.
+            modeFlow.value = "trending"
+            advanceUntilIdle()
+            assertEquals("trending", viewModel.feedMode.value)
+            assertEquals(trendingPage1.map { it.id }, viewModel.posts.value.map { it.id })
+
+            // The slow Taste Matches response finally lands. Its posts are dropped
+            // by the posts guard, but it must ALSO not overwrite the shared cursor.
+            tmGate.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(trendingPage1.map { it.id }, viewModel.posts.value.map { it.id })
+
+            // Paginate Trending. With the cursor intact this fetches Trending
+            // page 2; a polluted "tm-token" cursor would instead surface Taste
+            // Matches posts here.
+            viewModel.loadFeed()
+            advanceUntilIdle()
+            assertEquals(
+                listOf("tr1", "tr2"),
+                viewModel.posts.value.map { it.id },
+            )
+        }
 }

@@ -600,6 +600,16 @@ class FeedViewModel @Inject constructor(
                     // newest posts lead. First load / pagination doesn't.
                     isRefresh = refresh,
                 )
+                // Superseded-mode guard for the RANKED branch. Every write below
+                // (gate, session token, page index, seen-IDs) mutates state that
+                // is SHARED across the ranked modes. If the user switched away
+                // while this fetch was in flight, applying them corrupts the
+                // now-active mode: a stale Taste Matches response would write its
+                // session token here, and the next Trending page would paginate
+                // with that Taste Matches cursor and splice its posts in. The
+                // posts-level guard further down is too late for these writes, so
+                // bail here before touching any shared ranked state. Mirrors iOS.
+                if (feedMode.value != mode) return
                 // Taste Matches gate: a {gated:...} response carries no posts and
                 // drives the cold-start / paywall screen instead of the feed.
                 if (mode == "tasteMatches") {
