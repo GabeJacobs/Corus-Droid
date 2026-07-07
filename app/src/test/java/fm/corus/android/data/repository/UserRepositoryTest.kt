@@ -13,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
@@ -169,5 +170,34 @@ class UserRepositoryTest {
         val results = repo.searchUsers("a")
 
         assertEquals("popular", results.firstOrNull()?.id)
+    }
+
+    // NEW ON CORUS must go through the server-filtered getNewUsers callable so
+    // shadow/hard-banned users are reliably hidden (the old client-side ban set
+    // races the ban-list sync). The direct Firestore read is only a fallback.
+    @Test
+    fun `fetchNewUsers uses the server-filtered getNewUsers callable`() = runTest {
+        whenever(cloudFunctions.getNewUsers(any(), any(), anyOrNull()))
+            .thenReturn(Pair(listOf(user("newbie", 0)), null))
+
+        val result = repo.fetchNewUsers(limit = 10)
+
+        assertEquals(listOf("newbie"), result.map { it.id })
+        verify(firestoreDataSource, never()).fetchNewUsers(any(), any())
+    }
+
+    // If the callable errors (e.g. offline), fall back to the direct read so the
+    // rail still renders instead of going blank.
+    @Test
+    fun `fetchNewUsers falls back to the direct read when the callable fails`() = runTest {
+        whenever(cloudFunctions.getNewUsers(any(), any(), anyOrNull()))
+            .thenThrow(RuntimeException("network"))
+        whenever(firestoreDataSource.fetchNewUsers(any(), any()))
+            .thenReturn(listOf(user("fallback", 0)))
+
+        val result = repo.fetchNewUsers(limit = 10)
+
+        assertEquals(listOf("fallback"), result.map { it.id })
+        verify(firestoreDataSource).fetchNewUsers(any(), any())
     }
 }

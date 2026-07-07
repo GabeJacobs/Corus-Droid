@@ -355,6 +355,7 @@ fun ProfileFeedScreen(
         artistPagesEnabled = onNavigateToArtist != null,
         onNavigateToArtist = onNavigateToArtist,
         onNavigateToAlbum = onNavigateToAlbum,
+        onNavigateToDirector = onNavigateToDirector,
     )
 
     filmInfoPost?.let { post ->

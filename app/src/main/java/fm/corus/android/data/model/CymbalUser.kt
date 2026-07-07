@@ -184,7 +184,10 @@ data class CymbalUser(
             artistsInCommonCount = (data["artistsInCommonCount"] as? Number)?.toInt(),
             deletionStatus = data["deletionStatus"] as? String,
             lastPostedAt = (data["lastPostedAt"] as? com.google.firebase.Timestamp)?.toDate(),
-            createdAt = (data["createdAt"] as? com.google.firebase.Timestamp)?.toDate(),
+            // Firestore direct reads give a Timestamp; the getNewUsers callable
+            // sends millis (a Number). Accept either so "Joined Nh ago" renders.
+            createdAt = (data["createdAt"] as? com.google.firebase.Timestamp)?.toDate()
+                ?: (data["createdAt"] as? Number)?.let { java.util.Date(it.toLong()) },
             clubMemberSince = (data["clubMemberSince"] as? com.google.firebase.Timestamp)?.toDate(),
         )
     }

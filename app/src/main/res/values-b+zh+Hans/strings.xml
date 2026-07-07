@@ -720,7 +720,7 @@
     <string name="post_card_finding_back_cover">正在查找封底…</string>
     <string name="post_card_no_back_cover">没有可用的封底</string>
     <string name="post_card_cd_pause">暂停</string>
-    <string name="post_card_view_film_page">查看电影页面</string>
+    <string name="post_card_view_film_page">前往影片</string>
     <string name="post_card_watch_trailer">观看预告片</string>
     <string name="post_card_cd_album_back_cover">专辑封底</string>
     <string name="post_card_cd_play_spotify">在 Spotify 上播放</string>
@@ -773,8 +773,8 @@
     <!-- Post action menu -->
     <string name="post_menu_play_in_service">在 %1$s 中播放</string>
     <string name="post_menu_open_soundcloud">在 SoundCloud 中打开</string>
-    <string name="post_menu_view_film_page">查看电影页面</string>
-    <string name="post_menu_view_song_page">查看歌曲页面</string>
+    <string name="post_menu_view_film_page">前往影片</string>
+    <string name="post_menu_view_song_page">前往歌曲</string>
     <string name="post_menu_view_front_cover">查看封面</string>
     <string name="post_menu_view_back_cover">查看封底</string>
     <string name="post_menu_repost">转发</string>
@@ -1043,6 +1043,9 @@
     <string name="destination_who_shared_artist">分享过这位艺人的人</string>
     <string name="destination_who_shared_director">分享过这位导演的人</string>
     <string name="destination_popular">热门</string>
+    <string name="destination_music_videos">音乐视频</string>
+    <string name="destination_show_more">显示更多</string>
+    <string name="destination_show_less">收起</string>
     <string name="destination_discography">音乐作品</string>
     <string name="destination_filmography">电影作品</string>
     <string name="destination_recent_posts">最新帖子</string>
@@ -1064,4 +1067,5 @@
     <string name="destination_album_load_error">无法加载这张专辑。</string>
     <string name="destination_catalog_load_error">暂时无法加载。</string>
     <string name="destination_no_tracks">未找到这张专辑的歌曲。</string>
+    <string name="post_menu_go_to_director">前往导演</string>
 </resources>

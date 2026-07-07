@@ -52,7 +52,10 @@ class PostActionMenuTest {
         mediaType = MediaType.TRACK,
     )
 
-    private fun moviePost() = CymbalPost(
+    private fun moviePost(
+        directorIds: List<String> = emptyList(),
+        directorName: String? = "Director",
+    ) = CymbalPost(
         id = "m1",
         user = user(),
         track = CymbalTrack(
@@ -65,6 +68,8 @@ class PostActionMenuTest {
             albumId = "album1",
         ),
         mediaType = MediaType.MOVIE,
+        directorName = directorName,
+        directorIds = directorIds,
     )
 
     @Test
@@ -198,5 +203,59 @@ class PostActionMenuTest {
             )
         )
         assertNull(post.track.albumId)
+    }
+
+    // ── Go to Director gating (movies) ──
+
+    @Test
+    fun `go to director shown for movie with director id and flag on`() {
+        assertTrue(showGoToDirectorRow(post = moviePost(directorIds = listOf("d1")), artistPagesEnabled = true))
+    }
+
+    @Test
+    fun `go to director hidden when flag off`() {
+        assertFalse(showGoToDirectorRow(post = moviePost(directorIds = listOf("d1")), artistPagesEnabled = false))
+    }
+
+    @Test
+    fun `go to director hidden when no director id`() {
+        assertFalse(showGoToDirectorRow(post = moviePost(directorIds = emptyList()), artistPagesEnabled = true))
+    }
+
+    @Test
+    fun `go to director hidden for blank director ids`() {
+        assertFalse(showGoToDirectorRow(post = moviePost(directorIds = listOf("", " ")), artistPagesEnabled = true))
+    }
+
+    @Test
+    fun `go to director hidden for track post`() {
+        assertFalse(showGoToDirectorRow(post = trackPost(), artistPagesEnabled = true))
+    }
+
+    @Test
+    fun `director tap null when nav callback null`() {
+        assertNull(onGoToDirectorTap(moviePost(directorIds = listOf("d1")), onNavigateToDirector = null))
+    }
+
+    @Test
+    fun `director tap null for track post`() {
+        assertNull(onGoToDirectorTap(trackPost(), onNavigateToDirector = {}))
+    }
+
+    @Test
+    fun `director tap null when no director id`() {
+        assertNull(onGoToDirectorTap(moviePost(directorIds = emptyList()), onNavigateToDirector = {}))
+    }
+
+    @Test
+    fun `director tap builder passes director id and name through`() {
+        var routed: fm.corus.android.ui.navigation.DirectorPageRoute? = null
+        val tap = onGoToDirectorTap(
+            moviePost(directorIds = listOf("d99"), directorName = "Greta Gerwig"),
+            onNavigateToDirector = { routed = it },
+        )
+        tap?.invoke()
+        assertTrue(routed?.directorId == "d99")
+        assertTrue(routed?.name == "Greta Gerwig")
     }
 }

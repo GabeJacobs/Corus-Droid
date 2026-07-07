@@ -721,7 +721,7 @@
     <string name="post_card_finding_back_cover">Recherche de la pochette arrière…</string>
     <string name="post_card_no_back_cover">Aucune pochette arrière disponible</string>
     <string name="post_card_cd_pause">Pause</string>
-    <string name="post_card_view_film_page">Voir la page du film</string>
+    <string name="post_card_view_film_page">Aller au film</string>
     <string name="post_card_watch_trailer">Voir la bande-annonce</string>
     <string name="post_card_cd_album_back_cover">Pochette arrière de l\'album</string>
     <string name="post_card_cd_play_spotify">Lire sur Spotify</string>
@@ -774,8 +774,8 @@
     <!-- Post action menu -->
     <string name="post_menu_play_in_service">Lire dans %1$s</string>
     <string name="post_menu_open_soundcloud">Ouvrir dans SoundCloud</string>
-    <string name="post_menu_view_film_page">Voir la page du film</string>
-    <string name="post_menu_view_song_page">Voir la page de la chanson</string>
+    <string name="post_menu_view_film_page">Aller au film</string>
+    <string name="post_menu_view_song_page">Aller à la chanson</string>
     <string name="post_menu_view_front_cover">Voir la pochette avant</string>
     <string name="post_menu_view_back_cover">Voir la pochette arrière</string>
     <string name="post_menu_repost">Republier</string>
@@ -1046,6 +1046,9 @@
     <string name="destination_who_shared_artist">Qui a partagé cet artiste</string>
     <string name="destination_who_shared_director">Qui a partagé ce réalisateur</string>
     <string name="destination_popular">Populaire</string>
+    <string name="destination_music_videos">Clips musicaux</string>
+    <string name="destination_show_more">Voir plus</string>
+    <string name="destination_show_less">Voir moins</string>
     <string name="destination_discography">Discographie</string>
     <string name="destination_filmography">Filmographie</string>
     <string name="destination_recent_posts">Publications récentes</string>
@@ -1067,4 +1070,5 @@
     <string name="destination_album_load_error">Impossible de charger cet album.</string>
     <string name="destination_catalog_load_error">Chargement impossible pour le moment.</string>
     <string name="destination_no_tracks">Aucun titre trouvé pour cet album.</string>
+    <string name="post_menu_go_to_director">Aller au réalisateur</string>
 </resources>

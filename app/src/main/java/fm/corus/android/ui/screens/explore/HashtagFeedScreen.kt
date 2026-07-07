@@ -639,10 +639,12 @@ private fun HashtagFollowButton(
 }
 
 /**
- * Playlist export pill — visually identical to the profile page's PLAYLIST
- * button (music-note-list icon + label in a 30dp bordered pill, spinner while
- * generating, dimmed when the tag has no songs). Click gating (no-songs toast,
- * chooser, Spotify alert) lives at the call site, mirroring ProfileScreen.
+ * Playlist export button — the secondary half of the Follow/Playlist pair.
+ * Deliberately styled like [HashtagFollowButton]'s "Following" state (same
+ * Button shape, height, padding, and typography) so the two read as one
+ * system rather than a CTA next to a stray pill. Spinner while generating,
+ * dimmed when the tag has no songs. Click gating (no-songs toast, chooser,
+ * Spotify alert) lives at the call site, mirroring ProfileScreen.
  */
 @Composable
 private fun HashtagPlaylistButton(
@@ -650,48 +652,50 @@ private fun HashtagPlaylistButton(
     isGenerating: Boolean,
     onClick: () -> Unit,
 ) {
-    // Responsive pill padding — same breakpoint as the profile header.
-    val playlistHPad = if (LocalConfiguration.current.screenWidthDp >= 400) CorusSpacing.xxl else CorusSpacing.md
-    Box(
-        modifier = Modifier
-            .height(30.dp)
-            .clip(RoundedCornerShape(50))
-            .background(Color.Transparent)
-            .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
-            .clickable(enabled = !isGenerating, onClick = onClick)
-            .padding(horizontal = playlistHPad),
-        contentAlignment = Alignment.Center,
+    Button(
+        onClick = onClick,
+        enabled = !isGenerating,
+        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = CorusColors.CardBackground,
+            contentColor = CorusColors.Secondary,
+            disabledContainerColor = CorusColors.CardBackground,
+            disabledContentColor = CorusColors.Secondary,
+        ),
+        border = BorderStroke(1.dp, CorusColors.Divider),
+        contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+        modifier = Modifier.height(30.dp),
     ) {
-        // Always render label to preserve button width
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-            modifier = Modifier.alpha(
-                if (!hasSongs) 0.35f
-                else if (isGenerating) 0f
-                else 1f
-            ),
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_music_note_list),
-                contentDescription = stringResource(R.string.profile_cd_playlist),
-                modifier = Modifier.size(14.dp),
-                tint = CorusColors.Secondary,
-            )
-            Text(
-                // Title case, not the profile pill's all-caps — this button
-                // sits next to the title-case Follow button.
-                text = stringResource(R.string.hashtag_button_playlist),
-                style = CorusFont.button,
-                color = CorusColors.Secondary,
-            )
-        }
-        if (isGenerating) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(14.dp),
-                strokeWidth = 2.dp,
-                color = CorusColors.Secondary,
-            )
+        Box(contentAlignment = Alignment.Center) {
+            // Always render the label to preserve button width; the spinner
+            // sits on top while generating.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+                modifier = Modifier.alpha(
+                    if (!hasSongs) 0.35f
+                    else if (isGenerating) 0f
+                    else 1f
+                ),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_music_note_list),
+                    contentDescription = stringResource(R.string.profile_cd_playlist),
+                    modifier = Modifier.size(14.dp),
+                    tint = CorusColors.Secondary,
+                )
+                Text(
+                    text = stringResource(R.string.hashtag_button_playlist),
+                    style = CorusFont.buttonSmall,
+                )
+            }
+            if (isGenerating) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = CorusColors.Secondary,
+                )
+            }
         }
     }
 }

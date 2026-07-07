@@ -134,6 +134,8 @@ internal fun parseArtistDetailResponse(data: Map<String, Any?>?): ArtistDetail? 
             ?.mapNotNull { parseUnifiedTrack(it) } ?: emptyList(),
         albums = (data["albums"] as? List<Map<String, Any?>>)
             ?.mapNotNull { AlbumSummary.fromMap(it) } ?: emptyList(),
+        musicVideos = (data["musicVideos"] as? List<Map<String, Any?>>)
+            ?.mapNotNull { MusicVideo.fromMap(it) } ?: emptyList(),
     )
 }
 
@@ -1398,6 +1400,34 @@ class CloudFunctionsDataSource @Inject constructor(
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val rows = data["users"] as? List<Map<String, Any?>> ?: return emptyList()
         return parseUserRows(rows)
+    }
+
+    /**
+     * Server-authoritative "NEW ON CORUS" rail. Filters shadow + hard banned
+     * users server-side (getBannedUserIds) — which the old client-side
+     * cachedBannedSet filter couldn't do reliably (it races the ban-list sync
+     * and leaks the shadow list to clients). Returns (users, nextCursor).
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun getNewUsers(
+        limit: Int = 10,
+        excludeIds: Set<String> = emptySet(),
+        afterUserId: String? = null,
+    ): Pair<List<CymbalUser>, String?> {
+        val params = mutableMapOf<String, Any>(
+            "limit" to limit,
+            "excludeIds" to excludeIds.toList(),
+        )
+        afterUserId?.let { params["afterUserId"] = it }
+        val result = functions.getHttpsCallable("getNewUsers").call(params).await()
+        val data = result.getData() as? Map<String, Any?> ?: return Pair(emptyList(), null)
+        val rows = data["users"] as? List<Map<String, Any?>> ?: emptyList()
+        val users = rows.mapNotNull { row ->
+            val uid = row["id"] as? String ?: return@mapNotNull null
+            CymbalUser.fromMap(uid, row)
+        }
+        val next = data["nextCursor"] as? String
+        return Pair(users, next)
     }
 
     @Suppress("UNCHECKED_CAST")

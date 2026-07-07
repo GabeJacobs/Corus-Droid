@@ -138,6 +138,11 @@ import kotlinx.serialization.Serializable
     val artistId: String,
     val name: String? = null,
 )
+/** "Music videos" see-all — the artist page's full newest-first video grid. */
+@Serializable data class ArtistMusicVideosRoute(
+    val artistId: String,
+    val name: String? = null,
+)
 /** "Who shared {name}" — the artist page's paginated posts see-all. */
 @Serializable data class ArtistPostsRoute(
     val artistId: String,

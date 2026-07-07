@@ -76,7 +76,8 @@ data class AlbumSummary(
     }
 }
 
-/** getArtistDetail response: artist object + top tracks + discography. */
+/** getArtistDetail response: artist object + top tracks + discography +
+ *  music videos. */
 data class ArtistDetail(
     val id: String,
     val name: String,
@@ -84,7 +85,47 @@ data class ArtistDetail(
     val genres: List<String> = emptyList(),
     val topTracks: List<CymbalTrack> = emptyList(),
     val albums: List<AlbumSummary> = emptyList(),
+    /** Empty on payloads written before the music-videos backend deploy. */
+    val musicVideos: List<MusicVideo> = emptyList(),
 )
+
+/** One music video (getArtistDetail `musicVideos`). Apple supplies metadata
+ *  (video-frame thumbnail, title, year, duration); [youtubeId] — when the
+ *  backend matched the official upload — drives full inline playback. The rail
+ *  shows ONLY matched videos, so a null [youtubeId] entry is filtered out. */
+data class MusicVideo(
+    val id: String,
+    val title: String,
+    val year: Int? = null,
+    val durationMs: Long = 0,
+    val thumbnailUrl: String? = null,
+    val youtubeId: String? = null,
+) {
+    /** "2023 · 4:38" — parts drop out when unknown. */
+    val yearAndDurationLabel: String
+        get() = buildList {
+            year?.let { add(it.toString()) }
+            if (durationMs > 0) {
+                val total = durationMs / 1000
+                add("%d:%02d".format(total / 60, total % 60))
+            }
+        }.joinToString(" · ")
+
+    companion object {
+        fun fromMap(data: Map<String, Any?>): MusicVideo? {
+            val id = (data["id"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            val title = (data["title"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            return MusicVideo(
+                id = id,
+                title = title,
+                year = (data["year"] as? Number)?.toInt(),
+                durationMs = (data["durationMs"] as? Number)?.toLong() ?: 0L,
+                thumbnailUrl = (data["thumbnailUrl"] as? String)?.ifEmpty { null },
+                youtubeId = (data["youtubeId"] as? String)?.ifEmpty { null },
+            )
+        }
+    }
+}
 
 /** getAlbumCatalog response: album header + full tracklist. `artistIds` is
  *  empty for `am:` (Apple-resolved) albums — artist renders as plain text. */

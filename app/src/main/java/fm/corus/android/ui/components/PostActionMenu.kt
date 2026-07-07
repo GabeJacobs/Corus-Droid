@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -56,6 +57,7 @@ fun PostActionMenu(
     artistPagesEnabled: Boolean = false,
     onGoToArtist: () -> Unit = {},
     onGoToAlbum: () -> Unit = {},
+    onGoToDirector: () -> Unit = {},
     onRepost: () -> Unit = {},
     onSharePost: () -> Unit = {},
     onCopyLink: () -> Unit = {},
@@ -99,13 +101,20 @@ fun PostActionMenu(
             )
         }
 
-        // View Song/Film Page
+        // Go to Song / Go to Film (+ Go to Director for movies, behind the flag)
         if (isMovie) {
             MenuRow(
                 icon = Icons.Filled.Movie,
                 label = stringResource(R.string.post_menu_view_film_page),
                 onClick = { onViewFilmPage(); onDismiss() },
             )
+            if (showGoToDirectorRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
+                MenuRow(
+                    icon = Icons.Filled.MovieCreation,
+                    label = stringResource(R.string.post_menu_go_to_director),
+                    onClick = { onGoToDirector(); onDismiss() },
+                )
+            }
         } else {
             MenuRow(
                 icon = Icons.Filled.MusicNote,
@@ -228,6 +237,14 @@ internal fun showGoToArtistRow(post: CymbalPost, artistPagesEnabled: Boolean): B
  */
 internal fun showGoToAlbumRow(post: CymbalPost, artistPagesEnabled: Boolean): Boolean =
     artistPagesEnabled && !post.isMovie && !post.track.albumId.isNullOrBlank()
+
+/**
+ * Whether the "Go to Director" row shows: movie posts only, `artist_pages_enabled`
+ * on, and the post carries a non-blank director id (absent on pre-backfill posts
+ * -> hidden). Mirrors [showGoToArtistRow] for films.
+ */
+internal fun showGoToDirectorRow(post: CymbalPost, artistPagesEnabled: Boolean): Boolean =
+    artistPagesEnabled && post.isMovie && post.directorIds.any { it.isNotBlank() }
 
 @Composable
 private fun MenuRow(

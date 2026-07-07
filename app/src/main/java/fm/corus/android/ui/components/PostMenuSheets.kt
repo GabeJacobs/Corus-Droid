@@ -77,6 +77,8 @@ fun PostMenuSheets(
     onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)? = null,
     /** Route to the album page. Null while `artist_pages_enabled` is off. */
     onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
+    /** Route to the director page (movies). Null while `artist_pages_enabled` is off. */
+    onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -189,6 +191,7 @@ fun PostMenuSheets(
                 artistPagesEnabled = artistPagesEnabled,
                 onGoToArtist = onGoToArtistTap(post, onNavigateToArtist) ?: {},
                 onGoToAlbum = onGoToAlbumTap(post, onNavigateToAlbum) ?: {},
+                onGoToDirector = onGoToDirectorTap(post, onNavigateToDirector) ?: {},
                 onViewBackCover = {
                     val state = backCoverStateFor(post.id)
                     if (state.isFlipped) {
@@ -372,6 +375,28 @@ internal fun onGoToAlbumTap(
                 artist = post.track.artistName.ifBlank { null },
                 coverUrl = post.track.albumArtURL,
                 year = post.track.releaseDate?.take(4)?.toIntOrNull(),
+            )
+        )
+    }
+}
+
+/**
+ * Builds the "Go to Director" tap for a movie post, mirroring the tappable
+ * director subtitle. Null when [onNavigateToDirector] is null (flag off), the
+ * post isn't a movie, or it carries no director id.
+ */
+internal fun onGoToDirectorTap(
+    post: CymbalPost,
+    onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)?,
+): (() -> Unit)? {
+    val navigate = onNavigateToDirector ?: return null
+    if (!post.isMovie) return null
+    val directorId = post.directorIds.firstOrNull { it.isNotBlank() } ?: return null
+    return {
+        navigate(
+            fm.corus.android.ui.navigation.DirectorPageRoute(
+                directorId = directorId,
+                name = post.directorName?.ifBlank { null },
             )
         )
     }

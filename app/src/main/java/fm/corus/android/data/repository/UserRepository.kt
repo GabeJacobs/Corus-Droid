@@ -476,7 +476,14 @@ class UserRepository @Inject constructor(
     }
 
     suspend fun fetchNewUsers(limit: Int = 10, excludeIds: Set<String> = emptySet()): List<CymbalUser> {
-        return firestoreDataSource.fetchNewUsers(limit, excludeIds)
+        // Prefer the server-filtered getNewUsers callable (reliably hides shadow +
+        // hard banned users). Fall back to the legacy direct read only if the
+        // callable fails, so the rail still renders on a network hiccup.
+        return try {
+            cloudFunctions.getNewUsers(limit, excludeIds).first
+        } catch (e: Exception) {
+            firestoreDataSource.fetchNewUsers(limit, excludeIds)
+        }
     }
 
     suspend fun fetchPopularUsersPaginated(
@@ -489,7 +496,11 @@ class UserRepository @Inject constructor(
         limit: Int = 20,
         excludeIds: Set<String> = emptySet(),
         afterDocId: String? = null,
-    ): List<CymbalUser> = firestoreDataSource.fetchNewUsersPaginated(limit, excludeIds, afterDocId)
+    ): List<CymbalUser> = try {
+        cloudFunctions.getNewUsers(limit, excludeIds, afterDocId).first
+    } catch (e: Exception) {
+        firestoreDataSource.fetchNewUsersPaginated(limit, excludeIds, afterDocId)
+    }
 
     // ── Corus Club Members ──
 

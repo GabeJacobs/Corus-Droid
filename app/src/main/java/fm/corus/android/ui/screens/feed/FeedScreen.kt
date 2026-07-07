@@ -978,6 +978,7 @@ fun FeedScreen(
         artistPagesEnabled = onNavigateToArtist != null,
         onNavigateToArtist = onNavigateToArtist,
         onNavigateToAlbum = onNavigateToAlbum,
+        onNavigateToDirector = onNavigateToDirector,
     )
 
     // ── Film Info Sheet ──

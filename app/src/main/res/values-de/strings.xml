@@ -721,7 +721,7 @@
     <string name="post_card_finding_back_cover">Rückseite wird gesucht…</string>
     <string name="post_card_no_back_cover">Keine Rückseite verfügbar</string>
     <string name="post_card_cd_pause">Pausieren</string>
-    <string name="post_card_view_film_page">Filmseite ansehen</string>
+    <string name="post_card_view_film_page">Zum Film</string>
     <string name="post_card_watch_trailer">Trailer ansehen</string>
     <string name="post_card_cd_album_back_cover">Album-Rückseite</string>
     <string name="post_card_cd_play_spotify">In Spotify abspielen</string>
@@ -774,8 +774,8 @@
     <!-- Post action menu -->
     <string name="post_menu_play_in_service">In %1$s abspielen</string>
     <string name="post_menu_open_soundcloud">In SoundCloud öffnen</string>
-    <string name="post_menu_view_film_page">Filmseite ansehen</string>
-    <string name="post_menu_view_song_page">Songseite ansehen</string>
+    <string name="post_menu_view_film_page">Zum Film</string>
+    <string name="post_menu_view_song_page">Zum Song</string>
     <string name="post_menu_view_front_cover">Vorderseite ansehen</string>
     <string name="post_menu_view_back_cover">Rückseite ansehen</string>
     <string name="post_menu_repost">Reposten</string>
@@ -1046,6 +1046,9 @@
     <string name="destination_who_shared_artist">Wer diesen Künstler geteilt hat</string>
     <string name="destination_who_shared_director">Wer diesen Regisseur geteilt hat</string>
     <string name="destination_popular">Beliebt</string>
+    <string name="destination_music_videos">Musikvideos</string>
+    <string name="destination_show_more">Mehr anzeigen</string>
+    <string name="destination_show_less">Weniger anzeigen</string>
     <string name="destination_discography">Diskografie</string>
     <string name="destination_filmography">Filmografie</string>
     <string name="destination_recent_posts">Neueste Beiträge</string>
@@ -1067,4 +1070,5 @@
     <string name="destination_album_load_error">Dieses Album konnte nicht geladen werden.</string>
     <string name="destination_catalog_load_error">Konnte gerade nicht geladen werden.</string>
     <string name="destination_no_tracks">Keine Titel für dieses Album gefunden.</string>
+    <string name="post_menu_go_to_director">Zum Regisseur</string>
 </resources>

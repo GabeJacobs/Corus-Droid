@@ -721,7 +721,7 @@
     <string name="post_card_finding_back_cover">뒷면 커버를 찾는 중…</string>
     <string name="post_card_no_back_cover">뒷면 커버가 없어요</string>
     <string name="post_card_cd_pause">일시정지</string>
-    <string name="post_card_view_film_page">영화 페이지 보기</string>
+    <string name="post_card_view_film_page">영화로 이동</string>
     <string name="post_card_watch_trailer">예고편 보기</string>
     <string name="post_card_cd_album_back_cover">앨범 뒷면 커버</string>
     <string name="post_card_cd_play_spotify">Spotify에서 재생</string>
@@ -774,8 +774,8 @@
     <!-- Post action menu -->
     <string name="post_menu_play_in_service">%1$s에서 재생</string>
     <string name="post_menu_open_soundcloud">SoundCloud에서 열기</string>
-    <string name="post_menu_view_film_page">영화 페이지 보기</string>
-    <string name="post_menu_view_song_page">곡 페이지 보기</string>
+    <string name="post_menu_view_film_page">영화로 이동</string>
+    <string name="post_menu_view_song_page">노래로 이동</string>
     <string name="post_menu_view_front_cover">앞면 커버 보기</string>
     <string name="post_menu_view_back_cover">뒷면 커버 보기</string>
     <string name="post_menu_repost">리포스트</string>
@@ -1044,6 +1044,9 @@
     <string name="destination_who_shared_artist">이 아티스트를 공유한 사람</string>
     <string name="destination_who_shared_director">이 감독을 공유한 사람</string>
     <string name="destination_popular">인기</string>
+    <string name="destination_music_videos">뮤직비디오</string>
+    <string name="destination_show_more">더 보기</string>
+    <string name="destination_show_less">접기</string>
     <string name="destination_discography">디스코그래피</string>
     <string name="destination_filmography">필모그래피</string>
     <string name="destination_recent_posts">최근 게시물</string>
@@ -1065,4 +1068,5 @@
     <string name="destination_album_load_error">이 앨범을 불러오지 못했습니다.</string>
     <string name="destination_catalog_load_error">지금은 불러올 수 없습니다.</string>
     <string name="destination_no_tracks">이 앨범의 곡을 찾을 수 없습니다.</string>
+    <string name="post_menu_go_to_director">감독으로 이동</string>
 </resources>

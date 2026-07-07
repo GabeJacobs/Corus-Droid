@@ -254,6 +254,8 @@ class AnalyticsService @Inject constructor(
         logEvent("post_from_artist_page", mapOf("artist_id" to artistId, "track_id" to trackId))
     fun logPostFromAlbum(albumId: String, trackId: String) =
         logEvent("post_from_album", mapOf("album_id" to albumId, "track_id" to trackId))
+    fun logMusicVideoPlayed(artistId: String, videoId: String) =
+        logEvent("music_video_played", mapOf("artist_id" to artistId, "video_id" to videoId))
 
     // MARK: - Notification / Message Events
 

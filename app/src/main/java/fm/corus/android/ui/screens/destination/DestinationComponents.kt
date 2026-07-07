@@ -425,10 +425,14 @@ internal fun CatalogTrackRow(
         }
     }
 
+    // Numbered rows (album tracklist) follow the music-app convention: the ROW
+    // plays and the trailing duration+chevron navigates. Art rows (artist
+    // Popular) keep row-tap → song page, art → play. Mirrors iOS + web.
+    val rowTapPlays = number != null
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onRowTap)
+            .clickable(onClick = if (rowTapPlays) togglePlay else onRowTap)
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs + 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
@@ -545,7 +549,32 @@ internal fun CatalogTrackRow(
             }
         }
 
-        if (track.durationMs > 0) {
+        if (rowTapPlays) {
+            // Navigation lives here on numbered rows: duration + chevron cluster,
+            // mirroring the posted-by rows' timestamp + chevron. Padding widens
+            // the target so navigating doesn't require pixel-perfect aim.
+            Row(
+                modifier = Modifier
+                    .clickable(onClick = onRowTap)
+                    .padding(start = CorusSpacing.md, top = CorusSpacing.xs, bottom = CorusSpacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+            ) {
+                if (track.durationMs > 0) {
+                    Text(
+                        text = track.formattedDuration,
+                        style = CorusFont.caption.copy(fontFeatureSettings = "tnum"),
+                        color = CorusColors.Tertiary,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.destination_see_all),
+                    tint = CorusColors.Tertiary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        } else if (track.durationMs > 0) {
             Text(
                 text = track.formattedDuration,
                 style = CorusFont.caption.copy(fontFeatureSettings = "tnum"),

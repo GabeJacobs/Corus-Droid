@@ -31,6 +31,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +49,7 @@ import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.AlbumSummary
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.MusicVideo
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.SkeletonAlbumGridCell
 import fm.corus.android.ui.components.SkeletonSongRow
@@ -83,6 +87,7 @@ fun ArtistPageScreen(
     onNavigateToAlbum: (AlbumPageRoute) -> Unit = {},
     onSeeAllPosts: () -> Unit = {},
     onSeeAllDiscography: () -> Unit = {},
+    onSeeAllVideos: () -> Unit = {},
 ) {
     val detail by viewModel.detail.collectAsState()
     val isCatalogLoading by viewModel.isCatalogLoading.collectAsState()
@@ -95,8 +100,15 @@ fun ArtistPageScreen(
     val postsError by viewModel.postsError.collectAsState()
     val context = LocalContext.current
 
+    // Popular shows 6 by default (keeps the social sections high); Show more
+    // reveals the full top-10 the payload already carries.
+    var showAllPopular by remember { mutableStateOf(false) }
+    // The music-video card the user tapped — its full video plays inline.
+    var activeVideo by remember { mutableStateOf<MusicVideo?>(null) }
+
     val artistName = detail?.name?.takeIf { it.isNotBlank() } ?: nameHint
     val heroImage = detail?.imageUrl ?: imageUrlHint
+    val matchedVideos = detail?.musicVideos?.filter { it.youtubeId != null } ?: emptyList()
 
     LaunchedEffect(artistId) {
         viewModel.analyticsService.logArtistPageViewed(artistId)
@@ -247,7 +259,8 @@ fun ArtistPageScreen(
                     )
                 }
             } else {
-                val topTracks = detail?.topTracks?.take(6) ?: emptyList()
+                val allTopTracks = detail?.topTracks ?: emptyList()
+                val topTracks = allTopTracks.take(if (showAllPopular) 10 else 6)
                 if (topTracks.isNotEmpty()) {
                     item {
                         DestinationSectionHeader(stringResource(R.string.destination_popular))
@@ -265,6 +278,21 @@ fun ArtistPageScreen(
                                 viewModel.analyticsService.logArtistSongPreviewed(artistId, track.id)
                             },
                         )
+                    }
+                    if (allTopTracks.size > 6) {
+                        item {
+                            Text(
+                                text = stringResource(
+                                    if (showAllPopular) R.string.destination_show_less
+                                    else R.string.destination_show_more
+                                ),
+                                style = CorusFont.captionMedium,
+                                color = CorusColors.Secondary,
+                                modifier = Modifier
+                                    .clickable { showAllPopular = !showAllPopular }
+                                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+                            )
+                        }
                     }
                 }
 
@@ -344,6 +372,23 @@ fun ArtistPageScreen(
                         post = post,
                         onUserTap = { onNavigateToUser(post.user.id) },
                         onPostTap = { onNavigateToPost(post.id) },
+                    )
+                }
+            }
+
+            // ── Music videos rail — below the social content by design (posts
+            //    are the differentiator; videos are the end-of-page delighter). ──
+            if (matchedVideos.isNotEmpty()) {
+                item {
+                    MusicVideoRail(
+                        videos = matchedVideos,
+                        activeVideo = activeVideo,
+                        onPlay = { video ->
+                            viewModel.analyticsService.logMusicVideoPlayed(artistId, video.id)
+                            activeVideo = video
+                        },
+                        onClosePlayer = { activeVideo = null },
+                        onSeeAll = if (matchedVideos.size > 12) onSeeAllVideos else null,
                     )
                 }
             }

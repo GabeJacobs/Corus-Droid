@@ -562,6 +562,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onSeeAllDiscography = {
                 navController.navigate(ArtistDiscographyRoute(route.artistId, route.name))
             },
+            onSeeAllVideos = {
+                navController.navigate(ArtistMusicVideosRoute(route.artistId, route.name))
+            },
         )
     }
 
@@ -607,6 +610,15 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             nameHint = route.name,
             onBack = { navController.popBackStack() },
             onNavigateToAlbum = { albumRoute -> navController.navigate(albumRoute) },
+        )
+    }
+
+    composable<ArtistMusicVideosRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<ArtistMusicVideosRoute>()
+        fm.corus.android.ui.screens.destination.ArtistMusicVideosScreen(
+            artistId = route.artistId,
+            nameHint = route.name,
+            onBack = { navController.popBackStack() },
         )
     }
 

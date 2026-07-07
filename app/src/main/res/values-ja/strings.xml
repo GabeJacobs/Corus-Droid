@@ -642,7 +642,7 @@
     <string name="post_card_finding_back_cover">裏ジャケットを探しています…</string>
     <string name="post_card_no_back_cover">裏ジャケットはありません</string>
     <string name="post_card_cd_pause">一時停止</string>
-    <string name="post_card_view_film_page">映画のページを見る</string>
+    <string name="post_card_view_film_page">映画ページへ</string>
     <string name="post_card_watch_trailer">予告編を見る</string>
     <string name="post_card_cd_album_back_cover">アルバムの裏ジャケット</string>
     <string name="post_card_cd_play_spotify">Spotify で再生</string>
@@ -683,8 +683,8 @@
     <string name="mini_player_cd_open_spotify">Spotify で開く</string>
     <string name="post_menu_play_in_service">%1$s で再生</string>
     <string name="post_menu_open_soundcloud">SoundCloud で開く</string>
-    <string name="post_menu_view_film_page">映画のページを見る</string>
-    <string name="post_menu_view_song_page">曲のページを見る</string>
+    <string name="post_menu_view_film_page">映画ページへ</string>
+    <string name="post_menu_view_song_page">曲ページへ</string>
     <string name="post_menu_view_front_cover">表ジャケットを見る</string>
     <string name="post_menu_view_back_cover">裏ジャケットを見る</string>
     <string name="post_menu_repost">リポスト</string>
@@ -919,6 +919,9 @@
     <string name="destination_who_shared_artist">このアーティストをシェアした人</string>
     <string name="destination_who_shared_director">この監督をシェアした人</string>
     <string name="destination_popular">人気</string>
+    <string name="destination_music_videos">ミュージックビデオ</string>
+    <string name="destination_show_more">もっと見る</string>
+    <string name="destination_show_less">表示を減らす</string>
     <string name="destination_discography">ディスコグラフィー</string>
     <string name="destination_filmography">フィルモグラフィー</string>
     <string name="destination_recent_posts">最近の投稿</string>
@@ -940,4 +943,5 @@
     <string name="destination_album_load_error">アルバムを読み込めませんでした。</string>
     <string name="destination_catalog_load_error">読み込めませんでした。</string>
     <string name="destination_no_tracks">このアルバムの曲が見つかりませんでした。</string>
+    <string name="post_menu_go_to_director">監督ページへ</string>
 </resources>
