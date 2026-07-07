@@ -107,6 +107,7 @@
     <string name="notifications_row_contact_joined">Contact Joined</string>
     <string name="notifications_row_plays">Plays</string>
     <string name="notifications_row_messages">Messages</string>
+    <string name="notifications_row_reactions">Reactions</string>
     <string name="notifications_row_read_receipts">Read receipts</string>
 
     <!-- Settings: Appearance -->
@@ -316,6 +317,8 @@
 
     <!-- Feed: song detail -->
     <string name="song_detail_post_song">+ Post Song</string>
+    <string name="song_detail_cd_share">Share song</string>
+    <string name="song_detail_toast_song_sent">Song sent!</string>
     <string name="song_detail_play_spotify">Play in Spotify</string>
     <!-- Preference-aware playback CTA: %1$s is the music-service name (e.g. Spotify, Deezer) -->
     <string name="song_detail_play_in_service">Play in %1$s</string>
@@ -353,6 +356,7 @@
     <string name="profile_toast_no_songs_for_playlist">No songs to make a playlist</string>
     <string name="profile_button_edit">EDIT PROFILE</string>
     <string name="profile_button_playlist">PLAYLIST</string>
+    <string name="hashtag_button_playlist">Playlist</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">followers</string>
     <string name="profile_stat_following">following</string>
@@ -821,6 +825,8 @@
     <string name="post_menu_view_song_page">View Song Page</string>
     <string name="post_menu_view_front_cover">View Front Cover</string>
     <string name="post_menu_view_back_cover">View Back Cover</string>
+    <string name="post_menu_go_to_artist">Go to Artist</string>
+    <string name="post_menu_go_to_album">Go to Album</string>
     <string name="post_menu_repost">Repost</string>
     <string name="post_menu_share">Share</string>
     <string name="post_menu_copy_link">Copy Link</string>
@@ -1015,6 +1021,7 @@
     <string name="hashtag_feed_empty">No posts for this hashtag yet</string>
     <string name="hashtag_feed_follow">Follow</string>
     <string name="hashtag_feed_following">Following</string>
+    <string name="hashtag_playlist_only_soundcloud">This hashtag only has SoundCloud tracks, so a Spotify playlist isn\'t available.</string>
 
     <!-- Navigation / tabs -->
     <string name="nav_toast_caption_updated">Caption updated</string>
@@ -1043,4 +1050,49 @@
     <string name="comments_locked_authorfollow_unknown">Only people the author follows can comment.</string>
     <string name="comments_locked_follow_cta">Follow</string>
     <string name="comments_locked_following_cta">Following…</string>
+
+    <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
+    <string name="search_tab_music">Music</string>
+    <string name="search_tab_film">Film</string>
+    <string name="search_placeholder_music">Search for songs, artists, or albums...</string>
+    <string name="search_placeholder_film">Search for films or directors...</string>
+    <string name="destination_artist_label">Artist</string>
+    <string name="destination_director_label">Director</string>
+    <string name="destination_album_label">Album</string>
+    <string name="destination_single_label">Single</string>
+    <string name="destination_compilation_label">Compilation</string>
+    <string name="destination_album_artist_format">Album · %1$s</string>
+    <plurals name="destination_shared_by_people">
+        <item quantity="one">Shared by %1$s person</item>
+        <item quantity="other">Shared by %1$s people</item>
+    </plurals>
+    <plurals name="destination_song_count">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
+    <string name="destination_who_shared_format">Who shared %1$s</string>
+    <string name="destination_who_shared_artist">Who shared this artist</string>
+    <string name="destination_who_shared_director">Who shared this director</string>
+    <string name="destination_popular">Popular</string>
+    <string name="destination_discography">Discography</string>
+    <string name="destination_filmography">Filmography</string>
+    <string name="destination_recent_posts">Recent posts</string>
+    <string name="destination_your_posts">Your posts</string>
+    <string name="destination_see_all">See all</string>
+    <string name="destination_shared_from_album">Shared from this album</string>
+    <string name="destination_filter_albums">Albums</string>
+    <string name="destination_filter_singles_eps">Singles and EPs</string>
+    <string name="destination_filter_compilations">Compilations</string>
+    <string name="destination_music_attribution">Artwork, metadata and previews from Apple Music and Spotify.</string>
+    <string name="destination_film_attribution">Film data from The Movie Database (TMDB).</string>
+    <string name="destination_open_in_spotify">Open in Spotify</string>
+    <string name="destination_posts_load_error">Couldn\'t load posts right now.</string>
+    <string name="destination_album_posts_load_error">Couldn\'t load posts for this album.</string>
+    <string name="destination_no_posts_artist">No posts from this artist yet.</string>
+    <string name="destination_no_posts_director">No posts from this director yet.</string>
+    <string name="destination_no_posts_album">No one has posted from this album yet.</string>
+    <string name="destination_no_posts_yet">No posts yet.</string>
+    <string name="destination_album_load_error">We couldn\'t load this album.</string>
+    <string name="destination_catalog_load_error">Couldn\'t load right now.</string>
+    <string name="destination_no_tracks">No tracks found for this album.</string>
 </resources>

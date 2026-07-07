@@ -210,6 +210,15 @@ class RemoteConfigService @Inject constructor(
     val tasteMatchesTester: Boolean
         get() = feedFlag("taste_matches_tester")
 
+    /// Gate for the artist / album / director destination pages: search rows,
+    /// tappable artist+director names, and the pages themselves. Shares the
+    /// `artist_pages_enabled` RC key with iOS/web so one console flip reverts
+    /// every client. Flag off = the app behaves byte-identically to today.
+    /// Uses the init-race-safe feedFlag path (cached across launches) so the
+    /// gated search tabs/rows render correctly from the first frame.
+    val artistPagesEnabled: Boolean
+        get() = feedFlag("artist_pages_enabled")
+
     /// Order of the feed switcher menu, driven by the `feed_mode_order` Remote
     /// Config string (comma-separated camelCase tokens, e.g.
     /// "following,trending,tasteMatches,favorites"). Parsed leniently — see
@@ -321,6 +330,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("trending_feed_enabled", remoteConfig.getBoolean("trending_feed_enabled"))
             .putBoolean("favorites_enabled", remoteConfig.getBoolean("favorites_enabled"))
             .putBoolean("play_milestone_enabled", remoteConfig.getBoolean("play_milestone_enabled"))
+            .putBoolean("artist_pages_enabled", remoteConfig.getBoolean("artist_pages_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
             .apply()
     }
@@ -387,6 +397,9 @@ class RemoteConfigService @Inject constructor(
             "favorites_enabled" to true,
             "favorites_push_enabled" to true,
             "play_milestone_enabled" to false,
+            // Default FALSE in code — the server template currently sends true;
+            // flipping the console key off must revert every client.
+            "artist_pages_enabled" to false,
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
         )
     }

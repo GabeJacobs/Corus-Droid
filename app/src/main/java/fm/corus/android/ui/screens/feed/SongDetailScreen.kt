@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.feed
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,13 +44,16 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ShareTrackSheet
 import fm.corus.android.ui.components.SkeletonUserRow
+import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.FirstPosterBadge
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.DateUtils
 import kotlinx.coroutines.launch
 
@@ -66,11 +71,20 @@ fun SongDetailScreen(
     source: String? = null,
     soundcloudId: String? = null,
     soundcloudPermalinkUrl: String? = null,
+    artistId: String? = null,
+    artistIdCount: Int = 0,
+    albumId: String? = null,
     viewModel: SongDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToCompose: (CymbalTrack) -> Unit = {},
+    /** Artist page (artist_pages_enabled) — null while the flag is off, which
+     *  keeps the artist line as plain text. */
+    onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)? = null,
+    /** Album page (artist_pages_enabled) — null while the flag is off, which
+     *  keeps the album line as plain text. */
+    onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
 ) {
     val posts by viewModel.posts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -78,11 +92,18 @@ fun SongDetailScreen(
     val hasMore by viewModel.hasMore.collectAsState()
     val loadError by viewModel.loadError.collectAsState()
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
+    val resolvedArtistId by viewModel.resolvedArtistId.collectAsState()
     val nowPlayingState by viewModel.nowPlayingState.collectAsState()
     val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    var showShareSheet by remember { mutableStateOf(false) }
+    val shareSearchResults by viewModel.shareSearchResults.collectAsState()
+    val recentShareContacts by viewModel.recentShareContacts.collectAsState()
+    val isShareSearching by viewModel.isShareSearching.collectAsState()
+    val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
 
     // Use route metadata immediately, upgrade to post data when available
     val songInfo = posts.firstOrNull()
@@ -182,6 +203,7 @@ fun SongDetailScreen(
             spotifyURI = spotifyURI,
             trackName = songName,
             artistName = artistName,
+            routeArtistId = artistId,
         )
     }
 
@@ -194,6 +216,13 @@ fun SongDetailScreen(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(R.string.feed_cd_back),
+                    )
+                },
+                actions = {
+                    CorusHeaderIconButton(
+                        onClick = { showShareSheet = true },
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = stringResource(R.string.song_detail_cd_share),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -293,10 +322,69 @@ fun SongDetailScreen(
                 }
                 if (displayArtist != null) {
                     Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                    // Artist page (artist_pages_enabled): the artist line is
+                    // tappable when the flag is on AND an artist id is known —
+                    // from the loaded post's track (preferred), the route
+                    // hint carried from search/catalog rows, or the exact-name
+                    // resolution fallback (Apple-sourced tracks, legacy posts;
+                    // see SongDetailViewModel.resolveArtistIdIfNeeded). Style
+                    // identical either way (no accent, no underline). Name hint
+                    // follows the primaryNameHint rule for joined credit strings.
+                    val loadedArtistIds = songInfo?.track?.artistIds ?: emptyList()
+                    val effectiveArtistId = loadedArtistIds.firstOrNull() ?: artistId ?: resolvedArtistId
+                    val effectiveIdCount = maxOf(loadedArtistIds.size, artistIdCount)
+                    val artistTapModifier = if (onNavigateToArtist != null && effectiveArtistId != null) {
+                        Modifier.clickable {
+                            onNavigateToArtist(
+                                fm.corus.android.ui.navigation.ArtistPageRoute(
+                                    artistId = effectiveArtistId,
+                                    name = fm.corus.android.data.model.primaryNameHint(
+                                        displayArtist, effectiveIdCount,
+                                    ).ifEmpty { null },
+                                )
+                            )
+                        }
+                    } else Modifier
                     Text(
                         text = displayArtist,
                         style = CorusFont.artistNameLarge,
                         color = CorusColors.Secondary,
+                        modifier = artistTapModifier,
+                    )
+                }
+
+                // Album line (web/iOS parity): "{album} · {year}", muted, from
+                // the first loaded post (posts carry albumName + releaseDate).
+                // Links to the album page when the flag is on AND the caller
+                // carried a Spotify album id (search/catalog rows). Same plain
+                // style either way — no accent, no underline.
+                val albumTrack = songInfo?.track
+                if (albumTrack != null && albumTrack.albumName.isNotBlank()) {
+                    val year = (albumTrack.releaseDate ?: "").take(4)
+                    val albumLine = if (year.isEmpty()) albumTrack.albumName else "${albumTrack.albumName} · $year"
+                    val effectiveAlbumId = albumTrack.albumId ?: albumId
+                    val albumTapModifier = if (onNavigateToAlbum != null && effectiveAlbumId != null) {
+                        Modifier.clickable {
+                            onNavigateToAlbum(
+                                fm.corus.android.ui.navigation.AlbumPageRoute(
+                                    albumId = effectiveAlbumId,
+                                    title = albumTrack.albumName,
+                                    artist = displayArtist,
+                                    coverUrl = artUrl,
+                                    year = year.toIntOrNull(),
+                                )
+                            )
+                        }
+                    } else Modifier
+                    Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                    Text(
+                        text = albumLine,
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .padding(horizontal = CorusSpacing.lg)
+                            .then(albumTapModifier),
                     )
                 }
 
@@ -548,6 +636,43 @@ fun SongDetailScreen(
                     }
                 }
             }
+        }
+    }
+
+    // ── Share Song bottom sheet ──
+    if (showShareSheet) {
+        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val songSharedMsg = stringResource(R.string.song_detail_toast_song_sent)
+
+        LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
+
+        ModalBottomSheet(
+            onDismissRequest = { showShareSheet = false },
+            sheetState = shareSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = null,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
+        ) {
+            CorusSystemBars()
+            BackHandler { showShareSheet = false }
+            ShareTrackSheet(
+                track = resolvedTrack,
+                recentContacts = recentShareContacts,
+                searchResults = shareSearchResults,
+                isSearching = isShareSearching,
+                isLoadingContacts = isLoadingShareContacts,
+                onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
+                onSendToUser = { userId, message ->
+                    viewModel.sendTrackToUser(userId, resolvedTrack, message)
+                    ToastManager.show(songSharedMsg)
+                    showShareSheet = false
+                },
+                onDismiss = { showShareSheet = false },
+                onAnalyticsLog = { method ->
+                    viewModel.analyticsService.logSongShared(trackId = resolvedTrack.id, method = method)
+                },
+            )
         }
     }
 }

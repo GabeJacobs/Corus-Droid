@@ -58,6 +58,9 @@ fun FilmDetailScreen(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToCompose: (String) -> Unit = {},
+    /** Director page (artist_pages_enabled) — null while the flag is off,
+     *  which keeps the director line as plain text. */
+    onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)? = null,
 ) {
     val posts by viewModel.posts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -153,13 +156,30 @@ fun FilmDetailScreen(
                         }
                     }
 
-                    // Director
+                    // Director — tappable when the artist-pages flag is on AND
+                    // the loaded posts carry directorIds (legacy posts don't).
+                    // Style identical either way (no accent, no underline).
                     if (!header.directorName.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                        val directorIds = posts.firstOrNull()?.directorIds ?: emptyList()
+                        val directorId = directorIds.firstOrNull()
+                        val directorTapModifier = if (onNavigateToDirector != null && directorId != null) {
+                            Modifier.clickable {
+                                onNavigateToDirector(
+                                    fm.corus.android.ui.navigation.DirectorPageRoute(
+                                        directorId = directorId,
+                                        name = fm.corus.android.data.model.primaryNameHint(
+                                            header.directorName, directorIds.size,
+                                        ).ifEmpty { null },
+                                    )
+                                )
+                            }
+                        } else Modifier
                         Text(
                             text = header.directorName,
                             style = CorusFont.artistName,
                             color = CorusColors.Secondary,
+                            modifier = directorTapModifier,
                         )
                     }
 

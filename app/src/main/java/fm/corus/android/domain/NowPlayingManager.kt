@@ -357,6 +357,51 @@ class NowPlayingManager @Inject constructor(
         _isGeneratingPlaylist.value = false
     }
 
+    suspend fun generateHashtagPlaylist(
+        hashtag: String,
+        // Lifts the backend's 75-track snapshot cap to export the whole tag.
+        fullExport: Boolean = false,
+    ) {
+        if (musicServicePreference.current.value == MusicService.TIDAL) {
+            generateHashtagPlaylistTidal(hashtag, fullExport)
+            return
+        }
+        _isGeneratingPlaylist.value = true
+        ToastManager.show("Generating playlist…")
+
+        if (!isNetworkAvailable()) {
+            _playlistError.value = "Couldn't connect. Check your connection."
+            _isGeneratingPlaylist.value = false
+            return
+        }
+
+        try {
+            val result = cloudFunctions.generateHashtagPlaylist(hashtag, fullExport)
+            if (result.soundcloudSkipped > 0) {
+                android.util.Log.i("NowPlaying", "Hashtag playlist skipped ${result.soundcloudSkipped} SoundCloud track(s)")
+            }
+            if (!result.cached) {
+                delay(2000) // Wait for Spotify to process
+            }
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(result.playlistWebURL)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: CloudFunctionsDataSource.PaywallRequiredException) {
+            _paywallRequested.value = true
+        } catch (e: CloudFunctionsDataSource.OnlySoundCloudException) {
+            _playlistError.value = context.getString(fm.corus.android.R.string.hashtag_playlist_only_soundcloud)
+        } catch (e: UnknownHostException) {
+            _playlistError.value = "Couldn't connect. Check your connection."
+        } catch (e: SocketTimeoutException) {
+            _playlistError.value = "Couldn't connect. Check your connection."
+        } catch (e: Exception) {
+            android.util.Log.e("NowPlaying", "Hashtag playlist failed (hashtag=$hashtag)", e)
+            _playlistError.value = "Something went wrong. Try again later."
+        }
+        _isGeneratingPlaylist.value = false
+    }
+
     // ── TIDAL playlists (client-side, on the user's own account) ─────────────
     // Mirrors iOS: the backend resolves the feed/profile into track descriptors
     // (appleMusicTracks flag), the client resolves each to a TIDAL id and creates
@@ -446,6 +491,45 @@ class NowPlayingManager @Inject constructor(
             _playlistError.value = "Couldn't connect. Check your connection."
         } catch (e: Exception) {
             android.util.Log.e("NowPlaying", "TIDAL profile playlist failed", e)
+            _playlistError.value = "Something went wrong. Try again later."
+        } finally {
+            ToastManager.dismiss(toastId)
+            _isGeneratingPlaylist.value = false
+        }
+    }
+
+    private suspend fun generateHashtagPlaylistTidal(
+        hashtag: String,
+        fullExport: Boolean = false,
+    ) {
+        if (!isNetworkAvailable()) {
+            _playlistError.value = "Couldn't connect. Check your connection."
+            return
+        }
+        if (!ensureTidalLogin()) return
+
+        _isGeneratingPlaylist.value = true
+        val toastId = ToastManager.showLoading("Generating playlist…")
+        try {
+            when (val outcome = cloudFunctions.generateHashtagPlaylistTracks(hashtag, fullExport)) {
+                is CloudFunctionsDataSource.PlaylistTracksOutcome.Paywall ->
+                    _paywallRequested.value = true
+                is CloudFunctionsDataSource.PlaylistTracksOutcome.Failure ->
+                    _playlistError.value = if (outcome.soundcloudSkipped > 0)
+                        "This hashtag only has SoundCloud tracks, so playlists aren't available for those."
+                    else
+                        "No songs to add to a playlist yet."
+                is CloudFunctionsDataSource.PlaylistTracksOutcome.Tracks -> {
+                    val (title, description) = hashtagPlaylistNaming(hashtag)
+                    buildTidalPlaylist(title, description, outcome.descriptors, outcome.soundcloudSkipped)
+                }
+            }
+        } catch (e: UnknownHostException) {
+            _playlistError.value = "Couldn't connect. Check your connection."
+        } catch (e: SocketTimeoutException) {
+            _playlistError.value = "Couldn't connect. Check your connection."
+        } catch (e: Exception) {
+            android.util.Log.e("NowPlaying", "TIDAL hashtag playlist failed", e)
             _playlistError.value = "Something went wrong. Try again later."
         } finally {
             ToastManager.dismiss(toastId)
@@ -588,6 +672,12 @@ class NowPlayingManager @Inject constructor(
             CloudFunctionsDataSource.ProfilePlaylistSource.Posts -> "Corus · $username" to "Songs from $username's Corus profile"
         }
     }
+
+    /** Title + description for a TIDAL hashtag playlist. Matches the backend's
+     *  Spotify title ("Corus · #tag") so the two paths name playlists alike. */
+    @VisibleForTesting
+    internal fun hashtagPlaylistNaming(hashtag: String): Pair<String, String> =
+        "Corus · #$hashtag" to "Songs tagged #$hashtag on Corus"
 
     val isPlaying: Boolean get() = _state.value.isPlaying
     val currentTrackId: String? get() = _state.value.trackId

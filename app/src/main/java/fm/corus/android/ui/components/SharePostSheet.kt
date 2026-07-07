@@ -367,7 +367,7 @@ fun SharePostSheet(
 }
 
 @Composable
-private fun SkeletonShareContactsGrid() {
+internal fun SkeletonShareContactsGrid() {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         modifier = Modifier
@@ -400,7 +400,7 @@ private fun SkeletonShareContactsGrid() {
 }
 
 @Composable
-private fun ShareContactCell(
+internal fun ShareContactCell(
     user: CymbalUser,
     isSelected: Boolean,
     onClick: () -> Unit,
@@ -443,7 +443,7 @@ private fun ShareContactCell(
 }
 
 @Composable
-private fun ShareUserRow(
+internal fun ShareUserRow(
     user: CymbalUser,
     isSelected: Boolean,
     onClick: () -> Unit,
@@ -485,7 +485,7 @@ private fun ShareUserRow(
 }
 
 @Composable
-private fun ShareActionButton(
+internal fun ShareActionButton(
     label: String,
     icon: ImageVector? = null,
     painter: Painter? = null,
@@ -577,7 +577,7 @@ private fun InstagramShareButton(
 }
 
 @Composable
-private fun XShareButton(onClick: () -> Unit) {
+internal fun XShareButton(onClick: () -> Unit) {
     Column(
         modifier = Modifier.clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -620,7 +620,7 @@ private fun shareToX(context: Context, post: CymbalPost) {
     } catch (_: Exception) { }
 }
 
-private fun isWhatsAppAvailable(context: Context): Boolean {
+internal fun isWhatsAppAvailable(context: Context): Boolean {
     return try {
         context.packageManager.getPackageInfo("com.whatsapp", 0)
         true

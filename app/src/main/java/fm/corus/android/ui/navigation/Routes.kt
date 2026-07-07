@@ -39,6 +39,17 @@ import kotlinx.serialization.Serializable
     val source: String? = null,
     val soundcloudId: String? = null,
     val soundcloudPermalinkUrl: String? = null,
+    /** First credited artist's Spotify id, when the caller has it (search
+     *  results / catalog rows). Makes the artist line tappable before the
+     *  first post (which also carries artistIds) loads. */
+    val artistId: String? = null,
+    /** How many artist ids the source track carried — drives the
+     *  primaryNameHint split for joined credit strings. 0 = unknown. */
+    val artistIdCount: Int = 0,
+    /** Spotify album id from search/catalog tracks, when the caller has it.
+     *  Makes the song page's album line tappable (artist_pages_enabled).
+     *  Null (Apple-sourced/older tracks) = plain text. */
+    val albumId: String? = null,
 )
 @Serializable data class FilmDetailRoute(
     val movieId: String,
@@ -97,3 +108,47 @@ import kotlinx.serialization.Serializable
 )
 @Serializable data object ContactFriendsListRoute
 @Serializable data object SyncContactsSettingsRoute
+
+// ── Artist / Album / Director destination pages (artist_pages_enabled) ──
+// name/image/title hints let each page paint its header instantly while the
+// catalog callable resolves — mirrors SongDetailRoute's hint pattern.
+
+@Serializable data class ArtistPageRoute(
+    val artistId: String,
+    val name: String? = null,
+    val imageUrl: String? = null,
+)
+@Serializable data class AlbumPageRoute(
+    /** Spotify album id, or `am:{appleAlbumId}` for Apple-resolved albums —
+     *  passed through to getAlbumCatalog untouched. */
+    val albumId: String,
+    val title: String? = null,
+    val artist: String? = null,
+    val coverUrl: String? = null,
+    /** Release year when the source row already knows it — paints the header
+     *  meta line before the catalog loads. */
+    val year: Int? = null,
+)
+@Serializable data class DirectorPageRoute(
+    val directorId: String,
+    val name: String? = null,
+    val imageUrl: String? = null,
+)
+@Serializable data class ArtistDiscographyRoute(
+    val artistId: String,
+    val name: String? = null,
+)
+/** "Who shared {name}" — the artist page's paginated posts see-all. */
+@Serializable data class ArtistPostsRoute(
+    val artistId: String,
+    val name: String? = null,
+)
+@Serializable data class DirectorFilmographyRoute(
+    val directorId: String,
+    val name: String? = null,
+)
+/** "Who shared {name}" — the director page's paginated posts see-all. */
+@Serializable data class DirectorPostsRoute(
+    val directorId: String,
+    val name: String? = null,
+)

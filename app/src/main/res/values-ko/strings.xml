@@ -107,6 +107,7 @@
     <string name="notifications_row_contact_joined">연락처 가입</string>
     <string name="notifications_row_plays">재생</string>
     <string name="notifications_row_messages">메시지</string>
+    <string name="notifications_row_reactions">반응</string>
     <string name="notifications_row_read_receipts">읽음 확인</string>
 
     <!-- Settings: Appearance -->
@@ -350,6 +351,7 @@
     <string name="profile_toast_no_songs_for_playlist">플레이리스트를 만들 곡이 없어요</string>
     <string name="profile_button_edit">프로필 편집</string>
     <string name="profile_button_playlist">플레이리스트</string>
+    <string name="hashtag_button_playlist">플레이리스트</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">팔로워</string>
     <string name="profile_stat_following">팔로잉</string>
@@ -954,6 +956,7 @@
     <string name="hashtag_feed_empty">아직 이 해시태그의 게시물이 없어요</string>
     <string name="hashtag_feed_follow">팔로우</string>
     <string name="hashtag_feed_following">팔로잉</string>
+    <string name="hashtag_playlist_only_soundcloud">이 해시태그에는 SoundCloud 곡만 있어요. 그 곡들은 Spotify 플레이리스트에 담을 수 없어요.</string>
 
     <!-- Navigation / tabs -->
     <string name="nav_toast_caption_updated">캡션을 변경했어요</string>
@@ -1019,4 +1022,47 @@
     <string name="feed_taste_matches_paywall_title">취향 매치</string>
     <string name="feed_taste_matches_paywall_body">당신과 같은 것을 좋아하는 사람들, 취향 매치에서 추천을 받아보세요.</string>
     <string name="feed_taste_matches_paywall_cta">자세히 보기</string>
+
+    <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
+    <string name="search_tab_music">음악</string>
+    <string name="search_tab_film">영화</string>
+    <string name="search_placeholder_music">곡, 아티스트, 앨범 검색...</string>
+    <string name="search_placeholder_film">영화 또는 감독 검색...</string>
+    <string name="destination_artist_label">아티스트</string>
+    <string name="destination_director_label">감독</string>
+    <string name="destination_album_label">앨범</string>
+    <string name="destination_single_label">싱글</string>
+    <string name="destination_compilation_label">컴필레이션</string>
+    <string name="destination_album_artist_format">앨범 · %1$s</string>
+    <plurals name="destination_shared_by_people">
+        <item quantity="other">%1$s명이 공유</item>
+    </plurals>
+    <plurals name="destination_song_count">
+        <item quantity="other">%1$d곡</item>
+    </plurals>
+    <string name="destination_who_shared_format">%1$s을(를) 공유한 사람</string>
+    <string name="destination_who_shared_artist">이 아티스트를 공유한 사람</string>
+    <string name="destination_who_shared_director">이 감독을 공유한 사람</string>
+    <string name="destination_popular">인기</string>
+    <string name="destination_discography">디스코그래피</string>
+    <string name="destination_filmography">필모그래피</string>
+    <string name="destination_recent_posts">최근 게시물</string>
+    <string name="destination_your_posts">내 게시물</string>
+    <string name="destination_see_all">모두 보기</string>
+    <string name="destination_shared_from_album">이 앨범에서 공유됨</string>
+    <string name="destination_filter_albums">앨범</string>
+    <string name="destination_filter_singles_eps">싱글 및 EP</string>
+    <string name="destination_filter_compilations">컴필레이션</string>
+    <string name="destination_music_attribution">아트워크, 메타데이터, 미리 듣기는 Apple Music과 Spotify에서 제공합니다.</string>
+    <string name="destination_film_attribution">영화 데이터는 The Movie Database(TMDB)에서 제공합니다.</string>
+    <string name="destination_open_in_spotify">Spotify에서 열기</string>
+    <string name="destination_posts_load_error">게시물을 불러오지 못했습니다.</string>
+    <string name="destination_album_posts_load_error">이 앨범의 게시물을 불러오지 못했습니다.</string>
+    <string name="destination_no_posts_artist">이 아티스트의 게시물이 아직 없습니다.</string>
+    <string name="destination_no_posts_director">이 감독의 게시물이 아직 없습니다.</string>
+    <string name="destination_no_posts_album">아직 이 앨범에서 게시한 사람이 없습니다.</string>
+    <string name="destination_no_posts_yet">아직 게시물이 없습니다.</string>
+    <string name="destination_album_load_error">이 앨범을 불러오지 못했습니다.</string>
+    <string name="destination_catalog_load_error">지금은 불러올 수 없습니다.</string>
+    <string name="destination_no_tracks">이 앨범의 곡을 찾을 수 없습니다.</string>
 </resources>

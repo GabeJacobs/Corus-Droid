@@ -132,6 +132,12 @@ fun PostCard(
     /** Invoked when the inline Trending pill is tapped — should optimistically
      *  follow the author (and log analytics). */
     onFollowAuthor: () -> Unit = {},
+    /** Artist/director destination pages (artist_pages_enabled): when non-null
+     *  the artist/director subtitle becomes tappable — SAME text style (no
+     *  accent, no underline), and the tap never falls through to the card.
+     *  Build via [postSubtitleTap] so the flag + non-empty-ids gating lives in
+     *  one place. */
+    onSubtitleTap: (() -> Unit)? = null,
 ) {
     // For the viewer's own posts, overlay the live profile from
     // AuthRepository.userProfile (passed in as `currentUser`) on top of the
@@ -772,6 +778,16 @@ fun PostCard(
                     color = CorusColors.Secondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    // Tappable artist/director name (artist_pages_enabled).
+                    // Deliberately identical styling either way; the clickable
+                    // consumes the tap so it can't trigger the card's own tap.
+                    modifier = if (onSubtitleTap != null) {
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onSubtitleTap,
+                        )
+                    } else Modifier,
                 )
             }
 
@@ -1266,6 +1282,52 @@ private fun InlineFollowPill(
             ),
             style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
             color = Color.White,
+        )
+    }
+}
+
+/**
+ * Builds the [PostCard] `onSubtitleTap` for a post: track posts route to the
+ * artist page via `track.artistIds[0]`, movie posts to the director page via
+ * `directorIds[0]`. Returns null — subtitle stays plain text — when the id
+ * array is empty or the corresponding navigation callback is null (callers
+ * pass null callbacks while `artist_pages_enabled` is off). Name hints follow
+ * the primaryNameHint rule so a joined credit string ("Mount Kimbie, Micachu")
+ * hints only the first credited name.
+ */
+fun postSubtitleTap(
+    post: CymbalPost,
+    onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)?,
+    onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)?,
+): (() -> Unit)? {
+    if (post.isMovie) {
+        val navigate = onNavigateToDirector ?: return null
+        val directorId = post.directorIds.firstOrNull() ?: return null
+        val name = fm.corus.android.data.model.primaryNameHint(
+            post.directorName ?: "",
+            post.directorIds.size,
+        )
+        return {
+            navigate(
+                fm.corus.android.ui.navigation.DirectorPageRoute(
+                    directorId = directorId,
+                    name = name.ifEmpty { null },
+                )
+            )
+        }
+    }
+    val navigate = onNavigateToArtist ?: return null
+    val artistId = post.track.artistIds.firstOrNull() ?: return null
+    val name = fm.corus.android.data.model.primaryNameHint(
+        post.track.artistName,
+        post.track.artistIds.size,
+    )
+    return {
+        navigate(
+            fm.corus.android.ui.navigation.ArtistPageRoute(
+                artistId = artistId,
+                name = name.ifEmpty { null },
+            )
         )
     }
 }

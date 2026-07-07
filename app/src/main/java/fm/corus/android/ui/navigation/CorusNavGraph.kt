@@ -68,6 +68,29 @@ interface UserRepositoryEntryPoint {
     fun userRepository(): UserRepository
 }
 
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface RemoteConfigServiceEntryPoint {
+    fun remoteConfigService(): fm.corus.android.service.RemoteConfigService
+}
+
+/**
+ * Synchronous read of the `artist_pages_enabled` Remote Config flag for the
+ * nav graphs. When off, the artist/director navigation callbacks passed to
+ * screens stay null, so every entry point (tappable names, search rows)
+ * renders exactly as before and the destination routes are unreachable.
+ */
+@Composable
+private fun rememberArtistPagesEnabled(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            RemoteConfigServiceEntryPoint::class.java,
+        ).remoteConfigService().artistPagesEnabled
+    }
+}
+
 /**
  * Returns a callback that resolves a username to a user via [UserRepository] and
  * then navigates to the resolved profile. Resolving before navigation (matching
@@ -102,6 +125,7 @@ fun FeedNavGraph(
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
+    val artistPagesEnabled = rememberArtistPagesEnabled()
     // Synchronous access to the cached following set so feed → profile
     // navigation can seed the correct follow state on the first frame (no
     // Follow→Following flash for authors the viewer already follows).
@@ -159,9 +183,12 @@ fun FeedNavGraph(
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
                 onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
                 onNavigateToCompose = onNavigateToCompose,
+                onNavigateToArtist = if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null,
+                onNavigateToDirector = if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null,
+                onNavigateToAlbum = if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null,
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isFeedTabSelected)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isFeedTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -186,6 +213,7 @@ fun SearchNavGraph(
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
+    val artistPagesEnabled = rememberArtistPagesEnabled()
 
     NavHost(
         navController = navController,
@@ -204,9 +232,12 @@ fun SearchNavGraph(
                 onNavigateToSuggestedUsers = { title, useRowLayout, source -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout, source)) },
                 onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
                 onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
+                onNavigateToArtist = { route -> navController.navigate(route) },
+                onNavigateToAlbum = { route -> navController.navigate(route) },
+                onNavigateToDirector = { route -> navController.navigate(route) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -232,6 +263,7 @@ fun NotificationsNavGraph(
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
+    val artistPagesEnabled = rememberArtistPagesEnabled()
 
     NavHost(
         navController = navController,
@@ -255,7 +287,7 @@ fun NotificationsNavGraph(
                 },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -282,6 +314,7 @@ fun ProfileNavGraph(
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
+    val artistPagesEnabled = rememberArtistPagesEnabled()
 
     NavHost(
         navController = navController,
@@ -313,7 +346,7 @@ fun ProfileNavGraph(
                 onOpenCompose = onOpenCompose,
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -344,7 +377,19 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
      * ProfileFeedScreen doesn't claim a tap meant for the visible feed.
      */
     isContainingTabSelected: Boolean = true,
+    /** Gates every artist/album/director page entry point (tappable names).
+     *  The destinations themselves are always registered, but with the flag
+     *  off no callback navigates to them, so they're unreachable. */
+    artistPagesEnabled: Boolean = false,
 ) {
+    // Nullable-when-flag-off navigation callbacks. Screens receive these and
+    // keep their names as plain text whenever they're null.
+    val navigateToArtist: ((ArtistPageRoute) -> Unit)? =
+        if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null
+    val navigateToAlbum: ((AlbumPageRoute) -> Unit)? =
+        if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null
+    val navigateToDirector: ((DirectorPageRoute) -> Unit)? =
+        if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null
     composable<PostDetailRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<PostDetailRoute>()
         PostDetailScreen(
@@ -358,6 +403,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
+            onNavigateToArtist = navigateToArtist,
+            onNavigateToDirector = navigateToDirector,
+            onNavigateToAlbum = navigateToAlbum,
         )
     }
 
@@ -379,6 +427,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
+            onNavigateToArtist = navigateToArtist,
+            onNavigateToDirector = navigateToDirector,
+            onNavigateToAlbum = navigateToAlbum,
         )
     }
 
@@ -458,12 +509,17 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             source = route.source,
             soundcloudId = route.soundcloudId,
             soundcloudPermalinkUrl = route.soundcloudPermalinkUrl,
+            artistId = route.artistId,
+            artistIdCount = route.artistIdCount,
+            albumId = route.albumId,
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToCompose = { track ->
                 mainTabViewModel.setPreSelectedTrack(track)
             },
+            onNavigateToArtist = navigateToArtist,
+            onNavigateToAlbum = navigateToAlbum,
         )
     }
 
@@ -483,6 +539,110 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToCompose = { movieId ->
                 mainTabViewModel.setPreSelectedMovieId(movieId)
             },
+            onNavigateToDirector = navigateToDirector,
+        )
+    }
+
+    // ── Artist / Album / Director destination pages (artist_pages_enabled) ──
+
+    composable<ArtistPageRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<ArtistPageRoute>()
+        fm.corus.android.ui.screens.destination.ArtistPageScreen(
+            artistId = route.artistId,
+            nameHint = route.name,
+            imageUrlHint = route.imageUrl,
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+            onNavigateToSong = { songRoute -> navController.navigate(songRoute) },
+            onNavigateToAlbum = { albumRoute -> navController.navigate(albumRoute) },
+            onSeeAllPosts = {
+                navController.navigate(ArtistPostsRoute(route.artistId, route.name))
+            },
+            onSeeAllDiscography = {
+                navController.navigate(ArtistDiscographyRoute(route.artistId, route.name))
+            },
+        )
+    }
+
+    composable<AlbumPageRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<AlbumPageRoute>()
+        fm.corus.android.ui.screens.destination.AlbumPageScreen(
+            albumId = route.albumId,
+            titleHint = route.title,
+            artistHint = route.artist,
+            coverUrlHint = route.coverUrl,
+            yearHint = route.year,
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+            onNavigateToSong = { songRoute -> navController.navigate(songRoute) },
+            onNavigateToArtist = { artistRoute -> navController.navigate(artistRoute) },
+        )
+    }
+
+    composable<DirectorPageRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<DirectorPageRoute>()
+        fm.corus.android.ui.screens.destination.DirectorPageScreen(
+            directorId = route.directorId,
+            nameHint = route.name,
+            imageUrlHint = route.imageUrl,
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+            onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
+            onSeeAllPosts = {
+                navController.navigate(DirectorPostsRoute(route.directorId, route.name))
+            },
+            onSeeAllFilmography = {
+                navController.navigate(DirectorFilmographyRoute(route.directorId, route.name))
+            },
+        )
+    }
+
+    composable<ArtistDiscographyRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<ArtistDiscographyRoute>()
+        fm.corus.android.ui.screens.destination.ArtistDiscographyScreen(
+            artistId = route.artistId,
+            nameHint = route.name,
+            onBack = { navController.popBackStack() },
+            onNavigateToAlbum = { albumRoute -> navController.navigate(albumRoute) },
+        )
+    }
+
+    composable<ArtistPostsRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<ArtistPostsRoute>()
+        fm.corus.android.ui.screens.destination.DestinationPostsScreen(
+            kind = fm.corus.android.ui.screens.destination.DestinationPostsViewModel.Kind.ARTIST,
+            subjectId = route.artistId,
+            subjectName = route.name,
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+            onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
+        )
+    }
+
+    composable<DirectorFilmographyRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<DirectorFilmographyRoute>()
+        fm.corus.android.ui.screens.destination.DirectorFilmographyScreen(
+            directorId = route.directorId,
+            nameHint = route.name,
+            onBack = { navController.popBackStack() },
+            onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
+        )
+    }
+
+    composable<DirectorPostsRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<DirectorPostsRoute>()
+        fm.corus.android.ui.screens.destination.DestinationPostsScreen(
+            kind = fm.corus.android.ui.screens.destination.DestinationPostsViewModel.Kind.DIRECTOR,
+            subjectId = route.directorId,
+            subjectName = route.name,
+            onBack = { navController.popBackStack() },
+            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+            onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
         )
     }
 
@@ -631,6 +791,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToSuggestedUsers = { title, useRowLayout, source -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout, source)) },
             onNavigateToContactFriends = { navController.navigate(ContactFriendsListRoute) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
+            onNavigateToArtist = { route -> navController.navigate(route) },
+            onNavigateToAlbum = { route -> navController.navigate(route) },
+            onNavigateToDirector = { route -> navController.navigate(route) },
         )
     }
 
@@ -658,6 +821,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 navController.navigate(CommentLikesRoute(route.postId, commentId))
             },
             onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
+            onNavigateToArtist = navigateToArtist,
+            onNavigateToDirector = navigateToDirector,
+            onNavigateToAlbum = navigateToAlbum,
         )
     }
 

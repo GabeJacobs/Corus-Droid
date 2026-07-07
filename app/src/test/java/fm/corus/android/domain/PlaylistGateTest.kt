@@ -81,4 +81,11 @@ class PlaylistGateTest {
         // Below threshold on the active tab → no chooser even if another count is large.
         assertFalse(shouldOfferProfileFullExport(2, trackCount = 9999, likesCount = 10, savesCount = 9999))
     }
+
+    @Test
+    fun `hashtag full export offered only above 75 posts`() {
+        assertFalse(shouldOfferHashtagFullExport(0))
+        assertFalse(shouldOfferHashtagFullExport(75))
+        assertTrue(shouldOfferHashtagFullExport(76))
+    }
 }

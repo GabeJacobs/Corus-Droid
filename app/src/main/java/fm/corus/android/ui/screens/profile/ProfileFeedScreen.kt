@@ -57,6 +57,13 @@ fun ProfileFeedScreen(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
     onRepost: (CymbalPost) -> Unit = {},
+    /** Artist/director pages (artist_pages_enabled) — null while the flag is
+     *  off, which keeps post-card artist/director names as plain text. */
+    onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)? = null,
+    onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)? = null,
+    /** Album page (artist_pages_enabled) — null while the flag is off, which
+     *  hides the "…" menu's "Go to Album" row. */
+    onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
 ) {
     val posts by viewModel.posts.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
@@ -299,6 +306,9 @@ fun ProfileFeedScreen(
                     },
                     onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                     backCoverFlipState = backCoverStateFor(post.id),
+                    onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
+                        post, onNavigateToArtist, onNavigateToDirector,
+                    ),
                 )
                 HorizontalDivider(
                     color = CorusColors.Divider,
@@ -342,6 +352,9 @@ fun ProfileFeedScreen(
         onNavigateToFilm = onNavigateToFilm,
         onRepost = onRepost,
         onPostDeleted = { if (posts.size <= 1) onBack() },
+        artistPagesEnabled = onNavigateToArtist != null,
+        onNavigateToArtist = onNavigateToArtist,
+        onNavigateToAlbum = onNavigateToAlbum,
     )
 
     filmInfoPost?.let { post ->

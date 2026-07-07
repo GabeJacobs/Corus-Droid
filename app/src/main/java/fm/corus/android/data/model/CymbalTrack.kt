@@ -32,6 +32,12 @@ data class CymbalTrack(
      */
     val artistIds: List<String> = emptyList(),
     val albumName: String,
+    /**
+     * Spotify album id from the search/catalog response — powers the song
+     * page's album-page link (artist-pages feature). Null for Apple-sourced
+     * and older tracks. Mirrors iOS `CymbalTrack.albumId`.
+     */
+    val albumId: String? = null,
     val albumArtURL: String? = null,
     val albumArtLargeURL: String? = null,
     val spotifyURI: String = "",
@@ -108,6 +114,9 @@ data class CymbalTrack(
         source = source.raw,
         soundcloudId = soundcloudId,
         soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+        artistId = artistIds.firstOrNull(),
+        artistIdCount = artistIds.size,
+        albumId = albumId,
     )
 
     companion object {
@@ -132,6 +141,7 @@ data class CymbalTrack(
                 artistName = data["artistName"] as? String ?: "",
                 artistIds = rawArtistIds,
                 albumName = data["albumName"] as? String ?: "",
+                albumId = (data["albumId"] as? String)?.ifEmpty { null },
                 albumArtURL = data["albumArtURL"] as? String ?: data["albumArtThumbnailURL"] as? String,
                 albumArtLargeURL = data["albumArtLargeURL"] as? String,
                 spotifyURI = if (isNonSpotify) "" else rawSpotifyURI,

@@ -99,6 +99,7 @@
     <string name="notifications_row_contact_joined">連絡先が参加</string>
     <string name="notifications_row_plays">再生</string>
     <string name="notifications_row_messages">メッセージ</string>
+    <string name="notifications_row_reactions">リアクション</string>
     <string name="notifications_row_read_receipts">開封確認</string>
     <string name="settings_section_appearance">外観</string>
     <string name="appearance_screen_title">外観</string>
@@ -308,6 +309,7 @@
     <string name="profile_toast_no_songs_for_playlist">プレイリストを作成する曲がありません</string>
     <string name="profile_button_edit">プロフィールを編集</string>
     <string name="profile_button_playlist">プレイリスト</string>
+    <string name="hashtag_button_playlist">プレイリスト</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">フォロワー</string>
     <string name="profile_stat_following">フォロー中</string>
@@ -839,6 +841,7 @@
     <string name="hashtag_feed_empty">このハッシュタグの投稿はまだありません</string>
     <string name="hashtag_feed_follow">フォロー</string>
     <string name="hashtag_feed_following">フォロー中</string>
+    <string name="hashtag_playlist_only_soundcloud">このハッシュタグには SoundCloud の曲しかありません。Spotify のプレイリストでは利用できません。</string>
     <string name="nav_toast_caption_updated">キャプションを更新しました</string>
     <string name="tab_cd_compose">作成</string>
     <string name="now_playing_generating_playlist">プレイリストを作成中…</string>
@@ -894,4 +897,47 @@
     <string name="feed_taste_matches_paywall_title">好みの一致</string>
     <string name="feed_taste_matches_paywall_body">あなたと同じものを好きな人たち、好みの一致からおすすめが届きます。</string>
     <string name="feed_taste_matches_paywall_cta">詳しく見る</string>
+
+    <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
+    <string name="search_tab_music">音楽</string>
+    <string name="search_tab_film">映画</string>
+    <string name="search_placeholder_music">曲、アーティスト、アルバムを検索...</string>
+    <string name="search_placeholder_film">映画や監督を検索...</string>
+    <string name="destination_artist_label">アーティスト</string>
+    <string name="destination_director_label">監督</string>
+    <string name="destination_album_label">アルバム</string>
+    <string name="destination_single_label">シングル</string>
+    <string name="destination_compilation_label">コンピレーション</string>
+    <string name="destination_album_artist_format">アルバム · %1$s</string>
+    <plurals name="destination_shared_by_people">
+        <item quantity="other">%1$s人がシェア</item>
+    </plurals>
+    <plurals name="destination_song_count">
+        <item quantity="other">%1$d曲</item>
+    </plurals>
+    <string name="destination_who_shared_format">%1$sをシェアした人</string>
+    <string name="destination_who_shared_artist">このアーティストをシェアした人</string>
+    <string name="destination_who_shared_director">この監督をシェアした人</string>
+    <string name="destination_popular">人気</string>
+    <string name="destination_discography">ディスコグラフィー</string>
+    <string name="destination_filmography">フィルモグラフィー</string>
+    <string name="destination_recent_posts">最近の投稿</string>
+    <string name="destination_your_posts">あなたの投稿</string>
+    <string name="destination_see_all">すべて見る</string>
+    <string name="destination_shared_from_album">このアルバムからのシェア</string>
+    <string name="destination_filter_albums">アルバム</string>
+    <string name="destination_filter_singles_eps">シングル・EP</string>
+    <string name="destination_filter_compilations">コンピレーション</string>
+    <string name="destination_music_attribution">アートワーク、メタデータ、プレビューはApple MusicとSpotifyより。</string>
+    <string name="destination_film_attribution">映画データはThe Movie Database（TMDB）より。</string>
+    <string name="destination_open_in_spotify">Spotifyで開く</string>
+    <string name="destination_posts_load_error">投稿を読み込めませんでした。</string>
+    <string name="destination_album_posts_load_error">このアルバムの投稿を読み込めませんでした。</string>
+    <string name="destination_no_posts_artist">このアーティストの投稿はまだありません。</string>
+    <string name="destination_no_posts_director">この監督の投稿はまだありません。</string>
+    <string name="destination_no_posts_album">このアルバムからの投稿はまだありません。</string>
+    <string name="destination_no_posts_yet">投稿はまだありません。</string>
+    <string name="destination_album_load_error">アルバムを読み込めませんでした。</string>
+    <string name="destination_catalog_load_error">読み込めませんでした。</string>
+    <string name="destination_no_tracks">このアルバムの曲が見つかりませんでした。</string>
 </resources>

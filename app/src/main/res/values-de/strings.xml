@@ -107,6 +107,7 @@
     <string name="notifications_row_contact_joined">Kontakt ist beigetreten</string>
     <string name="notifications_row_plays">Wiedergaben</string>
     <string name="notifications_row_messages">Nachrichten</string>
+    <string name="notifications_row_reactions">Reaktionen</string>
     <string name="notifications_row_read_receipts">Lesebestätigungen</string>
 
     <!-- Settings: Appearance -->
@@ -350,6 +351,7 @@
     <string name="profile_toast_no_songs_for_playlist">Keine Songs für eine Playlist</string>
     <string name="profile_button_edit">PROFIL BEARBEITEN</string>
     <string name="profile_button_playlist">PLAYLIST</string>
+    <string name="hashtag_button_playlist">Playlist</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">Follower</string>
     <string name="profile_stat_following">Folge ich</string>
@@ -954,6 +956,7 @@
     <string name="hashtag_feed_empty">Noch keine Beiträge für diesen Hashtag</string>
     <string name="hashtag_feed_follow">Folgen</string>
     <string name="hashtag_feed_following">Folge ich</string>
+    <string name="hashtag_playlist_only_soundcloud">Dieser Hashtag enthält nur SoundCloud-Titel. Spotify-Playlists sind dafür nicht verfügbar.</string>
 
     <!-- Navigation / tabs -->
     <string name="nav_toast_caption_updated">Beschreibung aktualisiert</string>
@@ -1019,4 +1022,49 @@
     <string name="feed_taste_matches_paywall_title">Geschmacks-Matches</string>
     <string name="feed_taste_matches_paywall_body">Erhalte Empfehlungen von deinen Geschmacks-Matches, von Menschen, die dasselbe lieben wie du.</string>
     <string name="feed_taste_matches_paywall_cta">Mehr erfahren</string>
+
+    <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
+    <string name="search_tab_music">Musik</string>
+    <string name="search_tab_film">Film</string>
+    <string name="search_placeholder_music">Nach Songs, Künstlern oder Alben suchen...</string>
+    <string name="search_placeholder_film">Nach Filmen oder Regisseuren suchen...</string>
+    <string name="destination_artist_label">Künstler</string>
+    <string name="destination_director_label">Regisseur</string>
+    <string name="destination_album_label">Album</string>
+    <string name="destination_single_label">Single</string>
+    <string name="destination_compilation_label">Compilation</string>
+    <string name="destination_album_artist_format">Album · %1$s</string>
+    <plurals name="destination_shared_by_people">
+        <item quantity="one">Geteilt von %1$s Person</item>
+        <item quantity="other">Geteilt von %1$s Personen</item>
+    </plurals>
+    <plurals name="destination_song_count">
+        <item quantity="one">%1$d Song</item>
+        <item quantity="other">%1$d Songs</item>
+    </plurals>
+    <string name="destination_who_shared_format">Wer %1$s geteilt hat</string>
+    <string name="destination_who_shared_artist">Wer diesen Künstler geteilt hat</string>
+    <string name="destination_who_shared_director">Wer diesen Regisseur geteilt hat</string>
+    <string name="destination_popular">Beliebt</string>
+    <string name="destination_discography">Diskografie</string>
+    <string name="destination_filmography">Filmografie</string>
+    <string name="destination_recent_posts">Neueste Beiträge</string>
+    <string name="destination_your_posts">Deine Beiträge</string>
+    <string name="destination_see_all">Alle ansehen</string>
+    <string name="destination_shared_from_album">Aus diesem Album geteilt</string>
+    <string name="destination_filter_albums">Alben</string>
+    <string name="destination_filter_singles_eps">Singles und EPs</string>
+    <string name="destination_filter_compilations">Compilations</string>
+    <string name="destination_music_attribution">Artwork, Metadaten und Vorschauen von Apple Music und Spotify.</string>
+    <string name="destination_film_attribution">Filmdaten von The Movie Database (TMDB).</string>
+    <string name="destination_open_in_spotify">In Spotify öffnen</string>
+    <string name="destination_posts_load_error">Beiträge konnten gerade nicht geladen werden.</string>
+    <string name="destination_album_posts_load_error">Beiträge zu diesem Album konnten nicht geladen werden.</string>
+    <string name="destination_no_posts_artist">Noch keine Beiträge zu diesem Künstler.</string>
+    <string name="destination_no_posts_director">Noch keine Beiträge zu diesem Regisseur.</string>
+    <string name="destination_no_posts_album">Noch niemand hat aus diesem Album gepostet.</string>
+    <string name="destination_no_posts_yet">Noch keine Beiträge.</string>
+    <string name="destination_album_load_error">Dieses Album konnte nicht geladen werden.</string>
+    <string name="destination_catalog_load_error">Konnte gerade nicht geladen werden.</string>
+    <string name="destination_no_tracks">Keine Titel für dieses Album gefunden.</string>
 </resources>

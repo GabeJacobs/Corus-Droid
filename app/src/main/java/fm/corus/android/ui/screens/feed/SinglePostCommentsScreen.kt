@@ -97,6 +97,13 @@ fun SinglePostCommentsScreen(
     onNavigateToLikes: (String) -> Unit = {},
     onNavigateToCommentLikes: (commentId: String) -> Unit = {},
     onRepost: (CymbalPost) -> Unit = {},
+    /** Artist/director pages (artist_pages_enabled) — null while the flag is
+     *  off, which keeps post-card artist/director names as plain text. */
+    onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)? = null,
+    onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)? = null,
+    /** Album page (artist_pages_enabled) — null while the flag is off, which
+     *  hides the "…" menu's "Go to Album" row. */
+    onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
 ) {
     val comments by viewModel.comments.collectAsState()
     val repliesByParent by viewModel.repliesByParent.collectAsState()
@@ -617,6 +624,9 @@ fun SinglePostCommentsScreen(
                         onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                         onMenuTap = { menuPost = p },
                         backCoverFlipState = backCoverFlipState,
+                        onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
+                            p, onNavigateToArtist, onNavigateToDirector,
+                        ),
                     )
                     HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
                 }
@@ -711,6 +721,9 @@ fun SinglePostCommentsScreen(
         onRepost = onRepost,
         onPostDeleted = { onBack() },
         onCaptionSaved = { viewModel.loadPost(postId) },
+        artistPagesEnabled = onNavigateToArtist != null,
+        onNavigateToArtist = onNavigateToArtist,
+        onNavigateToAlbum = onNavigateToAlbum,
     )
 }
 

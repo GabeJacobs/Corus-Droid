@@ -10,6 +10,9 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
+import fm.corus.android.domain.MusicServicePreference
+import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.service.AnalyticsService
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +28,11 @@ class HashtagFeedViewModel @Inject constructor(
     private val firestoreDataSource: FirestoreDataSource,
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
+    // Exposed so the screen can read playlist progress/error/paywall state and
+    // the active music service directly, mirroring ProfileScreen.
+    val nowPlayingManager: NowPlayingManager,
+    val musicServicePreference: MusicServicePreference,
+    private val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
@@ -124,6 +132,16 @@ class HashtagFeedViewModel @Inject constructor(
     fun retry() {
         _loadError.value = null
         currentHashtag?.let { loadHashtagPosts(it, refresh = true) }
+    }
+
+    /** Kick off playlist generation for this tag. The screen reads progress /
+     *  error / paywall state straight off [nowPlayingManager]'s flows, same as
+     *  the profile page. */
+    fun generateHashtagPlaylist(hashtag: String, fullExport: Boolean = false) {
+        analyticsService.logHashtagPlaylistTapped(hashtag)
+        viewModelScope.launch {
+            nowPlayingManager.generateHashtagPlaylist(hashtag, fullExport = fullExport)
+        }
     }
 
     fun loadFollowState(hashtag: String) {

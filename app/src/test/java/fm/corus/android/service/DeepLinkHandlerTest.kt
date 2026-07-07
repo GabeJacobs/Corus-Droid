@@ -1,10 +1,46 @@
 package fm.corus.android.service
 
+import android.net.Uri
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
 
 class DeepLinkHandlerTest {
+
+    // Android's Uri is a non-functional stub in local unit tests, so build a
+    // mock exposing just the fields DeepLinkHandler.parse reads. Keeps this file
+    // pure-JVM / CLI-runnable (no Robolectric) like the notification-data tests.
+    private fun fakeUri(scheme: String, host: String, segments: List<String>): Uri = mock {
+        on { this.scheme } doReturn scheme
+        on { this.host } doReturn host
+        on { this.pathSegments } doReturn segments
+    }
+
+    @Test
+    fun `app_corus_fm settings club web url parses to Club`() {
+        val uri = fakeUri("https", "app.corus.fm", listOf("settings", "club"))
+        assertEquals(DeepLinkDestination.Club, DeepLinkHandler.parse(uri))
+    }
+
+    @Test
+    fun `unrelated app_corus_fm path is not hijacked`() {
+        val uri = fakeUri("https", "app.corus.fm", listOf("discover"))
+        assertNull(DeepLinkHandler.parse(uri))
+    }
+
+    @Test
+    fun `other settings path on app_corus_fm is not Club`() {
+        val uri = fakeUri("https", "app.corus.fm", listOf("settings", "notifications"))
+        assertNull(DeepLinkHandler.parse(uri))
+    }
+
+    @Test
+    fun `corus scheme club parses to Club`() {
+        val uri = fakeUri("corus", "club", emptyList())
+        assertEquals(DeepLinkDestination.Club, DeepLinkHandler.parse(uri))
+    }
 
     @Test
     fun `message notification reads otherUserId from fromUserId`() {

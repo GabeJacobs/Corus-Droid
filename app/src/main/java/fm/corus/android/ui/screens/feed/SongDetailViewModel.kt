@@ -1,14 +1,25 @@
 package fm.corus.android.ui.screens.feed
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.R
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.ui.components.ToastManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +34,12 @@ class SongDetailViewModel @Inject constructor(
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
     private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
+    private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
+    private val authRepository: AuthRepository,
+    private val userRepository: UserRepository,
+    private val messageRepository: MessageRepository,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     /**
@@ -95,6 +111,7 @@ class SongDetailViewModel @Inject constructor(
         spotifyURI: String? = null,
         trackName: String? = null,
         artistName: String? = null,
+        routeArtistId: String? = null,
     ) {
         this.currentTrackId = trackId
         this.spotifyURI = spotifyURI
@@ -123,7 +140,28 @@ class SongDetailViewModel @Inject constructor(
                 _loadError.value = "Couldn't load posts for this song."
             }
             _isLoading.value = false
+            resolveArtistIdIfNeeded(routeArtistId)
         }
+    }
+
+    // ── Artist-line name resolution (artist_pages_enabled) ──
+    // Fallback for tracks with no artist ids anywhere — no route hint AND no
+    // loaded post carries artistIds (Apple-sourced tracks, legacy posts) —
+    // so the artist line is still tappable when the flag is on. Resolves the
+    // Spotify artist id by *exact* name; failure/no-match leaves the line as
+    // plain text. Mirrors iOS SongDetailView.resolveArtistIfNeeded.
+
+    private val _resolvedArtistId = MutableStateFlow<String?>(null)
+    val resolvedArtistId: StateFlow<String?> = _resolvedArtistId.asStateFlow()
+
+    private suspend fun resolveArtistIdIfNeeded(routeArtistId: String?) {
+        if (!remoteConfigService.artistPagesEnabled) return
+        if (routeArtistId != null) return
+        if (_posts.value.any { it.track.artistIds.isNotEmpty() }) return
+        val name = artistName?.takeIf { it.isNotBlank() }
+            ?: _posts.value.firstOrNull()?.track?.artistName?.takeIf { it.isNotBlank() }
+            ?: return
+        _resolvedArtistId.value = cloudFunctions.resolveArtistIdByName(name)
     }
 
     fun loadMore() {
@@ -180,6 +218,86 @@ class SongDetailViewModel @Inject constructor(
                 soundcloudId = soundcloudId,
                 soundcloudPermalinkUrl = soundcloudPermalinkUrl,
             )
+        }
+    }
+
+    // ── Song share sheet ──
+    // Mirrors the post share sheet's recipient picker (see FeedViewModel), but
+    // shares a *track*: DMs send a `sharedTrack` message (deep-links to this
+    // song page in-app). Reuses the package-level rankShareContacts helper.
+
+    private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+
+    private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+
+    private val _isShareSearching = MutableStateFlow(false)
+    val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
+
+    private val _isLoadingShareContacts = MutableStateFlow(true)
+    val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
+
+    private var shareSearchJob: Job? = null
+
+    fun loadRecentShareContacts() {
+        val userId = authRepository.currentUserId ?: return
+        _isLoadingShareContacts.value = true
+        viewModelScope.launch {
+            try {
+                val shareRecipients = runCatching { messageRepository.listShareRecipients(12) }.getOrDefault(emptyList())
+                val threadContacts = messageRepository.listThreads(userId).mapNotNull { it.otherUser }
+
+                val followFallback = if (rankShareContacts(shareRecipients, threadContacts, emptyList()).size < SHARE_CONTACTS_TARGET) {
+                    val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
+                    val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
+                    following + followers
+                } else {
+                    emptyList()
+                }
+
+                _recentShareContacts.value = rankShareContacts(shareRecipients, threadContacts, followFallback)
+            } catch (_: Exception) { }
+            _isLoadingShareContacts.value = false
+        }
+    }
+
+    fun searchShareUsers(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            shareSearchJob?.cancel()
+            _shareSearchResults.value = emptyList()
+            _isShareSearching.value = false
+            return
+        }
+
+        shareSearchJob?.cancel()
+        shareSearchJob = viewModelScope.launch {
+            _isShareSearching.value = true
+            delay(250)
+            try {
+                _shareSearchResults.value = userRepository.searchUsers(trimmed, includeFollowed = true)
+            } catch (_: Exception) {
+                _shareSearchResults.value = emptyList()
+            }
+            _isShareSearching.value = false
+        }
+    }
+
+    fun sendTrackToUser(userId: String, track: CymbalTrack, message: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
+                messageRepository.sendSharedTrackMessage(
+                    threadId = threadId,
+                    fromUserId = currentUserId,
+                    text = message.trim(),
+                    track = track,
+                )
+            } catch (_: Exception) {
+                ToastManager.show(context.getString(R.string.feed_toast_failed_send_post))
+            }
         }
     }
 

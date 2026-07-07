@@ -1,13 +1,46 @@
 package fm.corus.android.data.repository
 
+import fm.corus.android.data.model.ArtistSummary
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.remote.TMDBApiService
+import fm.corus.android.data.remote.TMDBPerson
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * Client-side filter for the Film tab's director row (artist-pages feature),
+ * mirroring the web implementation (`app/api/movies/search-people/route.ts`):
+ * TMDB person search also matches aliases/associations — searching "pavement"
+ * returns the band's bassist — so require an actual NAME match (bidirectional
+ * contains, same rule as the Music tab's artist row). Prefer people whose
+ * known-for department is Directing; fall back to the single top name-matched
+ * person so director-actors (e.g. Greta Gerwig, TMDB department "Acting")
+ * still surface. Max 3. Top-level + pure so it's unit-testable.
+ */
+internal fun filterDirectorSearchResults(
+    people: List<TMDBPerson>,
+    query: String,
+): List<ArtistSummary> {
+    val queryLower = query.trim().lowercase()
+    if (queryLower.isEmpty()) return emptyList()
+    val nameMatched = people.filter { p ->
+        val nameLower = p.name.trim().lowercase()
+        nameLower.isNotEmpty() && (nameLower.contains(queryLower) || queryLower.contains(nameLower))
+    }
+    val directors = nameMatched.filter { it.knownForDepartment == "Directing" }
+    val chosen = (directors.ifEmpty { nameMatched.take(1) }).take(3)
+    return chosen.map { p ->
+        ArtistSummary(
+            id = p.id.toString(),
+            name = p.name,
+            imageUrl = p.profilePath?.let { "https://image.tmdb.org/t/p/w185$it" },
+        )
+    }
+}
 
 @Singleton
 class TMDBRepository @Inject constructor(
@@ -53,6 +86,15 @@ class TMDBRepository @Inject constructor(
             trailerURL = details.trailerURL,
             releaseDate = details.releaseDate,
         )
+    }
+
+    /**
+     * Director rows for the Film search tab. Wraps the tmdbProxy `personSearch`
+     * action and applies the shared name-match + Directing-preference filter.
+     */
+    suspend fun searchDirectors(query: String): List<ArtistSummary> {
+        if (query.isBlank()) return emptyList()
+        return filterDirectorSearchResults(tmdbApi.searchPeople(query).results, query)
     }
 
     suspend fun getDirectorName(movieId: Int): String {

@@ -1,0 +1,362 @@
+package fm.corus.android.ui.screens.destination
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import coil3.compose.AsyncImage
+import fm.corus.android.R
+import fm.corus.android.data.model.DirectorFilm
+import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.SkeletonAlbumGridCell
+import fm.corus.android.ui.components.SkeletonUserRow
+import fm.corus.android.ui.navigation.FilmDetailRoute
+import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusSpacing
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DirectorPageScreen(
+    directorId: String,
+    nameHint: String? = null,
+    imageUrlHint: String? = null,
+    viewModel: DirectorPageViewModel = hiltViewModel(),
+    onBack: () -> Unit = {},
+    onNavigateToUser: (String) -> Unit = {},
+    onNavigateToPost: (String) -> Unit = {},
+    onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
+    onSeeAllPosts: () -> Unit = {},
+    onSeeAllFilmography: () -> Unit = {},
+) {
+    val detail by viewModel.detail.collectAsState()
+    val isCatalogLoading by viewModel.isCatalogLoading.collectAsState()
+    val catalogError by viewModel.catalogError.collectAsState()
+    val posts by viewModel.posts.collectAsState()
+    val viewerPosts by viewModel.viewerPosts.collectAsState()
+    val posters by viewModel.posters.collectAsState()
+    val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
+    val isPostsLoading by viewModel.isPostsLoading.collectAsState()
+    val postsError by viewModel.postsError.collectAsState()
+
+    val directorName = detail?.name?.takeIf { it.isNotBlank() } ?: nameHint
+    val photo = detail?.imageUrl ?: imageUrlHint
+
+    LaunchedEffect(directorId) {
+        viewModel.loadCatalog(directorId)
+        viewModel.loadPosts(directorId, nameHint)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {},
+                navigationIcon = {
+                    CorusHeaderIconButton(
+                        onClick = onBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.feed_cd_back),
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
+                windowInsets = WindowInsets(0, 0, 0, 0),
+            )
+        },
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
+        ) {
+            // ── Header: centered 2:3 portrait + name + "Director" ──
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                    Box(
+                        modifier = Modifier
+                            .width(140.dp)
+                            .aspectRatio(2f / 3f)
+                            .shadow(4.dp, RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
+                            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
+                            .background(CorusColors.CardBackground),
+                    ) {
+                        if (photo != null) {
+                            AsyncImage(
+                                model = photo,
+                                contentDescription = directorName,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    if (directorName != null || catalogError) {
+                        Text(
+                            text = directorName
+                                ?: stringResource(R.string.destination_director_label),
+                            style = CorusFont.songTitleLarge,
+                            color = CorusColors.Text,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                    Text(
+                        text = stringResource(R.string.destination_director_label),
+                        style = CorusFont.captionMedium,
+                        color = CorusColors.Secondary,
+                    )
+                }
+            }
+
+            // ── Shared by N people ──
+            if (uniquePosterCount > 0) {
+                item {
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                    SharedByPeopleRow(
+                        posters = posters,
+                        count = uniquePosterCount,
+                        onClick = onSeeAllPosts,
+                    )
+                }
+            } else if (isPostsLoading && !postsError) {
+                item {
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                    SkeletonSharedByPeopleRow()
+                }
+            }
+
+            // ── Your posts ──
+            if (viewerPosts.isNotEmpty()) {
+                item {
+                    DestinationSectionHeader(stringResource(R.string.destination_your_posts))
+                }
+                items(viewerPosts.size) { index ->
+                    val post = viewerPosts[index]
+                    DestinationPostRow(
+                        post = post,
+                        onUserTap = { onNavigateToUser(post.user.id) },
+                        onPostTap = { onNavigateToPost(post.id) },
+                        onFilmChipTap = post.movieId?.let { movieId ->
+                            { onNavigateToFilm(post.toFilmDetailRoute(movieId)) }
+                        },
+                    )
+                }
+            }
+
+            // ── Filmography ──
+            if (isCatalogLoading && detail == null) {
+                item {
+                    DestinationSectionHeader(stringResource(R.string.destination_filmography))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                    ) {
+                        items(4) {
+                            SkeletonAlbumGridCell(
+                                modifier = Modifier
+                                    .width(110.dp)
+                                    .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium)),
+                                aspectRatio = 2f / 3f,
+                            )
+                        }
+                    }
+                }
+            } else if (catalogError && detail == null) {
+                item {
+                    Text(
+                        text = stringResource(R.string.destination_catalog_load_error),
+                        style = CorusFont.body,
+                        color = CorusColors.Secondary,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.lg),
+                    )
+                }
+            } else {
+                val films = detail?.films ?: emptyList()
+                if (films.isNotEmpty()) {
+                    item {
+                        DestinationSectionHeader(
+                            title = stringResource(R.string.destination_filmography),
+                            onSeeAll = onSeeAllFilmography,
+                        )
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+                            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                        ) {
+                            items(films.take(12).size) { index ->
+                                val film = films[index]
+                                FilmographyRailCell(
+                                    film = film,
+                                    onClick = {
+                                        onNavigateToFilm(
+                                            FilmDetailRoute(
+                                                movieId = film.id,
+                                                movieTitle = film.title,
+                                                directorName = directorName,
+                                                releaseYear = film.year?.toString(),
+                                                posterURL = film.posterUrl,
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Recent posts ──
+            item {
+                DestinationSectionHeader(
+                    title = stringResource(R.string.destination_recent_posts),
+                    onSeeAll = if (posts.size >= DirectorPageViewModel.PAGE_SIZE) onSeeAllPosts else null,
+                )
+            }
+            if (isPostsLoading) {
+                items(4) { index ->
+                    SkeletonUserRow()
+                    if (index < 3) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 72.dp),
+                            color = CorusColors.Divider,
+                            thickness = 0.5.dp,
+                        )
+                    }
+                }
+            } else if (postsError) {
+                item {
+                    Text(
+                        text = stringResource(R.string.destination_posts_load_error),
+                        style = CorusFont.body,
+                        color = CorusColors.Secondary,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                    )
+                }
+            } else if (posts.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.destination_no_posts_director),
+                        style = CorusFont.body,
+                        color = CorusColors.Secondary,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                    )
+                }
+            } else {
+                items(posts.size) { index ->
+                    val post = posts[index]
+                    DestinationPostRow(
+                        post = post,
+                        onUserTap = { onNavigateToUser(post.user.id) },
+                        onPostTap = { onNavigateToPost(post.id) },
+                        onFilmChipTap = post.movieId?.let { movieId ->
+                            { onNavigateToFilm(post.toFilmDetailRoute(movieId)) }
+                        },
+                    )
+                }
+            }
+
+            // ── Attribution (TMDB; no Spotify link on director pages) ──
+            item {
+                DestinationAttributionFooter(
+                    attribution = stringResource(R.string.destination_film_attribution),
+                )
+            }
+        }
+    }
+}
+
+/** Film-detail route with the hints a director-page post carries. */
+private fun fm.corus.android.data.model.CymbalPost.toFilmDetailRoute(movieId: String) =
+    FilmDetailRoute(
+        movieId = movieId,
+        movieTitle = movieTitle,
+        directorName = directorName,
+        releaseYear = releaseYear,
+        posterURL = posterURL,
+        posterLargeURL = posterLargeURL,
+        trailerURL = trailerURL,
+    )
+
+@Composable
+internal fun FilmographyRailCell(
+    film: DirectorFilm,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .width(110.dp)
+            .clickable(onClick = onClick),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(2f / 3f)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+                .background(CorusColors.CardBackground),
+        ) {
+            if (film.posterUrl != null) {
+                AsyncImage(
+                    model = film.posterUrl,
+                    contentDescription = film.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            text = film.title,
+            style = CorusFont.captionMedium,
+            color = CorusColors.Text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (film.year != null) {
+            Text(
+                text = "${film.year}",
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                maxLines = 1,
+            )
+        }
+    }
+}

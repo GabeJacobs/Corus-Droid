@@ -68,6 +68,15 @@ fun PostMenuSheets(
     onPostDeleted: (CymbalPost) -> Unit = {},
     onCaptionSaved: () -> Unit = {},
     musicService: MusicService = MusicService.SPOTIFY,
+    /** `artist_pages_enabled` remote-config gate for the menu's "Go to Artist" /
+     *  "Go to Album" rows. Both rows also require the navigation callback below
+     *  to be non-null (screens pass null while the flag is off). */
+    artistPagesEnabled: Boolean = false,
+    /** Route to the artist page. Null while `artist_pages_enabled` is off —
+     *  same nullable pattern as the post card's tappable artist subtitle. */
+    onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)? = null,
+    /** Route to the album page. Null while `artist_pages_enabled` is off. */
+    onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -174,6 +183,12 @@ fun PostMenuSheets(
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
                 showBackCoverOption = actions.remoteConfig.vinylFlipEnabled && !post.isMovie && post.track.source != TrackSource.SOUNDCLOUD,
                 isBackCoverFlipped = backCoverStateFor(post.id).isFlipped,
+                // Rows gate on the flag; the nav callbacks are non-null whenever
+                // the flag is on (screens pass them together, mirroring the
+                // artist-subtitle path). Tap helpers no-op if a callback is null.
+                artistPagesEnabled = artistPagesEnabled,
+                onGoToArtist = onGoToArtistTap(post, onNavigateToArtist) ?: {},
+                onGoToAlbum = onGoToAlbumTap(post, onNavigateToAlbum) ?: {},
                 onViewBackCover = {
                     val state = backCoverStateFor(post.id)
                     if (state.isFlipped) {
@@ -306,5 +321,58 @@ fun openTrackInPreferredService(
             analytics.logMusicServiceLinkTapped(musicService.value, track.id)
             scope.launch { open(resolveServiceLinkUrl(track)) }
         }
+    }
+}
+
+/**
+ * Builds the "Go to Artist" click for a track post: routes to the artist page
+ * via `track.artistIds[0]`, reusing the exact route the post card's tappable
+ * artist subtitle uses (first credited id, primaryNameHint for the name). Null
+ * when [onNavigateToArtist] is null (flag off) or the post has no artist id.
+ */
+internal fun onGoToArtistTap(
+    post: CymbalPost,
+    onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)?,
+): (() -> Unit)? {
+    val navigate = onNavigateToArtist ?: return null
+    if (post.isMovie) return null
+    val artistId = post.track.artistIds.firstOrNull { it.isNotBlank() } ?: return null
+    val name = fm.corus.android.data.model.primaryNameHint(
+        post.track.artistName,
+        post.track.artistIds.size,
+    )
+    return {
+        navigate(
+            fm.corus.android.ui.navigation.ArtistPageRoute(
+                artistId = artistId,
+                name = name.ifEmpty { null },
+            )
+        )
+    }
+}
+
+/**
+ * Builds the "Go to Album" click for a track post: routes to the album page via
+ * `track.albumId` (Spotify album id or `am:<appleAlbumId>`), matching the
+ * AlbumPageRoute the song page and search rows build. Null when
+ * [onNavigateToAlbum] is null (flag off) or the post carries no album id.
+ */
+internal fun onGoToAlbumTap(
+    post: CymbalPost,
+    onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)?,
+): (() -> Unit)? {
+    val navigate = onNavigateToAlbum ?: return null
+    if (post.isMovie) return null
+    val albumId = post.track.albumId?.takeIf { it.isNotBlank() } ?: return null
+    return {
+        navigate(
+            fm.corus.android.ui.navigation.AlbumPageRoute(
+                albumId = albumId,
+                title = post.track.albumName.ifBlank { null },
+                artist = post.track.artistName.ifBlank { null },
+                coverUrl = post.track.albumArtURL,
+                year = post.track.releaseDate?.take(4)?.toIntOrNull(),
+            )
+        )
     }
 }

@@ -2,9 +2,11 @@ package fm.corus.android.data.remote
 
 import com.google.firebase.functions.FirebaseFunctions
 import fm.corus.android.data.model.*
+import fm.corus.android.data.repository.parseUnifiedTrack
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 import java.util.Date
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -92,6 +94,114 @@ internal fun parseTasteMatchesGate(data: Map<String, Any?>?): TasteMatchesGateIn
  */
 internal fun feedModeUsesRankedSession(feedMode: String): Boolean =
     feedMode == "trending" || feedMode == "tasteMatches"
+
+/**
+ * Extracts the artist id whose name *exactly* matches [name] (trimmed,
+ * case-insensitive) from a `searchSongs` response's `artists` array
+ * (`[{id, name, imageUrl}]`). Null when there's no exact match — the caller
+ * must never guess an id from a fuzzy result. Top-level + pure so it's
+ * unit-tested without mocking FirebaseFunctions (mirrors the destination-page
+ * parsers below).
+ */
+internal fun parseArtistIdByNameResponse(data: Map<String, Any?>?, name: String): String? {
+    val artists = data?.get("artists") as? List<*> ?: return null
+    val want = name.trim().lowercase()
+    for (entry in artists) {
+        val artist = entry as? Map<*, *> ?: continue
+        val id = (artist["id"] as? String)?.takeIf { it.isNotEmpty() } ?: continue
+        val candidate = (artist["name"] as? String)?.trim()?.lowercase() ?: continue
+        if (candidate == want) return id
+    }
+    return null
+}
+
+// ── Artist / Album / Director destination-page parsers ───────────────────────
+// Pure map→model parsers for the six destination callables, kept top-level so
+// they can be unit-tested without mocking FirebaseFunctions (same pattern as
+// parseBackCoverResponse / parseForYouFeedResponse above). All are defensive:
+// unexpected shapes degrade to nulls/empties instead of throwing.
+
+@Suppress("UNCHECKED_CAST")
+internal fun parseArtistDetailResponse(data: Map<String, Any?>?): ArtistDetail? {
+    val artist = data?.get("artist") as? Map<String, Any?> ?: return null
+    val id = (artist["id"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+    return ArtistDetail(
+        id = id,
+        name = artist["name"] as? String ?: "",
+        imageUrl = (artist["imageUrl"] as? String)?.ifEmpty { null },
+        genres = (artist["genres"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+        topTracks = (data["topTracks"] as? List<Map<String, Any?>>)
+            ?.mapNotNull { parseUnifiedTrack(it) } ?: emptyList(),
+        albums = (data["albums"] as? List<Map<String, Any?>>)
+            ?.mapNotNull { AlbumSummary.fromMap(it) } ?: emptyList(),
+    )
+}
+
+@Suppress("UNCHECKED_CAST")
+internal fun parseAlbumCatalogResponse(data: Map<String, Any?>?): AlbumCatalog? {
+    val album = data?.get("album") as? Map<String, Any?> ?: return null
+    val id = (album["id"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+    return AlbumCatalog(
+        id = id,
+        title = album["title"] as? String ?: "",
+        artistName = album["artistName"] as? String ?: "",
+        artistIds = (album["artistIds"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotEmpty() }
+            ?: emptyList(),
+        year = (album["year"] as? Number)?.toInt(),
+        coverUrl = (album["coverUrl"] as? String)?.ifEmpty { null },
+        tracks = (data["tracks"] as? List<Map<String, Any?>>)
+            ?.mapNotNull { parseUnifiedTrack(it) } ?: emptyList(),
+    )
+}
+
+@Suppress("UNCHECKED_CAST")
+internal fun parseDirectorDetailResponse(data: Map<String, Any?>?): DirectorDetail? {
+    val director = data?.get("director") as? Map<String, Any?> ?: return null
+    val id = (director["id"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+    return DirectorDetail(
+        id = id,
+        name = director["name"] as? String ?: "",
+        imageUrl = (director["imageUrl"] as? String)?.ifEmpty { null },
+        knownFor = director["knownFor"] as? String ?: "",
+        biography = director["biography"] as? String ?: "",
+        films = (data["films"] as? List<Map<String, Any?>>)
+            ?.mapNotNull { DirectorFilm.fromMap(it) } ?: emptyList(),
+    )
+}
+
+/** getArtistPosts / getDirectorPosts share this response shape. */
+@Suppress("UNCHECKED_CAST")
+internal fun parseDestinationPostsResponse(
+    data: Map<String, Any?>?,
+): CloudFunctionsDataSource.DestinationPostsPage {
+    if (data == null) return CloudFunctionsDataSource.DestinationPostsPage()
+    val posts = (data["posts"] as? List<Map<String, Any?>>)
+        ?.map { CymbalPost.fromCloudData(it) } ?: emptyList()
+    val posters = (data["posters"] as? List<Map<String, Any?>>)
+        ?.mapNotNull { UserLite.fromMap(it) } ?: emptyList()
+    val viewerPosts = (data["viewerPosts"] as? List<Map<String, Any?>>)
+        ?.map { CymbalPost.fromCloudData(it) } ?: emptyList()
+    return CloudFunctionsDataSource.DestinationPostsPage(
+        posts = posts,
+        uniquePosterCount = (data["uniquePosterCount"] as? Number)?.toInt() ?: 0,
+        posters = posters,
+        viewerPosts = viewerPosts,
+    )
+}
+
+@Suppress("UNCHECKED_CAST")
+internal fun parseAlbumPostsResponse(
+    data: Map<String, Any?>?,
+): CloudFunctionsDataSource.AlbumPostsPage {
+    if (data == null) return CloudFunctionsDataSource.AlbumPostsPage()
+    val posts = (data["posts"] as? List<Map<String, Any?>>)
+        ?.map { CymbalPost.fromCloudData(it) } ?: emptyList()
+    return CloudFunctionsDataSource.AlbumPostsPage(
+        posts = posts,
+        uniquePosterCount = (data["uniquePosterCount"] as? Number)?.toInt() ?: 0,
+        firstPosterId = (data["firstPosterId"] as? String)?.ifEmpty { null },
+    )
+}
 
 /**
  * Wraps all Firebase callable Cloud Functions.
@@ -1004,6 +1114,8 @@ class CloudFunctionsDataSource @Inject constructor(
         limit: Int = 20,
         market: String = "US",
         includeSoundCloud: Boolean = true,
+        includeArtists: Boolean = false,
+        includeAlbums: Boolean = false,
     ): Map<String, Any?> {
         // `supports` declares which result sources this client can render.
         // Backend uses it to gate Apple-Music-only catalog results — old
@@ -1011,17 +1123,176 @@ class CloudFunctionsDataSource @Inject constructor(
         // SoundCloud only), so shipping this is back-compat-safe. The
         // server also gates Apple results on a Remote Config flag /
         // per-UID allowlist; declaring capability here doesn't bypass that.
-        val result = functions.getHttpsCallable("searchSongs").call(
-            mapOf(
-                "query" to query,
-                "offset" to offset,
-                "limit" to limit,
-                "market" to market,
-                "includeSoundCloud" to includeSoundCloud,
-                "supports" to listOf("spotify", "soundcloud", "applemusic"),
-            )
-        ).await()
+        val params = mutableMapOf<String, Any>(
+            "query" to query,
+            "offset" to offset,
+            "limit" to limit,
+            "market" to market,
+            "includeSoundCloud" to includeSoundCloud,
+            "supports" to listOf("spotify", "soundcloud", "applemusic"),
+        )
+        // Artist/album rows for the destination pages feature. Attached ONLY
+        // when requested (artist_pages_enabled on) — with the keys absent the
+        // backend response is byte-identical to today's, so flag-off clients
+        // can't be affected by the extension.
+        if (includeArtists) params["includeArtists"] = true
+        if (includeAlbums) params["includeAlbums"] = true
+        val result = functions.getHttpsCallable("searchSongs").call(params).await()
         return result.getData() as? Map<String, Any?> ?: emptyMap()
+    }
+
+    /**
+     * Resolve a Spotify artist id by *exact* (trimmed, case-insensitive) name
+     * match via `searchSongs`' includeArtists extension. Backs the song page's
+     * artist-line fallback for tracks with no artist ids anywhere
+     * (Apple-sourced tracks, legacy posts) so the line is still tappable when
+     * artist_pages_enabled is on. Null on no exact match / error — the caller
+     * degrades to plain text rather than guessing. Mirrors iOS
+     * `DestinationPagesService.resolveArtistIdByName`.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun resolveArtistIdByName(name: String): String? {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return null
+        return try {
+            val result = functions.getHttpsCallable("searchSongs").call(
+                mapOf(
+                    "query" to trimmed,
+                    "offset" to 0,
+                    "limit" to 1,
+                    "includeArtists" to true,
+                )
+            ).await()
+            parseArtistIdByNameResponse(result.getData() as? Map<String, Any?>, trimmed)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    // ── Artist / Album / Director destination pages ───────────────────────────
+    // Six read-only callables backing the artist/album/director pages (feature-
+    // flagged behind `artist_pages_enabled`; the backend is not flag-gated).
+    // Catalog responses are cached in-memory per id (~5 min) so pushing from a
+    // page to its see-all screen doesn't refetch — the server's own SWR caches
+    // handle everything beyond that.
+
+    /** getArtistPosts / getDirectorPosts response (identical shapes). */
+    data class DestinationPostsPage(
+        val posts: List<CymbalPost> = emptyList(),
+        val uniquePosterCount: Int = 0,
+        val posters: List<UserLite> = emptyList(),
+        val viewerPosts: List<CymbalPost> = emptyList(),
+    )
+
+    /** getAlbumPosts response. Posts arrive with isFirstPoster already stamped
+     *  server-side against [firstPosterId]. */
+    data class AlbumPostsPage(
+        val posts: List<CymbalPost> = emptyList(),
+        val uniquePosterCount: Int = 0,
+        val firstPosterId: String? = null,
+    )
+
+    private val artistDetailCache = ConcurrentHashMap<String, Pair<Long, ArtistDetail>>()
+    private val albumCatalogCache = ConcurrentHashMap<String, Pair<Long, AlbumCatalog>>()
+    private val directorDetailCache = ConcurrentHashMap<String, Pair<Long, DirectorDetail>>()
+
+    private fun <T> cachedCatalog(cache: ConcurrentHashMap<String, Pair<Long, T>>, id: String): T? {
+        val entry = cache[id] ?: return null
+        if (System.currentTimeMillis() - entry.first > DESTINATION_CATALOG_CACHE_TTL_MS) {
+            cache.remove(id)
+            return null
+        }
+        return entry.second
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchArtistDetail(artistId: String, artistName: String? = null): ArtistDetail {
+        cachedCatalog(artistDetailCache, artistId)?.let { return it }
+        val params = mutableMapOf<String, Any>("artistId" to artistId)
+        if (!artistName.isNullOrBlank()) params["artistName"] = artistName
+        val result = functions.getHttpsCallable("getArtistDetail").call(params).await()
+        val detail = parseArtistDetailResponse(result.getData() as? Map<String, Any?>)
+            ?: throw Exception("Invalid getArtistDetail response")
+        artistDetailCache[artistId] = System.currentTimeMillis() to detail
+        return detail
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchArtistPosts(
+        artistId: String,
+        artistName: String? = null,
+        pageSize: Int = 15,
+        beforeMs: Long? = null,
+        postersLimit: Int = 24,
+        includeViewerPosts: Boolean = false,
+    ): DestinationPostsPage {
+        val params = mutableMapOf<String, Any>(
+            "artistId" to artistId,
+            "pageSize" to pageSize,
+            "postersLimit" to postersLimit,
+        )
+        if (!artistName.isNullOrBlank()) params["artistName"] = artistName
+        beforeMs?.let { params["beforeMs"] = it }
+        if (includeViewerPosts) params["includeViewerPosts"] = true
+        val result = functions.getHttpsCallable("getArtistPosts").call(params).await()
+        return parseDestinationPostsResponse(result.getData() as? Map<String, Any?>)
+    }
+
+    /** [albumId] may be a Spotify album id OR `am:{appleAlbumId}` — always
+     *  passed through untouched; the backend branches on the prefix. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchAlbumCatalog(albumId: String): AlbumCatalog {
+        cachedCatalog(albumCatalogCache, albumId)?.let { return it }
+        val result = functions.getHttpsCallable("getAlbumCatalog")
+            .call(mapOf("albumId" to albumId)).await()
+        val catalog = parseAlbumCatalogResponse(result.getData() as? Map<String, Any?>)
+            ?: throw Exception("Invalid getAlbumCatalog response")
+        albumCatalogCache[albumId] = System.currentTimeMillis() to catalog
+        return catalog
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchAlbumPosts(
+        albumId: String,
+        pageSize: Int = 15,
+        beforeMs: Long? = null,
+    ): AlbumPostsPage {
+        val params = mutableMapOf<String, Any>("albumId" to albumId, "pageSize" to pageSize)
+        beforeMs?.let { params["beforeMs"] = it }
+        val result = functions.getHttpsCallable("getAlbumPosts").call(params).await()
+        return parseAlbumPostsResponse(result.getData() as? Map<String, Any?>)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchDirectorDetail(directorId: String): DirectorDetail {
+        cachedCatalog(directorDetailCache, directorId)?.let { return it }
+        val result = functions.getHttpsCallable("getDirectorDetail")
+            .call(mapOf("directorId" to directorId)).await()
+        val detail = parseDirectorDetailResponse(result.getData() as? Map<String, Any?>)
+            ?: throw Exception("Invalid getDirectorDetail response")
+        directorDetailCache[directorId] = System.currentTimeMillis() to detail
+        return detail
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchDirectorPosts(
+        directorId: String,
+        directorName: String? = null,
+        pageSize: Int = 15,
+        beforeMs: Long? = null,
+        postersLimit: Int = 24,
+        includeViewerPosts: Boolean = false,
+    ): DestinationPostsPage {
+        val params = mutableMapOf<String, Any>(
+            "directorId" to directorId,
+            "pageSize" to pageSize,
+            "postersLimit" to postersLimit,
+        )
+        if (!directorName.isNullOrBlank()) params["directorName"] = directorName
+        beforeMs?.let { params["beforeMs"] = it }
+        if (includeViewerPosts) params["includeViewerPosts"] = true
+        val result = functions.getHttpsCallable("getDirectorPosts").call(params).await()
+        return parseDestinationPostsResponse(result.getData() as? Map<String, Any?>)
     }
 
     // ── SoundCloud ──
@@ -1333,6 +1604,11 @@ class CloudFunctionsDataSource @Inject constructor(
         // never hang indefinitely on a slow/cold backend (matches iOS's 15s race).
         private const val SUGGESTED_USERS_TIMEOUT_MS = 15_000L
 
+        // Client-side TTL for the artist/album/director catalog caches. Short —
+        // it only needs to cover a page → see-all push; the server's own SWR
+        // caches (30m artist/director, 7d album) do the real work.
+        private const val DESTINATION_CATALOG_CACHE_TTL_MS = 5 * 60 * 1000L
+
         internal fun parsePlaylistTracksResponse(data: Map<String, Any?>): PlaylistTracksOutcome {
             val soundcloudSkipped = (data["soundcloudSkipped"] as? Number)?.toInt() ?: 0
             if (data["error"] != null && data["message"] != null) {
@@ -1353,6 +1629,24 @@ class CloudFunctionsDataSource @Inject constructor(
             }
             if (descriptors.isEmpty()) return PlaylistTracksOutcome.Failure(soundcloudSkipped)
             return PlaylistTracksOutcome.Tracks(descriptors, soundcloudSkipped, data["username"] as? String)
+        }
+
+        /** Request payload for the `generateHashtagPlaylist` callable. Shared by
+         *  the Spotify path and the client-side tracks path so the wire shape
+         *  stays pinned in one place (and testable — the backend key names are
+         *  exact-match, so a silent rename would regress the feature, not crash). */
+        internal fun hashtagPlaylistPayload(
+            hashtag: String,
+            fullExport: Boolean,
+            appleMusicTracks: Boolean,
+        ): Map<String, Any> {
+            val payload = mutableMapOf<String, Any>(
+                "hashtag" to hashtag,
+                "supportsPlaylistGating" to true,
+            )
+            if (appleMusicTracks) payload["appleMusicTracks"] = true
+            if (fullExport) payload["fullExport"] = true
+            return payload
         }
     }
 
@@ -1406,6 +1700,35 @@ class CloudFunctionsDataSource @Inject constructor(
         if (source != ProfilePlaylistSource.Posts) payload["source"] = source.wire
         if (fullExport) payload["fullExport"] = true
         val result = functions.getHttpsCallable("generateProfilePlaylist").call(payload).await()
+        val data = result.getData() as? Map<String, Any?> ?: return PlaylistTracksOutcome.Failure(0)
+        return parsePlaylistTracksResponse(data)
+    }
+
+    /** Hashtag-page playlist: the server builds a Spotify playlist from the
+     *  tag's track posts (newest first, deduped, film posts excluded
+     *  server-side). Mirrors [generateProfilePlaylist]. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun generateHashtagPlaylist(
+        hashtag: String,
+        // Lifts the backend's 75-track snapshot cap to export the whole tag.
+        fullExport: Boolean = false,
+    ): PlaylistResult {
+        val result = functions.getHttpsCallable("generateHashtagPlaylist")
+            .call(hashtagPlaylistPayload(hashtag, fullExport, appleMusicTracks = false)).await()
+        val data = result.getData() as? Map<String, Any?> ?: throw Exception("Invalid response")
+        return parsePlaylistResponse(data)
+    }
+
+    /** TIDAL variant of [generateHashtagPlaylist]: returns resolved track
+     *  descriptors for client-side playlist building on the user's account. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun generateHashtagPlaylistTracks(
+        hashtag: String,
+        // Lifts the backend's 75-track snapshot cap to export the whole tag.
+        fullExport: Boolean = false,
+    ): PlaylistTracksOutcome {
+        val result = functions.getHttpsCallable("generateHashtagPlaylist")
+            .call(hashtagPlaylistPayload(hashtag, fullExport, appleMusicTracks = true)).await()
         val data = result.getData() as? Map<String, Any?> ?: return PlaylistTracksOutcome.Failure(0)
         return parsePlaylistTracksResponse(data)
     }

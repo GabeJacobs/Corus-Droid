@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleNotificationIntent(intent)
+        handleWebLinkIntent(intent)
         enableEdgeToEdge()
 
         lifecycle.addObserver(LifecycleEventObserver { _, event ->
@@ -68,6 +69,25 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleNotificationIntent(intent)
+        handleWebLinkIntent(intent)
+    }
+
+    /**
+     * Handle an App Link / custom-scheme VIEW intent (e.g. the verified
+     * https://app.corus.fm/settings/club App Link, or corus://…). Parses the
+     * launch Uri into a [DeepLinkDestination] and routes it through the same
+     * pendingNotificationDestination channel [handleNotificationIntent] uses, so
+     * MainTabScreen navigates once it's composed. A notification intent doesn't
+     * also carry a VIEW Uri, so this never fights [handleNotificationIntent];
+     * the ACTION_VIEW guard keeps us from touching launcher/notification intents.
+     */
+    private fun handleWebLinkIntent(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val destination = DeepLinkHandler.parse(intent) ?: return
+        analyticsService.logDeepLinkOpened(destination.analyticsType())
+        _pendingNotificationDestination.value = destination
+        // Clear the data so a config-change relaunch doesn't re-navigate.
+        intent.data = null
     }
 
     private fun handleNotificationIntent(intent: Intent?) {

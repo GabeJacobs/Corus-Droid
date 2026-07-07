@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.explore
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -22,18 +23,30 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
+import fm.corus.android.data.model.MusicService
+import fm.corus.android.data.model.TrackSource
+import fm.corus.android.domain.shouldOfferHashtagFullExport
+import fm.corus.android.domain.shouldShowSpotifyPlaylistAlert
+import fm.corus.android.domain.usesSpotifyFallback
+import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.screens.profile.PlaylistExportChooserDialog
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +81,30 @@ fun HashtagFeedScreen(
     val isHeaderReady = hasLoadedAggregates && hasLoadedPostsPage && hasLoadedFollowState
     val topContributors by viewModel.topContributors.collectAsState()
     val gridState = rememberLazyGridState()
+
+    // ── Playlist export state (mirrors ProfileScreen's playlist button) ──
+    val context = LocalContext.current
+    val musicService by viewModel.musicServicePreference.current.collectAsState()
+    val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
+    val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
+    var showPlaylistAlert by remember { mutableStateOf(false) }
+    var showPlaylistChooser by remember { mutableStateOf(false) }
+    var showClubOffer by remember { mutableStateOf(false) }
+
+    LaunchedEffect(playlistError) {
+        if (playlistError != null) {
+            ToastManager.show(playlistError!!)
+            viewModel.nowPlayingManager.clearPlaylistError()
+        }
+    }
+
+    val paywallRequested by viewModel.nowPlayingManager.paywallRequested.collectAsState()
+    LaunchedEffect(paywallRequested) {
+        if (paywallRequested) {
+            showClubOffer = true
+            viewModel.nowPlayingManager.clearPaywallRequested()
+        }
+    }
 
     LaunchedEffect(hashtag) {
         viewModel.loadHashtagPosts(hashtag)
@@ -168,11 +205,44 @@ fun HashtagFeedScreen(
                     }
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                     if (isHeaderReady) {
-                        HashtagFollowButton(
-                            isFollowing = isFollowing,
-                            isEnabled = !isTogglingFollow,
-                            onClick = { viewModel.toggleFollow(hashtag) },
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                        ) {
+                            HashtagFollowButton(
+                                isFollowing = isFollowing,
+                                isEnabled = !isTogglingFollow,
+                                onClick = { viewModel.toggleFollow(hashtag) },
+                            )
+                            // Whether the tag has anything to build a playlist from.
+                            // totalCount includes film posts, but the server drops
+                            // those when it builds — a films-only tag just errors
+                            // with the backend's "No tracks" message.
+                            val hasSongs = totalCount > 0
+                            HashtagPlaylistButton(
+                                hasSongs = hasSongs,
+                                isGenerating = isGeneratingPlaylist,
+                                onClick = {
+                                    if (!hasSongs) {
+                                        ToastManager.show(context.getString(R.string.profile_toast_no_songs_for_playlist))
+                                    } else if (shouldOfferHashtagFullExport(totalCount)) {
+                                        // >75 eligible songs → quick-vs-all chooser, which also
+                                        // folds in the Spotify/SoundCloud caveat (no stacked popups).
+                                        showPlaylistChooser = true
+                                    } else {
+                                        // TIDAL builds on the user's own account (generates
+                                        // directly); Apple Music / Deezer and SoundCloud-on-
+                                        // Spotify still get the alert.
+                                        val hasSoundCloud = posts.any { it.isTrack && it.track.source == TrackSource.SOUNDCLOUD }
+                                        if (shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                                            showPlaylistAlert = true
+                                        } else {
+                                            viewModel.generateHashtagPlaylist(hashtag)
+                                        }
+                                    }
+                                },
+                            )
+                        }
                     } else {
                         Box(
                             modifier = Modifier
@@ -269,6 +339,81 @@ fun HashtagFeedScreen(
                     )
                 }
             }
+        }
+    }
+
+    if (showPlaylistAlert) {
+        val hasSoundCloud = posts.any { it.isTrack && it.track.source == TrackSource.SOUNDCLOUD }
+        AlertDialog(
+            onDismissRequest = { showPlaylistAlert = false },
+            title = { Text("Spotify Feature") },
+            text = {
+                Text(
+                    if (hasSoundCloud)
+                        "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
+                    else
+                        "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPlaylistAlert = false
+                    viewModel.generateHashtagPlaylist(hashtag)
+                }) { Text("Generate Spotify Playlist") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPlaylistAlert = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showPlaylistChooser) {
+        val hasSoundCloud = posts.any { it.isTrack && it.track.source == TrackSource.SOUNDCLOUD }
+        // Fold the service caveat into this one dialog so we never stack a second
+        // popup on the chooser — same construction as ProfileScreen.
+        val showSpotifyFallbackNote = usesSpotifyFallback(musicService)
+        val showSoundCloudNote = hasSoundCloud &&
+            (musicService == MusicService.SPOTIFY || showSpotifyFallbackNote)
+        val caveat = buildString {
+            if (showSpotifyFallbackNote) {
+                append("${musicService.displayLabel} can't build playlists, so this creates a Spotify playlist.")
+            }
+            if (showSoundCloudNote) {
+                if (isNotEmpty()) append(" ")
+                append("SoundCloud tracks are skipped.")
+            }
+        }
+        PlaylistExportChooserDialog(
+            count = totalCount,
+            caveat = caveat,
+            onQuick = {
+                showPlaylistChooser = false
+                viewModel.generateHashtagPlaylist(hashtag, fullExport = false)
+            },
+            onAll = {
+                showPlaylistChooser = false
+                viewModel.generateHashtagPlaylist(hashtag, fullExport = true)
+            },
+            onDismiss = { showPlaylistChooser = false },
+        )
+    }
+
+    // ── Club Offer Paywall ──
+    if (showClubOffer) {
+        val clubSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showClubOffer = false },
+            sheetState = clubSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            CorusSystemBars()
+            fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
+                source = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT,
+                onDismiss = { showClubOffer = false },
+            )
         }
     }
 }
@@ -490,5 +635,63 @@ private fun HashtagFollowButton(
         modifier = Modifier.height(30.dp),
     ) {
         Text(text = label, style = CorusFont.buttonSmall)
+    }
+}
+
+/**
+ * Playlist export pill — visually identical to the profile page's PLAYLIST
+ * button (music-note-list icon + label in a 30dp bordered pill, spinner while
+ * generating, dimmed when the tag has no songs). Click gating (no-songs toast,
+ * chooser, Spotify alert) lives at the call site, mirroring ProfileScreen.
+ */
+@Composable
+private fun HashtagPlaylistButton(
+    hasSongs: Boolean,
+    isGenerating: Boolean,
+    onClick: () -> Unit,
+) {
+    // Responsive pill padding — same breakpoint as the profile header.
+    val playlistHPad = if (LocalConfiguration.current.screenWidthDp >= 400) CorusSpacing.xxl else CorusSpacing.md
+    Box(
+        modifier = Modifier
+            .height(30.dp)
+            .clip(RoundedCornerShape(50))
+            .background(Color.Transparent)
+            .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
+            .clickable(enabled = !isGenerating, onClick = onClick)
+            .padding(horizontal = playlistHPad),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Always render label to preserve button width
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+            modifier = Modifier.alpha(
+                if (!hasSongs) 0.35f
+                else if (isGenerating) 0f
+                else 1f
+            ),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_music_note_list),
+                contentDescription = stringResource(R.string.profile_cd_playlist),
+                modifier = Modifier.size(14.dp),
+                tint = CorusColors.Secondary,
+            )
+            Text(
+                // Title case, not the profile pill's all-caps — this button
+                // sits next to the title-case Follow button.
+                text = stringResource(R.string.hashtag_button_playlist),
+                style = CorusFont.button,
+                color = CorusColors.Secondary,
+            )
+        }
+        if (isGenerating) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
+                strokeWidth = 2.dp,
+                color = CorusColors.Secondary,
+            )
+        }
     }
 }

@@ -69,6 +69,21 @@
                 <data android:pathPrefix="/post/" />
                 <data android:pathPrefix="/u/" />
             </intent-filter>
+
+            <!-- Universal link: https://app.corus.fm — the web-app host. Kept in
+                 its own filter (a single intent-filter unions hosts and paths, so
+                 mixing app.corus.fm here with corus.fm above would cross-apply the
+                 /post/ + /u/ prefixes to app.corus.fm and vice versa). Scoped to the
+                 EXACT /settings/club path (the Corus Club paywall) so we don't claim
+                 any other app.corus.fm link — see DeepLinkHandler.parseWebUrl. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="app.corus.fm" />
+                <data android:path="/settings/club" />
+            </intent-filter>
         </activity>
 
         <!-- TIDAL OAuth login (hosts the TIDAL web login, captures the

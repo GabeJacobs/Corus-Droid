@@ -107,6 +107,7 @@
     <string name="notifications_row_contact_joined">联系人加入</string>
     <string name="notifications_row_plays">播放</string>
     <string name="notifications_row_messages">消息</string>
+    <string name="notifications_row_reactions">回应</string>
     <string name="notifications_row_read_receipts">已读回执</string>
 
     <!-- Settings: Appearance -->
@@ -350,6 +351,7 @@
     <string name="profile_toast_no_songs_for_playlist">没有可用于创建歌单的歌曲</string>
     <string name="profile_button_edit">编辑资料</string>
     <string name="profile_button_playlist">歌单</string>
+    <string name="hashtag_button_playlist">歌单</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">粉丝</string>
     <string name="profile_stat_following">关注</string>
@@ -953,6 +955,7 @@
     <string name="hashtag_feed_empty">这个话题标签还没有内容</string>
     <string name="hashtag_feed_follow">关注</string>
     <string name="hashtag_feed_following">已关注</string>
+    <string name="hashtag_playlist_only_soundcloud">这个话题标签里只有 SoundCloud 歌曲，这些歌曲无法生成 Spotify 歌单。</string>
 
     <!-- Navigation / tabs -->
     <string name="nav_toast_caption_updated">文字说明已更新</string>
@@ -1018,4 +1021,47 @@
     <string name="feed_taste_matches_paywall_title">品味匹配</string>
     <string name="feed_taste_matches_paywall_body">从与你品味相同的人那里获得推荐，他们也喜欢你所爱的。</string>
     <string name="feed_taste_matches_paywall_cta">了解更多</string>
+
+    <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
+    <string name="search_tab_music">音乐</string>
+    <string name="search_tab_film">电影</string>
+    <string name="search_placeholder_music">搜索歌曲、艺人或专辑...</string>
+    <string name="search_placeholder_film">搜索电影或导演...</string>
+    <string name="destination_artist_label">艺人</string>
+    <string name="destination_director_label">导演</string>
+    <string name="destination_album_label">专辑</string>
+    <string name="destination_single_label">单曲</string>
+    <string name="destination_compilation_label">合辑</string>
+    <string name="destination_album_artist_format">专辑 · %1$s</string>
+    <plurals name="destination_shared_by_people">
+        <item quantity="other">%1$s人分享过</item>
+    </plurals>
+    <plurals name="destination_song_count">
+        <item quantity="other">%1$d首</item>
+    </plurals>
+    <string name="destination_who_shared_format">分享过%1$s的人</string>
+    <string name="destination_who_shared_artist">分享过这位艺人的人</string>
+    <string name="destination_who_shared_director">分享过这位导演的人</string>
+    <string name="destination_popular">热门</string>
+    <string name="destination_discography">音乐作品</string>
+    <string name="destination_filmography">电影作品</string>
+    <string name="destination_recent_posts">最新帖子</string>
+    <string name="destination_your_posts">你的帖子</string>
+    <string name="destination_see_all">查看全部</string>
+    <string name="destination_shared_from_album">来自这张专辑的分享</string>
+    <string name="destination_filter_albums">专辑</string>
+    <string name="destination_filter_singles_eps">单曲与EP</string>
+    <string name="destination_filter_compilations">合辑</string>
+    <string name="destination_music_attribution">封面、元数据和试听来自 Apple Music 和 Spotify。</string>
+    <string name="destination_film_attribution">电影数据来自 The Movie Database (TMDB)。</string>
+    <string name="destination_open_in_spotify">在 Spotify 中打开</string>
+    <string name="destination_posts_load_error">暂时无法加载帖子。</string>
+    <string name="destination_album_posts_load_error">无法加载这张专辑的帖子。</string>
+    <string name="destination_no_posts_artist">还没有这位艺人的帖子。</string>
+    <string name="destination_no_posts_director">还没有这位导演的帖子。</string>
+    <string name="destination_no_posts_album">还没有人发布这张专辑中的歌曲。</string>
+    <string name="destination_no_posts_yet">还没有帖子。</string>
+    <string name="destination_album_load_error">无法加载这张专辑。</string>
+    <string name="destination_catalog_load_error">暂时无法加载。</string>
+    <string name="destination_no_tracks">未找到这张专辑的歌曲。</string>
 </resources>

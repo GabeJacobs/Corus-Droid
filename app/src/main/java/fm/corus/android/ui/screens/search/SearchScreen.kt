@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
@@ -124,11 +125,20 @@ fun SearchScreen(
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit = { _, _, _ -> },
     onNavigateToContactFriends: () -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
+    onNavigateToArtist: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit = {},
+    onNavigateToAlbum: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit = {},
+    onNavigateToDirector: (fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit = {},
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val userResults by viewModel.userSearchResults.collectAsState()
     val songSearchResults by viewModel.songSearchResults.collectAsState()
     val filmSearchResults by viewModel.filmSearchResults.collectAsState()
+    val artistSearchResults by viewModel.artistSearchResults.collectAsState()
+    val albumSearchResults by viewModel.albumSearchResults.collectAsState()
+    val directorSearchResults by viewModel.directorSearchResults.collectAsState()
+    // Read once per composition — gates the tab labels, placeholders, and the
+    // artist/album/director rows. Flag off = the screen renders as before.
+    val artistPagesEnabled = viewModel.artistPagesEnabled
     val isSearching by viewModel.isSearching.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val trendingSongs by viewModel.trendingSongs.collectAsState()
@@ -292,8 +302,16 @@ fun SearchScreen(
             },
             onFocusChanged = { isSearchFocused = it },
             placeholder = when (activeTab) {
-                SearchTab.SONGS -> stringResource(fm.corus.android.R.string.search_placeholder_songs)
-                SearchTab.FILMS -> stringResource(fm.corus.android.R.string.search_placeholder_films)
+                // Artist pages on: songs/films placeholders widen to cover the
+                // new artist/album/director rows ("Music" / "Film" tabs).
+                SearchTab.SONGS -> stringResource(
+                    if (artistPagesEnabled) fm.corus.android.R.string.search_placeholder_music
+                    else fm.corus.android.R.string.search_placeholder_songs
+                )
+                SearchTab.FILMS -> stringResource(
+                    if (artistPagesEnabled) fm.corus.android.R.string.search_placeholder_film
+                    else fm.corus.android.R.string.search_placeholder_films
+                )
                 SearchTab.USERS -> stringResource(fm.corus.android.R.string.search_placeholder_users)
                 SearchTab.HASHTAGS -> stringResource(fm.corus.android.R.string.search_placeholder_hashtags)
             },
@@ -305,6 +323,7 @@ fun SearchScreen(
         SearchTabBar(
             selectedTab = activeTab,
             onTabSelected = { viewModel.setActiveTab(it.ordinal) },
+            artistPagesEnabled = artistPagesEnabled,
         )
 
         // Content area – a Box so the recent-searches overlay can sit on top
@@ -388,6 +407,10 @@ fun SearchScreen(
                                 tracks = songSearchResults,
                                 isSearching = isSearching,
                                 onSongTap = onNavigateToSong,
+                                artists = artistSearchResults,
+                                albums = albumSearchResults,
+                                onArtistTap = onNavigateToArtist,
+                                onAlbumTap = onNavigateToAlbum,
                             )
                         } else {
                             TrendingSongsContent(
@@ -408,6 +431,8 @@ fun SearchScreen(
                                 movies = filmSearchResults,
                                 isSearching = isSearching,
                                 onFilmTap = onNavigateToFilm,
+                                directors = directorSearchResults,
+                                onDirectorTap = onNavigateToDirector,
                             )
                         } else {
                             TrendingFilmsContent(
@@ -512,6 +537,10 @@ private fun SearchBarSection(
 private fun SearchTabBar(
     selectedTab: SearchTab,
     onTabSelected: (SearchTab) -> Unit,
+    /** Artist pages on: "Songs"→"Music" and "Films"→"Film" — the tabs now
+     *  cover artists/albums and directors too. Label-only; the enum (and every
+     *  ordinal-based dispatch) is untouched. */
+    artistPagesEnabled: Boolean = false,
 ) {
     val density = LocalDensity.current
     var tabRowWidth by remember { mutableIntStateOf(0) }
@@ -535,7 +564,12 @@ private fun SearchTabBar(
                         animationSpec = tween(200),
                         label = "tabTextColor",
                     )
-                    Text(text = stringResource(tab.labelRes), style = CorusFont.bodyMedium, color = textColor)
+                    val labelRes = when {
+                        artistPagesEnabled && tab == SearchTab.SONGS -> fm.corus.android.R.string.search_tab_music
+                        artistPagesEnabled && tab == SearchTab.FILMS -> fm.corus.android.R.string.search_tab_film
+                        else -> tab.labelRes
+                    }
+                    Text(text = stringResource(labelRes), style = CorusFont.bodyMedium, color = textColor)
                 }
             }
         }
@@ -1617,8 +1651,15 @@ private fun SongSearchResultsList(
     tracks: List<CymbalTrack>,
     isSearching: Boolean,
     onSongTap: (CymbalTrack) -> Unit,
+    /** Artist/album rows (artist_pages_enabled) rendered above the songs.
+     *  Always empty while the flag is off. */
+    artists: List<fm.corus.android.data.model.ArtistSummary> = emptyList(),
+    albums: List<fm.corus.android.data.model.AlbumSearchSummary> = emptyList(),
+    onArtistTap: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit = {},
+    onAlbumTap: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit = {},
 ) {
-    if (isSearching && tracks.isEmpty()) {
+    val hasCatalogRows = artists.isNotEmpty() || albums.isNotEmpty()
+    if (isSearching && tracks.isEmpty() && !hasCatalogRows) {
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
             items(8) { index ->
                 SkeletonSearchSongRow()
@@ -1627,12 +1668,51 @@ private fun SongSearchResultsList(
                 }
             }
         }
-    } else if (tracks.isEmpty()) {
+    } else if (tracks.isEmpty() && !hasCatalogRows) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(stringResource(fm.corus.android.R.string.search_no_songs_found), style = CorusFont.body, color = CorusColors.Secondary)
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
+            items(artists, key = { "artist-${it.id}" }) { artist ->
+                ArtistSearchRow(
+                    artist = artist,
+                    onClick = {
+                        onArtistTap(
+                            fm.corus.android.ui.navigation.ArtistPageRoute(
+                                artistId = artist.id,
+                                name = artist.name,
+                                imageUrl = artist.imageUrl,
+                            )
+                        )
+                    },
+                )
+            }
+            items(albums, key = { "album-${it.id}" }) { album ->
+                AlbumSearchRow(
+                    album = album,
+                    onClick = {
+                        onAlbumTap(
+                            fm.corus.android.ui.navigation.AlbumPageRoute(
+                                albumId = album.id,
+                                title = album.title,
+                                artist = album.artistName,
+                                coverUrl = album.coverUrl,
+                                year = album.year,
+                            )
+                        )
+                    },
+                )
+            }
+            if (hasCatalogRows && tracks.isNotEmpty()) {
+                item {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = CorusSpacing.xs),
+                        color = CorusColors.Divider,
+                        thickness = 0.5.dp,
+                    )
+                }
+            }
             itemsIndexed(tracks) { index, track ->
                 SongSearchRow(track = track, onClick = { onSongTap(track) })
                 if (index < tracks.lastIndex) {
@@ -1640,6 +1720,159 @@ private fun SongSearchResultsList(
                 }
             }
         }
+    }
+}
+
+// ── Artist / Album / Director search rows (artist_pages_enabled) ──
+
+@Composable
+private fun ArtistSearchRow(
+    artist: fm.corus.android.data.model.ArtistSummary,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .heightIn(min = CorusSpacing.touchTarget),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(CorusSpacing.albumArtSearch)
+                .clip(CircleShape)
+                .background(CorusColors.CardBackground),
+        ) {
+            if (artist.imageUrl != null) {
+                AsyncImage(
+                    model = artist.imageUrl,
+                    contentDescription = artist.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+        ) {
+            Text(artist.name, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                stringResource(fm.corus.android.R.string.destination_artist_label),
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                maxLines = 1,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = CorusColors.Tertiary,
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
+
+@Composable
+private fun AlbumSearchRow(
+    album: fm.corus.android.data.model.AlbumSearchSummary,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .heightIn(min = CorusSpacing.touchTarget),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(CorusSpacing.albumArtSearch)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                .background(CorusColors.CardBackground),
+        ) {
+            if (album.coverUrl != null) {
+                AsyncImage(
+                    model = album.coverUrl,
+                    contentDescription = album.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+        ) {
+            Text(album.title, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                stringResource(fm.corus.android.R.string.destination_album_artist_format, album.artistName),
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = CorusColors.Tertiary,
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
+
+@Composable
+private fun DirectorSearchRow(
+    director: fm.corus.android.data.model.ArtistSummary,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .heightIn(min = CorusSpacing.touchTarget),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(CorusSpacing.albumArtSearch)
+                .clip(CircleShape)
+                .background(CorusColors.CardBackground),
+        ) {
+            if (director.imageUrl != null) {
+                AsyncImage(
+                    model = director.imageUrl,
+                    contentDescription = director.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+        ) {
+            Text(director.name, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                stringResource(fm.corus.android.R.string.destination_director_label),
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                maxLines = 1,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = CorusColors.Tertiary,
+            modifier = Modifier.size(16.dp),
+        )
     }
 }
 
@@ -1692,8 +1925,12 @@ private fun FilmSearchResultsList(
     movies: List<CymbalMovie>,
     isSearching: Boolean,
     onFilmTap: (FilmDetailRoute) -> Unit,
+    /** Director rows (artist_pages_enabled) rendered above the films. Always
+     *  empty while the flag is off. */
+    directors: List<fm.corus.android.data.model.ArtistSummary> = emptyList(),
+    onDirectorTap: (fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit = {},
 ) {
-    if (isSearching && movies.isEmpty()) {
+    if (isSearching && movies.isEmpty() && directors.isEmpty()) {
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
             items(8) { index ->
                 SkeletonFilmRow()
@@ -1702,12 +1939,35 @@ private fun FilmSearchResultsList(
                 }
             }
         }
-    } else if (movies.isEmpty()) {
+    } else if (movies.isEmpty() && directors.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(stringResource(fm.corus.android.R.string.search_no_films_found), style = CorusFont.body, color = CorusColors.Secondary)
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
+            items(directors, key = { "director-${it.id}" }) { director ->
+                DirectorSearchRow(
+                    director = director,
+                    onClick = {
+                        onDirectorTap(
+                            fm.corus.android.ui.navigation.DirectorPageRoute(
+                                directorId = director.id,
+                                name = director.name,
+                                imageUrl = director.imageUrl,
+                            )
+                        )
+                    },
+                )
+            }
+            if (directors.isNotEmpty() && movies.isNotEmpty()) {
+                item {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = CorusSpacing.xs),
+                        color = CorusColors.Divider,
+                        thickness = 0.5.dp,
+                    )
+                }
+            }
             itemsIndexed(movies) { index, movie ->
                 FilmSearchResultRow(movie = movie, onClick = {
                     onFilmTap(FilmDetailRoute(

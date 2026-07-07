@@ -57,3 +57,10 @@ fun shouldOfferProfileFullExport(
     likesCount: Int?,
     savesCount: Int,
 ): Boolean = profilePlaylistEligibleCount(selectedSegment, trackCount, likesCount, savesCount) > 75
+
+/**
+ * Hashtag-page variant of [shouldOfferProfileFullExport]: same 75-song
+ * threshold, keyed on the tag's total post count (the server excludes film
+ * posts when it actually builds the playlist).
+ */
+fun shouldOfferHashtagFullExport(totalCount: Int): Boolean = totalCount > 75

@@ -80,8 +80,15 @@ class SearchViewModel @Inject constructor(
         if (_searchQuery.value.isNotBlank()) {
             when (tabIndex) {
                 0 -> _userSearchResults.value = emptyList()
-                1 -> _songSearchResults.value = emptyList()
-                2 -> _filmSearchResults.value = emptyList()
+                1 -> {
+                    _songSearchResults.value = emptyList()
+                    _artistSearchResults.value = emptyList()
+                    _albumSearchResults.value = emptyList()
+                }
+                2 -> {
+                    _filmSearchResults.value = emptyList()
+                    _directorSearchResults.value = emptyList()
+                }
                 3 -> _hashtagSearchResults.value = emptyList()
             }
         }
@@ -104,6 +111,23 @@ class SearchViewModel @Inject constructor(
 
     private val _filmSearchResults = MutableStateFlow<List<CymbalMovie>>(emptyList())
     val filmSearchResults: StateFlow<List<CymbalMovie>> = _filmSearchResults.asStateFlow()
+
+    // ── Artist / album / director search rows (artist_pages_enabled) ──
+    // Populated only while the flag is on; always empty otherwise so the
+    // search tabs render byte-identically to today with the flag off.
+
+    private val _artistSearchResults = MutableStateFlow<List<fm.corus.android.data.model.ArtistSummary>>(emptyList())
+    val artistSearchResults: StateFlow<List<fm.corus.android.data.model.ArtistSummary>> = _artistSearchResults.asStateFlow()
+
+    private val _albumSearchResults = MutableStateFlow<List<fm.corus.android.data.model.AlbumSearchSummary>>(emptyList())
+    val albumSearchResults: StateFlow<List<fm.corus.android.data.model.AlbumSearchSummary>> = _albumSearchResults.asStateFlow()
+
+    private val _directorSearchResults = MutableStateFlow<List<fm.corus.android.data.model.ArtistSummary>>(emptyList())
+    val directorSearchResults: StateFlow<List<fm.corus.android.data.model.ArtistSummary>> = _directorSearchResults.asStateFlow()
+
+    /** Live flag read — gates the search-row fetches, the tab labels, and the
+     *  placeholders. */
+    val artistPagesEnabled: Boolean get() = remoteConfigService.artistPagesEnabled
 
     private val _hashtagSearchResults = MutableStateFlow<List<CymbalHashtag>>(emptyList())
     val hashtagSearchResults: StateFlow<List<CymbalHashtag>> = _hashtagSearchResults.asStateFlow()
@@ -698,16 +722,39 @@ class SearchViewModel @Inject constructor(
                         userSearchCache[key] = results
                         _userSearchResults.value = results
                     }
-                    1 -> _songSearchResults.value = musicSearchRepository.search(
-                        query,
-                        includeSoundCloud = remoteConfigService.soundcloudEnabled,
-                    ).tracks
+                    1 -> {
+                        // Artist/album rows opt in ONLY while the flag is on —
+                        // with the params absent, the backend response (and
+                        // this tab) is byte-identical to today.
+                        val includeCatalogRows = remoteConfigService.artistPagesEnabled
+                        val page = musicSearchRepository.search(
+                            query,
+                            includeSoundCloud = remoteConfigService.soundcloudEnabled,
+                            includeArtists = includeCatalogRows,
+                            includeAlbums = includeCatalogRows,
+                        )
+                        _songSearchResults.value = page.tracks
+                        _artistSearchResults.value = page.artists
+                        _albumSearchResults.value = page.albums
+                    }
                     2 -> {
+                        // Director row (flag on): fetched in parallel with the
+                        // film search and best-effort — a person-search failure
+                        // must never error the films tab, so it degrades to an
+                        // empty row.
+                        val directorsDeferred: kotlinx.coroutines.Deferred<List<fm.corus.android.data.model.ArtistSummary>>? =
+                            if (remoteConfigService.artistPagesEnabled) {
+                                async {
+                                    runCatching { tmdbRepository.searchDirectors(query) }
+                                        .getOrDefault(emptyList())
+                                }
+                            } else null
                         val results = tmdbRepository.searchMovies(query)
                         val withDirectors = try {
                             tmdbRepository.prefetchDirectors(results)
                         } catch (_: Exception) { results }
                         _filmSearchResults.value = withDirectors
+                        _directorSearchResults.value = directorsDeferred?.await() ?: emptyList()
                     }
                     3 -> {
                         val key = query.trim().removePrefix("#").lowercase()
@@ -759,6 +806,9 @@ class SearchViewModel @Inject constructor(
         _songSearchResults.value = emptyList()
         _filmSearchResults.value = emptyList()
         _hashtagSearchResults.value = emptyList()
+        _artistSearchResults.value = emptyList()
+        _albumSearchResults.value = emptyList()
+        _directorSearchResults.value = emptyList()
         _isSearching.value = false
         _searchHasError.value = false
     }

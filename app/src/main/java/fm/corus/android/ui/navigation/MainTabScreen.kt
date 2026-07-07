@@ -254,6 +254,10 @@ fun MainTabScreen(
             }
             is DeepLinkDestination.Hashtag -> navController.navigate(HashtagFeedRoute(notificationDestination.tag))
             is DeepLinkDestination.ProfileByUsername -> navController.navigate(ProfileByUsernameRoute(notificationDestination.username))
+            // Corus Club paywall (app.corus.fm/settings/club, corus://club). The
+            // offer screen renders a member-specific CTA when the user is already a
+            // Club member, so the offer route is the correct target either way.
+            is DeepLinkDestination.Club -> navController.navigate(CymbalClubOfferRoute())
         }
         onNotificationDestinationConsumed()
     }

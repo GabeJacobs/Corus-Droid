@@ -163,7 +163,18 @@ data class CymbalPost(
                 id = data["trackId"] as? String ?: "",
                 name = data["trackName"] as? String ?: "",
                 artistName = data["artistName"] as? String ?: "",
+                // Per-artist Spotify IDs (mirrors the directorIds parsing below).
+                // Empty for SoundCloud and pre-backfill posts. Parsed defensively
+                // element-by-element — a mixed-type array can't crash the feed.
+                artistIds = (data["artistIds"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotEmpty() }
+                    ?: emptyList(),
                 albumName = data["albumName"] as? String ?: "",
+                // Spotify album id (or `am:<appleAlbumId>` for Apple-only tracks)
+                // stamped by the create-time trigger and serialized on every post
+                // read. Powers the "…" menu's "Go to Album" row. Absent/"" on
+                // SoundCloud and pre-backfill posts -> null (row hidden). Read-only
+                // on the client — never written. Mirrors iOS post decoder.
+                albumId = (data["albumId"] as? String)?.ifEmpty { null },
                 albumArtURL = data["albumArtThumbnailURL"] as? String ?: data["albumArtURL"] as? String,
                 albumArtLargeURL = data["albumArtLargeURL"] as? String,
                 spotifyURI = if (isTrackSoundCloud) "" else (data["spotifyURI"] as? String ?: ""),

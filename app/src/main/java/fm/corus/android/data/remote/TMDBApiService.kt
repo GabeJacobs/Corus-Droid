@@ -60,6 +60,17 @@ class TMDBApiService @Inject constructor(
         val body = callTmdb(mapOf("action" to "credits", "movieId" to movieId))
         return json.decodeFromString(body)
     }
+
+    /**
+     * TMDB person search for the director row atop the Film search tab
+     * (artist-pages feature). Uses the proxy's `personSearch` action; the
+     * caller filters to name matches + Directing preference client-side,
+     * mirroring the web implementation.
+     */
+    suspend fun searchPeople(query: String): TMDBPersonSearchResponse {
+        val body = callTmdb(mapOf("action" to "personSearch", "query" to query))
+        return json.decodeFromString(body)
+    }
 }
 
 // ── TMDB Response Models ──
@@ -211,4 +222,17 @@ data class TMDBCountry(
 data class TMDBCastEntry(
     val name: String,
     val character: String,
+)
+
+@Serializable
+data class TMDBPersonSearchResponse(
+    val results: List<TMDBPerson> = emptyList(),
+)
+
+@Serializable
+data class TMDBPerson(
+    val id: Int = 0,
+    val name: String = "",
+    @SerialName("profile_path") val profilePath: String? = null,
+    @SerialName("known_for_department") val knownForDepartment: String? = null,
 )

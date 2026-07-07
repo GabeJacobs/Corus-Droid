@@ -135,6 +135,7 @@ class AnalyticsService @Inject constructor(
     fun logPostUnsaved(postId: String, mediaType: String) = logEvent("post_unsaved", mapOf("post_id" to postId, "media_type" to mediaType))
     fun logPostDeleted(postId: String, mediaType: String) = logEvent("post_deleted", mapOf("post_id" to postId, "media_type" to mediaType))
     fun logPostShared(postId: String, mediaType: String, method: String) = logEvent("post_shared", mapOf("post_id" to postId, "media_type" to mediaType, "share_method" to method))
+    fun logSongShared(trackId: String, method: String) = logEvent("song_shared", mapOf("track_id" to trackId, "share_method" to method))
     fun logCaptionEdited(postId: String) = logEvent("caption_edited", mapOf("post_id" to postId))
     fun logLikesListViewed(postId: String) = logEvent("likes_list_viewed", mapOf("post_id" to postId))
     fun logVoiceNoteRecorded() = logEvent("voice_note_recorded")
@@ -191,6 +192,7 @@ class AnalyticsService @Inject constructor(
     fun logProfileSegmentChanged(segment: String) = logEvent("profile_segment_changed", mapOf("segment" to segment))
     fun logFeedPlaylistTapped() = logEvent("feed_playlist_tapped")
     fun logProfilePlaylistTapped(userId: String) = logEvent("profile_playlist_tapped", mapOf("user_id" to userId))
+    fun logHashtagPlaylistTapped(hashtag: String) = logEvent("hashtag_playlist_tapped", mapOf("hashtag" to hashtag))
     fun logFollowError(targetUserId: String, error: String) = logEvent("follow_error", mapOf("target_user_id" to targetUserId, "error" to error.take(100)))
     fun logProfileUpdateError(error: String) = logEvent("profile_update_error", mapOf("error" to error.take(100)))
 
@@ -235,6 +237,23 @@ class AnalyticsService @Inject constructor(
         }
     }
     fun logTrailerLinkTapped(filmId: String) = logEvent("trailer_link_tapped", mapOf("film_id" to filmId))
+
+    // MARK: - Artist / Album destination pages
+    // Names + params match web/iOS exactly (artist_page_viewed etc.) so GA4
+    // reports compare the pages cross-platform. These six are the complete set.
+
+    fun logArtistPageViewed(artistId: String) =
+        logEvent("artist_page_viewed", mapOf("artist_id" to artistId))
+    fun logAlbumPageViewed(albumId: String) =
+        logEvent("album_page_viewed", mapOf("album_id" to albumId))
+    fun logArtistSongPreviewed(artistId: String, trackId: String) =
+        logEvent("artist_song_previewed", mapOf("artist_id" to artistId, "track_id" to trackId))
+    fun logAlbumTrackPreviewed(albumId: String, trackId: String) =
+        logEvent("album_track_previewed", mapOf("album_id" to albumId, "track_id" to trackId))
+    fun logPostFromArtistPage(artistId: String, trackId: String) =
+        logEvent("post_from_artist_page", mapOf("artist_id" to artistId, "track_id" to trackId))
+    fun logPostFromAlbum(albumId: String, trackId: String) =
+        logEvent("post_from_album", mapOf("album_id" to albumId, "track_id" to trackId))
 
     // MARK: - Notification / Message Events
 

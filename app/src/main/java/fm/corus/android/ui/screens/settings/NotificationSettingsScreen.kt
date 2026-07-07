@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.HowToReg
@@ -119,6 +120,13 @@ fun NotificationSettingsScreen(
                 title = stringResource(R.string.notifications_row_messages),
                 checked = settings.messagePush,
                 onCheckedChange = viewModel::setMessagePush,
+            )
+
+            NotifToggleRow(
+                icon = Icons.Filled.AddReaction,
+                title = stringResource(R.string.notifications_row_reactions),
+                checked = settings.reactions,
+                onCheckedChange = viewModel::setReactions,
             )
 
             NotifToggleRow(

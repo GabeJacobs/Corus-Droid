@@ -84,6 +84,13 @@ fun PostDetailScreen(
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
     onRepost: (CymbalPost) -> Unit = {},
+    /** Artist/director pages (artist_pages_enabled) — null while the flag is
+     *  off, which keeps the artist/director subtitle as plain text. */
+    onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)? = null,
+    onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)? = null,
+    /** Album page (artist_pages_enabled) — null while the flag is off, which
+     *  hides the "…" menu's "Go to Album" row. */
+    onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
 ) {
     val post by viewModel.post.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -212,6 +219,9 @@ fun PostDetailScreen(
                                     onNavigateToSong(currentPost.track)
                                 }
                             },
+                            onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
+                                currentPost, onNavigateToArtist, onNavigateToDirector,
+                            ),
                             onSpotifyTap = {
                                 if (currentPost.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
                                     val permalink = currentPost.track.soundcloudPermalinkUrl
@@ -400,6 +410,9 @@ fun PostDetailScreen(
         onRepost = onRepost,
         onPostDeleted = { onBack() },
         onCaptionSaved = { viewModel.loadPost(postId) },
+        artistPagesEnabled = onNavigateToArtist != null,
+        onNavigateToArtist = onNavigateToArtist,
+        onNavigateToAlbum = onNavigateToAlbum,
     )
 }
 
@@ -671,6 +684,9 @@ private fun PostDetailSongInfo(
     onSpotifyTap: () -> Unit = {},
     musicService: fm.corus.android.data.model.MusicService = fm.corus.android.data.model.MusicService.SPOTIFY,
     onTrailerTap: () -> Unit = {},
+    /** Tappable artist/director name (artist_pages_enabled). Same style as
+     *  plain text; the clickable consumes the tap so onSongTap doesn't fire. */
+    onSubtitleTap: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -697,6 +713,13 @@ private fun PostDetailSongInfo(
                 color = CorusColors.Secondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = if (onSubtitleTap != null) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onSubtitleTap,
+                    )
+                } else Modifier,
             )
         }
 

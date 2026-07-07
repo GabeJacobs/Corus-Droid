@@ -10,6 +10,7 @@ sealed class DeepLinkDestination {
     data class PostComment(val postId: String, val commentId: String) : DeepLinkDestination()
     data class Thread(val threadId: String, val otherUserId: String = "") : DeepLinkDestination()
     data class Hashtag(val tag: String) : DeepLinkDestination()
+    data object Club : DeepLinkDestination()
 
     fun analyticsType(): String = when (this) {
         is Profile -> "profile"
@@ -18,6 +19,7 @@ sealed class DeepLinkDestination {
         is PostComment -> "post_comment"
         is Thread -> "thread"
         is Hashtag -> "hashtag"
+        is Club -> "club"
     }
 }
 
@@ -30,7 +32,14 @@ object DeepLinkHandler {
     fun parse(uri: Uri): DeepLinkDestination? {
         return when (uri.scheme) {
             "corus" -> parseCorusScheme(uri)
-            "https" -> if (uri.host == "corus.fm") parseWebUrl(uri) else null
+            "https" -> when (uri.host) {
+                // corus.fm hosts the canonical share links (/post, /u). app.corus.fm
+                // is the web app; we only claim its /settings/club paywall path (any
+                // other app.corus.fm link returns null and falls through to the
+                // browser). Both hosts share parseWebUrl.
+                "corus.fm", "app.corus.fm" -> parseWebUrl(uri)
+                else -> null
+            }
             else -> null
         }
     }
@@ -41,6 +50,7 @@ object DeepLinkHandler {
             "post" -> uri.pathSegments.firstOrNull()?.let { DeepLinkDestination.Post(it) }
             "thread" -> uri.pathSegments.firstOrNull()?.let { DeepLinkDestination.Thread(it) }
             "hashtag" -> uri.pathSegments.firstOrNull()?.let { DeepLinkDestination.Hashtag(it) }
+            "club" -> DeepLinkDestination.Club
             else -> null
         }
     }
@@ -51,6 +61,9 @@ object DeepLinkHandler {
         return when (segments[0]) {
             "post" -> segments.getOrNull(1)?.let { DeepLinkDestination.Post(it) }
             "u" -> segments.getOrNull(1)?.let { DeepLinkDestination.ProfileByUsername(it) }
+            // app.corus.fm/settings/club -> Corus Club paywall. Only this exact
+            // /settings path is handled; other /settings/* links return null.
+            "settings" -> if (segments.getOrNull(1) == "club") DeepLinkDestination.Club else null
             else -> null
         }
     }

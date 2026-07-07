@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.filled.ContentCopy
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.*
@@ -48,6 +50,12 @@ fun PostActionMenu(
     onViewBackCover: () -> Unit = {},
     showBackCoverOption: Boolean = false,
     isBackCoverFlipped: Boolean = false,
+    /** `artist_pages_enabled` remote-config gate. When false, the "Go to Artist"
+     *  and "Go to Album" rows never show — same gate as the tappable artist
+     *  subtitle on the post card. */
+    artistPagesEnabled: Boolean = false,
+    onGoToArtist: () -> Unit = {},
+    onGoToAlbum: () -> Unit = {},
     onRepost: () -> Unit = {},
     onSharePost: () -> Unit = {},
     onCopyLink: () -> Unit = {},
@@ -115,6 +123,24 @@ fun PostActionMenu(
                     else R.string.post_menu_view_back_cover
                 ),
                 onClick = { onViewBackCover(); onDismiss() },
+            )
+        }
+
+        // Go to Artist / Go to Album (tracks only, behind artist_pages_enabled).
+        // Same gate as the tappable artist subtitle on the post card. Films never
+        // get these rows — they route to director/film pages elsewhere.
+        if (showGoToArtistRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
+            MenuRow(
+                icon = Icons.Filled.Person,
+                label = stringResource(R.string.post_menu_go_to_artist),
+                onClick = { onGoToArtist(); onDismiss() },
+            )
+        }
+        if (showGoToAlbumRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
+            MenuRow(
+                icon = Icons.Filled.Album,
+                label = stringResource(R.string.post_menu_go_to_album),
+                onClick = { onGoToAlbum(); onDismiss() },
             )
         }
 
@@ -186,6 +212,22 @@ fun PostActionMenu(
  */
 internal fun showPostReportBlockActions(isMine: Boolean, authorIsBot: Boolean): Boolean =
     !isMine && !authorIsBot
+
+/**
+ * Whether the "Go to Artist" row shows: track posts only (never films),
+ * `artist_pages_enabled` on, and the post carries at least one artist id.
+ * Films route to the director page from their own subtitle, not here.
+ */
+internal fun showGoToArtistRow(post: CymbalPost, artistPagesEnabled: Boolean): Boolean =
+    artistPagesEnabled && !post.isMovie && post.track.artistIds.any { it.isNotBlank() }
+
+/**
+ * Whether the "Go to Album" row shows: track posts only (never films),
+ * `artist_pages_enabled` on, and the post carries a non-blank albumId
+ * (absent/"" on SoundCloud and pre-backfill posts -> hidden).
+ */
+internal fun showGoToAlbumRow(post: CymbalPost, artistPagesEnabled: Boolean): Boolean =
+    artistPagesEnabled && !post.isMovie && !post.track.albumId.isNullOrBlank()
 
 @Composable
 private fun MenuRow(
