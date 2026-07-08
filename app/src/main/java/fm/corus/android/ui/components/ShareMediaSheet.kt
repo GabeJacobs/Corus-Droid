@@ -38,27 +38,36 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import fm.corus.android.R
+import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
+/** What the share sheet is sharing — a song or a film. Lets one sheet back both
+ *  the song detail and film detail screens. */
+sealed interface ShareMediaSubject {
+    data class Track(val track: CymbalTrack) : ShareMediaSubject
+    data class Film(val movie: CymbalMovie) : ShareMediaSubject
+}
+
 /**
- * Share sheet for a *song* (as opposed to a post), presented from the song
- * detail screen's top-bar. Mirrors [SharePostSheet]'s recipient picker and
- * reuses its cells/buttons, but shares a track: DMs send a `sharedTrack`
- * message (deep-links to the song page in-app) and external channels carry a
- * `corus.fm/song/{id}` link.
+ * Share sheet for *media* — a song or a film (as opposed to a post), presented
+ * from the song / film detail screen's top-bar. Mirrors [SharePostSheet]'s
+ * recipient picker and reuses its cells/buttons, but shares media: DMs send a
+ * `sharedTrack` / `sharedFilm` message (deep-links to the detail page in-app)
+ * and external channels carry a `corus.fm/song/{id}` or `corus.fm/film/{id}`
+ * link.
  *
- * Repost and Instagram Stories are intentionally omitted — a song page has no
+ * Repost and Instagram Stories are intentionally omitted — a detail page has no
  * underlying post to repost, and the Instagram card is built around a poster's
- * avatar + caption, which a bare song has neither of.
+ * avatar + caption, which bare media has neither of.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShareTrackSheet(
-    track: CymbalTrack,
+fun ShareMediaSheet(
+    subject: ShareMediaSubject,
     recentContacts: List<CymbalUser>,
     searchResults: List<CymbalUser>,
     isSearching: Boolean,
@@ -85,7 +94,10 @@ fun ShareTrackSheet(
         }
     }
 
-    val shareableLink = "https://corus.fm/song/${track.id}"
+    val shareableLink = when (subject) {
+        is ShareMediaSubject.Track -> "https://corus.fm/song/${subject.track.id}"
+        is ShareMediaSubject.Film -> "https://corus.fm/film/${subject.movie.id}"
+    }
 
     Column(
         modifier = Modifier
@@ -308,7 +320,7 @@ fun ShareTrackSheet(
                     item {
                         XShareButton {
                             onAnalyticsLog?.invoke("x")
-                            shareTrackToX(context, track)
+                            shareMediaToX(context, subject)
                         }
                     }
                     item {
@@ -339,12 +351,23 @@ fun ShareTrackSheet(
 }
 
 /**
- * Opens the X compose intent pre-filled with Shazam-style copy plus the song
+ * Opens the X compose intent pre-filled with Shazam-style copy plus the media
  * link, tagged `?ref=x`. Mirrors [SharePostSheet]'s post variant.
  */
-private fun shareTrackToX(context: Context, track: CymbalTrack) {
-    val text = "${track.name} by ${track.artistName} on @corusapp"
-    val url = "https://corus.fm/song/${track.id}?ref=x"
+private fun shareMediaToX(context: Context, subject: ShareMediaSubject) {
+    val (text, link) = when (subject) {
+        is ShareMediaSubject.Track ->
+            "${subject.track.name} by ${subject.track.artistName} on @corusapp" to
+                "https://corus.fm/song/${subject.track.id}"
+        is ShareMediaSubject.Film -> {
+            val t = if (subject.movie.directorName.isBlank())
+                "${subject.movie.title} on @corusapp"
+            else
+                "${subject.movie.title} by ${subject.movie.directorName} on @corusapp"
+            t to "https://corus.fm/film/${subject.movie.id}"
+        }
+    }
+    val url = "$link?ref=x"
     val intentUrl = "https://twitter.com/intent/tweet?text=${Uri.encode(text)}&url=${Uri.encode(url)}"
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(intentUrl))
     try {

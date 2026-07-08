@@ -195,6 +195,38 @@ class OtherProfileViewModelTest {
         verify(postRepository, never()).getProfilePosts(any(), any(), any(), anyOrNull(), anyOrNull())
     }
 
+    /**
+     * Shadow-ban containment relies on the NOT_FOUND branch bouncing WITHOUT the
+     * direct-read fallback. That exact branch can't be unit-tested here — a real
+     * FirebaseFunctionsException can't be instantiated in this plain-JUnit JVM
+     * (its static initializer fails), and the branch mirrors the already-shipped
+     * NOT_FOUND handling in CloudFunctionsDataSource.
+     *
+     * This guards the OTHER half — the regression risk my change introduced: a
+     * TRANSIENT (non-NOT_FOUND) getProfileData failure must STILL fall back to the
+     * legacy direct-read path and must NOT bounce to the unavailable state.
+     */
+    @Test
+    fun `loadProfile still falls back on a transient error and does not bounce`() = runTest {
+        val targetId = "transient1"
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenThrow(RuntimeException("network blip"))
+        whenever(userRepository.fetchUserProfile(eq(targetId)))
+            .thenReturn(makeUser(targetId, cymbalCount = 0))
+        whenever(postRepository.getProfilePosts(eq(targetId), any(), any(), anyOrNull(), anyOrNull()))
+            .thenReturn(emptyList())
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        // A transient error is NOT a ban — the profile still loads via the fallback.
+        assertEquals(false, viewModel.profileUnavailable.value)
+        assertEquals(targetId, viewModel.profile.value?.id)
+        verify(userRepository).fetchUserProfile(eq(targetId))
+    }
+
     @Test
     fun `loadProfile falls back to legacy path when getProfileData returns a null user`() = runTest {
         val targetId = "target2"

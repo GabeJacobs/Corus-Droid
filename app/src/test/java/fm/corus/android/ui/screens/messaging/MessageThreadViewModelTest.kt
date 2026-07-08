@@ -13,6 +13,7 @@ import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -461,6 +462,42 @@ class MessageThreadViewModelTest {
         assertEquals("corus squad", info?.name)
         assertEquals(listOf("user1", "m1", "m2"), info?.memberIds)
         assertEquals(setOf("m1", "m2"), viewModel.membersById.first().keys)
+    }
+
+    // ── Initial-load spinner (blank-page regression) ──
+
+    @Test
+    fun `isLoading stays true after load until the first message snapshot arrives`() = runTest {
+        // A hot flow we control so the listener is attached but hasn't delivered a
+        // snapshot yet — the state the DM thread showed as a blank white page.
+        val messagesFlow = MutableSharedFlow<List<CymbalMessage>>(extraBufferCapacity = 1)
+        whenever(messageRepository.listenToMessages(any())).doReturn(messagesFlow)
+        whenever(messageRepository.listenToRecipientUnreadCount(any(), any())).doReturn(emptyFlow())
+        whenever(messageRepository.listenToReadReceiptsEnabled(any())).doReturn(emptyFlow())
+
+        viewModel.loadMessages("thread1", "other")
+        advanceUntilIdle()
+
+        // Setup finished (profile fetch, mark-read) but no snapshot yet → still loading.
+        assertTrue("spinner should stay up until messages are ready", viewModel.isLoading.first())
+
+        // The first snapshot lands (even empty) → messages are ready, drop the spinner.
+        messagesFlow.emit(emptyList())
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.isLoading.first())
+    }
+
+    @Test
+    fun `isLoading clears when thread setup fails before the listener starts`() = runTest {
+        // No signed-in user + a blank threadId forces the getOrCreateThread path,
+        // which throws before startListening — the spinner must still come down.
+        whenever(authRepository.currentUserId).doReturn(null)
+
+        viewModel.loadMessages("", "other")
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.isLoading.first())
     }
 
     @Test

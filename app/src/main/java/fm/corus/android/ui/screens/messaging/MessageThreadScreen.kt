@@ -712,11 +712,14 @@ fun MessageThreadScreen(
 
         val bubbleHaptics = LocalHapticManager.current
         // Messages
-        LazyColumn(
-            state = listState,
+        Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
+        ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
             reverseLayout = true,
             contentPadding = PaddingValues(vertical = CorusSpacing.sm),
         ) {
@@ -806,6 +809,17 @@ fun MessageThreadScreen(
                         )
                     }
                 }
+            }
+        }
+
+            // Initial-load spinner: the message listener hasn't delivered its first
+            // snapshot yet, so `messages` is empty and the list would otherwise be a
+            // blank page. Mirrors ThreadListScreen's `isLoading && isEmpty` pattern.
+            if (isLoading && messages.isEmpty()) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = CorusColors.Accent,
+                )
             }
         }
 

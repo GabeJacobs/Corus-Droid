@@ -140,6 +140,7 @@ fun OtherProfileScreen(
     var showPlaylistAlert by remember { mutableStateOf(false) }
     var showPlaylistChooser by remember { mutableStateOf(false) }
     val isLoading by viewModel.isLoading.collectAsState()
+    val profileUnavailable by viewModel.profileUnavailable.collectAsState()
     val isFollowing by viewModel.isFollowing.collectAsState()
     val followsMe by viewModel.followsMe.collectAsState()
     val isBlocked by viewModel.isBlocked.collectAsState()
@@ -447,6 +448,37 @@ fun OtherProfileScreen(
             )
         },
     ) { padding ->
+        // Banned (shadow or hard) or deleted account: getProfileData returned
+        // NOT_FOUND, so the ViewModel bounced instead of loading. Show a neutral
+        // "unavailable" state — never the stale header — and stop here.
+        if (profileUnavailable) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.md),
+                ) {
+                    Text(
+                        stringResource(fm.corus.android.R.string.other_profile_unavailable_title),
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Text,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                    Text(
+                        stringResource(fm.corus.android.R.string.other_profile_unavailable_subtitle),
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            return@Scaffold
+        }
         val hasInitialData = initialDisplayName != null && initialUsername != null
         if (isLoading && profile == null) {
             if (hasInitialData) {

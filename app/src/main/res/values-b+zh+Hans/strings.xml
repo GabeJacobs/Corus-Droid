@@ -779,9 +779,11 @@
     <string name="post_menu_view_back_cover">查看封底</string>
     <string name="post_menu_repost">转发</string>
     <string name="post_menu_share">分享</string>
+    <string name="post_menu_save">保存</string>
+    <string name="post_menu_unsave">取消保存</string>
     <string name="post_menu_copy_link">复制链接</string>
     <string name="post_menu_edit_caption">编辑文字说明</string>
-    <string name="post_menu_delete_post">删除内容</string>
+    <string name="post_menu_delete_post">删除 Corus</string>
     <string name="post_menu_report">举报</string>
     <string name="post_menu_block_user">屏蔽用户</string>
     <string name="post_menu_clip_label_post_link">内容链接</string>
@@ -790,7 +792,7 @@
     <string name="post_menu_toast_post_sent">内容已发送！</string>
     <string name="post_menu_toast_link_copied">链接已复制</string>
     <string name="post_menu_toast_caption_updated">文字说明已更新</string>
-    <string name="post_menu_dialog_delete_title">删除内容</string>
+    <string name="post_menu_dialog_delete_title">删除 Corus</string>
     <string name="post_menu_dialog_delete_message">确定要删除这条内容吗？此操作无法撤销。</string>
     <string name="post_menu_dialog_delete_confirm">删除</string>
     <string name="post_menu_dialog_delete_cancel">取消</string>
@@ -921,8 +923,8 @@
     <string name="club_plan_yearly">按年</string>
     <string name="club_plan_monthly_price_format">%1$s/月</string>
     <string name="club_plan_yearly_price_format">%1$s/年</string>
-    <string name="club_plan_monthly_default_price">$2.99</string>
-    <string name="club_plan_yearly_default_price">$19.99</string>
+    <string name="club_plan_monthly_default_price">$3.99</string>
+    <string name="club_plan_yearly_default_price">$29.99</string>
     <string name="club_cta_member">你已是会员！</string>
     <string name="club_cta_try_free_format">免费试用 %1$s</string>
     <string name="club_cta_join">加入 Club</string>
@@ -1025,8 +1027,8 @@
     <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
     <string name="search_tab_music">音乐</string>
     <string name="search_tab_film">电影</string>
-    <string name="search_placeholder_music">搜索歌曲、艺人或专辑...</string>
-    <string name="search_placeholder_film">搜索电影或导演...</string>
+    <string name="search_placeholder_music">搜索歌曲、艺人或专辑</string>
+    <string name="search_placeholder_film">搜索电影或导演</string>
     <string name="destination_artist_label">艺人</string>
     <string name="destination_director_label">导演</string>
     <string name="destination_album_label">专辑</string>
@@ -1044,6 +1046,7 @@
     <string name="destination_who_shared_director">分享过这位导演的人</string>
     <string name="destination_popular">热门</string>
     <string name="destination_music_videos">音乐视频</string>
+    <string name="destination_trailers">预告片</string>
     <string name="destination_show_more">显示更多</string>
     <string name="destination_show_less">收起</string>
     <string name="destination_discography">音乐作品</string>

@@ -475,8 +475,18 @@ class FeedViewModel @Inject constructor(
                     delay(500) // brief delay for Firestore propagation
                     loadFeed(refresh = true)
                 } else if (feedMode.value == "tasteMatches") {
-                    // Seeding the cold-start: fill the next slot optimistically.
+                    // Cold-start: fill the next slot optimistically (self-guards
+                    // on the NeedMorePosts gate).
                     handleTasteMatchesSeedPost()
+                    // "No matches yet": the fresh post can share an artist/director
+                    // with someone and flip the gate to a served feed. That overlap
+                    // is rebuilt by a backend trigger (~1-5s), so an immediate
+                    // refetch still reads "no matches" — poll until it serves
+                    // instead of stranding the user on the empty state until they
+                    // pull-to-refresh (they'd think they still have no matches).
+                    if (_tasteMatchesGate.value is TasteMatchesGate.NoMatchesYet) {
+                        beginTasteMatchesRematchAfterPost()
+                    }
                 }
             }
         }
@@ -919,6 +929,30 @@ class FeedViewModel @Inject constructor(
             // reconciled (real) post count.
             (_tasteMatchesGate.value as? TasteMatchesGate.NeedMorePosts)?.let {
                 refreshTasteMatchesSeedArt(it.threshold)
+            }
+            _tasteMatchesSeeding.value = false
+        }
+    }
+
+    /** A post arrived while resting on the "no matches yet" empty state. The new
+     *  post can share an artist/director with someone and flip the gate to a
+     *  served feed, but that overlap is recomputed from a backend trigger that
+     *  rebuilds the taste index (~1-5s), so an immediate refetch would still read
+     *  "no matches." Hold the loading skeleton (reusing `_tasteMatchesSeeding`,
+     *  which also survives the gated reloads) and poll the ranked feed until it
+     *  serves — or we exhaust retries and settle back on the empty state. Mirrors
+     *  the cold-start hand-off and iOS. */
+    private fun beginTasteMatchesRematchAfterPost() {
+        if (_tasteMatchesSeeding.value) return // a hand-off / poll is already running
+        _tasteMatchesSeeding.value = true
+        viewModelScope.launch {
+            for (attempt in 0 until 5) {
+                delay(if (attempt == 0) 600 else 1200) // let the taste-index trigger propagate
+                if (feedMode.value != "tasteMatches") break
+                if (_tasteMatchesGate.value !is TasteMatchesGate.NoMatchesYet) break
+                loadFeedSuspending(refresh = true)
+                if (feedMode.value != "tasteMatches") break
+                if (_tasteMatchesGate.value == null) break // served — feed is live
             }
             _tasteMatchesSeeding.value = false
         }

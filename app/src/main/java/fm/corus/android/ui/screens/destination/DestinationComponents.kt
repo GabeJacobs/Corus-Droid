@@ -41,10 +41,13 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
+import fm.corus.android.data.model.CorusUserLink
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.FlairStyle
 import fm.corus.android.data.model.UserLite
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
@@ -139,6 +142,73 @@ internal fun SharedByPeopleRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = CorusColors.Tertiary,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+/**
+ * "{displayName} is on Corus" badge — a tappable Accent-tinted card shown when a
+ * catalog artist has been manually linked to a Corus user account. Placed below
+ * the hero and above "Shared by N people", mirroring web. Tapping opens the
+ * linked user's profile. Hidden by callers when there is no linked user.
+ */
+@Composable
+internal fun ArtistOnCorusBadge(
+    user: CorusUserLink,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg)
+            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+            .background(CorusColors.Accent.copy(alpha = 0.08f))
+            .border(
+                width = 1.dp,
+                color = CorusColors.Accent.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        UserAvatarView(
+            avatarURL = user.avatarUrl,
+            displayName = user.displayName,
+            size = 40.dp,
+        )
+
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(
+                    R.string.destination_artist_is_on_corus,
+                    user.displayName,
+                ),
+                style = CorusFont.username,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.xs))
+            UsernameWithFlair(
+                username = user.username,
+                isVerified = user.isVerified,
+                isClubMember = user.isClubMember,
+                flairStyle = FlairStyle.from(user.profileFlair),
+                isBot = user.isBot,
+                showAtPrefix = true,
+                style = CorusFont.captionMedium,
+                color = CorusColors.Secondary,
+            )
+        }
+
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
@@ -389,6 +459,10 @@ internal fun CatalogTrackRow(
     /** null → 52dp art leading (artist Popular); non-null → this 1-based
      *  number leading (album tracklist). */
     number: Int? = null,
+    /** The surrounding list (artist Popular or the album tracklist) as a queue,
+     *  so starting playback here rolls on through the rest — autoplay + a live
+     *  mini-player Next button. Empty falls back to single-track playback. */
+    queue: List<QueuedTrack> = emptyList(),
     onRowTap: () -> Unit,
     /** Fired when a NEW preview starts (not on pause/resume of the current
      *  track) — the analytics hook. */
@@ -406,20 +480,26 @@ internal fun CatalogTrackRow(
             nowPlaying.togglePlayPause()
         } else {
             scope.launch {
-                nowPlaying.play(
-                    trackId = track.id,
-                    trackName = track.name,
-                    artistName = track.artistName,
-                    albumArtURL = track.albumArtURL,
-                    albumArtLargeURL = track.albumArtLargeURL,
-                    previewUrl = track.previewUrl,
-                    spotifyURI = track.spotifyURI.ifBlank { null },
-                    spotifyWebURL = track.spotifyWebURL.ifBlank { null },
-                    isrc = track.isrc,
-                    source = track.source,
-                    soundcloudId = track.soundcloudId,
-                    soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
-                )
+                if (queue.isEmpty()) {
+                    nowPlaying.play(
+                        trackId = track.id,
+                        trackName = track.name,
+                        artistName = track.artistName,
+                        albumArtURL = track.albumArtURL,
+                        albumArtLargeURL = track.albumArtLargeURL,
+                        previewUrl = track.previewUrl,
+                        spotifyURI = track.spotifyURI.ifBlank { null },
+                        spotifyWebURL = track.spotifyWebURL.ifBlank { null },
+                        isrc = track.isrc,
+                        source = track.source,
+                        soundcloudId = track.soundcloudId,
+                        soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
+                    )
+                } else {
+                    // Play this track as part of the surrounding list so the
+                    // queue advances past it (mirrors the feed's playPreview).
+                    nowPlaying.play(track = track.toQueuedTrack(), queue = queue)
+                }
             }
             onPreviewStarted()
         }
@@ -583,6 +663,29 @@ internal fun CatalogTrackRow(
         }
     }
 }
+
+/**
+ * A catalog track as a [QueuedTrack] for now-playing. Catalog tracks have no
+ * source post, so the queue resolves and advances by track id (feed posts,
+ * which carry a `sourcePostId`, use the CymbalPost overloads instead). Mirrors
+ * the single-track play args in [CatalogTrackRow] so behaviour is identical
+ * whether or not a queue is supplied.
+ */
+internal fun CymbalTrack.toQueuedTrack() = QueuedTrack(
+    trackId = id,
+    trackName = name,
+    artistName = artistName,
+    albumArtURL = albumArtURL,
+    albumArtLargeURL = albumArtLargeURL,
+    previewUrl = previewUrl,
+    spotifyURI = spotifyURI.ifBlank { null },
+    spotifyWebURL = spotifyWebURL.ifBlank { null },
+    isrc = isrc,
+    sourcePostId = null,
+    source = source,
+    soundcloudId = soundcloudId,
+    soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+)
 
 /**
  * Muted data-credit footer. [spotifyRow] renders the "Open in Spotify" line

@@ -7,8 +7,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Style
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
@@ -18,7 +19,6 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,6 +51,9 @@ fun PostActionMenu(
     onViewBackCover: () -> Unit = {},
     showBackCoverOption: Boolean = false,
     isBackCoverFlipped: Boolean = false,
+    /** Whether the viewer has saved this post — labels the Save / Unsave row,
+     *  which only shows on other people's posts (own posts show Edit Caption). */
+    isSaved: Boolean = false,
     /** `artist_pages_enabled` remote-config gate. When false, the "Go to Artist"
      *  and "Go to Album" rows never show — same gate as the tappable artist
      *  subtitle on the post card. */
@@ -58,9 +61,8 @@ fun PostActionMenu(
     onGoToArtist: () -> Unit = {},
     onGoToAlbum: () -> Unit = {},
     onGoToDirector: () -> Unit = {},
-    onRepost: () -> Unit = {},
     onSharePost: () -> Unit = {},
-    onCopyLink: () -> Unit = {},
+    onToggleSave: () -> Unit = {},
     onEditCaption: () -> Unit = {},
     onDeletePost: () -> Unit = {},
     onReportPost: () -> Unit = {},
@@ -123,18 +125,6 @@ fun PostActionMenu(
             )
         }
 
-        // View Back / Front Cover (tracks only, when enabled via remote config)
-        if (!isMovie && showBackCoverOption) {
-            MenuRow(
-                icon = Icons.Outlined.Style,
-                label = stringResource(
-                    if (isBackCoverFlipped) R.string.post_menu_view_front_cover
-                    else R.string.post_menu_view_back_cover
-                ),
-                onClick = { onViewBackCover(); onDismiss() },
-            )
-        }
-
         // Go to Artist / Go to Album (tracks only, behind artist_pages_enabled).
         // Same gate as the tappable artist subtitle on the post card. Films never
         // get these rows — they route to director/film pages elsewhere.
@@ -153,43 +143,62 @@ fun PostActionMenu(
             )
         }
 
-        // Repost
-        MenuRow(
-            icon = Icons.Filled.Repeat,
-            label = stringResource(R.string.post_menu_repost),
-            onClick = { onRepost(); onDismiss() },
-        )
+        // View Back / Front Cover (tracks only, when enabled via remote config).
+        // Sits last in the discover group, right after Go to Album, to mirror
+        // iOS's "…" menu order.
+        if (!isMovie && showBackCoverOption) {
+            MenuRow(
+                icon = Icons.Outlined.Style,
+                label = stringResource(
+                    if (isBackCoverFlipped) R.string.post_menu_view_front_cover
+                    else R.string.post_menu_view_back_cover
+                ),
+                onClick = { onViewBackCover(); onDismiss() },
+            )
+        }
 
-        // Share
+        // ── Act on the post: Edit Caption (own) + Share ──
+        // A divider splits the discover rows above from the post actions below.
+        // This mirrors iOS's three-section menu: discover | act | destructive.
+        // Repost and Copy Link intentionally live only on the post card and share
+        // sheet (like iOS) — not in this menu.
+        HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(horizontal = CorusSpacing.lg))
+
+        if (isMine) {
+            MenuRow(
+                icon = Icons.Filled.Edit,
+                label = stringResource(R.string.post_menu_edit_caption),
+                onClick = { onEditCaption(); onDismiss() },
+            )
+        } else {
+            // Save / Unsave — other people's posts only (own posts show Edit
+            // Caption above). Same bookmark toggle as the post card, mirroring
+            // iOS's action section.
+            MenuRow(
+                icon = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                label = stringResource(
+                    if (isSaved) R.string.post_menu_unsave else R.string.post_menu_save
+                ),
+                onClick = { onToggleSave(); onDismiss() },
+            )
+        }
+
         MenuRow(
             icon = Icons.AutoMirrored.Filled.Send,
             label = stringResource(R.string.post_menu_share),
             onClick = { onSharePost(); onDismiss() },
         )
 
-        // Copy Link
-        MenuRow(
-            icon = Icons.Filled.ContentCopy,
-            label = stringResource(R.string.post_menu_copy_link),
-            onClick = { onCopyLink(); onDismiss() },
-        )
-
-        val showOwnerActions = isMine
+        // ── Destructive / social section ──
+        // Own posts: Delete. Other people's human-authored posts: Report + Block.
+        // Isolated below its own divider so the destructive row stands apart,
+        // matching iOS where "Delete Corus" sits alone at the bottom.
         val showReportBlockActions = showPostReportBlockActions(isMine = isMine, authorIsBot = post.user.isBot)
-
-        if (showOwnerActions || showReportBlockActions) {
+        if (isMine || showReportBlockActions) {
             HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(horizontal = CorusSpacing.lg))
         }
 
-        if (showOwnerActions) {
-            // Edit Caption
-            MenuRow(
-                icon = Icons.Filled.Edit,
-                label = stringResource(R.string.post_menu_edit_caption),
-                onClick = { onEditCaption(); onDismiss() },
-            )
-
-            // Delete
+        if (isMine) {
             MenuRow(
                 icon = Icons.Filled.Delete,
                 label = stringResource(R.string.post_menu_delete_post),
@@ -197,14 +206,12 @@ fun PostActionMenu(
                 onClick = { onDeletePost(); onDismiss() },
             )
         } else if (showReportBlockActions) {
-            // Report
             MenuRow(
                 icon = Icons.Filled.Flag,
                 label = stringResource(R.string.post_menu_report),
                 onClick = { onReportPost(); onDismiss() },
             )
 
-            // Block
             MenuRow(
                 icon = Icons.Filled.Block,
                 label = stringResource(R.string.post_menu_block_user),

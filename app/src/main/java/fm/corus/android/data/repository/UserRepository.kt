@@ -34,6 +34,10 @@ class UserRepository @Inject constructor(
         private const val PROFILE_TTL_MS = 5L * 60 * 1000      // 5 minutes — matches iOS
         private const val USERNAME_TTL_MS = 5L * 60 * 1000      // 5 minutes — matches iOS
         private const val SUGGESTED_MATCHES_TTL_MS = 4L * 60 * 60 * 1000 // 4 hours — matches iOS
+        // Stale-while-revalidate windows for the taste-matches rail first page —
+        // matches iOS DatabaseService (freshWindow 60s, maxAge 24h).
+        private const val TASTE_MATCHES_FRESH_WINDOW_MS = 60L * 1000        // 60s
+        private const val TASTE_MATCHES_MAX_AGE_MS = 24L * 60 * 60 * 1000   // 24 hours
     }
 
     // ── TTL Caches (matching iOS DatabaseService caching) ──
@@ -41,6 +45,15 @@ class UserRepository @Inject constructor(
     private val profileCache = ConcurrentHashMap<String, CacheEntry<CymbalUser>>()
     private val usernameCache = ConcurrentHashMap<String, CacheEntry<String>>() // username → uid
     @Volatile private var suggestedMatchesCache: CacheEntry<List<SuggestedUserMatch>>? = null
+
+    /** In-memory holder for the cached taste-matches FIRST page (userId-keyed). */
+    private data class CachedTasteMatchesFirstPage(
+        val userId: String,
+        val matches: List<SuggestedUserMatch>,
+        val nextCursor: String?,
+        val hasMore: Boolean,
+    )
+    @Volatile private var tasteMatchesFirstPageCache: CacheEntry<CachedTasteMatchesFirstPage>? = null
 
     // Cached following set (two-layer: in-memory + persisted to DataStore)
     private val _followingIds = MutableStateFlow<Set<String>>(emptySet())
@@ -460,13 +473,106 @@ class UserRepository @Inject constructor(
         return result
     }
 
-    /** One page of the live, cursor-paginated taste-matches list. No repo cache:
-     *  the backend snapshots the ranking per session so pages 2..N are cheap. */
+    /** One page of the live, cursor-paginated taste-matches list. No repo cache
+     *  on the callable itself: the backend snapshots the ranking per session so
+     *  pages 2..N are cheap. The rail separately caches the FIRST page (below)
+     *  for stale-while-revalidate instant paint. */
     suspend fun getTasteMatchesPage(
         cursor: String? = null,
         limit: Int = 15,
     ): fm.corus.android.data.model.TasteMatchesPage {
         return cloudFunctions.getTasteMatchesPage(limit = limit, cursor = cursor)
+    }
+
+    // ── Taste Matches Rail first-page cache (stale-while-revalidate, matches iOS) ──
+    //
+    // Caches ONLY the first page (cursor == null) of getTasteMatchesPage — its
+    // matches + nextCursor + hasMore + a fetchedAt — so the rail paints instantly
+    // on open instead of shimmering, then revalidates in the background. Two
+    // windows: FRESH_WINDOW (skip the revalidation on rapid re-opens) and MAX_AGE
+    // (too old to paint → fall back to a cold skeleton + fetch).
+
+    /** The cached first page, ready for instant paint. */
+    data class CachedTasteMatchesPage(
+        val matches: List<SuggestedUserMatch>,
+        val nextCursor: String?,
+        val hasMore: Boolean,
+        val fetchedAt: Long,
+    )
+
+    /** Loads the in-memory holder, hydrating it from DataStore on a cold start.
+     *  Returns null when there's no cache, it's for a different user, or it's
+     *  empty. TTL/max-age gating is the caller's job. */
+    private suspend fun loadTasteMatchesFirstPageCache(userId: String): CacheEntry<CachedTasteMatchesFirstPage>? {
+        tasteMatchesFirstPageCache?.let { if (it.value.userId == userId) return it }
+        val persisted = preferencesDataStore.loadTasteMatchesPageAsync(userId) ?: return null
+        if (persisted.matches.isEmpty()) return null
+        val entry = CacheEntry(
+            CachedTasteMatchesFirstPage(userId, persisted.matches, persisted.nextCursor, persisted.hasMore),
+            persisted.fetchedAt,
+        )
+        tasteMatchesFirstPageCache = entry
+        return entry
+    }
+
+    /**
+     * The cached first page to paint immediately, or null when there's nothing
+     * usable (no cache, signed out, wrong user, empty, or older than
+     * [TASTE_MATCHES_MAX_AGE_MS]). The user is resolved from the signed-in auth
+     * uid, matching iOS `getCachedTasteMatchesFirstPage`.
+     */
+    suspend fun getCachedTasteMatchesFirstPage(): CachedTasteMatchesPage? {
+        val uid = auth.currentUser?.uid ?: return null
+        val entry = loadTasteMatchesFirstPageCache(uid) ?: return null
+        if (entry.value.matches.isEmpty()) return null
+        if (!entry.isValid(TASTE_MATCHES_MAX_AGE_MS)) return null
+        return CachedTasteMatchesPage(
+            matches = entry.value.matches,
+            nextCursor = entry.value.nextCursor,
+            hasMore = entry.value.hasMore,
+            fetchedAt = entry.fetchedAt,
+        )
+    }
+
+    /** True when the cache is newer than [TASTE_MATCHES_FRESH_WINDOW_MS], so the
+     *  rail can skip the background revalidation. Mirrors iOS `isTasteMatchesCacheFresh`. */
+    suspend fun isTasteMatchesCacheFresh(): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+        val entry = loadTasteMatchesFirstPageCache(uid) ?: return false
+        return entry.isValid(TASTE_MATCHES_FRESH_WINDOW_MS)
+    }
+
+    /** Persists the first page in memory + DataStore (stamped now). No-op when
+     *  signed out. */
+    suspend fun cacheTasteMatchesFirstPage(page: fm.corus.android.data.model.TasteMatchesPage) {
+        val uid = auth.currentUser?.uid ?: return
+        tasteMatchesFirstPageCache = CacheEntry(
+            CachedTasteMatchesFirstPage(uid, page.matches, page.nextCursor, page.hasMore),
+        )
+        preferencesDataStore.persistTasteMatchesPage(page.matches, page.nextCursor, page.hasMore, uid)
+    }
+
+    /** Drops the first-page cache (memory + DataStore) so a taste change forces a
+     *  fresh fetch on next open. Mirrors iOS `invalidateTasteMatchesCache`. */
+    suspend fun invalidateTasteMatchesCache() {
+        tasteMatchesFirstPageCache = null
+        val uid = auth.currentUser?.uid ?: return
+        preferencesDataStore.clearTasteMatchesPage(uid)
+    }
+
+    /**
+     * A taste change (the viewer creating/deleting their own post) shifts BOTH
+     * the suggested-matches rail and the taste-matches rail — they derive from the
+     * same taste signal. Drop both first-page caches (memory + persisted) so the
+     * next open fetches fresh instead of serving a stale list across relaunches.
+     * Mirrors iOS, where `invalidateSuggestedMatchesCache()` also calls
+     * `invalidateTasteMatchesCache()`.
+     */
+    suspend fun invalidateTasteAndSuggestedMatchesCache() {
+        suggestedMatchesCache = null
+        val uid = auth.currentUser?.uid
+        if (uid != null) preferencesDataStore.clearSuggestedMatches(uid)
+        invalidateTasteMatchesCache()
     }
 
     // ── Popular ──
@@ -604,8 +710,30 @@ class UserRepository @Inject constructor(
         firestoreDataSource.submitFeedback(userId, type, subject, description, deviceInfo)
     }
 
-    suspend fun submitReport(reporterId: String, targetUserId: String?, postId: String?, reason: String, details: String) {
-        firestoreDataSource.submitReport(reporterId, targetUserId, postId, reason, details)
+    suspend fun submitReport(
+        reporterId: String,
+        targetUserId: String? = null,
+        postId: String? = null,
+        reason: String,
+        details: String,
+        contentType: String? = null,
+        contentId: String? = null,
+        commentPostId: String? = null,
+        contentAuthorId: String? = null,
+        threadId: String? = null,
+    ) {
+        firestoreDataSource.submitReport(
+            reporterId = reporterId,
+            targetUserId = targetUserId,
+            postId = postId,
+            reason = reason,
+            details = details,
+            contentType = contentType,
+            contentId = contentId,
+            commentPostId = commentPostId,
+            contentAuthorId = contentAuthorId,
+            threadId = threadId,
+        )
     }
 
     suspend fun subscribeToUserPosts(subscriberId: String, targetUserId: String) {
@@ -648,5 +776,6 @@ class UserRepository @Inject constructor(
         profileCache.clear()
         usernameCache.clear()
         suggestedMatchesCache = null
+        tasteMatchesFirstPageCache = null
     }
 }

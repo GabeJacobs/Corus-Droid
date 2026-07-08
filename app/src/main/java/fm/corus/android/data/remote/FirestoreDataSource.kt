@@ -1566,17 +1566,35 @@ class FirestoreDataSource @Inject constructor(
 
     // ── Reports ──
 
-    suspend fun submitReport(reporterId: String, targetUserId: String?, postId: String?, reason: String, details: String) {
-        firestore.collection("reports").add(
-            mapOf(
-                "reporterId" to reporterId,
-                "targetUserId" to targetUserId,
-                "postId" to postId,
-                "reason" to reason,
-                "details" to details,
-                "createdAt" to FieldValue.serverTimestamp(),
-            )
-        ).await()
+    suspend fun submitReport(
+        reporterId: String,
+        targetUserId: String? = null,
+        postId: String? = null,
+        reason: String,
+        details: String,
+        contentType: String? = null,
+        contentId: String? = null,
+        commentPostId: String? = null,
+        contentAuthorId: String? = null,
+        threadId: String? = null,
+    ) {
+        val data = hashMapOf<String, Any?>(
+            "reporterId" to reporterId,
+            "reason" to reason,
+            "details" to details,
+            "createdAt" to FieldValue.serverTimestamp(),
+        )
+        // Canonical fields the backend resolves on (contentType/contentId), plus
+        // locators for comment/message reports. Legacy targetUserId/postId kept
+        // for the post-report call sites the backend still normalizes.
+        contentType?.let { data["contentType"] = it }
+        contentId?.let { data["contentId"] = it }
+        targetUserId?.let { data["targetUserId"] = it }
+        postId?.let { data["postId"] = it }
+        commentPostId?.let { data["commentPostId"] = it }
+        contentAuthorId?.let { data["contentAuthorId"] = it }
+        threadId?.let { data["threadId"] = it }
+        firestore.collection("reports").add(data).await()
     }
 
     // ── Contacts ──

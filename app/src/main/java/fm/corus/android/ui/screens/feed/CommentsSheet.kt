@@ -394,6 +394,8 @@ private fun CommentsSheetContent(
             ReportSheet(
                 contentType = ReportContentType.COMMENT,
                 contentId = comment.id,
+                commentPostId = postId,
+                contentAuthorId = comment.user.id,
                 authRepository = viewModel.authRepository,
                 userRepository = viewModel.userRepository,
                 analyticsService = viewModel.analyticsService,
@@ -1153,6 +1155,13 @@ private fun CommentRow(
                             style = CorusFont.body.copy(fontSize = 15.sp),
                             onMentionTap = onMentionTap,
                             onHashtagTap = onHashtagTap,
+                            // Long-press the comment body → context menu (Copy /
+                            // Report / Block). The row's combinedClickable covers
+                            // the non-text areas; the text needs its own handler
+                            // because it otherwise consumes the press itself.
+                            onLongClick = if (canLongPress) {
+                                { showContextMenu = true }
+                            } else null,
                         )
                     }
 
@@ -1232,7 +1241,9 @@ private fun CommentRow(
                         }
                     }
 
-                    // "..." menu button for own comments (matching iOS)
+                    // "..." menu button for own comments (matching iOS). Others'
+                    // comments expose Copy/Report/Block via long-press instead (see
+                    // the row's combinedClickable) so the row stays visually clean.
                     if (isOwnComment) {
                         var showMenu by remember { mutableStateOf(false) }
                         Spacer(modifier = Modifier.width(CorusSpacing.sm))

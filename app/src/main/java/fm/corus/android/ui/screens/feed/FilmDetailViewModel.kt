@@ -1,14 +1,25 @@
 package fm.corus.android.ui.screens.feed
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import fm.corus.android.R
+import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.ui.components.ToastManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +33,10 @@ class FilmDetailViewModel @Inject constructor(
     val analyticsService: AnalyticsService,
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
+    private val authRepository: AuthRepository,
+    private val userRepository: UserRepository,
+    private val messageRepository: MessageRepository,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
@@ -58,6 +73,84 @@ class FilmDetailViewModel @Inject constructor(
     private var firstPosterId: String? = null
     private var paginationCursor: Long? = null
     private val pageSize = 15
+
+    // ── Share-a-film state + actions (mirrors SongDetailViewModel's track share;
+    // DMs a `sharedFilm` message deep-linking to the film page in-app). ──
+
+    private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+
+    private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+
+    private val _isShareSearching = MutableStateFlow(false)
+    val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
+
+    private val _isLoadingShareContacts = MutableStateFlow(true)
+    val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
+
+    private var shareSearchJob: Job? = null
+
+    fun loadRecentShareContacts() {
+        val userId = authRepository.currentUserId ?: return
+        _isLoadingShareContacts.value = true
+        viewModelScope.launch {
+            try {
+                val shareRecipients = runCatching { messageRepository.listShareRecipients(12) }.getOrDefault(emptyList())
+                val threadContacts = messageRepository.listThreads(userId).mapNotNull { it.otherUser }
+
+                val followFallback = if (rankShareContacts(shareRecipients, threadContacts, emptyList()).size < SHARE_CONTACTS_TARGET) {
+                    val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
+                    val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
+                    following + followers
+                } else {
+                    emptyList()
+                }
+
+                _recentShareContacts.value = rankShareContacts(shareRecipients, threadContacts, followFallback)
+            } catch (_: Exception) { }
+            _isLoadingShareContacts.value = false
+        }
+    }
+
+    fun searchShareUsers(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            shareSearchJob?.cancel()
+            _shareSearchResults.value = emptyList()
+            _isShareSearching.value = false
+            return
+        }
+
+        shareSearchJob?.cancel()
+        shareSearchJob = viewModelScope.launch {
+            _isShareSearching.value = true
+            delay(250)
+            try {
+                _shareSearchResults.value = userRepository.searchUsers(trimmed, includeFollowed = true)
+            } catch (_: Exception) {
+                _shareSearchResults.value = emptyList()
+            }
+            _isShareSearching.value = false
+        }
+    }
+
+    fun sendFilmToUser(userId: String, movie: CymbalMovie, message: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
+                messageRepository.sendSharedFilmMessage(
+                    threadId = threadId,
+                    fromUserId = currentUserId,
+                    text = message.trim(),
+                    movie = movie,
+                )
+            } catch (_: Exception) {
+                ToastManager.show(context.getString(R.string.feed_toast_failed_send_post))
+            }
+        }
+    }
 
     private val _movieHeader = MutableStateFlow<MovieHeaderInfo?>(null)
     val movieHeader: StateFlow<MovieHeaderInfo?> = _movieHeader.asStateFlow()

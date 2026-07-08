@@ -246,6 +246,8 @@ class AnalyticsService @Inject constructor(
         logEvent("artist_page_viewed", mapOf("artist_id" to artistId))
     fun logAlbumPageViewed(albumId: String) =
         logEvent("album_page_viewed", mapOf("album_id" to albumId))
+    fun logDirectorPageViewed(directorId: String) =
+        logEvent("director_page_viewed", mapOf("director_id" to directorId))
     fun logArtistSongPreviewed(artistId: String, trackId: String) =
         logEvent("artist_song_previewed", mapOf("artist_id" to artistId, "track_id" to trackId))
     fun logAlbumTrackPreviewed(albumId: String, trackId: String) =
@@ -254,8 +256,12 @@ class AnalyticsService @Inject constructor(
         logEvent("post_from_artist_page", mapOf("artist_id" to artistId, "track_id" to trackId))
     fun logPostFromAlbum(albumId: String, trackId: String) =
         logEvent("post_from_album", mapOf("album_id" to albumId, "track_id" to trackId))
+    fun logPostFromDirector(directorId: String, filmId: String) =
+        logEvent("post_from_director", mapOf("director_id" to directorId, "film_id" to filmId))
     fun logMusicVideoPlayed(artistId: String, videoId: String) =
         logEvent("music_video_played", mapOf("artist_id" to artistId, "video_id" to videoId))
+    fun logTrailerPlayed(directorId: String, videoId: String) =
+        logEvent("trailer_played", mapOf("director_id" to directorId, "video_id" to videoId))
 
     // MARK: - Notification / Message Events
 

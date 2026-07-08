@@ -1,7 +1,5 @@
 package fm.corus.android.ui.components
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -83,9 +81,8 @@ fun PostMenuSheets(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val postSentMsg = stringResource(R.string.post_menu_toast_post_sent)
-    val linkCopiedMsg = stringResource(R.string.post_menu_toast_link_copied)
     val captionUpdatedMsg = stringResource(R.string.post_menu_toast_caption_updated)
-    val postLinkLabel = stringResource(R.string.post_menu_clip_label_post_link)
+    val engagementStates by actions.engagementStates.collectAsState()
 
     // When Share is tapped from the "…" menu, we can't open the share sheet
     // immediately — two ModalBottomSheets in the same frame race and the new
@@ -160,6 +157,7 @@ fun PostMenuSheets(
     menuPost?.let { post ->
         val menuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val isOwn = actions.isOwnPost(post)
+        val isSaved = engagementStates[post.id]?.isSaved ?: false
 
         ModalBottomSheet(
             onDismissRequest = { onMenuPostChange(null) },
@@ -185,6 +183,7 @@ fun PostMenuSheets(
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
                 showBackCoverOption = actions.remoteConfig.vinylFlipEnabled && !post.isMovie && post.track.source != TrackSource.SOUNDCLOUD,
                 isBackCoverFlipped = backCoverStateFor(post.id).isFlipped,
+                isSaved = isSaved,
                 // Rows gate on the flag; the nav callbacks are non-null whenever
                 // the flag is on (screens pass them together, mirroring the
                 // artist-subtitle path). Tap helpers no-op if a callback is null.
@@ -200,13 +199,8 @@ fun PostMenuSheets(
                         scope.launchBackCoverFlip(state, post.id) { actions.fetchBackCover(it) }
                     }
                 },
-                onRepost = { onRepost(post) },
                 onSharePost = { pendingSharePost = post },
-                onCopyLink = {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText(postLinkLabel, "https://corus.fm/post/${post.id}"))
-                    ToastManager.show(linkCopiedMsg)
-                },
+                onToggleSave = { actions.toggleSave(post.id) },
                 onEditCaption = { onEditCaptionPostChange(post) },
                 onDeletePost = { onDeleteConfirmPostChange(post) },
                 onReportPost = { actions.reportPost(post.id, post.user.id) },

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
@@ -33,11 +34,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
@@ -180,25 +183,42 @@ fun TappableMentionText(
     overflow: TextOverflow = TextOverflow.Clip,
     onMentionTap: (String) -> Unit = {},
     onHashtagTap: (String) -> Unit = {},
+    // When set, a long-press anywhere on the text fires this (e.g. the comment
+    // context menu). Was impossible with ClickableText, which swallowed the
+    // press gesture so a long-press on the comment body never reached the row.
+    onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    ClickableText(
+    // Hand-rolled tap detection (replacing the deprecated ClickableText) so a
+    // single gesture pass handles BOTH mention/hashtag taps and the long-press —
+    // otherwise the two fight over the pointer and long-press never fires.
+    val layoutResult = remember { mutableStateOf<TextLayoutResult?>(null) }
+    Text(
         text = text,
         style = style.copy(color = CorusColors.Text),
         maxLines = maxLines,
         overflow = overflow,
-        modifier = modifier,
-        onClick = { offset ->
-            text.getStringAnnotations(tag = MENTION_TAG, start = offset, end = offset)
-                .firstOrNull()?.let { annotation ->
-                    onMentionTap(annotation.item)
-                    return@ClickableText
-                }
-            text.getStringAnnotations(tag = HASHTAG_TAG, start = offset, end = offset)
-                .firstOrNull()?.let { annotation ->
-                    onHashtagTap(annotation.item)
-                    return@ClickableText
-                }
+        onTextLayout = { layoutResult.value = it },
+        modifier = modifier.pointerInput(text, onLongClick) {
+            detectTapGestures(
+                onLongPress = onLongClick?.let { cb -> { _ -> cb() } },
+                onTap = { pos ->
+                    val layout = layoutResult.value
+                    if (layout != null) {
+                        val offset = layout.getOffsetForPosition(pos)
+                        val mention = text
+                            .getStringAnnotations(tag = MENTION_TAG, start = offset, end = offset)
+                            .firstOrNull()
+                        val hashtag = text
+                            .getStringAnnotations(tag = HASHTAG_TAG, start = offset, end = offset)
+                            .firstOrNull()
+                        when {
+                            mention != null -> onMentionTap(mention.item)
+                            hashtag != null -> onHashtagTap(hashtag.item)
+                        }
+                    }
+                },
+            )
         },
     )
 }

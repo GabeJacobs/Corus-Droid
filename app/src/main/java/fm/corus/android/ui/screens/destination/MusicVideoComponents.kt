@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,10 +53,11 @@ fun MusicVideoRail(
     onPlay: (MusicVideo) -> Unit,
     onClosePlayer: () -> Unit,
     onSeeAll: (() -> Unit)?,
+    title: String = stringResource(R.string.destination_music_videos),
 ) {
     Column {
         DestinationSectionHeader(
-            title = stringResource(R.string.destination_music_videos),
+            title = title,
             onSeeAll = onSeeAll,
         )
 
@@ -180,12 +182,19 @@ fun MusicVideoPlayerPanel(
             .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
             .background(Color.Black),
     ) {
-        InlineYouTubePlayer(
-            videoID = youtubeId,
-            modifier = Modifier.fillMaxSize(),
-            showControls = true,
-            onEnded = onClose,
-        )
+        // key() on the id so tapping a DIFFERENT video disposes the old WebView
+        // and creates a fresh one for the new id (mirrors web's keyed iframe).
+        // InlineYouTubePlayer loads the embed once in its factory and never
+        // reloads on a videoID change, so without this the first video keeps
+        // playing.
+        key(youtubeId) {
+            InlineYouTubePlayer(
+                videoID = youtubeId,
+                modifier = Modifier.fillMaxSize(),
+                showControls = true,
+                onEnded = onClose,
+            )
+        }
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)

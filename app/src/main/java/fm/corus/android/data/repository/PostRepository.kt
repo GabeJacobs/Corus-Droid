@@ -15,6 +15,7 @@ class PostRepository @Inject constructor(
     private val firestoreDataSource: FirestoreDataSource,
     private val storageDataSource: FirebaseStorageDataSource,
     private val subscriptionRepository: SubscriptionRepository,
+    private val userRepository: UserRepository,
 ) {
     // ── In-memory post cache (for instant caption display in sheets) ──
 
@@ -107,12 +108,21 @@ class PostRepository @Inject constructor(
     suspend fun fetchSongPostsFromCloud(
         trackId: String,
         spotifyURI: String? = null,
+        isrc: String? = null,
         trackName: String? = null,
         artistName: String? = null,
         pageSize: Int = 15,
         beforeMs: Long? = null,
     ): CloudFunctionsDataSource.SongPostsPage {
-        return cloudFunctions.fetchSongPostsFromCloud(trackId, spotifyURI, trackName, artistName, pageSize, beforeMs)
+        return cloudFunctions.fetchSongPostsFromCloud(
+            trackId = trackId,
+            spotifyURI = spotifyURI,
+            isrc = isrc,
+            trackName = trackName,
+            artistName = artistName,
+            pageSize = pageSize,
+            beforeMs = beforeMs,
+        )
     }
 
     suspend fun fetchMoviePostsFromCloud(
@@ -172,7 +182,12 @@ class PostRepository @Inject constructor(
             remove("__voiceUserId")
             if (voiceNoteURL != null) put("voiceNoteURL", voiceNoteURL)
         }
-        return cloudFunctions.createPost(effective)
+        val result = cloudFunctions.createPost(effective)
+        // A new post changes the viewer's taste, so the suggested + taste-matches
+        // rails' cached first pages are now stale — drop both so the next open
+        // fetches fresh. Mirrors iOS ComposeView.invalidateSuggestedMatchesCache().
+        userRepository.invalidateTasteAndSuggestedMatchesCache()
+        return result
     }
 
     suspend fun updateCaption(postId: String, caption: String, hashtags: List<String>) {
@@ -197,6 +212,10 @@ class PostRepository @Inject constructor(
         firestoreDataSource.deletePost(postId, userId)
         postCache.remove(postId)
         subscriptionRepository.decrementPostCount(cachedTimestamp)
+        // Deleting a post also changes the viewer's taste — drop both rails'
+        // cached first pages. Mirrors iOS DatabaseService.deletePost, which calls
+        // invalidateSuggestedMatchesCache() (which in turn invalidates taste).
+        userRepository.invalidateTasteAndSuggestedMatchesCache()
     }
 
     // ── Engagement ──

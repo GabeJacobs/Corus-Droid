@@ -84,6 +84,7 @@ class SearchViewModel @Inject constructor(
                     _songSearchResults.value = emptyList()
                     _artistSearchResults.value = emptyList()
                     _albumSearchResults.value = emptyList()
+                    _songsFirst.value = false
                 }
                 2 -> {
                     _filmSearchResults.value = emptyList()
@@ -121,6 +122,11 @@ class SearchViewModel @Inject constructor(
 
     private val _albumSearchResults = MutableStateFlow<List<fm.corus.android.data.model.AlbumSearchSummary>>(emptyList())
     val albumSearchResults: StateFlow<List<fm.corus.android.data.model.AlbumSearchSummary>> = _albumSearchResults.asStateFlow()
+
+    /** True when the query is a song-title search; the UI then renders album
+     *  rows below the songs so a direct song hit leads (see SearchScreen). */
+    private val _songsFirst = MutableStateFlow(false)
+    val songsFirst: StateFlow<Boolean> = _songsFirst.asStateFlow()
 
     private val _directorSearchResults = MutableStateFlow<List<fm.corus.android.data.model.ArtistSummary>>(emptyList())
     val directorSearchResults: StateFlow<List<fm.corus.android.data.model.ArtistSummary>> = _directorSearchResults.asStateFlow()
@@ -736,6 +742,7 @@ class SearchViewModel @Inject constructor(
                         _songSearchResults.value = page.tracks
                         _artistSearchResults.value = page.artists
                         _albumSearchResults.value = page.albums
+                        _songsFirst.value = page.songsFirst
                     }
                     2 -> {
                         // Director row (flag on): fetched in parallel with the
@@ -808,6 +815,7 @@ class SearchViewModel @Inject constructor(
         _hashtagSearchResults.value = emptyList()
         _artistSearchResults.value = emptyList()
         _albumSearchResults.value = emptyList()
+        _songsFirst.value = false
         _directorSearchResults.value = emptyList()
         _isSearching.value = false
         _searchHasError.value = false

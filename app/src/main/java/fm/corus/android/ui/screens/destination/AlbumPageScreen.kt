@@ -27,6 +27,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 import fm.corus.android.R
 import fm.corus.android.data.model.primaryNameHint
 import fm.corus.android.ui.components.CorusHeaderIconButton
@@ -78,6 +81,13 @@ fun AlbumPageScreen(
     val cover = catalog?.coverUrl ?: coverUrlHint
     val artistId = catalog?.artistIds?.firstOrNull()
 
+    // Full tracklist as a queue so tapping the cover (or a track row) plays the
+    // album and rolls on through the rest. `toQueuedTrack` is internal to this
+    // package.
+    val tracks = catalog?.tracks ?: emptyList()
+    val albumQueue = remember(tracks) { tracks.map { it.toQueuedTrack() } }
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(albumId) {
         viewModel.analyticsService.logAlbumPageViewed(albumId)
         viewModel.load(albumId)
@@ -105,11 +115,12 @@ fun AlbumPageScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
         ) {
-            // ── Header: cover, title, tappable artist, meta line ──
-            // NOTE: deliberately NO album-level Play button on Android — the
-            // app has no full-track playback tier for catalog browsing, and
-            // the spec only shows Play when full songs can play. Per-row
-            // preview play covers the tracklist.
+            // ── Header: cover (tap to play the album), title, tappable artist,
+            // meta line ──
+            // Tapping the cover plays the album as queued 30s previews (Android
+            // has no full-track tier), mirroring tapping the first track row.
+            // There's still no separate album Play button — the art tap is the
+            // affordance.
             item {
                 Column(
                     modifier = Modifier
@@ -125,7 +136,14 @@ fun AlbumPageScreen(
                             modifier = Modifier
                                 .size(200.dp)
                                 .shadow(4.dp, RoundedCornerShape(8.dp))
-                                .clip(RoundedCornerShape(8.dp)),
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(enabled = albumQueue.isNotEmpty()) {
+                                    val first = albumQueue.firstOrNull() ?: return@clickable
+                                    viewModel.analyticsService.logAlbumTrackPreviewed(albumId, first.trackId)
+                                    scope.launch {
+                                        viewModel.nowPlayingManager.play(track = first, queue = albumQueue)
+                                    }
+                                },
                             contentScale = ContentScale.Crop,
                         )
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
@@ -210,7 +228,6 @@ fun AlbumPageScreen(
                     }
                 }
             } else {
-                val tracks = catalog?.tracks ?: emptyList()
                 if (tracks.isEmpty()) {
                     item {
                         Text(
@@ -230,6 +247,7 @@ fun AlbumPageScreen(
                             track = track,
                             nowPlaying = viewModel.nowPlayingManager,
                             number = index + 1,
+                            queue = albumQueue,
                             onRowTap = {
                                 viewModel.analyticsService.logPostFromAlbum(albumId, track.id)
                                 onNavigateToSong(track.toSongDetailRoute())

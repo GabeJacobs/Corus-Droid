@@ -164,8 +164,14 @@ class MessageThreadViewModel @Inject constructor(
                     messageRepository.markThreadRead(resolvedId, userId)
                     startReadReceiptsListener(userId)
                 }
-            } catch (_: Exception) { }
-            _isLoading.value = false
+            } catch (_: Exception) {
+                // Setup failed before the message listener could deliver anything
+                // (e.g. not signed in, getOrCreateThread error). Clear the loading
+                // state so the thread doesn't spin forever. On the success path the
+                // spinner is cleared by startListening's first snapshot instead, so
+                // it stays up until messages are actually ready to render.
+                _isLoading.value = false
+            }
         }
     }
 
@@ -228,6 +234,9 @@ class MessageThreadViewModel @Inject constructor(
                     messageRepository.markThreadRead(currentThreadId ?: threadId, myId)
                 }
                 hasLoadedInitialMessages = true
+                // First snapshot has landed (even if empty) — messages are ready to
+                // render, so drop the initial-load spinner. No-op on later snapshots.
+                _isLoading.value = false
             }
         }
     }

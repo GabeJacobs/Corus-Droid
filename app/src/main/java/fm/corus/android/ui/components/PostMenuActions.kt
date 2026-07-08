@@ -3,6 +3,7 @@ package fm.corus.android.ui.components
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.domain.EngagementState
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.flow.StateFlow
@@ -21,12 +22,19 @@ interface PostMenuActions {
     val isShareSearching: StateFlow<Boolean>
     val isLoadingShareContacts: StateFlow<Boolean>
 
+    /** Live per-post engagement (like/save/counts) keyed by post id. The "…"
+     *  menu reads [EngagementState.isSaved] to label its Save / Unsave row. */
+    val engagementStates: StateFlow<Map<String, EngagementState>>
+
     fun isOwnPost(post: CymbalPost): Boolean
     fun loadRecentShareContacts()
     fun searchShareUsers(query: String)
     fun sendPostToUser(userId: String, post: CymbalPost, message: String)
     fun reportPost(postId: String, postUserId: String)
     fun blockUser(targetUserId: String)
+    /** Toggles the viewer's save (bookmark) on the post — same action as the
+     *  post card's bookmark button. Own posts show Edit Caption instead. */
+    fun toggleSave(postId: String)
     fun deletePost(postId: String)
     suspend fun fetchBackCover(postId: String): String?
 

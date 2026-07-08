@@ -136,6 +136,7 @@ internal fun parseArtistDetailResponse(data: Map<String, Any?>?): ArtistDetail? 
             ?.mapNotNull { AlbumSummary.fromMap(it) } ?: emptyList(),
         musicVideos = (data["musicVideos"] as? List<Map<String, Any?>>)
             ?.mapNotNull { MusicVideo.fromMap(it) } ?: emptyList(),
+        corusUser = (data["corusUser"] as? Map<String, Any?>)?.let { CorusUserLink.fromMap(it) },
     )
 }
 
@@ -168,6 +169,8 @@ internal fun parseDirectorDetailResponse(data: Map<String, Any?>?): DirectorDeta
         biography = director["biography"] as? String ?: "",
         films = (data["films"] as? List<Map<String, Any?>>)
             ?.mapNotNull { DirectorFilm.fromMap(it) } ?: emptyList(),
+        trailers = (data["trailers"] as? List<Map<String, Any?>>)
+            ?.mapNotNull { MusicVideo.fromMap(it) } ?: emptyList(),
     )
 }
 
@@ -717,6 +720,7 @@ class CloudFunctionsDataSource @Inject constructor(
     suspend fun fetchSongPostsFromCloud(
         trackId: String,
         spotifyURI: String? = null,
+        isrc: String? = null,
         trackName: String? = null,
         artistName: String? = null,
         pageSize: Int = 15,
@@ -724,6 +728,12 @@ class CloudFunctionsDataSource @Inject constructor(
     ): SongPostsPage {
         val params = mutableMapOf<String, Any>("trackId" to trackId, "pageSize" to pageSize)
         if (!spotifyURI.isNullOrBlank()) params["spotifyURI"] = spotifyURI
+        // ISRC lets getSongPosts match the SAME recording across store IDs — an
+        // Apple-catalog track (e.g. an artist-page "Popular" row, `am:` id, no
+        // spotifyURI) whose posts were made from Spotify. Without it, matching
+        // falls back to the store-specific trackId and the page wrongly reads
+        // "no one has posted this song yet."
+        if (!isrc.isNullOrBlank()) params["isrc"] = isrc
         if (!trackName.isNullOrBlank()) params["trackName"] = trackName
         if (!artistName.isNullOrBlank()) params["artistName"] = artistName
         beforeMs?.let { params["beforeMs"] = it }

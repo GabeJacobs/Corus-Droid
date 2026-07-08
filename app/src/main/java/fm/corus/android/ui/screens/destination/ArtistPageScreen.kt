@@ -13,16 +13,21 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -138,25 +143,27 @@ fun ArtistPageScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
         ) {
-            // ── Hero: artist image with name on a bottom gradient scrim ──
+            // ── Hero: full-bleed image with name on a bottom gradient scrim.
+            // Imageless artists (mostly featured-credit entities) get a compact
+            // name header instead of an empty card with a gradient over it. May
+            // upgrade to the full hero if the catalog fetch surfaces an image
+            // the navigation hint lacked. ──
             item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.lg)
-                        .aspectRatio(5f / 3f)
-                        .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
-                        .background(CorusColors.CardBackground),
-                ) {
-                    if (heroImage != null) {
+                if (heroImage != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = CorusSpacing.lg)
+                            .aspectRatio(5f / 3f)
+                            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
+                            .background(CorusColors.CardBackground),
+                    ) {
                         AsyncImage(
                             model = heroImage,
                             contentDescription = artistName,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop,
                         )
-                    }
-                    if (heroImage != null || artistName != null || catalogError) {
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
@@ -189,6 +196,68 @@ fun ArtistPageScreen(
                             )
                         }
                     }
+                } else if (artistName != null || catalogError) {
+                    // Mirrors the search artist row's mic-in-circle placeholder.
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = CorusSpacing.lg),
+                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(CorusColors.CardBackground),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Mic,
+                                contentDescription = null,
+                                tint = CorusColors.Tertiary,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+                        ) {
+                            Text(
+                                text = artistName
+                                    ?: stringResource(R.string.destination_artist_label),
+                                style = CorusFont.songTitleLarge,
+                                color = CorusColors.Text,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = stringResource(R.string.destination_artist_label),
+                                style = CorusFont.captionMedium,
+                                color = CorusColors.Secondary,
+                            )
+                        }
+                    }
+                } else {
+                    // Still loading with no name hint: hold the hero's space.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = CorusSpacing.lg)
+                            .aspectRatio(5f / 3f)
+                            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
+                            .background(CorusColors.CardBackground),
+                    )
+                }
+            }
+
+            // ── "{name} is on Corus" badge (only when a Corus user is linked) ──
+            detail?.corusUser?.let { corusUser ->
+                item {
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                    ArtistOnCorusBadge(
+                        user = corusUser,
+                        onClick = { onNavigateToUser(corusUser.id) },
+                    )
                 }
             }
 
@@ -261,6 +330,11 @@ fun ArtistPageScreen(
             } else {
                 val allTopTracks = detail?.topTracks ?: emptyList()
                 val topTracks = allTopTracks.take(if (showAllPopular) 10 else 6)
+                // The visible Popular rows as a queue, so tapping one rolls on
+                // through the rest of the list. Built inline (the LazyListScope
+                // block is not a @Composable context, so no remember here); it
+                // only rebuilds when the screen recomposes, not per playback tick.
+                val popularQueue = topTracks.map { it.toQueuedTrack() }
                 if (topTracks.isNotEmpty()) {
                     item {
                         DestinationSectionHeader(stringResource(R.string.destination_popular))
@@ -270,6 +344,7 @@ fun ArtistPageScreen(
                         CatalogTrackRow(
                             track = track,
                             nowPlaying = viewModel.nowPlayingManager,
+                            queue = popularQueue,
                             onRowTap = {
                                 viewModel.analyticsService.logPostFromArtistPage(artistId, track.id)
                                 onNavigateToSong(track.toSongDetailRoute())
@@ -333,7 +408,8 @@ fun ArtistPageScreen(
             item {
                 DestinationSectionHeader(
                     title = stringResource(R.string.destination_recent_posts),
-                    onSeeAll = if (posts.size >= ArtistPageViewModel.PAGE_SIZE) onSeeAllPosts else null,
+                    // 6 inline + See all when there are more (matches web + iOS).
+                    onSeeAll = if (posts.size > ArtistPageViewModel.INLINE_POSTS_CAP) onSeeAllPosts else null,
                 )
             }
             if (isPostsLoading) {
@@ -366,8 +442,9 @@ fun ArtistPageScreen(
                     )
                 }
             } else {
-                items(posts.size) { index ->
-                    val post = posts[index]
+                val shownPosts = posts.take(ArtistPageViewModel.INLINE_POSTS_CAP)
+                items(shownPosts.size) { index ->
+                    val post = shownPosts[index]
                     DestinationPostRow(
                         post = post,
                         onUserTap = { onNavigateToUser(post.user.id) },

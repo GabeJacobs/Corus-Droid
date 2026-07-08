@@ -100,5 +100,8 @@ class ArtistPageViewModel @Inject constructor(
 
     companion object {
         const val PAGE_SIZE = 15
+
+        /** Recent posts shown inline before "See all" (matches web's inlinePostsCap). */
+        const val INLINE_POSTS_CAP = 6
     }
 }

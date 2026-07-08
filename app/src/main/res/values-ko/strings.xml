@@ -780,9 +780,11 @@
     <string name="post_menu_view_back_cover">뒷면 커버 보기</string>
     <string name="post_menu_repost">리포스트</string>
     <string name="post_menu_share">공유</string>
+    <string name="post_menu_save">저장</string>
+    <string name="post_menu_unsave">저장 취소</string>
     <string name="post_menu_copy_link">링크 복사</string>
     <string name="post_menu_edit_caption">캡션 편집</string>
-    <string name="post_menu_delete_post">게시물 삭제</string>
+    <string name="post_menu_delete_post">Corus 삭제</string>
     <string name="post_menu_report">신고</string>
     <string name="post_menu_block_user">사용자 차단</string>
     <string name="post_menu_clip_label_post_link">게시물 링크</string>
@@ -791,7 +793,7 @@
     <string name="post_menu_toast_post_sent">게시물을 보냈어요!</string>
     <string name="post_menu_toast_link_copied">링크를 복사했어요</string>
     <string name="post_menu_toast_caption_updated">캡션을 변경했어요</string>
-    <string name="post_menu_dialog_delete_title">게시물 삭제</string>
+    <string name="post_menu_dialog_delete_title">Corus 삭제</string>
     <string name="post_menu_dialog_delete_message">이 게시물을 정말 삭제할까요? 되돌릴 수 없어요.</string>
     <string name="post_menu_dialog_delete_confirm">삭제</string>
     <string name="post_menu_dialog_delete_cancel">취소</string>
@@ -922,8 +924,8 @@
     <string name="club_plan_yearly">연간</string>
     <string name="club_plan_monthly_price_format">%1$s/월</string>
     <string name="club_plan_yearly_price_format">%1$s/년</string>
-    <string name="club_plan_monthly_default_price">$2.99</string>
-    <string name="club_plan_yearly_default_price">$19.99</string>
+    <string name="club_plan_monthly_default_price">$3.99</string>
+    <string name="club_plan_yearly_default_price">$29.99</string>
     <string name="club_cta_member">회원님은 멤버예요!</string>
     <string name="club_cta_try_free_format">%1$s 동안 무료 체험</string>
     <string name="club_cta_join">Club 가입</string>
@@ -1026,8 +1028,8 @@
     <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
     <string name="search_tab_music">음악</string>
     <string name="search_tab_film">영화</string>
-    <string name="search_placeholder_music">곡, 아티스트, 앨범 검색...</string>
-    <string name="search_placeholder_film">영화 또는 감독 검색...</string>
+    <string name="search_placeholder_music">곡, 아티스트, 앨범 검색</string>
+    <string name="search_placeholder_film">영화 또는 감독 검색</string>
     <string name="destination_artist_label">아티스트</string>
     <string name="destination_director_label">감독</string>
     <string name="destination_album_label">앨범</string>
@@ -1045,6 +1047,7 @@
     <string name="destination_who_shared_director">이 감독을 공유한 사람</string>
     <string name="destination_popular">인기</string>
     <string name="destination_music_videos">뮤직비디오</string>
+    <string name="destination_trailers">예고편</string>
     <string name="destination_show_more">더 보기</string>
     <string name="destination_show_less">접기</string>
     <string name="destination_discography">디스코그래피</string>

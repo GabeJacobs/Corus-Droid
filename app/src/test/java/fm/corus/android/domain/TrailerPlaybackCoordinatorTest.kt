@@ -61,4 +61,17 @@ class TrailerPlaybackCoordinatorTest {
         TrailerPlaybackCoordinator.stopAll()
         assertNull(TrailerPlaybackCoordinator.activePostId.value)
     }
+
+    @Test
+    fun `film-detail trailer shares the single slot with feed trailers`() {
+        // The film detail page joins the same slot as feed cards via a
+        // "film:<movieId>" key, so starting a film trailer stops a feed post's
+        // trailer — and a feed trailer taking over stops the film trailer.
+        TrailerPlaybackCoordinator.play("post-1")
+        TrailerPlaybackCoordinator.play("film:496243")
+        assertEquals("film:496243", TrailerPlaybackCoordinator.activePostId.value)
+
+        TrailerPlaybackCoordinator.play("post-2")
+        assertEquals("post-2", TrailerPlaybackCoordinator.activePostId.value)
+    }
 }

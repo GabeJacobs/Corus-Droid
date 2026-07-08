@@ -39,6 +39,11 @@ import kotlinx.serialization.Serializable
     val source: String? = null,
     val soundcloudId: String? = null,
     val soundcloudPermalinkUrl: String? = null,
+    /** The recording's ISRC, when the source track carries it. Lets the song
+     *  page's "posted by" match the SAME recording across store IDs — e.g. an
+     *  Apple-catalog "Popular" row (`am:` id, no spotifyURI) whose posts were
+     *  made from Spotify. Without it the page wrongly reads "no one has posted." */
+    val isrc: String? = null,
     /** First credited artist's Spotify id, when the caller has it (search
      *  results / catalog rows). Makes the artist line tappable before the
      *  first post (which also carries artistIds) loads. */
@@ -141,6 +146,11 @@ import kotlinx.serialization.Serializable
 /** "Music videos" see-all — the artist page's full newest-first video grid. */
 @Serializable data class ArtistMusicVideosRoute(
     val artistId: String,
+    val name: String? = null,
+)
+/** "Trailers" see-all — the director page's full newest-first trailer grid. */
+@Serializable data class DirectorTrailersRoute(
+    val directorId: String,
     val name: String? = null,
 )
 /** "Who shared {name}" — the artist page's paginated posts see-all. */

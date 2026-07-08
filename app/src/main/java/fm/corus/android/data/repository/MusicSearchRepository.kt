@@ -70,6 +70,11 @@ class MusicSearchRepository @Inject constructor(
         /** Album rows (max 3, near-exact title matches) — only populated when
          *  the caller passed `includeAlbums = true` on page one. */
         val albums: List<AlbumSearchSummary> = emptyList(),
+        /** True when the query is a song-title search (a track title exactly
+         *  matches the query). The UI renders same-titled album rows below the
+         *  songs in that case so a direct song hit isn't buried by same-named
+         *  albums; false keeps albums above the songs (album-intent queries). */
+        val songsFirst: Boolean = false,
     )
 
     @Suppress("UNCHECKED_CAST")
@@ -99,6 +104,7 @@ class MusicSearchRepository @Inject constructor(
             ?.mapNotNull { ArtistSummary.fromMap(it) } ?: emptyList()
         val albums = (result["albums"] as? List<Map<String, Any?>>)
             ?.mapNotNull { AlbumSearchSummary.fromMap(it) } ?: emptyList()
-        return Page(tracks, hasMore, artists, albums)
+        val songsFirst = result["songsFirst"] as? Boolean ?: false
+        return Page(tracks, hasMore, artists, albums, songsFirst)
     }
 }

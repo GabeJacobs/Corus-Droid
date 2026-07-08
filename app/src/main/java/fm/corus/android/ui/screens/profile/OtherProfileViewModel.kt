@@ -98,6 +98,13 @@ class OtherProfileViewModel @Inject constructor(
     private val _profile = MutableStateFlow<CymbalUser?>(null)
     val profile: StateFlow<CymbalUser?> = _profile.asStateFlow()
 
+    // Set when getProfileData returns NOT_FOUND — the account is banned (shadow
+    // or hard) or deleted and doesn't exist for this viewer. The screen swaps to
+    // an "unavailable" state so we never render a stale header, and we must NOT
+    // fall back to a direct Firestore read (which bypasses the ban).
+    private val _profileUnavailable = MutableStateFlow(false)
+    val profileUnavailable: StateFlow<Boolean> = _profileUnavailable.asStateFlow()
+
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
 
@@ -225,6 +232,7 @@ class OtherProfileViewModel @Inject constructor(
 
     fun loadProfile(userId: String) {
         loadedUserId = userId
+        _profileUnavailable.value = false
         // Reset the lazily-loaded LIKES state so a reused ViewModel (profile ->
         // profile navigation) never shows the previous owner's likes or a stale
         // loaded/empty flag while the new owner's likes fetch.
@@ -275,7 +283,18 @@ class OtherProfileViewModel @Inject constructor(
                             lastTimestamp = null,
                         )
                     }
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    // Banned (shadow or hard) or deleted → getProfileData returns
+                    // NOT_FOUND. Bounce to the unavailable state; do NOT fall back
+                    // to the direct read below, which bypasses the ban and would
+                    // leak the profile. Transient errors still take the fallback.
+                    if (e is com.google.firebase.functions.FirebaseFunctionsException &&
+                        e.code == com.google.firebase.functions.FirebaseFunctionsException.Code.NOT_FOUND
+                    ) {
+                        _profileUnavailable.value = true
+                        _isLoading.value = false
+                        return@launch
+                    }
                     _profile.value = userRepository.fetchUserProfile(userId)
                     postRepository.getProfilePosts(
                         userId = userId,
@@ -344,7 +363,22 @@ class OtherProfileViewModel @Inject constructor(
         _isRefreshing.value = true
         viewModelScope.launch {
             try {
-                val user = userRepository.fetchUserProfile(userId)
+                // Route the user fetch through getProfileData so a ban that lands
+                // while the profile is open bounces on pull-to-refresh too, instead
+                // of re-showing the now-hidden account via a direct read.
+                val user = try {
+                    postRepository.getProfileData(userId = userId, pageSize = 1).user
+                        ?: userRepository.fetchUserProfile(userId)
+                } catch (e: Exception) {
+                    if (e is com.google.firebase.functions.FirebaseFunctionsException &&
+                        e.code == com.google.firebase.functions.FirebaseFunctionsException.Code.NOT_FOUND
+                    ) {
+                        _profileUnavailable.value = true
+                        _isRefreshing.value = false
+                        return@launch
+                    }
+                    userRepository.fetchUserProfile(userId)
+                }
                 _profile.value = user
                 _isFollowing.value = userRepository.isFollowing(userId)
                 _isBlocked.value = userRepository.blockedIds.value.contains(userId)

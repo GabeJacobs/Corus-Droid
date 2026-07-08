@@ -114,6 +114,7 @@ data class CymbalTrack(
         source = source.raw,
         soundcloudId = soundcloudId,
         soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+        isrc = isrc,
         artistId = artistIds.firstOrNull(),
         artistIdCount = artistIds.size,
         albumId = albumId,

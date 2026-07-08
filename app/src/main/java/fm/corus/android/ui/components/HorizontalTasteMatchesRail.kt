@@ -242,11 +242,85 @@ class TasteMatchesRailViewModel @Inject constructor(
     private var hasLoadedInitial = false
     private val pageSize = 15
 
+    /** True once the user has scrolled past the first page. A background refresh
+     *  only reconciles the visible list when this is false, so we never yank
+     *  content out from under an active scroll. */
+    private var pagedBeyondFirst = false
+
+    /** Set when the most recent [fetchPage] threw (as opposed to returning an
+     *  empty page). Lets the cold-start path unlatch and retry rather than
+     *  latching an empty rail after a transient failure. */
+    private var loadFailed = false
+
     fun loadInitial() {
         if (hasLoadedInitial) return
         hasLoadedInitial = true
-        viewModelScope.launch { fetchPage() }
+        viewModelScope.launch {
+            // Stale-while-revalidate: paint the cached first page instantly (no
+            // skeleton), then refresh in the background. Only a genuine cold start
+            // (no usable cache) shows the shimmer.
+            val cached = userRepository.getCachedTasteMatchesFirstPage()
+            if (cached != null) {
+                applyFirstPage(cached.matches, cached.nextCursor, cached.hasMore)
+                // Skip the refresh while the cache is still fresh so rapid re-opens
+                // of Search don't re-hit the callable.
+                if (!userRepository.isTasteMatchesCacheFresh()) {
+                    revalidateFirstPage()
+                }
+                return@launch
+            }
+
+            fetchPage()
+            // A failed first page with nothing loaded shouldn't latch: unlatch so
+            // the next appearance silently retries instead of showing an empty rail.
+            if (loadFailed && _matches.value.isEmpty()) {
+                hasLoadedInitial = false
+            }
+        }
     }
+
+    /** Resets the visible list to exactly [pageMatches] (the first page). Used to
+     *  paint the cache and to reconcile after a background refresh. */
+    private fun applyFirstPage(pageMatches: List<SuggestedUserMatch>, nextCursor: String?, hasMore: Boolean) {
+        loadedIds.clear()
+        loadedIds.addAll(pageMatches.map { it.user.id })
+        _matches.value = pageMatches
+        cursor = nextCursor
+        _isLoading.value = false
+        _endReached.value = !hasMore || nextCursor == null
+        pagedBeyondFirst = false
+    }
+
+    /**
+     * Background refresh of the first page while cached matches are already on
+     * screen. Never shows the skeleton (matches is non-empty) and never wipes the
+     * list on failure — a bad refresh just leaves the cached list in place. An
+     * empty refresh is treated as "no update" (cached matches beat an abrupt
+     * empty; a real lasting loss is caught when the cache ages past MAX_AGE and a
+     * cold fetch returns empty).
+     */
+    private suspend fun revalidateFirstPage() {
+        val page = runCatching {
+            userRepository.getTasteMatchesPage(cursor = null, limit = pageSize)
+        }.getOrElse {
+            // Keep the cached matches on error; nothing else to do (no loadFailed
+            // flag surfaced to the UI here — the cached list stays put).
+            return
+        }
+        if (page.matches.isEmpty()) return
+        userRepository.cacheTasteMatchesFirstPage(page)
+        // Reconcile the visible list only if the user hasn't paged deeper;
+        // otherwise the cache write above is enough and their scrolled content is
+        // left untouched.
+        if (!pagedBeyondFirst) {
+            applyFirstPage(page.matches, page.nextCursor, page.hasMore)
+        }
+    }
+
+    /** Test-only hook to exercise [revalidateFirstPage] without the fresh-window
+     *  gate in [loadInitial]. */
+    @androidx.annotation.VisibleForTesting
+    internal suspend fun revalidateFirstPageForTest() = revalidateFirstPage()
 
     fun loadMore() {
         if (_isLoading.value || _endReached.value) return
@@ -283,14 +357,19 @@ class TasteMatchesRailViewModel @Inject constructor(
     }
 
     private suspend fun fetchPage() {
+        // Capture BEFORE mutating cursor below so we know whether to cache this as
+        // the first page or mark that we've paged beyond it.
+        val isFirstPage = cursor == null
         _isLoading.value = true
         try {
             val page = runCatching {
                 userRepository.getTasteMatchesPage(cursor = cursor, limit = pageSize)
             }.getOrElse {
+                loadFailed = true
                 _endReached.value = true
                 return
             }
+            loadFailed = false
             if (page.matches.isEmpty()) {
                 _endReached.value = true
                 return
@@ -302,6 +381,12 @@ class TasteMatchesRailViewModel @Inject constructor(
             }
             if (!page.hasMore || page.nextCursor == null) {
                 _endReached.value = true
+            }
+            if (isFirstPage) {
+                // Persist the first page for instant paint on the next open.
+                userRepository.cacheTasteMatchesFirstPage(page)
+            } else {
+                pagedBeyondFirst = true
             }
         } finally {
             _isLoading.value = false

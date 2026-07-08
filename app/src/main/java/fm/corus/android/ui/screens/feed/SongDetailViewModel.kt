@@ -103,18 +103,21 @@ class SongDetailViewModel @Inject constructor(
     // Track metadata for passing to Cloud Function
     private var currentTrackId: String = ""
     private var spotifyURI: String? = null
+    private var isrc: String? = null
     private var trackName: String? = null
     private var artistName: String? = null
 
     fun loadSongPosts(
         trackId: String,
         spotifyURI: String? = null,
+        isrc: String? = null,
         trackName: String? = null,
         artistName: String? = null,
         routeArtistId: String? = null,
     ) {
         this.currentTrackId = trackId
         this.spotifyURI = spotifyURI
+        this.isrc = isrc
         this.trackName = trackName
         this.artistName = artistName
         viewModelScope.launch {
@@ -125,6 +128,7 @@ class SongDetailViewModel @Inject constructor(
                 val page = postRepository.fetchSongPostsFromCloud(
                     trackId = trackId,
                     spotifyURI = spotifyURI,
+                    isrc = isrc,
                     trackName = trackName,
                     artistName = artistName,
                     pageSize = pageSize,
@@ -173,6 +177,7 @@ class SongDetailViewModel @Inject constructor(
                 val page = postRepository.fetchSongPostsFromCloud(
                     trackId = currentTrackId,
                     spotifyURI = spotifyURI,
+                    isrc = isrc,
                     trackName = trackName,
                     artistName = artistName,
                     pageSize = pageSize,

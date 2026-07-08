@@ -87,7 +87,41 @@ data class ArtistDetail(
     val albums: List<AlbumSummary> = emptyList(),
     /** Empty on payloads written before the music-videos backend deploy. */
     val musicVideos: List<MusicVideo> = emptyList(),
+    /** The Corus user manually linked to this catalog artist, or null when no
+     *  link exists (backend omits the `corusUser` key entirely — the "is on
+     *  Corus" badge only renders when this is non-null). */
+    val corusUser: CorusUserLink? = null,
 )
+
+/** A Corus user account manually linked to a catalog artist (getArtistDetail
+ *  `corusUser`). Drives the "{displayName} is on Corus" badge. The blue check
+ *  renders for [isVerified] OR [isClubMember] (see UsernameWithFlair). */
+data class CorusUserLink(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
+    val profileFlair: String? = null,
+    val isVerified: Boolean = false,
+    val isClubMember: Boolean = false,
+    val isBot: Boolean = false,
+) {
+    companion object {
+        fun fromMap(data: Map<String, Any?>): CorusUserLink? {
+            val id = (data["id"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            return CorusUserLink(
+                id = id,
+                username = data["username"] as? String ?: "",
+                displayName = data["displayName"] as? String ?: "",
+                avatarUrl = (data["avatarUrl"] as? String)?.ifEmpty { null },
+                profileFlair = (data["profileFlair"] as? String)?.ifEmpty { null },
+                isVerified = data["isVerified"] as? Boolean ?: false,
+                isClubMember = data["isClubMember"] as? Boolean ?: false,
+                isBot = data["isBot"] as? Boolean ?: false,
+            )
+        }
+    }
+}
 
 /** One music video (getArtistDetail `musicVideos`). Apple supplies metadata
  *  (video-frame thumbnail, title, year, duration); [youtubeId] — when the
@@ -147,6 +181,10 @@ data class DirectorDetail(
     val knownFor: String = "",
     val biography: String = "",
     val films: List<DirectorFilm> = emptyList(),
+    /** Official YouTube trailers for the director's films (newest-first), in the
+     *  same MusicVideo shape as artist [musicVideos] so the trailers rail reuses
+     *  the music-video card/player. Empty on payloads before the trailers deploy. */
+    val trailers: List<MusicVideo> = emptyList(),
 )
 
 /** One directed film. `id` is `tmdb_{id}` — ready for the film detail route. */

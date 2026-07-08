@@ -81,6 +81,20 @@ private data class PersistedSuggestedMatchesWrapper(
     val matches: List<PersistedSuggestedMatch>,
 )
 
+/**
+ * Persisted first page of the taste-matches rail for stale-while-revalidate.
+ * Reuses [PersistedSuggestedMatch] (identical shape) but also carries the
+ * cursor + hasMore so the rail can resume paging from the cached page. Mirrors
+ * iOS `CachedTasteMatchesPage`.
+ */
+@Serializable
+private data class PersistedTasteMatchesPageWrapper(
+    val fetchedAt: Long,
+    val nextCursor: String? = null,
+    val hasMore: Boolean = false,
+    val matches: List<PersistedSuggestedMatch>,
+)
+
 private fun SuggestedUserMatch.toPersisted() = PersistedSuggestedMatch(
     userId = user.id,
     username = user.username,
@@ -531,6 +545,62 @@ class PreferencesDataStore @Inject constructor(
     suspend fun clearSuggestedMatches(userId: String) {
         val key = stringPreferencesKey("suggestedMatches_$userId")
         dataStore.edit { it.remove(key) }
+    }
+
+    // ── Taste Matches Rail (first page, persisted for instant cold-start SWR) ──
+    // Mirrors the suggested-matches persistence above but stores only the FIRST
+    // page (matches + cursor + hasMore + fetchedAt) so the rail can paint and
+    // resume paging instantly on open. Matches iOS CachedTasteMatchesPage.
+
+    private fun tasteMatchesPageKey(userId: String) = stringPreferencesKey("tasteMatchesPage_$userId")
+
+    suspend fun persistTasteMatchesPage(
+        matches: List<SuggestedUserMatch>,
+        nextCursor: String?,
+        hasMore: Boolean,
+        userId: String,
+    ) {
+        val wrapper = PersistedTasteMatchesPageWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            nextCursor = nextCursor,
+            hasMore = hasMore,
+            matches = matches.map { it.toPersisted() },
+        )
+        dataStore.edit { it[tasteMatchesPageKey(userId)] = recentJson.encodeToString(wrapper) }
+    }
+
+    /** One entry in the persisted taste-matches first-page cache. */
+    data class PersistedTasteMatchesPage(
+        val matches: List<SuggestedUserMatch>,
+        val nextCursor: String?,
+        val hasMore: Boolean,
+        val fetchedAt: Long,
+    )
+
+    /**
+     * Returns the persisted first page with its original fetchedAt timestamp, or
+     * null if nothing is persisted / it fails to decode. Caller owns TTL / max-age
+     * validation. Uses `first()` (not `collect`) so it reads one value and returns
+     * — collecting the infinite `dataStore.data` flow would suspend forever.
+     */
+    suspend fun loadTasteMatchesPageAsync(userId: String): PersistedTasteMatchesPage? {
+        val raw = dataStore.data.first()[tasteMatchesPageKey(userId)]
+        if (raw.isNullOrBlank()) return null
+        return try {
+            val wrapper = recentJson.decodeFromString<PersistedTasteMatchesPageWrapper>(raw)
+            PersistedTasteMatchesPage(
+                matches = wrapper.matches.map { it.toModel() },
+                nextCursor = wrapper.nextCursor,
+                hasMore = wrapper.hasMore,
+                fetchedAt = wrapper.fetchedAt,
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    suspend fun clearTasteMatchesPage(userId: String) {
+        dataStore.edit { it.remove(tasteMatchesPageKey(userId)) }
     }
 
     // ── Muted IDs (persisted for offline access, matching iOS UserDefaults pattern) ──

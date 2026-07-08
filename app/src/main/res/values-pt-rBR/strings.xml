@@ -683,9 +683,11 @@
     <string name="post_menu_view_back_cover">Ver Contracapa</string>
     <string name="post_menu_repost">Repostar</string>
     <string name="post_menu_share">Compartilhar</string>
+    <string name="post_menu_save">Salvar</string>
+    <string name="post_menu_unsave">Remover dos salvos</string>
     <string name="post_menu_copy_link">Copiar Link</string>
     <string name="post_menu_edit_caption">Editar Legenda</string>
-    <string name="post_menu_delete_post">Excluir Publicação</string>
+    <string name="post_menu_delete_post">Excluir Corus</string>
     <string name="post_menu_report">Denunciar</string>
     <string name="post_menu_block_user">Bloquear Usuário</string>
     <string name="post_menu_clip_label_post_link">Link da Publicação</string>
@@ -694,7 +696,7 @@
     <string name="post_menu_toast_post_sent">Publicação enviada!</string>
     <string name="post_menu_toast_link_copied">Link copiado</string>
     <string name="post_menu_toast_caption_updated">Legenda atualizada</string>
-    <string name="post_menu_dialog_delete_title">Excluir Publicação</string>
+    <string name="post_menu_dialog_delete_title">Excluir Corus</string>
     <string name="post_menu_dialog_delete_message">Tem certeza que deseja excluir esta publicação? Isso não pode ser desfeito.</string>
     <string name="post_menu_dialog_delete_confirm">Excluir</string>
     <string name="post_menu_dialog_delete_cancel">Cancelar</string>
@@ -824,8 +826,8 @@
     <string name="club_plan_monthly_price_format">%1$s/mês</string>
     <string name="club_plan_yearly_price_format">%1$s/ano</string>
     <string name="club_plan_save_badge">ECONOMIZE 58%</string>
-    <string name="club_plan_monthly_default_price">$2.99</string>
-    <string name="club_plan_yearly_default_price">$19.99</string>
+    <string name="club_plan_monthly_default_price">$3.99</string>
+    <string name="club_plan_yearly_default_price">$29.99</string>
     <string name="club_cta_member">Você é membro!</string>
     <string name="club_cta_try_free_format">Teste Grátis por %1$s</string>
     <string name="club_cta_join">Entrar no Club</string>
@@ -1025,8 +1027,8 @@
     <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
     <string name="search_tab_music">Música</string>
     <string name="search_tab_film">Filme</string>
-    <string name="search_placeholder_music">Busque músicas, artistas ou álbuns...</string>
-    <string name="search_placeholder_film">Busque filmes ou diretores...</string>
+    <string name="search_placeholder_music">Busque músicas, artistas ou álbuns</string>
+    <string name="search_placeholder_film">Busque filmes ou diretores</string>
     <string name="destination_artist_label">Artista</string>
     <string name="destination_director_label">Diretor</string>
     <string name="destination_album_label">Álbum</string>
@@ -1046,6 +1048,7 @@
     <string name="destination_who_shared_director">Quem compartilhou este diretor</string>
     <string name="destination_popular">Popular</string>
     <string name="destination_music_videos">Videoclipes</string>
+    <string name="destination_trailers">Trailers</string>
     <string name="destination_show_more">Ver mais</string>
     <string name="destination_show_less">Ver menos</string>
     <string name="destination_discography">Discografia</string>

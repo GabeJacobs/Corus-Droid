@@ -16,7 +16,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -44,7 +47,8 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.CorusHeaderIconButton
-import fm.corus.android.ui.components.ShareTrackSheet
+import fm.corus.android.ui.components.ShareMediaSheet
+import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
@@ -71,6 +75,7 @@ fun SongDetailScreen(
     source: String? = null,
     soundcloudId: String? = null,
     soundcloudPermalinkUrl: String? = null,
+    isrc: String? = null,
     artistId: String? = null,
     artistIdCount: Int = 0,
     albumId: String? = null,
@@ -143,6 +148,14 @@ fun SongDetailScreen(
         soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
     )
 
+    // Values for the "..." top-bar menu's Go to Artist / Go to Album rows —
+    // mirror the gating of the tappable artist/album lines below the title.
+    val menuLoadedArtistIds = songInfo?.track?.artistIds ?: emptyList()
+    val menuArtistId = menuLoadedArtistIds.firstOrNull() ?: artistId ?: resolvedArtistId
+    val menuArtistIdCount = maxOf(menuLoadedArtistIds.size, artistIdCount)
+    val menuAlbumTrack = songInfo?.track
+    val menuAlbumId = menuAlbumTrack?.albumId ?: albumId
+
     // Default: keep the viewer's preference. Flip to the source on a confirmed
     // empty appleMusicId ("") OR when the Apple id is in a storefront the viewer
     // can't open (foreign-catalog-only). null = unknown -> no flip. Mirrors iOS.
@@ -201,6 +214,7 @@ fun SongDetailScreen(
         viewModel.loadSongPosts(
             trackId = trackId,
             spotifyURI = spotifyURI,
+            isrc = isrc,
             trackName = songName,
             artistName = artistName,
             routeArtistId = artistId,
@@ -219,11 +233,62 @@ fun SongDetailScreen(
                     )
                 },
                 actions = {
-                    CorusHeaderIconButton(
-                        onClick = { showShareSheet = true },
-                        imageVector = Icons.Filled.Share,
-                        contentDescription = stringResource(R.string.song_detail_cd_share),
-                    )
+                    Box {
+                        var menuExpanded by remember { mutableStateOf(false) }
+                        CorusHeaderIconButton(
+                            onClick = { menuExpanded = true },
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.feed_cd_more_options),
+                        )
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
+                                onClick = {
+                                    menuExpanded = false
+                                    showShareSheet = true
+                                },
+                            )
+                            if (onNavigateToArtist != null && menuArtistId != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
+                                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onNavigateToArtist(
+                                            fm.corus.android.ui.navigation.ArtistPageRoute(
+                                                artistId = menuArtistId,
+                                                name = fm.corus.android.data.model.primaryNameHint(
+                                                    displayArtist.orEmpty(), menuArtistIdCount,
+                                                ).ifEmpty { null },
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+                            if (onNavigateToAlbum != null && menuAlbumId != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_go_to_album), style = CorusFont.body) },
+                                    leadingIcon = { Icon(Icons.Filled.Album, contentDescription = null) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onNavigateToAlbum(
+                                            fm.corus.android.ui.navigation.AlbumPageRoute(
+                                                albumId = menuAlbumId,
+                                                title = menuAlbumTrack?.albumName?.takeIf { it.isNotBlank() },
+                                                artist = displayArtist,
+                                                coverUrl = artUrl,
+                                                year = (menuAlbumTrack?.releaseDate ?: "").take(4).toIntOrNull(),
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -656,8 +721,8 @@ fun SongDetailScreen(
         ) {
             CorusSystemBars()
             BackHandler { showShareSheet = false }
-            ShareTrackSheet(
-                track = resolvedTrack,
+            ShareMediaSheet(
+                subject = ShareMediaSubject.Track(resolvedTrack),
                 recentContacts = recentShareContacts,
                 searchResults = shareSearchResults,
                 isSearching = isShareSearching,

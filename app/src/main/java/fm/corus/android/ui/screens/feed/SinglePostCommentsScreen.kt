@@ -512,6 +512,8 @@ fun SinglePostCommentsScreen(
                 ReportSheet(
                     contentType = ReportContentType.COMMENT,
                     contentId = comment.id,
+                    commentPostId = postId,
+                    contentAuthorId = comment.user.id,
                     authRepository = viewModel.authRepository,
                     userRepository = viewModel.userRepository,
                     analyticsService = viewModel.analyticsService,
@@ -1000,6 +1002,11 @@ internal fun CommentContentRow(
                             style = CorusFont.body,
                             onMentionTap = onMentionTap,
                             onHashtagTap = onHashtagTap,
+                            // Long-press the comment body → context menu (Copy /
+                            // Report / Block); the text otherwise swallows the press.
+                            onLongClick = if (canLongPress) {
+                                { showContextMenu = true }
+                            } else null,
                         )
                     }
                     if (comment.gifURL != null) {
@@ -1074,6 +1081,9 @@ internal fun CommentContentRow(
                             )
                         }
                     }
+                    // "..." menu button for own comments (matching iOS). Others'
+                    // comments expose Copy/Report/Block via long-press (see the
+                    // row's combinedClickable) so the row stays visually clean.
                     if (isOwnComment) {
                         var showMenu by remember { mutableStateOf(false) }
                         Spacer(modifier = Modifier.width(CorusSpacing.sm))

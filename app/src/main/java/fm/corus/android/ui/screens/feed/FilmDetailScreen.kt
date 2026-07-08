@@ -2,17 +2,23 @@ package fm.corus.android.ui.screens.feed
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Tv
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,7 +38,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.domain.TrailerPlaybackCoordinator
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.InlineYouTubePlayer
+import fm.corus.android.ui.components.ShareMediaSheet
+import fm.corus.android.ui.components.ShareMediaSubject
+import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.components.youTubeVideoID
 import fm.corus.android.ui.components.SkeletonFilmDetailHeader
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.UserAvatarView
@@ -41,6 +54,7 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +85,48 @@ fun FilmDetailScreen(
     val movieHeader by viewModel.movieHeader.collectAsState()
     val context = LocalContext.current
 
+    var showShareSheet by remember { mutableStateOf(false) }
+    val shareSearchResults by viewModel.shareSearchResults.collectAsState()
+    val recentShareContacts by viewModel.recentShareContacts.collectAsState()
+    val isShareSearching by viewModel.isShareSearching.collectAsState()
+    val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
+
+    // TMDB director ids for the "..." menu's Go to Director row — same gating as
+    // the tappable director line below the title (loaded posts carry them).
+    val menuDirectorIds = posts.firstOrNull { it.directorIds.isNotEmpty() }?.directorIds ?: emptyList()
+    val menuDirectorId = menuDirectorIds.firstOrNull()
+
+    // The film as a CymbalMovie for the share sheet — header info + route hints,
+    // with directorIds + tmdbWebURL pulled from a loaded post when present.
+    val shareMovie = CymbalMovie(
+        id = movieId,
+        title = movieHeader?.movieTitle ?: initialMovieTitle ?: "",
+        directorName = movieHeader?.directorName ?: initialDirectorName ?: "",
+        directorIds = menuDirectorIds,
+        year = movieHeader?.releaseYear ?: initialReleaseYear ?: "",
+        posterURL = movieHeader?.posterURL ?: initialPosterURL,
+        posterLargeURL = movieHeader?.posterLargeURL ?: initialPosterLargeURL,
+        tmdbWebURL = posts.firstOrNull()?.tmdbWebURL
+            ?: "https://www.themoviedb.org/movie/${movieId.removePrefix("tmdb_")}",
+    )
+
+    // Inline trailer playback (mirrors the feed's PostCard): tapping the poster
+    // or the Watch Trailer button plays the trailer in place instead of leaving
+    // for YouTube. Sized wider than the poster here — this detail page has the
+    // room the feed card doesn't. A synthetic slot id shares the app-wide
+    // single-trailer coordinator (which also pauses music on play).
+    val trailerSlotId = "film:$movieId"
+    var inlineTrailerVideoID by remember(movieId) { mutableStateOf<String?>(null) }
+    val activeTrailerPostId by TrailerPlaybackCoordinator.activePostId.collectAsState()
+    LaunchedEffect(activeTrailerPostId) {
+        if (activeTrailerPostId != trailerSlotId && inlineTrailerVideoID != null) {
+            inlineTrailerVideoID = null
+        }
+    }
+    DisposableEffect(movieId) {
+        onDispose { TrailerPlaybackCoordinator.stop(trailerSlotId) }
+    }
+
     LaunchedEffect(movieId) {
         if (initialMovieTitle != null) {
             viewModel.setInitialMovieInfo(
@@ -98,6 +154,47 @@ fun FilmDetailScreen(
                         contentDescription = stringResource(R.string.feed_cd_back),
                     )
                 },
+                actions = {
+                    Box {
+                        var menuExpanded by remember { mutableStateOf(false) }
+                        CorusHeaderIconButton(
+                            onClick = { menuExpanded = true },
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.feed_cd_more_options),
+                        )
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
+                                onClick = {
+                                    menuExpanded = false
+                                    showShareSheet = true
+                                },
+                            )
+                            if (onNavigateToDirector != null && menuDirectorId != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_go_to_director), style = CorusFont.body) },
+                                    leadingIcon = { Icon(Icons.Filled.MovieCreation, contentDescription = null) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onNavigateToDirector(
+                                            fm.corus.android.ui.navigation.DirectorPageRoute(
+                                                directorId = menuDirectorId,
+                                                name = fm.corus.android.data.model.primaryNameHint(
+                                                    movieHeader?.directorName ?: initialDirectorName ?: "",
+                                                    menuDirectorIds.size,
+                                                ).ifEmpty { null },
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
@@ -122,17 +219,94 @@ fun FilmDetailScreen(
                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
                 if (header != null) {
-                    // Movie poster
-                    AsyncImage(
-                        model = header.posterLargeURL ?: header.posterURL,
-                        contentDescription = header.movieTitle,
-                        modifier = Modifier
-                            .width(220.dp)
-                            .aspectRatio(2f / 3f)
-                            .shadow(8.dp, RoundedCornerShape(8.dp))
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop,
-                    )
+                    val trailerVideoID = youTubeVideoID(header.trailerURL)
+                    val playingTrailer = inlineTrailerVideoID
+                    if (playingTrailer != null) {
+                        // Playing: a wide 16:9 player spanning the content width —
+                        // much bigger than the 220dp poster. The feed keeps the
+                        // poster-frame size; this detail page has room to go wide.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = CorusSpacing.lg)
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.Black),
+                        ) {
+                            // key() on the id so a new trailer disposes the old
+                            // WebView and creates a fresh one (mirrors web/iOS).
+                            key(playingTrailer) {
+                                InlineYouTubePlayer(
+                                    videoID = playingTrailer,
+                                    modifier = Modifier.fillMaxSize(),
+                                    showControls = true,
+                                    onEnded = {
+                                        inlineTrailerVideoID = null
+                                        TrailerPlaybackCoordinator.stop(trailerSlotId)
+                                    },
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(CorusSpacing.sm)
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.55f))
+                                    .clickable {
+                                        inlineTrailerVideoID = null
+                                        TrailerPlaybackCoordinator.stop(trailerSlotId)
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = stringResource(R.string.feed_cd_back),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        }
+                    } else {
+                        // Poster with a play badge (no hover on mobile) — tapping
+                        // anywhere on it starts the trailer inline.
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = if (trailerVideoID != null) {
+                                Modifier.clickable {
+                                    inlineTrailerVideoID = trailerVideoID
+                                    TrailerPlaybackCoordinator.play(trailerSlotId)
+                                }
+                            } else Modifier,
+                        ) {
+                            AsyncImage(
+                                model = header.posterLargeURL ?: header.posterURL,
+                                contentDescription = header.movieTitle,
+                                modifier = Modifier
+                                    .width(220.dp)
+                                    .aspectRatio(2f / 3f)
+                                    .shadow(8.dp, RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                            if (trailerVideoID != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Black.copy(alpha = 0.55f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PlayArrow,
+                                        contentDescription = stringResource(R.string.film_detail_watch_trailer),
+                                        tint = Color.White,
+                                        modifier = Modifier.size(28.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
 
@@ -216,8 +390,17 @@ fun FilmDetailScreen(
                             if (!header.trailerURL.isNullOrBlank()) {
                                 Button(
                                     onClick = {
-                                        viewModel.nowPlayingManager.pause()
-                                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(header.trailerURL))) } catch (_: Exception) { }
+                                        // Play inline in the poster above (matching
+                                        // the feed); non-YouTube URLs fall back to
+                                        // opening the link.
+                                        val videoID = youTubeVideoID(header.trailerURL)
+                                        if (videoID != null) {
+                                            inlineTrailerVideoID = videoID
+                                            TrailerPlaybackCoordinator.play(trailerSlotId)
+                                        } else {
+                                            viewModel.nowPlayingManager.pause()
+                                            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(header.trailerURL))) } catch (_: Exception) { }
+                                        }
                                     },
                                     shape = RoundedCornerShape(50),
                                     colors = ButtonDefaults.buttonColors(
@@ -373,6 +556,40 @@ fun FilmDetailScreen(
                     }
                 }
             }
+        }
+    }
+
+    // ── Share Film bottom sheet ──
+    if (showShareSheet) {
+        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val filmSharedMsg = stringResource(R.string.film_detail_toast_film_sent)
+
+        LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
+
+        ModalBottomSheet(
+            onDismissRequest = { showShareSheet = false },
+            sheetState = shareSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = null,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
+        ) {
+            CorusSystemBars()
+            BackHandler { showShareSheet = false }
+            ShareMediaSheet(
+                subject = ShareMediaSubject.Film(shareMovie),
+                recentContacts = recentShareContacts,
+                searchResults = shareSearchResults,
+                isSearching = isShareSearching,
+                isLoadingContacts = isLoadingShareContacts,
+                onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
+                onSendToUser = { userId, message ->
+                    viewModel.sendFilmToUser(userId, shareMovie, message)
+                    ToastManager.show(filmSharedMsg)
+                    showShareSheet = false
+                },
+                onDismiss = { showShareSheet = false },
+            )
         }
     }
 }

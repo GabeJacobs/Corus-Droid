@@ -48,6 +48,10 @@ private fun reportReasons(): List<String> = listOf(
 fun ReportSheet(
     contentType: ReportContentType,
     contentId: String,
+    // Locators the backend needs to resolve/hide reported content.
+    commentPostId: String? = null,   // parent post id, for comment reports
+    contentAuthorId: String? = null, // author hint, for comment/message reports
+    threadId: String? = null,        // thread id, for message reports
     authRepository: AuthRepository,
     userRepository: UserRepository,
     analyticsService: AnalyticsService,
@@ -90,10 +94,13 @@ fun ReportSheet(
                             try {
                                 userRepository.submitReport(
                                     reporterId = uid,
-                                    targetUserId = if (contentType == ReportContentType.USER) contentId else null,
-                                    postId = if (contentType == ReportContentType.POST) contentId else null,
                                     reason = reason,
                                     details = details.ifBlank { "" },
+                                    contentType = contentType.label,
+                                    contentId = contentId,
+                                    commentPostId = commentPostId,
+                                    contentAuthorId = contentAuthorId,
+                                    threadId = threadId,
                                 )
                                 when (contentType) {
                                     ReportContentType.POST -> analyticsService.logReportPost(contentId, reason)

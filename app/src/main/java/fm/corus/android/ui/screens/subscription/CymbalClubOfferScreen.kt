@@ -316,8 +316,8 @@ fun CymbalClubOfferScreen(
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 ) {
                     val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$3.99"
-                    val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$24.99"
-                    val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 24.99) / 12)}"
+                    val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$29.99"
+                    val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 29.99) / 12)}"
 
                     PlanCard(
                         label = stringResource(R.string.club_plan_monthly),
@@ -643,7 +643,7 @@ fun CymbalClubOfferSheet(
             ) {
                 val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_monthly_default_price)
                 val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_yearly_default_price)
-                val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 24.99) / 12)}"
+                val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 29.99) / 12)}"
 
                 PlanCard(
                     label = stringResource(R.string.club_plan_monthly),

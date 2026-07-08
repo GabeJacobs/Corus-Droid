@@ -509,6 +509,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             source = route.source,
             soundcloudId = route.soundcloudId,
             soundcloudPermalinkUrl = route.soundcloudPermalinkUrl,
+            isrc = route.isrc,
             artistId = route.artistId,
             artistIdCount = route.artistIdCount,
             albumId = route.albumId,
@@ -600,6 +601,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onSeeAllFilmography = {
                 navController.navigate(DirectorFilmographyRoute(route.directorId, route.name))
             },
+            onSeeAllTrailers = {
+                navController.navigate(DirectorTrailersRoute(route.directorId, route.name))
+            },
         )
     }
 
@@ -617,6 +621,15 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<ArtistMusicVideosRoute>()
         fm.corus.android.ui.screens.destination.ArtistMusicVideosScreen(
             artistId = route.artistId,
+            nameHint = route.name,
+            onBack = { navController.popBackStack() },
+        )
+    }
+
+    composable<DirectorTrailersRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<DirectorTrailersRoute>()
+        fm.corus.android.ui.screens.destination.DirectorTrailersScreen(
+            directorId = route.directorId,
             nameHint = route.name,
             onBack = { navController.popBackStack() },
         )

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.WarningAmber
@@ -135,6 +136,7 @@ fun SearchScreen(
     val filmSearchResults by viewModel.filmSearchResults.collectAsState()
     val artistSearchResults by viewModel.artistSearchResults.collectAsState()
     val albumSearchResults by viewModel.albumSearchResults.collectAsState()
+    val songsFirst by viewModel.songsFirst.collectAsState()
     val directorSearchResults by viewModel.directorSearchResults.collectAsState()
     // Read once per composition — gates the tab labels, placeholders, and the
     // artist/album/director rows. Flag off = the screen renders as before.
@@ -409,6 +411,7 @@ fun SearchScreen(
                                 onSongTap = onNavigateToSong,
                                 artists = artistSearchResults,
                                 albums = albumSearchResults,
+                                songsFirst = songsFirst,
                                 onArtistTap = onNavigateToArtist,
                                 onAlbumTap = onNavigateToAlbum,
                             )
@@ -1655,10 +1658,18 @@ private fun SongSearchResultsList(
      *  Always empty while the flag is off. */
     artists: List<fm.corus.android.data.model.ArtistSummary> = emptyList(),
     albums: List<fm.corus.android.data.model.AlbumSearchSummary> = emptyList(),
+    /** True when the query is a song-title search: album rows then render BELOW
+     *  the songs so a direct song hit leads instead of being buried by same-
+     *  titled albums (Spotify's song-first ordering). False keeps albums on top
+     *  for album-intent queries. */
+    songsFirst: Boolean = false,
     onArtistTap: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit = {},
     onAlbumTap: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit = {},
 ) {
     val hasCatalogRows = artists.isNotEmpty() || albums.isNotEmpty()
+    // Albums lead only for album-intent queries; on a song-title query they drop
+    // below the songs (see the trailing album block).
+    val albumsAboveSongs = albums.isNotEmpty() && !songsFirst
     if (isSearching && tracks.isEmpty() && !hasCatalogRows) {
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
             items(8) { index ->
@@ -1674,7 +1685,9 @@ private fun SongSearchResultsList(
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
-            items(artists, key = { "artist-${it.id}" }) { artist ->
+            // Cap artist rows at 2 on mobile — a narrow screen fills up fast, so
+            // keep the top 2 (backend returns up to 3 in relevance order).
+            items(artists.take(2), key = { "artist-${it.id}" }) { artist ->
                 ArtistSearchRow(
                     artist = artist,
                     onClick = {
@@ -1688,23 +1701,28 @@ private fun SongSearchResultsList(
                     },
                 )
             }
-            items(albums, key = { "album-${it.id}" }) { album ->
-                AlbumSearchRow(
-                    album = album,
-                    onClick = {
-                        onAlbumTap(
-                            fm.corus.android.ui.navigation.AlbumPageRoute(
-                                albumId = album.id,
-                                title = album.title,
-                                artist = album.artistName,
-                                coverUrl = album.coverUrl,
-                                year = album.year,
+            if (albumsAboveSongs) {
+                items(albums, key = { "album-${it.id}" }) { album ->
+                    AlbumSearchRow(
+                        album = album,
+                        onClick = {
+                            onAlbumTap(
+                                fm.corus.android.ui.navigation.AlbumPageRoute(
+                                    albumId = album.id,
+                                    title = album.title,
+                                    artist = album.artistName,
+                                    coverUrl = album.coverUrl,
+                                    year = album.year,
+                                )
                             )
-                        )
-                    },
-                )
+                        },
+                    )
+                }
             }
-            if (hasCatalogRows && tracks.isNotEmpty()) {
+            // Divider between the leading catalog rows and the songs. When
+            // songsFirst moved albums down, only artists lead — so gate on
+            // whatever actually renders above the songs.
+            if ((artists.isNotEmpty() || albumsAboveSongs) && tracks.isNotEmpty()) {
                 item {
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = CorusSpacing.xs),
@@ -1717,6 +1735,33 @@ private fun SongSearchResultsList(
                 SongSearchRow(track = track, onClick = { onSongTap(track) })
                 if (index < tracks.lastIndex) {
                     HorizontalDivider(modifier = Modifier.padding(start = 84.dp), color = CorusColors.Divider, thickness = 0.5.dp)
+                }
+            }
+            // Song-title query: same-titled album rows render after the songs so
+            // the direct hit leads but the album stays reachable.
+            if (songsFirst && albums.isNotEmpty()) {
+                item {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = CorusSpacing.xs),
+                        color = CorusColors.Divider,
+                        thickness = 0.5.dp,
+                    )
+                }
+                items(albums, key = { "album-below-${it.id}" }) { album ->
+                    AlbumSearchRow(
+                        album = album,
+                        onClick = {
+                            onAlbumTap(
+                                fm.corus.android.ui.navigation.AlbumPageRoute(
+                                    albumId = album.id,
+                                    title = album.title,
+                                    artist = album.artistName,
+                                    coverUrl = album.coverUrl,
+                                    year = album.year,
+                                )
+                            )
+                        },
+                    )
                 }
             }
         }
@@ -1751,6 +1796,15 @@ private fun ArtistSearchRow(
                     contentDescription = artist.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.Mic,
+                    contentDescription = null,
+                    tint = CorusColors.Tertiary,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(20.dp),
                 )
             }
         }
@@ -1852,6 +1906,15 @@ private fun DirectorSearchRow(
                     contentDescription = director.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.Movie,
+                    contentDescription = null,
+                    tint = CorusColors.Tertiary,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(20.dp),
                 )
             }
         }

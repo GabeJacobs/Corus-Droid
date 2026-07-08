@@ -2,6 +2,8 @@ package fm.corus.android.data.repository
 
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -49,5 +51,27 @@ class MusicSearchRepositoryTest {
             market = any(),
             includeSoundCloud = eq(true),
         )
+    }
+
+    @Test
+    fun `songsFirst maps from the response`() = runBlocking {
+        whenever(cloudFunctions.searchSongs(any(), any(), any(), any(), any()))
+            .thenReturn(
+                mapOf(
+                    "tracks" to emptyList<Map<String, Any?>>(),
+                    "hasMore" to false,
+                    "songsFirst" to true,
+                )
+            )
+
+        assertTrue(repo.search("ocean breathes salty").songsFirst)
+    }
+
+    @Test
+    fun `songsFirst defaults to false when the response omits it`() = runBlocking {
+        whenever(cloudFunctions.searchSongs(any(), any(), any(), any(), any()))
+            .thenReturn(mapOf("tracks" to emptyList<Map<String, Any?>>(), "hasMore" to false))
+
+        assertFalse(repo.search("test").songsFirst)
     }
 }
