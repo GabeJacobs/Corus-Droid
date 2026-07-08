@@ -314,7 +314,11 @@ class MessageRepository @Inject constructor(
             .document(threadId)
             .collection("messages")
             .orderBy("createdAt", Query.Direction.ASCENDING)
-            .limit(200)
+            // limitToLast returns the NEWEST 200 (tail of the ascending order),
+            // still oldest-first. A plain limit(200) returns the OLDEST 200, so
+            // once a thread passes 200 messages the newest ones fall outside the
+            // window and never appear (chat looks blank; only old messages show).
+            .limitToLast(200)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) return@addSnapshotListener
                 val messages = snapshot.documents.mapNotNull { doc ->
