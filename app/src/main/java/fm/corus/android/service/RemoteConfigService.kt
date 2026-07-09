@@ -219,6 +219,22 @@ class RemoteConfigService @Inject constructor(
     val artistPagesEnabled: Boolean
         get() = feedFlag("artist_pages_enabled")
 
+    /// Send-side gate for sharing an artist / album / director (the "..." Share
+    /// menu on those destination pages + the Artist/Album/Director items in the
+    /// DM composer "+" menu). Launch-dark: receiving/rendering those DMs is always
+    /// on in an updated client; flip TRUE once enough clients can render them.
+    /// Shares `entity_share_enabled` with iOS/web. Init-race-safe feedFlag path.
+    val entityShareEnabled: Boolean
+        get() = feedFlag("entity_share_enabled")
+
+    /// Unified search: blended zero-state discovery feed + All/Users/Music/
+    /// Film/Hashtags filter chips instead of the pre-segmented tabs. Shares
+    /// the key with web (already released there). Uses the init-race-safe
+    /// feedFlag path so the tabless layout renders correctly from the first
+    /// frame on cold start.
+    val unifiedSearchEnabled: Boolean
+        get() = feedFlag("unified_search_enabled")
+
     /// Order of the feed switcher menu, driven by the `feed_mode_order` Remote
     /// Config string (comma-separated camelCase tokens, e.g.
     /// "following,trending,tasteMatches,favorites"). Parsed leniently — see
@@ -331,6 +347,8 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("favorites_enabled", remoteConfig.getBoolean("favorites_enabled"))
             .putBoolean("play_milestone_enabled", remoteConfig.getBoolean("play_milestone_enabled"))
             .putBoolean("artist_pages_enabled", remoteConfig.getBoolean("artist_pages_enabled"))
+            .putBoolean("entity_share_enabled", remoteConfig.getBoolean("entity_share_enabled"))
+            .putBoolean("unified_search_enabled", remoteConfig.getBoolean("unified_search_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
             .apply()
     }
@@ -400,6 +418,8 @@ class RemoteConfigService @Inject constructor(
             // Default FALSE in code — the server template currently sends true;
             // flipping the console key off must revert every client.
             "artist_pages_enabled" to false,
+            "entity_share_enabled" to false,
+            "unified_search_enabled" to false,
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
         )
     }

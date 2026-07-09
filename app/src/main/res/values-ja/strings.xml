@@ -420,6 +420,12 @@
     <string name="search_placeholder_songs">曲を検索</string>
     <string name="search_placeholder_films">映画を検索</string>
     <string name="search_placeholder_hashtags">ハッシュタグを検索</string>
+    <string name="search_placeholder_unified">ユーザー、音楽、映画、ハッシュタグを検索</string>
+    <string name="search_no_matches">一致なし。</string>
+    <string name="search_filter_all_chip">すべて</string>
+    <string name="search_trending_songs_title">トレンドの曲</string>
+    <string name="search_trending_films_title">トレンドの映画</string>
+    <string name="search_trending_hashtags_title">トレンドのハッシュタグ</string>
     <string name="search_tab_users">ユーザー</string>
     <string name="search_tab_songs">曲</string>
     <string name="search_tab_films">映画</string>
@@ -612,6 +618,9 @@
     <string name="messaging_thread_attachment_photo">写真</string>
     <string name="messaging_thread_attachment_song">曲</string>
     <string name="messaging_thread_attachment_film">映画</string>
+    <string name="messaging_thread_attachment_artist">アーティスト</string>
+    <string name="messaging_thread_attachment_album">アルバム</string>
+    <string name="messaging_thread_attachment_director">監督</string>
     <string name="messaging_thread_placeholder">メッセージ...</string>
     <string name="messaging_thread_cd_shared_image">シェアされた画像</string>
     <string name="messaging_thread_sending">送信中...</string>
@@ -947,4 +956,22 @@
     <string name="destination_catalog_load_error">読み込めませんでした。</string>
     <string name="destination_no_tracks">このアルバムの曲が見つかりませんでした。</string>
     <string name="post_menu_go_to_director">監督ページへ</string>
+    <!-- Post drafts -->
+    <string name="compose_drafts_title">下書き</string>
+    <string name="compose_drafts_empty">下書きはまだありません。</string>
+    <string name="compose_draft_no_caption">キャプションなし</string>
+    <string name="compose_draft_voice_note">ボイスメモ</string>
+    <string name="compose_draft_saved_voice">保存したボイスメモ</string>
+    <string name="compose_exit_save_title">下書きとして保存しますか？</string>
+    <string name="compose_draft_discard">破棄</string>
+    <string name="compose_draft_save">下書きを保存</string>
+    <string name="compose_draft_saving">保存中…</string>
+    <string name="compose_draft_cancel">キャンセル</string>
+    <string name="compose_draft_saved">下書きを保存しました</string>
+    <string name="compose_draft_save_failed">下書きを保存できませんでした</string>
+    <string name="compose_draft_deleted">下書きを削除しました</string>
+    <string name="compose_draft_delete_failed">下書きを削除できませんでした</string>
+    <string name="compose_draft_delete_aria">下書きを削除</string>
+    <string name="compose_attachment_unavailable">これはもう利用できません。</string>
+    <string name="compose_draft_choose_another">別のものを選択</string>
 </resources>

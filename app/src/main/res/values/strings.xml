@@ -320,6 +320,9 @@
     <string name="song_detail_post_song">+ Post Song</string>
     <string name="song_detail_cd_share">Share song</string>
     <string name="song_detail_toast_song_sent">Song sent!</string>
+    <string name="artist_detail_toast_artist_sent">Artist sent!</string>
+    <string name="album_detail_toast_album_sent">Album sent!</string>
+    <string name="director_detail_toast_director_sent">Director sent!</string>
     <string name="song_detail_play_spotify">Play in Spotify</string>
     <!-- Preference-aware playback CTA: %1$s is the music-service name (e.g. Spotify, Deezer) -->
     <string name="song_detail_play_in_service">Play in %1$s</string>
@@ -489,6 +492,12 @@
     <string name="search_placeholder_songs">Search for a song</string>
     <string name="search_placeholder_films">Search for a film</string>
     <string name="search_placeholder_hashtags">Search hashtags</string>
+    <string name="search_placeholder_unified">Search users, music, film, hashtags</string>
+    <string name="search_no_matches">No matches.</string>
+    <string name="search_filter_all_chip">All</string>
+    <string name="search_trending_songs_title">Trending songs</string>
+    <string name="search_trending_films_title">Trending films</string>
+    <string name="search_trending_hashtags_title">Trending hashtags</string>
     <string name="search_tab_users">Users</string>
     <string name="search_tab_songs">Songs</string>
     <string name="search_tab_films">Films</string>
@@ -705,6 +714,9 @@
     <string name="messaging_thread_attachment_photo">Photo</string>
     <string name="messaging_thread_attachment_song">Song</string>
     <string name="messaging_thread_attachment_film">Film</string>
+    <string name="messaging_thread_attachment_artist">Artist</string>
+    <string name="messaging_thread_attachment_album">Album</string>
+    <string name="messaging_thread_attachment_director">Director</string>
     <string name="messaging_thread_attachment_post">Corus</string>
     <string name="messaging_thread_placeholder">Message...</string>
     <string name="messaging_thread_cd_shared_image">Shared image</string>
@@ -950,6 +962,25 @@
     <string name="compose_director_unknown">Unknown</string>
     <string name="compose_trending_songs">TRENDING SONGS</string>
     <string name="compose_trending_films">TRENDING FILMS</string>
+
+    <!-- Post drafts -->
+    <string name="compose_drafts_title">Drafts</string>
+    <string name="compose_drafts_empty">No drafts yet.</string>
+    <string name="compose_draft_no_caption">No caption yet</string>
+    <string name="compose_draft_voice_note">Voice note</string>
+    <string name="compose_draft_saved_voice">Saved voice note</string>
+    <string name="compose_exit_save_title">Save this as a draft?</string>
+    <string name="compose_draft_discard">Discard</string>
+    <string name="compose_draft_save">Save draft</string>
+    <string name="compose_draft_saving">Saving…</string>
+    <string name="compose_draft_cancel">Cancel</string>
+    <string name="compose_draft_saved">Draft saved</string>
+    <string name="compose_draft_save_failed">Couldn’t save draft</string>
+    <string name="compose_draft_deleted">Draft deleted</string>
+    <string name="compose_draft_delete_failed">Couldn’t delete draft</string>
+    <string name="compose_draft_delete_aria">Delete draft</string>
+    <string name="compose_attachment_unavailable">This isn’t available anymore.</string>
+    <string name="compose_draft_choose_another">Choose another</string>
 
     <!-- Cymbal Club / Subscription -->
     <string name="club_cd_close">Close</string>

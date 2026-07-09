@@ -255,7 +255,7 @@ class CommentsViewModel @Inject constructor(
     val post: StateFlow<CymbalPost?> = _post.asStateFlow()
 
     val currentUserId: String? get() = authRepository.currentUserId
-    val engagementStates = engagementManager.states
+    override val engagementStates = engagementManager.states
     val currentUserProfile = authRepository.userProfile
 
     private var postId: String = ""
@@ -802,6 +802,8 @@ class CommentsViewModel @Inject constructor(
         val userId = authRepository.currentUserId ?: return
         engagementManager.toggleLike(postId, userId)
     }
+
+    override fun toggleSave(postId: String) = togglePostSave(postId)
 
     fun togglePostSave(postId: String) {
         val userId = authRepository.currentUserId ?: return

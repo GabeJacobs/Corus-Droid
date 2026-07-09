@@ -472,6 +472,12 @@
     <string name="search_placeholder_songs">Nach einem Song suchen</string>
     <string name="search_placeholder_films">Nach einem Film suchen</string>
     <string name="search_placeholder_hashtags">Hashtags suchen</string>
+    <string name="search_placeholder_unified">Suche Personen, Musik, Filme, Hashtags</string>
+    <string name="search_no_matches">Keine Treffer.</string>
+    <string name="search_filter_all_chip">Alle</string>
+    <string name="search_trending_songs_title">Songs im Trend</string>
+    <string name="search_trending_films_title">Filme im Trend</string>
+    <string name="search_trending_hashtags_title">Hashtags im Trend</string>
     <string name="search_tab_users">Personen</string>
     <string name="search_tab_songs">Songs</string>
     <string name="search_tab_films">Filme</string>
@@ -685,6 +691,9 @@
     <string name="messaging_thread_attachment_photo">Foto</string>
     <string name="messaging_thread_attachment_song">Song</string>
     <string name="messaging_thread_attachment_film">Film</string>
+    <string name="messaging_thread_attachment_artist">Künstler</string>
+    <string name="messaging_thread_attachment_album">Album</string>
+    <string name="messaging_thread_attachment_director">Regisseur</string>
     <string name="messaging_thread_placeholder">Nachricht...</string>
     <string name="messaging_thread_cd_shared_image">Geteiltes Bild</string>
     <string name="messaging_thread_sending">Wird gesendet...</string>
@@ -1074,4 +1083,22 @@
     <string name="destination_catalog_load_error">Konnte gerade nicht geladen werden.</string>
     <string name="destination_no_tracks">Keine Titel für dieses Album gefunden.</string>
     <string name="post_menu_go_to_director">Zum Regisseur</string>
+    <!-- Post drafts -->
+    <string name="compose_drafts_title">Entwürfe</string>
+    <string name="compose_drafts_empty">Noch keine Entwürfe.</string>
+    <string name="compose_draft_no_caption">Noch keine Bildunterschrift</string>
+    <string name="compose_draft_voice_note">Sprachnotiz</string>
+    <string name="compose_draft_saved_voice">Gespeicherte Sprachnotiz</string>
+    <string name="compose_exit_save_title">Als Entwurf speichern?</string>
+    <string name="compose_draft_discard">Verwerfen</string>
+    <string name="compose_draft_save">Entwurf speichern</string>
+    <string name="compose_draft_saving">Wird gespeichert…</string>
+    <string name="compose_draft_cancel">Abbrechen</string>
+    <string name="compose_draft_saved">Entwurf gespeichert</string>
+    <string name="compose_draft_save_failed">Entwurf konnte nicht gespeichert werden</string>
+    <string name="compose_draft_deleted">Entwurf gelöscht</string>
+    <string name="compose_draft_delete_failed">Entwurf konnte nicht gelöscht werden</string>
+    <string name="compose_draft_delete_aria">Entwurf löschen</string>
+    <string name="compose_attachment_unavailable">Das ist nicht mehr verfügbar.</string>
+    <string name="compose_draft_choose_another">Anderen auswählen</string>
 </resources>

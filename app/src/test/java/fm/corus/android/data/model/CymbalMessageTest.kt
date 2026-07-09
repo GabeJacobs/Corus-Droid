@@ -189,4 +189,72 @@ class CymbalMessageTest {
         releaseYear = releaseYear,
         tmdbWebURL = tmdbWebURL,
     )
+
+    // ── Entity-share message types (artist / album / director) ──
+
+    @Test
+    fun `MessageType maps the new shared-entity raw values`() {
+        assertEquals(MessageType.SHARED_ARTIST, MessageType.from("sharedArtist"))
+        assertEquals(MessageType.SHARED_ALBUM, MessageType.from("sharedAlbum"))
+        assertEquals(MessageType.SHARED_DIRECTOR, MessageType.from("sharedDirector"))
+    }
+
+    @Test
+    fun `fromMap parses sharedArtist fields`() {
+        val msg = CymbalMessage.fromMap(
+            "m1",
+            mapOf(
+                "fromUserId" to "u1",
+                "type" to "sharedArtist",
+                "artistId" to "art1",
+                "artistName" to "Radiohead",
+                "artistImageURL" to "https://img/artist.jpg",
+            ),
+        )
+        assertEquals(MessageType.SHARED_ARTIST, msg.type)
+        assertEquals("art1", msg.artistId)
+        assertEquals("Radiohead", msg.artistName)
+        assertEquals("https://img/artist.jpg", msg.artistImageURL)
+    }
+
+    @Test
+    fun `fromMap parses sharedAlbum fields`() {
+        val msg = CymbalMessage.fromMap(
+            "m1",
+            mapOf(
+                "fromUserId" to "u1",
+                "type" to "sharedAlbum",
+                "albumId" to "alb1",
+                "albumTitle" to "OK Computer",
+                "albumArtistName" to "Radiohead",
+                "albumCoverURL" to "https://img/cover.jpg",
+                "albumYear" to "1997",
+            ),
+        )
+        assertEquals(MessageType.SHARED_ALBUM, msg.type)
+        assertEquals("alb1", msg.albumId)
+        assertEquals("OK Computer", msg.albumTitle)
+        assertEquals("Radiohead", msg.albumArtistName)
+        assertEquals("https://img/cover.jpg", msg.albumCoverURL)
+        assertEquals("1997", msg.albumYear)
+    }
+
+    @Test
+    fun `fromFirestoreDoc parses sharedDirector fields`() {
+        val msg = CymbalMessage.fromFirestoreDoc(
+            "m1",
+            "t1",
+            mapOf(
+                "fromUserId" to "u1",
+                "type" to "sharedDirector",
+                "directorId" to "dir1",
+                "directorName" to "David Fincher",
+                "directorImageURL" to "https://img/dir.jpg",
+            ),
+        )
+        assertEquals(MessageType.SHARED_DIRECTOR, msg.type)
+        assertEquals("dir1", msg.directorId)
+        assertEquals("David Fincher", msg.directorName)
+        assertEquals("https://img/dir.jpg", msg.directorImageURL)
+    }
 }

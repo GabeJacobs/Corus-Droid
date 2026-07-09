@@ -117,6 +117,7 @@ class ComposeTrophyPostReleaseDateTest {
 
     private fun viewModel(): ComposeViewModel = ComposeViewModel(
         postRepository,
+        mock<fm.corus.android.data.repository.PostDraftRepository>(),
         spotifyRepository,
         musicSearchRepository,
         tmdbRepository,

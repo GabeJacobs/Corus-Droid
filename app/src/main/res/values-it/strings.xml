@@ -472,6 +472,12 @@
     <string name="search_placeholder_songs">Cerca un brano</string>
     <string name="search_placeholder_films">Cerca un film</string>
     <string name="search_placeholder_hashtags">Cerca hashtag</string>
+    <string name="search_placeholder_unified">Cerca persone, musica, film, hashtag</string>
+    <string name="search_no_matches">Nessun risultato.</string>
+    <string name="search_filter_all_chip">Tutti</string>
+    <string name="search_trending_songs_title">Canzoni di tendenza</string>
+    <string name="search_trending_films_title">Film di tendenza</string>
+    <string name="search_trending_hashtags_title">Hashtag di tendenza</string>
     <string name="search_tab_users">Persone</string>
     <string name="search_tab_songs">Brani</string>
     <string name="search_tab_films">Film</string>
@@ -685,6 +691,9 @@
     <string name="messaging_thread_attachment_photo">Foto</string>
     <string name="messaging_thread_attachment_song">Brano</string>
     <string name="messaging_thread_attachment_film">Film</string>
+    <string name="messaging_thread_attachment_artist">Artista</string>
+    <string name="messaging_thread_attachment_album">Album</string>
+    <string name="messaging_thread_attachment_director">Regista</string>
     <string name="messaging_thread_placeholder">Messaggio...</string>
     <string name="messaging_thread_cd_shared_image">Immagine condivisa</string>
     <string name="messaging_thread_sending">Invio...</string>
@@ -1074,4 +1083,22 @@
     <string name="destination_catalog_load_error">Impossibile caricare al momento.</string>
     <string name="destination_no_tracks">Nessun brano trovato per questo album.</string>
     <string name="post_menu_go_to_director">Vai al regista</string>
+    <!-- Post drafts -->
+    <string name="compose_drafts_title">Bozze</string>
+    <string name="compose_drafts_empty">Ancora nessuna bozza.</string>
+    <string name="compose_draft_no_caption">Nessuna didascalia</string>
+    <string name="compose_draft_voice_note">Nota vocale</string>
+    <string name="compose_draft_saved_voice">Nota vocale salvata</string>
+    <string name="compose_exit_save_title">Salvare come bozza?</string>
+    <string name="compose_draft_discard">Scarta</string>
+    <string name="compose_draft_save">Salva bozza</string>
+    <string name="compose_draft_saving">Salvataggio…</string>
+    <string name="compose_draft_cancel">Annulla</string>
+    <string name="compose_draft_saved">Bozza salvata</string>
+    <string name="compose_draft_save_failed">Impossibile salvare la bozza</string>
+    <string name="compose_draft_deleted">Bozza eliminata</string>
+    <string name="compose_draft_delete_failed">Impossibile eliminare la bozza</string>
+    <string name="compose_draft_delete_aria">Elimina bozza</string>
+    <string name="compose_attachment_unavailable">Questo non è più disponibile.</string>
+    <string name="compose_draft_choose_another">Scegli un altro</string>
 </resources>

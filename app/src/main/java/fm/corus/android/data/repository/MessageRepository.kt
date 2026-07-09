@@ -218,6 +218,73 @@ class MessageRepository @Inject constructor(
         )
     }
 
+    suspend fun sendSharedArtistMessage(
+        threadId: String,
+        fromUserId: String,
+        text: String = "",
+        artistId: String,
+        name: String,
+        imageUrl: String?,
+        clientMessageId: String? = null,
+    ) {
+        cloudFunctions.sendMessage(
+            threadId = threadId,
+            fromUserId = fromUserId,
+            text = text,
+            type = "sharedArtist",
+            artistId = artistId,
+            artistName = name,
+            artistImageURL = imageUrl,
+            clientMessageId = clientMessageId,
+        )
+    }
+
+    suspend fun sendSharedAlbumMessage(
+        threadId: String,
+        fromUserId: String,
+        text: String = "",
+        albumId: String,
+        title: String,
+        artistName: String,
+        coverUrl: String?,
+        year: String?,
+        clientMessageId: String? = null,
+    ) {
+        cloudFunctions.sendMessage(
+            threadId = threadId,
+            fromUserId = fromUserId,
+            text = text,
+            type = "sharedAlbum",
+            albumId = albumId,
+            albumTitle = title,
+            albumArtistName = artistName,
+            albumCoverURL = coverUrl,
+            albumYear = year,
+            clientMessageId = clientMessageId,
+        )
+    }
+
+    suspend fun sendSharedDirectorMessage(
+        threadId: String,
+        fromUserId: String,
+        text: String = "",
+        directorId: String,
+        name: String,
+        imageUrl: String?,
+        clientMessageId: String? = null,
+    ) {
+        cloudFunctions.sendMessage(
+            threadId = threadId,
+            fromUserId = fromUserId,
+            text = text,
+            type = "sharedDirector",
+            directorId = directorId,
+            directorName = name,
+            directorImageURL = imageUrl,
+            clientMessageId = clientMessageId,
+        )
+    }
+
     suspend fun getOrCreateThread(userId: String, otherUserId: String): String {
         return cloudFunctions.getOrCreateThread(userId, otherUserId)
     }

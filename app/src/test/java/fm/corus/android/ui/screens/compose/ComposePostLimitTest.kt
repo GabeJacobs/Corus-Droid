@@ -115,6 +115,7 @@ class ComposePostLimitTest {
     private fun viewModel(): ComposeViewModel {
         return ComposeViewModel(
             postRepository,
+            mock<fm.corus.android.data.repository.PostDraftRepository>(),
             spotifyRepository,
             musicSearchRepository,
             tmdbRepository,

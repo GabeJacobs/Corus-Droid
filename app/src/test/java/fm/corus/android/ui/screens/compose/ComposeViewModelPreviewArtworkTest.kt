@@ -99,6 +99,7 @@ class ComposeViewModelPreviewArtworkTest {
 
     private fun createViewModel() = ComposeViewModel(
         postRepository = postRepository,
+        postDraftRepository = mock(),
         spotifyRepository = spotifyRepository,
         musicSearchRepository = musicSearchRepository,
         tmdbRepository = tmdbRepository,

@@ -7,8 +7,12 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.UserLite
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.MessageRepository
+import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -39,6 +43,11 @@ class ArtistPageViewModelTest {
     private lateinit var cloudFunctions: CloudFunctionsDataSource
     private lateinit var nowPlayingManager: NowPlayingManager
     private lateinit var analyticsService: AnalyticsService
+    private lateinit var authRepository: AuthRepository
+    private lateinit var userRepository: UserRepository
+    private lateinit var messageRepository: MessageRepository
+    private lateinit var remoteConfigService: RemoteConfigService
+    private lateinit var context: android.content.Context
 
     @Before
     fun setUp() {
@@ -46,6 +55,11 @@ class ArtistPageViewModelTest {
         cloudFunctions = mock()
         nowPlayingManager = mock()
         analyticsService = mock()
+        authRepository = mock()
+        userRepository = mock()
+        messageRepository = mock()
+        remoteConfigService = mock()
+        context = mock()
     }
 
     @After
@@ -57,6 +71,11 @@ class ArtistPageViewModelTest {
         cloudFunctions = cloudFunctions,
         nowPlayingManager = nowPlayingManager,
         analyticsService = analyticsService,
+        authRepository = authRepository,
+        userRepository = userRepository,
+        messageRepository = messageRepository,
+        remoteConfigService = remoteConfigService,
+        context = context,
     )
 
     private fun detail() = ArtistDetail(

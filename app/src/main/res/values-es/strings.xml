@@ -472,6 +472,12 @@
     <string name="search_placeholder_songs">Buscar una canción</string>
     <string name="search_placeholder_films">Buscar una película</string>
     <string name="search_placeholder_hashtags">Buscar hashtags</string>
+    <string name="search_placeholder_unified">Busca personas, música, cine, hashtags</string>
+    <string name="search_no_matches">Sin resultados.</string>
+    <string name="search_filter_all_chip">Todos</string>
+    <string name="search_trending_songs_title">Canciones en tendencia</string>
+    <string name="search_trending_films_title">Películas en tendencia</string>
+    <string name="search_trending_hashtags_title">Hashtags en tendencia</string>
     <string name="search_tab_users">Personas</string>
     <string name="search_tab_songs">Canciones</string>
     <string name="search_tab_films">Películas</string>
@@ -685,6 +691,9 @@
     <string name="messaging_thread_attachment_photo">Foto</string>
     <string name="messaging_thread_attachment_song">Canción</string>
     <string name="messaging_thread_attachment_film">Película</string>
+    <string name="messaging_thread_attachment_artist">Artista</string>
+    <string name="messaging_thread_attachment_album">Álbum</string>
+    <string name="messaging_thread_attachment_director">Director</string>
     <string name="messaging_thread_placeholder">Mensaje...</string>
     <string name="messaging_thread_cd_shared_image">Imagen compartida</string>
     <string name="messaging_thread_sending">Enviando...</string>
@@ -1074,4 +1083,22 @@
     <string name="destination_catalog_load_error">No se pudo cargar ahora mismo.</string>
     <string name="destination_no_tracks">No se encontraron canciones para este álbum.</string>
     <string name="post_menu_go_to_director">Ir al director</string>
+    <!-- Post drafts -->
+    <string name="compose_drafts_title">Borradores</string>
+    <string name="compose_drafts_empty">Aún no hay borradores.</string>
+    <string name="compose_draft_no_caption">Sin descripción todavía</string>
+    <string name="compose_draft_voice_note">Nota de voz</string>
+    <string name="compose_draft_saved_voice">Nota de voz guardada</string>
+    <string name="compose_exit_save_title">¿Guardar como borrador?</string>
+    <string name="compose_draft_discard">Descartar</string>
+    <string name="compose_draft_save">Guardar borrador</string>
+    <string name="compose_draft_saving">Guardando…</string>
+    <string name="compose_draft_cancel">Cancelar</string>
+    <string name="compose_draft_saved">Borrador guardado</string>
+    <string name="compose_draft_save_failed">No se pudo guardar el borrador</string>
+    <string name="compose_draft_deleted">Borrador eliminado</string>
+    <string name="compose_draft_delete_failed">No se pudo eliminar el borrador</string>
+    <string name="compose_draft_delete_aria">Eliminar borrador</string>
+    <string name="compose_attachment_unavailable">Esto ya no está disponible.</string>
+    <string name="compose_draft_choose_another">Elegir otro</string>
 </resources>

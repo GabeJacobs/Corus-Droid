@@ -21,10 +21,18 @@ class MusicSearchRepositoryTest {
     private val cloudFunctions = mock<CloudFunctionsDataSource>()
     private val repo = MusicSearchRepository(cloudFunctions)
 
+    private suspend fun stubSearch(response: Map<String, Any?>) {
+        whenever(
+            cloudFunctions.searchSongs(any(), any(), any(), any(), any(), any(), any()),
+        ).thenReturn(response)
+    }
+
+    private val emptyResponse =
+        mapOf("tracks" to emptyList<Map<String, Any?>>(), "hasMore" to false)
+
     @Test
-    fun `default search excludes SoundCloud`() = runBlocking {
-        whenever(cloudFunctions.searchSongs(any(), any(), any(), any(), any()))
-            .thenReturn(mapOf("tracks" to emptyList<Map<String, Any?>>(), "hasMore" to false))
+    fun `default search excludes SoundCloud`(): Unit = runBlocking {
+        stubSearch(emptyResponse)
 
         repo.search("test")
 
@@ -34,13 +42,14 @@ class MusicSearchRepositoryTest {
             limit = eq(20),
             market = any(),
             includeSoundCloud = eq(false),
+            includeArtists = eq(false),
+            includeAlbums = eq(false),
         )
     }
 
     @Test
-    fun `passing includeSoundCloud true forwards through`() = runBlocking {
-        whenever(cloudFunctions.searchSongs(any(), any(), any(), any(), any()))
-            .thenReturn(mapOf("tracks" to emptyList<Map<String, Any?>>(), "hasMore" to false))
+    fun `passing includeSoundCloud true forwards through`(): Unit = runBlocking {
+        stubSearch(emptyResponse)
 
         repo.search("test", includeSoundCloud = true)
 
@@ -50,27 +59,27 @@ class MusicSearchRepositoryTest {
             limit = eq(20),
             market = any(),
             includeSoundCloud = eq(true),
+            includeArtists = eq(false),
+            includeAlbums = eq(false),
         )
     }
 
     @Test
-    fun `songsFirst maps from the response`() = runBlocking {
-        whenever(cloudFunctions.searchSongs(any(), any(), any(), any(), any()))
-            .thenReturn(
-                mapOf(
-                    "tracks" to emptyList<Map<String, Any?>>(),
-                    "hasMore" to false,
-                    "songsFirst" to true,
-                )
-            )
+    fun `songsFirst maps from the response`(): Unit = runBlocking {
+        stubSearch(
+            mapOf(
+                "tracks" to emptyList<Map<String, Any?>>(),
+                "hasMore" to false,
+                "songsFirst" to true,
+            ),
+        )
 
         assertTrue(repo.search("ocean breathes salty").songsFirst)
     }
 
     @Test
-    fun `songsFirst defaults to false when the response omits it`() = runBlocking {
-        whenever(cloudFunctions.searchSongs(any(), any(), any(), any(), any()))
-            .thenReturn(mapOf("tracks" to emptyList<Map<String, Any?>>(), "hasMore" to false))
+    fun `songsFirst defaults to false when the response omits it`(): Unit = runBlocking {
+        stubSearch(emptyResponse)
 
         assertFalse(repo.search("test").songsFirst)
     }

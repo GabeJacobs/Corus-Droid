@@ -104,7 +104,7 @@ class ProfileFeedViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    val engagementStates = engagementManager.states
+    override val engagementStates = engagementManager.states
     val currentUserProfile = authRepository.userProfile
 
     val currentUserId: String? get() = authRepository.currentUserId
@@ -484,7 +484,7 @@ class ProfileFeedViewModel @Inject constructor(
         engagementManager.toggleLike(postId, userId)
     }
 
-    fun toggleSave(postId: String) {
+    override fun toggleSave(postId: String) {
         val userId = authRepository.currentUserId ?: return
         engagementManager.toggleSave(postId, userId)
     }

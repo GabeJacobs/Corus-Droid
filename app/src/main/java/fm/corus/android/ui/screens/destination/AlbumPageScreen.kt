@@ -23,12 +23,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,10 +45,24 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.R
 import fm.corus.android.data.model.primaryNameHint
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ShareAlbumSubject
+import fm.corus.android.ui.components.ShareMediaSheet
+import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.SkeletonUserRow
+import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.navigation.ArtistPageRoute
 import fm.corus.android.ui.navigation.SongDetailRoute
 import fm.corus.android.ui.theme.CorusColors
@@ -74,7 +91,13 @@ fun AlbumPageScreen(
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
     val isPostsLoading by viewModel.isPostsLoading.collectAsState()
     val postsError by viewModel.postsError.collectAsState()
+    val recentShareContacts by viewModel.recentShareContacts.collectAsState()
+    val shareSearchResults by viewModel.shareSearchResults.collectAsState()
+    val isShareSearching by viewModel.isShareSearching.collectAsState()
+    val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
     val context = LocalContext.current
+    var showShareSheet by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     val title = catalog?.title?.takeIf { it.isNotBlank() } ?: titleHint
     val artistName = catalog?.artistName?.takeIf { it.isNotBlank() } ?: artistHint
@@ -103,6 +126,30 @@ fun AlbumPageScreen(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(R.string.feed_cd_back),
                     )
+                },
+                actions = {
+                    if (viewModel.entityShareEnabled) {
+                        Box {
+                            CorusHeaderIconButton(
+                                onClick = { showMenu = true },
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                            )
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                                containerColor = CorusColors.CardBackground,
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                    onClick = {
+                                        showMenu = false
+                                        showShareSheet = true
+                                    },
+                                )
+                            }
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -333,6 +380,49 @@ fun AlbumPageScreen(
                     },
                 )
             }
+        }
+    }
+
+    if (showShareSheet) {
+        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sentMsg = stringResource(R.string.album_detail_toast_album_sent)
+        LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
+        ModalBottomSheet(
+            onDismissRequest = { showShareSheet = false },
+            sheetState = shareSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = null,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
+        ) {
+            CorusSystemBars()
+            BackHandler { showShareSheet = false }
+            ShareMediaSheet(
+                subject = ShareMediaSubject.Album(
+                    ShareAlbumSubject(
+                        id = albumId,
+                        title = title ?: "Album",
+                        artistName = artistName ?: "",
+                        coverUrl = cover,
+                        year = (catalog?.year ?: yearHint)?.toString(),
+                    )
+                ),
+                recentContacts = recentShareContacts,
+                searchResults = shareSearchResults,
+                isSearching = isShareSearching,
+                isLoadingContacts = isLoadingShareContacts,
+                onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
+                onSendToUser = { userId, message ->
+                    viewModel.sendAlbumToUser(
+                        userId, albumId, title ?: "Album", artistName ?: "", cover,
+                        (catalog?.year ?: yearHint)?.toString(), message,
+                    )
+                    ToastManager.show(sentMsg)
+                    showShareSheet = false
+                },
+                onDismiss = { showShareSheet = false },
+                onAnalyticsLog = { method -> viewModel.analyticsService.logAlbumShared(albumId, method) },
+            )
         }
     }
 }

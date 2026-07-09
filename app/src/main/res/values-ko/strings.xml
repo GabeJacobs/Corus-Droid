@@ -472,6 +472,12 @@
     <string name="search_placeholder_songs">곡 검색</string>
     <string name="search_placeholder_films">영화 검색</string>
     <string name="search_placeholder_hashtags">해시태그 검색</string>
+    <string name="search_placeholder_unified">사용자, 음악, 영화, 해시태그 검색</string>
+    <string name="search_no_matches">결과가 없어요.</string>
+    <string name="search_filter_all_chip">전체</string>
+    <string name="search_trending_songs_title">인기 곡</string>
+    <string name="search_trending_films_title">인기 영화</string>
+    <string name="search_trending_hashtags_title">인기 해시태그</string>
     <string name="search_tab_users">사용자</string>
     <string name="search_tab_songs">곡</string>
     <string name="search_tab_films">영화</string>
@@ -685,6 +691,9 @@
     <string name="messaging_thread_attachment_photo">사진</string>
     <string name="messaging_thread_attachment_song">곡</string>
     <string name="messaging_thread_attachment_film">영화</string>
+    <string name="messaging_thread_attachment_artist">아티스트</string>
+    <string name="messaging_thread_attachment_album">앨범</string>
+    <string name="messaging_thread_attachment_director">감독</string>
     <string name="messaging_thread_placeholder">메시지...</string>
     <string name="messaging_thread_cd_shared_image">공유된 이미지</string>
     <string name="messaging_thread_sending">보내는 중...</string>
@@ -1072,4 +1081,22 @@
     <string name="destination_catalog_load_error">지금은 불러올 수 없습니다.</string>
     <string name="destination_no_tracks">이 앨범의 곡을 찾을 수 없습니다.</string>
     <string name="post_menu_go_to_director">감독으로 이동</string>
+    <!-- Post drafts -->
+    <string name="compose_drafts_title">임시 저장</string>
+    <string name="compose_drafts_empty">임시 저장된 게시물이 없습니다.</string>
+    <string name="compose_draft_no_caption">문구 없음</string>
+    <string name="compose_draft_voice_note">음성 메모</string>
+    <string name="compose_draft_saved_voice">저장된 음성 메모</string>
+    <string name="compose_exit_save_title">임시 저장할까요?</string>
+    <string name="compose_draft_discard">삭제</string>
+    <string name="compose_draft_save">임시 저장</string>
+    <string name="compose_draft_saving">저장 중…</string>
+    <string name="compose_draft_cancel">취소</string>
+    <string name="compose_draft_saved">임시 저장됨</string>
+    <string name="compose_draft_save_failed">임시 저장하지 못했습니다</string>
+    <string name="compose_draft_deleted">삭제됨</string>
+    <string name="compose_draft_delete_failed">삭제하지 못했습니다</string>
+    <string name="compose_draft_delete_aria">임시 저장 삭제</string>
+    <string name="compose_attachment_unavailable">더 이상 사용할 수 없습니다.</string>
+    <string name="compose_draft_choose_another">다른 항목 선택</string>
 </resources>

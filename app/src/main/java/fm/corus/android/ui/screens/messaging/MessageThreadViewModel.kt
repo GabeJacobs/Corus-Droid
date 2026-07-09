@@ -45,6 +45,10 @@ class MessageThreadViewModel @Inject constructor(
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport
 
+    /** Send-side gate for the Artist/Album/Director items in the composer "+" menu. */
+    val entityShareEnabled: Boolean
+        get() = remoteConfigService.entityShareEnabled
+
     val groupMessagingEnabled: Boolean
         get() = remoteConfigService.groupMessagingEnabled
 
@@ -648,6 +652,77 @@ class MessageThreadViewModel @Inject constructor(
                     fromUserId = userId,
                     movie = movie,
                     clientMessageId = clientId,
+                )
+                _pendingMessages.value = _pendingMessages.value - clientId
+            } catch (e: Exception) {
+                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+            }
+        }
+    }
+
+    fun sendArtistMessage(threadId: String, artistId: String, name: String, imageUrl: String?) {
+        val userId = authRepository.currentUserId ?: return
+        val resolvedId = currentThreadId ?: threadId
+        val clientId = UUID.randomUUID().toString()
+        val optimistic = CymbalMessage(
+            id = clientId, threadId = resolvedId, fromUserId = userId, text = null,
+            type = MessageType.SHARED_ARTIST, createdAt = Date(), sendStatus = MessageSendStatus.SENDING,
+            artistId = artistId, artistName = name, artistImageURL = imageUrl,
+        )
+        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
+        viewModelScope.launch {
+            try {
+                messageRepository.sendSharedArtistMessage(
+                    threadId = resolvedId, fromUserId = userId, artistId = artistId,
+                    name = name, imageUrl = imageUrl, clientMessageId = clientId,
+                )
+                _pendingMessages.value = _pendingMessages.value - clientId
+            } catch (e: Exception) {
+                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+            }
+        }
+    }
+
+    fun sendAlbumMessage(threadId: String, albumId: String, title: String, artistName: String?, coverUrl: String?, year: Int?) {
+        val userId = authRepository.currentUserId ?: return
+        val resolvedId = currentThreadId ?: threadId
+        val clientId = UUID.randomUUID().toString()
+        val optimistic = CymbalMessage(
+            id = clientId, threadId = resolvedId, fromUserId = userId, text = null,
+            type = MessageType.SHARED_ALBUM, createdAt = Date(), sendStatus = MessageSendStatus.SENDING,
+            albumId = albumId, albumTitle = title, albumArtistName = artistName,
+            albumCoverURL = coverUrl, albumYear = year?.toString(),
+        )
+        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
+        viewModelScope.launch {
+            try {
+                messageRepository.sendSharedAlbumMessage(
+                    threadId = resolvedId, fromUserId = userId, albumId = albumId,
+                    title = title, artistName = artistName ?: "", coverUrl = coverUrl,
+                    year = year?.toString(), clientMessageId = clientId,
+                )
+                _pendingMessages.value = _pendingMessages.value - clientId
+            } catch (e: Exception) {
+                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+            }
+        }
+    }
+
+    fun sendDirectorMessage(threadId: String, directorId: String, name: String, imageUrl: String?) {
+        val userId = authRepository.currentUserId ?: return
+        val resolvedId = currentThreadId ?: threadId
+        val clientId = UUID.randomUUID().toString()
+        val optimistic = CymbalMessage(
+            id = clientId, threadId = resolvedId, fromUserId = userId, text = null,
+            type = MessageType.SHARED_DIRECTOR, createdAt = Date(), sendStatus = MessageSendStatus.SENDING,
+            directorId = directorId, directorName = name, directorImageURL = imageUrl,
+        )
+        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
+        viewModelScope.launch {
+            try {
+                messageRepository.sendSharedDirectorMessage(
+                    threadId = resolvedId, fromUserId = userId, directorId = directorId,
+                    name = name, imageUrl = imageUrl, clientMessageId = clientId,
                 )
                 _pendingMessages.value = _pendingMessages.value - clientId
             } catch (e: Exception) {

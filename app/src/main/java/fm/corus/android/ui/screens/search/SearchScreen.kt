@@ -16,6 +16,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -129,6 +130,7 @@ fun SearchScreen(
     onNavigateToArtist: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit = {},
     onNavigateToAlbum: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit = {},
     onNavigateToDirector: (fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit = {},
+    onNavigateToTrending: (String) -> Unit = {},
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val userResults by viewModel.userSearchResults.collectAsState()
@@ -141,6 +143,10 @@ fun SearchScreen(
     // Read once per composition — gates the tab labels, placeholders, and the
     // artist/album/director rows. Flag off = the screen renders as before.
     val artistPagesEnabled = viewModel.artistPagesEnabled
+    // Unified search: blended zero-state feed + filter chips instead of tabs.
+    // Read once per composition, same as artistPagesEnabled.
+    val unifiedSearchEnabled = viewModel.unifiedSearchEnabled
+    val unifiedFilter by viewModel.unifiedFilter.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val trendingSongs by viewModel.trendingSongs.collectAsState()
@@ -172,7 +178,19 @@ fun SearchScreen(
     val hasSearchQuery = searchQuery.isNotBlank()
     val searchHasError by viewModel.searchHasError.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
-    val currentTabIsEmpty = when (activeTab) {
+    val currentTabIsEmpty = if (unifiedSearchEnabled) {
+        // Unified: "empty" = nothing rendered by the active filter.
+        when (unifiedFilter) {
+            UnifiedSearchFilter.USERS -> userResults.isEmpty()
+            UnifiedSearchFilter.MUSIC -> songSearchResults.isEmpty() && artistSearchResults.isEmpty()
+            UnifiedSearchFilter.FILM -> filmSearchResults.isEmpty()
+            UnifiedSearchFilter.HASHTAGS -> hashtagSearchResults.isEmpty()
+            UnifiedSearchFilter.ALL ->
+                userResults.isEmpty() && songSearchResults.isEmpty() &&
+                    artistSearchResults.isEmpty() && filmSearchResults.isEmpty() &&
+                    hashtagSearchResults.isEmpty()
+        }
+    } else when (activeTab) {
         SearchTab.USERS -> userResults.isEmpty()
         SearchTab.SONGS -> songSearchResults.isEmpty()
         SearchTab.FILMS -> filmSearchResults.isEmpty()
@@ -181,7 +199,9 @@ fun SearchScreen(
     val showSearchOfflineRetry = hasSearchQuery && !isSearching && searchHasError && currentTabIsEmpty
     var isSearchFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
-    val showRecentOverlay = isSearchFocused && !hasSearchQuery && activeTab == SearchTab.USERS
+    // Unified search has no Users tab; recents overlay on focus everywhere.
+    val showRecentOverlay = isSearchFocused && !hasSearchQuery &&
+        (unifiedSearchEnabled || activeTab == SearchTab.USERS)
 
     // Dismiss the recent-searches overlay on back press
     BackHandler(enabled = showRecentOverlay) {
@@ -206,11 +226,24 @@ fun SearchScreen(
     val songsListState = rememberLazyListState()
     val filmsListState = rememberLazyListState()
     val hashtagsListState = rememberLazyListState()
+    // Unified search lists (blended zero state + blended All results) are
+    // separate lists, so scroll-to-top needs their own hoisted states.
+    val unifiedZeroListState = rememberLazyListState()
+    val unifiedAllListState = rememberLazyListState()
 
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger > lastScrollTrigger) {
-            when (activeTab) {
+            if (unifiedSearchEnabled) {
+                when {
+                    !hasSearchQuery -> unifiedZeroListState.animateScrollToItem(0)
+                    unifiedFilter == UnifiedSearchFilter.ALL -> unifiedAllListState.animateScrollToItem(0)
+                    unifiedFilter == UnifiedSearchFilter.USERS -> usersListState.animateScrollToItem(0)
+                    unifiedFilter == UnifiedSearchFilter.MUSIC -> songsListState.animateScrollToItem(0)
+                    unifiedFilter == UnifiedSearchFilter.FILM -> filmsListState.animateScrollToItem(0)
+                    else -> hashtagsListState.animateScrollToItem(0)
+                }
+            } else when (activeTab) {
                 SearchTab.USERS -> usersListState.animateScrollToItem(0)
                 SearchTab.SONGS -> songsListState.animateScrollToItem(0)
                 SearchTab.FILMS -> filmsListState.animateScrollToItem(0)
@@ -303,7 +336,10 @@ fun SearchScreen(
                 isSearchFocused = false
             },
             onFocusChanged = { isSearchFocused = it },
-            placeholder = when (activeTab) {
+            placeholder = if (unifiedSearchEnabled) {
+                // No pre-picked vertical: one placeholder names them all.
+                stringResource(fm.corus.android.R.string.search_placeholder_unified)
+            } else when (activeTab) {
                 // Artist pages on: songs/films placeholders widen to cover the
                 // new artist/album/director rows ("Music" / "Film" tabs).
                 SearchTab.SONGS -> stringResource(
@@ -321,12 +357,24 @@ fun SearchScreen(
 
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
-        // Tab bar
-        SearchTabBar(
-            selectedTab = activeTab,
-            onTabSelected = { viewModel.setActiveTab(it.ordinal) },
-            artistPagesEnabled = artistPagesEnabled,
-        )
+        // Unified search has no pre-picked vertical: no tabs at all on the
+        // zero state, filter chips only once a query is typed.
+        if (unifiedSearchEnabled) {
+            if (hasSearchQuery) {
+                UnifiedFilterChipRow(
+                    selected = unifiedFilter,
+                    artistPagesEnabled = artistPagesEnabled,
+                    onSelect = { viewModel.setUnifiedFilter(it) },
+                )
+            }
+        } else {
+            // Tab bar
+            SearchTabBar(
+                selectedTab = activeTab,
+                onTabSelected = { viewModel.setActiveTab(it.ordinal) },
+                artistPagesEnabled = artistPagesEnabled,
+            )
+        }
 
         // Content area – a Box so the recent-searches overlay can sit on top
         Box(modifier = Modifier.fillMaxSize()) {
@@ -359,6 +407,110 @@ fun SearchScreen(
                             stringResource(fm.corus.android.R.string.feed_offline_subtitle)
                         },
                     )
+                } else if (unifiedSearchEnabled) {
+                    if (hasSearchQuery) {
+                        when (unifiedFilter) {
+                            UnifiedSearchFilter.ALL -> UnifiedAllResults(
+                                listState = unifiedAllListState,
+                                userResults = userResults,
+                                songResults = songSearchResults,
+                                artistResults = artistSearchResults,
+                                filmResults = filmSearchResults,
+                                hashtagResults = hashtagSearchResults,
+                                isSearching = isSearching,
+                                artistPagesEnabled = artistPagesEnabled,
+                                followedHashtagNames = followedHashtagNames,
+                                viewModel = viewModel,
+                                nowPlaying = viewModel.nowPlayingManager,
+                                onSelectFilter = { viewModel.setUnifiedFilter(it) },
+                                onNavigateToUser = { userId ->
+                                    val user = userResults.find { it.id == userId }
+                                    if (user != null) viewModel.onUserSelected(user)
+                                    onNavigateToUser(userId)
+                                },
+                                onNavigateToSong = onNavigateToSong,
+                                onNavigateToFilm = onNavigateToFilm,
+                                onNavigateToArtist = onNavigateToArtist,
+                                onNavigateToHashtag = onNavigateToHashtag,
+                            )
+                            UnifiedSearchFilter.USERS -> UserSearchResults(
+                                listState = usersListState,
+                                results = userResults,
+                                isSearching = isSearching,
+                                viewModel = viewModel,
+                                onNavigateToUser = { userId ->
+                                    val user = userResults.find { it.id == userId }
+                                    if (user != null) viewModel.onUserSelected(user)
+                                    onNavigateToUser(userId)
+                                },
+                            )
+                            UnifiedSearchFilter.MUSIC -> SongSearchResultsList(
+                                listState = songsListState,
+                                tracks = songSearchResults,
+                                isSearching = isSearching,
+                                onSongTap = onNavigateToSong,
+                                artists = artistSearchResults,
+                                albums = albumSearchResults,
+                                songsFirst = songsFirst,
+                                onArtistTap = onNavigateToArtist,
+                                onAlbumTap = onNavigateToAlbum,
+                            )
+                            UnifiedSearchFilter.FILM -> FilmSearchResultsList(
+                                listState = filmsListState,
+                                movies = filmSearchResults,
+                                isSearching = isSearching,
+                                onFilmTap = onNavigateToFilm,
+                                directors = directorSearchResults,
+                                onDirectorTap = onNavigateToDirector,
+                            )
+                            UnifiedSearchFilter.HASHTAGS -> HashtagSearchResultsList(
+                                listState = hashtagsListState,
+                                hashtags = hashtagSearchResults,
+                                isSearching = isSearching,
+                                followedHashtagNames = followedHashtagNames,
+                                onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
+                                onToggleFollow = { tag -> viewModel.toggleHashtagFollow(tag) },
+                            )
+                        }
+                    } else {
+                        UnifiedZeroStateContent(
+                            listState = unifiedZeroListState,
+                            musicMatchUsers = musicMatchUsers,
+                            filterUnfollowedMatches = filterUnfollowedMatches,
+                            onSetFilterUnfollowed = { filterUnfollowedMatches = it },
+                            popularRailFilterFollowedIds = popularRailFilterFollowedIds,
+                            showUnfollowedPopularToggle = showUnfollowedPopularToggle,
+                            filterUnfollowedPopular = filterUnfollowedPopular,
+                            onSetFilterUnfollowedPopular = onSetFilterUnfollowedPopular,
+                            mutualConnectionUsers = mutualConnectionUsers,
+                            contactMatches = contactMatches,
+                            contactsSyncStatus = contactsSyncStatus,
+                            isSyncingContacts = isSyncingContacts,
+                            showNoContactMatches = showNoContactMatches,
+                            newUsers = newUsers,
+                            clubMembers = clubMembers,
+                            allFollowedIds = allFollowedIds,
+                            isSuggestedLoading = isSuggestedLoading,
+                            isTasteMatchPolling = isTasteMatchPolling,
+                            tasteMatchLoadFailed = tasteMatchLoadFailed,
+                            belowTasteMatchThreshold = belowTasteMatchThreshold,
+                            trendingSongs = trendingSongs,
+                            isTrendingLoading = isTrendingLoading,
+                            trendingMovies = trendingMovies,
+                            isTrendingMoviesLoading = isTrendingMoviesLoading,
+                            trendingHashtags = trendingHashtags,
+                            isTrendingHashtagsLoading = isTrendingHashtagsLoading,
+                            followedHashtagNames = followedHashtagNames,
+                            viewModel = viewModel,
+                            onNavigateToUser = onNavigateToUser,
+                            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+                            onNavigateToContactFriends = onNavigateToContactFriends,
+                            onNavigateToSong = onNavigateToSong,
+                            onNavigateToFilm = onNavigateToFilm,
+                            onNavigateToHashtag = onNavigateToHashtag,
+                            onNavigateToTrending = onNavigateToTrending,
+                        )
+                    }
                 } else when (activeTab) {
                     SearchTab.USERS -> {
                         if (hasSearchQuery) {
@@ -703,14 +855,6 @@ private fun SuggestedUsersContent(
     onNavigateToContactFriends: () -> Unit,
 ) {
     val context = LocalContext.current
-    val tasteMatchesTitle = stringResource(fm.corus.android.R.string.search_taste_matches_title)
-    val mutualConnectionsTitle = stringResource(fm.corus.android.R.string.search_mutual_connections_title)
-    val popularOnCorusTitle = stringResource(fm.corus.android.R.string.search_popular_title)
-    val newOnCorusTitle = stringResource(fm.corus.android.R.string.search_new_title)
-    val clubMembersTitle = stringResource(fm.corus.android.R.string.search_club_members_title)
-    val fromContactsSubtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts)
-    val joinedFormat = fm.corus.android.R.string.suggested_users_joined_format
-    val memberSinceFormat = fm.corus.android.R.string.suggested_users_member_since_format
     val railExcludeIds = remember(viewModel.currentUserId) {
         viewModel.currentUserId?.let { setOf(it) } ?: emptySet()
     }
@@ -723,279 +867,422 @@ private fun SuggestedUsersContent(
         }
     }
 
+    // Assembled from the shared LazyListScope section extensions below so the
+    // unified zero state (UnifiedZeroStateContent) can reuse the exact same
+    // sections in web's order. THIS assembly preserves today's classic order.
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = CorusSpacing.xxs),
     ) {
-        // ── Find Friends from Contacts ──
+        contactsSections(
+            contactsSyncStatus = contactsSyncStatus,
+            isSyncingContacts = isSyncingContacts,
+            contactMatches = contactMatches,
+            showNoContactMatches = showNoContactMatches,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToContactFriends = onNavigateToContactFriends,
+            onRequestContacts = {
+                contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+            },
+        )
+
+        tasteMatchesSections(
+            musicMatchUsers = musicMatchUsers,
+            isSuggestedLoading = isSuggestedLoading,
+            isTasteMatchPolling = isTasteMatchPolling,
+            tasteMatchLoadFailed = tasteMatchLoadFailed,
+            belowTasteMatchThreshold = belowTasteMatchThreshold,
+            allFollowedIds = allFollowedIds,
+            filterUnfollowedMatches = filterUnfollowedMatches,
+            onSetFilterUnfollowed = onSetFilterUnfollowed,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+        )
+
+        popularSection(
+            railExcludeIds = railExcludeIds,
+            popularRailFilterFollowedIds = popularRailFilterFollowedIds,
+            allFollowedIds = allFollowedIds,
+            filterUnfollowedPopular = filterUnfollowedPopular,
+            showUnfollowedPopularToggle = showUnfollowedPopularToggle,
+            onSetFilterUnfollowedPopular = onSetFilterUnfollowedPopular,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+        )
+
+        clubMembersSection(
+            clubMembers = clubMembers,
+            allFollowedIds = allFollowedIds,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+        )
+
+        mutualConnectionsSection(
+            mutualConnectionUsers = mutualConnectionUsers,
+            allFollowedIds = allFollowedIds,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+        )
+
+        newOnCorusSection(
+            newUsers = newUsers,
+            mutualConnectionUsers = mutualConnectionUsers,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+        )
+
+        inviteFriendsSection(isSuggestedLoading = isSuggestedLoading)
+    }
+}
+
+// ── Zero-state section extensions ──
+// Each discovery section as a LazyListScope extension so BOTH assemblies can
+// share them: SuggestedUsersContent (classic Users tab, today's order) and
+// UnifiedZeroStateContent (unified_search_enabled, web's order with trending
+// strips interleaved). Blocks moved verbatim from SuggestedUsersContent.
+
+private fun LazyListScope.contactsSections(
+    contactsSyncStatus: String,
+    isSyncingContacts: Boolean,
+    contactMatches: List<CymbalUser>,
+    showNoContactMatches: Boolean,
+    viewModel: SearchViewModel,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToContactFriends: () -> Unit,
+    onRequestContacts: () -> Unit,
+) {
+    // ── Find Friends from Contacts ──
+    item {
+        AnimatedVisibility(
+            visible = contactsSyncStatus == "notAsked",
+            exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
+        ) {
+            Column(modifier = Modifier.padding(top = CorusSpacing.md)) {
+                FindFriendsFromContactsCard(
+                    isSyncing = isSyncingContacts,
+                    onTap = onRequestContacts,
+                    onDismiss = {
+                        viewModel.dismissContactsSync()
+                    },
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            }
+        }
+    }
+
+    // ── Friends on Corus (contact matches) ──
+    if (isSyncingContacts && contactsSyncStatus == "synced") {
         item {
-            AnimatedVisibility(
-                visible = contactsSyncStatus == "notAsked",
-                exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
-            ) {
-                Column(modifier = Modifier.padding(top = CorusSpacing.md)) {
-                    FindFriendsFromContactsCard(
-                        isSyncing = isSyncingContacts,
-                        onTap = {
-                            contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-                        },
-                        onDismiss = {
-                            viewModel.dismissContactsSync()
-                        },
-                    )
-                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                }
-            }
+            SectionHeader(icon = "contacts", title = stringResource(fm.corus.android.R.string.search_section_friends_on_corus))
         }
-
-        // ── Friends on Corus (contact matches) ──
-        if (isSyncingContacts && contactsSyncStatus == "synced") {
-            item {
-                SectionHeader(icon = "contacts", title = stringResource(fm.corus.android.R.string.search_section_friends_on_corus))
-            }
-            items(3) {
-                SkeletonUserRow()
-            }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
-        } else if (contactMatches.isNotEmpty()) {
-            item {
-                SectionHeader(
-                    icon = "contacts",
-                    title = stringResource(fm.corus.android.R.string.search_section_friends_on_corus),
-                    showSeeAll = contactMatches.size > 3,
-                    onSeeAll = {
-                        viewModel.logSearchSectionSeeAllTapped(SearchSection.FriendsOnCorus)
-                        onNavigateToContactFriends()
-                    },
-                )
-            }
-            items(contactMatches.take(3), key = { "contact-${it.id}" }) { user ->
-                SuggestedUserRow(
-                    user = user,
-                    subtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts),
-                    isFollowed = viewModel.isFollowed(user.id),
-                    onTap = {
-                        viewModel.logSearchSectionUserTapped(SearchSection.FriendsOnCorus, user.id)
-                        onNavigateToUser(user.id)
-                    },
-                    onFollow = { viewModel.toggleFollow(user, SearchSection.FriendsOnCorus) },
-                )
-            }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
-        } else if (showNoContactMatches) {
-            item {
-                NoContactMatchesCard()
-            }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+        items(3) {
+            SkeletonUserRow()
         }
-
-        // ── Taste Matches section ──
-        // Always present the section: real cards when we have matches, a skeleton
-        // while we're still loading/polling, and a short explainer whenever a user
-        // has no taste matches yet so the slot reads as "coming soon" rather than
-        // missing. A viewer below the post threshold skips the skeleton entirely
-        // (the ViewModel also skips their fetch and poll), so they reach the
-        // explainer immediately instead of shimmering through a scan that can't
-        // produce matches.
-        if (musicMatchUsers.isNotEmpty()) {
-            item {
-                // Paginated rail backed by getTasteMatchesPage — pages the FULL
-                // strength-ranked list (not the capped top-15 preview), so the
-                // filter toggle is always available and "Unfollowed" can reach
-                // matches ranked below the top-15. The rail owns its own data,
-                // pagination, and filter; the parent only gates section
-                // visibility on musicMatchUsers (from getSuggestedUsers), the
-                // same way iOS keeps its parent gate.
-                val tasteFilterCd = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches)
-                HorizontalTasteMatchesRail(
-                    followedIds = allFollowedIds,
-                    filterUnfollowed = filterUnfollowedMatches,
-                    onClearFilter = { onSetFilterUnfollowed(false) },
-                    onUserTap = { match ->
-                        // Keep music_match_tapped (carries similarity_score, unique to this section)
-                        viewModel.logMusicMatchTapped(match.user.id, match.matchData?.similarityScore ?: 0.0)
-                        // Also fire the unified event so cross-section comparisons work.
-                        viewModel.logSearchSectionUserTapped(SearchSection.TasteMatches, match.user.id)
-                        onNavigateToUser(match.user.id)
-                    },
-                    onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.TasteMatches) },
-                    onSeeAll = {
-                        viewModel.logSearchSectionSeeAllTapped(SearchSection.TasteMatches)
-                        onNavigateToSuggestedUsers(tasteMatchesTitle, false, "tasteMatches")
-                    },
-                    // Always available when the viewer follows anyone (mirrors
-                    // iOS showFilterToggle: !currentUserFollowingIds.isEmpty),
-                    // not gated on a fragile "mix in the top-15" condition.
-                    trailingAction = if (allFollowedIds.isNotEmpty()) {
-                        {
-                            UnfollowedUsersFilterMenu(
-                                filterUnfollowed = filterUnfollowedMatches,
-                                onSetFilterUnfollowed = onSetFilterUnfollowed,
-                                contentDescription = tasteFilterCd,
-                            )
-                        }
-                    } else null,
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            }
-        } else if ((isSuggestedLoading || isTasteMatchPolling) && !belowTasteMatchThreshold) {
-            item {
-                SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
-            }
-            item {
-                val cardWidth = horizontalRailCardWidth()
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
-                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-                ) {
-                    items(4) { SkeletonTasteMatchCard(modifier = Modifier.width(cardWidth)) }
-                }
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            }
-        } else if (tasteMatchLoadFailed) {
-            // Failed/timed-out load with nothing to show: hide the section entirely
-            // rather than implying the user has no taste matches. It reappears on the
-            // next successful load (or the cold-start poll recovering).
-        } else {
-            item {
-                SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
-            }
-            item {
-                TasteMatchesEmptyCard()
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            }
-        }
-
-        // ── Popular on Corus — paginated horizontal rail of real users ──
+        item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+    } else if (contactMatches.isNotEmpty()) {
         item {
-            val popularFilterCd = stringResource(fm.corus.android.R.string.search_cd_filter_popular_users)
-            HorizontalPopularUsersRail(
-                // Fold the followed-id set into excludeIds so the query never
-                // returns already-followed accounts under the "Unfollowed"
-                // filter — same as iOS. Empty when the filter is off, so "All"
-                // shows everyone.
-                excludeIds = railExcludeIds + popularRailFilterFollowedIds,
-                followedIds = allFollowedIds,
-                onUserTap = { user ->
-                    viewModel.logSearchSectionUserTapped(SearchSection.Popular, user.id)
+            SectionHeader(
+                icon = "contacts",
+                title = stringResource(fm.corus.android.R.string.search_section_friends_on_corus),
+                showSeeAll = contactMatches.size > 3,
+                onSeeAll = {
+                    viewModel.logSearchSectionSeeAllTapped(SearchSection.FriendsOnCorus)
+                    onNavigateToContactFriends()
+                },
+            )
+        }
+        items(contactMatches.take(3), key = { "contact-${it.id}" }) { user ->
+            SuggestedUserRow(
+                user = user,
+                subtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts),
+                isFollowed = viewModel.isFollowed(user.id),
+                onTap = {
+                    viewModel.logSearchSectionUserTapped(SearchSection.FriendsOnCorus, user.id)
                     onNavigateToUser(user.id)
                 },
-                onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.Popular) },
-                onSeeAll = {
-                    viewModel.logSearchSectionSeeAllTapped(SearchSection.Popular)
-                    onNavigateToSuggestedUsers(popularOnCorusTitle, false, "popular")
+                onFollow = { viewModel.toggleFollow(user, SearchSection.FriendsOnCorus) },
+            )
+        }
+        item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+    } else if (showNoContactMatches) {
+        item {
+            NoContactMatchesCard()
+        }
+        item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+    }
+}
+
+private fun LazyListScope.tasteMatchesSections(
+    musicMatchUsers: List<SuggestedUserMatch>,
+    isSuggestedLoading: Boolean,
+    isTasteMatchPolling: Boolean,
+    tasteMatchLoadFailed: Boolean,
+    belowTasteMatchThreshold: Boolean,
+    allFollowedIds: Set<String>,
+    filterUnfollowedMatches: Boolean,
+    onSetFilterUnfollowed: (Boolean) -> Unit,
+    viewModel: SearchViewModel,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
+) {
+    // ── Taste Matches section ──
+    // Always present the section: real cards when we have matches, a skeleton
+    // while we're still loading/polling, and a short explainer whenever a user
+    // has no taste matches yet so the slot reads as "coming soon" rather than
+    // missing. A viewer below the post threshold skips the skeleton entirely
+    // (the ViewModel also skips their fetch and poll), so they reach the
+    // explainer immediately instead of shimmering through a scan that can't
+    // produce matches.
+    if (musicMatchUsers.isNotEmpty()) {
+        item {
+            // Paginated rail backed by getTasteMatchesPage — pages the FULL
+            // strength-ranked list (not the capped top-15 preview), so the
+            // filter toggle is always available and "Unfollowed" can reach
+            // matches ranked below the top-15. The rail owns its own data,
+            // pagination, and filter; the parent only gates section
+            // visibility on musicMatchUsers (from getSuggestedUsers), the
+            // same way iOS keeps its parent gate.
+            val tasteFilterCd = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches)
+            val tasteMatchesTitle = stringResource(fm.corus.android.R.string.search_taste_matches_title)
+            HorizontalTasteMatchesRail(
+                followedIds = allFollowedIds,
+                filterUnfollowed = filterUnfollowedMatches,
+                onClearFilter = { onSetFilterUnfollowed(false) },
+                onUserTap = { match ->
+                    // Keep music_match_tapped (carries similarity_score, unique to this section)
+                    viewModel.logMusicMatchTapped(match.user.id, match.matchData?.similarityScore ?: 0.0)
+                    // Also fire the unified event so cross-section comparisons work.
+                    viewModel.logSearchSectionUserTapped(SearchSection.TasteMatches, match.user.id)
+                    onNavigateToUser(match.user.id)
                 },
-                filterUnfollowed = filterUnfollowedPopular,
-                trailingAction = if (showUnfollowedPopularToggle) {
+                onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.TasteMatches) },
+                onSeeAll = {
+                    viewModel.logSearchSectionSeeAllTapped(SearchSection.TasteMatches)
+                    onNavigateToSuggestedUsers(tasteMatchesTitle, false, "tasteMatches")
+                },
+                // Always available when the viewer follows anyone (mirrors
+                // iOS showFilterToggle: !currentUserFollowingIds.isEmpty),
+                // not gated on a fragile "mix in the top-15" condition.
+                trailingAction = if (allFollowedIds.isNotEmpty()) {
                     {
                         UnfollowedUsersFilterMenu(
-                            filterUnfollowed = filterUnfollowedPopular,
-                            onSetFilterUnfollowed = onSetFilterUnfollowedPopular,
-                            contentDescription = popularFilterCd,
+                            filterUnfollowed = filterUnfollowedMatches,
+                            onSetFilterUnfollowed = onSetFilterUnfollowed,
+                            contentDescription = tasteFilterCd,
                         )
                     }
                 } else null,
             )
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
-
-        // ── Corus Club Members ──
-        // Horizontal rail of TasteMatchCards ordered by initial sign-up
-        // (most recent first). Mirrors web; placement matches iOS.
-        if (clubMembers.isNotEmpty()) {
-            item {
-                SectionHeader(
-                    icon = "club",
-                    title = stringResource(fm.corus.android.R.string.search_section_club_members),
-                    showSeeAll = true,
-                    onSeeAll = {
-                        viewModel.logSearchSectionSeeAllTapped(SearchSection.ClubMembers)
-                        onNavigateToSuggestedUsers(clubMembersTitle, false, "clubMembers")
-                    },
-                )
-            }
-            item {
-                ClubMembersCardRail(
-                    users = clubMembers,
-                    followedIds = allFollowedIds,
-                    onUserTap = { user ->
-                        viewModel.logSearchSectionUserTapped(SearchSection.ClubMembers, user.id)
-                        onNavigateToUser(user.id)
-                    },
-                    onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.ClubMembers) },
-                    memberSinceLabel = { date ->
-                        context.getString(memberSinceFormat, DateUtils.relativeTime(context, date))
-                    },
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            }
+    } else if ((isSuggestedLoading || isTasteMatchPolling) && !belowTasteMatchThreshold) {
+        item {
+            SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
         }
-
-        // ── Mutual Connections section ──
-        // Horizontal rail of TasteMatchCards (2x2 album-art) — matches iOS
-        // SearchView.mutualConnectionsSection / MutualConnectionsCardGrid.
-        if (mutualConnectionUsers.isNotEmpty()) {
-            item {
-                SectionHeader(
-                    icon = "people",
-                    title = stringResource(fm.corus.android.R.string.search_section_mutual_connections),
-                    showSeeAll = mutualConnectionUsers.size > 2,
-                    onSeeAll = {
-                        viewModel.logSearchSectionSeeAllTapped(SearchSection.MutualConnections)
-                        onNavigateToSuggestedUsers(mutualConnectionsTitle, true, "mutualConnections")
-                    },
-                )
+        item {
+            val cardWidth = horizontalRailCardWidth()
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+            ) {
+                items(4) { SkeletonTasteMatchCard(modifier = Modifier.width(cardWidth)) }
             }
-            item {
-                MutualConnectionsCardRail(
-                    matches = mutualConnectionUsers,
-                    followedIds = allFollowedIds,
-                    onUserTap = { user ->
-                        viewModel.logSearchSectionUserTapped(SearchSection.MutualConnections, user.id)
-                        onNavigateToUser(user.id)
-                    },
-                    onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.MutualConnections) },
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            }
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
-
-        // ── New on Corus ──
-        val seenNewIds = buildSet { mutualConnectionUsers.forEach { add(it.user.id) } }
-        val displayNewUsers = newUsers.filter {
-            !seenNewIds.contains(it.id) && !viewModel.isFollowed(it.id)
+    } else if (tasteMatchLoadFailed) {
+        // Failed/timed-out load with nothing to show: hide the section entirely
+        // rather than implying the user has no taste matches. It reappears on the
+        // next successful load (or the cold-start poll recovering).
+    } else {
+        item {
+            SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
         }
-        if (displayNewUsers.isNotEmpty()) {
-            item {
-                SectionHeader(
-                    icon = "new",
-                    title = stringResource(fm.corus.android.R.string.search_section_new),
-                    showSeeAll = displayNewUsers.size > 3,
-                    onSeeAll = {
-                        viewModel.logSearchSectionSeeAllTapped(SearchSection.NewOnCorus)
-                        onNavigateToSuggestedUsers(newOnCorusTitle, true, "new")
-                    },
-                )
-            }
-            items(displayNewUsers.take(3), key = { "new-${it.id}" }) { user ->
-                SuggestedUserRow(
-                    user = user,
-                    subtitle = user.createdAt?.let { context.getString(joinedFormat, DateUtils.relativeTime(context, it)) },
-                    isFollowed = viewModel.isFollowed(user.id),
-                    onTap = {
-                        viewModel.logSearchSectionUserTapped(SearchSection.NewOnCorus, user.id)
-                        onNavigateToUser(user.id)
-                    },
-                    onFollow = { viewModel.toggleFollow(user, SearchSection.NewOnCorus) },
-                )
-            }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+        item {
+            TasteMatchesEmptyCard()
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
+    }
+}
 
-        // ── Invite friends ──
-        if (!isSuggestedLoading) {
+private fun LazyListScope.popularSection(
+    railExcludeIds: Set<String>,
+    popularRailFilterFollowedIds: Set<String>,
+    allFollowedIds: Set<String>,
+    filterUnfollowedPopular: Boolean,
+    showUnfollowedPopularToggle: Boolean,
+    onSetFilterUnfollowedPopular: (Boolean) -> Unit,
+    viewModel: SearchViewModel,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
+) {
+    // ── Popular on Corus — paginated horizontal rail of real users ──
+    item {
+        val popularFilterCd = stringResource(fm.corus.android.R.string.search_cd_filter_popular_users)
+        val popularOnCorusTitle = stringResource(fm.corus.android.R.string.search_popular_title)
+        HorizontalPopularUsersRail(
+            // Fold the followed-id set into excludeIds so the query never
+            // returns already-followed accounts under the "Unfollowed"
+            // filter — same as iOS. Empty when the filter is off, so "All"
+            // shows everyone.
+            excludeIds = railExcludeIds + popularRailFilterFollowedIds,
+            followedIds = allFollowedIds,
+            onUserTap = { user ->
+                viewModel.logSearchSectionUserTapped(SearchSection.Popular, user.id)
+                onNavigateToUser(user.id)
+            },
+            onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.Popular) },
+            onSeeAll = {
+                viewModel.logSearchSectionSeeAllTapped(SearchSection.Popular)
+                onNavigateToSuggestedUsers(popularOnCorusTitle, false, "popular")
+            },
+            filterUnfollowed = filterUnfollowedPopular,
+            trailingAction = if (showUnfollowedPopularToggle) {
+                {
+                    UnfollowedUsersFilterMenu(
+                        filterUnfollowed = filterUnfollowedPopular,
+                        onSetFilterUnfollowed = onSetFilterUnfollowedPopular,
+                        contentDescription = popularFilterCd,
+                    )
+                }
+            } else null,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+    }
+}
+
+private fun LazyListScope.clubMembersSection(
+    clubMembers: List<CymbalUser>,
+    allFollowedIds: Set<String>,
+    viewModel: SearchViewModel,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
+) {
+    // ── Corus Club Members ──
+    // Horizontal rail of TasteMatchCards ordered by initial sign-up
+    // (most recent first). Mirrors web; placement matches iOS.
+    if (clubMembers.isNotEmpty()) {
+        item {
+            val clubMembersTitle = stringResource(fm.corus.android.R.string.search_club_members_title)
+            SectionHeader(
+                icon = "club",
+                title = stringResource(fm.corus.android.R.string.search_section_club_members),
+                showSeeAll = true,
+                onSeeAll = {
+                    viewModel.logSearchSectionSeeAllTapped(SearchSection.ClubMembers)
+                    onNavigateToSuggestedUsers(clubMembersTitle, false, "clubMembers")
+                },
+            )
+        }
+        item {
+            val context = LocalContext.current
+            ClubMembersCardRail(
+                users = clubMembers,
+                followedIds = allFollowedIds,
+                onUserTap = { user ->
+                    viewModel.logSearchSectionUserTapped(SearchSection.ClubMembers, user.id)
+                    onNavigateToUser(user.id)
+                },
+                onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.ClubMembers) },
+                memberSinceLabel = { date ->
+                    context.getString(fm.corus.android.R.string.suggested_users_member_since_format, DateUtils.relativeTime(context, date))
+                },
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        }
+    }
+}
+
+private fun LazyListScope.mutualConnectionsSection(
+    mutualConnectionUsers: List<SuggestedUserMatch>,
+    allFollowedIds: Set<String>,
+    viewModel: SearchViewModel,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
+) {
+    // ── Mutual Connections section ──
+    // Horizontal rail of TasteMatchCards (2x2 album-art) — matches iOS
+    // SearchView.mutualConnectionsSection / MutualConnectionsCardGrid.
+    if (mutualConnectionUsers.isNotEmpty()) {
+        item {
+            val mutualConnectionsTitle = stringResource(fm.corus.android.R.string.search_mutual_connections_title)
+            SectionHeader(
+                icon = "people",
+                title = stringResource(fm.corus.android.R.string.search_section_mutual_connections),
+                showSeeAll = mutualConnectionUsers.size > 2,
+                onSeeAll = {
+                    viewModel.logSearchSectionSeeAllTapped(SearchSection.MutualConnections)
+                    onNavigateToSuggestedUsers(mutualConnectionsTitle, true, "mutualConnections")
+                },
+            )
+        }
+        item {
+            MutualConnectionsCardRail(
+                matches = mutualConnectionUsers,
+                followedIds = allFollowedIds,
+                onUserTap = { user ->
+                    viewModel.logSearchSectionUserTapped(SearchSection.MutualConnections, user.id)
+                    onNavigateToUser(user.id)
+                },
+                onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.MutualConnections) },
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        }
+    }
+}
+
+private fun LazyListScope.newOnCorusSection(
+    newUsers: List<CymbalUser>,
+    mutualConnectionUsers: List<SuggestedUserMatch>,
+    viewModel: SearchViewModel,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
+) {
+    // ── New on Corus ──
+    val seenNewIds = buildSet { mutualConnectionUsers.forEach { add(it.user.id) } }
+    val displayNewUsers = newUsers.filter {
+        !seenNewIds.contains(it.id) && !viewModel.isFollowed(it.id)
+    }
+    if (displayNewUsers.isNotEmpty()) {
+        item {
+            val newOnCorusTitle = stringResource(fm.corus.android.R.string.search_new_title)
+            SectionHeader(
+                icon = "new",
+                title = stringResource(fm.corus.android.R.string.search_section_new),
+                showSeeAll = displayNewUsers.size > 3,
+                onSeeAll = {
+                    viewModel.logSearchSectionSeeAllTapped(SearchSection.NewOnCorus)
+                    onNavigateToSuggestedUsers(newOnCorusTitle, true, "new")
+                },
+            )
+        }
+        items(displayNewUsers.take(3), key = { "new-${it.id}" }) { user ->
+            val context = LocalContext.current
+            SuggestedUserRow(
+                user = user,
+                subtitle = user.createdAt?.let { context.getString(fm.corus.android.R.string.suggested_users_joined_format, DateUtils.relativeTime(context, it)) },
+                isFollowed = viewModel.isFollowed(user.id),
+                onTap = {
+                    viewModel.logSearchSectionUserTapped(SearchSection.NewOnCorus, user.id)
+                    onNavigateToUser(user.id)
+                },
+                onFollow = { viewModel.toggleFollow(user, SearchSection.NewOnCorus) },
+            )
+        }
+        item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+    }
+}
+
+private fun LazyListScope.inviteFriendsSection(isSuggestedLoading: Boolean) {
+    // ── Invite friends ──
+    if (!isSuggestedLoading) {
         item {
             Column(
                 modifier = Modifier
@@ -1015,6 +1302,578 @@ private fun SuggestedUsersContent(
                 }
             }
         }
+    }
+}
+
+// ── Unified search (unified_search_enabled) ──
+
+/** Compact trending-songs strip on the blended zero state: header + top 4
+ *  rows; See all pushes the full trending list (TrendingListScreen). Hidden
+ *  when loaded-empty. */
+private fun LazyListScope.compactTrendingSongsSection(
+    songs: List<TrendingSong>,
+    isLoading: Boolean,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
+    viewModel: SearchViewModel,
+    onSongTap: (CymbalTrack) -> Unit,
+    onSeeAll: () -> Unit,
+) {
+    if (!isLoading && songs.isEmpty()) return
+    item {
+        SectionHeader(
+            icon = "music",
+            title = stringResource(fm.corus.android.R.string.search_trending_songs_title).uppercase(),
+            showSeeAll = true,
+            onSeeAll = {
+                viewModel.logSearchSectionSeeAllTapped(SearchSection.TrendingSongs)
+                onSeeAll()
+            },
+        )
+    }
+    // Horizontal slider of art tiles (web's compact strip, but scrollable to
+    // reach the full loaded list). No rank/count numbers here — the See-all
+    // list keeps them.
+    item {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        ) {
+            if (isLoading) {
+                items(4) {
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CorusColors.CardBackground),
+                    )
+                }
+            } else {
+                items(songs, key = { "ts-${it.track.id}" }) { song ->
+                    Column(
+                        modifier = Modifier
+                            .width(120.dp)
+                            .clickable { onSongTap(song.track) },
+                    ) {
+                        // Large art first: the small thumb is sized for list
+                        // rows and upscales blurry at tile size.
+                        ShimmerAsyncImage(
+                            model = song.track.albumArtLargeURL ?: song.track.albumArtURL,
+                            contentDescription = song.track.name,
+                            modifier = Modifier.size(120.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            contentScale = ContentScale.Crop,
+                        )
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                        Text(song.track.name, style = CorusFont.captionMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(song.track.artistName, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+    }
+    item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+}
+
+/** Compact trending-films strip: header + top 4 rows + See all. */
+private fun LazyListScope.compactTrendingFilmsSection(
+    movies: List<TrendingMovie>,
+    isLoading: Boolean,
+    viewModel: SearchViewModel,
+    onFilmTap: (FilmDetailRoute) -> Unit,
+    onSeeAll: () -> Unit,
+) {
+    if (!isLoading && movies.isEmpty()) return
+    item {
+        SectionHeader(
+            icon = "film",
+            title = stringResource(fm.corus.android.R.string.search_trending_films_title).uppercase(),
+            showSeeAll = true,
+            onSeeAll = {
+                viewModel.logSearchSectionSeeAllTapped(SearchSection.TrendingFilms)
+                onSeeAll()
+            },
+        )
+    }
+    // Horizontal poster slider — same reasoning as the songs strip.
+    item {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        ) {
+            if (isLoading) {
+                items(5) {
+                    Box(
+                        modifier = Modifier
+                            .width(90.dp)
+                            .height(135.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CorusColors.CardBackground),
+                    )
+                }
+            } else {
+                items(movies, key = { "tf-${it.movieId}" }) { movie ->
+                    Column(
+                        modifier = Modifier
+                            .width(90.dp)
+                            .clickable {
+                                onFilmTap(FilmDetailRoute(
+                                    movieId = movie.movieId,
+                                    movieTitle = movie.movieTitle,
+                                    directorName = movie.directorName.ifBlank { null },
+                                    releaseYear = movie.releaseYear.ifBlank { null },
+                                    posterURL = movie.posterURL,
+                                    posterLargeURL = movie.posterLargeURL,
+                                    trailerURL = movie.trailerURL,
+                                ))
+                            },
+                    ) {
+                        // Large poster first — same upscaling reasoning as
+                        // the song tiles.
+                        ShimmerAsyncImage(
+                            model = movie.posterLargeURL ?: movie.posterURL,
+                            contentDescription = movie.movieTitle,
+                            modifier = Modifier
+                                .width(90.dp)
+                                .height(135.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            contentScale = ContentScale.Crop,
+                        )
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                        Text(movie.movieTitle, style = CorusFont.captionMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+    }
+    item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+}
+
+/** Compact trending-hashtags strip: header + top 3 rows + See all. */
+private fun LazyListScope.compactTrendingHashtagsSection(
+    hashtags: List<TrendingHashtag>,
+    isLoading: Boolean,
+    followedHashtagNames: Set<String>,
+    viewModel: SearchViewModel,
+    onHashtagTap: (TrendingHashtag) -> Unit,
+    onToggleFollow: (TrendingHashtag) -> Unit,
+    onSeeAll: () -> Unit,
+) {
+    if (!isLoading && hashtags.isEmpty()) return
+    item {
+        SectionHeader(
+            icon = "hashtag",
+            title = stringResource(fm.corus.android.R.string.search_trending_hashtags_title).uppercase(),
+            showSeeAll = true,
+            onSeeAll = {
+                viewModel.logSearchSectionSeeAllTapped(SearchSection.TrendingHashtags)
+                onSeeAll()
+            },
+        )
+    }
+    if (isLoading) {
+        items(3) { SkeletonSearchSongRow() }
+    } else {
+        val visible = hashtags.take(3)
+        itemsIndexed(visible, key = { _, tag -> "th-${tag.id}" }) { index, tag ->
+            val postNoun = stringResource(fm.corus.android.R.string.post_noun)
+            val postNounPlural = stringResource(fm.corus.android.R.string.post_noun_plural)
+            val followerWord = stringResource(fm.corus.android.R.string.hashtag_followers)
+            val noun = if (tag.cymbalCount == 1) postNoun else postNounPlural
+            val subtitle = if (tag.followerCount > 0) {
+                val fNoun = if (tag.followerCount == 1) followerWord.removeSuffix("s") else followerWord
+                "${tag.cymbalCount} $noun · ${tag.followerCount} $fNoun"
+            } else {
+                "${tag.cymbalCount} $noun"
+            }
+            HashtagRow(
+                name = tag.name,
+                fallbackCount = tag.cymbalCount,
+                subtitleOverride = subtitle,
+                isFollowing = followedHashtagNames.contains(tag.name.lowercase()),
+                onClick = { onHashtagTap(tag) },
+                onToggleFollow = { onToggleFollow(tag) },
+            )
+            if (index < visible.lastIndex) {
+                HorizontalDivider(modifier = Modifier.padding(start = 88.dp), color = CorusColors.Divider, thickness = 0.5.dp)
+            }
+        }
+    }
+    item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+}
+
+/**
+ * The unified blended zero state: every discovery section on one scroll in
+ * web's order — contacts, taste matches, trending songs, trending films,
+ * popular, mutual connections, club members, new on Corus, trending hashtags,
+ * invite friends. People sections keep their existing rails; trending
+ * verticals appear as compact strips whose See-all opens the full list.
+ */
+@Composable
+private fun UnifiedZeroStateContent(
+    listState: LazyListState,
+    musicMatchUsers: List<SuggestedUserMatch>,
+    filterUnfollowedMatches: Boolean,
+    onSetFilterUnfollowed: (Boolean) -> Unit,
+    popularRailFilterFollowedIds: Set<String>,
+    showUnfollowedPopularToggle: Boolean,
+    filterUnfollowedPopular: Boolean,
+    onSetFilterUnfollowedPopular: (Boolean) -> Unit,
+    mutualConnectionUsers: List<SuggestedUserMatch>,
+    contactMatches: List<CymbalUser>,
+    contactsSyncStatus: String,
+    isSyncingContacts: Boolean,
+    showNoContactMatches: Boolean,
+    newUsers: List<CymbalUser>,
+    clubMembers: List<CymbalUser>,
+    allFollowedIds: Set<String>,
+    isSuggestedLoading: Boolean,
+    isTasteMatchPolling: Boolean,
+    tasteMatchLoadFailed: Boolean,
+    belowTasteMatchThreshold: Boolean,
+    trendingSongs: List<TrendingSong>,
+    isTrendingLoading: Boolean,
+    trendingMovies: List<TrendingMovie>,
+    isTrendingMoviesLoading: Boolean,
+    trendingHashtags: List<TrendingHashtag>,
+    isTrendingHashtagsLoading: Boolean,
+    followedHashtagNames: Set<String>,
+    viewModel: SearchViewModel,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
+    onNavigateToContactFriends: () -> Unit,
+    onNavigateToSong: (CymbalTrack) -> Unit,
+    onNavigateToFilm: (FilmDetailRoute) -> Unit,
+    onNavigateToHashtag: (String) -> Unit,
+    onNavigateToTrending: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val railExcludeIds = remember(viewModel.currentUserId) {
+        viewModel.currentUserId?.let { setOf(it) } ?: emptySet()
+    }
+    val contactPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.syncContacts(context.contentResolver)
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = CorusSpacing.xxs),
+    ) {
+        contactsSections(
+            contactsSyncStatus = contactsSyncStatus,
+            isSyncingContacts = isSyncingContacts,
+            contactMatches = contactMatches,
+            showNoContactMatches = showNoContactMatches,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToContactFriends = onNavigateToContactFriends,
+            onRequestContacts = {
+                contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+            },
+        )
+        tasteMatchesSections(
+            musicMatchUsers = musicMatchUsers,
+            isSuggestedLoading = isSuggestedLoading,
+            isTasteMatchPolling = isTasteMatchPolling,
+            tasteMatchLoadFailed = tasteMatchLoadFailed,
+            belowTasteMatchThreshold = belowTasteMatchThreshold,
+            allFollowedIds = allFollowedIds,
+            filterUnfollowedMatches = filterUnfollowedMatches,
+            onSetFilterUnfollowed = onSetFilterUnfollowed,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+        )
+        compactTrendingSongsSection(
+            songs = trendingSongs,
+            isLoading = isTrendingLoading,
+            nowPlaying = viewModel.nowPlayingManager,
+            viewModel = viewModel,
+            onSongTap = onNavigateToSong,
+            onSeeAll = { onNavigateToTrending("songs") },
+        )
+        compactTrendingFilmsSection(
+            movies = trendingMovies,
+            isLoading = isTrendingMoviesLoading,
+            viewModel = viewModel,
+            onFilmTap = onNavigateToFilm,
+            onSeeAll = { onNavigateToTrending("films") },
+        )
+        popularSection(
+            railExcludeIds = railExcludeIds,
+            popularRailFilterFollowedIds = popularRailFilterFollowedIds,
+            allFollowedIds = allFollowedIds,
+            filterUnfollowedPopular = filterUnfollowedPopular,
+            showUnfollowedPopularToggle = showUnfollowedPopularToggle,
+            onSetFilterUnfollowedPopular = onSetFilterUnfollowedPopular,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+        )
+        // Web order: mutual connections above club members (classic Android
+        // order has them flipped; unified follows web).
+        mutualConnectionsSection(
+            mutualConnectionUsers = mutualConnectionUsers,
+            allFollowedIds = allFollowedIds,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+        )
+        clubMembersSection(
+            clubMembers = clubMembers,
+            allFollowedIds = allFollowedIds,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+        )
+        compactTrendingHashtagsSection(
+            hashtags = trendingHashtags,
+            isLoading = isTrendingHashtagsLoading,
+            followedHashtagNames = followedHashtagNames,
+            viewModel = viewModel,
+            onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
+            onToggleFollow = { tag -> viewModel.toggleHashtagFollowByName(tag.name) },
+            onSeeAll = { onNavigateToTrending("hashtags") },
+        )
+        newOnCorusSection(
+            newUsers = newUsers,
+            mutualConnectionUsers = mutualConnectionUsers,
+            viewModel = viewModel,
+            onNavigateToUser = onNavigateToUser,
+            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+        )
+        inviteFriendsSection(isSuggestedLoading = isSuggestedLoading)
+    }
+}
+
+/** Pill chip row shown once a query is typed. Active chip = accent blue,
+ *  matching web. */
+@Composable
+private fun UnifiedFilterChipRow(
+    selected: UnifiedSearchFilter,
+    artistPagesEnabled: Boolean,
+    onSelect: (UnifiedSearchFilter) -> Unit,
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+    ) {
+        items(UnifiedSearchFilter.entries.toList(), key = { it.value }) { filter ->
+            val isActive = filter == selected
+            val label = when (filter) {
+                UnifiedSearchFilter.ALL -> stringResource(fm.corus.android.R.string.search_filter_all_chip)
+                UnifiedSearchFilter.USERS -> stringResource(fm.corus.android.R.string.search_tab_users)
+                UnifiedSearchFilter.MUSIC -> stringResource(
+                    if (artistPagesEnabled) fm.corus.android.R.string.search_tab_music
+                    else fm.corus.android.R.string.search_tab_songs
+                )
+                UnifiedSearchFilter.FILM -> stringResource(
+                    if (artistPagesEnabled) fm.corus.android.R.string.search_tab_film
+                    else fm.corus.android.R.string.search_tab_films
+                )
+                UnifiedSearchFilter.HASHTAGS -> stringResource(fm.corus.android.R.string.search_tab_hashtags)
+            }
+            Button(
+                onClick = { if (!isActive) onSelect(filter) },
+                shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isActive) CorusColors.Accent else CorusColors.Background,
+                    contentColor = if (isActive) Color.White else CorusColors.Secondary,
+                ),
+                border = if (isActive) null else androidx.compose.foundation.BorderStroke(1.dp, CorusColors.Divider),
+                contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+                modifier = Modifier.height(32.dp),
+            ) {
+                Text(label, style = CorusFont.buttonSmall)
+            }
+        }
+    }
+}
+
+/**
+ * The blended "All" results: Users(5) → Music(2 artists + 4 songs) →
+ * Film(4) → Hashtags(3), fixed order per web. Sections with results render;
+ * music/film also render (as skeletons) while the fan-out is in flight —
+ * they're the slow verticals, so a skeleton beats a reflow when they land.
+ * Section See-alls narrow the active chip to that vertical.
+ */
+@Composable
+private fun UnifiedAllResults(
+    listState: LazyListState,
+    userResults: List<CymbalUser>,
+    songResults: List<CymbalTrack>,
+    artistResults: List<fm.corus.android.data.model.ArtistSummary>,
+    filmResults: List<CymbalMovie>,
+    hashtagResults: List<CymbalHashtag>,
+    isSearching: Boolean,
+    artistPagesEnabled: Boolean,
+    followedHashtagNames: Set<String>,
+    viewModel: SearchViewModel,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
+    onSelectFilter: (UnifiedSearchFilter) -> Unit,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToSong: (CymbalTrack) -> Unit,
+    onNavigateToFilm: (FilmDetailRoute) -> Unit,
+    onNavigateToArtist: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit,
+    onNavigateToHashtag: (String) -> Unit,
+) {
+    val noMatches = !isSearching &&
+        userResults.isEmpty() && songResults.isEmpty() && artistResults.isEmpty() &&
+        filmResults.isEmpty() && hashtagResults.isEmpty()
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = CorusSpacing.sm),
+    ) {
+        // ── Users ──
+        if (userResults.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    icon = "people",
+                    title = stringResource(fm.corus.android.R.string.search_tab_users).uppercase(),
+                    showSeeAll = true,
+                    onSeeAll = { onSelectFilter(UnifiedSearchFilter.USERS) },
+                )
+            }
+            items(userResults.take(5), key = { "u-${it.id}" }) { user ->
+                SuggestedUserRow(
+                    user = user,
+                    isFollowed = viewModel.isFollowed(user.id),
+                    onTap = { onNavigateToUser(user.id) },
+                    onFollow = { viewModel.toggleFollow(user) },
+                )
+            }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+        }
+
+        // ── Music ──
+        val musicLoading = isSearching && songResults.isEmpty() && artistResults.isEmpty()
+        if (musicLoading || songResults.isNotEmpty() || (artistPagesEnabled && artistResults.isNotEmpty())) {
+            item {
+                SectionHeader(
+                    icon = "music",
+                    title = stringResource(
+                        if (artistPagesEnabled) fm.corus.android.R.string.search_tab_music
+                        else fm.corus.android.R.string.search_tab_songs
+                    ).uppercase(),
+                    showSeeAll = true,
+                    onSeeAll = { onSelectFilter(UnifiedSearchFilter.MUSIC) },
+                )
+            }
+            if (musicLoading) {
+                items(4) { SkeletonSearchSongRow() }
+            } else {
+                // Artist rows lead; albums are omitted in the blended view
+                // (web parity) — the Music chip has the full list.
+                if (artistPagesEnabled) {
+                    items(artistResults.take(2), key = { "a-${it.id}" }) { artist ->
+                        ArtistSearchRow(artist = artist, onClick = {
+                            onNavigateToArtist(
+                                fm.corus.android.ui.navigation.ArtistPageRoute(
+                                    artistId = artist.id,
+                                    name = artist.name,
+                                    imageUrl = artist.imageUrl,
+                                )
+                            )
+                        })
+                    }
+                }
+                val visibleSongs = songResults.take(4)
+                itemsIndexed(visibleSongs, key = { _, track -> "s-${track.id}" }) { index, track ->
+                    SongSearchRow(track = track, onClick = { onNavigateToSong(track) })
+                    if (index < visibleSongs.lastIndex) {
+                        HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
+                    }
+                }
+            }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+        }
+
+        // ── Film ──
+        val filmLoading = isSearching && filmResults.isEmpty()
+        if (filmLoading || filmResults.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    icon = "film",
+                    title = stringResource(
+                        if (artistPagesEnabled) fm.corus.android.R.string.search_tab_film
+                        else fm.corus.android.R.string.search_tab_films
+                    ).uppercase(),
+                    showSeeAll = true,
+                    onSeeAll = { onSelectFilter(UnifiedSearchFilter.FILM) },
+                )
+            }
+            if (filmLoading) {
+                items(4) { SkeletonTrendingFilmRow() }
+            } else {
+                val visibleMovies = filmResults.take(4)
+                itemsIndexed(visibleMovies, key = { _, movie -> "f-${movie.id}" }) { index, movie ->
+                    // Director rows are omitted in the blended view (web
+                    // parity) — the Film chip has them.
+                    FilmSearchResultRow(movie = movie, onClick = {
+                        onNavigateToFilm(FilmDetailRoute(
+                            movieId = movie.id,
+                            movieTitle = movie.title,
+                            directorName = movie.directorName.ifBlank { null },
+                            releaseYear = movie.year.ifBlank { null },
+                            posterURL = movie.posterURL,
+                            posterLargeURL = movie.posterLargeURL,
+                            trailerURL = movie.trailerURL,
+                        ))
+                    })
+                    if (index < visibleMovies.lastIndex) {
+                        HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
+                    }
+                }
+            }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+        }
+
+        // ── Hashtags ──
+        if (hashtagResults.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    icon = "hashtag",
+                    title = stringResource(fm.corus.android.R.string.search_tab_hashtags).uppercase(),
+                    showSeeAll = true,
+                    onSeeAll = { onSelectFilter(UnifiedSearchFilter.HASHTAGS) },
+                )
+            }
+            val visibleTags = hashtagResults.take(3)
+            itemsIndexed(visibleTags, key = { _, tag -> "h-${tag.name}" }) { index, tag ->
+                HashtagRow(
+                    name = tag.name,
+                    fallbackCount = tag.cymbalCount,
+                    isFollowing = followedHashtagNames.contains(tag.name.lowercase()),
+                    onClick = { onNavigateToHashtag(tag.name) },
+                    onToggleFollow = { viewModel.toggleHashtagFollow(tag) },
+                )
+                if (index < visibleTags.lastIndex) {
+                    HorizontalDivider(modifier = Modifier.padding(start = 88.dp), color = CorusColors.Divider, thickness = 0.5.dp)
+                }
+            }
+        }
+
+        // ── No matches (every vertical settled empty) ──
+        if (noMatches) {
+            item {
+                Text(
+                    stringResource(fm.corus.android.R.string.search_no_matches),
+                    style = CorusFont.body,
+                    color = CorusColors.Secondary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(CorusSpacing.xxl),
+                )
+            }
         }
     }
 }
@@ -1167,6 +2026,8 @@ internal fun SectionHeader(
             "bot" -> Icons.Filled.SmartToy
             "hashtag" -> Icons.Filled.Tag
             "fire" -> Icons.Filled.LocalFireDepartment
+            "music" -> Icons.Filled.MusicNote
+            "film" -> Icons.Filled.Movie
             else -> null
         }
         if (iconVector != null) {
@@ -1370,7 +2231,7 @@ fun SuggestedUserRow(
 }
 
 @Composable
-private fun TrendingSongsContent(
+internal fun TrendingSongsContent(
     listState: LazyListState = rememberLazyListState(),
     songs: List<TrendingSong>,
     isLoading: Boolean,
@@ -1454,7 +2315,7 @@ private fun TrendingSongRow(
 }
 
 @Composable
-private fun TrendingFilmsContent(
+internal fun TrendingFilmsContent(
     listState: LazyListState = rememberLazyListState(),
     movies: List<TrendingMovie>,
     isLoading: Boolean,
@@ -2069,7 +2930,7 @@ internal fun formatMutualFollowersText(context: android.content.Context, names: 
 // ── Hashtag Search ──
 
 @Composable
-private fun TrendingHashtagsContent(
+internal fun TrendingHashtagsContent(
     listState: LazyListState = rememberLazyListState(),
     hashtags: List<TrendingHashtag>,
     isLoading: Boolean,

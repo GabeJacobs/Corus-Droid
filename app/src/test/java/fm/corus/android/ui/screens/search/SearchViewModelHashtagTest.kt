@@ -65,7 +65,12 @@ class SearchViewModelHashtagTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         firestoreDataSource = mock()
-        authRepository = mock { on { currentUserId } doReturn "uid1" }
+        authRepository = mock {
+            on { currentUserId } doReturn "uid1"
+            // The VM's init block collects userProfile immediately; without a
+            // stub the collector NPEs and poisons every test in the class.
+            on { userProfile } doReturn MutableStateFlow<fm.corus.android.data.model.CymbalUser?>(null)
+        }
         userRepository = mock {
             on { followingIds } doReturn MutableStateFlow(emptySet())
         }
@@ -76,6 +81,9 @@ class SearchViewModelHashtagTest {
         preferencesDataStore = mock {
             on { recentSearchUsers } doReturn kotlinx.coroutines.flow.flowOf(emptyList())
             on { contactsSyncStatus } doReturn kotlinx.coroutines.flow.flowOf("notAsked")
+            on { trendingSongsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
+            on { trendingFilmsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
+            on { trendingHashtagsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
         }
         remoteConfigService = mock()
         analyticsService = mock()
@@ -177,8 +185,17 @@ class SearchViewModelHashtagTest {
 
     @Test
     fun `trending hashtags load only once across multiple tab activations`() = runTest(testDispatcher) {
-        whenever(firestoreDataSource.fetchTrendingHashtags(any()))
-            .thenReturn(listOf(CymbalHashtag(id = "trend", name = "trend", cymbalCount = 99)))
+        whenever(firestoreDataSource.fetchTrendingHashtagsWindowed(any(), any()))
+            .thenReturn(
+                listOf(
+                    fm.corus.android.data.model.TrendingHashtag(
+                        id = "trend",
+                        rank = 1,
+                        name = "trend",
+                        cymbalCount = 99,
+                    ),
+                ),
+            )
         val vm = createViewModel()
 
         vm.setActiveTab(3)
@@ -187,7 +204,7 @@ class SearchViewModelHashtagTest {
         vm.setActiveTab(3)
         advanceUntilIdle()
 
-        verify(firestoreDataSource, times(1)).fetchTrendingHashtags(any())
+        verify(firestoreDataSource, times(1)).fetchTrendingHashtagsWindowed(any(), any())
         assertEquals(1, vm.trendingHashtags.value.size)
         assertFalse(vm.isTrendingHashtagsLoading.value)
     }

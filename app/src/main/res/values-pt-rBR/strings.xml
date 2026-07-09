@@ -591,6 +591,9 @@
     <string name="messaging_thread_attachment_photo">Foto</string>
     <string name="messaging_thread_attachment_song">Música</string>
     <string name="messaging_thread_attachment_film">Filme</string>
+    <string name="messaging_thread_attachment_artist">Artista</string>
+    <string name="messaging_thread_attachment_album">Álbum</string>
+    <string name="messaging_thread_attachment_director">Diretor</string>
     <string name="messaging_thread_placeholder">Mensagem...</string>
     <string name="messaging_thread_cd_shared_image">Imagem compartilhada</string>
     <string name="messaging_thread_sending">Enviando...</string>
@@ -941,6 +944,12 @@
     <string name="edit_profile_field_featured_tab">ABA EM DESTAQUE</string>
     <string name="search_cd_filter_popular_users">Filtrar usuários populares</string>
     <string name="search_placeholder_hashtags">Buscar hashtags</string>
+    <string name="search_placeholder_unified">Busque pessoas, músicas, filmes, hashtags</string>
+    <string name="search_no_matches">Nenhum resultado.</string>
+    <string name="search_filter_all_chip">Todos</string>
+    <string name="search_trending_songs_title">Músicas em alta</string>
+    <string name="search_trending_films_title">Filmes em alta</string>
+    <string name="search_trending_hashtags_title">Hashtags em alta</string>
     <string name="search_tab_hashtags">Hashtags</string>
     <string name="search_section_trending_hashtags">HASHTAGS EM ALTA</string>
     <string name="search_no_trending_hashtags">Nenhuma hashtag em alta ainda</string>
@@ -1073,4 +1082,22 @@
     <string name="destination_catalog_load_error">Não foi possível carregar agora.</string>
     <string name="destination_no_tracks">Nenhuma música encontrada para este álbum.</string>
     <string name="post_menu_go_to_director">Ir para o diretor</string>
+    <!-- Post drafts -->
+    <string name="compose_drafts_title">Rascunhos</string>
+    <string name="compose_drafts_empty">Nenhum rascunho ainda.</string>
+    <string name="compose_draft_no_caption">Sem legenda ainda</string>
+    <string name="compose_draft_voice_note">Nota de voz</string>
+    <string name="compose_draft_saved_voice">Nota de voz salva</string>
+    <string name="compose_exit_save_title">Salvar como rascunho?</string>
+    <string name="compose_draft_discard">Descartar</string>
+    <string name="compose_draft_save">Salvar rascunho</string>
+    <string name="compose_draft_saving">Salvando…</string>
+    <string name="compose_draft_cancel">Cancelar</string>
+    <string name="compose_draft_saved">Rascunho salvo</string>
+    <string name="compose_draft_save_failed">Não foi possível salvar o rascunho</string>
+    <string name="compose_draft_deleted">Rascunho excluído</string>
+    <string name="compose_draft_delete_failed">Não foi possível excluir o rascunho</string>
+    <string name="compose_draft_delete_aria">Excluir rascunho</string>
+    <string name="compose_attachment_unavailable">Isso não está mais disponível.</string>
+    <string name="compose_draft_choose_another">Escolher outro</string>
 </resources>

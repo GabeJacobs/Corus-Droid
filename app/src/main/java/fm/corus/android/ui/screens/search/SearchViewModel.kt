@@ -31,6 +31,7 @@ import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.service.SearchSection
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,6 +42,20 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+
+/**
+ * Result filter for unified search (`unified_search_enabled`) — the chips
+ * shown once a query is typed. [ALL] is the blended view; the rest narrow to
+ * one vertical and reuse the classic per-tab result renderers. Raw [value]s
+ * match iOS/web's `search_filter_changed` analytics values.
+ */
+enum class UnifiedSearchFilter(val value: String) {
+    ALL("all"),
+    USERS("users"),
+    MUSIC("songs"),
+    FILM("films"),
+    HASHTAGS("hashtags"),
+}
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
@@ -135,6 +150,38 @@ class SearchViewModel @Inject constructor(
      *  placeholders. */
     val artistPagesEnabled: Boolean get() = remoteConfigService.artistPagesEnabled
 
+    /** Live flag read — unified search (blended zero state + filter chips). */
+    val unifiedSearchEnabled: Boolean get() = remoteConfigService.unifiedSearchEnabled
+
+    // ── Unified search state ──
+
+    private val _unifiedFilter = MutableStateFlow(UnifiedSearchFilter.ALL)
+    val unifiedFilter: StateFlow<UnifiedSearchFilter> = _unifiedFilter.asStateFlow()
+
+    /**
+     * The query each vertical last COMMITTED results for. Written on success
+     * only, so a cancelled fan-out never marks a vertical as served. Lets a
+     * chip switch after the ALL fan-out reuse the results it just fetched
+     * instead of clearing + refetching the same query (skeleton flash).
+     */
+    private val lastFetchedQuery = mutableMapOf<UnifiedSearchFilter, String>()
+
+    /**
+     * Chip tap: narrows/widens the rendered verticals. Re-runs the search so
+     * any vertical that hasn't served the current query yet fetches — the
+     * per-vertical [lastFetchedQuery] guard makes already-served verticals
+     * no-ops, so a same-query chip switch renders instantly.
+     */
+    fun setUnifiedFilter(filter: UnifiedSearchFilter) {
+        if (_unifiedFilter.value == filter) return
+        _unifiedFilter.value = filter
+        analyticsService.logSearchFilterChanged(filter.value)
+        val query = _searchQuery.value
+        if (query.isNotBlank()) {
+            search(query, _activeTab.value)
+        }
+    }
+
     private val _hashtagSearchResults = MutableStateFlow<List<CymbalHashtag>>(emptyList())
     val hashtagSearchResults: StateFlow<List<CymbalHashtag>> = _hashtagSearchResults.asStateFlow()
 
@@ -172,15 +219,26 @@ class SearchViewModel @Inject constructor(
                 val query = _searchQuery.value
                 if (query.isBlank()) return@collect
                 val tab = _activeTab.value
-                val empty = when (tab) {
-                    0 -> _userSearchResults.value.isEmpty()
-                    1 -> _songSearchResults.value.isEmpty()
-                    2 -> _filmSearchResults.value.isEmpty()
-                    3 -> _hashtagSearchResults.value.isEmpty()
-                    else -> false
+                val empty = if (unifiedSearchEnabled) {
+                    // Unified: "empty" = nothing rendered by the active filter.
+                    !verticalHasResults(_unifiedFilter.value)
+                } else {
+                    when (tab) {
+                        0 -> _userSearchResults.value.isEmpty()
+                        1 -> _songSearchResults.value.isEmpty()
+                        2 -> _filmSearchResults.value.isEmpty()
+                        3 -> _hashtagSearchResults.value.isEmpty()
+                        else -> false
+                    }
                 }
                 if (empty) {
-                    search(query, tab)
+                    if (unifiedSearchEnabled) {
+                        // retrySearch (not search) so the unified served-query
+                        // skip can't swallow the reconnect refetch.
+                        retrySearch()
+                    } else {
+                        search(query, tab)
+                    }
                 }
             }
         }
@@ -571,6 +629,14 @@ class SearchViewModel @Inject constructor(
             loadClubMembers()
         }
         refreshFollowedHashtags()
+        // Classic mode loads trending hashtags lazily on the tab switch; the
+        // unified blended zero state renders them on the first screen, so load
+        // now. Pull-to-refresh routes here with forceRefresh, which must
+        // bypass the once-per-session guard.
+        if (unifiedSearchEnabled) {
+            if (forceRefresh) hasLoadedTrendingHashtags = false
+            loadTrendingHashtagsIfNeeded()
+        }
     }
 
     // Cold-start poll: if the initial fetch returned no taste matches, the
@@ -682,6 +748,11 @@ class SearchViewModel @Inject constructor(
             return
         }
 
+        if (unifiedSearchEnabled) {
+            searchUnified(query)
+            return
+        }
+
         // Check if the target tab already has results; if not, show loading immediately
         val hasResults = when (tab) {
             0 -> _userSearchResults.value.isNotEmpty()
@@ -692,17 +763,6 @@ class SearchViewModel @Inject constructor(
         }
         if (!hasResults) {
             _isSearching.value = true
-        }
-
-        // Adaptive debounce matching iOS SearchView: shorter delays as the query
-        // grows, since longer queries are more specific and the user has already
-        // committed to them. Short queries get a longer wait so we don't fire on
-        // every keystroke as the user types out the first few letters.
-        val debounceMs = when (query.length) {
-            1 -> 400L
-            2 -> 300L
-            in 3..5 -> 200L
-            else -> 150L
         }
 
         // Serve the Users tab from cache instantly on a hit and skip the network
@@ -718,62 +778,14 @@ class SearchViewModel @Inject constructor(
         }
 
         searchJob = viewModelScope.launch {
-            delay(debounceMs)
+            delay(debounceMs(query))
             _isSearching.value = true
             try {
                 when (tab) {
-                    0 -> {
-                        val key = query.lowercase().trim()
-                        val results = userRepository.searchUsers(key, includeFollowed = true)
-                        userSearchCache[key] = results
-                        _userSearchResults.value = results
-                    }
-                    1 -> {
-                        // Artist/album rows opt in ONLY while the flag is on —
-                        // with the params absent, the backend response (and
-                        // this tab) is byte-identical to today.
-                        val includeCatalogRows = remoteConfigService.artistPagesEnabled
-                        val page = musicSearchRepository.search(
-                            query,
-                            includeSoundCloud = remoteConfigService.soundcloudEnabled,
-                            includeArtists = includeCatalogRows,
-                            includeAlbums = includeCatalogRows,
-                        )
-                        _songSearchResults.value = page.tracks
-                        _artistSearchResults.value = page.artists
-                        _albumSearchResults.value = page.albums
-                        _songsFirst.value = page.songsFirst
-                    }
-                    2 -> {
-                        // Director row (flag on): fetched in parallel with the
-                        // film search and best-effort — a person-search failure
-                        // must never error the films tab, so it degrades to an
-                        // empty row.
-                        val directorsDeferred: kotlinx.coroutines.Deferred<List<fm.corus.android.data.model.ArtistSummary>>? =
-                            if (remoteConfigService.artistPagesEnabled) {
-                                async {
-                                    runCatching { tmdbRepository.searchDirectors(query) }
-                                        .getOrDefault(emptyList())
-                                }
-                            } else null
-                        val results = tmdbRepository.searchMovies(query)
-                        val withDirectors = try {
-                            tmdbRepository.prefetchDirectors(results)
-                        } catch (_: Exception) { results }
-                        _filmSearchResults.value = withDirectors
-                        _directorSearchResults.value = directorsDeferred?.await() ?: emptyList()
-                    }
-                    3 -> {
-                        val key = query.trim().removePrefix("#").lowercase()
-                        val cached = hashtagSearchCache[key]
-                        if (cached != null) {
-                            _hashtagSearchResults.value = cached
-                        } else {
-                            val results = firestoreDataSource.searchHashtagsByPrefix(query)
-                            hashtagSearchCache[key] = results
-                            _hashtagSearchResults.value = results
-                        }
-                    }
+                    0 -> searchUsersVertical(query)
+                    1 -> searchMusicVertical(query)
+                    2 -> searchFilmsVertical(query)
+                    3 -> searchHashtagsVertical(query)
                 }
                 _searchHasError.value = false
             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -799,11 +811,169 @@ class SearchViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Unified search: the ALL filter fans out to every vertical concurrently
+     * on one debounce; a narrowed chip runs just that vertical. Verticals that
+     * already committed results for this exact query are skipped (see
+     * [lastFetchedQuery]), so chip switches on the same query render instantly
+     * with no refetch. One vertical failing must not blank the others — the
+     * error state only shows when nothing rendered has results.
+     */
+    private fun searchUnified(query: String) {
+        val filter = _unifiedFilter.value
+        val verticals = if (filter == UnifiedSearchFilter.ALL) {
+            listOf(
+                UnifiedSearchFilter.USERS,
+                UnifiedSearchFilter.MUSIC,
+                UnifiedSearchFilter.FILM,
+                UnifiedSearchFilter.HASHTAGS,
+            )
+        } else {
+            listOf(filter)
+        }
+
+        if (verticals.none { verticalHasResults(it) }) {
+            _isSearching.value = true
+        }
+
+        searchJob = viewModelScope.launch {
+            // Already served this exact query everywhere visible (chip switch
+            // after the ALL fan-out): nothing to fetch.
+            val pending = verticals.filter { lastFetchedQuery[it] != query }
+            if (pending.isEmpty()) {
+                _isSearching.value = false
+                return@launch
+            }
+            delay(debounceMs(query))
+            _isSearching.value = true
+            var anyFailure = false
+            coroutineScope {
+                pending.forEach { vertical ->
+                    launch {
+                        try {
+                            when (vertical) {
+                                UnifiedSearchFilter.USERS -> searchUsersVertical(query)
+                                UnifiedSearchFilter.MUSIC -> searchMusicVertical(query)
+                                UnifiedSearchFilter.FILM -> searchFilmsVertical(query)
+                                UnifiedSearchFilter.HASHTAGS -> searchHashtagsVertical(query)
+                                UnifiedSearchFilter.ALL -> Unit
+                            }
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            // Same reasoning as the classic path: a newer
+                            // keystroke cancelling the fan-out is normal
+                            // editing, never a server error.
+                            throw e
+                        } catch (_: Exception) {
+                            anyFailure = true
+                        }
+                    }
+                }
+            }
+            _searchHasError.value = anyFailure && verticals.none { verticalHasResults(it) }
+            _isSearching.value = false
+        }
+    }
+
+    private fun verticalHasResults(vertical: UnifiedSearchFilter): Boolean = when (vertical) {
+        UnifiedSearchFilter.USERS -> _userSearchResults.value.isNotEmpty()
+        UnifiedSearchFilter.MUSIC ->
+            _songSearchResults.value.isNotEmpty() || _artistSearchResults.value.isNotEmpty()
+        UnifiedSearchFilter.FILM -> _filmSearchResults.value.isNotEmpty()
+        UnifiedSearchFilter.HASHTAGS -> _hashtagSearchResults.value.isNotEmpty()
+        UnifiedSearchFilter.ALL ->
+            _userSearchResults.value.isNotEmpty() || _songSearchResults.value.isNotEmpty() ||
+                _artistSearchResults.value.isNotEmpty() || _filmSearchResults.value.isNotEmpty() ||
+                _hashtagSearchResults.value.isNotEmpty()
+    }
+
+    /**
+     * Adaptive debounce matching iOS SearchView: shorter delays as the query
+     * grows, since longer queries are more specific and the user has already
+     * committed to them. Short queries get a longer wait so we don't fire on
+     * every keystroke as the user types out the first few letters.
+     */
+    private fun debounceMs(query: String): Long = when (query.length) {
+        1 -> 400L
+        2 -> 300L
+        in 3..5 -> 200L
+        else -> 150L
+    }
+
+    // ── Per-vertical fetches, shared by the classic per-tab path and the
+    // unified fan-out. Each commits results AND its lastFetchedQuery entry
+    // only on success, so a cancelled/failed fetch never marks the vertical
+    // as served. ──
+
+    private suspend fun searchUsersVertical(query: String) {
+        val key = query.lowercase().trim()
+        val cached = userSearchCache[key]
+        val results = cached ?: userRepository.searchUsers(key, includeFollowed = true)
+        userSearchCache[key] = results
+        _userSearchResults.value = results
+        lastFetchedQuery[UnifiedSearchFilter.USERS] = query
+    }
+
+    private suspend fun searchMusicVertical(query: String) {
+        // Artist/album rows opt in ONLY while the flag is on —
+        // with the params absent, the backend response (and
+        // this tab) is byte-identical to today.
+        val includeCatalogRows = remoteConfigService.artistPagesEnabled
+        val page = musicSearchRepository.search(
+            query,
+            includeSoundCloud = remoteConfigService.soundcloudEnabled,
+            includeArtists = includeCatalogRows,
+            includeAlbums = includeCatalogRows,
+        )
+        _songSearchResults.value = page.tracks
+        _artistSearchResults.value = page.artists
+        _albumSearchResults.value = page.albums
+        _songsFirst.value = page.songsFirst
+        lastFetchedQuery[UnifiedSearchFilter.MUSIC] = query
+    }
+
+    private suspend fun searchFilmsVertical(query: String) = coroutineScope {
+        // Director row (flag on): fetched in parallel with the
+        // film search and best-effort — a person-search failure
+        // must never error the films tab, so it degrades to an
+        // empty row. Fetched in the blended view too (where the rows don't
+        // render) so narrowing to the Film chip shows them with no refetch.
+        val directorsDeferred: kotlinx.coroutines.Deferred<List<fm.corus.android.data.model.ArtistSummary>>? =
+            if (remoteConfigService.artistPagesEnabled) {
+                async {
+                    runCatching { tmdbRepository.searchDirectors(query) }
+                        .getOrDefault(emptyList())
+                }
+            } else null
+        val results = tmdbRepository.searchMovies(query)
+        val withDirectors = try {
+            tmdbRepository.prefetchDirectors(results)
+        } catch (_: Exception) { results }
+        _filmSearchResults.value = withDirectors
+        _directorSearchResults.value = directorsDeferred?.await() ?: emptyList()
+        lastFetchedQuery[UnifiedSearchFilter.FILM] = query
+    }
+
+    private suspend fun searchHashtagsVertical(query: String) {
+        val key = query.trim().removePrefix("#").lowercase()
+        val cached = hashtagSearchCache[key]
+        if (cached != null) {
+            _hashtagSearchResults.value = cached
+        } else {
+            val results = firestoreDataSource.searchHashtagsByPrefix(query)
+            hashtagSearchCache[key] = results
+            _hashtagSearchResults.value = results
+        }
+        lastFetchedQuery[UnifiedSearchFilter.HASHTAGS] = query
+    }
+
     /** Manual retry from the offline empty state on SearchScreen. */
     fun retrySearch() {
         val query = _searchQuery.value
         if (query.isBlank()) return
         _searchHasError.value = false
+        // Force every visible vertical to refetch — a retry must not be
+        // swallowed by the served-query skip.
+        lastFetchedQuery.clear()
         search(query, _activeTab.value)
     }
 
@@ -819,6 +989,9 @@ class SearchViewModel @Inject constructor(
         _directorSearchResults.value = emptyList()
         _isSearching.value = false
         _searchHasError.value = false
+        // Each unified search starts fresh on the blended view.
+        lastFetchedQuery.clear()
+        _unifiedFilter.value = UnifiedSearchFilter.ALL
     }
 
     private fun loadTrendingHashtagsIfNeeded() {

@@ -92,6 +92,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class HashtagPeopleRoute(val hashtag: String, val isFollowers: Boolean)
 @Serializable data class EditProfileRoute(val userId: String)
 @Serializable object SearchRoute
+/** Full-screen trending list ("See all" from the search page's trending
+ *  strips). [kind] is "songs" | "films" | "hashtags". */
+@Serializable data class TrendingListRoute(val kind: String)
 @Serializable data class EditCaptionRoute(val postId: String, val initialCaption: String, val albumArtURL: String? = null)
 @Serializable object SettingsRoute
 @Serializable data object NotificationSettingsRoute

@@ -33,6 +33,8 @@ import androidx.lifecycle.viewModelScope
 import coil3.compose.AsyncImage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.R
+import fm.corus.android.data.model.AlbumSearchSummary
+import fm.corus.android.data.model.ArtistSummary
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.TrendingMovie
@@ -55,7 +57,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import androidx.lifecycle.ViewModel
 
-enum class PickerMode { SONG, FILM }
+enum class PickerMode { SONG, FILM, ARTIST, ALBUM, DIRECTOR }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -563,6 +565,177 @@ private fun FilmRowSkeletons() {
                     modifier = Modifier.padding(start = 72.dp),
                 )
             }
+        }
+    }
+}
+
+/**
+ * Search picker for sharing an artist / album / director from the DM composer's
+ * "+" menu (Surface B). A dedicated single-purpose sheet — keeps the Song/Film
+ * segmented picker untouched. Artist/album rows come from `searchSongs`
+ * (includeArtists/includeAlbums); director rows from tmdbProxy personSearch.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EntityPickerSheet(
+    kind: PickerMode,
+    onArtistSelected: (id: String, name: String, imageUrl: String?) -> Unit,
+    onAlbumSelected: (id: String, title: String, artist: String, coverUrl: String?, year: Int?) -> Unit,
+    onDirectorSelected: (id: String, name: String, imageUrl: String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val viewModel: SongFilmPickerViewModel = hiltViewModel()
+    var searchQuery by remember { mutableStateOf("") }
+    var artistRows by remember { mutableStateOf<List<ArtistSummary>>(emptyList()) }
+    var albumRows by remember { mutableStateOf<List<AlbumSearchSummary>>(emptyList()) }
+    var directorRows by remember { mutableStateOf<List<ArtistSummary>>(emptyList()) }
+    var isSearching by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var searchJob by remember { mutableStateOf<Job?>(null) }
+
+    fun runSearch(query: String) {
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            artistRows = emptyList(); albumRows = emptyList(); directorRows = emptyList()
+            isSearching = false
+            return
+        }
+        isSearching = true
+        searchJob = scope.launch {
+            delay(300)
+            try {
+                when (kind) {
+                    PickerMode.ARTIST -> artistRows = viewModel.musicSearchRepository.search(query, includeArtists = true).artists
+                    PickerMode.ALBUM -> albumRows = viewModel.musicSearchRepository.search(query, includeAlbums = true).albums
+                    PickerMode.DIRECTOR -> directorRows = viewModel.tmdbRepository.searchDirectors(query)
+                    else -> {}
+                }
+            } catch (_: Exception) {
+                artistRows = emptyList(); albumRows = emptyList(); directorRows = emptyList()
+            }
+            isSearching = false
+        }
+    }
+
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val placeholder = when (kind) {
+        PickerMode.ARTIST -> stringResource(R.string.messaging_thread_attachment_artist)
+        PickerMode.ALBUM -> stringResource(R.string.messaging_thread_attachment_album)
+        else -> stringResource(R.string.messaging_thread_attachment_director)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = CorusColors.Background,
+        sheetMaxWidth = Int.MAX_VALUE.dp,
+        dragHandle = {
+            Column(modifier = Modifier.statusBarsPadding()) {
+                BottomSheetDefaults.DragHandle()
+            }
+        },
+    ) {
+        CorusSystemBars()
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(bottom = CorusSpacing.sm),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = placeholder, style = CorusFont.displayName, color = CorusColors.Text)
+            }
+            HorizontalDivider(color = CorusColors.Divider)
+
+            Column(modifier = Modifier.padding(horizontal = CorusSpacing.lg)) {
+                val keyboardController = LocalSoftwareKeyboardController.current
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = CorusSpacing.sm)
+                        .background(CorusColors.CardBackground, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+                        .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Search, contentDescription = null, tint = CorusColors.Tertiary, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it; runSearch(it) },
+                        modifier = Modifier.weight(1f),
+                        textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
+                        cursorBrush = SolidColor(CorusColors.Accent),
+                        decorationBox = { inner ->
+                            if (searchQuery.isEmpty()) {
+                                Text(text = placeholder, style = CorusFont.body, color = CorusColors.Secondary)
+                            }
+                            inner()
+                        },
+                    )
+                    if (searchQuery.isNotEmpty()) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.song_film_picker_cd_clear),
+                            tint = CorusColors.Secondary,
+                            modifier = Modifier.size(18.dp).clickable { searchQuery = ""; runSearch("") },
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            }
+
+            when {
+                isSearching -> SongRowSkeletons()
+                else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    when (kind) {
+                        PickerMode.ARTIST -> itemsIndexed(artistRows, key = { _, a -> a.id }) { index, a ->
+                            EntityPickerRow(imageUrl = a.imageUrl, circle = true, title = a.name, subtitle = placeholder) {
+                                onArtistSelected(a.id, a.name, a.imageUrl)
+                            }
+                            if (index < artistRows.lastIndex) HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(start = 72.dp))
+                        }
+                        PickerMode.ALBUM -> itemsIndexed(albumRows, key = { _, a -> a.id }) { index, a ->
+                            EntityPickerRow(imageUrl = a.coverUrl, circle = false, title = a.title, subtitle = a.artistName.ifBlank { placeholder }) {
+                                onAlbumSelected(a.id, a.title, a.artistName, a.coverUrl, a.year)
+                            }
+                            if (index < albumRows.lastIndex) HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(start = 72.dp))
+                        }
+                        else -> itemsIndexed(directorRows, key = { _, d -> d.id }) { index, d ->
+                            EntityPickerRow(imageUrl = d.imageUrl, circle = true, title = d.name, subtitle = placeholder) {
+                                onDirectorSelected(d.id, d.name, d.imageUrl)
+                            }
+                            if (index < directorRows.lastIndex) HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(start = 72.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EntityPickerRow(imageUrl: String?, circle: Boolean, title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .heightIn(min = CorusSpacing.touchTarget),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = title,
+            modifier = Modifier
+                .size(CorusSpacing.albumArtSearch)
+                .clip(if (circle) RoundedCornerShape(50) else RoundedCornerShape(CorusSpacing.cornerRadius)),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = CorusFont.body, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text = subtitle, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

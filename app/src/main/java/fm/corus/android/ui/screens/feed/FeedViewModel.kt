@@ -311,7 +311,7 @@ class FeedViewModel @Inject constructor(
     private val _forYouLoadFailed = MutableStateFlow(false)
     val forYouLoadFailed: StateFlow<Boolean> = _forYouLoadFailed.asStateFlow()
 
-    val engagementStates = engagementManager.states
+    override val engagementStates = engagementManager.states
     val currentUserProfile = authRepository.userProfile
 
     /**
@@ -1020,7 +1020,7 @@ class FeedViewModel @Inject constructor(
         engagementManager.toggleLike(postId, userId)
     }
 
-    fun toggleSave(postId: String) {
+    override fun toggleSave(postId: String) {
         val userId = authRepository.currentUserId ?: return
         engagementManager.toggleSave(postId, userId)
     }

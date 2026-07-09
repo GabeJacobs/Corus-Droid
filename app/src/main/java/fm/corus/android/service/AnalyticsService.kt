@@ -17,6 +17,13 @@ enum class SearchSection(val value: String) {
     Popular("popular"),
     ClubMembers("club_members"),
     NewOnCorus("new_on_corus"),
+
+    // Trending sections join the enum with unified search, where their
+    // compact strips live on the same zero-state feed as the people sections.
+    // Values match iOS/web.
+    TrendingSongs("trending_songs"),
+    TrendingFilms("trending_films"),
+    TrendingHashtags("trending_hashtags"),
 }
 
 @Singleton
@@ -136,6 +143,9 @@ class AnalyticsService @Inject constructor(
     fun logPostDeleted(postId: String, mediaType: String) = logEvent("post_deleted", mapOf("post_id" to postId, "media_type" to mediaType))
     fun logPostShared(postId: String, mediaType: String, method: String) = logEvent("post_shared", mapOf("post_id" to postId, "media_type" to mediaType, "share_method" to method))
     fun logSongShared(trackId: String, method: String) = logEvent("song_shared", mapOf("track_id" to trackId, "share_method" to method))
+    fun logArtistShared(artistId: String, method: String) = logEvent("artist_shared", mapOf("artist_id" to artistId, "share_method" to method))
+    fun logAlbumShared(albumId: String, method: String) = logEvent("album_shared", mapOf("album_id" to albumId, "share_method" to method))
+    fun logDirectorShared(directorId: String, method: String) = logEvent("director_shared", mapOf("director_id" to directorId, "share_method" to method))
     fun logCaptionEdited(postId: String) = logEvent("caption_edited", mapOf("post_id" to postId))
     fun logLikesListViewed(postId: String) = logEvent("likes_list_viewed", mapOf("post_id" to postId))
     fun logVoiceNoteRecorded() = logEvent("voice_note_recorded")

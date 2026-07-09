@@ -104,6 +104,7 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FullScreenImageView
 import fm.corus.android.ui.components.GifPickerSheet
+import fm.corus.android.ui.components.EntityPickerSheet
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SongFilmPickerSheet
 import fm.corus.android.ui.components.UserAvatarView
@@ -130,6 +131,9 @@ internal fun replyPreviewText(msg: CymbalMessage, context: android.content.Conte
         MessageType.GIF -> context.getString(R.string.comments_cd_gif)
         MessageType.SHARED_TRACK -> msg.trackName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_song)
         MessageType.SHARED_FILM -> msg.movieTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_film)
+        MessageType.SHARED_ARTIST -> msg.artistName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_artist)
+        MessageType.SHARED_ALBUM -> msg.albumTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_album)
+        MessageType.SHARED_DIRECTOR -> msg.directorName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_director)
         MessageType.SHARED_POST -> context.getString(R.string.messaging_thread_attachment_post)
         else -> context.getString(R.string.messaging_thread_message_fallback)
     }
@@ -516,6 +520,9 @@ fun MessageThreadScreen(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
+    onNavigateToArtist: (artistId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
+    onNavigateToAlbum: (albumId: String, title: String?, artist: String?, coverUrl: String?, year: Int?) -> Unit = { _, _, _, _, _ -> },
+    onNavigateToDirector: (directorId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
     viewModel: MessageThreadViewModel = hiltViewModel(),
 ) {
     val nowPlayingManager = viewModel.nowPlayingManager
@@ -805,6 +812,9 @@ fun MessageThreadScreen(
                             onNavigateToSong = onNavigateToSong,
                             onNavigateToFilm = onNavigateToFilm,
                             onNavigateToPost = onNavigateToPost,
+                            onNavigateToArtist = onNavigateToArtist,
+                            onNavigateToAlbum = onNavigateToAlbum,
+                            onNavigateToDirector = onNavigateToDirector,
                             resolvePost = { viewModel.fetchSharedPost(it) },
                         )
                     }
@@ -961,6 +971,32 @@ fun MessageThreadScreen(
                             mediaPickerMode = PickerMode.FILM
                         },
                     )
+                    if (viewModel.entityShareEnabled) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(id = R.string.messaging_thread_attachment_artist)) },
+                            leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
+                            onClick = {
+                                showAttachmentMenu = false
+                                mediaPickerMode = PickerMode.ARTIST
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(id = R.string.messaging_thread_attachment_album)) },
+                            leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
+                            onClick = {
+                                showAttachmentMenu = false
+                                mediaPickerMode = PickerMode.ALBUM
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(id = R.string.messaging_thread_attachment_director)) },
+                            leadingIcon = { Icon(Icons.Filled.Movie, contentDescription = null) },
+                            onClick = {
+                                showAttachmentMenu = false
+                                mediaPickerMode = PickerMode.DIRECTOR
+                            },
+                        )
+                    }
                 }
             }
 
@@ -1010,18 +1046,37 @@ fun MessageThreadScreen(
     }
 
     mediaPickerMode?.let { mode ->
-        SongFilmPickerSheet(
-            initialMode = mode,
-            onSongSelected = { track ->
-                viewModel.sendSongMessage(threadId, track)
-                mediaPickerMode = null
-            },
-            onFilmSelected = { movie ->
-                viewModel.sendFilmMessage(threadId, movie)
-                mediaPickerMode = null
-            },
-            onDismiss = { mediaPickerMode = null },
-        )
+        if (mode == PickerMode.SONG || mode == PickerMode.FILM) {
+            SongFilmPickerSheet(
+                initialMode = mode,
+                onSongSelected = { track ->
+                    viewModel.sendSongMessage(threadId, track)
+                    mediaPickerMode = null
+                },
+                onFilmSelected = { movie ->
+                    viewModel.sendFilmMessage(threadId, movie)
+                    mediaPickerMode = null
+                },
+                onDismiss = { mediaPickerMode = null },
+            )
+        } else {
+            EntityPickerSheet(
+                kind = mode,
+                onArtistSelected = { id, name, image ->
+                    viewModel.sendArtistMessage(threadId, id, name, image)
+                    mediaPickerMode = null
+                },
+                onAlbumSelected = { id, title, artist, cover, year ->
+                    viewModel.sendAlbumMessage(threadId, id, title, artist, cover, year)
+                    mediaPickerMode = null
+                },
+                onDirectorSelected = { id, name, image ->
+                    viewModel.sendDirectorMessage(threadId, id, name, image)
+                    mediaPickerMode = null
+                },
+                onDismiss = { mediaPickerMode = null },
+            )
+        }
     }
 
     // Full-screen image viewer
@@ -1277,6 +1332,9 @@ private fun MessageBubble(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
+    onNavigateToArtist: (artistId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
+    onNavigateToAlbum: (albumId: String, title: String?, artist: String?, coverUrl: String?, year: Int?) -> Unit = { _, _, _, _, _ -> },
+    onNavigateToDirector: (directorId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
     resolvePost: suspend (String) -> CymbalPost? = { null },
 ) {
     val context = LocalContext.current
@@ -1567,6 +1625,53 @@ private fun MessageBubble(
                                 onNavigateToFilm(film.asCymbalMovie())
                             } else if (!message.tmdbWebURL.isNullOrBlank()) {
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(message.tmdbWebURL)))
+                            }
+                        },
+                    )
+                    if (!message.text.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    }
+                }
+
+                // Shared artist / album / director content
+                if (message.type == MessageType.SHARED_ARTIST) {
+                    SharedArtistContent(
+                        message = message,
+                        isFromCurrentUser = isFromCurrentUser,
+                        onNavigate = {
+                            message.artistId?.takeIf { it.isNotBlank() }?.let {
+                                onNavigateToArtist(it, message.artistName, message.artistImageURL)
+                            }
+                        },
+                    )
+                    if (!message.text.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    }
+                }
+                if (message.type == MessageType.SHARED_ALBUM) {
+                    SharedAlbumContent(
+                        message = message,
+                        isFromCurrentUser = isFromCurrentUser,
+                        onNavigate = {
+                            message.albumId?.takeIf { it.isNotBlank() }?.let {
+                                onNavigateToAlbum(
+                                    it, message.albumTitle, message.albumArtistName,
+                                    message.albumCoverURL, message.albumYear?.toIntOrNull(),
+                                )
+                            }
+                        },
+                    )
+                    if (!message.text.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    }
+                }
+                if (message.type == MessageType.SHARED_DIRECTOR) {
+                    SharedDirectorContent(
+                        message = message,
+                        isFromCurrentUser = isFromCurrentUser,
+                        onNavigate = {
+                            message.directorId?.takeIf { it.isNotBlank() }?.let {
+                                onNavigateToDirector(it, message.directorName, message.directorImageURL)
                             }
                         },
                     )
@@ -1931,6 +2036,155 @@ private fun SharedFilmContent(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.xs))
+        Icon(
+            imageVector = Icons.Filled.Movie,
+            contentDescription = null,
+            tint = subtitleColor,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+@Composable
+private fun SharedArtistContent(
+    message: CymbalMessage,
+    isFromCurrentUser: Boolean,
+    onNavigate: () -> Unit,
+) {
+    val name = message.artistName.orEmpty()
+    val textColor = if (isFromCurrentUser) Color.White else CorusColors.Text
+    val subtitleColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f) else CorusColors.Secondary
+    Row(
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .clickable { onNavigate() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ShimmerAsyncImage(
+            model = message.artistImageURL,
+            contentDescription = name,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(50)),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = name,
+                style = CorusFont.body,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = stringResource(R.string.messaging_thread_attachment_artist),
+                style = CorusFont.caption,
+                color = subtitleColor,
+                maxLines = 1,
+            )
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.xs))
+        Icon(
+            imageVector = Icons.Filled.MusicNote,
+            contentDescription = null,
+            tint = subtitleColor,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+@Composable
+private fun SharedAlbumContent(
+    message: CymbalMessage,
+    isFromCurrentUser: Boolean,
+    onNavigate: () -> Unit,
+) {
+    val title = message.albumTitle.orEmpty()
+    val artist = message.albumArtistName.orEmpty()
+    val textColor = if (isFromCurrentUser) Color.White else CorusColors.Text
+    val subtitleColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f) else CorusColors.Secondary
+    Row(
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .clickable { onNavigate() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ShimmerAsyncImage(
+            model = message.albumCoverURL,
+            contentDescription = title,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = CorusFont.body,
+                color = textColor,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = artist.ifBlank { stringResource(R.string.messaging_thread_attachment_album) },
+                style = CorusFont.caption,
+                color = subtitleColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.xs))
+        Icon(
+            imageVector = Icons.Filled.MusicNote,
+            contentDescription = null,
+            tint = subtitleColor,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+@Composable
+private fun SharedDirectorContent(
+    message: CymbalMessage,
+    isFromCurrentUser: Boolean,
+    onNavigate: () -> Unit,
+) {
+    val name = message.directorName.orEmpty()
+    val textColor = if (isFromCurrentUser) Color.White else CorusColors.Text
+    val subtitleColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f) else CorusColors.Secondary
+    Row(
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .clickable { onNavigate() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ShimmerAsyncImage(
+            model = message.directorImageURL,
+            contentDescription = name,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(50)),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = name,
+                style = CorusFont.body,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = stringResource(R.string.messaging_thread_attachment_director),
+                style = CorusFont.caption,
+                color = subtitleColor,
+                maxLines = 1,
+            )
         }
         Spacer(modifier = Modifier.width(CorusSpacing.xs))
         Icon(

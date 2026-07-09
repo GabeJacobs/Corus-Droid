@@ -49,9 +49,23 @@ import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.DirectorFilm
 import fm.corus.android.data.model.MusicVideo
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ShareDirectorSubject
+import fm.corus.android.ui.components.ShareMediaSheet
+import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.SkeletonAlbumGridCell
 import fm.corus.android.ui.components.SkeletonUserRow
+import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.navigation.FilmDetailRoute
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -81,6 +95,12 @@ fun DirectorPageScreen(
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
     val isPostsLoading by viewModel.isPostsLoading.collectAsState()
     val postsError by viewModel.postsError.collectAsState()
+    val recentShareContacts by viewModel.recentShareContacts.collectAsState()
+    val shareSearchResults by viewModel.shareSearchResults.collectAsState()
+    val isShareSearching by viewModel.isShareSearching.collectAsState()
+    val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
+    var showShareSheet by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     val directorName = detail?.name?.takeIf { it.isNotBlank() } ?: nameHint
     val photo = detail?.imageUrl ?: imageUrlHint
@@ -105,6 +125,30 @@ fun DirectorPageScreen(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(R.string.feed_cd_back),
                     )
+                },
+                actions = {
+                    if (viewModel.entityShareEnabled) {
+                        Box {
+                            CorusHeaderIconButton(
+                                onClick = { showMenu = true },
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                            )
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                                containerColor = CorusColors.CardBackground,
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                    onClick = {
+                                        showMenu = false
+                                        showShareSheet = true
+                                    },
+                                )
+                            }
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -343,6 +387,44 @@ fun DirectorPageScreen(
                     attribution = stringResource(R.string.destination_film_attribution),
                 )
             }
+        }
+    }
+
+    if (showShareSheet) {
+        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sentMsg = stringResource(R.string.director_detail_toast_director_sent)
+        LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
+        ModalBottomSheet(
+            onDismissRequest = { showShareSheet = false },
+            sheetState = shareSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = null,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
+        ) {
+            CorusSystemBars()
+            BackHandler { showShareSheet = false }
+            ShareMediaSheet(
+                subject = ShareMediaSubject.Director(
+                    ShareDirectorSubject(
+                        id = directorId,
+                        name = directorName ?: "Director",
+                        imageUrl = photo,
+                    )
+                ),
+                recentContacts = recentShareContacts,
+                searchResults = shareSearchResults,
+                isSearching = isShareSearching,
+                isLoadingContacts = isLoadingShareContacts,
+                onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
+                onSendToUser = { userId, message ->
+                    viewModel.sendDirectorToUser(userId, directorId, directorName ?: "Director", photo, message)
+                    ToastManager.show(sentMsg)
+                    showShareSheet = false
+                },
+                onDismiss = { showShareSheet = false },
+                onAnalyticsLog = { method -> viewModel.analyticsService.logDirectorShared(directorId, method) },
+            )
         }
     }
 }

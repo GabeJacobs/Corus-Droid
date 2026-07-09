@@ -67,7 +67,12 @@ class SearchViewModelAnalyticsTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         firestoreDataSource = mock()
-        authRepository = mock { on { currentUserId } doReturn "viewer" }
+        authRepository = mock {
+            on { currentUserId } doReturn "viewer"
+            // The VM's init block collects userProfile immediately; without a
+            // stub the collector NPEs and poisons every test in the class.
+            on { userProfile } doReturn MutableStateFlow<fm.corus.android.data.model.CymbalUser?>(null)
+        }
         userRepository = mock {
             on { followingIds } doReturn MutableStateFlow(emptySet())
         }
@@ -78,6 +83,9 @@ class SearchViewModelAnalyticsTest {
         preferencesDataStore = mock {
             on { recentSearchUsers } doReturn kotlinx.coroutines.flow.flowOf(emptyList())
             on { contactsSyncStatus } doReturn kotlinx.coroutines.flow.flowOf("notAsked")
+            on { trendingSongsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
+            on { trendingFilmsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
+            on { trendingHashtagsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
         }
         remoteConfigService = mock()
         analyticsService = mock()

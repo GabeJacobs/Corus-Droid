@@ -45,11 +45,25 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
-/** What the share sheet is sharing — a song or a film. Lets one sheet back both
- *  the song detail and film detail screens. */
+/** Minimal payloads for sharing a catalog entity (artist / album / director). */
+data class ShareArtistSubject(val id: String, val name: String, val imageUrl: String?)
+data class ShareAlbumSubject(
+    val id: String,
+    val title: String,
+    val artistName: String,
+    val coverUrl: String?,
+    val year: String?,
+)
+data class ShareDirectorSubject(val id: String, val name: String, val imageUrl: String?)
+
+/** What the share sheet is sharing — a song, film, artist, album, or director.
+ *  Lets one sheet back every detail / destination screen. */
 sealed interface ShareMediaSubject {
     data class Track(val track: CymbalTrack) : ShareMediaSubject
     data class Film(val movie: CymbalMovie) : ShareMediaSubject
+    data class Artist(val artist: ShareArtistSubject) : ShareMediaSubject
+    data class Album(val album: ShareAlbumSubject) : ShareMediaSubject
+    data class Director(val director: ShareDirectorSubject) : ShareMediaSubject
 }
 
 /**
@@ -97,6 +111,9 @@ fun ShareMediaSheet(
     val shareableLink = when (subject) {
         is ShareMediaSubject.Track -> "https://corus.fm/song/${subject.track.id}"
         is ShareMediaSubject.Film -> "https://corus.fm/film/${subject.movie.id}"
+        is ShareMediaSubject.Artist -> "https://corus.fm/artist/${subject.artist.id}"
+        is ShareMediaSubject.Album -> "https://corus.fm/album/${subject.album.id}"
+        is ShareMediaSubject.Director -> "https://corus.fm/director/${subject.director.id}"
     }
 
     Column(
@@ -366,6 +383,19 @@ private fun shareMediaToX(context: Context, subject: ShareMediaSubject) {
                 "${subject.movie.title} by ${subject.movie.directorName} on @corusapp"
             t to "https://corus.fm/film/${subject.movie.id}"
         }
+        is ShareMediaSubject.Artist ->
+            "${subject.artist.name} on @corusapp" to
+                "https://corus.fm/artist/${subject.artist.id}"
+        is ShareMediaSubject.Album -> {
+            val t = if (subject.album.artistName.isBlank())
+                "${subject.album.title} on @corusapp"
+            else
+                "${subject.album.title} by ${subject.album.artistName} on @corusapp"
+            t to "https://corus.fm/album/${subject.album.id}"
+        }
+        is ShareMediaSubject.Director ->
+            "${subject.director.name} on @corusapp" to
+                "https://corus.fm/director/${subject.director.id}"
     }
     val url = "$link?ref=x"
     val intentUrl = "https://twitter.com/intent/tweet?text=${Uri.encode(text)}&url=${Uri.encode(url)}"

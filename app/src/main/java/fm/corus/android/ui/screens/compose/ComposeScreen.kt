@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Pause
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalUser
@@ -85,8 +87,6 @@ fun ComposeScreen(
     preSelectedMovieId: String? = null,
     viewModel: ComposeViewModel = hiltViewModel(),
 ) {
-    BackHandler { onDismiss() }
-
     val selectedTrack by viewModel.selectedTrack.collectAsState()
     val selectedMovie by viewModel.selectedMovie.collectAsState()
     val isPosting by viewModel.isPosting.collectAsState()
@@ -112,16 +112,78 @@ fun ComposeScreen(
     val repostedFromUsername by viewModel.repostedFromUsername.collectAsState()
     val showRepostAttribution by viewModel.showRepostAttribution.collectAsState()
     val commentsAudience by viewModel.commentsAudience.collectAsState()
+    // Post drafts
+    val drafts by viewModel.drafts.collectAsState()
+    val editingDraftId by viewModel.editingDraftId.collectAsState()
+    val resumedVoiceNoteURL by viewModel.resumedVoiceNoteURL.collectAsState()
+    val attachmentUnavailable by viewModel.attachmentUnavailable.collectAsState()
+    val savingDraft by viewModel.savingDraft.collectAsState()
     var mediaType by remember { mutableStateOf(if (movieModeEnabled) MediaType.MOVIE else MediaType.TRACK) }
     var searchQuery by remember { mutableStateOf("") }
     var caption by remember { mutableStateOf(TextFieldValue("")) }
     var captionMode by remember { mutableStateOf("text") } // "text" or "voice"
+    var showDraftsSheet by remember { mutableStateOf(false) }
+    var showExitSheet by remember { mutableStateOf(false) }
     val voiceRecorderState = rememberVoiceNoteRecorderState()
     val nowPlayingState by viewModel.nowPlayingState.collectAsState()
     val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
 
     val hasSelection = selectedTrack != null || selectedMovie != null || isLoadingPreSelection
     val keyboardController = LocalSoftwareKeyboardController.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    // Fetch the user's drafts once so the "Drafts (N)" entry can surface. No
+    // feature flag: the entry only appears when the user has >=1 draft.
+    LaunchedEffect(Unit) { viewModel.loadDrafts() }
+
+    // One-shot toast events for draft save/delete outcomes (top-anchored default).
+    LaunchedEffect(Unit) {
+        viewModel.draftToast.collect { resId ->
+            android.widget.Toast.makeText(context, context.getString(resId), android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Current voice state for the dirty-signature: a fresh recording wins over a
+    // resumed URL; otherwise "saved"/"none"; "text" when not in voice mode.
+    val voiceState = if (captionMode == "voice") {
+        when {
+            voiceRecorderState.hasRecording -> "new"
+            resumedVoiceNoteURL != null -> "saved"
+            else -> "none"
+        }
+    } else "text"
+
+    // The save-on-exit sheet appears whenever a song/film is selected and the
+    // composer differs from the saved-draft signature — a picked song IS a draft
+    // worth keeping, even with no caption yet. A resumed-but-unchanged draft, or
+    // the bare picker with nothing selected, leaves silently. Reposts never save.
+    val isRepost = repostedFromUsername != null
+    val hasSelectionForDraft = selectedTrack != null || selectedMovie != null
+    val isDirty = viewModel.isDraftDirty(
+        mediaType = mediaType,
+        trackId = selectedTrack?.id,
+        movieId = selectedMovie?.id,
+        caption = if (captionMode == "text") caption.text else "",
+        captionMode = captionMode,
+        voiceState = voiceState,
+    )
+    val canSaveDraft = !isRepost && hasSelectionForDraft && isDirty &&
+        preSelectedTrackId == null && preSelectedMovieId == null
+
+    // Intercept the back button / Cancel: prompt to save if there's a keepable
+    // draft; otherwise dismiss (falling back to the "first back clears the song"
+    // behavior for a fresh pick).
+    fun handleExit() {
+        if (canSaveDraft) {
+            keyboardController?.hide()
+            showExitSheet = true
+        } else {
+            onDismiss()
+        }
+    }
+
+    BackHandler { handleExit() }
 
     LaunchedEffect(postSuccess) {
         if (postSuccess) {
@@ -184,7 +246,7 @@ fun ComposeScreen(
                     color = CorusColors.Secondary,
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .clickable { onDismiss() },
+                        .clickable { handleExit() },
                 )
             }
 
@@ -260,6 +322,8 @@ fun ComposeScreen(
                         onTrendingSongClick = { viewModel.selectTrendingSong(it) },
                         onTrendingMovieClick = { viewModel.selectTrendingMovie(it) },
                         nowPlaying = viewModel.nowPlayingManager,
+                        draftsCount = if (isRepost || preSelectedTrackId != null || preSelectedMovieId != null) 0 else drafts.size,
+                        onOpenDrafts = { showDraftsSheet = true },
                     )
                 } else if (selectedTrack != null || selectedMovie != null) {
                     ComposeModeContent(
@@ -308,6 +372,9 @@ fun ComposeScreen(
                         commentControlsOnPosts = viewModel.commentControlsOnPosts,
                         commentsAudience = commentsAudience,
                         onCommentsAudienceChange = viewModel::setCommentsAudience,
+                        resumedVoiceNoteURL = resumedVoiceNoteURL,
+                        attachmentUnavailable = attachmentUnavailable,
+                        onChooseAnother = { viewModel.clearUnavailableAttachment() },
                     )
                 } else {
                     // Pre-selected track/movie is loading — show empty placeholder
@@ -388,7 +455,148 @@ fun ComposeScreen(
             )
         }
     }
+
+    // ── Drafts list sheet ──
+    if (showDraftsSheet) {
+        val draftsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showDraftsSheet = false },
+            sheetState = draftsSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            CorusSystemBars()
+            DraftsSheetContent(
+                drafts = drafts,
+                onResume = { draft ->
+                    val resumed = viewModel.resumeDraft(draft)
+                    // Seed the composer's local UI state from the resumed draft.
+                    mediaType = resumed.mediaType
+                    caption = TextFieldValue(resumed.caption)
+                    captionMode = resumed.captionMode
+                    voiceRecorderState.deleteRecording()
+                    showDraftsSheet = false
+                },
+                onDelete = { draft -> viewModel.deleteDraft(draft.id) },
+            )
+        }
+    }
+
+    // ── Save-on-exit action sheet — Discard / Save draft / Cancel ──
+    if (showExitSheet) {
+        val exitSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { if (!savingDraft) showExitSheet = false },
+            sheetState = exitSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            CorusSystemBars()
+            ExitDraftSheetContent(
+                saving = savingDraft,
+                onDiscard = {
+                    showExitSheet = false
+                    onDismiss()
+                },
+                onSave = {
+                    scope.launch {
+                        val ok = viewModel.saveCurrentDraft(
+                            mediaType = mediaType,
+                            caption = caption.text,
+                            captionMode = captionMode,
+                            voiceNoteData = if (captionMode == "voice") voiceRecorderState.audioData else null,
+                        )
+                        if (ok) {
+                            showExitSheet = false
+                            onDismiss()
+                        }
+                    }
+                },
+                onCancel = { if (!savingDraft) showExitSheet = false },
+            )
+        }
+    }
     } // end Box
+}
+
+/**
+ * Body of the save-on-exit action sheet. Button order matches the reference
+ * (Instagram / web ExitDraftDialog): Discard (destructive) → Save draft → Cancel.
+ */
+@Composable
+private fun ExitDraftSheetContent(
+    saving: Boolean,
+    onDiscard: () -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg)
+            .padding(bottom = CorusSpacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.compose_exit_save_title),
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Text,
+            modifier = Modifier.padding(vertical = CorusSpacing.md),
+        )
+        Button(
+            onClick = onDiscard,
+            enabled = !saving,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CorusColors.Error,
+                disabledContainerColor = CorusColors.Error.copy(alpha = 0.5f),
+            ),
+        ) {
+            Text(
+                text = stringResource(R.string.compose_draft_discard),
+                style = CorusFont.button,
+                color = Color.White,
+            )
+        }
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Button(
+            onClick = onSave,
+            enabled = !saving,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CorusColors.Accent,
+                disabledContainerColor = CorusColors.Accent.copy(alpha = 0.5f),
+            ),
+        ) {
+            if (saving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.compose_draft_save),
+                    style = CorusFont.button,
+                    color = Color.White,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        TextButton(
+            onClick = onCancel,
+            enabled = !saving,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = stringResource(R.string.compose_draft_cancel),
+                style = CorusFont.button,
+                color = CorusColors.Secondary,
+            )
+        }
+    }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -418,6 +626,8 @@ private fun SearchModeContent(
     onTrendingSongClick: (TrendingSong) -> Unit,
     onTrendingMovieClick: (TrendingMovie) -> Unit,
     nowPlaying: fm.corus.android.domain.NowPlayingManager,
+    draftsCount: Int = 0,
+    onOpenDrafts: () -> Unit = {},
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -446,6 +656,39 @@ private fun SearchModeContent(
             },
             modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         )
+
+        // ── Drafts entry (only when the user has >=1 draft) ──
+        if (draftsCount > 0) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.lg)
+                    .padding(bottom = CorusSpacing.xs),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                        .clickable(onClick = onOpenDrafts)
+                        .padding(horizontal = CorusSpacing.sm, vertical = CorusSpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.List,
+                        contentDescription = null,
+                        tint = CorusColors.Secondary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = "${stringResource(R.string.compose_drafts_title)} ($draftsCount)",
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Secondary,
+                    )
+                }
+            }
+        }
 
         // ── Search bar with icon ──
         Row(
@@ -988,6 +1231,9 @@ private fun ComposeModeContent(
     commentControlsOnPosts: Boolean = false,
     commentsAudience: fm.corus.android.data.model.CommentsAudience = fm.corus.android.data.model.CommentsAudience.EVERYONE,
     onCommentsAudienceChange: (fm.corus.android.data.model.CommentsAudience) -> Unit = {},
+    resumedVoiceNoteURL: String? = null,
+    attachmentUnavailable: Boolean = false,
+    onChooseAnother: () -> Unit = {},
 ) {
     val imageURL = if (mediaType == MediaType.TRACK) (selectedTrack?.albumArtLargeURL ?: selectedTrack?.albumArtURL) else selectedMovie?.posterURL
     val title = if (mediaType == MediaType.TRACK) selectedTrack?.name.orEmpty() else selectedMovie?.title.orEmpty()
@@ -1134,6 +1380,17 @@ private fun ComposeModeContent(
         Spacer(modifier = Modifier.height(CorusSpacing.md))
 
         if (captionMode == "voice" && voiceRecorderState != null) {
+            // ── Saved voice note (resumed draft) — playback affordance ──
+            // Shown until the user records a fresh take; the URL is kept and
+            // reused at post time unless re-recorded.
+            if (resumedVoiceNoteURL != null && !voiceRecorderState.hasRecording) {
+                fm.corus.android.ui.components.VoiceNotePlayerView(
+                    voiceNoteURL = resumedVoiceNoteURL,
+                    username = stringResource(R.string.compose_draft_saved_voice),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            }
             // ── Voice note recorder ──
             VoiceNoteRecorderView(
                 recorderState = voiceRecorderState,
@@ -1205,6 +1462,30 @@ private fun ComposeModeContent(
             // Small gap so the card isn't flush against the keyboard (iOS parity).
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
         } else {
+            // ── Delisted attachment — block posting until re-pick ──
+            // A resumed draft whose track/film 404'd on refresh.
+            if (attachmentUnavailable) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = CorusSpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.compose_attachment_unavailable),
+                        style = CorusFont.caption,
+                        color = CorusColors.Error,
+                    )
+                    Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                    Text(
+                        text = stringResource(R.string.compose_draft_choose_another),
+                        style = CorusFont.captionMedium,
+                        color = CorusColors.Error,
+                        modifier = Modifier.clickable(onClick = onChooseAnother),
+                    )
+                }
+            }
+
             if (commentControlsOnPosts) {
                 fm.corus.android.ui.components.CommentsAudiencePicker(
                     selection = commentsAudience,
@@ -1225,7 +1506,7 @@ private fun ComposeModeContent(
                     }
                     onPost()
                 },
-                enabled = !isPosting,
+                enabled = !isPosting && !attachmentUnavailable,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = CorusSpacing.lg),

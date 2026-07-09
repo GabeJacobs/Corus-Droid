@@ -472,6 +472,12 @@
     <string name="search_placeholder_songs">Rechercher une chanson</string>
     <string name="search_placeholder_films">Rechercher un film</string>
     <string name="search_placeholder_hashtags">Rechercher des hashtags</string>
+    <string name="search_placeholder_unified">Rechercher des personnes, de la musique, des films, des hashtags</string>
+    <string name="search_no_matches">Aucun résultat.</string>
+    <string name="search_filter_all_chip">Tout</string>
+    <string name="search_trending_songs_title">Chansons en tendance</string>
+    <string name="search_trending_films_title">Films en tendance</string>
+    <string name="search_trending_hashtags_title">Hashtags en tendance</string>
     <string name="search_tab_users">Personnes</string>
     <string name="search_tab_songs">Chansons</string>
     <string name="search_tab_films">Films</string>
@@ -685,6 +691,9 @@
     <string name="messaging_thread_attachment_photo">Photo</string>
     <string name="messaging_thread_attachment_song">Chanson</string>
     <string name="messaging_thread_attachment_film">Film</string>
+    <string name="messaging_thread_attachment_artist">Artiste</string>
+    <string name="messaging_thread_attachment_album">Album</string>
+    <string name="messaging_thread_attachment_director">Réalisateur</string>
     <string name="messaging_thread_placeholder">Message...</string>
     <string name="messaging_thread_cd_shared_image">Image partagée</string>
     <string name="messaging_thread_sending">Envoi...</string>
@@ -1074,4 +1083,22 @@
     <string name="destination_catalog_load_error">Chargement impossible pour le moment.</string>
     <string name="destination_no_tracks">Aucun titre trouvé pour cet album.</string>
     <string name="post_menu_go_to_director">Aller au réalisateur</string>
+    <!-- Post drafts -->
+    <string name="compose_drafts_title">Brouillons</string>
+    <string name="compose_drafts_empty">Aucun brouillon pour l’instant.</string>
+    <string name="compose_draft_no_caption">Pas encore de légende</string>
+    <string name="compose_draft_voice_note">Note vocale</string>
+    <string name="compose_draft_saved_voice">Note vocale enregistrée</string>
+    <string name="compose_exit_save_title">Enregistrer comme brouillon ?</string>
+    <string name="compose_draft_discard">Abandonner</string>
+    <string name="compose_draft_save">Enregistrer le brouillon</string>
+    <string name="compose_draft_saving">Enregistrement…</string>
+    <string name="compose_draft_cancel">Annuler</string>
+    <string name="compose_draft_saved">Brouillon enregistré</string>
+    <string name="compose_draft_save_failed">Impossible d’enregistrer le brouillon</string>
+    <string name="compose_draft_deleted">Brouillon supprimé</string>
+    <string name="compose_draft_delete_failed">Impossible de supprimer le brouillon</string>
+    <string name="compose_draft_delete_aria">Supprimer le brouillon</string>
+    <string name="compose_attachment_unavailable">Ce contenu n’est plus disponible.</string>
+    <string name="compose_draft_choose_another">En choisir un autre</string>
 </resources>

@@ -472,6 +472,12 @@
     <string name="search_placeholder_songs">搜索歌曲</string>
     <string name="search_placeholder_films">搜索电影</string>
     <string name="search_placeholder_hashtags">搜索话题标签</string>
+    <string name="search_placeholder_unified">搜索用户、音乐、电影、话题标签</string>
+    <string name="search_no_matches">没有匹配结果。</string>
+    <string name="search_filter_all_chip">全部</string>
+    <string name="search_trending_songs_title">热门歌曲</string>
+    <string name="search_trending_films_title">热门电影</string>
+    <string name="search_trending_hashtags_title">热门话题标签</string>
     <string name="search_tab_users">用户</string>
     <string name="search_tab_songs">歌曲</string>
     <string name="search_tab_films">电影</string>
@@ -684,6 +690,9 @@
     <string name="messaging_thread_attachment_photo">照片</string>
     <string name="messaging_thread_attachment_song">歌曲</string>
     <string name="messaging_thread_attachment_film">电影</string>
+    <string name="messaging_thread_attachment_artist">艺人</string>
+    <string name="messaging_thread_attachment_album">专辑</string>
+    <string name="messaging_thread_attachment_director">导演</string>
     <string name="messaging_thread_placeholder">发消息...</string>
     <string name="messaging_thread_cd_shared_image">分享的图片</string>
     <string name="messaging_thread_sending">发送中...</string>
@@ -1071,4 +1080,22 @@
     <string name="destination_catalog_load_error">暂时无法加载。</string>
     <string name="destination_no_tracks">未找到这张专辑的歌曲。</string>
     <string name="post_menu_go_to_director">前往导演</string>
+    <!-- Post drafts -->
+    <string name="compose_drafts_title">草稿</string>
+    <string name="compose_drafts_empty">还没有草稿。</string>
+    <string name="compose_draft_no_caption">暂无文字说明</string>
+    <string name="compose_draft_voice_note">语音留言</string>
+    <string name="compose_draft_saved_voice">已保存的语音留言</string>
+    <string name="compose_exit_save_title">保存为草稿？</string>
+    <string name="compose_draft_discard">放弃</string>
+    <string name="compose_draft_save">保存草稿</string>
+    <string name="compose_draft_saving">正在保存…</string>
+    <string name="compose_draft_cancel">取消</string>
+    <string name="compose_draft_saved">草稿已保存</string>
+    <string name="compose_draft_save_failed">无法保存草稿</string>
+    <string name="compose_draft_deleted">草稿已删除</string>
+    <string name="compose_draft_delete_failed">无法删除草稿</string>
+    <string name="compose_draft_delete_aria">删除草稿</string>
+    <string name="compose_attachment_unavailable">此内容已不可用。</string>
+    <string name="compose_draft_choose_another">选择其他</string>
 </resources>

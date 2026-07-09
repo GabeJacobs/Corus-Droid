@@ -55,7 +55,21 @@ import fm.corus.android.R
 import fm.corus.android.data.model.AlbumSummary
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicVideo
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ShareArtistSubject
+import fm.corus.android.ui.components.ShareMediaSheet
+import fm.corus.android.ui.components.ShareMediaSubject
+import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.components.SkeletonAlbumGridCell
 import fm.corus.android.ui.components.SkeletonSongRow
 import fm.corus.android.ui.components.SkeletonUserRow
@@ -103,7 +117,13 @@ fun ArtistPageScreen(
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
     val isPostsLoading by viewModel.isPostsLoading.collectAsState()
     val postsError by viewModel.postsError.collectAsState()
+    val recentShareContacts by viewModel.recentShareContacts.collectAsState()
+    val shareSearchResults by viewModel.shareSearchResults.collectAsState()
+    val isShareSearching by viewModel.isShareSearching.collectAsState()
+    val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
     val context = LocalContext.current
+    var showShareSheet by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     // Popular shows 6 by default (keeps the social sections high); Show more
     // reveals the full top-10 the payload already carries.
@@ -131,6 +151,30 @@ fun ArtistPageScreen(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(R.string.feed_cd_back),
                     )
+                },
+                actions = {
+                    if (viewModel.entityShareEnabled) {
+                        Box {
+                            CorusHeaderIconButton(
+                                onClick = { showMenu = true },
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                            )
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                                containerColor = CorusColors.CardBackground,
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                    onClick = {
+                                        showMenu = false
+                                        showShareSheet = true
+                                    },
+                                )
+                            }
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -194,6 +238,55 @@ fun ArtistPageScreen(
                                 style = CorusFont.captionMedium,
                                 color = Color.White.copy(alpha = 0.8f),
                             )
+                        }
+                    }
+                } else if (detail == null && isCatalogLoading) {
+                    // Still loading and the nav hint carried no image (e.g.
+                    // tapped from a post, which passes only a name — search
+                    // passes the artist image, so it hits the branch above).
+                    // Reserve the full 5:3 hero footprint so a loaded image
+                    // fills it WITHOUT a layout shift; most artists have one.
+                    // Only a genuinely imageless artist (detail resolved, no
+                    // image) falls through to the compact header.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = CorusSpacing.lg)
+                            .aspectRatio(5f / 3f)
+                            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
+                            .background(CorusColors.CardBackground),
+                    ) {
+                        if (artistName != null) {
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .fillMaxWidth()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                Color.Black.copy(alpha = 0.35f),
+                                                Color.Black.copy(alpha = 0.75f),
+                                            ),
+                                        ),
+                                    )
+                                    .padding(CorusSpacing.lg)
+                                    .padding(top = CorusSpacing.xxl),
+                            ) {
+                                Text(
+                                    text = artistName,
+                                    style = CorusFont.songTitleLarge,
+                                    color = Color.White,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                                Text(
+                                    text = stringResource(R.string.destination_artist_label),
+                                    style = CorusFont.captionMedium,
+                                    color = Color.White.copy(alpha = 0.8f),
+                                )
+                            }
                         }
                     }
                 } else if (artistName != null || catalogError) {
@@ -482,6 +575,44 @@ fun ArtistPageScreen(
                     },
                 )
             }
+        }
+    }
+
+    if (showShareSheet) {
+        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sentMsg = stringResource(R.string.artist_detail_toast_artist_sent)
+        LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
+        ModalBottomSheet(
+            onDismissRequest = { showShareSheet = false },
+            sheetState = shareSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = null,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
+        ) {
+            CorusSystemBars()
+            BackHandler { showShareSheet = false }
+            ShareMediaSheet(
+                subject = ShareMediaSubject.Artist(
+                    ShareArtistSubject(
+                        id = artistId,
+                        name = artistName ?: "Artist",
+                        imageUrl = heroImage,
+                    )
+                ),
+                recentContacts = recentShareContacts,
+                searchResults = shareSearchResults,
+                isSearching = isShareSearching,
+                isLoadingContacts = isLoadingShareContacts,
+                onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
+                onSendToUser = { userId, message ->
+                    viewModel.sendArtistToUser(userId, artistId, artistName ?: "Artist", heroImage, message)
+                    ToastManager.show(sentMsg)
+                    showShareSheet = false
+                },
+                onDismiss = { showShareSheet = false },
+                onAnalyticsLog = { method -> viewModel.analyticsService.logArtistShared(artistId, method) },
+            )
         }
     }
 }
