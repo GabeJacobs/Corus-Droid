@@ -439,6 +439,7 @@ private fun fm.corus.android.data.model.CymbalPost.toFilmDetailRoute(movieId: St
         posterURL = posterURL,
         posterLargeURL = posterLargeURL,
         trailerURL = trailerURL,
+        movieReleaseDate = movieReleaseDate,
     )
 
 @Composable

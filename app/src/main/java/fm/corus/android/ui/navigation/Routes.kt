@@ -55,6 +55,12 @@ import kotlinx.serialization.Serializable
      *  Makes the song page's album line tappable (artist_pages_enabled).
      *  Null (Apple-sourced/older tracks) = plain text. */
     val albumId: String? = null,
+    /** Release date + precision when the caller has them (search/catalog/trending
+     *  tracks all carry them). Lets the song page paint the NEW RELEASE tag on the
+     *  first frame instead of waiting for its posts to load. Null = fall back to
+     *  the loaded posts. */
+    val releaseDate: String? = null,
+    val releaseDatePrecision: String? = null,
 )
 @Serializable data class FilmDetailRoute(
     val movieId: String,
@@ -64,6 +70,10 @@ import kotlinx.serialization.Serializable
     val posterURL: String? = null,
     val posterLargeURL: String? = null,
     val trailerURL: String? = null,
+    /** Full YYYY-MM-DD release date when the caller has it (trending / catalog /
+     *  director-page films). Lets the film page paint the NEW RELEASE tag on the
+     *  first frame instead of waiting for posts. Null = fall back to posts. */
+    val movieReleaseDate: String? = null,
 )
 @Serializable data class CommentsRoute(val postId: String)
 @Serializable data class OtherProfileRoute(

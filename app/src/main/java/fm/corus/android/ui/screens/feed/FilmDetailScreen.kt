@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.R
@@ -50,6 +51,7 @@ import fm.corus.android.ui.components.SkeletonFilmDetailHeader
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.FirstPosterBadge
+import fm.corus.android.ui.components.NewReleaseBadge
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -67,6 +69,10 @@ fun FilmDetailScreen(
     initialPosterURL: String? = null,
     initialPosterLargeURL: String? = null,
     initialTrailerURL: String? = null,
+    /** Full YYYY-MM-DD release date carried from the caller (trending / catalog /
+     *  director-page films) so the NEW RELEASE tag paints on the first frame
+     *  instead of waiting for posts. Null = fall back to the loaded posts. */
+    initialMovieReleaseDate: String? = null,
     viewModel: FilmDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -355,6 +361,18 @@ fun FilmDetailScreen(
                             color = CorusColors.Secondary,
                             modifier = directorTapModifier,
                         )
+                    }
+
+                    // NEW RELEASE tag (web/iOS parity) — recently released films
+                    // badge here, below the director line and above the buttons.
+                    // Prefer the seed release date carried on the route (trending /
+                    // catalog / director-page taps have it) so the tag paints on the
+                    // first frame; fall back to the loaded posts otherwise.
+                    if (CymbalPost.isMovieNewRelease(initialMovieReleaseDate) ||
+                        posts.any { it.isNewRelease() }
+                    ) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                        NewReleaseBadge(fontSize = 11.sp)
                     }
 
                     Spacer(modifier = Modifier.height(CorusSpacing.md))

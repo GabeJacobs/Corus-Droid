@@ -2359,6 +2359,7 @@ internal fun TrendingFilmsContent(
                         posterURL = movie.posterURL,
                         posterLargeURL = movie.posterLargeURL,
                         trailerURL = movie.trailerURL,
+                        movieReleaseDate = movie.movieReleaseDate,
                     ))
                 })
                 if (index < movies.lastIndex) {

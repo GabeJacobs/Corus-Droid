@@ -118,6 +118,8 @@ data class CymbalTrack(
         artistId = artistIds.firstOrNull(),
         artistIdCount = artistIds.size,
         albumId = albumId,
+        releaseDate = releaseDate,
+        releaseDatePrecision = releaseDatePrecision,
     )
 
     companion object {

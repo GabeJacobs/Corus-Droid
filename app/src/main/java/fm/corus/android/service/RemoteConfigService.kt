@@ -181,11 +181,12 @@ class RemoteConfigService @Inject constructor(
     val stylePack1Enabled: Boolean
         get() = remoteConfig.getBoolean("style_pack_1_enabled")
 
-    /// Gate for who may pick the staff-only "Corus" profile flair. Default true
-    /// keeps today's behavior (everyone can pick it); flipping to false restricts
-    /// the picker option to staff (plus existing holders, who keep seeing it so
-    /// their selection isn't blanked during the phase-out). Mirrors web/iOS
-    /// `corus_flair_open`. Display/rendering of the flair is unaffected.
+    /// Gate for who may pick the staff-only "Corus" profile flair. Default false
+    /// (today's behavior) restricts the picker option to staff, plus existing
+    /// holders who keep seeing it so their selection isn't blanked during the
+    /// phase-out; flipping to true reopens it to everyone. Defaults false so the
+    /// restrictive state is the fallback before the first RC fetch. Mirrors
+    /// web/iOS `corus_flair_open`. Display/rendering of the flair is unaffected.
     val corusFlairOpen: Boolean
         get() = remoteConfig.getBoolean("corus_flair_open")
 
@@ -410,7 +411,7 @@ class RemoteConfigService @Inject constructor(
             "comment_controls_on_posts" to true,
             "new_release_filter_club_only" to false,
             "style_pack_1_enabled" to false,
-            "corus_flair_open" to true,
+            "corus_flair_open" to false,
             "trending_feed_enabled" to true,
             "favorites_enabled" to true,
             "favorites_push_enabled" to true,

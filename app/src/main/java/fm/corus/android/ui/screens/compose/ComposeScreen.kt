@@ -24,7 +24,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.outlined.FileCopy
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Pause
@@ -46,8 +46,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
@@ -57,7 +60,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalUser
@@ -124,6 +129,10 @@ fun ComposeScreen(
     var captionMode by remember { mutableStateOf("text") } // "text" or "voice"
     var showDraftsSheet by remember { mutableStateOf(false) }
     var showExitSheet by remember { mutableStateOf(false) }
+    // Which affordance opened the exit sheet: the up/back chevron (return to the
+    // picker, composer stays open) vs. the top-level Cancel/close (leave the
+    // composer entirely). Mirrors iOS `exitToPicker`.
+    var exitToPicker by remember { mutableStateOf(false) }
     val voiceRecorderState = rememberVoiceNoteRecorderState()
     val nowPlayingState by viewModel.nowPlayingState.collectAsState()
     val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
@@ -132,23 +141,73 @@ fun ComposeScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+
+    // Dismiss the soft keyboard, then run [reveal] only once it has fully
+    // retracted: we watch the animated IME inset and wait for it to reach 0 (with
+    // a short timeout as a safety net if it never reports fully-hidden), so a
+    // bottom sheet's slide-up never races the keyboard's slide-down and flashes
+    // mid-screen. If no keyboard is up the inset is already 0 and [reveal] runs
+    // immediately. Shared by the exit-confirm sheet and the drafts sheet.
+    fun dismissKeyboardThen(reveal: () -> Unit) {
+        keyboardController?.hide()
+        scope.launch {
+            withTimeoutOrNull(500) {
+                snapshotFlow { imeInsets.getBottom(density) }.first { it == 0 }
+            }
+            reveal()
+        }
+    }
 
     // Fetch the user's drafts once so the "Drafts (N)" entry can surface. No
     // feature flag: the entry only appears when the user has >=1 draft.
     LaunchedEffect(Unit) { viewModel.loadDrafts() }
 
-    // One-shot toast events for draft save/delete outcomes (top-anchored default).
+    // In-screen toast events for draft delete outcomes / save FAILURE. The
+    // "Draft saved" success is shown via the app-wide ToastManager instead (so it
+    // survives the composer closing — mirrors iOS's top toast).
     LaunchedEffect(Unit) {
         viewModel.draftToast.collect { resId ->
             android.widget.Toast.makeText(context, context.getString(resId), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
-    // Current voice state for the dirty-signature: a fresh recording wins over a
-    // resumed URL; otherwise "saved"/"none"; "text" when not in voice mode.
+    // Download a resumed draft's saved voice note INTO the recorder so it shows
+    // the normal recorded-note UI (play/scrub/delete) rather than a special row.
+    // Driven imperatively from the drafts-sheet tap (NOT a resumedVoiceNoteURL
+    // state key): re-resuming the SAME draft leaves that URL unchanged — and a
+    // prior save already set it to the uploaded URL — so a key-driven effect
+    // would silently skip the reload and drop the note (only a fresh screen,
+    // starting from null, would ever transition). beginLoadingExisting shows a
+    // spinner immediately so the idle "Record" control never flashes; the recorder
+    // is cleared by the caller first, so there's no live recording to clobber.
+    // Mirrors iOS resumeDraft.
+    fun loadResumedVoiceNote(url: String) {
+        voiceRecorderState.beginLoadingExisting()
+        scope.launch {
+            val bytes = runCatching {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    java.net.URL(url).openStream().use { it.readBytes() }
+                }
+            }.getOrNull()
+            if (bytes != null) {
+                voiceRecorderState.loadExisting(context, bytes)
+            } else {
+                voiceRecorderState.cancelLoadingExisting()
+            }
+        }
+    }
+
+    // Current voice state for the dirty-signature: a freshly recorded note wins
+    // ("new"); a note loaded from the resumed draft is unchanged ("saved"); a
+    // resumed URL still downloading is also "saved"; otherwise "none"; "text"
+    // when not in voice mode.
     val voiceState = if (captionMode == "voice") {
         when {
-            voiceRecorderState.hasRecording -> "new"
+            voiceRecorderState.hasRecording ->
+                if (voiceRecorderState.loadedFromExisting) "saved" else "new"
+            voiceRecorderState.isLoadingExisting -> "saved"
             resumedVoiceNoteURL != null -> "saved"
             else -> "none"
         }
@@ -171,19 +230,55 @@ fun ComposeScreen(
     val canSaveDraft = !isRepost && hasSelectionForDraft && isDirty &&
         preSelectedTrackId == null && preSelectedMovieId == null
 
-    // Intercept the back button / Cancel: prompt to save if there's a keepable
-    // draft; otherwise dismiss (falling back to the "first back clears the song"
-    // behavior for a fresh pick).
-    fun handleExit() {
+    // Drafts entry count — hidden while reposting or pre-selected (no drafts UI
+    // in those flows), otherwise the live count.
+    val draftsCount = if (isRepost || preSelectedTrackId != null || preSelectedMovieId != null) 0 else drafts.size
+    val draftsEntryAccessibilityLabel =
+        "${stringResource(R.string.compose_drafts_title)} ($draftsCount)"
+
+    // voiceNoteData to hand to post/save: a freshly recorded note (bytes to
+    // upload); null when the note was loaded from the resumed draft (reuse the
+    // stored URL — don't re-upload identical audio) or when there's no note.
+    fun freshVoiceNoteData(): ByteArray? =
+        if (captionMode == "voice" && !voiceRecorderState.loadedFromExisting) {
+            voiceRecorderState.audioData
+        } else null
+
+    // Whether the up/back affordance is at the SELECTED step (compose mode) with
+    // a picker to return to — i.e. not pre-selected and not a repost.
+    val backReturnsToPicker = hasSelectionForDraft &&
+        preSelectedTrackId == null && preSelectedMovieId == null && !isRepost
+
+    // The up/back affordance (and the Android system back button while in compose
+    // mode): when there's a keepable draft, confirm; Discard/Save returns to the
+    // PICKER (composer stays open). Otherwise clear the selection back to the
+    // picker without prompting. Mirrors iOS's back-chevron routing.
+    fun handleBackToPicker() {
         if (canSaveDraft) {
-            keyboardController?.hide()
-            showExitSheet = true
+            exitToPicker = true
+            dismissKeyboardThen { showExitSheet = true }
+        } else {
+            viewModel.clearSelectionKeepingResults()
+        }
+    }
+
+    // The top-level Cancel/close (and the system back button at the picker step):
+    // when there's a keepable draft, confirm; Discard/Save DISMISSES the
+    // composer. Otherwise dismiss silently. Mirrors iOS's Cancel routing.
+    fun handleCancel() {
+        if (canSaveDraft) {
+            exitToPicker = false
+            dismissKeyboardThen { showExitSheet = true }
         } else {
             onDismiss()
         }
     }
 
-    BackHandler { handleExit() }
+    // Wire the system back button to the same behavior as the up affordance: at
+    // the selected step it routes to the picker; at the bare picker it cancels.
+    BackHandler {
+        if (backReturnsToPicker) handleBackToPicker() else handleCancel()
+    }
 
     LaunchedEffect(postSuccess) {
         if (postSuccess) {
@@ -216,8 +311,12 @@ fun ComposeScreen(
                     .fillMaxWidth()
                     .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
             ) {
-                // Left: back chevron (only in compose mode, not when pre-selected or reposting)
-                if (hasSelection && preSelectedTrackId == null && preSelectedMovieId == null && repostedFromUsername == null) {
+                // Left slot (nav): at the selected step, the back chevron (routes
+                // to the picker, confirming a keepable draft first). At the pick
+                // step, a low-emphasis drafts entry (document icon + count) shown
+                // only when the user has >=1 draft — the Material equivalent of
+                // iOS's icon+count nav button.
+                if (backReturnsToPicker) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(R.string.compose_cd_back),
@@ -225,10 +324,33 @@ fun ComposeScreen(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .size(20.dp)
-                            .clickable {
-                                viewModel.clearSelectionKeepingResults()
-                            },
+                            .clickable { handleBackToPicker() },
                     )
+                } else if (!hasSelection && draftsCount > 0) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                            .clickable { dismissKeyboardThen { showDraftsSheet = true } }
+                            .padding(horizontal = CorusSpacing.xs, vertical = CorusSpacing.xxs)
+                            .semantics {
+                                contentDescription = draftsEntryAccessibilityLabel
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.FileCopy,
+                            contentDescription = null,
+                            tint = CorusColors.Secondary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            text = "$draftsCount",
+                            style = CorusFont.body,
+                            color = CorusColors.Secondary,
+                        )
+                    }
                 }
 
                 // Center: title
@@ -246,7 +368,7 @@ fun ComposeScreen(
                     color = CorusColors.Secondary,
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .clickable { handleExit() },
+                        .clickable { handleCancel() },
                 )
             }
 
@@ -322,8 +444,6 @@ fun ComposeScreen(
                         onTrendingSongClick = { viewModel.selectTrendingSong(it) },
                         onTrendingMovieClick = { viewModel.selectTrendingMovie(it) },
                         nowPlaying = viewModel.nowPlayingManager,
-                        draftsCount = if (isRepost || preSelectedTrackId != null || preSelectedMovieId != null) 0 else drafts.size,
-                        onOpenDrafts = { showDraftsSheet = true },
                     )
                 } else if (selectedTrack != null || selectedMovie != null) {
                     ComposeModeContent(
@@ -344,7 +464,9 @@ fun ComposeScreen(
                             viewModel.createPost(
                                 caption = if (captionMode == "text") caption.text else "",
                                 mediaType = mediaType,
-                                voiceNoteData = if (captionMode == "voice") voiceRecorderState.audioData else null,
+                                // Reuse the stored URL for an unchanged resumed
+                                // note (freshVoiceNoteData() returns null then).
+                                voiceNoteData = freshVoiceNoteData(),
                             )
                         },
                         mentionSuggestions = mentionSuggestions,
@@ -372,7 +494,6 @@ fun ComposeScreen(
                         commentControlsOnPosts = viewModel.commentControlsOnPosts,
                         commentsAudience = commentsAudience,
                         onCommentsAudienceChange = viewModel::setCommentsAudience,
-                        resumedVoiceNoteURL = resumedVoiceNoteURL,
                         attachmentUnavailable = attachmentUnavailable,
                         onChooseAnother = { viewModel.clearUnavailableAttachment() },
                     )
@@ -469,13 +590,20 @@ fun ComposeScreen(
             DraftsSheetContent(
                 drafts = drafts,
                 onResume = { draft ->
+                    // Clear any live recording first so the resumed note replaces it.
+                    voiceRecorderState.deleteRecording()
                     val resumed = viewModel.resumeDraft(draft)
                     // Seed the composer's local UI state from the resumed draft.
                     mediaType = resumed.mediaType
                     caption = TextFieldValue(resumed.caption)
                     captionMode = resumed.captionMode
-                    voiceRecorderState.deleteRecording()
                     showDraftsSheet = false
+                    // Load the saved voice note imperatively (see loadResumedVoiceNote)
+                    // so re-resuming the same draft still reloads it.
+                    val voiceUrl = draft.voiceNoteURL
+                    if (resumed.captionMode == "voice" && voiceUrl != null) {
+                        loadResumedVoiceNote(voiceUrl)
+                    }
                 },
                 onDelete = { draft -> viewModel.deleteDraft(draft.id) },
             )
@@ -485,6 +613,22 @@ fun ComposeScreen(
     // ── Save-on-exit action sheet — Discard / Save draft / Cancel ──
     if (showExitSheet) {
         val exitSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val draftSavedMsg = stringResource(R.string.compose_draft_saved)
+        // After Discard/Save the follow-up "leave" depends on which affordance
+        // opened the sheet: the up/back chevron returns to the picker (composer
+        // stays open); the top-level Cancel dismisses the composer entirely.
+        fun leaveAfterExit() {
+            showExitSheet = false
+            if (exitToPicker) {
+                viewModel.clearSelectionKeepingResults()
+                // Start the next pick fresh — drop caption/mode/note like iOS.
+                caption = TextFieldValue("")
+                captionMode = "text"
+                voiceRecorderState.deleteRecording()
+            } else {
+                onDismiss()
+            }
+        }
         ModalBottomSheet(
             onDismissRequest = { if (!savingDraft) showExitSheet = false },
             sheetState = exitSheetState,
@@ -494,21 +638,22 @@ fun ComposeScreen(
             CorusSystemBars()
             ExitDraftSheetContent(
                 saving = savingDraft,
-                onDiscard = {
-                    showExitSheet = false
-                    onDismiss()
-                },
+                onDiscard = { leaveAfterExit() },
                 onSave = {
                     scope.launch {
                         val ok = viewModel.saveCurrentDraft(
                             mediaType = mediaType,
                             caption = caption.text,
                             captionMode = captionMode,
-                            voiceNoteData = if (captionMode == "voice") voiceRecorderState.audioData else null,
+                            voiceNoteData = freshVoiceNoteData(),
                         )
                         if (ok) {
-                            showExitSheet = false
-                            onDismiss()
+                            // App-wide top toast so it survives the composer/sheet
+                            // closing (mirrors iOS's top toast). Uses the same
+                            // ToastManager the app shows other global confirmations
+                            // through, rendered by ToastHost in MainTabScreen.
+                            fm.corus.android.ui.components.ToastManager.show(draftSavedMsg)
+                            leaveAfterExit()
                         }
                     }
                 },
@@ -517,86 +662,6 @@ fun ComposeScreen(
         }
     }
     } // end Box
-}
-
-/**
- * Body of the save-on-exit action sheet. Button order matches the reference
- * (Instagram / web ExitDraftDialog): Discard (destructive) → Save draft → Cancel.
- */
-@Composable
-private fun ExitDraftSheetContent(
-    saving: Boolean,
-    onDiscard: () -> Unit,
-    onSave: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg)
-            .padding(bottom = CorusSpacing.xl),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = stringResource(R.string.compose_exit_save_title),
-            style = CorusFont.bodyMedium,
-            color = CorusColors.Text,
-            modifier = Modifier.padding(vertical = CorusSpacing.md),
-        )
-        Button(
-            onClick = onDiscard,
-            enabled = !saving,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = CorusColors.Error,
-                disabledContainerColor = CorusColors.Error.copy(alpha = 0.5f),
-            ),
-        ) {
-            Text(
-                text = stringResource(R.string.compose_draft_discard),
-                style = CorusFont.button,
-                color = Color.White,
-            )
-        }
-        Spacer(modifier = Modifier.height(CorusSpacing.sm))
-        Button(
-            onClick = onSave,
-            enabled = !saving,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = CorusColors.Accent,
-                disabledContainerColor = CorusColors.Accent.copy(alpha = 0.5f),
-            ),
-        ) {
-            if (saving) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.compose_draft_save),
-                    style = CorusFont.button,
-                    color = Color.White,
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(CorusSpacing.sm))
-        TextButton(
-            onClick = onCancel,
-            enabled = !saving,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = stringResource(R.string.compose_draft_cancel),
-                style = CorusFont.button,
-                color = CorusColors.Secondary,
-            )
-        }
-    }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -626,8 +691,6 @@ private fun SearchModeContent(
     onTrendingSongClick: (TrendingSong) -> Unit,
     onTrendingMovieClick: (TrendingMovie) -> Unit,
     nowPlaying: fm.corus.android.domain.NowPlayingManager,
-    draftsCount: Int = 0,
-    onOpenDrafts: () -> Unit = {},
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -657,38 +720,8 @@ private fun SearchModeContent(
             modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         )
 
-        // ── Drafts entry (only when the user has >=1 draft) ──
-        if (draftsCount > 0) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CorusSpacing.lg)
-                    .padding(bottom = CorusSpacing.xs),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
-                        .clickable(onClick = onOpenDrafts)
-                        .padding(horizontal = CorusSpacing.sm, vertical = CorusSpacing.xs),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.List,
-                        contentDescription = null,
-                        tint = CorusColors.Secondary,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Text(
-                        text = "${stringResource(R.string.compose_drafts_title)} ($draftsCount)",
-                        style = CorusFont.bodyMedium,
-                        color = CorusColors.Secondary,
-                    )
-                }
-            }
-        }
+        // Drafts entry lives in the header nav slot (document icon + count),
+        // shown only at the pick step when the user has >=1 draft.
 
         // ── Search bar with icon ──
         Row(
@@ -1231,7 +1264,6 @@ private fun ComposeModeContent(
     commentControlsOnPosts: Boolean = false,
     commentsAudience: fm.corus.android.data.model.CommentsAudience = fm.corus.android.data.model.CommentsAudience.EVERYONE,
     onCommentsAudienceChange: (fm.corus.android.data.model.CommentsAudience) -> Unit = {},
-    resumedVoiceNoteURL: String? = null,
     attachmentUnavailable: Boolean = false,
     onChooseAnother: () -> Unit = {},
 ) {
@@ -1380,18 +1412,12 @@ private fun ComposeModeContent(
         Spacer(modifier = Modifier.height(CorusSpacing.md))
 
         if (captionMode == "voice" && voiceRecorderState != null) {
-            // ── Saved voice note (resumed draft) — playback affordance ──
-            // Shown until the user records a fresh take; the URL is kept and
-            // reused at post time unless re-recorded.
-            if (resumedVoiceNoteURL != null && !voiceRecorderState.hasRecording) {
-                fm.corus.android.ui.components.VoiceNotePlayerView(
-                    voiceNoteURL = resumedVoiceNoteURL,
-                    username = stringResource(R.string.compose_draft_saved_voice),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            }
             // ── Voice note recorder ──
+            // A resumed voice draft loads its saved note straight into the
+            // recorder (see the resumedVoiceNoteURL LaunchedEffect in
+            // ComposeScreen), so this shows the NORMAL recorded-note UI
+            // (play/scrub/delete) — or a brief loading placeholder while it
+            // downloads — instead of a special "saved voice note" row.
             VoiceNoteRecorderView(
                 recorderState = voiceRecorderState,
                 modifier = Modifier.fillMaxWidth(),

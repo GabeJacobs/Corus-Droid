@@ -1103,6 +1103,7 @@ class FirestoreDataSource @Inject constructor(
             movieOverview = item["movieOverview"] as? String ?: "",
             movieRating = (item["movieRating"] as? Number)?.toDouble() ?: 0.0,
             movieCast = (item["movieCast"] as? List<String>) ?: emptyList(),
+            movieReleaseDate = (item["movieReleaseDate"] as? String)?.ifEmpty { null },
             cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
         )
     }

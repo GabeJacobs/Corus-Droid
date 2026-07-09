@@ -70,6 +70,38 @@ class DraftSignatureTest {
     }
 
     @Test
+    fun `resuming a voice draft is not dirty until a fresh note is recorded`() {
+        // On resume, the saved note is loaded INTO the recorder (voice "saved").
+        // That must produce the SAME signature it was resumed with — otherwise
+        // exiting an untouched resumed voice draft would falsely re-prompt.
+        val resumed = sig(captionMode = "voice", caption = "", voice = "saved")
+        val stillResumed = sig(captionMode = "voice", caption = "", voice = "saved")
+        assertEquals(resumed, stillResumed)
+
+        // Recording a fresh take over the resumed note IS an edit (voice "new").
+        val reRecorded = sig(captionMode = "voice", caption = "", voice = "new")
+        assertNotEquals(resumed, reRecorded)
+
+        // Editing the caption around a saved voice note is also an edit.
+        assertNotEquals(resumed, sig(captionMode = "voice", caption = "hi", voice = "saved"))
+    }
+
+    @Test
+    fun `a voice note still downloading counts as saved, not none`() {
+        // While a resumed note downloads (isLoadingExisting), the screen reports
+        // voice "saved" so the draft stays non-dirty and the idle Record control
+        // never flashes. It must match the eventual loaded "saved" signature.
+        assertEquals(
+            sig(captionMode = "voice", voice = "saved"),
+            sig(captionMode = "voice", voice = "saved"),
+        )
+        assertNotEquals(
+            sig(captionMode = "voice", voice = "saved"),
+            sig(captionMode = "voice", voice = "none"),
+        )
+    }
+
+    @Test
     fun `null vs empty ids are treated consistently`() {
         // A movie draft carries a null trackId; a fresh compose also null — the
         // signature must not throw and must be deterministic.

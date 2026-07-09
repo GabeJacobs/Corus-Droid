@@ -35,6 +35,14 @@ class StylePack1GatingTest {
         assertEquals(FrameStyle.BLACK, FrameStyle.from(null))
     }
 
+    @Test fun `unknown flair rawValue falls back to CHECKMARK`() {
+        assertEquals(FlairStyle.CHECKMARK, FlairStyle.from("style_pack_1_flair_that_does_not_exist"))
+    }
+
+    @Test fun `null flair rawValue falls back to CHECKMARK`() {
+        assertEquals(FlairStyle.CHECKMARK, FlairStyle.from(null))
+    }
+
     // ── requiresStylePack1 slot infrastructure ──
     // No existing colors should require the flag; all currently-shipped
     // colors must remain visible regardless of `style_pack_1_enabled`.
@@ -52,6 +60,15 @@ class StylePack1GatingTest {
         FrameStyle.entries.forEach { style ->
             assertFalse(
                 "Existing frame ${style.value} must not require style_pack_1",
+                style.requiresStylePack1,
+            )
+        }
+    }
+
+    @Test fun `no existing flair requires style_pack_1`() {
+        FlairStyle.entries.forEach { style ->
+            assertFalse(
+                "Existing flair ${style.value} must not require style_pack_1",
                 style.requiresStylePack1,
             )
         }
@@ -75,6 +92,26 @@ class StylePack1GatingTest {
         val pack1On = false
         val visible = FrameStyle.entries.filter { !it.requiresStylePack1 || pack1On }
         assertEquals(FrameStyle.entries.size, visible.size)
+    }
+
+    // corusLogo visibility is an orthogonal gate; hold it open (showCorus=true)
+    // to isolate the style_pack_1 filter, matching FlairPickerPage's filter.
+    @Test fun `flair filter returns all entries when flag off (no pack 1 flairs yet)`() {
+        val pack1On = false
+        val showCorus = true
+        val visible = FlairStyle.entries.filter { flair ->
+            (flair != FlairStyle.CORUS_LOGO || showCorus) && (!flair.requiresStylePack1 || pack1On)
+        }
+        assertEquals(FlairStyle.entries.size, visible.size)
+    }
+
+    @Test fun `flair filter returns all entries when flag on`() {
+        val pack1On = true
+        val showCorus = true
+        val visible = FlairStyle.entries.filter { flair ->
+            (flair != FlairStyle.CORUS_LOGO || showCorus) && (!flair.requiresStylePack1 || pack1On)
+        }
+        assertEquals(FlairStyle.entries.size, visible.size)
     }
 
 }

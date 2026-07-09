@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.HorizontalDivider
@@ -443,6 +444,49 @@ fun FirstPosterBadge(modifier: Modifier = Modifier) {
 }
 
 /**
+ * Purple "NEW RELEASE" flame capsule for freshly released tracks/films,
+ * matching iOS. Standalone so callers can place it next to the display name
+ * (song/film detail headers) rather than inline with the username; the feed
+ * badge (`UsernameWithFlair`) renders the same pill inline.
+ */
+@Composable
+fun NewReleaseBadge(
+    modifier: Modifier = Modifier,
+    // The feed's inline badge uses the default 9; the song/film detail headers
+    // pass a larger value (they have room to breathe). Icon, padding, and
+    // spacing scale with it so the pill stays proportioned at any size.
+    fontSize: TextUnit = 9.sp,
+) {
+    val newReleasePurple = Color(0.62f, 0.35f, 0.95f)
+    val capsule = RoundedCornerShape(50)
+    val scale = fontSize.value
+    Row(
+        modifier = modifier
+            .background(newReleasePurple.copy(alpha = 0.14f), shape = capsule)
+            .border(0.8.dp, newReleasePurple.copy(alpha = 0.4f), shape = capsule)
+            .padding(horizontal = (scale / 1.5f).dp, vertical = (scale / 3.6f).dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy((scale / 3f).dp),
+    ) {
+        Icon(
+            imageVector = Icons.Filled.LocalFireDepartment,
+            contentDescription = null,
+            tint = newReleasePurple,
+            modifier = Modifier.size(scale.dp),
+        )
+        Text(
+            text = stringResource(R.string.mention_badge_new_release),
+            style = CorusFont.caption.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = fontSize,
+                letterSpacing = 0.3.sp,
+            ),
+            color = newReleasePurple,
+        )
+    }
+}
+
+/**
  * Username row with optional flair badge, matching iOS UsernameWithBotBadge.
  */
 @Composable
@@ -506,32 +550,7 @@ fun UsernameWithFlair(
         // New release — purple capsule pill with flame icon
         if (isNewRelease) {
             Spacer(modifier = Modifier.width(5.dp))
-            val newReleasePurple = Color(0.62f, 0.35f, 0.95f)
-            val capsule = RoundedCornerShape(50)
-            Row(
-                modifier = Modifier
-                    .background(newReleasePurple.copy(alpha = 0.14f), shape = capsule)
-                    .border(0.8.dp, newReleasePurple.copy(alpha = 0.4f), shape = capsule)
-                    .padding(horizontal = 6.dp, vertical = 2.5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.LocalFireDepartment,
-                    contentDescription = null,
-                    tint = newReleasePurple,
-                    modifier = Modifier.size(9.dp),
-                )
-                Text(
-                    text = stringResource(R.string.mention_badge_new_release),
-                    style = CorusFont.caption.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 9.sp,
-                        letterSpacing = 0.3.sp,
-                    ),
-                    color = newReleasePurple,
-                )
-            }
+            NewReleaseBadge()
         }
 
         // Bot badge — purple capsule pill matching iOS

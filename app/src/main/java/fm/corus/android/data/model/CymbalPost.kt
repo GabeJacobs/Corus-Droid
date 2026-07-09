@@ -73,30 +73,10 @@ data class CymbalPost(
      * Recomputed on each call so the pill auto-expires without a backend flip
      * or feed refetch.
      */
-    fun isNewRelease(today: LocalDate = LocalDate.now(ZoneOffset.UTC)): Boolean {
-        if (isTrack) {
-            val raw = track.releaseDate ?: return false
-            return when (track.releaseDatePrecision) {
-                "day" -> isWithinLast30Days(raw, today)
-                "month" -> raw == "%04d-%02d".format(today.year, today.monthValue)
-                else -> false
-            }
-        }
-        if (isMovie) {
-            val raw = movieReleaseDate ?: return false
-            return isWithinLast30Days(raw, today)
-        }
-        return false
-    }
-
-    private fun isWithinLast30Days(dayString: String, today: LocalDate): Boolean {
-        val released = try {
-            LocalDate.parse(dayString, DateTimeFormatter.ISO_LOCAL_DATE)
-        } catch (_: DateTimeParseException) {
-            return false
-        }
-        val daysSinceRelease = java.time.temporal.ChronoUnit.DAYS.between(released, today)
-        return daysSinceRelease in 0..29
+    fun isNewRelease(today: LocalDate = LocalDate.now(ZoneOffset.UTC)): Boolean = when {
+        isTrack -> isTrackNewRelease(track.releaseDate, track.releaseDatePrecision, today)
+        isMovie -> isMovieNewRelease(movieReleaseDate, today)
+        else -> false
     }
 
     val displayImageURL: String?
@@ -127,6 +107,45 @@ data class CymbalPost(
     )
 
     companion object {
+        /**
+         * Track new-release rule (see [isNewRelease]). Exposed on the companion so
+         * the song detail screen can badge from a seed release date (route hint)
+         * on the first frame — before its posts load — not only from a loaded
+         * [CymbalPost]. Day precision: released within 30 days; month precision:
+         * release year-month == current (UTC); year precision (or missing): never.
+         */
+        fun isTrackNewRelease(
+            releaseDate: String?,
+            precision: String?,
+            today: LocalDate = LocalDate.now(ZoneOffset.UTC),
+        ): Boolean {
+            val raw = releaseDate ?: return false
+            return when (precision) {
+                "day" -> isWithinLast30Days(raw, today)
+                "month" -> raw == "%04d-%02d".format(today.year, today.monthValue)
+                else -> false
+            }
+        }
+
+        /** Film new-release rule: full YYYY-MM-DD release date within 30 days. */
+        fun isMovieNewRelease(
+            releaseDate: String?,
+            today: LocalDate = LocalDate.now(ZoneOffset.UTC),
+        ): Boolean {
+            val raw = releaseDate ?: return false
+            return isWithinLast30Days(raw, today)
+        }
+
+        private fun isWithinLast30Days(dayString: String, today: LocalDate): Boolean {
+            val released = try {
+                LocalDate.parse(dayString, DateTimeFormatter.ISO_LOCAL_DATE)
+            } catch (_: DateTimeParseException) {
+                return false
+            }
+            val daysSinceRelease = java.time.temporal.ChronoUnit.DAYS.between(released, today)
+            return daysSinceRelease in 0..29
+        }
+
         @Suppress("UNCHECKED_CAST")
         fun fromCloudData(data: Map<String, Any?>): CymbalPost {
             // Author resolution order (Phase 1 denorm rollout):

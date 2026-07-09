@@ -215,6 +215,7 @@ fun StylePickerSheet(
                     username = username,
                     isStaff = isStaff,
                     corusFlairOpen = corusFlairOpen,
+                    stylePack1Enabled = stylePack1Enabled,
                 )
                 StylePage.RAIN -> EffectTogglePage(
                     title = stringResource(R.string.style_picker_rain_effect),
@@ -591,14 +592,20 @@ private fun FlairPickerPage(
     username: String,
     isStaff: Boolean,
     corusFlairOpen: Boolean,
+    stylePack1Enabled: Boolean,
 ) {
     val scrollState = rememberScrollState()
 
     // Restrict the staff-only "Corus" flair (see shouldShowCorusFlairOption).
     // Recomputed on selection change so an existing holder who switches away
     // can't switch back once the option is otherwise gated off.
+    // Flairs gated behind style_pack_1 are hidden until that flag is on — same
+    // rule the vinyl/frame pickers use.
     val showCorus = shouldShowCorusFlairOption(isStaff, corusFlairOpen, selected)
-    val visibleFlairs = FlairStyle.entries.filter { it != FlairStyle.CORUS_LOGO || showCorus }
+    val visibleFlairs = FlairStyle.entries.filter { flair ->
+        (flair != FlairStyle.CORUS_LOGO || showCorus) &&
+            (!flair.requiresStylePack1 || stylePack1Enabled)
+    }
 
     Column(
         modifier = Modifier

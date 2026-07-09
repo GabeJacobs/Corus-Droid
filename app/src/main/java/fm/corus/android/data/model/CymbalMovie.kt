@@ -37,6 +37,7 @@ data class CymbalMovie(
         posterURL = posterURL,
         posterLargeURL = posterLargeURL,
         trailerURL = trailerURL,
+        movieReleaseDate = releaseDate,
     )
 }
 
@@ -102,6 +103,9 @@ data class TrendingMovie(
     val movieOverview: String = "",
     val movieRating: Double = 0.0,
     val movieCast: List<String> = emptyList(),
+    /** Full YYYY-MM-DD release date, denormalized onto the trending cache so the
+     *  film page can badge NEW RELEASE on the first frame. Null for older entries. */
+    val movieReleaseDate: String? = null,
     val cymbalCount: Int = 0,
 ) {
     fun asCymbalMovie(): CymbalMovie = CymbalMovie(
@@ -116,5 +120,6 @@ data class TrendingMovie(
         rating = movieRating,
         cast = movieCast,
         trailerURL = trailerURL,
+        releaseDate = movieReleaseDate,
     )
 }

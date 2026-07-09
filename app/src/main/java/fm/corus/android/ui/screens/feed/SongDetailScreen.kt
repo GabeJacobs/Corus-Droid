@@ -3,7 +3,6 @@ package fm.corus.android.ui.screens.feed
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -53,6 +53,7 @@ import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.FirstPosterBadge
+import fm.corus.android.ui.components.NewReleaseBadge
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -79,6 +80,11 @@ fun SongDetailScreen(
     artistId: String? = null,
     artistIdCount: Int = 0,
     albumId: String? = null,
+    /** Release date + precision carried from the caller (search/catalog/trending
+     *  tracks have them) so the NEW RELEASE tag paints on the first frame instead
+     *  of waiting for posts. Null = fall back to the loaded posts. */
+    releaseDate: String? = null,
+    releaseDatePrecision: String? = null,
     viewModel: SongDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -175,17 +181,6 @@ fun SongDetailScreen(
     } else {
         musicService
     }
-    // Secondary "also on …" button. Hidden when it would 404 (a Spotify-only
-    // track has no Apple Music page) or duplicate the primary.
-    val alternateLinkService: MusicService? = run {
-        val alternate = if (musicService == MusicService.SPOTIFY) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
-        when {
-            alternate == linkOutService -> null
-            alternate == MusicService.APPLE_MUSIC && !hasAppleMusicEquivalent -> null
-            else -> alternate
-        }
-    }
-
     // Open a track in the given service, mirroring iOS SongDetailView. Spotify
     // opens the post's own URI synchronously; Apple Music / TIDAL / Deezer
     // resolve the catalog URL via backend (cached; the global MainTabScreen
@@ -453,6 +448,18 @@ fun SongDetailScreen(
                     )
                 }
 
+                // NEW RELEASE tag (web/iOS parity) — recently released songs badge
+                // here, below the album/year line and above the buttons. Prefer the
+                // seed release date carried on the route (search/catalog/trending
+                // taps all have it) so the tag paints on the first frame; fall back
+                // to the loaded posts for callers that didn't carry it.
+                if (CymbalPost.isTrackNewRelease(releaseDate, releaseDatePrecision) ||
+                    posts.any { it.isNewRelease() }
+                ) {
+                    Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                    NewReleaseBadge(fontSize = 11.sp)
+                }
+
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
 
                 // Capsule buttons row — Post Song + preferred-service CTA (matching iOS order)
@@ -559,33 +566,6 @@ fun SongDetailScreen(
                                 style = CorusFont.buttonSmall,
                             )
                         }
-                    }
-                }
-
-                // Alternate-service button — only when the track exists on multiple
-                // services. SoundCloud has no equivalent; Apple-only tracks aren't on
-                // Spotify so the "Spotify is the alternate" assumption doesn't hold.
-                // alternateLinkService also hides the button when the alternate would
-                // 404 (a Spotify-only track has no Apple Music page) or duplicate the
-                // primary (an Apple Music viewer on a Spotify-only track).
-                if (!isSoundCloud && !isAppleMusic && alternateLinkService != null) {
-                    Spacer(modifier = Modifier.height(CorusSpacing.md))
-                    val altService = alternateLinkService
-                    OutlinedButton(
-                        onClick = { openInService(altService) },
-                        shape = RoundedCornerShape(50),
-                        border = BorderStroke(1.dp, serviceColor(altService)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = serviceColor(altService)),
-                        contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-                    ) {
-                        Text(
-                            if (altService == MusicService.SPOTIFY) {
-                                stringResource(R.string.song_detail_play_in_service, altService.displayLabel)
-                            } else {
-                                stringResource(R.string.song_detail_open_in_service, altService.displayLabel)
-                            },
-                            style = CorusFont.buttonSmall,
-                        )
                     }
                 }
 

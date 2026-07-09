@@ -58,6 +58,23 @@ class VoiceNoteRecorderState {
     var previewCurrentTime by mutableStateOf(0f)
         private set
 
+    /**
+     * True when [audioData] was loaded from a previously-saved note (a resumed
+     * draft) rather than freshly recorded, so the composer reuses the stored
+     * download URL at post/save time instead of re-uploading identical audio.
+     * A fresh [startRecording] clears it. Mirrors iOS `loadedFromExisting`.
+     */
+    var loadedFromExisting by mutableStateOf(false)
+        private set
+
+    /**
+     * True while a resumed draft's saved note is downloading, so the recorder
+     * shows a loading placeholder instead of flashing the idle "Record" control.
+     * Mirrors iOS `isLoadingExisting`.
+     */
+    var isLoadingExisting by mutableStateOf(false)
+        private set
+
     private var recorder: MediaRecorder? = null
     private var previewPlayer: android.media.MediaPlayer? = null
     private var file: File? = null
@@ -66,6 +83,9 @@ class VoiceNoteRecorderState {
 
     fun startRecording(context: android.content.Context) {
         stopPreview()
+        // A fresh recording supersedes any existing (resumed-draft) note.
+        loadedFromExisting = false
+        isLoadingExisting = false
 
         val outputFile = File(context.cacheDir, "cymbal_voice_note.m4a")
         file = outputFile
@@ -113,7 +133,69 @@ class VoiceNoteRecorderState {
         audioData = null
         hasRecording = false
         recordingDuration = 0f
+        loadedFromExisting = false
+        isLoadingExisting = false
         file?.delete()
+    }
+
+    /**
+     * Enter the "downloading an existing note" state (a resumed voice draft), so
+     * the recorder shows a loading placeholder and never flashes the idle Record
+     * control before the note finishes downloading. Mirrors iOS
+     * `beginLoadingExisting`.
+     */
+    fun beginLoadingExisting() {
+        stopPreview()
+        audioData = null
+        hasRecording = false
+        recordingDuration = 0f
+        loadedFromExisting = false
+        isLoadingExisting = true
+    }
+
+    /**
+     * Load an already-recorded note (from a resumed draft) so the recorded-state
+     * UI (play / scrub / delete) shows it exactly like a freshly recorded note.
+     * The bytes are written to the same cache file the preview player reads, and
+     * [loadedFromExisting] is set so the composer reuses the stored download URL
+     * at post/save time instead of re-uploading identical audio. Mirrors iOS
+     * `loadExisting`. Returns true if the note loaded successfully.
+     */
+    fun loadExisting(context: android.content.Context, data: ByteArray): Boolean {
+        stopPreview()
+        val outputFile = File(context.cacheDir, "cymbal_voice_note.m4a")
+        return try {
+            outputFile.writeBytes(data)
+            file = outputFile
+            audioData = data
+            recordingDuration = measureDuration(outputFile)
+            hasRecording = true
+            loadedFromExisting = true
+            isLoadingExisting = false
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            isLoadingExisting = false
+            false
+        }
+    }
+
+    /** Abandon a failed/cancelled existing-note download without leaving the UI stuck. */
+    fun cancelLoadingExisting() {
+        isLoadingExisting = false
+    }
+
+    private fun measureDuration(f: File): Float {
+        return try {
+            val mp = android.media.MediaPlayer()
+            mp.setDataSource(f.absolutePath)
+            mp.prepare()
+            val d = mp.duration.toFloat() / 1000f
+            mp.release()
+            d
+        } catch (_: Exception) {
+            0f
+        }
     }
 
     fun togglePreview(context: android.content.Context) {
@@ -203,6 +285,9 @@ fun VoiceNoteRecorderView(
         when {
             recorderState.isRecording -> RecordingState(recorderState)
             recorderState.hasRecording -> RecordedState(recorderState, context)
+            // A resumed draft's note is still downloading — hold the recorded-row
+            // height with a spinner so the idle Record control never flashes.
+            recorderState.isLoadingExisting -> LoadingExistingState()
             else -> IdleState(
                 onStartRecording = {
                     val permission = Manifest.permission.RECORD_AUDIO
@@ -214,6 +299,28 @@ fun VoiceNoteRecorderView(
                 },
             )
         }
+    }
+}
+
+/**
+ * Placeholder while a resumed draft's saved note downloads. Occupies the same
+ * row height as [RecordedState] so there's no layout jump when it swaps in.
+ */
+@Composable
+private fun LoadingExistingState() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+    ) {
+        androidx.compose.material3.CircularProgressIndicator(
+            modifier = Modifier.size(24.dp),
+            strokeWidth = 2.dp,
+            color = CorusColors.Accent,
+        )
+        Spacer(modifier = Modifier.weight(1f))
     }
 }
 

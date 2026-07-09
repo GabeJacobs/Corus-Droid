@@ -27,6 +27,19 @@ enum class FlairStyle(val value: String) {
     MUSIC_NOTE("musicNote"),
     PIANO("piano"),
     WAVEFORM("waveform");
+    // TODO: style_pack_1 flairs — add new entries here, return true from
+    // `requiresStylePack1` for them, and add cases to every `when` below
+    // (displayName, icon). `from()` already falls back to CHECKMARK on unknown
+    // values, so old clients are safe.
+
+    /** True for flairs gated behind the `style_pack_1_enabled` Remote Config
+     *  flag. Defaults to false so existing flairs are unaffected. Mirrors
+     *  [VinylStyle.requiresStylePack1] / [FrameStyle.requiresStylePack1]. */
+    val requiresStylePack1: Boolean
+        get() = when (this) {
+            NONE, CHECKMARK, CORUS_LOGO, VINYL, HEART, SPARKLE, MOON,
+            HEADPHONES, BOLT, MUSIC_NOTE, PIANO, WAVEFORM -> false
+        }
 
     val displayName: String
         get() = when (this) {
