@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -32,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -56,6 +59,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.R
 import fm.corus.android.data.model.primaryNameHint
+import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ShareAlbumSubject
 import fm.corus.android.ui.components.ShareMediaSheet
@@ -77,6 +81,14 @@ fun AlbumPageScreen(
     artistHint: String? = null,
     coverUrlHint: String? = null,
     yearHint: Int? = null,
+    /** Mini-player "return to origin": scroll the tracklist to this catalog
+     *  track id once the album loads. */
+    scrollToTrackId: String? = null,
+    /** Mini-player tap while THIS page is already visible: scroll to this track
+     *  in place (no re-push). Delivered via the entry's saved state; fires each
+     *  tap. Cleared through [onInPlaceScrollConsumed] once handled. */
+    inPlaceScrollTrackId: String? = null,
+    onInPlaceScrollConsumed: () -> Unit = {},
     viewModel: AlbumPageViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -104,16 +116,55 @@ fun AlbumPageScreen(
     val cover = catalog?.coverUrl ?: coverUrlHint
     val artistId = catalog?.artistIds?.firstOrNull()
 
+    // Marks tracks played from this page so the mini-player returns here and
+    // scrolls to the song.
+    val albumOrigin = CatalogPlaybackOrigin.Album(
+        id = albumId,
+        title = title,
+        artist = artistName,
+        coverUrl = cover,
+    )
+
     // Full tracklist as a queue so tapping the cover (or a track row) plays the
     // album and rolls on through the rest. `toQueuedTrack` is internal to this
     // package.
     val tracks = catalog?.tracks ?: emptyList()
-    val albumQueue = remember(tracks) { tracks.map { it.toQueuedTrack() } }
+    val albumQueue = remember(tracks, albumOrigin) { tracks.map { it.toQueuedTrack(albumOrigin) } }
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
 
     LaunchedEffect(albumId) {
         viewModel.analyticsService.logAlbumPageViewed(albumId)
         viewModel.load(albumId)
+    }
+
+    // Mini-player "return to origin": scroll the tracklist to the playing song
+    // once the album loads. The header is a single item() before the tracklist,
+    // so a track sits at list index (1 + its position). Runs once.
+    var didScrollToOrigin by remember { mutableStateOf(false) }
+    LaunchedEffect(scrollToTrackId, catalog) {
+        if (didScrollToOrigin) return@LaunchedEffect
+        val target = scrollToTrackId ?: return@LaunchedEffect
+        val loaded = catalog ?: return@LaunchedEffect
+        val pos = loaded.tracks.indexOfFirst { it.id == target }
+        if (pos < 0) return@LaunchedEffect
+        didScrollToOrigin = true
+        val targetIndex = 1 + pos // 1 header item precedes the tracklist
+        snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > targetIndex }
+        listState.animateScrollToItem(targetIndex)
+    }
+
+    // Mini-player tap while this album page is already visible: scroll to the
+    // requested track in place (no re-push). Fires per tap; clears the signal.
+    LaunchedEffect(inPlaceScrollTrackId) {
+        val target = inPlaceScrollTrackId ?: return@LaunchedEffect
+        val loaded = catalog
+        val pos = loaded?.tracks?.indexOfFirst { it.id == target } ?: -1
+        if (loaded == null || pos < 0) { onInPlaceScrollConsumed(); return@LaunchedEffect }
+        val targetIndex = 1 + pos // 1 header item precedes the tracklist
+        snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > targetIndex }
+        listState.animateScrollToItem(targetIndex)
+        onInPlaceScrollConsumed()
     }
 
     Scaffold(
@@ -157,6 +208,7 @@ fun AlbumPageScreen(
         },
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
@@ -295,6 +347,7 @@ fun AlbumPageScreen(
                             nowPlaying = viewModel.nowPlayingManager,
                             number = index + 1,
                             queue = albumQueue,
+                            origin = albumOrigin,
                             onRowTap = {
                                 viewModel.analyticsService.logPostFromAlbum(albumId, track.id)
                                 onNavigateToSong(track.toSongDetailRoute())

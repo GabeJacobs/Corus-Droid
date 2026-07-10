@@ -106,7 +106,7 @@ class SearchViewModelTasteMatchPollingTest {
         musicSearchRepository = mock()
         tmdbRepository = mock()
         preferencesDataStore = mock {
-            on { recentSearchUsers } doReturn kotlinx.coroutines.flow.flowOf(emptyList())
+            on { recentSearches } doReturn kotlinx.coroutines.flow.flowOf(emptyList())
             on { contactsSyncStatus } doReturn kotlinx.coroutines.flow.flowOf("notAsked")
             // The VM eagerly maps these window prefs at construction; leaving them
             // unstubbed (null) NPEs the eager stateIn collector before any test runs.

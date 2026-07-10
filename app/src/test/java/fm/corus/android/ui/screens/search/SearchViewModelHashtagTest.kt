@@ -79,7 +79,7 @@ class SearchViewModelHashtagTest {
         musicSearchRepository = mock()
         tmdbRepository = mock()
         preferencesDataStore = mock {
-            on { recentSearchUsers } doReturn kotlinx.coroutines.flow.flowOf(emptyList())
+            on { recentSearches } doReturn kotlinx.coroutines.flow.flowOf(emptyList())
             on { contactsSyncStatus } doReturn kotlinx.coroutines.flow.flowOf("notAsked")
             on { trendingSongsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
             on { trendingFilmsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -39,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,10 +53,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.flow.first
 import fm.corus.android.R
 import fm.corus.android.data.model.AlbumSummary
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicVideo
+import fm.corus.android.domain.CatalogPlaybackOrigin
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
@@ -92,12 +96,38 @@ internal fun albumKindCaption(album: AlbumSummary): String {
     return listOfNotNull(kind, album.year?.toString()).joinToString(" · ")
 }
 
+/** Flattened LazyColumn index of the `pos`-th Popular row, mirroring the leading
+ *  item() blocks the screen emits before the tracklist: hero, optional "on
+ *  Corus" badge, optional "Shared by" row, then the "Popular" section header.
+ *  ("Your posts" now renders BELOW Popular, so it isn't counted.) Both the
+ *  origin scroll and the in-place scroll use this — keep it in sync with the
+ *  LazyColumn layout below. */
+private fun artistPopularItemIndex(
+    hasCorusUser: Boolean,
+    uniquePosterCount: Int,
+    pos: Int,
+): Int {
+    var offset = 1 // hero item
+    if (hasCorusUser) offset += 1
+    if (uniquePosterCount > 0) offset += 1 // "Shared by" row
+    offset += 1 // "Popular" section header
+    return offset + pos
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtistPageScreen(
     artistId: String,
     nameHint: String? = null,
     imageUrlHint: String? = null,
+    /** Mini-player "return to origin": scroll the Popular list to this catalog
+     *  track id once loaded, expanding the list if it sits below the fold. */
+    scrollToTrackId: String? = null,
+    /** Mini-player tap while THIS page is already visible: scroll to this track
+     *  in place (no re-push). Delivered via the entry's saved state; fires each
+     *  tap. Cleared through [onInPlaceScrollConsumed] once handled. */
+    inPlaceScrollTrackId: String? = null,
+    onInPlaceScrollConsumed: () -> Unit = {},
     viewModel: ArtistPageViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -135,10 +165,58 @@ fun ArtistPageScreen(
     val heroImage = detail?.imageUrl ?: imageUrlHint
     val matchedVideos = detail?.musicVideos?.filter { it.youtubeId != null } ?: emptyList()
 
+    val listState = rememberLazyListState()
+    // Marks tracks played from this page so the mini-player returns here.
+    val artistOrigin = CatalogPlaybackOrigin.Artist(
+        id = artistId,
+        name = artistName,
+        imageUrl = heroImage,
+    )
+
     LaunchedEffect(artistId) {
         viewModel.analyticsService.logArtistPageViewed(artistId)
         viewModel.loadCatalog(artistId, nameHint)
         viewModel.loadPosts(artistId, nameHint)
+    }
+
+    // Mini-player "return to origin": once the catalog AND social sections have
+    // settled (so the header item count is stable), scroll the Popular list to
+    // the song the mini-player handed us — expanding it first if the track sits
+    // below the collapsed 6-row fold. Runs once. The target index mirrors the
+    // LazyColumn's leading item() blocks below; keep the two in sync.
+    var didScrollToOrigin by remember { mutableStateOf(false) }
+    LaunchedEffect(scrollToTrackId, detail, isPostsLoading) {
+        if (didScrollToOrigin) return@LaunchedEffect
+        val target = scrollToTrackId ?: return@LaunchedEffect
+        val loaded = detail ?: return@LaunchedEffect
+        // Wait for the social fetch so the "Shared by" row has taken its final
+        // count — otherwise the offset shifts under us. ("Your posts" now sits
+        // BELOW Popular, so it no longer affects this offset.)
+        if (isPostsLoading) return@LaunchedEffect
+        val pos = loaded.topTracks.indexOfFirst { it.id == target }
+        if (pos < 0) return@LaunchedEffect
+        didScrollToOrigin = true
+        if (pos >= 6) showAllPopular = true
+        val targetIndex = artistPopularItemIndex(loaded.corusUser != null, uniquePosterCount, pos)
+        // Wait until the (possibly just-expanded) list actually contains the row.
+        snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > targetIndex }
+        listState.animateScrollToItem(targetIndex)
+    }
+
+    // Mini-player tap while this artist page is already visible: scroll to the
+    // requested track in place (no re-push). The page is already settled, so no
+    // isPostsLoading gate — just expand if the track is below the fold, then
+    // center it. Fires per tap; clears the saved-state signal when handled.
+    LaunchedEffect(inPlaceScrollTrackId) {
+        val target = inPlaceScrollTrackId ?: return@LaunchedEffect
+        val loaded = detail
+        val pos = loaded?.topTracks?.indexOfFirst { it.id == target } ?: -1
+        if (loaded == null || pos < 0) { onInPlaceScrollConsumed(); return@LaunchedEffect }
+        if (pos >= 6) showAllPopular = true
+        val targetIndex = artistPopularItemIndex(loaded.corusUser != null, uniquePosterCount, pos)
+        snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > targetIndex }
+        listState.animateScrollToItem(targetIndex)
+        onInPlaceScrollConsumed()
     }
 
     Scaffold(
@@ -182,6 +260,7 @@ fun ArtistPageScreen(
         },
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
@@ -373,21 +452,6 @@ fun ArtistPageScreen(
                 }
             }
 
-            // ── Your posts (only when the viewer has posted this artist) ──
-            if (viewerPosts.isNotEmpty()) {
-                item {
-                    DestinationSectionHeader(stringResource(R.string.destination_your_posts))
-                }
-                items(viewerPosts.size) { index ->
-                    val post = viewerPosts[index]
-                    DestinationPostRow(
-                        post = post,
-                        onUserTap = { onNavigateToUser(post.user.id) },
-                        onPostTap = { onNavigateToPost(post.id) },
-                    )
-                }
-            }
-
             // ── Catalog (Popular + Discography) ──
             if (isCatalogLoading && detail == null) {
                 item {
@@ -427,7 +491,7 @@ fun ArtistPageScreen(
                 // through the rest of the list. Built inline (the LazyListScope
                 // block is not a @Composable context, so no remember here); it
                 // only rebuilds when the screen recomposes, not per playback tick.
-                val popularQueue = topTracks.map { it.toQueuedTrack() }
+                val popularQueue = topTracks.map { it.toQueuedTrack(artistOrigin) }
                 if (topTracks.isNotEmpty()) {
                     item {
                         DestinationSectionHeader(stringResource(R.string.destination_popular))
@@ -438,9 +502,21 @@ fun ArtistPageScreen(
                             track = track,
                             nowPlaying = viewModel.nowPlayingManager,
                             queue = popularQueue,
+                            origin = artistOrigin,
+                            corusStats = detail?.corusStats?.get(track.id),
                             onRowTap = {
                                 viewModel.analyticsService.logPostFromArtistPage(artistId, track.id)
-                                onNavigateToSong(track.toSongDetailRoute())
+                                // Seed this page's artist id onto Apple-sourced
+                                // Popular tracks (empty artistIds) so the song
+                                // page's "Go to Artist" always resolves rather
+                                // than relying on a by-name lookup that can miss.
+                                // Mirrors iOS/web seeding.
+                                val seeded = if (track.artistIds.isEmpty()) {
+                                    track.copy(artistIds = listOf(artistId))
+                                } else {
+                                    track
+                                }
+                                onNavigateToSong(seeded.toSongDetailRoute())
                             },
                             onPreviewStarted = {
                                 viewModel.analyticsService.logArtistSongPreviewed(artistId, track.id)
@@ -494,6 +570,23 @@ fun ArtistPageScreen(
                             }
                         }
                     }
+                }
+            }
+
+            // ── Your posts (only when the viewer has posted this artist) —
+            //    below Popular + Discography to match web (Popular → Discography
+            //    → Your posts → Recent). ──
+            if (viewerPosts.isNotEmpty()) {
+                item {
+                    DestinationSectionHeader(stringResource(R.string.destination_your_posts))
+                }
+                items(viewerPosts.size) { index ->
+                    val post = viewerPosts[index]
+                    DestinationPostRow(
+                        post = post,
+                        onUserTap = { onNavigateToUser(post.user.id) },
+                        onPostTap = { onNavigateToPost(post.id) },
+                    )
                 }
             }
 

@@ -48,6 +48,25 @@ import java.net.UnknownHostException
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * The artist or album destination page a catalog track was played from. Rides
+ * on the individual [QueuedTrack] so the currently-playing track — including
+ * auto-advanced ones, which [advanceToNext] plays straight from the queue —
+ * remembers its origin. The mini-player reads it to return to that page and
+ * scroll to the song instead of opening the generic song-detail page. Carries
+ * display hints so the return navigation paints the header instantly. Null for
+ * feed / search / single-track playback (which keep the song-detail behavior).
+ */
+sealed interface CatalogPlaybackOrigin {
+    data class Artist(val id: String, val name: String?, val imageUrl: String?) : CatalogPlaybackOrigin
+    data class Album(
+        val id: String,
+        val title: String?,
+        val artist: String?,
+        val coverUrl: String?,
+    ) : CatalogPlaybackOrigin
+}
+
 data class QueuedTrack(
     val trackId: String,
     val trackName: String,
@@ -74,6 +93,9 @@ data class QueuedTrack(
     val source: TrackSource = TrackSource.SPOTIFY,
     val soundcloudId: String? = null,
     val soundcloudPermalinkUrl: String? = null,
+    /** Where this track was played from, when it came from an artist/album page.
+     *  See [CatalogPlaybackOrigin]. */
+    val catalogOrigin: CatalogPlaybackOrigin? = null,
 )
 
 data class NowPlayingState(
@@ -90,6 +112,9 @@ data class NowPlayingState(
     val hasNext: Boolean = false,
     val source: TrackSource = TrackSource.SPOTIFY,
     val soundcloudPermalinkUrl: String? = null,
+    /** Set when the playing track came from an artist/album page; drives the
+     *  mini-player "return to origin" tap. See [CatalogPlaybackOrigin]. */
+    val catalogOrigin: CatalogPlaybackOrigin? = null,
 ) {
     val hasActiveTrack: Boolean get() = trackId != null
 }
@@ -878,6 +903,7 @@ class NowPlayingManager @Inject constructor(
             hasNext = computeHasNext(),
             source = track.source,
             soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
+            catalogOrigin = track.catalogOrigin,
         )
 
         // This corus is now playing in-app — report a unique play. Reached for

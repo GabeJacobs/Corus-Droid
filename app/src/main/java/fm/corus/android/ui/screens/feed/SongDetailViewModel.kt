@@ -144,28 +144,40 @@ class SongDetailViewModel @Inject constructor(
                 _loadError.value = "Couldn't load posts for this song."
             }
             _isLoading.value = false
-            resolveArtistIdIfNeeded(routeArtistId)
         }
     }
 
-    // ── Artist-line name resolution (artist_pages_enabled) ──
-    // Fallback for tracks with no artist ids anywhere — no route hint AND no
-    // loaded post carries artistIds (Apple-sourced tracks, legacy posts) —
-    // so the artist line is still tappable when the flag is on. Resolves the
-    // Spotify artist id by *exact* name; failure/no-match leaves the line as
-    // plain text. Mirrors iOS SongDetailView.resolveArtistIfNeeded.
+    // ── On-tap destination resolution (artist_pages_enabled) ──
+    // "Go to Artist" / "Go to Album" always show (album except SoundCloud). When
+    // the seed track reached us without a Spotify id, the tap resolves it via
+    // resolveTrackDestinations — server-cached by ISRC, so the first tap on a
+    // song resolves it for everyone. Both ids are cached here for instant repeat
+    // taps. Mirrors iOS SongDetailView.resolveThenNavigate.
 
     private val _resolvedArtistId = MutableStateFlow<String?>(null)
     val resolvedArtistId: StateFlow<String?> = _resolvedArtistId.asStateFlow()
 
-    private suspend fun resolveArtistIdIfNeeded(routeArtistId: String?) {
-        if (!remoteConfigService.artistPagesEnabled) return
-        if (routeArtistId != null) return
-        if (_posts.value.any { it.track.artistIds.isNotEmpty() }) return
-        val name = artistName?.takeIf { it.isNotBlank() }
-            ?: _posts.value.firstOrNull()?.track?.artistName?.takeIf { it.isNotBlank() }
-            ?: return
-        _resolvedArtistId.value = cloudFunctions.resolveArtistIdByName(name)
+    private val _resolvedAlbumId = MutableStateFlow<String?>(null)
+    val resolvedAlbumId: StateFlow<String?> = _resolvedAlbumId.asStateFlow()
+
+    private val _isResolvingDestination = MutableStateFlow(false)
+    val isResolvingDestination: StateFlow<Boolean> = _isResolvingDestination.asStateFlow()
+
+    /** Resolve the track's Spotify destinations on demand (server-cached), cache
+     *  both ids, and return them so the caller can navigate immediately (state
+     *  emission is async). Empty on a miss. */
+    suspend fun resolveDestinations(
+        trackId: String,
+        isrc: String?,
+        name: String,
+        artist: String,
+    ): fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations {
+        _isResolvingDestination.value = true
+        val dest = cloudFunctions.resolveTrackDestinations(trackId, isrc, name, artist)
+        _isResolvingDestination.value = false
+        dest.artistIds.firstOrNull()?.let { _resolvedArtistId.value = it }
+        dest.albumId?.takeIf { it.isNotBlank() }?.let { _resolvedAlbumId.value = it }
+        return dest
     }
 
     fun loadMore() {

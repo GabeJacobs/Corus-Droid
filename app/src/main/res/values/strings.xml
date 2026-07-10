@@ -315,11 +315,16 @@
     <string name="film_detail_empty">No one has posted this film yet</string>
     <string name="film_detail_be_the_first">Be the first!</string>
     <string name="film_detail_toast_film_sent">Film sent!</string>
+    <string name="film_detail_resolving">Loading…</string>
+    <string name="film_detail_director_not_found">Couldn\'t find the director</string>
 
     <!-- Feed: song detail -->
     <string name="song_detail_post_song">+ Post Song</string>
     <string name="song_detail_cd_share">Share song</string>
     <string name="song_detail_toast_song_sent">Song sent!</string>
+    <string name="song_detail_resolving">Loading…</string>
+    <string name="song_detail_artist_not_found">Couldn\'t find this artist</string>
+    <string name="song_detail_album_not_found">Couldn\'t find this album</string>
     <string name="artist_detail_toast_artist_sent">Artist sent!</string>
     <string name="album_detail_toast_album_sent">Album sent!</string>
     <string name="director_detail_toast_director_sent">Director sent!</string>
@@ -1099,6 +1104,11 @@
     <string name="destination_single_label">Single</string>
     <string name="destination_compilation_label">Compilation</string>
     <string name="destination_album_artist_format">Album · %1$s</string>
+    <string name="destination_song_label">Song</string>
+    <string name="destination_song_artist_format">Song · %1$s</string>
+    <string name="destination_film_label">Film</string>
+    <string name="destination_film_year_format">Film · %1$s</string>
+    <string name="destination_hashtag_label">Hashtag</string>
     <plurals name="destination_shared_by_people">
         <item quantity="one">Shared by %1$s person</item>
         <item quantity="other">Shared by %1$s people</item>
@@ -1119,6 +1129,8 @@
     <string name="destination_filmography">Filmography</string>
     <string name="destination_recent_posts">Recent posts</string>
     <string name="destination_your_posts">Your posts</string>
+    <!-- Popular-row facepile label: how many Corus users shared the track. %1$s is the count. -->
+    <string name="destination_n_shared">%1$s shared</string>
     <string name="destination_artist_is_on_corus">%1$s is on Corus</string>
     <string name="destination_see_all">See all</string>
     <string name="destination_shared_from_album">Shared from this album</string>

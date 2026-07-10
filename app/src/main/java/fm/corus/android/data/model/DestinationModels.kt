@@ -91,6 +91,10 @@ data class ArtistDetail(
      *  link exists (backend omits the `corusUser` key entirely — the "is on
      *  Corus" badge only renders when this is non-null). */
     val corusUser: CorusUserLink? = null,
+    /** Per-track Corus share stats (count + poster facepile) keyed by track id,
+     *  for the Popular rows. Only tracks with ≥1 share are present. Empty on
+     *  payloads written before this shipped. */
+    val corusStats: Map<String, TrackCorusStats> = emptyMap(),
 )
 
 /** A Corus user account manually linked to a catalog artist (getArtistDetail
@@ -203,6 +207,28 @@ data class DirectorFilm(
                 year = (data["year"] as? Number)?.toInt(),
                 posterUrl = (data["posterUrl"] as? String)?.ifEmpty { null },
             )
+        }
+    }
+}
+
+/** Per-track Corus share stats for a Popular row: how many people shared the
+ *  track + a few of them for the facepile. Mirrors web's `corusPosterCount` /
+ *  `corusPosters` on CatalogTrack. */
+data class TrackCorusStats(
+    val count: Int,
+    val posters: List<UserLite>,
+) {
+    companion object {
+        /** (trackId → stats) entry parsed from a topTracks item, or null when the
+         *  track has no Corus shares. */
+        fun entryFromTrack(data: Map<String, Any?>): Pair<String, TrackCorusStats>? {
+            val id = (data["id"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            val count = (data["corusPosterCount"] as? Number)?.toInt() ?: 0
+            if (count <= 0) return null
+            @Suppress("UNCHECKED_CAST")
+            val posters = (data["corusPosters"] as? List<Map<String, Any?>>)
+                ?.mapNotNull { UserLite.fromMap(it) } ?: emptyList()
+            return id to TrackCorusStats(count, posters)
         }
     }
 }

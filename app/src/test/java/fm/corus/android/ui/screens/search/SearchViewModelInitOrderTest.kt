@@ -89,7 +89,7 @@ class SearchViewModelInitOrderTest {
         musicSearchRepository = mock()
         tmdbRepository = mock()
         preferencesDataStore = mock {
-            on { recentSearchUsers } doReturn flowOf(emptyList())
+            on { recentSearches } doReturn flowOf(emptyList())
             on { contactsSyncStatus } doReturn flowOf("notAsked")
             on { trendingSongsWindow } doReturn flowOf("week")
             on { trendingFilmsWindow } doReturn flowOf("week")

@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.destination
 
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.domain.CatalogPlaybackOrigin
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -80,6 +81,45 @@ class CatalogTrackQueueTest {
         // The manager finds the tapped track by id, so the mapped queue must
         // keep the same ids in the same positions.
         assertEquals(1, queue.indexOfFirst { it.trackId == "b" })
+    }
+
+    @Test
+    fun `no origin by default keeps the song-detail mini-player behavior`() {
+        // Rows outside the artist/album pages (feed, search) pass no origin, so
+        // the mini-player must fall through to the song-detail page as before.
+        assertNull(track().toQueuedTrack().catalogOrigin)
+    }
+
+    @Test
+    fun `artist origin rides on the queued track for return-to-origin`() {
+        val origin = CatalogPlaybackOrigin.Artist(
+            id = "artist123",
+            name = "The Beatles",
+            imageUrl = "https://img/artist.jpg",
+        )
+
+        val queued = track().toQueuedTrack(origin)
+
+        // The mini-player reads NowPlayingState.catalogOrigin (copied from the
+        // playing QueuedTrack) to reopen the artist page scrolled to the song.
+        assertEquals(origin, queued.catalogOrigin)
+    }
+
+    @Test
+    fun `every track in the queue carries the album origin so auto-advance keeps it`() {
+        // advanceToNext() plays queue[next] directly, so a stamped queue is what
+        // lets the mini-player still return to the album after the song rolls on.
+        val origin = CatalogPlaybackOrigin.Album(
+            id = "album456",
+            title = "Rubber Soul",
+            artist = "The Beatles",
+            coverUrl = "https://img/cover.jpg",
+        )
+        val tracks = listOf(track(id = "a"), track(id = "b"), track(id = "c"))
+
+        val queue = tracks.map { it.toQueuedTrack(origin) }
+
+        assertEquals(listOf(origin, origin, origin), queue.map { it.catalogOrigin })
     }
 
     @Test

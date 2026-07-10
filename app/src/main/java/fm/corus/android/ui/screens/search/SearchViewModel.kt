@@ -10,6 +10,7 @@ import fm.corus.android.data.local.readContactPhoneNumbers
 import fm.corus.android.data.model.CymbalHashtag
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.RecentSearchItem
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.SuggestionReason
@@ -428,8 +429,8 @@ class SearchViewModel @Inject constructor(
     private val _localFollowedIds = MutableStateFlow<Set<String>>(emptySet())
     val localFollowedIds: StateFlow<Set<String>> = _localFollowedIds.asStateFlow()
 
-    // Recent searches (persisted as full user objects in DataStore)
-    val recentSearchUsers: StateFlow<List<CymbalUser>> = preferencesDataStore.recentSearchUsers
+    // Recent searches (persisted as a mixed-kind RecentSearchItem list in DataStore)
+    val recentSearches: StateFlow<List<RecentSearchItem>> = preferencesDataStore.recentSearches
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Contact sync
@@ -1050,14 +1051,20 @@ class SearchViewModel @Inject constructor(
     }
 
     fun onUserSelected(user: CymbalUser) {
+        recordRecent(RecentSearchItem.fromUser(user))
+    }
+
+    /** Persist any tapped search result into Recent (artist/album/song/film/
+     *  director/hashtag/user). Re-tapping an entry bumps it to the front. */
+    fun recordRecent(item: RecentSearchItem) {
         viewModelScope.launch {
-            preferencesDataStore.addRecentSearchUser(user)
+            preferencesDataStore.addRecentSearch(item)
         }
     }
 
-    fun removeRecentSearch(userId: String) {
+    fun removeRecentSearch(dedupeKey: String) {
         viewModelScope.launch {
-            preferencesDataStore.removeRecentSearchUser(userId)
+            preferencesDataStore.removeRecentSearch(dedupeKey)
         }
     }
 

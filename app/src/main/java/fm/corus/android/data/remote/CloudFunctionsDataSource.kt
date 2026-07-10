@@ -125,18 +125,22 @@ internal fun parseArtistIdByNameResponse(data: Map<String, Any?>?, name: String)
 internal fun parseArtistDetailResponse(data: Map<String, Any?>?): ArtistDetail? {
     val artist = data?.get("artist") as? Map<String, Any?> ?: return null
     val id = (artist["id"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+    val topTracksJson = (data["topTracks"] as? List<Map<String, Any?>>) ?: emptyList()
     return ArtistDetail(
         id = id,
         name = artist["name"] as? String ?: "",
         imageUrl = (artist["imageUrl"] as? String)?.ifEmpty { null },
         genres = (artist["genres"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-        topTracks = (data["topTracks"] as? List<Map<String, Any?>>)
-            ?.mapNotNull { parseUnifiedTrack(it) } ?: emptyList(),
+        topTracks = topTracksJson.mapNotNull { parseUnifiedTrack(it) },
         albums = (data["albums"] as? List<Map<String, Any?>>)
             ?.mapNotNull { AlbumSummary.fromMap(it) } ?: emptyList(),
         musicVideos = (data["musicVideos"] as? List<Map<String, Any?>>)
             ?.mapNotNull { MusicVideo.fromMap(it) } ?: emptyList(),
         corusUser = (data["corusUser"] as? Map<String, Any?>)?.let { CorusUserLink.fromMap(it) },
+        // Per-track share stats (count + facepile) for the Popular rows, keyed by
+        // track id. parseUnifiedTrack drops these additive fields, so parse them
+        // off the same topTracks payload.
+        corusStats = topTracksJson.mapNotNull { TrackCorusStats.entryFromTrack(it) }.toMap(),
     )
 }
 
@@ -1196,6 +1200,60 @@ class CloudFunctionsDataSource @Inject constructor(
             parseArtistIdByNameResponse(result.getData() as? Map<String, Any?>, trimmed)
         } catch (_: Exception) {
             null
+        }
+    }
+
+    /** Spotify artist ids + album id for a track that reached the client without
+     *  them (Apple-sourced tracks, older posts). Backed by the
+     *  `resolveTrackDestinations` callable, which caches the result server-side
+     *  keyed by ISRC so the first tap on a song resolves it for everyone. One
+     *  call serves both the "Go to Artist" and "Go to Album" rows; empty on any
+     *  miss. Mirrors iOS DestinationPagesService.resolveTrackDestinations. */
+    data class TrackDestinations(
+        val artistIds: List<String> = emptyList(),
+        val albumId: String? = null,
+    )
+
+    suspend fun resolveTrackDestinations(
+        trackId: String,
+        isrc: String?,
+        name: String,
+        artist: String,
+    ): TrackDestinations {
+        return try {
+            val params = mutableMapOf<String, Any>(
+                "trackId" to trackId,
+                "name" to name,
+                "artist" to artist,
+            )
+            if (!isrc.isNullOrBlank()) params["isrc"] = isrc
+            val result = functions.getHttpsCallable("resolveTrackDestinations").call(params).await()
+            val data = result.getData() as? Map<*, *>
+            val artistIds = (data?.get("artistIds") as? List<*>)
+                ?.mapNotNull { (it as? String)?.takeIf { s -> s.isNotBlank() } }
+                ?: emptyList()
+            val albumId = (data?.get("albumId") as? String)?.takeIf { it.isNotBlank() }
+            TrackDestinations(artistIds, albumId)
+        } catch (_: Exception) {
+            TrackDestinations()
+        }
+    }
+
+    /** TMDB director person ids for a film that reached the client without them
+     *  (stub posts, older flows). Backed by the `resolveFilmDirectors` callable,
+     *  which resolves the movie's credits from TMDB and caches the result
+     *  server-side keyed by movieId — so the first "Go to Director" tap resolves
+     *  it for everyone. Empty on a miss. Mirrors [resolveTrackDestinations]. */
+    suspend fun resolveFilmDirectors(movieId: String): List<String> {
+        return try {
+            val result = functions.getHttpsCallable("resolveFilmDirectors")
+                .call(mapOf("movieId" to movieId)).await()
+            val data = result.getData() as? Map<*, *>
+            (data?.get("directorIds") as? List<*>)
+                ?.mapNotNull { (it as? String)?.takeIf { s -> s.isNotBlank() } }
+                ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 

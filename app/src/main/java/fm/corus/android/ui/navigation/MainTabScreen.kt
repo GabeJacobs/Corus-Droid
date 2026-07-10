@@ -54,8 +54,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import fm.corus.android.R
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
@@ -173,6 +175,10 @@ fun MainTabScreen(
         )
     }
 
+    // Gates the mini-player "return to origin" navigation on the same flag that
+    // surfaces the artist/album pages themselves.
+    val artistPagesEnabled = rememberArtistPagesEnabled()
+
     // Comments sheet is hosted here at the root (not inside a tab nav-graph) so it covers
     // the tab bar like iOS and gets real window insets (the nav-graph content consumes
     // them). Tabs open it via onShowComments; navigation routes through the active tab.
@@ -275,6 +281,59 @@ fun MainTabScreen(
                     onTrackTap = {
                         val state = viewModel.nowPlayingManager.state.value
                         val navController = navControllers[selectedTab] ?: return@MiniPlayerBar
+                        // Return-to-origin: a song played from an artist/album
+                        // destination page reopens that page (pushed onto the
+                        // active tab) scrolled to the song, instead of the
+                        // generic "Posted by N users" song-detail page. The
+                        // origin rides on the playing track, so it survives
+                        // auto-advance through the queue. Gated on the same flag
+                        // that surfaces those pages.
+                        val origin = state.catalogOrigin
+                        if (artistPagesEnabled && origin != null) {
+                            val songId = state.trackId
+                            // If the current tab already shows this exact artist/
+                            // album page, scroll it to the song in place (via the
+                            // entry's saved state) instead of pushing a duplicate.
+                            val currentEntry = navController.currentBackStackEntry
+                            when (origin) {
+                                is CatalogPlaybackOrigin.Artist -> {
+                                    val onThisPage = songId != null && currentEntry != null &&
+                                        runCatching { currentEntry.toRoute<ArtistPageRoute>().artistId }
+                                            .getOrNull() == origin.id
+                                    if (onThisPage) {
+                                        currentEntry!!.savedStateHandle[CATALOG_SCROLL_TO_TRACK_KEY] = songId
+                                    } else {
+                                        navController.navigate(
+                                            ArtistPageRoute(
+                                                artistId = origin.id,
+                                                name = origin.name,
+                                                imageUrl = origin.imageUrl,
+                                                scrollToTrackId = songId,
+                                            )
+                                        )
+                                    }
+                                }
+                                is CatalogPlaybackOrigin.Album -> {
+                                    val onThisPage = songId != null && currentEntry != null &&
+                                        runCatching { currentEntry.toRoute<AlbumPageRoute>().albumId }
+                                            .getOrNull() == origin.id
+                                    if (onThisPage) {
+                                        currentEntry!!.savedStateHandle[CATALOG_SCROLL_TO_TRACK_KEY] = songId
+                                    } else {
+                                        navController.navigate(
+                                            AlbumPageRoute(
+                                                albumId = origin.id,
+                                                title = origin.title,
+                                                artist = origin.artist,
+                                                coverUrl = origin.coverUrl,
+                                                scrollToTrackId = songId,
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                            return@MiniPlayerBar
+                        }
                         val postId = state.sourcePostId
                         val trackId = state.trackId
                         // Already-on-feed shortcut: if a feed-style screen is

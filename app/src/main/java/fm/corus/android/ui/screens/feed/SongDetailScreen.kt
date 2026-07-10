@@ -104,6 +104,8 @@ fun SongDetailScreen(
     val loadError by viewModel.loadError.collectAsState()
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
     val resolvedArtistId by viewModel.resolvedArtistId.collectAsState()
+    val vmResolvedAlbumId by viewModel.resolvedAlbumId.collectAsState()
+    val isResolvingDestination by viewModel.isResolvingDestination.collectAsState()
     val nowPlayingState by viewModel.nowPlayingState.collectAsState()
     val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -154,13 +156,77 @@ fun SongDetailScreen(
         soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
     )
 
-    // Values for the "..." top-bar menu's Go to Artist / Go to Album rows —
-    // mirror the gating of the tappable artist/album lines below the title.
+    // Fast-path ids for the "Go to Artist" / "Go to Album" rows + tappable
+    // artist/album lines: the seed track, a loaded post, the route hint, or an
+    // id resolved on a prior tap this session (vm caches). When none is known
+    // the rows still show and resolve on tap (goToArtist / goToAlbum).
     val menuLoadedArtistIds = songInfo?.track?.artistIds ?: emptyList()
     val menuArtistId = menuLoadedArtistIds.firstOrNull() ?: artistId ?: resolvedArtistId
     val menuArtistIdCount = maxOf(menuLoadedArtistIds.size, artistIdCount)
     val menuAlbumTrack = songInfo?.track
-    val menuAlbumId = menuAlbumTrack?.albumId ?: albumId
+    val effectiveAlbumId = resolveSongAlbumId(albumId, posts) ?: vmResolvedAlbumId
+
+    // "Go to Album" is offered for everything except SoundCloud, which has no
+    // album (no album concept, no ISRC to resolve with) — a dead end.
+    val canShowAlbum = !isSoundCloud
+
+    val artistMissMsg = stringResource(R.string.song_detail_artist_not_found)
+    val albumMissMsg = stringResource(R.string.song_detail_album_not_found)
+
+    fun openArtist(id: String, idCount: Int) {
+        onNavigateToArtist?.invoke(
+            fm.corus.android.ui.navigation.ArtistPageRoute(
+                artistId = id,
+                name = fm.corus.android.data.model.primaryNameHint(
+                    displayArtist.orEmpty(), idCount,
+                ).ifEmpty { null },
+            )
+        )
+    }
+
+    fun openAlbum(id: String) {
+        onNavigateToAlbum?.invoke(
+            fm.corus.android.ui.navigation.AlbumPageRoute(
+                albumId = id,
+                title = menuAlbumTrack?.albumName?.takeIf { it.isNotBlank() },
+                artist = displayArtist,
+                coverUrl = artUrl,
+                year = (menuAlbumTrack?.releaseDate ?: "").take(4).toIntOrNull(),
+            )
+        )
+    }
+
+    // Open the artist page: use a known id instantly, else resolve on tap.
+    fun goToArtist() {
+        val known = menuArtistId
+        if (known != null) {
+            openArtist(known, menuArtistIdCount)
+            return
+        }
+        scope.launch {
+            val dest = viewModel.resolveDestinations(
+                trackId, effectiveIsrc, displayName.orEmpty(), displayArtist.orEmpty(),
+            )
+            val aid = dest.artistIds.firstOrNull()
+            if (aid != null) openArtist(aid, dest.artistIds.size) else ToastManager.show(artistMissMsg)
+        }
+    }
+
+    // Open the album page: use a known id instantly, else resolve on tap.
+    fun goToAlbum() {
+        val known = effectiveAlbumId
+        if (known != null) {
+            openAlbum(known)
+            return
+        }
+        scope.launch {
+            val dest = viewModel.resolveDestinations(
+                trackId, effectiveIsrc, displayName.orEmpty(), displayArtist.orEmpty(),
+            )
+            val alid = dest.albumId
+            if (alid != null) openAlbum(alid) else ToastManager.show(albumMissMsg)
+        }
+    }
 
     // Default: keep the viewer's preference. Flip to the source on a confirmed
     // empty appleMusicId ("") OR when the Apple id is in a storefront the viewer
@@ -247,38 +313,26 @@ fun SongDetailScreen(
                                     showShareSheet = true
                                 },
                             )
-                            if (onNavigateToArtist != null && menuArtistId != null) {
+                            // Always offered when the feature is on — resolves
+                            // the id on tap if the seed track lacks one.
+                            if (onNavigateToArtist != null) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
                                     leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
                                     onClick = {
                                         menuExpanded = false
-                                        onNavigateToArtist(
-                                            fm.corus.android.ui.navigation.ArtistPageRoute(
-                                                artistId = menuArtistId,
-                                                name = fm.corus.android.data.model.primaryNameHint(
-                                                    displayArtist.orEmpty(), menuArtistIdCount,
-                                                ).ifEmpty { null },
-                                            )
-                                        )
+                                        goToArtist()
                                     },
                                 )
                             }
-                            if (onNavigateToAlbum != null && menuAlbumId != null) {
+                            // Album everywhere except SoundCloud (no album).
+                            if (onNavigateToAlbum != null && canShowAlbum) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.post_menu_go_to_album), style = CorusFont.body) },
                                     leadingIcon = { Icon(Icons.Filled.Album, contentDescription = null) },
                                     onClick = {
                                         menuExpanded = false
-                                        onNavigateToAlbum(
-                                            fm.corus.android.ui.navigation.AlbumPageRoute(
-                                                albumId = menuAlbumId,
-                                                title = menuAlbumTrack?.albumName?.takeIf { it.isNotBlank() },
-                                                artist = displayArtist,
-                                                coverUrl = artUrl,
-                                                year = (menuAlbumTrack?.releaseDate ?: "").take(4).toIntOrNull(),
-                                            )
-                                        )
+                                        goToAlbum()
                                     },
                                 )
                             }
@@ -290,10 +344,9 @@ fun SongDetailScreen(
             )
         },
     ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Song header — always shown using route metadata
@@ -383,27 +436,11 @@ fun SongDetailScreen(
                 if (displayArtist != null) {
                     Spacer(modifier = Modifier.height(CorusSpacing.xxs))
                     // Artist page (artist_pages_enabled): the artist line is
-                    // tappable when the flag is on AND an artist id is known —
-                    // from the loaded post's track (preferred), the route
-                    // hint carried from search/catalog rows, or the exact-name
-                    // resolution fallback (Apple-sourced tracks, legacy posts;
-                    // see SongDetailViewModel.resolveArtistIdIfNeeded). Style
-                    // identical either way (no accent, no underline). Name hint
-                    // follows the primaryNameHint rule for joined credit strings.
-                    val loadedArtistIds = songInfo?.track?.artistIds ?: emptyList()
-                    val effectiveArtistId = loadedArtistIds.firstOrNull() ?: artistId ?: resolvedArtistId
-                    val effectiveIdCount = maxOf(loadedArtistIds.size, artistIdCount)
-                    val artistTapModifier = if (onNavigateToArtist != null && effectiveArtistId != null) {
-                        Modifier.clickable {
-                            onNavigateToArtist(
-                                fm.corus.android.ui.navigation.ArtistPageRoute(
-                                    artistId = effectiveArtistId,
-                                    name = fm.corus.android.data.model.primaryNameHint(
-                                        displayArtist, effectiveIdCount,
-                                    ).ifEmpty { null },
-                                )
-                            )
-                        }
+                    // tappable whenever the flag is on — goToArtist uses a known
+                    // id (track / post / route / prior resolve) instantly, else
+                    // resolves it on tap. Style unchanged (no accent, no underline).
+                    val artistTapModifier = if (onNavigateToArtist != null) {
+                        Modifier.clickable { goToArtist() }
                     } else Modifier
                     Text(
                         text = displayArtist,
@@ -415,26 +452,15 @@ fun SongDetailScreen(
 
                 // Album line (web/iOS parity): "{album} · {year}", muted, from
                 // the first loaded post (posts carry albumName + releaseDate).
-                // Links to the album page when the flag is on AND the caller
-                // carried a Spotify album id (search/catalog rows). Same plain
-                // style either way — no accent, no underline.
+                // Tappable whenever the flag is on (except SoundCloud, no album);
+                // goToAlbum uses a known id instantly or resolves it on tap. Same
+                // plain style either way — no accent, no underline.
                 val albumTrack = songInfo?.track
                 if (albumTrack != null && albumTrack.albumName.isNotBlank()) {
                     val year = (albumTrack.releaseDate ?: "").take(4)
                     val albumLine = if (year.isEmpty()) albumTrack.albumName else "${albumTrack.albumName} · $year"
-                    val effectiveAlbumId = albumTrack.albumId ?: albumId
-                    val albumTapModifier = if (onNavigateToAlbum != null && effectiveAlbumId != null) {
-                        Modifier.clickable {
-                            onNavigateToAlbum(
-                                fm.corus.android.ui.navigation.AlbumPageRoute(
-                                    albumId = effectiveAlbumId,
-                                    title = albumTrack.albumName,
-                                    artist = displayArtist,
-                                    coverUrl = artUrl,
-                                    year = year.toIntOrNull(),
-                                )
-                            )
-                        }
+                    val albumTapModifier = if (onNavigateToAlbum != null && canShowAlbum) {
+                        Modifier.clickable { goToAlbum() }
                     } else Modifier
                     Spacer(modifier = Modifier.height(CorusSpacing.xxs))
                     Text(
@@ -682,6 +708,32 @@ fun SongDetailScreen(
                 }
             }
         }
+        // On-tap destination resolve HUD — a brief top spinner while we look up
+        // the artist/album id. Misses surface as a toast (ToastManager).
+        if (isResolvingDestination) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 72.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.Black.copy(alpha = 0.8f))
+                    .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                Text(
+                    text = stringResource(R.string.song_detail_resolving),
+                    style = CorusFont.caption,
+                    color = Color.White,
+                )
+            }
+        }
+        }
     }
 
     // ── Share Song bottom sheet ──
@@ -829,6 +881,20 @@ private fun serviceColor(service: MusicService): Color = when (service) {
 @ReadOnlyComposable
 private fun serviceTextColor(service: MusicService): Color =
     if (service == MusicService.TIDAL) CorusColors.TidalText else Color.White
+
+/**
+ * Resolve the album id backing the song page's "Go to Album" menu row + the
+ * tappable album line. Prefers the route hint (search/catalog rows carry a
+ * Spotify album id); otherwise falls back to the first loaded post that
+ * denormalizes one — scanning ALL posts (not just the first) so a post missing
+ * the id (older / `am:` / `sc:`) doesn't hide the link. Mirrors the artist-id
+ * fallback: an artist-page "Popular" tap arrives Apple-sourced with no album
+ * id, but its posts carry one. Returns null when no source has one (link/row
+ * stays hidden). Blank strings are treated as absent.
+ */
+internal fun resolveSongAlbumId(routeAlbumId: String?, posts: List<CymbalPost>): String? =
+    routeAlbumId?.takeIf { it.isNotBlank() }
+        ?: posts.firstNotNullOfOrNull { it.track.albumId?.takeIf { id -> id.isNotBlank() } }
 
 private fun formatUserCount(count: Int): String {
     return when {

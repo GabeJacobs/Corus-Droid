@@ -82,7 +82,7 @@ interface RemoteConfigServiceEntryPoint {
  * renders exactly as before and the destination routes are unreachable.
  */
 @Composable
-private fun rememberArtistPagesEnabled(): Boolean {
+internal fun rememberArtistPagesEnabled(): Boolean {
     val context = LocalContext.current
     return remember(context) {
         EntryPointAccessors.fromApplication(
@@ -553,10 +553,21 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
 
     composable<ArtistPageRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<ArtistPageRoute>()
+        // In-place scroll requests from the mini-player (when this page is already
+        // visible) land in this entry's saved state — scoped to exactly this
+        // screen instance, so a duplicate page is never pushed.
+        val inPlaceScroll by backStackEntry.savedStateHandle
+            .getStateFlow<String?>(CATALOG_SCROLL_TO_TRACK_KEY, null)
+            .collectAsState()
         fm.corus.android.ui.screens.destination.ArtistPageScreen(
             artistId = route.artistId,
             nameHint = route.name,
             imageUrlHint = route.imageUrl,
+            scrollToTrackId = route.scrollToTrackId,
+            inPlaceScrollTrackId = inPlaceScroll,
+            onInPlaceScrollConsumed = {
+                backStackEntry.savedStateHandle[CATALOG_SCROLL_TO_TRACK_KEY] = null
+            },
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
@@ -576,12 +587,20 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
 
     composable<AlbumPageRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<AlbumPageRoute>()
+        val inPlaceScroll by backStackEntry.savedStateHandle
+            .getStateFlow<String?>(CATALOG_SCROLL_TO_TRACK_KEY, null)
+            .collectAsState()
         fm.corus.android.ui.screens.destination.AlbumPageScreen(
             albumId = route.albumId,
             titleHint = route.title,
             artistHint = route.artist,
             coverUrlHint = route.coverUrl,
             yearHint = route.year,
+            scrollToTrackId = route.scrollToTrackId,
+            inPlaceScrollTrackId = inPlaceScroll,
+            onInPlaceScrollConsumed = {
+                backStackEntry.savedStateHandle[CATALOG_SCROLL_TO_TRACK_KEY] = null
+            },
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },

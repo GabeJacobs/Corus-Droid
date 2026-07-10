@@ -21,6 +21,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -59,6 +61,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -76,6 +79,7 @@ import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.ui.navigation.FilmDetailRoute
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.RecentSearchItem
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
@@ -160,7 +164,7 @@ fun SearchScreen(
     val isTasteMatchPolling by viewModel.isTasteMatchPolling.collectAsState()
     val tasteMatchLoadFailed by viewModel.tasteMatchLoadFailed.collectAsState()
     val belowTasteMatchThreshold by viewModel.belowTasteMatchThreshold.collectAsState()
-    val recentSearchUsers by viewModel.recentSearchUsers.collectAsState()
+    val recentSearches by viewModel.recentSearches.collectAsState()
     val contactMatches by viewModel.contactMatches.collectAsState()
     val isSyncingContacts by viewModel.isSyncingContacts.collectAsState()
     val contactsSyncStatus by viewModel.contactsSyncStatus.collectAsState()
@@ -207,6 +211,28 @@ fun SearchScreen(
     BackHandler(enabled = showRecentOverlay) {
         focusManager.clearFocus()
         isSearchFocused = false
+    }
+
+    // Record a tapped search result into Recent, then navigate. Wrapping the raw
+    // nav callbacks is what makes every result type (not just users) show up in
+    // the "Recent" list — the user path already records via onUserSelected.
+    val recordAndNavArtist: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit = { route ->
+        viewModel.recordRecent(RecentSearchItem.fromArtist(route)); onNavigateToArtist(route)
+    }
+    val recordAndNavAlbum: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit = { route ->
+        viewModel.recordRecent(RecentSearchItem.fromAlbum(route)); onNavigateToAlbum(route)
+    }
+    val recordAndNavDirector: (fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit = { route ->
+        viewModel.recordRecent(RecentSearchItem.fromDirector(route)); onNavigateToDirector(route)
+    }
+    val recordAndNavFilm: (FilmDetailRoute) -> Unit = { route ->
+        viewModel.recordRecent(RecentSearchItem.fromFilm(route)); onNavigateToFilm(route)
+    }
+    val recordAndNavSong: (CymbalTrack) -> Unit = { track ->
+        viewModel.recordRecent(RecentSearchItem.fromTrack(track)); onNavigateToSong(track)
+    }
+    val recordAndNavHashtag: (String) -> Unit = { name ->
+        viewModel.recordRecent(RecentSearchItem.fromHashtag(name)); onNavigateToHashtag(name)
     }
 
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -428,10 +454,10 @@ fun SearchScreen(
                                     if (user != null) viewModel.onUserSelected(user)
                                     onNavigateToUser(userId)
                                 },
-                                onNavigateToSong = onNavigateToSong,
-                                onNavigateToFilm = onNavigateToFilm,
-                                onNavigateToArtist = onNavigateToArtist,
-                                onNavigateToHashtag = onNavigateToHashtag,
+                                onNavigateToSong = recordAndNavSong,
+                                onNavigateToFilm = recordAndNavFilm,
+                                onNavigateToArtist = recordAndNavArtist,
+                                onNavigateToHashtag = recordAndNavHashtag,
                             )
                             UnifiedSearchFilter.USERS -> UserSearchResults(
                                 listState = usersListState,
@@ -448,27 +474,27 @@ fun SearchScreen(
                                 listState = songsListState,
                                 tracks = songSearchResults,
                                 isSearching = isSearching,
-                                onSongTap = onNavigateToSong,
+                                onSongTap = recordAndNavSong,
                                 artists = artistSearchResults,
                                 albums = albumSearchResults,
                                 songsFirst = songsFirst,
-                                onArtistTap = onNavigateToArtist,
-                                onAlbumTap = onNavigateToAlbum,
+                                onArtistTap = recordAndNavArtist,
+                                onAlbumTap = recordAndNavAlbum,
                             )
                             UnifiedSearchFilter.FILM -> FilmSearchResultsList(
                                 listState = filmsListState,
                                 movies = filmSearchResults,
                                 isSearching = isSearching,
-                                onFilmTap = onNavigateToFilm,
+                                onFilmTap = recordAndNavFilm,
                                 directors = directorSearchResults,
-                                onDirectorTap = onNavigateToDirector,
+                                onDirectorTap = recordAndNavDirector,
                             )
                             UnifiedSearchFilter.HASHTAGS -> HashtagSearchResultsList(
                                 listState = hashtagsListState,
                                 hashtags = hashtagSearchResults,
                                 isSearching = isSearching,
                                 followedHashtagNames = followedHashtagNames,
-                                onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
+                                onHashtagTap = { tag -> recordAndNavHashtag(tag.name) },
                                 onToggleFollow = { tag -> viewModel.toggleHashtagFollow(tag) },
                             )
                         }
@@ -560,12 +586,12 @@ fun SearchScreen(
                                 listState = songsListState,
                                 tracks = songSearchResults,
                                 isSearching = isSearching,
-                                onSongTap = onNavigateToSong,
+                                onSongTap = recordAndNavSong,
                                 artists = artistSearchResults,
                                 albums = albumSearchResults,
                                 songsFirst = songsFirst,
-                                onArtistTap = onNavigateToArtist,
-                                onAlbumTap = onNavigateToAlbum,
+                                onArtistTap = recordAndNavArtist,
+                                onAlbumTap = recordAndNavAlbum,
                             )
                         } else {
                             TrendingSongsContent(
@@ -585,9 +611,9 @@ fun SearchScreen(
                                 listState = filmsListState,
                                 movies = filmSearchResults,
                                 isSearching = isSearching,
-                                onFilmTap = onNavigateToFilm,
+                                onFilmTap = recordAndNavFilm,
                                 directors = directorSearchResults,
-                                onDirectorTap = onNavigateToDirector,
+                                onDirectorTap = recordAndNavDirector,
                             )
                         } else {
                             TrendingFilmsContent(
@@ -607,7 +633,7 @@ fun SearchScreen(
                                 hashtags = hashtagSearchResults,
                                 isSearching = isSearching,
                                 followedHashtagNames = followedHashtagNames,
-                                onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
+                                onHashtagTap = { tag -> recordAndNavHashtag(tag.name) },
                                 onToggleFollow = { tag -> viewModel.toggleHashtagFollow(tag) },
                             )
                         } else {
@@ -629,12 +655,25 @@ fun SearchScreen(
             // Full-screen recent-searches overlay (matches iOS behaviour)
             if (showRecentOverlay) {
                 RecentSearchesOverlay(
-                    recentUsers = recentSearchUsers,
-                    onUserTap = { user ->
-                        viewModel.onUserSelected(user)
-                        onNavigateToUser(user.id)
+                    recentItems = recentSearches,
+                    onItemTap = { item ->
+                        // Open the destination FIRST, then persist the bump — so
+                        // the reactive recents flow re-emits only after we've
+                        // navigated away and never reshuffles the overlay under
+                        // the user's finger. The new order shows next time recents
+                        // open (the flow reflects storage).
+                        when (item) {
+                            is RecentSearchItem.UserEntry -> onNavigateToUser(item.id)
+                            is RecentSearchItem.ArtistEntry -> onNavigateToArtist(item.toRoute())
+                            is RecentSearchItem.AlbumEntry -> onNavigateToAlbum(item.toRoute())
+                            is RecentSearchItem.SongEntry -> onNavigateToSong(item.toTrack())
+                            is RecentSearchItem.FilmEntry -> onNavigateToFilm(item.toRoute())
+                            is RecentSearchItem.DirectorEntry -> onNavigateToDirector(item.toRoute())
+                            is RecentSearchItem.HashtagEntry -> onNavigateToHashtag(item.tag)
+                        }
+                        viewModel.recordRecent(item)
                     },
-                    onRemoveUser = { userId -> viewModel.removeRecentSearch(userId) },
+                    onRemove = { dedupeKey -> viewModel.removeRecentSearch(dedupeKey) },
                     onClearAll = { viewModel.clearRecentSearches() },
                 )
             }
@@ -752,17 +791,18 @@ private fun SearchTabBar(
 
 @Composable
 private fun RecentSearchesOverlay(
-    recentUsers: List<CymbalUser>,
-    onUserTap: (CymbalUser) -> Unit,
-    onRemoveUser: (String) -> Unit,
+    recentItems: List<RecentSearchItem>,
+    onItemTap: (RecentSearchItem) -> Unit,
+    onRemove: (String) -> Unit,
     onClearAll: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(CorusColors.Background),
+            .background(CorusColors.Background)
+            .verticalScroll(rememberScrollState()),
     ) {
-        if (recentUsers.isNotEmpty()) {
+        if (recentItems.isNotEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -779,51 +819,179 @@ private fun RecentSearchesOverlay(
                     modifier = Modifier.clickable { onClearAll() },
                 )
             }
-            recentUsers.forEach { user ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onUserTap(user) }
-                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    UserAvatarView(
-                        avatarURL = user.avatarURL,
-                        avatarThumbURL = user.avatarThumbURL,
-                        displayName = user.displayName,
-                        size = 40.dp,
+            recentItems.forEach { item ->
+                RecentSearchItemRow(
+                    item = item,
+                    onTap = { onItemTap(item) },
+                    onRemove = { onRemove(item.dedupeKey) },
+                )
+            }
+        }
+    }
+}
+
+/** One "Recent" row — leading media + title/subtitle keyed to the entry's kind,
+ *  plus the remove (x) button. Mirrors the artist/album/song/film/director search
+ *  rows so recents feel like the results they came from. */
+@Composable
+private fun RecentSearchItemRow(
+    item: RecentSearchItem,
+    onTap: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onTap() }
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RecentItemMedia(item)
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        Column(modifier = Modifier.weight(1f)) {
+            if (item is RecentSearchItem.UserEntry) {
+                UsernameWithFlair(
+                    username = item.username,
+                    isVerified = item.isVerified,
+                    isClubMember = item.isClubMember,
+                    flairStyle = item.toUser().flairStyle,
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                )
+                if (item.displayName.isNotBlank()) {
+                    Text(
+                        text = item.displayName,
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(modifier = Modifier.width(CorusSpacing.md))
-                    Column(modifier = Modifier.weight(1f)) {
-                        UsernameWithFlair(
-                            username = user.username,
-                            isVerified = user.isVerified,
-                            isClubMember = user.isClubMember,
-                            flairStyle = user.flairStyle,
-                            style = CorusFont.bodyMedium,
-                            color = CorusColors.Text,
-                        )
-                        if (user.displayName.isNotBlank()) {
-                            Text(
-                                text = user.displayName,
-                                style = CorusFont.caption,
-                                color = CorusColors.Secondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                    IconButton(onClick = { onRemoveUser(user.id) }) {
-                        Icon(
-                            Icons.Filled.Close,
-                            contentDescription = stringResource(fm.corus.android.R.string.search_cd_remove),
-                            tint = CorusColors.Tertiary,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
+                }
+            } else {
+                Text(
+                    text = recentItemTitle(item),
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val subtitle = recentItemSubtitle(item)
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
+        IconButton(onClick = onRemove) {
+            Icon(
+                Icons.Filled.Close,
+                contentDescription = stringResource(fm.corus.android.R.string.search_cd_remove),
+                tint = CorusColors.Tertiary,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+/** Primary line for a non-user recent entry. */
+private fun recentItemTitle(item: RecentSearchItem): String = when (item) {
+    is RecentSearchItem.UserEntry -> item.username
+    is RecentSearchItem.ArtistEntry -> item.name
+    is RecentSearchItem.AlbumEntry -> item.title
+    is RecentSearchItem.SongEntry -> item.name
+    is RecentSearchItem.FilmEntry -> item.title
+    is RecentSearchItem.DirectorEntry -> item.name
+    is RecentSearchItem.HashtagEntry -> "#${item.tag}"
+}
+
+/** Type-labelled secondary line (e.g. "Album · Modest Mouse", "Film · 2010"). */
+@Composable
+private fun recentItemSubtitle(item: RecentSearchItem): String? = when (item) {
+    is RecentSearchItem.UserEntry -> item.displayName.ifBlank { null }
+    is RecentSearchItem.ArtistEntry -> stringResource(fm.corus.android.R.string.destination_artist_label)
+    is RecentSearchItem.DirectorEntry -> stringResource(fm.corus.android.R.string.destination_director_label)
+    is RecentSearchItem.AlbumEntry ->
+        if (item.artistName.isNotBlank()) stringResource(fm.corus.android.R.string.destination_album_artist_format, item.artistName)
+        else stringResource(fm.corus.android.R.string.destination_album_label)
+    is RecentSearchItem.SongEntry ->
+        if (item.artistName.isNotBlank()) stringResource(fm.corus.android.R.string.destination_song_artist_format, item.artistName)
+        else stringResource(fm.corus.android.R.string.destination_song_label)
+    is RecentSearchItem.FilmEntry ->
+        item.releaseYear?.takeIf { it.isNotBlank() }
+            ?.let { stringResource(fm.corus.android.R.string.destination_film_year_format, it) }
+            ?: stringResource(fm.corus.android.R.string.destination_film_label)
+    is RecentSearchItem.HashtagEntry -> stringResource(fm.corus.android.R.string.destination_hashtag_label)
+}
+
+/** Leading 40dp media: circle for people (user/artist/director), rounded square
+ *  for art (album/song/film), a hashtag glyph tile for hashtags. */
+@Composable
+private fun RecentItemMedia(item: RecentSearchItem) {
+    when (item) {
+        is RecentSearchItem.UserEntry -> UserAvatarView(
+            avatarURL = item.avatarURL,
+            avatarThumbURL = item.avatarThumbURL,
+            displayName = item.displayName,
+            size = 40.dp,
+        )
+        is RecentSearchItem.ArtistEntry -> RecentCircleMedia(item.imageUrl, Icons.Filled.Mic)
+        is RecentSearchItem.DirectorEntry -> RecentCircleMedia(item.imageUrl, Icons.Filled.Movie)
+        is RecentSearchItem.AlbumEntry -> RecentSquareMedia(item.coverUrl, Icons.Filled.MusicNote)
+        is RecentSearchItem.SongEntry -> RecentSquareMedia(item.albumArtURL, Icons.Filled.MusicNote)
+        is RecentSearchItem.FilmEntry -> RecentSquareMedia(item.posterURL, Icons.Filled.Movie)
+        is RecentSearchItem.HashtagEntry -> RecentHashtagMedia()
+    }
+}
+
+@Composable
+private fun RecentCircleMedia(url: String?, fallback: ImageVector) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(CorusColors.CardBackground),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (url != null) {
+            AsyncImage(model = url, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Icon(fallback, contentDescription = null, tint = CorusColors.Tertiary, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable
+private fun RecentSquareMedia(url: String?, fallback: ImageVector) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+            .background(CorusColors.CardBackground),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (url != null) {
+            AsyncImage(model = url, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Icon(fallback, contentDescription = null, tint = CorusColors.Tertiary, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable
+private fun RecentHashtagMedia() {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+            .background(CorusColors.CardBackground),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Filled.Tag, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(18.dp))
     }
 }
 

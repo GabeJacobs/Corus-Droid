@@ -91,7 +91,7 @@ class SearchViewModelUnifiedSearchTest {
         musicSearchRepository = mock()
         tmdbRepository = mock()
         preferencesDataStore = mock {
-            on { recentSearchUsers } doReturn kotlinx.coroutines.flow.flowOf(emptyList())
+            on { recentSearches } doReturn kotlinx.coroutines.flow.flowOf(emptyList())
             on { contactsSyncStatus } doReturn kotlinx.coroutines.flow.flowOf("notAsked")
             // The trending-window StateFlows are built from these at
             // construction; a null flow NPEs inside stateIn's transform.

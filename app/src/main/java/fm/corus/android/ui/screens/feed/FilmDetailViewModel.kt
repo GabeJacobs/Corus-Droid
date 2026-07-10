@@ -36,11 +36,34 @@ class FilmDetailViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
+    private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
+
+    // ── On-tap director resolution (artist_pages_enabled) ──
+    // "Go to Director" always shows; when the seed post lacks directorIds,
+    // resolveDirectors looks them up via resolveFilmDirectors (server-cached by
+    // movieId) and caches the id here for instant repeat taps. Mirrors
+    // SongDetailViewModel.resolveDestinations.
+    private val _resolvedDirectorId = MutableStateFlow<String?>(null)
+    val resolvedDirectorId: StateFlow<String?> = _resolvedDirectorId.asStateFlow()
+
+    private val _isResolvingDestination = MutableStateFlow(false)
+    val isResolvingDestination: StateFlow<Boolean> = _isResolvingDestination.asStateFlow()
+
+    /** Resolve the film's TMDB director ids on demand (server-cached), cache the
+     *  first id, and return the list so the caller can navigate immediately
+     *  (state emission is async). Empty on a miss. */
+    suspend fun resolveDirectors(movieId: String): List<String> {
+        _isResolvingDestination.value = true
+        val ids = cloudFunctions.resolveFilmDirectors(movieId)
+        _isResolvingDestination.value = false
+        ids.firstOrNull()?.let { _resolvedDirectorId.value = it }
+        return ids
+    }
 
     init {
         viewModelScope.launch {

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MusicMatchData
+import fm.corus.android.data.model.RecentSearchItem
 import fm.corus.android.data.model.SharedMoviePreview
 import fm.corus.android.data.model.SharedTrackPreview
 import fm.corus.android.data.model.SuggestedUserMatch
@@ -167,46 +168,44 @@ private fun PersistedSuggestedMatch.toModel() = SuggestedUserMatch(
     suggestionReason = if (mutualNames.isNotEmpty()) SuggestionReason(mutualNames) else null,
 )
 
-// ── Serializable DTO for recent search persistence ──
+// ── Recent search persistence ──
+// Recents are stored as a `kind`-discriminated polymorphic JSON array (see
+// [RecentSearchItem]). Old builds stored a users-only array with NO discriminator;
+// [LegacyRecentUserEntry] decodes that shape as a fallback so existing recents
+// survive the upgrade instead of being wiped.
 
 @Serializable
-private data class RecentSearchEntry(
+private data class LegacyRecentUserEntry(
     val id: String,
-    val username: String,
-    val displayName: String,
+    val username: String = "",
+    val displayName: String = "",
     val avatarURL: String? = null,
     val avatarThumbURL: String? = null,
     val isVerified: Boolean = false,
     val isClubMember: Boolean = false,
     val isBot: Boolean = false,
     val profileFlair: String = "checkmark",
-)
+) {
+    fun toItem() = RecentSearchItem.UserEntry(
+        id = id,
+        username = username,
+        displayName = displayName,
+        avatarURL = avatarURL,
+        avatarThumbURL = avatarThumbURL,
+        isVerified = isVerified,
+        isClubMember = isClubMember,
+        isBot = isBot,
+        profileFlair = profileFlair,
+    )
+}
 
 private val recentJson = Json { ignoreUnknownKeys = true }
 
-private fun CymbalUser.toRecentEntry() = RecentSearchEntry(
-    id = id,
-    username = username,
-    displayName = displayName,
-    avatarURL = avatarURL,
-    avatarThumbURL = avatarThumbURL,
-    isVerified = isVerified,
-    isClubMember = isClubMember,
-    isBot = isBot,
-    profileFlair = profileFlair,
-)
-
-private fun RecentSearchEntry.toUser() = CymbalUser(
-    id = id,
-    username = username,
-    displayName = displayName,
-    avatarURL = avatarURL,
-    avatarThumbURL = avatarThumbURL,
-    isVerified = isVerified,
-    isClubMember = isClubMember,
-    isBot = isBot,
-    profileFlair = profileFlair,
-)
+/** Polymorphic codec for the recents array — writes/reads the `kind` tag. */
+private val recentSearchJson = Json {
+    ignoreUnknownKeys = true
+    classDiscriminator = "kind"
+}
 
 @Singleton
 class PreferencesDataStore @Inject constructor(
@@ -462,48 +461,43 @@ class PreferencesDataStore @Inject constructor(
         dataStore.edit { it[HAS_CONFIRMED_FEED_PLAYLIST] = true }
     }
 
-    // ── Recent Searches (stored as JSON array of user objects) ──
+    // ── Recent Searches (polymorphic JSON array of RecentSearchItem) ──
 
-    val recentSearchUsers: Flow<List<CymbalUser>> = dataStore.data.map { prefs ->
-        val raw = prefs[RECENT_SEARCHES] ?: ""
-        if (raw.isBlank()) {
-            emptyList()
-        } else {
+    /** Decode the stored recents, falling back to the legacy users-only shape so
+     *  recents saved by older builds aren't lost on upgrade. Capped defensively. */
+    private fun decodeRecents(raw: String?): List<RecentSearchItem> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return try {
+            recentSearchJson.decodeFromString<List<RecentSearchItem>>(raw)
+        } catch (_: Exception) {
+            // Legacy format has no `kind` discriminator — decode as users.
             try {
-                recentJson.decodeFromString<List<RecentSearchEntry>>(raw).map { it.toUser() }
+                recentJson.decodeFromString<List<LegacyRecentUserEntry>>(raw).map { it.toItem() }
             } catch (_: Exception) {
-                // Migrate old comma-separated username format gracefully
                 emptyList()
             }
         }
     }
 
-    suspend fun addRecentSearchUser(user: CymbalUser) {
+    val recentSearches: Flow<List<RecentSearchItem>> = dataStore.data.map { prefs ->
+        decodeRecents(prefs[RECENT_SEARCHES])
+    }
+
+    /** Record a tapped result. Moves an existing (kind,id) to the front,
+     *  refreshing its stored payload; capped at 15 most-recent-first. */
+    suspend fun addRecentSearch(item: RecentSearchItem) {
         dataStore.edit { prefs ->
-            val existing = try {
-                val raw = prefs[RECENT_SEARCHES] ?: ""
-                if (raw.isBlank()) emptyList()
-                else recentJson.decodeFromString<List<RecentSearchEntry>>(raw)
-            } catch (_: Exception) {
-                emptyList()
-            }
-            val entry = user.toRecentEntry()
-            val updated = listOf(entry) + existing.filter { it.id != user.id }
-            prefs[RECENT_SEARCHES] = recentJson.encodeToString(updated.take(15))
+            val existing = decodeRecents(prefs[RECENT_SEARCHES])
+            val updated = listOf(item) + existing.filter { it.dedupeKey != item.dedupeKey }
+            prefs[RECENT_SEARCHES] = recentSearchJson.encodeToString(updated.take(15))
         }
     }
 
-    suspend fun removeRecentSearchUser(userId: String) {
+    suspend fun removeRecentSearch(dedupeKey: String) {
         dataStore.edit { prefs ->
-            val existing = try {
-                val raw = prefs[RECENT_SEARCHES] ?: ""
-                if (raw.isBlank()) emptyList()
-                else recentJson.decodeFromString<List<RecentSearchEntry>>(raw)
-            } catch (_: Exception) {
-                emptyList()
-            }
-            val updated = existing.filter { it.id != userId }
-            prefs[RECENT_SEARCHES] = recentJson.encodeToString(updated)
+            val existing = decodeRecents(prefs[RECENT_SEARCHES])
+            val updated = existing.filter { it.dedupeKey != dedupeKey }
+            prefs[RECENT_SEARCHES] = recentSearchJson.encodeToString(updated)
         }
     }
 

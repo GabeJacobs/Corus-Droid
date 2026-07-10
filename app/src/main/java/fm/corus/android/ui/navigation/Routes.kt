@@ -2,6 +2,11 @@ package fm.corus.android.ui.navigation
 
 import kotlinx.serialization.Serializable
 
+/** SavedStateHandle key the mini-player uses to ask an already-visible
+ *  artist/album screen to scroll to a track in place (instead of pushing a
+ *  duplicate). Scoped to that screen's back stack entry. */
+const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
+
 // ── Top-Level Routes ──
 
 @Serializable object AuthRoute
@@ -135,6 +140,9 @@ import kotlinx.serialization.Serializable
     val artistId: String,
     val name: String? = null,
     val imageUrl: String? = null,
+    /** Mini-player "return to origin": scroll the Popular list to this catalog
+     *  track id once the page loads. Null for ordinary artist-page navigation. */
+    val scrollToTrackId: String? = null,
 )
 @Serializable data class AlbumPageRoute(
     /** Spotify album id, or `am:{appleAlbumId}` for Apple-resolved albums —
@@ -146,6 +154,9 @@ import kotlinx.serialization.Serializable
     /** Release year when the source row already knows it — paints the header
      *  meta line before the catalog loads. */
     val year: Int? = null,
+    /** Mini-player "return to origin": scroll the tracklist to this catalog
+     *  track id once the album loads. Null for ordinary album-page navigation. */
+    val scrollToTrackId: String? = null,
 )
 @Serializable data class DirectorPageRoute(
     val directorId: String,

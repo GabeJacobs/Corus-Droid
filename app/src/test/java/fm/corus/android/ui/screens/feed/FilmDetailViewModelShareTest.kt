@@ -52,6 +52,7 @@ class FilmDetailViewModelShareTest {
             authRepository = authRepository,
             userRepository = userRepository,
             messageRepository = messageRepository,
+            cloudFunctions = mock(),
             context = mock(),
         )
     }

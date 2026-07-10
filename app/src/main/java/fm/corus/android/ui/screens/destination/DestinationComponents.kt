@@ -45,7 +45,9 @@ import fm.corus.android.data.model.CorusUserLink
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.FlairStyle
+import fm.corus.android.data.model.TrackCorusStats
 import fm.corus.android.data.model.UserLite
+import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.ui.components.UserAvatarView
@@ -463,6 +465,13 @@ internal fun CatalogTrackRow(
      *  so starting playback here rolls on through the rest — autoplay + a live
      *  mini-player Next button. Empty falls back to single-track playback. */
     queue: List<QueuedTrack> = emptyList(),
+    /** The artist/album page this row lives on, stamped onto the played track so
+     *  the mini-player can return here and scroll to the song. Null elsewhere. */
+    origin: CatalogPlaybackOrigin? = null,
+    /** Corus share stats for this Popular row (count + poster facepile). When
+     *  present with count > 0 on an ART row (number == null), the facepile +
+     *  "N shared" replaces the album·year subtitle, matching web + iOS. */
+    corusStats: TrackCorusStats? = null,
     onRowTap: () -> Unit,
     /** Fired when a NEW preview starts (not on pause/resume of the current
      *  track) — the analytics hook. */
@@ -498,17 +507,17 @@ internal fun CatalogTrackRow(
                 } else {
                     // Play this track as part of the surrounding list so the
                     // queue advances past it (mirrors the feed's playPreview).
-                    nowPlaying.play(track = track.toQueuedTrack(), queue = queue)
+                    nowPlaying.play(track = track.toQueuedTrack(origin), queue = queue)
                 }
             }
             onPreviewStarted()
         }
     }
 
-    // Numbered rows (album tracklist) follow the music-app convention: the ROW
-    // plays and the trailing duration+chevron navigates. Art rows (artist
-    // Popular) keep row-tap → song page, art → play. Mirrors iOS + web.
-    val rowTapPlays = number != null
+    // Both row types now share the album tap map: the ROW plays and the trailing
+    // duration+chevron cluster opens the song page. `number` only picks the
+    // leading visual (album art vs track number). Mirrors iOS + web.
+    val rowTapPlays = true
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -611,21 +620,62 @@ internal fun CatalogTrackRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val subtitle = if (number == null) {
-                // Artist "Popular" rows: "{albumName} · {year}".
-                val year = track.releaseDate?.take(4).orEmpty()
-                listOf(track.albumName, year).filter { it.isNotBlank() }.joinToString(" · ")
+            val facepile = if (number == null) corusStats?.takeIf { it.count > 0 } else null
+            if (facepile != null) {
+                // Poster facepile + "N shared" — the social signal, replacing
+                // album·year (matches web + iOS). Overlapping avatars like the
+                // "Shared by N people" row, scaled down to the subtitle line.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Show up to 5 (what the backend sends) so a "5 shared" row
+                    // shows 5 faces, not 4.
+                    val shown = facepile.posters.take(5)
+                    if (shown.isNotEmpty()) {
+                        Box {
+                            shown.forEachIndexed { index, poster ->
+                                Box(
+                                    modifier = Modifier
+                                        .offset(x = (index * 14).dp)
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(CorusColors.Background),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    UserAvatarView(
+                                        avatarURL = poster.avatarUrl,
+                                        displayName = poster.displayName,
+                                        size = 18.dp,
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(((shown.size - 1) * 14 + 20).dp))
+                        }
+                        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                    }
+                    Text(
+                        text = stringResource(R.string.destination_n_shared, formatDestinationCount(facepile.count)),
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             } else {
-                track.artistName
-            }
-            if (subtitle.isNotBlank()) {
-                Text(
-                    text = subtitle,
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                val subtitle = if (number == null) {
+                    // Artist "Popular" rows: "{albumName} · {year}".
+                    val year = track.releaseDate?.take(4).orEmpty()
+                    listOf(track.albumName, year).filter { it.isNotBlank() }.joinToString(" · ")
+                } else {
+                    track.artistName
+                }
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
 
@@ -671,7 +721,7 @@ internal fun CatalogTrackRow(
  * the single-track play args in [CatalogTrackRow] so behaviour is identical
  * whether or not a queue is supplied.
  */
-internal fun CymbalTrack.toQueuedTrack() = QueuedTrack(
+internal fun CymbalTrack.toQueuedTrack(origin: CatalogPlaybackOrigin? = null) = QueuedTrack(
     trackId = id,
     trackName = name,
     artistName = artistName,
@@ -685,6 +735,7 @@ internal fun CymbalTrack.toQueuedTrack() = QueuedTrack(
     source = source,
     soundcloudId = soundcloudId,
     soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+    catalogOrigin = origin,
 )
 
 /**

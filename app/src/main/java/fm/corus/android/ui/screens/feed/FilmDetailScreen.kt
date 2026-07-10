@@ -46,6 +46,7 @@ import fm.corus.android.ui.components.InlineYouTubePlayer
 import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.ToastManager
+import kotlinx.coroutines.launch
 import fm.corus.android.ui.components.youTubeVideoID
 import fm.corus.android.ui.components.SkeletonFilmDetailHeader
 import fm.corus.android.ui.components.SkeletonUserRow
@@ -97,10 +98,42 @@ fun FilmDetailScreen(
     val isShareSearching by viewModel.isShareSearching.collectAsState()
     val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
 
-    // TMDB director ids for the "..." menu's Go to Director row — same gating as
-    // the tappable director line below the title (loaded posts carry them).
+    // Director resolution: "Go to Director" always shows (feature on). Fast-path
+    // id = the first loaded post carrying directorIds, else an id resolved on a
+    // prior tap this session (vm). When none is known the tap resolves it from
+    // the film's TMDB id (goToDirector).
+    val resolvedDirectorId by viewModel.resolvedDirectorId.collectAsState()
+    val isResolvingDestination by viewModel.isResolvingDestination.collectAsState()
+    val scope = rememberCoroutineScope()
     val menuDirectorIds = posts.firstOrNull { it.directorIds.isNotEmpty() }?.directorIds ?: emptyList()
-    val menuDirectorId = menuDirectorIds.firstOrNull()
+    val effectiveDirectorId = menuDirectorIds.firstOrNull() ?: resolvedDirectorId
+    val directorNameForHint = movieHeader?.directorName ?: initialDirectorName ?: ""
+    val directorMissMsg = stringResource(R.string.film_detail_director_not_found)
+
+    fun openDirector(id: String, idCount: Int) {
+        onNavigateToDirector?.invoke(
+            fm.corus.android.ui.navigation.DirectorPageRoute(
+                directorId = id,
+                name = fm.corus.android.data.model.primaryNameHint(
+                    directorNameForHint, idCount,
+                ).ifEmpty { null },
+            )
+        )
+    }
+
+    // Open the director page: use a known id instantly, else resolve on tap.
+    fun goToDirector() {
+        val known = effectiveDirectorId
+        if (known != null) {
+            openDirector(known, maxOf(menuDirectorIds.size, 1))
+            return
+        }
+        scope.launch {
+            val ids = viewModel.resolveDirectors(movieId)
+            val id = ids.firstOrNull()
+            if (id != null) openDirector(id, ids.size) else ToastManager.show(directorMissMsg)
+        }
+    }
 
     // The film as a CymbalMovie for the share sheet — header info + route hints,
     // with directorIds + tmdbWebURL pulled from a loaded post when present.
@@ -180,21 +213,15 @@ fun FilmDetailScreen(
                                     showShareSheet = true
                                 },
                             )
-                            if (onNavigateToDirector != null && menuDirectorId != null) {
+                            // Always offered when the feature is on — resolves
+                            // the director id on tap if the seed post lacks it.
+                            if (onNavigateToDirector != null) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.post_menu_go_to_director), style = CorusFont.body) },
                                     leadingIcon = { Icon(Icons.Filled.MovieCreation, contentDescription = null) },
                                     onClick = {
                                         menuExpanded = false
-                                        onNavigateToDirector(
-                                            fm.corus.android.ui.navigation.DirectorPageRoute(
-                                                directorId = menuDirectorId,
-                                                name = fm.corus.android.data.model.primaryNameHint(
-                                                    movieHeader?.directorName ?: initialDirectorName ?: "",
-                                                    menuDirectorIds.size,
-                                                ).ifEmpty { null },
-                                            )
-                                        )
+                                        goToDirector()
                                     },
                                 )
                             }
@@ -206,10 +233,9 @@ fun FilmDetailScreen(
             )
         },
     ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
         ) {
@@ -336,24 +362,13 @@ fun FilmDetailScreen(
                         }
                     }
 
-                    // Director — tappable when the artist-pages flag is on AND
-                    // the loaded posts carry directorIds (legacy posts don't).
-                    // Style identical either way (no accent, no underline).
+                    // Director — tappable whenever the artist-pages flag is on;
+                    // goToDirector uses a known id (post / prior resolve) or
+                    // resolves it on tap. Style unchanged (no accent, no underline).
                     if (!header.directorName.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xxs))
-                        val directorIds = posts.firstOrNull()?.directorIds ?: emptyList()
-                        val directorId = directorIds.firstOrNull()
-                        val directorTapModifier = if (onNavigateToDirector != null && directorId != null) {
-                            Modifier.clickable {
-                                onNavigateToDirector(
-                                    fm.corus.android.ui.navigation.DirectorPageRoute(
-                                        directorId = directorId,
-                                        name = fm.corus.android.data.model.primaryNameHint(
-                                            header.directorName, directorIds.size,
-                                        ).ifEmpty { null },
-                                    )
-                                )
-                            }
+                        val directorTapModifier = if (onNavigateToDirector != null) {
+                            Modifier.clickable { goToDirector() }
                         } else Modifier
                         Text(
                             text = header.directorName,
@@ -574,6 +589,32 @@ fun FilmDetailScreen(
                     }
                 }
             }
+        }
+        // On-tap director resolve HUD — a brief top spinner while we look up the
+        // director id. Misses surface as a toast (ToastManager).
+        if (isResolvingDestination) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 72.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.Black.copy(alpha = 0.8f))
+                    .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                Text(
+                    text = stringResource(R.string.film_detail_resolving),
+                    style = CorusFont.caption,
+                    color = Color.White,
+                )
+            }
+        }
         }
     }
 
