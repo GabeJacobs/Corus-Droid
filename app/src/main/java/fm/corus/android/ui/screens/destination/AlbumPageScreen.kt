@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -132,6 +133,9 @@ fun AlbumPageScreen(
     val albumQueue = remember(tracks, albumOrigin) { tracks.map { it.toQueuedTrack(albumOrigin) } }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    // Estimated tracklist-row height (px), for centering the return-to-origin
+    // scroll in the viewport instead of pinning the row to the top.
+    val catalogRowHeightPx = with(LocalDensity.current) { 64.dp.toPx() }.toInt()
 
     LaunchedEffect(albumId) {
         viewModel.analyticsService.logAlbumPageViewed(albumId)
@@ -151,7 +155,7 @@ fun AlbumPageScreen(
         didScrollToOrigin = true
         val targetIndex = 1 + pos // 1 header item precedes the tracklist
         snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > targetIndex }
-        listState.animateScrollToItem(targetIndex)
+        listState.animateScrollToItemCentered(targetIndex, catalogRowHeightPx)
     }
 
     // Mini-player tap while this album page is already visible: scroll to the
@@ -163,7 +167,7 @@ fun AlbumPageScreen(
         if (loaded == null || pos < 0) { onInPlaceScrollConsumed(); return@LaunchedEffect }
         val targetIndex = 1 + pos // 1 header item precedes the tracklist
         snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > targetIndex }
-        listState.animateScrollToItem(targetIndex)
+        listState.animateScrollToItemCentered(targetIndex, catalogRowHeightPx)
         onInPlaceScrollConsumed()
     }
 

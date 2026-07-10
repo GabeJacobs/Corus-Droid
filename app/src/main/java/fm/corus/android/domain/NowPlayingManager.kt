@@ -841,10 +841,14 @@ class NowPlayingManager @Inject constructor(
         // Resolve playback URL.
         //   SoundCloud → fetch a fresh signed HLS URL (short-lived, never cached on the post).
         //   Spotify/Apple → use the 30s preview URL (looked up server-side via Apple Music).
-        val resolvedUrl = if (track.source == TrackSource.SOUNDCLOUD) {
-            track.soundcloudId?.let { resolveSoundCloudStream(it) }
-        } else {
-            track.previewUrl?.takeIf { it.isNotBlank() }
+        val resolvedUrl = when (track.source) {
+            TrackSource.SOUNDCLOUD -> track.soundcloudId?.let { resolveSoundCloudStream(it) }
+            // Audiomack is link-out only — never stream in-app, and never fall
+            // through to the Apple-preview lookup (which would play a WRONG
+            // track for an Audiomack id). Yields null so playback stops
+            // gracefully here; the UI opens the Audiomack page instead.
+            TrackSource.AUDIOMACK -> null
+            else -> track.previewUrl?.takeIf { it.isNotBlank() }
                 ?: previewCache[trackId]
                 ?: lookupPreviewUrl(trackId, track.trackName, track.artistName, track.isrc)
         }
@@ -857,8 +861,10 @@ class NowPlayingManager @Inject constructor(
         if (resolvedUrl == null) {
             // No playable preview (e.g. a Spotify track with no Apple Music
             // match). Tell the user, but only on an explicit tap — auto-advance
-            // just stops rather than spamming a toast per dead track.
-            if (userInitiated) _previewUnavailable.tryEmit(Unit)
+            // just stops rather than spamming a toast per dead track. Audiomack
+            // is intentionally unplayable (link-out only), so suppress the toast
+            // for it — the tap surfaces open the Audiomack page instead.
+            if (userInitiated && track.source != TrackSource.AUDIOMACK) _previewUnavailable.tryEmit(Unit)
             return
         }
 

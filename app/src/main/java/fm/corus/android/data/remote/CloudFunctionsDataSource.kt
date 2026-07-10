@@ -1163,7 +1163,7 @@ class CloudFunctionsDataSource @Inject constructor(
             "limit" to limit,
             "market" to market,
             "includeSoundCloud" to includeSoundCloud,
-            "supports" to listOf("spotify", "soundcloud", "applemusic"),
+            "supports" to listOf("spotify", "soundcloud", "applemusic", "audiomack"),
         )
         // Artist/album rows for the destination pages feature. Attached ONLY
         // when requested (artist_pages_enabled on) — with the keys absent the

@@ -827,6 +827,7 @@ private fun SearchModeContent(
                             isPlaying = result.showPlayOverlay && nowPlayingTrackId == result.id,
                             isLoading = result.showPlayOverlay && previewLoadingTrackId == result.id,
                             isSoundCloud = result.isSoundCloud,
+                            isAudiomack = result.isAudiomack,
                             onAlbumArtTap = if (result.showPlayOverlay) {{ onPreviewTap(result.id) }} else null,
                             onClick = { onResultClick(result) },
                         )
@@ -1136,6 +1137,7 @@ private fun SearchResultRow(
     isPlaying: Boolean = false,
     isLoading: Boolean = false,
     isSoundCloud: Boolean = false,
+    isAudiomack: Boolean = false,
     onAlbumArtTap: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
@@ -1163,6 +1165,10 @@ private fun SearchResultRow(
             )
             if (isSoundCloud) {
                 fm.corus.android.ui.components.SoundCloudBadgeOverlay(
+                    modifier = Modifier.align(Alignment.BottomEnd),
+                )
+            } else if (isAudiomack) {
+                fm.corus.android.ui.components.AudiomackBadgeOverlay(
                     modifier = Modifier.align(Alignment.BottomEnd),
                 )
             }

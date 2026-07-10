@@ -333,6 +333,7 @@
     <string name="song_detail_play_in_service">Play in %1$s</string>
     <string name="song_detail_open_in_service">Open in %1$s</string>
     <string name="song_detail_listen_soundcloud">Listen on SoundCloud</string>
+    <string name="song_detail_listen_audiomack">Listen on Audiomack</string>
     <string name="song_detail_cd_pause_preview">Pause preview</string>
     <string name="song_detail_cd_play_preview">Play preview</string>
     <string name="song_detail_posted_by">Posted by</string>
@@ -841,6 +842,7 @@
     <!-- Post action menu -->
     <string name="post_menu_play_in_service">Play in %1$s</string>
     <string name="post_menu_open_soundcloud">Open in SoundCloud</string>
+    <string name="post_menu_open_audiomack">Open in Audiomack</string>
     <string name="post_menu_view_film_page">Go to Film</string>
     <string name="post_menu_view_song_page">Go to Song</string>
     <string name="post_menu_view_front_cover">View Front Cover</string>

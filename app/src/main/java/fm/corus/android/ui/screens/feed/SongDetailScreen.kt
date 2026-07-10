@@ -130,7 +130,12 @@ fun SongDetailScreen(
     val effectiveSource = songInfo?.track?.source ?: TrackSource.fromRaw(source)
     val effectiveSoundcloudId = songInfo?.track?.soundcloudId ?: soundcloudId
     val effectiveSoundcloudPermalinkUrl = songInfo?.track?.soundcloudPermalinkUrl ?: soundcloudPermalinkUrl
+    // Audiomack page url comes from the loaded post's track (search-only,
+    // post-less Audiomack tracks aren't routed here with a url yet). Link-out
+    // only — used to open the Audiomack page; there is no in-app playback.
+    val effectiveAudiomackUrl = songInfo?.track?.audiomackUrl
     val isSoundCloud = effectiveSource == TrackSource.SOUNDCLOUD
+    val isAudiomack = effectiveSource == TrackSource.AUDIOMACK
     val isAppleMusic = effectiveSource == TrackSource.APPLEMUSIC
     // Apple Music URL is derived from the appleMusicId on the resolved
     // track (preferred) or the `am:` prefix on the trackId (fallback).
@@ -166,9 +171,9 @@ fun SongDetailScreen(
     val menuAlbumTrack = songInfo?.track
     val effectiveAlbumId = resolveSongAlbumId(albumId, posts) ?: vmResolvedAlbumId
 
-    // "Go to Album" is offered for everything except SoundCloud, which has no
-    // album (no album concept, no ISRC to resolve with) — a dead end.
-    val canShowAlbum = !isSoundCloud
+    // "Go to Album" is offered for everything except SoundCloud and Audiomack,
+    // which have no album concept / no ISRC to resolve with — a dead end.
+    val canShowAlbum = !isSoundCloud && !isAudiomack
 
     val artistMissMsg = stringResource(R.string.song_detail_artist_not_found)
     val albumMissMsg = stringResource(R.string.song_detail_album_not_found)
@@ -531,6 +536,25 @@ fun SongDetailScreen(
                             )
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
                             Text(stringResource(R.string.song_detail_listen_soundcloud), style = CorusFont.buttonSmall)
+                        }
+                    } else if (isAudiomack && !effectiveAudiomackUrl.isNullOrBlank()) {
+                        // Listen on Audiomack capsule — link-out only (no in-app
+                        // playback). Black capsule so the full-color orange mark
+                        // reads. Only shown when we have the page url (loaded post).
+                        Button(
+                            onClick = {
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(effectiveAudiomackUrl))) }
+                            },
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black,
+                                contentColor = Color.White,
+                            ),
+                            contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        ) {
+                            fm.corus.android.ui.components.AudiomackLogo(height = 16.dp)
+                            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                            Text(stringResource(R.string.song_detail_listen_audiomack), style = CorusFont.buttonSmall)
                         }
                     } else if (isAppleMusic) {
                         // Apple-only tracks (e.g. Joanna Newsom) aren't in Spotify's

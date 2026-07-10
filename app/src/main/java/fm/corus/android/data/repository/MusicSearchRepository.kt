@@ -42,6 +42,11 @@ internal fun parseUnifiedTrack(d: Map<String, Any?>): CymbalTrack? {
         source = source,
         soundcloudId = (d["soundcloudId"] as? String)?.ifEmpty { null },
         soundcloudPermalinkUrl = (d["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
+        // Audiomack-only tracks (source == "audiomack", id == "amk:<id>"). Carry
+        // the id + canonical page url; both are used for the external link-out
+        // (Audiomack blocks in-app playback). Absent/null for other sources.
+        audiomackId = (d["audiomackId"] as? String)?.ifEmpty { null },
+        audiomackUrl = (d["audiomackUrl"] as? String)?.ifEmpty { null },
         // Apple-Music-only tracks ship `appleMusicId` directly from
         // search; the `am:` prefix on `id` is the discriminator the
         // rest of the app branches on, but carrying the raw id avoids

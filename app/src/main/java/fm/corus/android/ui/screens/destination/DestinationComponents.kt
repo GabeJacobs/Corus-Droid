@@ -3,6 +3,7 @@ package fm.corus.android.ui.screens.destination
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +58,19 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.util.DateUtils
 import kotlinx.coroutines.launch
+
+/** Scroll so [index] ends up vertically CENTERED in the viewport, matching iOS's
+ *  `proxy.scrollTo(anchor: .center)` — rather than pinned to the top, which is
+ *  what a bare `animateScrollToItem` does. [rowHeightPx] is the catalog row's
+ *  height; the estimate's imprecision is imperceptible against a full-screen
+ *  viewport, and the scroll clamps naturally near the list edges. */
+internal suspend fun LazyListState.animateScrollToItemCentered(index: Int, rowHeightPx: Int) {
+    val viewportHeight = layoutInfo.viewportSize.height
+    // A negative offset places the row's top BELOW the viewport top by half the
+    // free space, so the row sits in the middle instead of at the top edge.
+    val centerOffset = -((viewportHeight - rowHeightPx) / 2).coerceAtLeast(0)
+    animateScrollToItem(index, centerOffset)
+}
 
 /** K/M count formatting shared by the destination pages ("Shared by 1.2K
  *  people"). Mirrors SongDetailScreen's formatUserCount. */

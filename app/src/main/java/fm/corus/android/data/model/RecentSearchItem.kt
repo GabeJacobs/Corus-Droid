@@ -101,6 +101,8 @@ sealed class RecentSearchItem {
         val source: String = "spotify",
         val soundcloudId: String? = null,
         val soundcloudPermalinkUrl: String? = null,
+        val audiomackId: String? = null,
+        val audiomackUrl: String? = null,
         val isrc: String? = null,
         val artistIds: List<String> = emptyList(),
         val albumId: String? = null,
@@ -129,6 +131,8 @@ sealed class RecentSearchItem {
             source = TrackSource.fromRaw(source),
             soundcloudId = soundcloudId,
             soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+            audiomackId = audiomackId,
+            audiomackUrl = audiomackUrl,
         )
     }
 
@@ -232,6 +236,8 @@ sealed class RecentSearchItem {
             source = t.source.raw,
             soundcloudId = t.soundcloudId,
             soundcloudPermalinkUrl = t.soundcloudPermalinkUrl,
+            audiomackId = t.audiomackId,
+            audiomackUrl = t.audiomackUrl,
             isrc = t.isrc,
             artistIds = t.artistIds,
             albumId = t.albumId,

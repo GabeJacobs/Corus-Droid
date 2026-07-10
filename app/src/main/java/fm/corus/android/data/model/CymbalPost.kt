@@ -178,6 +178,10 @@ data class CymbalPost(
 
             val trackSource = TrackSource.fromRaw(data["trackSource"] as? String ?: data["source"] as? String)
             val isTrackSoundCloud = trackSource == TrackSource.SOUNDCLOUD
+            // Audiomack is link-out only and not on Spotify — blank the Spotify
+            // fields (like SoundCloud) so no broken "Open in Spotify" link is
+            // synthesized from a non-Spotify trackId.
+            val isTrackAudiomack = trackSource == TrackSource.AUDIOMACK
             val track = CymbalTrack(
                 id = data["trackId"] as? String ?: "",
                 name = data["trackName"] as? String ?: "",
@@ -196,8 +200,8 @@ data class CymbalPost(
                 albumId = (data["albumId"] as? String)?.ifEmpty { null },
                 albumArtURL = data["albumArtThumbnailURL"] as? String ?: data["albumArtURL"] as? String,
                 albumArtLargeURL = data["albumArtLargeURL"] as? String,
-                spotifyURI = if (isTrackSoundCloud) "" else (data["spotifyURI"] as? String ?: ""),
-                spotifyWebURL = if (isTrackSoundCloud) "" else (data["spotifyWebURL"] as? String ?: ""),
+                spotifyURI = if (isTrackSoundCloud || isTrackAudiomack) "" else (data["spotifyURI"] as? String ?: ""),
+                spotifyWebURL = if (isTrackSoundCloud || isTrackAudiomack) "" else (data["spotifyWebURL"] as? String ?: ""),
                 durationMs = (data["durationMs"] as? Number)?.toInt() ?: 0,
                 previewUrl = data["previewUrl"] as? String ?: data["previewURL"] as? String,
                 isrc = data["isrc"] as? String,
@@ -207,6 +211,8 @@ data class CymbalPost(
                 source = trackSource,
                 soundcloudId = (data["soundcloudId"] as? String)?.ifEmpty { null },
                 soundcloudPermalinkUrl = (data["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
+                audiomackId = (data["audiomackId"] as? String)?.ifEmpty { null },
+                audiomackUrl = (data["audiomackUrl"] as? String)?.ifEmpty { null },
                 // Tri-state, drives the service badge. Preserve "" (resolver
                 // confirmed NOT on Apple Music) vs null (unknown / field absent).
                 // Don't collapse "" to null, or a confirmed Spotify-only track

@@ -1,5 +1,7 @@
 package fm.corus.android.ui.components
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.tween
@@ -170,6 +172,15 @@ fun PostCard(
     var showUnavailableToast by remember(post.id) { mutableStateOf(false) }
     val flipState = backCoverFlipState
     val haptics = LocalHapticManager.current
+    val postCardContext = LocalContext.current
+    // Audiomack is link-out only (no in-app playback) — both the album-art play
+    // tap and the service badge open the track's Audiomack page externally.
+    // Gated on the source discriminator; null/blank url is a graceful no-op.
+    val openAudiomack: () -> Unit = {
+        post.track.audiomackLinkOutUrl?.let { url ->
+            runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        }
+    }
 
     // Inline Trending "Follow" pill state. `followTapped` latches so the pill
     // keeps rendering through its confirm→fade animation even after the
@@ -413,6 +424,10 @@ fun PostCard(
                                                 showUnavailableToast = false
                                             }
                                         }
+                                        // Audiomack never streams in-app — the
+                                        // album-art play tap opens its page instead.
+                                        post.isTrack && post.track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK ->
+                                            openAudiomack()
                                         post.isTrack -> onPreviewTap()
                                         // Prototype: a single tap plays the trailer inline when one
                                         // exists; posters without a trailer fall back to the overlay
@@ -842,6 +857,7 @@ fun PostCard(
                 }
             } else {
                 val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
+                val isAudiomack = post.track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
                 val isAppleMusic = post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
                 val cd = stringResource(
                     when {
@@ -857,7 +873,20 @@ fun PostCard(
                         indication = null,
                         onClick = onSpotifyTap,
                     )
-                if (isSoundCloud) {
+                if (isAudiomack) {
+                    // Audiomack mark: full-color, no theme switch, natural aspect.
+                    // Its tap links out (never streams) — bypasses onSpotifyTap.
+                    AudiomackLogo(
+                        height = 20.dp,
+                        modifier = Modifier
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = openAudiomack,
+                            )
+                            .semantics { contentDescription = cd },
+                    )
+                } else if (isSoundCloud) {
                     SoundCloudAdaptiveLogo(
                         modifier = tapModifier.semantics { contentDescription = cd },
                         size = 28.dp,

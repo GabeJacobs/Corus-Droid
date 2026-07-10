@@ -12,7 +12,16 @@ enum class TrackSource(val raw: String) {
      * marks these with `trackSource: "applemusic"` and an `am:<id>` prefixed
      * trackId — same discriminator pattern as SoundCloud's `sc:` prefix.
      */
-    APPLEMUSIC("applemusic");
+    APPLEMUSIC("applemusic"),
+
+    /**
+     * Audiomack-sourced tracks (rap / hip-hop / afrobeats catalog that isn't on
+     * Spotify or Apple Music). Backend marks these with `source: "audiomack"` and
+     * an `amk:<id>` prefixed trackId — same discriminator pattern as SoundCloud's
+     * `sc:` and Apple's `am:`. LINK-OUT ONLY: Audiomack blocks full streams, so
+     * there is no in-app playback — play/badge taps open `audiomackUrl` externally.
+     */
+    AUDIOMACK("audiomack");
 
     companion object {
         fun fromRaw(raw: String?): TrackSource = entries.firstOrNull { it.raw == raw } ?: SPOTIFY
@@ -52,6 +61,14 @@ data class CymbalTrack(
     val soundcloudId: String? = null,
     val soundcloudPermalinkUrl: String? = null,
     /**
+     * Audiomack track id + canonical page URL. Populated only for
+     * `source == AUDIOMACK` tracks (where `id` is `amk:<audiomackId>`).
+     * Audiomack is link-out only — `previewUrl` / `isrc` are null, so play and
+     * badge taps open [audiomackUrl] externally instead of streaming in-app.
+     */
+    val audiomackId: String? = null,
+    val audiomackUrl: String? = null,
+    /**
      * Apple Music catalog id. Populated for Apple-Music-only tracks (where
      * `source == APPLEMUSIC` and `id` is `am:<appleMusicId>`); also lazily
      * filled for Spotify-source posts by the backend's apple_music_mappings
@@ -73,6 +90,15 @@ data class CymbalTrack(
             val seconds = durationMs / 1000
             return "${seconds / 60}:${"%02d".format(seconds % 60)}"
         }
+
+    /**
+     * External URL to open for a link-out-only source (Audiomack). Non-null only
+     * when this is an Audiomack track carrying a usable [audiomackUrl]; null for
+     * streamable sources (Spotify / SoundCloud / Apple) and for Audiomack tracks
+     * missing a url. Centralizes the link-out decision so the UI and tests agree.
+     */
+    val audiomackLinkOutUrl: String?
+        get() = if (source == TrackSource.AUDIOMACK) audiomackUrl?.takeIf { it.isNotBlank() } else null
 
     /**
      * Direct link to the song's Apple Music page. Prefers the resolved
@@ -132,7 +158,8 @@ data class CymbalTrack(
             // `spotify:track:sc:<id>` from a non-Spotify trackId just
             // produces broken "Open in Spotify" links — leave those fields
             // blank for non-Spotify sources.
-            val isNonSpotify = source == TrackSource.SOUNDCLOUD || source == TrackSource.APPLEMUSIC
+            val isNonSpotify = source == TrackSource.SOUNDCLOUD || source == TrackSource.APPLEMUSIC ||
+                source == TrackSource.AUDIOMACK
             val rawSpotifyURI = data["spotifyURI"] as? String ?: ""
             val rawSpotifyWebURL = data["spotifyWebURL"] as? String ?: ""
             @Suppress("UNCHECKED_CAST")
@@ -158,6 +185,8 @@ data class CymbalTrack(
                 source = source,
                 soundcloudId = (data["soundcloudId"] as? String)?.ifEmpty { null },
                 soundcloudPermalinkUrl = (data["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
+                audiomackId = (data["audiomackId"] as? String)?.ifEmpty { null },
+                audiomackUrl = (data["audiomackUrl"] as? String)?.ifEmpty { null },
                 // Tri-state, drives the service badge. Preserve "" (resolver
                 // confirmed NOT on Apple Music) vs null (unknown). See
                 // CymbalPost.fromMap and PostCard for why the distinction matters.

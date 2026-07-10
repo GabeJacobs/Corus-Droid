@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -166,6 +167,9 @@ fun ArtistPageScreen(
     val matchedVideos = detail?.musicVideos?.filter { it.youtubeId != null } ?: emptyList()
 
     val listState = rememberLazyListState()
+    // Estimated catalog-row height (px), for centering the return-to-origin
+    // scroll in the viewport instead of pinning the row to the top.
+    val catalogRowHeightPx = with(LocalDensity.current) { 64.dp.toPx() }.toInt()
     // Marks tracks played from this page so the mini-player returns here.
     val artistOrigin = CatalogPlaybackOrigin.Artist(
         id = artistId,
@@ -200,7 +204,7 @@ fun ArtistPageScreen(
         val targetIndex = artistPopularItemIndex(loaded.corusUser != null, uniquePosterCount, pos)
         // Wait until the (possibly just-expanded) list actually contains the row.
         snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > targetIndex }
-        listState.animateScrollToItem(targetIndex)
+        listState.animateScrollToItemCentered(targetIndex, catalogRowHeightPx)
     }
 
     // Mini-player tap while this artist page is already visible: scroll to the
@@ -215,7 +219,7 @@ fun ArtistPageScreen(
         if (pos >= 6) showAllPopular = true
         val targetIndex = artistPopularItemIndex(loaded.corusUser != null, uniquePosterCount, pos)
         snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > targetIndex }
-        listState.animateScrollToItem(targetIndex)
+        listState.animateScrollToItemCentered(targetIndex, catalogRowHeightPx)
         onInPlaceScrollConsumed()
     }
 

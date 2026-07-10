@@ -91,6 +91,7 @@ fun PostActionMenu(
         if (!isMovie) {
             val openLabel = when (post.track.source) {
                 TrackSource.SOUNDCLOUD -> stringResource(R.string.post_menu_open_soundcloud)
+                TrackSource.AUDIOMACK -> stringResource(R.string.post_menu_open_audiomack)
                 TrackSource.APPLEMUSIC ->
                     stringResource(R.string.post_menu_play_in_service, MusicService.APPLE_MUSIC.displayLabel)
                 else ->

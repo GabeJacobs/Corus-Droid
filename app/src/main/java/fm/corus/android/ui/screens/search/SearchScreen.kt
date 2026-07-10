@@ -2991,6 +2991,10 @@ private fun SongSearchRow(track: CymbalTrack, onClick: () -> Unit) {
                 fm.corus.android.ui.components.SoundCloudBadgeOverlay(
                     modifier = Modifier.align(Alignment.BottomEnd),
                 )
+            } else if (track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK) {
+                fm.corus.android.ui.components.AudiomackBadgeOverlay(
+                    modifier = Modifier.align(Alignment.BottomEnd),
+                )
             }
         }
         Column(
