@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -79,6 +80,23 @@ internal fun formatDestinationCount(count: Int): String = when {
     count < 1_000_000 -> String.format("%.2fK", count / 1000.0)
     else -> String.format("%.2fM", count / 1_000_000.0)
 }
+
+/** [CatalogTrackRow] subtitle: "{album} · {year}" on artist "Popular" (art)
+ *  rows, the artist name on album-tracklist (numbered) rows. Extracted pure so
+ *  the metadata line is unit-testable. Mirrors web + iOS. */
+internal fun catalogRowSubtitle(track: CymbalTrack, number: Int?): String =
+    if (number == null) {
+        val year = track.releaseDate?.take(4).orEmpty()
+        listOf(track.albumName, year).filter { it.isNotBlank() }.joinToString(" · ")
+    } else {
+        track.artistName
+    }
+
+/** The Corus share count shown in [CatalogTrackRow]'s trailing slot in place of
+ *  the duration, or null when the row keeps its duration — i.e. an unshared
+ *  track, or an album-tracklist (numbered) row. Mirrors web + iOS. */
+internal fun catalogRowSharedCount(number: Int?, corusStats: TrackCorusStats?): Int? =
+    if (number == null) corusStats?.count?.takeIf { it > 0 } else null
 
 /** Section header ("Popular" / "Discography" / "Recent posts"…) with an
  *  optional trailing "See all". Matches the song-detail header treatment. */
@@ -482,9 +500,10 @@ internal fun CatalogTrackRow(
     /** The artist/album page this row lives on, stamped onto the played track so
      *  the mini-player can return here and scroll to the song. Null elsewhere. */
     origin: CatalogPlaybackOrigin? = null,
-    /** Corus share stats for this Popular row (count + poster facepile). When
-     *  present with count > 0 on an ART row (number == null), the facepile +
-     *  "N shared" replaces the album·year subtitle, matching web + iOS. */
+    /** Corus share stats for this Popular row. When present with count > 0 on an
+     *  ART row (number == null), the trailing slot shows a people glyph + count in
+     *  place of the duration, while the subtitle keeps album·year. Matches web +
+     *  iOS. */
     corusStats: TrackCorusStats? = null,
     onRowTap: () -> Unit,
     /** Fired when a NEW preview starts (not on pause/resume of the current
@@ -634,69 +653,27 @@ internal fun CatalogTrackRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val facepile = if (number == null) corusStats?.takeIf { it.count > 0 } else null
-            if (facepile != null) {
-                // Poster facepile + "N shared" — the social signal, replacing
-                // album·year (matches web + iOS). Overlapping avatars like the
-                // "Shared by N people" row, scaled down to the subtitle line.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Show up to 5 (what the backend sends) so a "5 shared" row
-                    // shows 5 faces, not 4.
-                    val shown = facepile.posters.take(5)
-                    if (shown.isNotEmpty()) {
-                        Box {
-                            shown.forEachIndexed { index, poster ->
-                                Box(
-                                    modifier = Modifier
-                                        .offset(x = (index * 14).dp)
-                                        .size(20.dp)
-                                        .clip(CircleShape)
-                                        .background(CorusColors.Background),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    UserAvatarView(
-                                        avatarURL = poster.avatarUrl,
-                                        displayName = poster.displayName,
-                                        size = 18.dp,
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(((shown.size - 1) * 14 + 20).dp))
-                        }
-                        Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                    }
-                    Text(
-                        text = stringResource(R.string.destination_n_shared, formatDestinationCount(facepile.count)),
-                        style = CorusFont.caption,
-                        color = CorusColors.Secondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            } else {
-                val subtitle = if (number == null) {
-                    // Artist "Popular" rows: "{albumName} · {year}".
-                    val year = track.releaseDate?.take(4).orEmpty()
-                    listOf(track.albumName, year).filter { it.isNotBlank() }.joinToString(" · ")
-                } else {
-                    track.artistName
-                }
-                if (subtitle.isNotBlank()) {
-                    Text(
-                        text = subtitle,
-                        style = CorusFont.caption,
-                        color = CorusColors.Secondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+            // Artist "Popular" rows keep the full "{album} · {year}" here; the
+            // share count lives in the trailing slot now (people glyph + N).
+            val subtitle = catalogRowSubtitle(track, number)
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
 
+        // Shared Popular rows (art leading, count > 0) show the social count in
+        // the trailing slot in place of the duration.
+        val sharedCount = catalogRowSharedCount(number, corusStats)
         if (rowTapPlays) {
-            // Navigation lives here on numbered rows: duration + chevron cluster,
-            // mirroring the posted-by rows' timestamp + chevron. Padding widens
-            // the target so navigating doesn't require pixel-perfect aim.
+            // Navigation lives here on numbered rows: duration/shared + chevron
+            // cluster, mirroring the posted-by rows' timestamp + chevron. Padding
+            // widens the target so navigating doesn't require pixel-perfect aim.
             Row(
                 modifier = Modifier
                     .clickable(onClick = onRowTap)
@@ -704,7 +681,29 @@ internal fun CatalogTrackRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
             ) {
-                if (track.durationMs > 0) {
+                if (sharedCount != null) {
+                    // A people glyph + N ("people 13") in place of the duration,
+                    // matching web + iOS.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.People,
+                            contentDescription = stringResource(
+                                R.string.destination_n_shared,
+                                formatDestinationCount(sharedCount),
+                            ),
+                            tint = CorusColors.Tertiary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Text(
+                            text = formatDestinationCount(sharedCount),
+                            style = CorusFont.caption.copy(fontFeatureSettings = "tnum"),
+                            color = CorusColors.Tertiary,
+                        )
+                    }
+                } else if (track.durationMs > 0) {
                     Text(
                         text = track.formattedDuration,
                         style = CorusFont.caption.copy(fontFeatureSettings = "tnum"),
