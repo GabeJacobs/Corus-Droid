@@ -44,6 +44,10 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
     val source: String? = null,
     val soundcloudId: String? = null,
     val soundcloudPermalinkUrl: String? = null,
+    /** Audiomack link-out URL (source "audiomack", `amk:` id). Audiomack is
+     *  link-out only, so the song page needs this to render "Listen on Audiomack"
+     *  and link the play button out for a not-yet-posted (search-hit) track. */
+    val audiomackUrl: String? = null,
     /** The recording's ISRC, when the source track carries it. Lets the song
      *  page's "posted by" match the SAME recording across store IDs — e.g. an
      *  Apple-catalog "Popular" row (`am:` id, no spotifyURI) whose posts were

@@ -76,6 +76,7 @@ fun SongDetailScreen(
     source: String? = null,
     soundcloudId: String? = null,
     soundcloudPermalinkUrl: String? = null,
+    audiomackUrl: String? = null,
     isrc: String? = null,
     artistId: String? = null,
     artistIdCount: Int = 0,
@@ -130,10 +131,11 @@ fun SongDetailScreen(
     val effectiveSource = songInfo?.track?.source ?: TrackSource.fromRaw(source)
     val effectiveSoundcloudId = songInfo?.track?.soundcloudId ?: soundcloudId
     val effectiveSoundcloudPermalinkUrl = songInfo?.track?.soundcloudPermalinkUrl ?: soundcloudPermalinkUrl
-    // Audiomack page url comes from the loaded post's track (search-only,
-    // post-less Audiomack tracks aren't routed here with a url yet). Link-out
-    // only — used to open the Audiomack page; there is no in-app playback.
-    val effectiveAudiomackUrl = songInfo?.track?.audiomackUrl
+    // Audiomack page url: prefer the loaded post's track, fall back to the hint
+    // carried through navigation from search (so a not-yet-posted Audiomack track
+    // still gets its "Listen on Audiomack" link-out). Link-out only — used to
+    // open the Audiomack page; there is no in-app playback.
+    val effectiveAudiomackUrl = songInfo?.track?.audiomackUrl ?: audiomackUrl
     val isSoundCloud = effectiveSource == TrackSource.SOUNDCLOUD
     val isAudiomack = effectiveSource == TrackSource.AUDIOMACK
     val isAppleMusic = effectiveSource == TrackSource.APPLEMUSIC
@@ -353,6 +355,7 @@ fun SongDetailScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(bottom = CorusSpacing.xxl),
         ) {
             // Song header — always shown using route metadata
             item {

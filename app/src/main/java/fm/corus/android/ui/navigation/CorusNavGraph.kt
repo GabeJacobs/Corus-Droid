@@ -511,6 +511,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             source = route.source,
             soundcloudId = route.soundcloudId,
             soundcloudPermalinkUrl = route.soundcloudPermalinkUrl,
+            audiomackUrl = route.audiomackUrl,
             isrc = route.isrc,
             artistId = route.artistId,
             artistIdCount = route.artistIdCount,

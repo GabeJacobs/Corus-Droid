@@ -84,4 +84,28 @@ class AudiomackTrackTest {
         )
         assertNull(blank.audiomackLinkOutUrl)
     }
+
+    @Test
+    fun `toSongDetailRoute carries audiomackUrl so a postless search track keeps its link-out`() {
+        // Regression: opening a not-yet-posted Audiomack track from search used to
+        // reach the song page without its link-out url (it was sourced only from a
+        // loaded post), so no "Listen on Audiomack" button showed. The route must
+        // now carry audiomackUrl through navigation.
+        val track = CymbalTrack(
+            id = "amk:1649",
+            name = "Stick Freestyle (Dreamville Remix)",
+            artistName = "Des",
+            albumName = "",
+            source = TrackSource.AUDIOMACK,
+            audiomackId = "1649",
+            audiomackUrl = "https://audiomack.com/des/song/stick-freestyle-dreamville-remix",
+        )
+        val route = track.toSongDetailRoute()
+        assertEquals("amk:1649", route.trackId)
+        assertEquals("audiomack", route.source)
+        assertEquals(
+            "https://audiomack.com/des/song/stick-freestyle-dreamville-remix",
+            route.audiomackUrl,
+        )
+    }
 }
