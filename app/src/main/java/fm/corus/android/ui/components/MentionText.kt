@@ -444,6 +444,36 @@ fun FirstPosterBadge(modifier: Modifier = Modifier) {
 }
 
 /**
+ * Compact neutral "E" capsule marking an explicit recording, placed next to a
+ * song title in search rows (main search, compose picker, DM/comment attach
+ * picker). Mirrors [FirstPosterBadge]'s shape but stays deliberately quiet — a
+ * muted grey tint rather than a loud color — so it reads as a small qualifier,
+ * not an alert.
+ */
+@Composable
+fun ExplicitBadge(modifier: Modifier = Modifier) {
+    val tint = CorusColors.Secondary
+    val capsule = RoundedCornerShape(50)
+    Row(
+        modifier = modifier
+            .background(tint.copy(alpha = 0.14f), shape = capsule)
+            .border(0.8.dp, tint.copy(alpha = 0.4f), shape = capsule)
+            .padding(horizontal = 5.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.badge_explicit),
+            style = CorusFont.caption.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 9.sp,
+                letterSpacing = 0.3.sp,
+            ),
+            color = tint,
+        )
+    }
+}
+
+/**
  * Purple "NEW RELEASE" flame capsule for freshly released tracks/films,
  * matching iOS. Standalone so callers can place it next to the display name
  * (song/film detail headers) rather than inline with the username; the feed

@@ -197,6 +197,48 @@ class CymbalMessageTest {
         assertEquals(MessageType.SHARED_ARTIST, MessageType.from("sharedArtist"))
         assertEquals(MessageType.SHARED_ALBUM, MessageType.from("sharedAlbum"))
         assertEquals(MessageType.SHARED_DIRECTOR, MessageType.from("sharedDirector"))
+        assertEquals(MessageType.SHARED_PROFILE, MessageType.from("sharedProfile"))
+    }
+
+    @Test
+    fun `fromMap parses sharedProfile fields`() {
+        val msg = CymbalMessage.fromMap(
+            "m1",
+            mapOf(
+                "fromUserId" to "u1",
+                "type" to "sharedProfile",
+                "sharedUserId" to "uid42",
+                "sharedUsername" to "gabe",
+                "sharedDisplayName" to "Gabe Jacobs",
+                "sharedAvatarURL" to "https://img/avatar.jpg",
+            ),
+        )
+        assertEquals(MessageType.SHARED_PROFILE, msg.type)
+        assertEquals("uid42", msg.sharedUserId)
+        assertEquals("gabe", msg.sharedUsername)
+        assertEquals("Gabe Jacobs", msg.sharedDisplayName)
+        assertEquals("https://img/avatar.jpg", msg.sharedAvatarURL)
+    }
+
+    @Test
+    fun `fromFirestoreDoc parses sharedProfile fields`() {
+        val msg = CymbalMessage.fromFirestoreDoc(
+            "m1",
+            "t1",
+            mapOf(
+                "fromUserId" to "u1",
+                "type" to "sharedProfile",
+                "sharedUserId" to "uid42",
+                "sharedUsername" to "gabe",
+                "sharedDisplayName" to "Gabe Jacobs",
+                "sharedAvatarURL" to "https://img/avatar.jpg",
+            ),
+        )
+        assertEquals(MessageType.SHARED_PROFILE, msg.type)
+        assertEquals("uid42", msg.sharedUserId)
+        assertEquals("gabe", msg.sharedUsername)
+        assertEquals("Gabe Jacobs", msg.sharedDisplayName)
+        assertEquals("https://img/avatar.jpg", msg.sharedAvatarURL)
     }
 
     @Test

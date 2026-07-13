@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Photo
@@ -134,6 +135,7 @@ internal fun replyPreviewText(msg: CymbalMessage, context: android.content.Conte
         MessageType.SHARED_ARTIST -> msg.artistName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_artist)
         MessageType.SHARED_ALBUM -> msg.albumTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_album)
         MessageType.SHARED_DIRECTOR -> msg.directorName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_director)
+        MessageType.SHARED_PROFILE -> msg.sharedUsername?.takeIf { it.isNotBlank() }?.let { "@$it" } ?: context.getString(R.string.messaging_thread_shared_profile)
         MessageType.SHARED_POST -> context.getString(R.string.messaging_thread_attachment_post)
         else -> context.getString(R.string.messaging_thread_message_fallback)
     }
@@ -815,6 +817,7 @@ fun MessageThreadScreen(
                             onNavigateToArtist = onNavigateToArtist,
                             onNavigateToAlbum = onNavigateToAlbum,
                             onNavigateToDirector = onNavigateToDirector,
+                            onNavigateToProfile = onNavigateToProfile,
                             resolvePost = { viewModel.fetchSharedPost(it) },
                         )
                     }
@@ -955,6 +958,7 @@ fun MessageThreadScreen(
                             },
                         )
                     }
+                    HorizontalDivider(color = CorusColors.Divider)
                     DropdownMenuItem(
                         text = { Text(stringResource(id = R.string.messaging_thread_attachment_song)) },
                         leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
@@ -972,6 +976,7 @@ fun MessageThreadScreen(
                         },
                     )
                     if (viewModel.entityShareEnabled) {
+                        HorizontalDivider(color = CorusColors.Divider)
                         DropdownMenuItem(
                             text = { Text(stringResource(id = R.string.messaging_thread_attachment_artist)) },
                             leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
@@ -1335,6 +1340,7 @@ private fun MessageBubble(
     onNavigateToArtist: (artistId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
     onNavigateToAlbum: (albumId: String, title: String?, artist: String?, coverUrl: String?, year: Int?) -> Unit = { _, _, _, _, _ -> },
     onNavigateToDirector: (directorId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
+    onNavigateToProfile: (String) -> Unit = {},
     resolvePost: suspend (String) -> CymbalPost? = { null },
 ) {
     val context = LocalContext.current
@@ -1672,6 +1678,20 @@ private fun MessageBubble(
                         onNavigate = {
                             message.directorId?.takeIf { it.isNotBlank() }?.let {
                                 onNavigateToDirector(it, message.directorName, message.directorImageURL)
+                            }
+                        },
+                    )
+                    if (!message.text.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    }
+                }
+                if (message.type == MessageType.SHARED_PROFILE) {
+                    SharedProfileContent(
+                        message = message,
+                        isFromCurrentUser = isFromCurrentUser,
+                        onNavigate = {
+                            message.sharedUserId?.takeIf { it.isNotBlank() }?.let {
+                                onNavigateToProfile(it)
                             }
                         },
                     )
@@ -2189,6 +2209,62 @@ private fun SharedDirectorContent(
         Spacer(modifier = Modifier.width(CorusSpacing.xs))
         Icon(
             imageVector = Icons.Filled.Movie,
+            contentDescription = null,
+            tint = subtitleColor,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+/**
+ * Shared-profile message bubble — tapping opens the shared user's profile.
+ * Username-first per the app's user-row convention: `@username` leads, the
+ * display name is the muted subtitle.
+ */
+@Composable
+private fun SharedProfileContent(
+    message: CymbalMessage,
+    isFromCurrentUser: Boolean,
+    onNavigate: () -> Unit,
+) {
+    val username = message.sharedUsername.orEmpty()
+    val displayName = message.sharedDisplayName?.takeIf { it.isNotBlank() }
+    val textColor = if (isFromCurrentUser) Color.White else CorusColors.Text
+    val subtitleColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f) else CorusColors.Secondary
+    Row(
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .clickable { onNavigate() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ShimmerAsyncImage(
+            model = message.sharedAvatarURL,
+            contentDescription = username,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(50)),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (username.isNotBlank()) "@$username"
+                    else stringResource(R.string.messaging_thread_shared_profile),
+                style = CorusFont.body,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = displayName ?: stringResource(R.string.messaging_thread_shared_profile),
+                style = CorusFont.caption,
+                color = subtitleColor,
+                maxLines = 1,
+            )
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.xs))
+        Icon(
+            imageVector = Icons.Filled.Person,
             contentDescription = null,
             tint = subtitleColor,
             modifier = Modifier.size(14.dp),

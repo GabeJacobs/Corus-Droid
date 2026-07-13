@@ -2,7 +2,9 @@ package fm.corus.android.data.model
 
 import fm.corus.android.data.repository.parseUnifiedTrack
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -44,6 +46,33 @@ class AudiomackTrackTest {
         assertNull(track.previewUrl)
         assertNull(track.isrc)
         assertEquals("", track.spotifyURI)
+    }
+
+    @Test
+    fun `parseUnifiedTrack maps the explicit flag when present`() {
+        val track = parseUnifiedTrack(
+            mapOf(
+                "id" to "spot1",
+                "name" to "Track",
+                "artistName" to "Artist",
+                "explicit" to true,
+            )
+        )
+        requireNotNull(track)
+        assertTrue(track.explicit)
+    }
+
+    @Test
+    fun `parseUnifiedTrack defaults explicit to false when omitted`() {
+        val track = parseUnifiedTrack(
+            mapOf(
+                "id" to "spot1",
+                "name" to "Track",
+                "artistName" to "Artist",
+            )
+        )
+        requireNotNull(track)
+        assertFalse(track.explicit)
     }
 
     @Test

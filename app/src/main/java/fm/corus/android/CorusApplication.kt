@@ -14,12 +14,14 @@ import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesConfiguration
 import dagger.hilt.android.HiltAndroidApp
 import fm.corus.android.data.local.AppearanceDefaultMigration
+import fm.corus.android.service.FeedSwitchHintManager
 import javax.inject.Inject
 
 @HiltAndroidApp
 class CorusApplication : Application(), SingletonImageLoader.Factory {
 
     @Inject lateinit var imageLoader: ImageLoader
+    @Inject lateinit var feedSwitchHintManager: FeedSwitchHintManager
 
     override fun newImageLoader(context: PlatformContext): ImageLoader = imageLoader
 
@@ -33,6 +35,8 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
         initAppCheck()
         initRevenueCat()
         createNotificationChannels()
+        // Count this launch toward the feed-switch-hint session gate (device-local).
+        feedSwitchHintManager.recordSession()
     }
 
     private fun initAppCheck() {

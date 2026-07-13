@@ -1100,4 +1100,6 @@
     <string name="compose_draft_delete_aria">Excluir rascunho</string>
     <string name="compose_attachment_unavailable">Isso não está mais disponível.</string>
     <string name="compose_draft_choose_another">Escolher outro</string>
+    <string name="feed_switch_hint_title">Explore seus outros feeds</string>
+    <string name="feed_switch_hint_subtitle">Toque no logo para trocar</string>
 </resources>

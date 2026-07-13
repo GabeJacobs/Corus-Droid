@@ -56,14 +56,25 @@ data class ShareAlbumSubject(
 )
 data class ShareDirectorSubject(val id: String, val name: String, val imageUrl: String?)
 
-/** What the share sheet is sharing — a song, film, artist, album, or director.
- *  Lets one sheet back every detail / destination screen. */
+/** Minimal payload for sharing a user's *profile* — the uid (for in-app nav +
+ *  the DM message), the username (for the `/u/{username}` deep link), and
+ *  optional display name / avatar for the DM bubble. */
+data class ShareProfileSubject(
+    val id: String,
+    val username: String,
+    val displayName: String?,
+    val avatarUrl: String?,
+)
+
+/** What the share sheet is sharing — a song, film, artist, album, director, or
+ *  a user's profile. Lets one sheet back every detail / destination screen. */
 sealed interface ShareMediaSubject {
     data class Track(val track: CymbalTrack) : ShareMediaSubject
     data class Film(val movie: CymbalMovie) : ShareMediaSubject
     data class Artist(val artist: ShareArtistSubject) : ShareMediaSubject
     data class Album(val album: ShareAlbumSubject) : ShareMediaSubject
     data class Director(val director: ShareDirectorSubject) : ShareMediaSubject
+    data class Profile(val profile: ShareProfileSubject) : ShareMediaSubject
 }
 
 /**
@@ -114,6 +125,7 @@ fun ShareMediaSheet(
         is ShareMediaSubject.Artist -> "https://corus.fm/artist/${subject.artist.id}"
         is ShareMediaSubject.Album -> "https://corus.fm/album/${subject.album.id}"
         is ShareMediaSubject.Director -> "https://corus.fm/director/${subject.director.id}"
+        is ShareMediaSubject.Profile -> "https://corus.fm/u/${subject.profile.username}"
     }
 
     Column(
@@ -396,6 +408,9 @@ private fun shareMediaToX(context: Context, subject: ShareMediaSubject) {
         is ShareMediaSubject.Director ->
             "${subject.director.name} on @corusapp" to
                 "https://corus.fm/director/${subject.director.id}"
+        is ShareMediaSubject.Profile ->
+            "@${subject.profile.username} on @corusapp" to
+                "https://corus.fm/u/${subject.profile.username}"
     }
     val url = "$link?ref=x"
     val intentUrl = "https://twitter.com/intent/tweet?text=${Uri.encode(text)}&url=${Uri.encode(url)}"

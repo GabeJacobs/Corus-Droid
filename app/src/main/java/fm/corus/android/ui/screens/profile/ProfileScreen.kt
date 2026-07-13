@@ -81,6 +81,9 @@ import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.SelfieCaptureScreen
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.uriToBitmap
+import fm.corus.android.ui.components.ShareMediaSheet
+import fm.corus.android.ui.components.ShareMediaSubject
+import fm.corus.android.ui.components.ShareProfileSubject
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -224,6 +227,11 @@ fun ProfileScreen(
     // Avatar context menu state
     var showAvatarMenu by remember { mutableStateOf(false) }
     var showFullScreenAvatar by remember { mutableStateOf(false) }
+    var showShareSheet by remember { mutableStateOf(false) }
+    val recentShareContacts by viewModel.recentShareContacts.collectAsState()
+    val shareSearchResults by viewModel.shareSearchResults.collectAsState()
+    val isShareSearching by viewModel.isShareSearching.collectAsState()
+    val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
     var cropBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var showSelfieCapture by remember { mutableStateOf(false) }
     val decodeScope = rememberCoroutineScope()
@@ -439,13 +447,20 @@ fun ProfileScreen(
                                 text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_share_link), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showAvatarMenu = false
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, "https://corus.fm/u/${currentProfile.username}")
+                                    // Launch-dark: with profile_share_enabled ON, open the
+                                    // in-app Corus share sheet (DM your profile + external
+                                    // actions); OFF falls back to the native Android sheet.
+                                    if (viewModel.profileShareEnabled) {
+                                        showShareSheet = true
+                                    } else {
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, "https://corus.fm/u/${currentProfile.username}")
+                                        }
+                                        try {
+                                            context.startActivity(Intent.createChooser(shareIntent, null))
+                                        } catch (_: Exception) { }
                                     }
-                                    try {
-                                        context.startActivity(Intent.createChooser(shareIntent, null))
-                                    } catch (_: Exception) { }
                                 },
                             )
                         }
@@ -1136,6 +1151,45 @@ fun ProfileScreen(
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = clubOfferSource,
                 onDismiss = { showClubOffer = false },
+            )
+        }
+    }
+
+    // ── Profile Share Sheet (in-app Corus DM share), gated by profile_share_enabled ──
+    if (showShareSheet) {
+        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sentMsg = stringResource(fm.corus.android.R.string.profile_share_toast_profile_sent)
+        LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
+        ModalBottomSheet(
+            onDismissRequest = { showShareSheet = false },
+            sheetState = shareSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = null,
+        ) {
+            CorusSystemBars()
+            ShareMediaSheet(
+                subject = ShareMediaSubject.Profile(
+                    ShareProfileSubject(
+                        id = currentProfile.id,
+                        username = currentProfile.username,
+                        displayName = currentProfile.displayName,
+                        avatarUrl = currentProfile.avatarURL,
+                    )
+                ),
+                recentContacts = recentShareContacts,
+                searchResults = shareSearchResults,
+                isSearching = isShareSearching,
+                isLoadingContacts = isLoadingShareContacts,
+                onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
+                onSendToUser = { userId, message ->
+                    viewModel.sendProfileToUser(
+                        userId, currentProfile.id, currentProfile.username,
+                        currentProfile.displayName, currentProfile.avatarURL, message,
+                    )
+                    ToastManager.show(sentMsg)
+                    showShareSheet = false
+                },
+                onDismiss = { showShareSheet = false },
             )
         }
     }

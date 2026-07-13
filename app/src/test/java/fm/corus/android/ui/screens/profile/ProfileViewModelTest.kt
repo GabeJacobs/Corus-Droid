@@ -86,9 +86,11 @@ class ProfileViewModelTest {
     }
 
     private fun createViewModel(): ProfileViewModel = ProfileViewModel(
+        context = mock(),
         authRepository = authRepository,
         cloudFunctions = cloudFunctions,
         userRepository = userRepository,
+        messageRepository = mock(),
         subscriptionRepository = subscriptionRepository,
         nowPlayingManager = nowPlayingManager,
         engagementManager = engagementManager,

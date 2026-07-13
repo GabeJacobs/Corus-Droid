@@ -26,6 +26,7 @@ import fm.corus.android.MainActivity
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.CorusPlaybackService
 import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.components.VoiceNotePlayerManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -147,6 +148,8 @@ class NowPlayingManager @Inject constructor(
         // Let the trailer coordinator pause music when a trailer starts, keeping
         // the two audio sources mutually exclusive without a direct dependency.
         TrailerPlaybackCoordinator.pauseMusic = { pause() }
+        // Same for an audio caption: starting one pauses the song.
+        VoiceNotePlayerManager.pauseMusic = { pause() }
         managerScope.launch {
             preferencesDataStore.autoplayNextSong.collect { autoplayEnabled = it }
         }
@@ -816,8 +819,9 @@ class NowPlayingManager @Inject constructor(
         val trackId = track.trackId
 
         // Audio sources are mutually exclusive: starting music stops any inline
-        // trailer so the two never play over each other.
+        // trailer and any playing audio caption so they never play over each other.
         TrailerPlaybackCoordinator.stopAll()
+        VoiceNotePlayerManager.stopActivePlayer()
 
         // If same track is already playing, toggle pause/play
         if (_state.value.trackId == trackId && player != null) {
@@ -1214,6 +1218,8 @@ class NowPlayingManager @Inject constructor(
             if (p.playbackState == Player.STATE_ENDED) {
                 p.seekTo(0)
             }
+            // Resuming the song silences any active audio caption.
+            VoiceNotePlayerManager.stopActivePlayer()
             p.play()
             _state.value = _state.value.copy(isPlaying = true)
         }
@@ -1246,6 +1252,8 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun resume() {
+        // Resuming the song silences any active audio caption.
+        VoiceNotePlayerManager.stopActivePlayer()
         player?.play()
         _state.value = _state.value.copy(isPlaying = true)
     }

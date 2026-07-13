@@ -1101,4 +1101,6 @@
     <string name="compose_draft_delete_aria">Eliminar borrador</string>
     <string name="compose_attachment_unavailable">Esto ya no está disponible.</string>
     <string name="compose_draft_choose_another">Elegir otro</string>
+    <string name="feed_switch_hint_title">Explora tus otros feeds</string>
+    <string name="feed_switch_hint_subtitle">Toca el logo para cambiar</string>
 </resources>

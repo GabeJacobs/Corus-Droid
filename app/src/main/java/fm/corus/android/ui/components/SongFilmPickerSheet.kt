@@ -341,13 +341,22 @@ private fun SongPickerRow(track: CymbalTrack, onClick: () -> Unit) {
         }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = track.name,
-                style = CorusFont.body,
-                color = CorusColors.Text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+            ) {
+                Text(
+                    text = track.name,
+                    style = CorusFont.body,
+                    color = CorusColors.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (track.explicit) {
+                    ExplicitBadge()
+                }
+            }
             Text(
                 text = track.artistName,
                 style = CorusFont.caption,

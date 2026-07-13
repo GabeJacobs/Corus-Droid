@@ -44,6 +44,11 @@ data class CymbalMessage(
     val albumYear: String? = null,
     val directorId: String? = null,
     val directorImageURL: String? = null,
+    // sharedProfile fields
+    val sharedUserId: String? = null,
+    val sharedUsername: String? = null,
+    val sharedDisplayName: String? = null,
+    val sharedAvatarURL: String? = null,
     val likedByUserIds: List<String> = emptyList(),
     val reactions: Map<String, List<String>> = emptyMap(),
     val replyToMessageId: String? = null,
@@ -173,6 +178,10 @@ data class CymbalMessage(
                 albumYear = data["albumYear"] as? String,
                 directorId = data["directorId"] as? String,
                 directorImageURL = data["directorImageURL"] as? String,
+                sharedUserId = data["sharedUserId"] as? String,
+                sharedUsername = data["sharedUsername"] as? String,
+                sharedDisplayName = data["sharedDisplayName"] as? String,
+                sharedAvatarURL = data["sharedAvatarURL"] as? String,
                 likedByUserIds = data["likedByUserIds"] as? List<String> ?: emptyList(),
                 reactions = (data["reactions"] as? Map<String, Any?>)?.mapValues { (_, v) ->
                     (v as? List<*>)?.filterIsInstance<String>() ?: emptyList()
@@ -231,6 +240,10 @@ data class CymbalMessage(
                 albumYear = data["albumYear"] as? String,
                 directorId = data["directorId"] as? String,
                 directorImageURL = data["directorImageURL"] as? String,
+                sharedUserId = data["sharedUserId"] as? String,
+                sharedUsername = data["sharedUsername"] as? String,
+                sharedDisplayName = data["sharedDisplayName"] as? String,
+                sharedAvatarURL = data["sharedAvatarURL"] as? String,
                 likedByUserIds = data["likedByUserIds"] as? List<String> ?: emptyList(),
                 reactions = (data["reactions"] as? Map<String, Any?>)?.mapValues { (_, v) ->
                     (v as? List<*>)?.filterIsInstance<String>() ?: emptyList()

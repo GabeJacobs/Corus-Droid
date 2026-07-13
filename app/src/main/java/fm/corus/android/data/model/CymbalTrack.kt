@@ -84,6 +84,12 @@ data class CymbalTrack(
     val appleMusicStorefront: String? = null,
     val unavailable: Boolean = false,
     val unavailableReason: String? = null,
+    /**
+     * Whether the recording is explicit. Additive backend field on every
+     * searchSongs track; defaulted so `EMPTY` and existing call sites still
+     * compile. Drives the compact "E" badge next to the title in search rows.
+     */
+    val explicit: Boolean = false,
 ) {
     val formattedDuration: String
         get() {
@@ -195,6 +201,7 @@ data class CymbalTrack(
                 appleMusicStorefront = data["appleMusicStorefront"] as? String,
                 unavailable = data["trackUnavailable"] as? Boolean ?: false,
                 unavailableReason = (data["trackUnavailableReason"] as? String)?.ifEmpty { null },
+                explicit = (data["explicit"] as? Boolean) ?: false,
             )
         }
     }

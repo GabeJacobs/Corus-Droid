@@ -1101,4 +1101,6 @@
     <string name="compose_draft_delete_aria">Elimina bozza</string>
     <string name="compose_attachment_unavailable">Questo non è più disponibile.</string>
     <string name="compose_draft_choose_another">Scegli un altro</string>
+    <string name="feed_switch_hint_title">Esplora gli altri feed</string>
+    <string name="feed_switch_hint_subtitle">Tocca il logo per cambiare</string>
 </resources>

@@ -259,23 +259,12 @@ class RemoteConfigService @Inject constructor(
     /// init-race-safe feedFlag path so a fresh signup doesn't briefly read the
     /// wrong value, though the hint only appears after several sessions anyway.
     val feedSwitchHintEnabled: Boolean
-        // Dev override (DEBUG only) via the `corus_dev_flags` prefs — same recipe
-        // as commentControlsOnPosts below. Lets local testing force the hint on
-        // without touching the RC console; release + unit tests read the flag.
-        get() {
-            if (BuildConfig.DEBUG && devPrefs.contains("feed_switch_hint_enabled")) {
-                return devPrefs.getBoolean("feed_switch_hint_enabled", false)
-            }
-            return feedFlag("feed_switch_hint_enabled")
-        }
+        get() = feedFlag("feed_switch_hint_enabled")
 
     /// App opens required before the hint can appear. Mirrors
     /// `feed_switch_hint_min_session`.
     val feedSwitchHintMinSession: Int
         get() {
-            if (BuildConfig.DEBUG && devPrefs.contains("feed_switch_hint_min_session")) {
-                return devPrefs.getInt("feed_switch_hint_min_session", 3)
-            }
             val v = remoteConfig.getLong("feed_switch_hint_min_session").toInt()
             return if (v > 0) v else 3
         }
@@ -284,9 +273,6 @@ class RemoteConfigService @Inject constructor(
     /// `feed_switch_hint_max_impressions`.
     val feedSwitchHintMaxImpressions: Int
         get() {
-            if (BuildConfig.DEBUG && devPrefs.contains("feed_switch_hint_max_impressions")) {
-                return devPrefs.getInt("feed_switch_hint_max_impressions", 3)
-            }
             val v = remoteConfig.getLong("feed_switch_hint_max_impressions").toInt()
             return if (v > 0) v else 3
         }

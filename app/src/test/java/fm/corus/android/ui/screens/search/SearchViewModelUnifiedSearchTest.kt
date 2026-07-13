@@ -132,7 +132,7 @@ class SearchViewModelUnifiedSearchTest {
         whenever(userRepository.searchUsers(any(), any(), any())).thenReturn(listOf(user))
         whenever(
             musicSearchRepository.search(
-                any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any(),
             ),
         ).thenReturn(emptyPage)
         whenever(tmdbRepository.searchMovies(any(), any())).thenReturn(emptyList())
@@ -151,7 +151,7 @@ class SearchViewModelUnifiedSearchTest {
         advanceUntilIdle()
 
         verify(userRepository, times(1)).searchUsers(any(), any(), any())
-        verify(musicSearchRepository, never()).search(any(), any(), any(), any(), any(), any())
+        verify(musicSearchRepository, never()).search(any(), any(), any(), any(), any(), any(), any())
         verify(tmdbRepository, never()).searchMovies(any(), any())
         verify(firestoreDataSource, never()).searchHashtagsByPrefix(any(), any())
         assertEquals(listOf(user), vm.userSearchResults.value)
@@ -168,7 +168,7 @@ class SearchViewModelUnifiedSearchTest {
         advanceUntilIdle()
 
         verify(userRepository, times(1)).searchUsers(any(), any(), any())
-        verify(musicSearchRepository, times(1)).search(any(), any(), any(), any(), any(), any())
+        verify(musicSearchRepository, times(1)).search(any(), any(), any(), any(), any(), any(), any())
         verify(tmdbRepository, times(1)).searchMovies(any(), any())
         verify(firestoreDataSource, times(1)).searchHashtagsByPrefix(any(), any())
         assertEquals(listOf(user), vm.userSearchResults.value)
@@ -181,7 +181,7 @@ class SearchViewModelUnifiedSearchTest {
         runTest(testDispatcher) {
             whenever(remoteConfigService.unifiedSearchEnabled).thenReturn(true)
             stubHappyBackends()
-            whenever(musicSearchRepository.search(any(), any(), any(), any(), any(), any()))
+            whenever(musicSearchRepository.search(any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(RuntimeException("song search down"))
             val vm = createViewModel()
 
@@ -201,7 +201,7 @@ class SearchViewModelUnifiedSearchTest {
         whenever(remoteConfigService.unifiedSearchEnabled).thenReturn(true)
         whenever(userRepository.searchUsers(any(), any(), any()))
             .thenThrow(RuntimeException("down"))
-        whenever(musicSearchRepository.search(any(), any(), any(), any(), any(), any()))
+        whenever(musicSearchRepository.search(any(), any(), any(), any(), any(), any(), any()))
             .thenThrow(RuntimeException("down"))
         whenever(tmdbRepository.searchMovies(any(), any()))
             .thenThrow(RuntimeException("down"))

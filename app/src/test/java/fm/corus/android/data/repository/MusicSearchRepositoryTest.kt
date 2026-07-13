@@ -23,7 +23,7 @@ class MusicSearchRepositoryTest {
 
     private suspend fun stubSearch(response: Map<String, Any?>) {
         whenever(
-            cloudFunctions.searchSongs(any(), any(), any(), any(), any(), any(), any()),
+            cloudFunctions.searchSongs(any(), any(), any(), any(), any(), any(), any(), any()),
         ).thenReturn(response)
     }
 
@@ -44,6 +44,7 @@ class MusicSearchRepositoryTest {
             includeSoundCloud = eq(false),
             includeArtists = eq(false),
             includeAlbums = eq(false),
+            collapse = eq("recording"),
         )
     }
 
@@ -61,6 +62,7 @@ class MusicSearchRepositoryTest {
             includeSoundCloud = eq(true),
             includeArtists = eq(false),
             includeAlbums = eq(false),
+            collapse = eq("recording"),
         )
     }
 

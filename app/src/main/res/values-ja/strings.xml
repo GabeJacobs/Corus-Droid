@@ -974,4 +974,6 @@
     <string name="compose_draft_delete_aria">下書きを削除</string>
     <string name="compose_attachment_unavailable">これはもう利用できません。</string>
     <string name="compose_draft_choose_another">別のものを選択</string>
+    <string name="feed_switch_hint_title">他のフィードも見てみよう</string>
+    <string name="feed_switch_hint_subtitle">ロゴをタップして切り替え</string>
 </resources>

@@ -917,6 +917,10 @@ class CloudFunctionsDataSource @Inject constructor(
         albumYear: String? = null,
         directorId: String? = null,
         directorImageURL: String? = null,
+        sharedUserId: String? = null,
+        sharedUsername: String? = null,
+        sharedDisplayName: String? = null,
+        sharedAvatarURL: String? = null,
         replyToMessageId: String? = null,
         replyToText: String? = null,
         replyToUserId: String? = null,
@@ -962,6 +966,10 @@ class CloudFunctionsDataSource @Inject constructor(
         albumYear?.let { params["albumYear"] = it }
         directorId?.let { params["directorId"] = it }
         directorImageURL?.let { params["directorImageURL"] = it }
+        sharedUserId?.let { params["sharedUserId"] = it }
+        sharedUsername?.let { params["sharedUsername"] = it }
+        sharedDisplayName?.let { params["sharedDisplayName"] = it }
+        sharedAvatarURL?.let { params["sharedAvatarURL"] = it }
         replyToMessageId?.let { params["replyToMessageId"] = it }
         replyToText?.let { params["replyToText"] = it }
         replyToUserId?.let { params["replyToUserId"] = it }
@@ -1150,6 +1158,7 @@ class CloudFunctionsDataSource @Inject constructor(
         includeSoundCloud: Boolean = true,
         includeArtists: Boolean = false,
         includeAlbums: Boolean = false,
+        collapse: String = "recording",
     ): Map<String, Any?> {
         // `supports` declares which result sources this client can render.
         // Backend uses it to gate Apple-Music-only catalog results — old
@@ -1164,6 +1173,11 @@ class CloudFunctionsDataSource @Inject constructor(
             "market" to market,
             "includeSoundCloud" to includeSoundCloud,
             "supports" to listOf("spotify", "soundcloud", "applemusic", "audiomack"),
+            // "recording" (default; one row per recording, for search) vs
+            // "cover" (keeps alternate album covers pickable, for the compose
+            // picker). Absent-value default matches the backend, so search rows
+            // are unaffected.
+            "collapse" to collapse,
         )
         // Artist/album rows for the destination pages feature. Attached ONLY
         // when requested (artist_pages_enabled on) — with the keys absent the

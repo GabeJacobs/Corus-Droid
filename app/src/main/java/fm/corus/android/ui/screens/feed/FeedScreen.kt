@@ -20,6 +20,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import coil3.compose.AsyncImage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -59,10 +61,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -164,6 +179,13 @@ fun FeedScreen(
     val tasteMatchesAvailable =
         viewModel.remoteConfig.tasteMatchesEnabled || viewModel.remoteConfig.tasteMatchesTester
     val feedModeOrder = viewModel.remoteConfig.feedModeOrder
+    val feedSwitchHintVisible by viewModel.feedSwitchHintVisible.collectAsState()
+    // Evaluate the one-time feed-switch hint once the feed has loaded and the
+    // switcher is actually shown (nothing to discover otherwise).
+    val modeSwitcherEnabled = trendingFeedEnabled || favoritesEnabled || tasteMatchesAvailable
+    LaunchedEffect(hasLoaded, modeSwitcherEnabled) {
+        if (hasLoaded && modeSwitcherEnabled) viewModel.evaluateFeedSwitchHint()
+    }
     val tasteMatchesGate by viewModel.tasteMatchesGate.collectAsState()
     val tasteMatchesSeeding by viewModel.tasteMatchesSeeding.collectAsState()
     val tasteMatchesSeedArt by viewModel.tasteMatchesSeedArt.collectAsState()
@@ -329,6 +351,9 @@ fun FeedScreen(
             feedModeOrder = feedModeOrder,
             feedMode = feedMode,
             onSetFeedMode = { viewModel.setFeedMode(it) },
+            onSwitcherOpened = { viewModel.onFeedSwitcherOpened() },
+            showFeedSwitchHint = feedSwitchHintVisible,
+            onDismissFeedSwitchHint = { viewModel.dismissFeedSwitchHint() },
         )
     }
 
@@ -1109,11 +1134,27 @@ private fun FeedTitleWithModeMenu(
     tasteMatchesAvailable: Boolean,
     feedModeOrder: List<String>,
     onSetFeedMode: (String) -> Unit,
+    onSwitcherOpened: () -> Unit = {},
+    showHint: Boolean = false,
+    onDismissHint: () -> Unit = {},
 ) {
     var expanded by remember { mutableStateOf(false) }
+    // Feed-switch hint geometry: capture the following-icon's on-screen center so
+    // the coachmark's arrow points at the circle while the bubble body stays
+    // centered on screen.
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    var hintCircleCenterXPx by remember { mutableFloatStateOf(0f) }
+    val hintScreenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val hintArrowOffset = with(density) { (hintCircleCenterXPx - hintScreenWidthPx / 2f).toDp() }
     Box {
         Row(
-            modifier = Modifier.clickable { expanded = true },
+            modifier = Modifier.clickable {
+                // Opening the switcher is the discovery signal — retires the hint
+                // and logs feed_switcher_opened (even when the flag is off).
+                onSwitcherOpened()
+                expanded = true
+            },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -1129,7 +1170,10 @@ private fun FeedTitleWithModeMenu(
                 modifier = Modifier
                     .size(22.dp)
                     .clip(CircleShape)
-                    .background(CorusColors.Accent),
+                    .background(CorusColors.Accent)
+                    .onGloballyPositioned {
+                        hintCircleCenterXPx = it.positionInWindow().x + it.size.width / 2f
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 // Taste Matches uses the custom two-circle Venn (matching the
@@ -1205,7 +1249,106 @@ private fun FeedTitleWithModeMenu(
                 )
             }
         }
+
+        // One-time discovery coachmark, anchored just below the logo (this Box)
+        // and centered on it. A Popup so it isn't clipped by the LazyColumn and
+        // tracks the logo as the feed scrolls.
+        if (showHint) {
+            FeedSwitchHintPopup(onDismiss = onDismissHint, arrowOffset = hintArrowOffset)
+        }
     }
+}
+
+@Composable
+private fun FeedSwitchHintPopup(onDismiss: () -> Unit, arrowOffset: Dp) {
+    val positionProvider = remember {
+        object : PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: IntRect,
+                windowSize: IntSize,
+                layoutDirection: LayoutDirection,
+                popupContentSize: IntSize,
+            ): IntOffset {
+                // Center the bubble body horizontally on screen (not on the
+                // anchor); the arrow inside the bubble is shifted to point at the
+                // following-icon. Y sits just below the switcher row.
+                val x = (windowSize.width - popupContentSize.width) / 2
+                val y = anchorBounds.bottom
+                return IntOffset(x, y)
+            }
+        }
+    }
+    Popup(
+        popupPositionProvider = positionProvider,
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = false),
+    ) {
+        FeedSwitchHintBubble(onDismiss = onDismiss, arrowOffset = arrowOffset)
+    }
+}
+
+/**
+ * The one-time discovery coachmark bubble that sits under the Corus logo (the
+ * feed-mode switcher), teaching users the logo is tappable to switch feeds. The
+ * whole bubble is the dismiss target — there's no separate close control.
+ * Mirrors the web coachmark: accent fill, centered title + subtitle, an up-arrow
+ * pointing at the logo, soft fade-in.
+ */
+@Composable
+private fun FeedSwitchHintBubble(onDismiss: () -> Unit, arrowOffset: Dp = 0.dp) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "feedSwitchHintAlpha",
+    )
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .graphicsLayer { this.alpha = alpha }
+            .padding(top = 2.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { onDismiss() },
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = arrowOffset)
+                .size(width = 16.dp, height = 8.dp)
+                .background(CorusColors.Accent, FeedSwitchHintArrowShape),
+        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(CorusColors.Accent)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.feed_switch_hint_title),
+                style = CorusFont.body.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                color = Color.White,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.feed_switch_hint_subtitle),
+                style = CorusFont.body.copy(fontSize = 13.sp),
+                color = Color.White.copy(alpha = 0.85f),
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+/** Small upward-pointing triangle for the hint bubble's tip. */
+private val FeedSwitchHintArrowShape = GenericShape { size, _ ->
+    moveTo(size.width / 2f, 0f)
+    lineTo(0f, size.height)
+    lineTo(size.width, size.height)
+    close()
 }
 
 /**
@@ -1599,6 +1742,9 @@ private fun FeedHeader(
     feedModeOrder: List<String> = FeedModeOrder.DEFAULT,
     feedMode: String = "following",
     onSetFeedMode: (String) -> Unit = {},
+    onSwitcherOpened: () -> Unit = {},
+    showFeedSwitchHint: Boolean = false,
+    onDismissFeedSwitchHint: () -> Unit = {},
 ) {
     Box(
         modifier = Modifier
@@ -1614,6 +1760,9 @@ private fun FeedHeader(
                 tasteMatchesAvailable = tasteMatchesAvailable,
                 feedModeOrder = feedModeOrder,
                 onSetFeedMode = onSetFeedMode,
+                onSwitcherOpened = onSwitcherOpened,
+                showHint = showFeedSwitchHint,
+                onDismissHint = onDismissFeedSwitchHint,
             )
         } else {
             Text(

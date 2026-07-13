@@ -91,9 +91,11 @@ class ProfileViewModelFeaturedRefreshTest {
     }
 
     private fun createViewModel(): ProfileViewModel = ProfileViewModel(
+        context = org.mockito.kotlin.mock(),
         authRepository = authRepository,
         cloudFunctions = cloudFunctions,
         userRepository = userRepository,
+        messageRepository = org.mockito.kotlin.mock(),
         subscriptionRepository = subscriptionRepository,
         nowPlayingManager = nowPlayingManager,
         engagementManager = engagementManager,

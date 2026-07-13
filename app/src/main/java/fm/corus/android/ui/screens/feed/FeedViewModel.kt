@@ -29,6 +29,7 @@ import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.FeedSwitchHintManager
 import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.PostMenuActions
@@ -127,6 +128,7 @@ class FeedViewModel @Inject constructor(
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
+    private val feedSwitchHintManager: FeedSwitchHintManager,
     private val postCreationEvent: PostCreationEvent,
     private val postDeletionEvent: PostDeletionEvent,
     private val commentEditedEvent: CommentEditedEvent,
@@ -136,6 +138,18 @@ class FeedViewModel @Inject constructor(
     private val preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
+
+    /** One-time feed-switch hint coachmark visibility (device-local). */
+    val feedSwitchHintVisible: StateFlow<Boolean> = feedSwitchHintManager.shouldShow
+
+    /** Evaluate whether to show the feed-switch hint (called when the feed is shown). */
+    fun evaluateFeedSwitchHint() = feedSwitchHintManager.evaluate()
+
+    /** The feed-mode switcher (Corus logo) was opened — baseline signal + retire. */
+    fun onFeedSwitcherOpened() = feedSwitchHintManager.markSwitcherOpened()
+
+    /** The user tapped the hint bubble to dismiss it. */
+    fun dismissFeedSwitchHint() = feedSwitchHintManager.dismiss()
 
     /**
      * Resolve the link-out URL for a Spotify-source track given the viewer's
@@ -824,6 +838,10 @@ class FeedViewModel @Inject constructor(
      * value.
      */
     fun setFeedMode(mode: String) {
+        // Selecting a mode means the user found the switcher — retire the hint
+        // (silently; the open already logged feed_switcher_opened). Before the
+        // no-op guard so re-selecting the current mode still retires it.
+        feedSwitchHintManager.noteSwitcherUsed()
         if (feedMode.value == mode) return
         // Premium gate: a non-member (and non-tester) tapping Taste Matches gets
         // the paywall, not the feed. The server enforces the same rule; this just

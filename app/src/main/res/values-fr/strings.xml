@@ -1101,4 +1101,6 @@
     <string name="compose_draft_delete_aria">Supprimer le brouillon</string>
     <string name="compose_attachment_unavailable">Ce contenu n’est plus disponible.</string>
     <string name="compose_draft_choose_another">En choisir un autre</string>
+    <string name="feed_switch_hint_title">Explorez vos autres fils</string>
+    <string name="feed_switch_hint_subtitle">Touchez le logo pour changer</string>
 </resources>

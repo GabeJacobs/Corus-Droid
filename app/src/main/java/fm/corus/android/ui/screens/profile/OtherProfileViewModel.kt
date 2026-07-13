@@ -14,6 +14,7 @@ import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.MusicMatchData
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
@@ -23,8 +24,12 @@ import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.screens.feed.SHARE_CONTACTS_TARGET
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
+import fm.corus.android.ui.screens.feed.rankShareContacts
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +42,7 @@ class OtherProfileViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
+    private val messageRepository: MessageRepository,
     val nowPlayingManager: NowPlayingManager,
     private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
@@ -64,6 +70,89 @@ class OtherProfileViewModel @Inject constructor(
         )
 
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
+
+    /** Send-side gate for the in-app "Share Profile" Corus share sheet. */
+    val profileShareEnabled: Boolean get() = remoteConfig.profileShareEnabled
+
+    // ── Profile share sheet ──
+    // Mirrors the destination-page share plumbing (recipient picker + DM send),
+    // but shares a *profile*: DMs send a `sharedProfile` message deep-linking to
+    // the user's profile. Reuses the package-level rankShareContacts helper.
+
+    private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+
+    private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+
+    private val _isShareSearching = MutableStateFlow(false)
+    val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
+
+    private val _isLoadingShareContacts = MutableStateFlow(true)
+    val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
+
+    private var shareSearchJob: Job? = null
+
+    fun loadRecentShareContacts() {
+        val userId = authRepository.currentUserId ?: return
+        _isLoadingShareContacts.value = true
+        viewModelScope.launch {
+            try {
+                val shareRecipients = runCatching { messageRepository.listShareRecipients(12) }.getOrDefault(emptyList())
+                val threadContacts = messageRepository.listThreads(userId).mapNotNull { it.otherUser }
+                val followFallback = if (rankShareContacts(shareRecipients, threadContacts, emptyList()).size < SHARE_CONTACTS_TARGET) {
+                    val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
+                    val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
+                    following + followers
+                } else {
+                    emptyList()
+                }
+                _recentShareContacts.value = rankShareContacts(shareRecipients, threadContacts, followFallback)
+            } catch (_: Exception) { }
+            _isLoadingShareContacts.value = false
+        }
+    }
+
+    fun searchShareUsers(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            shareSearchJob?.cancel()
+            _shareSearchResults.value = emptyList()
+            _isShareSearching.value = false
+            return
+        }
+        shareSearchJob?.cancel()
+        shareSearchJob = viewModelScope.launch {
+            _isShareSearching.value = true
+            delay(250)
+            try {
+                _shareSearchResults.value = userRepository.searchUsers(trimmed, includeFollowed = true)
+            } catch (_: Exception) {
+                _shareSearchResults.value = emptyList()
+            }
+            _isShareSearching.value = false
+        }
+    }
+
+    fun sendProfileToUser(userId: String, sharedUserId: String, username: String, displayName: String?, avatarUrl: String?, message: String) {
+        val currentUserId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            try {
+                val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
+                messageRepository.sendSharedProfileMessage(
+                    threadId = threadId,
+                    fromUserId = currentUserId,
+                    text = message.trim(),
+                    sharedUserId = sharedUserId,
+                    username = username,
+                    displayName = displayName,
+                    avatarUrl = avatarUrl,
+                )
+            } catch (_: Exception) {
+                ToastManager.show(context.getString(R.string.feed_toast_failed_send_post))
+            }
+        }
+    }
 
     init {
         viewModelScope.launch {

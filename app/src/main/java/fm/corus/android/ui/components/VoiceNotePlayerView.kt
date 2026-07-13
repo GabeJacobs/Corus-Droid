@@ -6,6 +6,7 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Build
+import fm.corus.android.domain.TrailerPlaybackCoordinator
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -95,6 +96,11 @@ private class VoiceNoteAudioFocus(
 object VoiceNotePlayerManager {
     private var activePlayerUrl: String? = null
     private var activeStopCallback: (() -> Unit)? = null
+
+    /** Pauses the song player. Registered by [NowPlayingManager] so a starting
+     *  caption can stop music without a direct dependency, mirroring
+     *  [TrailerPlaybackCoordinator.pauseMusic]. */
+    var pauseMusic: (() -> Unit)? = null
 
     fun stopActivePlayer() {
         activeStopCallback?.invoke()
@@ -202,6 +208,10 @@ fun VoiceNotePlayerView(
                         } else {
                             // Resume — stop any other active player first
                             VoiceNotePlayerManager.stopActivePlayer()
+                            // Starting a caption also stops the song and any inline
+                            // trailer, so the three sources never play over each other.
+                            VoiceNotePlayerManager.pauseMusic?.invoke()
+                            TrailerPlaybackCoordinator.stopAll()
                             onPlaybackStarted?.invoke()
                             audioFocus.request()
                             player?.start()
@@ -215,6 +225,10 @@ fun VoiceNotePlayerView(
                     } else {
                         // First play — stop any other active player, then download
                         VoiceNotePlayerManager.stopActivePlayer()
+                        // Starting a caption also stops the song and any inline
+                        // trailer, so the three sources never play over each other.
+                        VoiceNotePlayerManager.pauseMusic?.invoke()
+                        TrailerPlaybackCoordinator.stopAll()
                         onPlaybackStarted?.invoke()
                         isLoading = true
                         val mp = MediaPlayer()

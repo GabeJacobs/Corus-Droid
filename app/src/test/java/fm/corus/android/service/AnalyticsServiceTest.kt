@@ -169,6 +169,18 @@ class AnalyticsServiceTest {
     }
 
     @Test
+    fun `logFeedSwitcherOpened emits feed_switcher_opened`() {
+        service.logFeedSwitcherOpened()
+        verify(firebase).logEvent(eq("feed_switcher_opened"), any<Bundle>())
+    }
+
+    @Test
+    fun `logFeedSwitchHintShown emits feed_switch_hint_shown`() {
+        service.logFeedSwitchHintShown()
+        verify(firebase).logEvent(eq("feed_switch_hint_shown"), any<Bundle>())
+    }
+
+    @Test
     fun `event names are stable strings`() {
         // Compile-time parity check — if anyone renames a method, they must update this list too.
         val expected = setOf(

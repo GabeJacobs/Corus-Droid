@@ -52,6 +52,8 @@ internal fun parseUnifiedTrack(d: Map<String, Any?>): CymbalTrack? {
         // rest of the app branches on, but carrying the raw id avoids
         // re-parsing later when constructing Apple Music link-outs.
         appleMusicId = (d["appleMusicId"] as? String)?.ifEmpty { null },
+        // Additive backend field — drives the compact "E" badge in search rows.
+        explicit = (d["explicit"] as? Boolean) ?: false,
     )
 }
 
@@ -90,6 +92,7 @@ class MusicSearchRepository @Inject constructor(
         includeSoundCloud: Boolean = false,
         includeArtists: Boolean = false,
         includeAlbums: Boolean = false,
+        collapse: String = "recording",
     ): Page {
         if (query.isBlank()) return Page(emptyList(), false)
         val market = java.util.Locale.getDefault().country.ifEmpty { "US" }
@@ -101,6 +104,7 @@ class MusicSearchRepository @Inject constructor(
             includeSoundCloud = includeSoundCloud,
             includeArtists = includeArtists,
             includeAlbums = includeAlbums,
+            collapse = collapse,
         )
         val raw = result["tracks"] as? List<Map<String, Any?>> ?: return Page(emptyList(), false)
         val tracks = raw.mapNotNull(::parseUnifiedTrack)

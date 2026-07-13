@@ -133,6 +133,7 @@ class FeedModeStaleResponseRaceTest {
         networkMonitor = mock { on { isConnected } doReturn MutableStateFlow(true) },
         preferencesDataStore = preferencesDataStore,
         context = mock(),
+        feedSwitchHintManager = mock { on { shouldShow } doReturn MutableStateFlow(false) },
         feedScrollRouter = fm.corus.android.domain.FeedScrollRouter(),
     )
 

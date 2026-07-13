@@ -1101,4 +1101,6 @@
     <string name="compose_draft_delete_aria">Entwurf löschen</string>
     <string name="compose_attachment_unavailable">Das ist nicht mehr verfügbar.</string>
     <string name="compose_draft_choose_another">Anderen auswählen</string>
+    <string name="feed_switch_hint_title">Entdecke deine anderen Feeds</string>
+    <string name="feed_switch_hint_subtitle">Tippe aufs Logo zum Wechseln</string>
 </resources>

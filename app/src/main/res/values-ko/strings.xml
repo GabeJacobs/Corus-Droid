@@ -1099,4 +1099,6 @@
     <string name="compose_draft_delete_aria">임시 저장 삭제</string>
     <string name="compose_attachment_unavailable">더 이상 사용할 수 없습니다.</string>
     <string name="compose_draft_choose_another">다른 항목 선택</string>
+    <string name="feed_switch_hint_title">다른 피드를 살펴보세요</string>
+    <string name="feed_switch_hint_subtitle">로고를 탭해서 전환하세요</string>
 </resources>

@@ -285,6 +285,29 @@ class MessageRepository @Inject constructor(
         )
     }
 
+    suspend fun sendSharedProfileMessage(
+        threadId: String,
+        fromUserId: String,
+        text: String = "",
+        sharedUserId: String,
+        username: String,
+        displayName: String?,
+        avatarUrl: String?,
+        clientMessageId: String? = null,
+    ) {
+        cloudFunctions.sendMessage(
+            threadId = threadId,
+            fromUserId = fromUserId,
+            text = text,
+            type = "sharedProfile",
+            sharedUserId = sharedUserId,
+            sharedUsername = username,
+            sharedDisplayName = displayName,
+            sharedAvatarURL = avatarUrl,
+            clientMessageId = clientMessageId,
+        )
+    }
+
     suspend fun getOrCreateThread(userId: String, otherUserId: String): String {
         return cloudFunctions.getOrCreateThread(userId, otherUserId)
     }

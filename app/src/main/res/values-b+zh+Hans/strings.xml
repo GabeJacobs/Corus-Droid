@@ -1098,4 +1098,6 @@
     <string name="compose_draft_delete_aria">删除草稿</string>
     <string name="compose_attachment_unavailable">此内容已不可用。</string>
     <string name="compose_draft_choose_another">选择其他</string>
+    <string name="feed_switch_hint_title">探索你的其他信息流</string>
+    <string name="feed_switch_hint_subtitle">点按标志即可切换</string>
 </resources>

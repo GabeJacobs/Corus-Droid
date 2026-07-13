@@ -3001,7 +3001,22 @@ private fun SongSearchRow(track: CymbalTrack, onClick: () -> Unit) {
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
         ) {
-            Text(track.name, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+            ) {
+                Text(
+                    track.name,
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (track.explicit) {
+                    fm.corus.android.ui.components.ExplicitBadge()
+                }
+            }
             Text(track.artistName, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (track.durationMs > 0) {
