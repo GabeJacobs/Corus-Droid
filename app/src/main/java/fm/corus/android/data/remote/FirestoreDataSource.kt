@@ -214,6 +214,26 @@ class FirestoreDataSource @Inject constructor(
     }
 
     suspend fun fetchFollowingIds(userId: String): Set<String> {
+        // Read-cost optimization (parity with the web/server readers): prefer the
+        // server-maintained denormalized mirror at users_v2/{uid}/aggregates/following
+        // ({ ids, oversize }) — ONE document read instead of scanning the whole
+        // /following subcollection. Falls back to the scan whenever the doc is
+        // missing (not yet backfilled), flagged oversize, malformed, or errors — and
+        // whenever the RC kill-switch is off — so it stays fully backward-compatible
+        // and instantly revertible. The /following subcollection remains the source
+        // of truth; isFollowing and followingCount are untouched.
+        if (remoteConfigService.followingDenormReadsEnabled) {
+            try {
+                val aggDoc = firestore.collection("users_v2").document(userId)
+                    .collection("aggregates").document("following").get().await()
+                if (aggDoc.exists() && aggDoc.getBoolean("oversize") != true) {
+                    val ids = (aggDoc.get("ids") as? List<*>)?.filterIsInstance<String>()
+                    if (ids != null) return ids.toSet()
+                }
+            } catch (e: Exception) {
+                // fall through to the authoritative subcollection scan
+            }
+        }
         val snapshot = firestore.collection("users_v2").document(userId)
             .collection("following").get().await()
         return snapshot.documents.map { it.id }.toSet()

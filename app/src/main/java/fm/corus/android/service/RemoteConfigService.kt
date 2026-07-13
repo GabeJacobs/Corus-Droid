@@ -175,6 +175,15 @@ class RemoteConfigService @Inject constructor(
     val deezerEnabled: Boolean
         get() = flagWithDefault("deezer_enabled", true)
 
+    /// Client parity for the /following read-cost optimization: when true (default),
+    /// list readers fetch the denormalized users_v2/{uid}/aggregates/following doc
+    /// (one read) instead of scanning the whole /following subcollection, falling
+    /// back to the scan when that doc is missing or oversize. Pure read-path switch:
+    /// flipping it OFF in the console instantly reverts every client to the
+    /// subcollection scan with no rebuild. Mirrors iOS `following_denorm_reads_enabled`.
+    val followingDenormReadsEnabled: Boolean
+        get() = flagWithDefault("following_denorm_reads_enabled", true)
+
     val newReleaseFilterClubOnly: Boolean
         get() = remoteConfig.getBoolean("new_release_filter_club_only")
 
@@ -228,6 +237,14 @@ class RemoteConfigService @Inject constructor(
     val entityShareEnabled: Boolean
         get() = feedFlag("entity_share_enabled")
 
+    /// Send-side gate for sharing a user's *profile* (the "Share Profile" action
+    /// on a profile screen opens the in-app Corus share sheet → DM instead of the
+    /// native Android share sheet). Launch-dark: receiving/rendering a
+    /// shared-profile DM is always on in an updated client; flip TRUE once enough
+    /// clients can render them. Shares `profile_share_enabled` with iOS/web.
+    val profileShareEnabled: Boolean
+        get() = feedFlag("profile_share_enabled")
+
     /// Unified search: blended zero-state discovery feed + All/Users/Music/
     /// Film/Hashtags filter chips instead of the pre-segmented tabs. Shares
     /// the key with web (already released there). Uses the init-race-safe
@@ -235,6 +252,44 @@ class RemoteConfigService @Inject constructor(
     /// frame on cold start.
     val unifiedSearchEnabled: Boolean
         get() = feedFlag("unified_search_enabled")
+
+    /// One-time "feed switch hint" discovery coachmark (the bubble under the
+    /// Corus logo teaching that the logo switches feed modes). Master gate;
+    /// ships dark. Shares `feed_switch_hint_enabled` with iOS/web. Uses the
+    /// init-race-safe feedFlag path so a fresh signup doesn't briefly read the
+    /// wrong value, though the hint only appears after several sessions anyway.
+    val feedSwitchHintEnabled: Boolean
+        // Dev override (DEBUG only) via the `corus_dev_flags` prefs — same recipe
+        // as commentControlsOnPosts below. Lets local testing force the hint on
+        // without touching the RC console; release + unit tests read the flag.
+        get() {
+            if (BuildConfig.DEBUG && devPrefs.contains("feed_switch_hint_enabled")) {
+                return devPrefs.getBoolean("feed_switch_hint_enabled", false)
+            }
+            return feedFlag("feed_switch_hint_enabled")
+        }
+
+    /// App opens required before the hint can appear. Mirrors
+    /// `feed_switch_hint_min_session`.
+    val feedSwitchHintMinSession: Int
+        get() {
+            if (BuildConfig.DEBUG && devPrefs.contains("feed_switch_hint_min_session")) {
+                return devPrefs.getInt("feed_switch_hint_min_session", 3)
+            }
+            val v = remoteConfig.getLong("feed_switch_hint_min_session").toInt()
+            return if (v > 0) v else 3
+        }
+
+    /// Lifetime cap on how many times the hint is shown. Mirrors
+    /// `feed_switch_hint_max_impressions`.
+    val feedSwitchHintMaxImpressions: Int
+        get() {
+            if (BuildConfig.DEBUG && devPrefs.contains("feed_switch_hint_max_impressions")) {
+                return devPrefs.getInt("feed_switch_hint_max_impressions", 3)
+            }
+            val v = remoteConfig.getLong("feed_switch_hint_max_impressions").toInt()
+            return if (v > 0) v else 3
+        }
 
     /// Order of the feed switcher menu, driven by the `feed_mode_order` Remote
     /// Config string (comma-separated camelCase tokens, e.g.
@@ -349,7 +404,9 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("play_milestone_enabled", remoteConfig.getBoolean("play_milestone_enabled"))
             .putBoolean("artist_pages_enabled", remoteConfig.getBoolean("artist_pages_enabled"))
             .putBoolean("entity_share_enabled", remoteConfig.getBoolean("entity_share_enabled"))
+            .putBoolean("profile_share_enabled", remoteConfig.getBoolean("profile_share_enabled"))
             .putBoolean("unified_search_enabled", remoteConfig.getBoolean("unified_search_enabled"))
+            .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
             .apply()
     }
@@ -408,6 +465,7 @@ class RemoteConfigService @Inject constructor(
             "soundcloud_enabled" to false,
             "tidal_enabled" to true,
             "deezer_enabled" to true,
+            "following_denorm_reads_enabled" to true,
             "comment_controls_on_posts" to true,
             "new_release_filter_club_only" to false,
             "style_pack_1_enabled" to false,
@@ -420,7 +478,11 @@ class RemoteConfigService @Inject constructor(
             // flipping the console key off must revert every client.
             "artist_pages_enabled" to false,
             "entity_share_enabled" to false,
+            "profile_share_enabled" to false,
             "unified_search_enabled" to false,
+            "feed_switch_hint_enabled" to false,
+            "feed_switch_hint_min_session" to 3L,
+            "feed_switch_hint_max_impressions" to 3L,
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
         )
     }
