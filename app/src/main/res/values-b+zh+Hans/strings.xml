@@ -78,6 +78,7 @@
     <string name="settings_row_sign_out">退出登录</string>
     <string name="settings_row_delete_account">删除账户</string>
     <string name="settings_section_support">支持</string>
+    <string name="settings_section_danger_zone">危险区域</string>
     <string name="settings_share_app_text">来看看 Corus，分享你的音乐和电影品味！https://corus.fm</string>
     <string name="settings_share_app_chooser">分享 Corus</string>
     <string name="settings_row_send_feedback">发送反馈</string>

@@ -77,6 +77,7 @@
     <string name="settings_row_sign_out">Sair</string>
     <string name="settings_row_delete_account">Excluir Conta</string>
     <string name="settings_section_support">SUPORTE</string>
+    <string name="settings_section_danger_zone">ZONA DE PERIGO</string>
     <string name="settings_share_app_text">Confira o Corus — compartilhe seu gosto musical e cinematográfico! https://corus.fm</string>
     <string name="settings_share_app_chooser">Compartilhar Corus</string>
     <string name="settings_row_send_feedback">Enviar Feedback</string>
