@@ -1,6 +1,8 @@
 package fm.corus.android.ui.components
 
 import android.provider.Settings
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -8,6 +10,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -214,21 +217,27 @@ fun VennCollisionAnimation(
     art: List<String> = emptyList(),
     avatars: List<String> = emptyList(),
     shimmerPlaceholders: Boolean = false,
+    // Hold the opening frame this long before the loop starts — the intro
+    // passes the step-transition duration so the collision's first beat
+    // isn't swallowed mid-transition.
+    startDelayMs: Long = 0L,
 ) {
     val reducedMotion = rememberReducedMotion()
-    val master = if (reducedMotion) {
-        null
-    } else {
-        val transition = rememberInfiniteTransition(label = "venn-loop")
-        transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(LOOP_MS, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-            label = "venn-master",
-        )
+    // Animatable (not rememberInfiniteTransition) so the pre-delay holds the
+    // exact opening frame; an infinite transition starts advancing at
+    // composition and would clip the first startDelayMs of beat one.
+    val masterAnim = remember { Animatable(0f) }
+    if (!reducedMotion) {
+        LaunchedEffect(Unit) {
+            if (startDelayMs > 0) delay(startDelayMs)
+            masterAnim.animateTo(
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(LOOP_MS, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart,
+                ),
+            )
+        }
     }
 
     // Per-slot fallback index into the curated art pools (custom art has no spares).
@@ -237,7 +246,7 @@ fun VennCollisionAnimation(
     val matchAvatars = avatars.drop(3).take(3)
 
     Box(modifier = modifier.size(CONTAINER_W.dp, CONTAINER_H.dp)) {
-        val p = master?.value
+        val p = if (reducedMotion) null else masterAnim.value
 
         // ── Left group: the "you" circle + covers ──
         Box(

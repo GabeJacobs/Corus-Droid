@@ -249,7 +249,7 @@ private fun TasteIntroScreen(
         // (optical center) — the asymmetric weights are the web's pb-16 bias.
         Spacer(modifier = Modifier.weight(0.85f))
 
-        VennCollisionAnimation(avatars = avatars)
+        VennCollisionAnimation(avatars = avatars, startDelayMs = 300L)
 
         Spacer(modifier = Modifier.height(28.dp))
 
