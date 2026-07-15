@@ -1109,7 +1109,7 @@
     <string name="feed_switch_hint_title">Explorez vos autres fils</string>
     <string name="feed_switch_hint_subtitle">Touchez le logo pour changer</string>
     <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
-    <string name="onboarding_find_people_title">Trouve des personnes à suivre</string>
+    <string name="onboarding_sync_contacts_title">Synchronise tes contacts</string>
     <string name="onboarding_cta_continue">CONTINUER</string>
     <string name="onboarding_taste_intro_title">Trouve tes affinités de goûts</string>
     <string name="onboarding_taste_intro_body">Corus est plein de gens qui ont très bon goût. Trouvons ceux qui partagent le tien.</string>

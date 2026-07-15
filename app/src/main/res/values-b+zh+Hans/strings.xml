@@ -1106,7 +1106,7 @@
     <string name="feed_switch_hint_title">探索你的其他信息流</string>
     <string name="feed_switch_hint_subtitle">点按标志即可切换</string>
     <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
-    <string name="onboarding_find_people_title">寻找可关注的人</string>
+    <string name="onboarding_sync_contacts_title">同步你的通讯录</string>
     <string name="onboarding_cta_continue">继续</string>
     <string name="onboarding_taste_intro_title">找到你的品味匹配</string>
     <string name="onboarding_taste_intro_body">Corus 上满是品味出众的人。我们来找找和你品味相同的人。</string>

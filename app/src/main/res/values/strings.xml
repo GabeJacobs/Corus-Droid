@@ -1162,7 +1162,7 @@
     <string name="destination_catalog_load_error">Couldn\'t load right now.</string>
     <string name="destination_no_tracks">No tracks found for this album.</string>
     <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
-    <string name="onboarding_find_people_title">Find People to Follow</string>
+    <string name="onboarding_sync_contacts_title">Sync Your Contacts</string>
     <string name="onboarding_cta_continue">CONTINUE</string>
     <string name="onboarding_taste_intro_title">Find Your Taste Matches</string>
     <string name="onboarding_taste_intro_body">Corus is full of people with great taste. Let\'s find the ones who share yours.</string>

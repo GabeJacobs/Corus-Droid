@@ -1107,7 +1107,7 @@
     <string name="feed_switch_hint_title">다른 피드를 살펴보세요</string>
     <string name="feed_switch_hint_subtitle">로고를 탭해서 전환하세요</string>
     <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
-    <string name="onboarding_find_people_title">팔로우할 사람 찾기</string>
+    <string name="onboarding_sync_contacts_title">연락처를 동기화하세요</string>
     <string name="onboarding_cta_continue">계속</string>
     <string name="onboarding_taste_intro_title">취향 매치를 찾아보세요</string>
     <string name="onboarding_taste_intro_body">Corus에는 멋진 취향을 가진 사람들이 가득해요. 당신과 취향이 통하는 사람을 찾아볼게요.</string>

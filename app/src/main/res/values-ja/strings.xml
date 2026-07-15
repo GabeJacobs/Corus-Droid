@@ -982,7 +982,7 @@
     <string name="feed_switch_hint_title">他のフィードも見てみよう</string>
     <string name="feed_switch_hint_subtitle">ロゴをタップして切り替え</string>
     <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
-    <string name="onboarding_find_people_title">フォローする人を見つけよう</string>
+    <string name="onboarding_sync_contacts_title">連絡先を同期しよう</string>
     <string name="onboarding_cta_continue">次へ</string>
     <string name="onboarding_taste_intro_title">好みの一致を見つけよう</string>
     <string name="onboarding_taste_intro_body">Corus には素敵な好みを持つ人がたくさんいます。あなたと好みが合う人を見つけましょう。</string>

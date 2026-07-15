@@ -150,7 +150,7 @@ internal fun TasteOnboardingFlow(
         TasteStep.SYNC_CONTACTS -> SyncContactsScreen(
             viewModel = viewModel,
             onContinue = { step = TasteStep.TASTE_INTRO },
-            titleRes = R.string.onboarding_find_people_title,
+            titleRes = R.string.onboarding_sync_contacts_title,
         )
         TasteStep.TASTE_INTRO -> TasteIntroScreen(
             viewModel = viewModel,
