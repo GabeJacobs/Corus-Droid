@@ -144,7 +144,12 @@ internal fun TasteOnboardingFlow(
     when (step) {
         TasteStep.MUSIC_SERVICE -> MusicServiceScreen(
             viewModel = viewModel,
-            onFinished = { step = TasteStep.SYNC_CONTACTS },
+            // Contacts sync is OUT of the flag-on chain (product decision
+            // 07-15) — straight into the taste intro. SYNC_CONTACTS stays in
+            // the enum so re-adding it (e.g. as an inline suggestions card)
+            // is a one-line transition change; flag-off keeps today's
+            // contacts step untouched.
+            onFinished = { step = TasteStep.TASTE_INTRO },
             ctaLabelRes = R.string.onboarding_cta_continue,
             promptPushOnFinish = false,
         )
