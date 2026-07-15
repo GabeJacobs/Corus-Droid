@@ -1166,7 +1166,7 @@
     <string name="onboarding_cta_continue">CONTINUE</string>
     <string name="onboarding_taste_intro_title">Find Your Taste Matches</string>
     <string name="onboarding_taste_intro_body">Corus is full of people with great taste. Let\'s find the ones who share yours.</string>
-    <string name="onboarding_taste_intro_duration">Takes about 20 seconds.</string>
+    <string name="onboarding_taste_intro_duration">Takes about 30 seconds.</string>
     <string name="onboarding_taste_intro_cta">TAKE THE QUIZ</string>
     <string name="onboarding_taste_do_it_later">Do it later</string>
     <string name="onboarding_taste_quiz_question">Tell us what you love</string>

@@ -1111,7 +1111,7 @@
     <string name="onboarding_cta_continue">계속</string>
     <string name="onboarding_taste_intro_title">취향 매치를 찾아보세요</string>
     <string name="onboarding_taste_intro_body">Corus에는 멋진 취향을 가진 사람들이 가득해요. 당신과 취향이 통하는 사람을 찾아볼게요.</string>
-    <string name="onboarding_taste_intro_duration">약 20초면 끝나요.</string>
+    <string name="onboarding_taste_intro_duration">약 30초면 끝나요.</string>
     <string name="onboarding_taste_intro_cta">퀴즈 시작하기</string>
     <string name="onboarding_taste_do_it_later">나중에 하기</string>
     <string name="onboarding_taste_quiz_question">좋아하는 걸 알려주세요</string>

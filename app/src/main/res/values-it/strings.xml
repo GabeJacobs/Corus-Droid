@@ -1113,7 +1113,7 @@
     <string name="onboarding_cta_continue">CONTINUA</string>
     <string name="onboarding_taste_intro_title">Trova le tue affinità di gusti</string>
     <string name="onboarding_taste_intro_body">Corus è pieno di persone con ottimi gusti. Troviamo quelle che condividono i tuoi.</string>
-    <string name="onboarding_taste_intro_duration">Ci vogliono circa 20 secondi.</string>
+    <string name="onboarding_taste_intro_duration">Ci vogliono circa 30 secondi.</string>
     <string name="onboarding_taste_intro_cta">FAI IL QUIZ</string>
     <string name="onboarding_taste_do_it_later">Più tardi</string>
     <string name="onboarding_taste_quiz_question">Dicci cosa ami</string>

@@ -1110,7 +1110,7 @@
     <string name="onboarding_cta_continue">继续</string>
     <string name="onboarding_taste_intro_title">找到你的品味匹配</string>
     <string name="onboarding_taste_intro_body">Corus 上满是品味出众的人。我们来找找和你品味相同的人。</string>
-    <string name="onboarding_taste_intro_duration">大约需要 20 秒。</string>
+    <string name="onboarding_taste_intro_duration">大约需要 30 秒。</string>
     <string name="onboarding_taste_intro_cta">开始测试</string>
     <string name="onboarding_taste_do_it_later">以后再说</string>
     <string name="onboarding_taste_quiz_question">告诉我们你喜欢什么</string>

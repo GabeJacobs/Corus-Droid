@@ -1113,7 +1113,7 @@
     <string name="onboarding_cta_continue">CONTINUER</string>
     <string name="onboarding_taste_intro_title">Trouve tes affinités de goûts</string>
     <string name="onboarding_taste_intro_body">Corus est plein de gens qui ont très bon goût. Trouvons ceux qui partagent le tien.</string>
-    <string name="onboarding_taste_intro_duration">Environ 20 secondes.</string>
+    <string name="onboarding_taste_intro_duration">Environ 30 secondes.</string>
     <string name="onboarding_taste_intro_cta">FAIRE LE QUIZ</string>
     <string name="onboarding_taste_do_it_later">Plus tard</string>
     <string name="onboarding_taste_quiz_question">Dis-nous ce que tu aimes</string>

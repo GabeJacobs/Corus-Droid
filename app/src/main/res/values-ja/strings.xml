@@ -986,7 +986,7 @@
     <string name="onboarding_cta_continue">次へ</string>
     <string name="onboarding_taste_intro_title">好みの一致を見つけよう</string>
     <string name="onboarding_taste_intro_body">Corus には素敵な好みを持つ人がたくさんいます。あなたと好みが合う人を見つけましょう。</string>
-    <string name="onboarding_taste_intro_duration">所要時間は約20秒。</string>
+    <string name="onboarding_taste_intro_duration">所要時間は約30秒。</string>
     <string name="onboarding_taste_intro_cta">クイズを始める</string>
     <string name="onboarding_taste_do_it_later">あとでやる</string>
     <string name="onboarding_taste_quiz_question">好きなものを教えてください</string>
