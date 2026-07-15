@@ -237,6 +237,16 @@ class RemoteConfigService @Inject constructor(
     val entityShareEnabled: Boolean
         get() = feedFlag("entity_share_enabled")
 
+    /// Send-side gate for the unified comment attach picker: the comment
+    /// composer's "+" menu reads GIF / Music / Film, where Music searches songs,
+    /// artists and albums and Film searches films and directors. OFF = today's
+    /// GIF / Song / Film menu, byte-identical. Launch-dark: receiving/rendering
+    /// artist/album/director comment attachments is always on in an updated
+    /// client; flip TRUE once enough clients can render them. Shares
+    /// `comment_entity_attachments_enabled` with iOS/web. Init-race-safe feedFlag path.
+    val commentEntityAttachmentsEnabled: Boolean
+        get() = feedFlag("comment_entity_attachments_enabled")
+
     /// Send-side gate for sharing a user's *profile* (the "Share Profile" action
     /// on a profile screen opens the in-app Corus share sheet → DM instead of the
     /// native Android share sheet). Launch-dark: receiving/rendering a
@@ -390,6 +400,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("play_milestone_enabled", remoteConfig.getBoolean("play_milestone_enabled"))
             .putBoolean("artist_pages_enabled", remoteConfig.getBoolean("artist_pages_enabled"))
             .putBoolean("entity_share_enabled", remoteConfig.getBoolean("entity_share_enabled"))
+            .putBoolean("comment_entity_attachments_enabled", remoteConfig.getBoolean("comment_entity_attachments_enabled"))
             .putBoolean("profile_share_enabled", remoteConfig.getBoolean("profile_share_enabled"))
             .putBoolean("unified_search_enabled", remoteConfig.getBoolean("unified_search_enabled"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
@@ -464,6 +475,7 @@ class RemoteConfigService @Inject constructor(
             // flipping the console key off must revert every client.
             "artist_pages_enabled" to false,
             "entity_share_enabled" to false,
+            "comment_entity_attachments_enabled" to false,
             "profile_share_enabled" to false,
             "unified_search_enabled" to false,
             "feed_switch_hint_enabled" to false,

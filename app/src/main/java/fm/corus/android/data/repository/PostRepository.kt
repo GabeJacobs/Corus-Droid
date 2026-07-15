@@ -315,9 +315,13 @@ class PostRepository @Inject constructor(
         gifURL: String? = null,
         attachedSong: fm.corus.android.data.model.CommentAttachedSong? = null,
         attachedFilm: fm.corus.android.data.model.CommentAttachedFilm? = null,
+        attachedArtist: fm.corus.android.data.model.CommentAttachedArtist? = null,
+        attachedAlbum: fm.corus.android.data.model.CommentAttachedAlbum? = null,
+        attachedDirector: fm.corus.android.data.model.CommentAttachedDirector? = null,
     ): String {
         return firestoreDataSource.addComment(
-            postId, userId, text, parentCommentId, replyToUserId, gifURL, attachedSong, attachedFilm
+            postId, userId, text, parentCommentId, replyToUserId, gifURL, attachedSong, attachedFilm,
+            attachedArtist, attachedAlbum, attachedDirector
         )
     }
 

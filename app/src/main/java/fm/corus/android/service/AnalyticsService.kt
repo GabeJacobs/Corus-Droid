@@ -174,6 +174,9 @@ class AnalyticsService @Inject constructor(
     // `feed_switch_hint_shown` fires when the coachmark appears. Mirrors iOS/web.
     fun logFeedSwitcherOpened() = logEvent("feed_switcher_opened")
     fun logFeedSwitchHintShown() = logEvent("feed_switch_hint_shown")
+    // Fires when the user taps the coachmark bubble to dismiss it (distinct from
+    // discovering the switcher via feed_switcher_opened). Mirrors iOS/web.
+    fun logFeedSwitchHintDismissed() = logEvent("feed_switch_hint_dismissed")
     fun logDeepLinkOpened(linkType: String) = logEvent("deep_link_opened", mapOf("link_type" to linkType))
 
     // Cross-section search-page events. Pair with `logMusicMatchTapped` for Taste Matches

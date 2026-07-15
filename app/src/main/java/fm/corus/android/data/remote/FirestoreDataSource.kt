@@ -600,14 +600,20 @@ class FirestoreDataSource @Inject constructor(
         gifURL: String? = null,
         attachedSong: fm.corus.android.data.model.CommentAttachedSong? = null,
         attachedFilm: fm.corus.android.data.model.CommentAttachedFilm? = null,
+        attachedArtist: fm.corus.android.data.model.CommentAttachedArtist? = null,
+        attachedAlbum: fm.corus.android.data.model.CommentAttachedAlbum? = null,
+        attachedDirector: fm.corus.android.data.model.CommentAttachedDirector? = null,
     ): String {
-        // Mutual exclusion: at most one of {gifURL, attachedSong, attachedFilm}.
+        // Mutual exclusion: at most one attachment of any kind.
         val attachmentCount = (if (gifURL != null) 1 else 0) +
             (if (attachedSong != null) 1 else 0) +
-            (if (attachedFilm != null) 1 else 0)
+            (if (attachedFilm != null) 1 else 0) +
+            (if (attachedArtist != null) 1 else 0) +
+            (if (attachedAlbum != null) 1 else 0) +
+            (if (attachedDirector != null) 1 else 0)
         require(attachmentCount <= 1) { "Comment can have at most one attachment" }
 
-        // Backwards-compat: when the caption is empty but we're attaching a song/film,
+        // Backwards-compat: when the caption is empty but we're attaching media,
         // synthesize a fallback `text` so old clients still render something legible.
         // New clients detect `textIsAttachmentFallback` and suppress text rendering.
         val trimmedCaption = text.trim()
@@ -621,6 +627,18 @@ class FirestoreDataSource @Inject constructor(
                 }
                 attachedFilm != null -> {
                     writtenText = attachedFilm.fallbackText
+                    isAttachmentFallback = true
+                }
+                attachedArtist != null -> {
+                    writtenText = attachedArtist.fallbackText
+                    isAttachmentFallback = true
+                }
+                attachedAlbum != null -> {
+                    writtenText = attachedAlbum.fallbackText
+                    isAttachmentFallback = true
+                }
+                attachedDirector != null -> {
+                    writtenText = attachedDirector.fallbackText
                     isAttachmentFallback = true
                 }
             }
@@ -641,6 +659,9 @@ class FirestoreDataSource @Inject constructor(
         gifURL?.let { commentData["gifURL"] = it }
         attachedSong?.let { commentData["attachedSong"] = it.toFirestoreMap() }
         attachedFilm?.let { commentData["attachedFilm"] = it.toFirestoreMap() }
+        attachedArtist?.let { commentData["attachedArtist"] = it.toFirestoreMap() }
+        attachedAlbum?.let { commentData["attachedAlbum"] = it.toFirestoreMap() }
+        attachedDirector?.let { commentData["attachedDirector"] = it.toFirestoreMap() }
         if (isAttachmentFallback) commentData["textIsAttachmentFallback"] = true
         commentRef.set(commentData).await()
 

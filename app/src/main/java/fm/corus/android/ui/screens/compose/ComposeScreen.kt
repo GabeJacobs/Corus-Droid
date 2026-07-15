@@ -828,7 +828,6 @@ private fun SearchModeContent(
                             isLoading = result.showPlayOverlay && previewLoadingTrackId == result.id,
                             isSoundCloud = result.isSoundCloud,
                             isAudiomack = result.isAudiomack,
-                            isExplicit = result.isExplicit,
                             onAlbumArtTap = if (result.showPlayOverlay) {{ onPreviewTap(result.id) }} else null,
                             onClick = { onResultClick(result) },
                         )
@@ -1139,7 +1138,6 @@ private fun SearchResultRow(
     isLoading: Boolean = false,
     isSoundCloud: Boolean = false,
     isAudiomack: Boolean = false,
-    isExplicit: Boolean = false,
     onAlbumArtTap: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
@@ -1216,22 +1214,13 @@ private fun SearchResultRow(
         }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-            ) {
-                Text(
-                    text = title,
-                    style = CorusFont.body,
-                    color = CorusColors.Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (isExplicit) {
-                    fm.corus.android.ui.components.ExplicitBadge()
-                }
-            }
+            Text(
+                text = title,
+                style = CorusFont.body,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 text = subtitle,
                 style = CorusFont.caption,

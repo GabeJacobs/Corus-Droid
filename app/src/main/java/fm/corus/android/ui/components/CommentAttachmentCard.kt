@@ -28,6 +28,9 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import fm.corus.android.R
+import fm.corus.android.data.model.CommentAttachedAlbum
+import fm.corus.android.data.model.CommentAttachedArtist
+import fm.corus.android.data.model.CommentAttachedDirector
 import fm.corus.android.data.model.CommentAttachedFilm
 import fm.corus.android.data.model.CommentAttachedSong
 import fm.corus.android.data.model.CymbalMovie
@@ -52,6 +55,14 @@ fun CommentAttachmentCard(
     onNavigateToSong: (CymbalTrack) -> Unit,
     onNavigateToFilm: (CymbalMovie) -> Unit,
     modifier: Modifier = Modifier,
+    attachedArtist: CommentAttachedArtist? = null,
+    attachedAlbum: CommentAttachedAlbum? = null,
+    attachedDirector: CommentAttachedDirector? = null,
+    // Nullable so callers without artist/album/director destinations wired keep
+    // compiling; a null callback leaves the card tap inert.
+    onNavigateToArtist: ((CommentAttachedArtist) -> Unit)? = null,
+    onNavigateToAlbum: ((CommentAttachedAlbum) -> Unit)? = null,
+    onNavigateToDirector: ((CommentAttachedDirector) -> Unit)? = null,
 ) {
     val state by nowPlaying.state.collectAsState()
     val loadingTrackId by nowPlaying.loadingTrackId.collectAsState()
@@ -205,7 +216,79 @@ fun CommentAttachmentCard(
                     }
                 }
             }
+
+            attachedArtist != null -> EntityAttachmentContent(
+                imageUrl = attachedArtist.artistImageURL,
+                circle = true,
+                title = attachedArtist.artistName,
+                subtitle = stringResource(R.string.messaging_thread_attachment_artist),
+                onClick = onNavigateToArtist?.let { cb -> { cb(attachedArtist) } },
+            )
+
+            attachedAlbum != null -> EntityAttachmentContent(
+                imageUrl = attachedAlbum.albumCoverURL,
+                circle = false,
+                title = attachedAlbum.albumTitle,
+                subtitle = attachedAlbum.albumArtistName.ifBlank {
+                    stringResource(R.string.messaging_thread_attachment_album)
+                },
+                onClick = onNavigateToAlbum?.let { cb -> { cb(attachedAlbum) } },
+            )
+
+            attachedDirector != null -> EntityAttachmentContent(
+                imageUrl = attachedDirector.directorImageURL,
+                circle = true,
+                title = attachedDirector.directorName,
+                subtitle = stringResource(R.string.messaging_thread_attachment_director),
+                onClick = onNavigateToDirector?.let { cb -> { cb(attachedDirector) } },
+            )
         }
+    }
+}
+
+/**
+ * Artist / album / director row inside a comment attachment card — round image
+ * for people, square for albums, mirroring the DM shared-entity bubbles.
+ */
+@Composable
+private fun RowScope.EntityAttachmentContent(
+    imageUrl: String?,
+    circle: Boolean,
+    title: String,
+    subtitle: String,
+    onClick: (() -> Unit)?,
+) {
+    val context = LocalContext.current
+    val shape = if (circle) RoundedCornerShape(50) else RoundedCornerShape(6.dp)
+    AsyncImage(
+        model = ImageRequest.Builder(context).data(imageUrl).build(),
+        contentDescription = null,
+        modifier = Modifier
+            .size(44.dp)
+            .clip(shape)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        contentScale = ContentScale.Crop,
+    )
+    Spacer(Modifier.width(CorusSpacing.sm))
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+    ) {
+        Text(
+            text = title,
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = subtitle,
+            style = CorusFont.caption,
+            color = CorusColors.Secondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -221,6 +304,9 @@ fun CommentAttachmentPendingChip(
     modifier: Modifier = Modifier,
     nowPlaying: NowPlayingManager? = null,
     pendingGif: fm.corus.android.data.model.KlipyGif? = null,
+    attachedArtist: CommentAttachedArtist? = null,
+    attachedAlbum: CommentAttachedAlbum? = null,
+    attachedDirector: CommentAttachedDirector? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -402,6 +488,29 @@ fun CommentAttachmentPendingChip(
                     }
                 }
             }
+
+            attachedArtist != null -> ChipEntityContent(
+                imageUrl = attachedArtist.artistImageURL,
+                circle = true,
+                title = attachedArtist.artistName,
+                subtitle = stringResource(R.string.messaging_thread_attachment_artist),
+            )
+
+            attachedAlbum != null -> ChipEntityContent(
+                imageUrl = attachedAlbum.albumCoverURL,
+                circle = false,
+                title = attachedAlbum.albumTitle,
+                subtitle = attachedAlbum.albumArtistName.ifBlank {
+                    stringResource(R.string.messaging_thread_attachment_album)
+                },
+            )
+
+            attachedDirector != null -> ChipEntityContent(
+                imageUrl = attachedDirector.directorImageURL,
+                circle = true,
+                title = attachedDirector.directorName,
+                subtitle = stringResource(R.string.messaging_thread_attachment_director),
+            )
         }
 
         Spacer(Modifier.width(CorusSpacing.sm))
@@ -412,6 +521,42 @@ fun CommentAttachmentPendingChip(
             modifier = Modifier
                 .size(18.dp)
                 .clickable { onClear() },
+        )
+    }
+}
+
+/** Entity (artist/album/director) content inside the pending-attachment chip. */
+@Composable
+private fun ChipEntityContent(
+    imageUrl: String?,
+    circle: Boolean,
+    title: String,
+    subtitle: String,
+) {
+    val context = LocalContext.current
+    AsyncImage(
+        model = ImageRequest.Builder(context).data(imageUrl).build(),
+        contentDescription = null,
+        modifier = Modifier
+            .size(34.dp)
+            .clip(if (circle) RoundedCornerShape(50) else RoundedCornerShape(4.dp)),
+        contentScale = ContentScale.Crop,
+    )
+    Spacer(Modifier.width(CorusSpacing.sm))
+    Column(modifier = Modifier.widthIn(max = 200.dp)) {
+        Text(
+            text = title,
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = subtitle,
+            style = CorusFont.caption,
+            color = CorusColors.Secondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

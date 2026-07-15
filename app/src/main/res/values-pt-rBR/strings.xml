@@ -761,6 +761,9 @@
     <!-- Song/Film picker sheet -->
     <string name="song_film_picker_songs">Músicas</string>
     <string name="song_film_picker_films">Filmes</string>
+    <string name="song_film_picker_artists">Artistas</string>
+    <string name="song_film_picker_albums">Álbuns</string>
+    <string name="song_film_picker_directors">Diretores</string>
     <string name="song_film_picker_search_song">Buscar uma música</string>
     <string name="song_film_picker_search_film">Buscar um filme</string>
     <string name="song_film_picker_cd_clear">Limpar</string>
@@ -931,6 +934,7 @@
     <string name="comment_attachment_picker_title">Anexar ao comentário</string>
     <string name="comment_attachment_picker_reply_title">Anexar à resposta</string>
     <string name="comment_attachment_song">Música</string>
+    <string name="comment_attachment_music">Música</string>
     <string name="comment_attachment_film">Filme</string>
     <string name="comment_attachment_gif">GIF</string>
     <string name="song_detail_listen_soundcloud">Ouvir no SoundCloud</string>

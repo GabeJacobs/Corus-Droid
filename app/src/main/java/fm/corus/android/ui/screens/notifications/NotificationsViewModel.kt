@@ -314,26 +314,18 @@ class NotificationsViewModel @Inject constructor(
 
     /**
      * Merges incoming real-time listener results (first page) with existing
-     * paginated items, matching iOS behaviour. Only the "head" window is
-     * reconciled — older paginated "tail" items are kept untouched.
+     * paginated items via [mergedNotificationList] — see its doc for the
+     * merge + gap-guard semantics (matching iOS behaviour).
      */
     private fun mergeNotifications(incoming: List<CymbalNotification>) {
         val current = _notifications.value
-        if (current.isEmpty()) {
-            _notifications.value = incoming
-            Log.d("Notifications", "merge: initial set, ${incoming.size} items")
-            return
+        val merged = mergedNotificationList(current = current, incoming = incoming)
+        if (merged.droppedStaleTail) {
+            Log.d("Notifications", "merge: window doesn't overlap current list — dropped ${current.size} stale items for fresh window of ${incoming.size}")
+        } else {
+            Log.d("Notifications", "merge: incoming=${incoming.size}, total=${merged.list.size}")
         }
-
-        val incomingIds = incoming.map { it.id }.toSet()
-
-        // Split: items in the incoming window vs older paginated items
-        val tailItems = current.filter { it.id !in incomingIds }
-
-        Log.d("Notifications", "merge: incoming=${incoming.size}, tail=${tailItems.size}, total=${incoming.size + tailItems.size}")
-
-        // Build head from incoming order (includes new + updated items)
-        _notifications.value = incoming + tailItems
+        _notifications.value = merged.list
     }
 
     fun loadMoreNotifications() {

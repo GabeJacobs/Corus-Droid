@@ -53,6 +53,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import fm.corus.android.R
+import fm.corus.android.data.model.CommentAttachedAlbum
+import fm.corus.android.data.model.CommentAttachedArtist
+import fm.corus.android.data.model.CommentAttachedDirector
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
@@ -123,6 +126,11 @@ fun SinglePostCommentsScreen(
     val pendingSong by viewModel.pendingSong.collectAsState()
     val pendingFilm by viewModel.pendingFilm.collectAsState()
     val pendingGif by viewModel.pendingGif.collectAsState()
+    val pendingArtist by viewModel.pendingArtist.collectAsState()
+    val pendingAlbum by viewModel.pendingAlbum.collectAsState()
+    val pendingDirector by viewModel.pendingDirector.collectAsState()
+    val hasPendingAttachment = pendingSong != null || pendingFilm != null || pendingGif != null ||
+        pendingArtist != null || pendingAlbum != null || pendingDirector != null
 
     var commentText by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
@@ -130,6 +138,10 @@ fun SinglePostCommentsScreen(
     var showGifPicker by remember { mutableStateOf(false) }
     var showSongFilmPicker by remember { mutableStateOf(false) }
     var pickerInitialMode by remember { mutableStateOf(PickerMode.SONG) }
+    // Tabs the attach picker offers. [SONG, FILM] legacy; with
+    // comment_entity_attachments_enabled the Music item passes
+    // [SONG, ARTIST, ALBUM] and Film passes [FILM, DIRECTOR].
+    var pickerModes by remember { mutableStateOf(listOf(PickerMode.SONG, PickerMode.FILM)) }
     var showAttachmentMenu by remember { mutableStateOf(false) }
     val maxChars = 700
     val showCounter = commentText.text.length >= 650
@@ -285,8 +297,8 @@ fun SinglePostCommentsScreen(
                     }
                 }
 
-                // Pending attachment chip (song / film / GIF) — left-aligned.
-                if (editingComment == null && (pendingSong != null || pendingFilm != null || pendingGif != null)) {
+                // Pending attachment chip (song / film / GIF / entity) — left-aligned.
+                if (editingComment == null && hasPendingAttachment) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -296,6 +308,9 @@ fun SinglePostCommentsScreen(
                             attachedSong = pendingSong,
                             attachedFilm = pendingFilm,
                             pendingGif = pendingGif,
+                            attachedArtist = pendingArtist,
+                            attachedAlbum = pendingAlbum,
+                            attachedDirector = pendingDirector,
                             onClear = { viewModel.clearAttachment() },
                             nowPlaying = viewModel.nowPlayingManager,
                         )
@@ -314,17 +329,31 @@ fun SinglePostCommentsScreen(
                 ) {
                     if (editingComment == null) {
                         Box {
+                            val entityAttachments = viewModel.commentEntityAttachmentsEnabled
+                            // Opens the attach picker. With comment_entity_attachments_enabled
+                            // the picker's tabs read Music | Film — Music searches songs +
+                            // artists + albums in one query, Film searches films + directors.
+                            // Flag off keeps the legacy Songs/Films pair.
+                            val openPicker: (Boolean) -> Unit = { film ->
+                                if (entityAttachments) {
+                                    pickerModes = listOf(PickerMode.MUSIC_ALL, PickerMode.FILM_ALL)
+                                    pickerInitialMode = if (film) PickerMode.FILM_ALL else PickerMode.MUSIC_ALL
+                                } else {
+                                    pickerModes = listOf(PickerMode.SONG, PickerMode.FILM)
+                                    pickerInitialMode = if (film) PickerMode.FILM else PickerMode.SONG
+                                }
+                                showSongFilmPicker = true
+                            }
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(CircleShape)
                                     .background(CorusColors.Accent)
-                                    .clickable(enabled = pendingSong == null && pendingFilm == null && pendingGif == null) {
-                                        if (viewModel.gifSupport) {
+                                    .clickable(enabled = !hasPendingAttachment) {
+                                        if (viewModel.gifSupport || entityAttachments) {
                                             showAttachmentMenu = true
                                         } else {
-                                            pickerInitialMode = PickerMode.SONG
-                                            showSongFilmPicker = true
+                                            openPicker(false)
                                         }
                                     },
                                 contentAlignment = Alignment.Center,
@@ -340,27 +369,34 @@ fun SinglePostCommentsScreen(
                                 expanded = showAttachmentMenu,
                                 onDismissRequest = { showAttachmentMenu = false },
                             ) {
+                                if (viewModel.gifSupport) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.comment_attachment_gif)) },
+                                        onClick = {
+                                            showAttachmentMenu = false
+                                            showGifPicker = true
+                                        },
+                                    )
+                                }
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.comment_attachment_gif)) },
-                                    onClick = {
-                                        showAttachmentMenu = false
-                                        showGifPicker = true
+                                    text = {
+                                        Text(
+                                            stringResource(
+                                                if (entityAttachments) R.string.comment_attachment_music
+                                                else R.string.comment_attachment_song,
+                                            ),
+                                        )
                                     },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.comment_attachment_song)) },
                                     onClick = {
                                         showAttachmentMenu = false
-                                        pickerInitialMode = PickerMode.SONG
-                                        showSongFilmPicker = true
+                                        openPicker(false)
                                     },
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.comment_attachment_film)) },
                                     onClick = {
                                         showAttachmentMenu = false
-                                        pickerInitialMode = PickerMode.FILM
-                                        showSongFilmPicker = true
+                                        openPicker(true)
                                     },
                                 )
                             }
@@ -420,8 +456,7 @@ fun SinglePostCommentsScreen(
                         },
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = {
-                            val hasAnyAttachment = pendingSong != null || pendingFilm != null || pendingGif != null
-                            if ((commentText.text.isNotBlank() || hasAnyAttachment) && !isSending) {
+                            if ((commentText.text.isNotBlank() || hasPendingAttachment) && !isSending) {
                                 val editing = editingComment
                                 val pendingGifSnapshot = pendingGif
                                 when {
@@ -439,8 +474,7 @@ fun SinglePostCommentsScreen(
                             }
                         }),
                     )
-                    val hasAttachment = pendingSong != null || pendingFilm != null || pendingGif != null
-                    val canSend = (commentText.text.isNotBlank() || hasAttachment) && !isSending
+                    val canSend = (commentText.text.isNotBlank() || hasPendingAttachment) && !isSending
                     Spacer(modifier = Modifier.width(CorusSpacing.sm))
                     Box(
                         modifier = Modifier
@@ -489,12 +523,33 @@ fun SinglePostCommentsScreen(
         if (showSongFilmPicker) {
             SongFilmPickerSheet(
                 initialMode = pickerInitialMode,
+                modes = pickerModes,
                 onSongSelected = { track ->
                     viewModel.attachSong(track)
                     showSongFilmPicker = false
                 },
                 onFilmSelected = { movie ->
                     viewModel.attachFilm(movie)
+                    showSongFilmPicker = false
+                },
+                onArtistSelected = { id, name, imageUrl ->
+                    viewModel.attachArtist(CommentAttachedArtist(artistId = id, artistName = name, artistImageURL = imageUrl))
+                    showSongFilmPicker = false
+                },
+                onAlbumSelected = { id, title, artist, coverUrl, year ->
+                    viewModel.attachAlbum(
+                        CommentAttachedAlbum(
+                            albumId = id,
+                            albumTitle = title,
+                            albumArtistName = artist,
+                            albumCoverURL = coverUrl,
+                            albumYear = year?.toString(),
+                        ),
+                    )
+                    showSongFilmPicker = false
+                },
+                onDirectorSelected = { id, name, imageUrl ->
+                    viewModel.attachDirector(CommentAttachedDirector(directorId = id, directorName = name, directorImageURL = imageUrl))
                     showSongFilmPicker = false
                 },
                 onDismiss = { showSongFilmPicker = false },
@@ -700,6 +755,22 @@ fun SinglePostCommentsScreen(
                         nowPlaying = viewModel.nowPlayingManager,
                         onNavigateToSong = onNavigateToSong,
                         onNavigateToFilm = { movie -> onNavigateToFilm(movie.toFilmDetailRoute()) },
+                        onNavigateToArtist = onNavigateToArtist?.let { cb ->
+                            { artist -> cb(fm.corus.android.ui.navigation.ArtistPageRoute(artist.artistId, artist.artistName, artist.artistImageURL)) }
+                        },
+                        onNavigateToAlbum = onNavigateToAlbum?.let { cb ->
+                            { album ->
+                                cb(
+                                    fm.corus.android.ui.navigation.AlbumPageRoute(
+                                        album.albumId, album.albumTitle, album.albumArtistName,
+                                        album.albumCoverURL, album.albumYear?.toIntOrNull(),
+                                    ),
+                                )
+                            }
+                        },
+                        onNavigateToDirector = onNavigateToDirector?.let { cb ->
+                            { director -> cb(fm.corus.android.ui.navigation.DirectorPageRoute(director.directorId, director.directorName, director.directorImageURL)) }
+                        },
                     )
                 }
             }
@@ -754,6 +825,9 @@ private fun SingleCommentRow(
     onHashtagTap: (String) -> Unit,
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
+    onNavigateToArtist: ((CommentAttachedArtist) -> Unit)? = null,
+    onNavigateToAlbum: ((CommentAttachedAlbum) -> Unit)? = null,
+    onNavigateToDirector: ((CommentAttachedDirector) -> Unit)? = null,
     onReplyReply: (CymbalComment) -> Unit,
     onReplyLike: (String) -> Unit,
     onReplyLikeLongPress: (String) -> Unit,
@@ -792,6 +866,9 @@ private fun SingleCommentRow(
             nowPlaying = nowPlaying,
             onNavigateToSong = onNavigateToSong,
             onNavigateToFilm = onNavigateToFilm,
+            onNavigateToArtist = onNavigateToArtist,
+            onNavigateToAlbum = onNavigateToAlbum,
+            onNavigateToDirector = onNavigateToDirector,
         )
 
         // Replies
@@ -821,6 +898,9 @@ private fun SingleCommentRow(
                 nowPlaying = nowPlaying,
                 onNavigateToSong = onNavigateToSong,
                 onNavigateToFilm = onNavigateToFilm,
+                onNavigateToArtist = onNavigateToArtist,
+                onNavigateToAlbum = onNavigateToAlbum,
+                onNavigateToDirector = onNavigateToDirector,
             )
         }
     }
@@ -851,6 +931,9 @@ internal fun CommentContentRow(
     nowPlaying: fm.corus.android.domain.NowPlayingManager? = null,
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
+    onNavigateToArtist: ((CommentAttachedArtist) -> Unit)? = null,
+    onNavigateToAlbum: ((CommentAttachedAlbum) -> Unit)? = null,
+    onNavigateToDirector: ((CommentAttachedDirector) -> Unit)? = null,
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showBlockConfirm by remember { mutableStateOf(false) }
@@ -1024,14 +1107,20 @@ internal fun CommentContentRow(
                             )
                         }
                     } else {
-                        if ((comment.attachedSong != null || comment.attachedFilm != null) && nowPlaying != null) {
+                        if (comment.hasAttachment && nowPlaying != null) {
                             if (displayedText.isNotEmpty()) Spacer(Modifier.height(CorusSpacing.xs))
                             CommentAttachmentCard(
                                 attachedSong = comment.attachedSong,
                                 attachedFilm = comment.attachedFilm,
+                                attachedArtist = comment.attachedArtist,
+                                attachedAlbum = comment.attachedAlbum,
+                                attachedDirector = comment.attachedDirector,
                                 nowPlaying = nowPlaying,
                                 onNavigateToSong = onNavigateToSong,
                                 onNavigateToFilm = onNavigateToFilm,
+                                onNavigateToArtist = onNavigateToArtist,
+                                onNavigateToAlbum = onNavigateToAlbum,
+                                onNavigateToDirector = onNavigateToDirector,
                             )
                         }
                     }

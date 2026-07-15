@@ -289,6 +289,7 @@
     <string name="comment_attachment_picker_title">Attach to comment</string>
     <string name="comment_attachment_picker_reply_title">Attach to reply</string>
     <string name="comment_attachment_song">Song</string>
+    <string name="comment_attachment_music">Music</string>
     <string name="comment_attachment_film">Film</string>
     <string name="comment_attachment_gif">GIF</string>
 
@@ -834,7 +835,6 @@
     <!-- Mention text / flair badges -->
     <string name="mention_cd_corus">Corus</string>
     <string name="mention_badge_first">1ST</string>
-    <string name="badge_explicit">E</string>
     <string name="mention_badge_new_release">NEW RELEASE</string>
     <string name="mention_badge_bot">BOT</string>
     <string name="mention_searching">Searching…</string>
@@ -933,6 +933,9 @@
     <!-- Song/Film picker sheet -->
     <string name="song_film_picker_songs">Songs</string>
     <string name="song_film_picker_films">Films</string>
+    <string name="song_film_picker_artists">Artists</string>
+    <string name="song_film_picker_albums">Albums</string>
+    <string name="song_film_picker_directors">Directors</string>
     <string name="song_film_picker_search_song">Search for a song</string>
     <string name="song_film_picker_search_film">Search for a film</string>
     <string name="song_film_picker_cd_clear">Clear</string>

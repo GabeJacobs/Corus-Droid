@@ -173,6 +173,103 @@ data class CommentAttachedFilm(
     }
 }
 
+/**
+ * Optional artist attachment carried inline on a comment document. Field names
+ * mirror the DM sharedArtist message so all platforms serialize the same shape.
+ */
+data class CommentAttachedArtist(
+    val artistId: String,
+    val artistName: String,
+    val artistImageURL: String? = null,
+) {
+    val fallbackText: String get() = "🎤 $artistName"
+
+    fun toFirestoreMap(): Map<String, Any?> = buildMap {
+        put("artistId", artistId)
+        put("artistName", artistName)
+        if (!artistImageURL.isNullOrEmpty()) put("artistImageURL", artistImageURL)
+    }
+
+    companion object {
+        fun fromMap(data: Map<String, Any?>?): CommentAttachedArtist? {
+            if (data == null) return null
+            val artistId = data["artistId"] as? String ?: return null
+            if (artistId.isEmpty()) return null
+            val artistName = data["artistName"] as? String ?: return null
+            return CommentAttachedArtist(
+                artistId = artistId,
+                artistName = artistName,
+                artistImageURL = data["artistImageURL"] as? String,
+            )
+        }
+    }
+}
+
+/** Optional album attachment carried inline on a comment document. */
+data class CommentAttachedAlbum(
+    val albumId: String,
+    val albumTitle: String,
+    val albumArtistName: String = "",
+    val albumCoverURL: String? = null,
+    val albumYear: String? = null,
+) {
+    val fallbackText: String
+        get() = if (albumArtistName.isEmpty()) "💿 $albumTitle" else "💿 $albumTitle — $albumArtistName"
+
+    fun toFirestoreMap(): Map<String, Any?> = buildMap {
+        put("albumId", albumId)
+        put("albumTitle", albumTitle)
+        if (albumArtistName.isNotEmpty()) put("albumArtistName", albumArtistName)
+        if (!albumCoverURL.isNullOrEmpty()) put("albumCoverURL", albumCoverURL)
+        if (!albumYear.isNullOrEmpty()) put("albumYear", albumYear)
+    }
+
+    companion object {
+        fun fromMap(data: Map<String, Any?>?): CommentAttachedAlbum? {
+            if (data == null) return null
+            val albumId = data["albumId"] as? String ?: return null
+            if (albumId.isEmpty()) return null
+            val albumTitle = data["albumTitle"] as? String ?: return null
+            return CommentAttachedAlbum(
+                albumId = albumId,
+                albumTitle = albumTitle,
+                albumArtistName = data["albumArtistName"] as? String ?: "",
+                albumCoverURL = data["albumCoverURL"] as? String,
+                albumYear = data["albumYear"] as? String,
+            )
+        }
+    }
+}
+
+/** Optional director attachment carried inline on a comment document. */
+data class CommentAttachedDirector(
+    val directorId: String,
+    val directorName: String,
+    val directorImageURL: String? = null,
+) {
+    val fallbackText: String get() = "🎬 $directorName"
+
+    fun toFirestoreMap(): Map<String, Any?> = buildMap {
+        put("directorId", directorId)
+        put("directorName", directorName)
+        if (!directorImageURL.isNullOrEmpty()) put("directorImageURL", directorImageURL)
+    }
+
+    companion object {
+        fun fromMap(data: Map<String, Any?>?): CommentAttachedDirector? {
+            if (data == null) return null
+            val directorId = data["directorId"] as? String ?: return null
+            if (directorId.isEmpty()) return null
+            val directorName = data["directorName"] as? String ?: return null
+            return CommentAttachedDirector(
+                directorId = directorId,
+                directorName = directorName,
+                directorImageURL = data["directorImageURL"] as? String,
+            )
+        }
+    }
+}
+
 data class CymbalComment(
     val id: String,
     val user: CymbalUser,
@@ -186,6 +283,9 @@ data class CymbalComment(
     val editedAt: Date? = null,
     val attachedSong: CommentAttachedSong? = null,
     val attachedFilm: CommentAttachedFilm? = null,
+    val attachedArtist: CommentAttachedArtist? = null,
+    val attachedAlbum: CommentAttachedAlbum? = null,
+    val attachedDirector: CommentAttachedDirector? = null,
     /**
      * True when [text] was synthesized by the client purely so old clients have
      * something to render. New clients must suppress text rendering and only
@@ -205,7 +305,9 @@ data class CymbalComment(
     /** What new clients should display for the comment text. */
     val displayText: String get() = if (textIsAttachmentFallback) "" else text
 
-    val hasAttachment: Boolean get() = attachedSong != null || attachedFilm != null
+    val hasAttachment: Boolean
+        get() = attachedSong != null || attachedFilm != null || attachedArtist != null ||
+            attachedAlbum != null || attachedDirector != null
 
     companion object {
         @Suppress("UNCHECKED_CAST")
@@ -228,6 +330,9 @@ data class CymbalComment(
 
             val attachedSong = CommentAttachedSong.fromMap(data["attachedSong"] as? Map<String, Any?>)
             val attachedFilm = CommentAttachedFilm.fromMap(data["attachedFilm"] as? Map<String, Any?>)
+            val attachedArtist = CommentAttachedArtist.fromMap(data["attachedArtist"] as? Map<String, Any?>)
+            val attachedAlbum = CommentAttachedAlbum.fromMap(data["attachedAlbum"] as? Map<String, Any?>)
+            val attachedDirector = CommentAttachedDirector.fromMap(data["attachedDirector"] as? Map<String, Any?>)
 
             return CymbalComment(
                 id = data["id"] as? String ?: "",
@@ -242,6 +347,9 @@ data class CymbalComment(
                 editedAt = editedAt,
                 attachedSong = attachedSong,
                 attachedFilm = attachedFilm,
+                attachedArtist = attachedArtist,
+                attachedAlbum = attachedAlbum,
+                attachedDirector = attachedDirector,
                 textIsAttachmentFallback = data["textIsAttachmentFallback"] as? Boolean ?: false,
                 likedByViewer = data["likedByViewer"] as? Boolean,
             )

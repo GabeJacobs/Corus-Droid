@@ -7,6 +7,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
+import fm.corus.android.data.model.CommentAttachedAlbum
+import fm.corus.android.data.model.CommentAttachedArtist
+import fm.corus.android.data.model.CommentAttachedDirector
 import fm.corus.android.data.model.CommentAttachedFilm
 import fm.corus.android.data.model.CommentAttachedSong
 import fm.corus.android.data.model.CymbalComment
@@ -77,6 +80,9 @@ class CommentsViewModel @Inject constructor(
 
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport
+
+    val commentEntityAttachmentsEnabled: Boolean
+        get() = remoteConfigService.commentEntityAttachmentsEnabled
 
     /**
      * Per-post comments-audience gate, derived from the loaded post and the
@@ -191,28 +197,52 @@ class CommentsViewModel @Inject constructor(
     private val _pendingGif = MutableStateFlow<KlipyGif?>(null)
     val pendingGif: StateFlow<KlipyGif?> = _pendingGif.asStateFlow()
 
+    private val _pendingArtist = MutableStateFlow<CommentAttachedArtist?>(null)
+    val pendingArtist: StateFlow<CommentAttachedArtist?> = _pendingArtist.asStateFlow()
+
+    private val _pendingAlbum = MutableStateFlow<CommentAttachedAlbum?>(null)
+    val pendingAlbum: StateFlow<CommentAttachedAlbum?> = _pendingAlbum.asStateFlow()
+
+    private val _pendingDirector = MutableStateFlow<CommentAttachedDirector?>(null)
+    val pendingDirector: StateFlow<CommentAttachedDirector?> = _pendingDirector.asStateFlow()
+
     fun attachSong(track: CymbalTrack) {
+        clearAttachment()
         _pendingSong.value = CommentAttachedSong.fromTrack(track)
-        _pendingFilm.value = null
-        _pendingGif.value = null
     }
 
     fun attachFilm(movie: CymbalMovie) {
+        clearAttachment()
         _pendingFilm.value = CommentAttachedFilm.fromMovie(movie)
-        _pendingSong.value = null
-        _pendingGif.value = null
     }
 
     fun attachGif(gif: KlipyGif) {
+        clearAttachment()
         _pendingGif.value = gif
-        _pendingSong.value = null
-        _pendingFilm.value = null
+    }
+
+    fun attachArtist(artist: CommentAttachedArtist) {
+        clearAttachment()
+        _pendingArtist.value = artist
+    }
+
+    fun attachAlbum(album: CommentAttachedAlbum) {
+        clearAttachment()
+        _pendingAlbum.value = album
+    }
+
+    fun attachDirector(director: CommentAttachedDirector) {
+        clearAttachment()
+        _pendingDirector.value = director
     }
 
     fun clearAttachment() {
         _pendingSong.value = null
         _pendingFilm.value = null
         _pendingGif.value = null
+        _pendingArtist.value = null
+        _pendingAlbum.value = null
+        _pendingDirector.value = null
     }
 
     private val _comments = MutableStateFlow<List<CymbalComment>>(emptyList())
@@ -452,8 +482,13 @@ class CommentsViewModel @Inject constructor(
         val userId = authRepository.currentUserId ?: return
         val attachedSong = _pendingSong.value
         val attachedFilm = _pendingFilm.value
+        val attachedArtist = _pendingArtist.value
+        val attachedAlbum = _pendingAlbum.value
+        val attachedDirector = _pendingDirector.value
+        val hasMediaAttachment = attachedSong != null || attachedFilm != null ||
+            attachedArtist != null || attachedAlbum != null || attachedDirector != null
         // Allow attachment-only sends (text empty but attachment set).
-        if (text.isBlank() && attachedSong == null && attachedFilm == null) return
+        if (text.isBlank() && !hasMediaAttachment) return
 
         viewModelScope.launch {
             _isSending.value = true
@@ -469,11 +504,14 @@ class CommentsViewModel @Inject constructor(
             val userProfile = authRepository.userProfile.value
                 ?: try { userRepository.fetchUserProfile(userId) } catch (_: Exception) { null }
 
-            val isFallback = text.isBlank() && (attachedSong != null || attachedFilm != null)
+            val isFallback = text.isBlank() && hasMediaAttachment
             val optimisticText = when {
                 text.isNotBlank() -> text
                 attachedSong != null -> attachedSong.fallbackText
                 attachedFilm != null -> attachedFilm.fallbackText
+                attachedArtist != null -> attachedArtist.fallbackText
+                attachedAlbum != null -> attachedAlbum.fallbackText
+                attachedDirector != null -> attachedDirector.fallbackText
                 else -> ""
             }
 
@@ -487,6 +525,9 @@ class CommentsViewModel @Inject constructor(
                 replyToUser = replyTo?.user,
                 attachedSong = attachedSong,
                 attachedFilm = attachedFilm,
+                attachedArtist = attachedArtist,
+                attachedAlbum = attachedAlbum,
+                attachedDirector = attachedDirector,
                 textIsAttachmentFallback = isFallback,
             )
 
@@ -502,6 +543,9 @@ class CommentsViewModel @Inject constructor(
             _replyingTo.value = null
             _pendingSong.value = null
             _pendingFilm.value = null
+            _pendingArtist.value = null
+            _pendingAlbum.value = null
+            _pendingDirector.value = null
             _isSending.value = false
 
             // Send to server, reload on success, rollback on failure
@@ -514,6 +558,9 @@ class CommentsViewModel @Inject constructor(
                     replyToUserId = replyToUserId,
                     attachedSong = attachedSong,
                     attachedFilm = attachedFilm,
+                    attachedArtist = attachedArtist,
+                    attachedAlbum = attachedAlbum,
+                    attachedDirector = attachedDirector,
                 )
                 loadComments(postId)
                 sendCommentNotifications(
@@ -528,6 +575,9 @@ class CommentsViewModel @Inject constructor(
                     attachmentType = when {
                         attachedSong != null -> "song"
                         attachedFilm != null -> "film"
+                        attachedArtist != null -> "artist"
+                        attachedAlbum != null -> "album"
+                        attachedDirector != null -> "director"
                         else -> null
                     },
                 )

@@ -283,6 +283,7 @@
     <string name="comment_attachment_picker_title">Adjuntar al comentario</string>
     <string name="comment_attachment_picker_reply_title">Adjuntar a la respuesta</string>
     <string name="comment_attachment_song">Canción</string>
+    <string name="comment_attachment_music">Música</string>
     <string name="comment_attachment_film">Película</string>
     <string name="comment_attachment_gif">GIF</string>
 
@@ -864,6 +865,9 @@
     <!-- Song/Film picker sheet -->
     <string name="song_film_picker_songs">Canciones</string>
     <string name="song_film_picker_films">Películas</string>
+    <string name="song_film_picker_artists">Artistas</string>
+    <string name="song_film_picker_albums">Álbumes</string>
+    <string name="song_film_picker_directors">Directores</string>
     <string name="song_film_picker_search_song">Buscar una canción</string>
     <string name="song_film_picker_search_film">Buscar una película</string>
     <string name="song_film_picker_cd_clear">Limpiar</string>

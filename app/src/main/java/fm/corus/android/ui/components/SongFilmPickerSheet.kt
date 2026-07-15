@@ -57,7 +57,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import androidx.lifecycle.ViewModel
 
-enum class PickerMode { SONG, FILM, ARTIST, ALBUM, DIRECTOR }
+// SONG/FILM are the legacy single-type tabs; ARTIST/ALBUM/DIRECTOR are the
+// single-entity DM pickers (EntityPickerSheet). MUSIC_ALL / FILM_ALL are the
+// blended comment-attach tabs (comment_entity_attachments_enabled): Music
+// searches songs + artists + albums in one query, Film searches films +
+// directors.
+enum class PickerMode { SONG, FILM, ARTIST, ALBUM, DIRECTOR, MUSIC_ALL, FILM_ALL }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +72,15 @@ fun SongFilmPickerSheet(
     onFilmSelected: (CymbalMovie) -> Unit,
     onDismiss: () -> Unit,
     title: String? = null,
+    /**
+     * Which segmented tabs to offer. The legacy Songs/Films pair by default;
+     * the comment attach picker (comment_entity_attachments_enabled) passes
+     * [SONG, ARTIST, ALBUM] for its Music domain and [FILM, DIRECTOR] for Film.
+     */
+    modes: List<PickerMode> = listOf(PickerMode.SONG, PickerMode.FILM),
+    onArtistSelected: ((id: String, name: String, imageUrl: String?) -> Unit)? = null,
+    onAlbumSelected: ((id: String, title: String, artist: String, coverUrl: String?, year: Int?) -> Unit)? = null,
+    onDirectorSelected: ((id: String, name: String, imageUrl: String?) -> Unit)? = null,
 ) {
     val viewModel: SongFilmPickerViewModel = hiltViewModel()
     val musicSearchRepository = viewModel.musicSearchRepository
@@ -75,19 +89,29 @@ fun SongFilmPickerSheet(
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val isLoadingTrending by viewModel.isLoadingTrending.collectAsState()
 
-    var mode by remember { mutableStateOf(initialMode) }
+    var mode by remember { mutableStateOf(if (initialMode in modes) initialMode else modes.first()) }
     var searchQuery by remember { mutableStateOf("") }
     var tracks by remember { mutableStateOf<List<CymbalTrack>>(emptyList()) }
     var movies by remember { mutableStateOf<List<CymbalMovie>>(emptyList()) }
+    var artistRows by remember { mutableStateOf<List<ArtistSummary>>(emptyList()) }
+    var albumRows by remember { mutableStateOf<List<AlbumSearchSummary>>(emptyList()) }
+    var directorRows by remember { mutableStateOf<List<ArtistSummary>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var searchJob by remember { mutableStateOf<Job?>(null) }
 
+    fun clearResults() {
+        tracks = emptyList()
+        movies = emptyList()
+        artistRows = emptyList()
+        albumRows = emptyList()
+        directorRows = emptyList()
+    }
+
     fun runSearch(query: String, currentMode: PickerMode) {
         searchJob?.cancel()
         if (query.isBlank()) {
-            tracks = emptyList()
-            movies = emptyList()
+            clearResults()
             isSearching = false
             return
         }
@@ -96,23 +120,58 @@ fun SongFilmPickerSheet(
         searchJob = scope.launch {
             delay(300)
             try {
-                if (currentMode == PickerMode.SONG) {
-                    tracks = musicSearchRepository.search(
-                        query,
-                        includeSoundCloud = viewModel.remoteConfigService.soundcloudEnabled,
-                    ).tracks
-                    movies = emptyList()
-                } else {
-                    val initial = tmdbRepository.searchMovies(query)
-                    movies = initial
-                    tracks = emptyList()
-                    try {
-                        movies = tmdbRepository.prefetchDirectors(initial)
-                    } catch (_: Exception) { }
+                when (currentMode) {
+                    PickerMode.SONG -> {
+                        val results = musicSearchRepository.search(
+                            query,
+                            includeSoundCloud = viewModel.remoteConfigService.soundcloudEnabled,
+                        ).tracks
+                        clearResults()
+                        tracks = results
+                    }
+                    PickerMode.MUSIC_ALL -> {
+                        // One backend call fans out to songs + artists + albums.
+                        val page = musicSearchRepository.search(
+                            query,
+                            includeSoundCloud = viewModel.remoteConfigService.soundcloudEnabled,
+                            includeArtists = true,
+                            includeAlbums = true,
+                        )
+                        clearResults()
+                        tracks = page.tracks
+                        artistRows = page.artists
+                        albumRows = page.albums
+                    }
+                    PickerMode.FILM, PickerMode.FILM_ALL -> {
+                        val initial = tmdbRepository.searchMovies(query)
+                        val directors = if (currentMode == PickerMode.FILM_ALL) {
+                            try { tmdbRepository.searchDirectors(query) } catch (_: Exception) { emptyList() }
+                        } else emptyList()
+                        clearResults()
+                        movies = initial
+                        directorRows = directors
+                        try {
+                            movies = tmdbRepository.prefetchDirectors(initial)
+                        } catch (_: Exception) { }
+                    }
+                    PickerMode.ARTIST -> {
+                        val results = musicSearchRepository.search(query, includeArtists = true).artists
+                        clearResults()
+                        artistRows = results
+                    }
+                    PickerMode.ALBUM -> {
+                        val results = musicSearchRepository.search(query, includeAlbums = true).albums
+                        clearResults()
+                        albumRows = results
+                    }
+                    PickerMode.DIRECTOR -> {
+                        val results = tmdbRepository.searchDirectors(query)
+                        clearResults()
+                        directorRows = results
+                    }
                 }
             } catch (_: Exception) {
-                tracks = emptyList()
-                movies = emptyList()
+                clearResults()
             }
             isSearching = false
         }
@@ -151,13 +210,13 @@ fun SongFilmPickerSheet(
 
             Column(modifier = Modifier.padding(horizontal = CorusSpacing.lg)) {
                 PickerSegmentedToggle(
-                    selectedIndex = if (mode == PickerMode.SONG) 0 else 1,
+                    options = modes.map { pickerModeLabel(it) },
+                    selectedIndex = modes.indexOf(mode).coerceAtLeast(0),
                     onSelected = { idx ->
-                        val newMode = if (idx == 0) PickerMode.SONG else PickerMode.FILM
+                        val newMode = modes[idx]
                         if (newMode != mode) {
                             mode = newMode
-                            tracks = emptyList()
-                            movies = emptyList()
+                            clearResults()
                             runSearch(searchQuery, newMode)
                         }
                     },
@@ -194,7 +253,15 @@ fun SongFilmPickerSheet(
                         decorationBox = { innerTextField ->
                             if (searchQuery.isEmpty()) {
                                 Text(
-                                    text = if (mode == PickerMode.SONG) stringResource(R.string.song_film_picker_search_song) else stringResource(R.string.song_film_picker_search_film),
+                                    text = when (mode) {
+                                        PickerMode.SONG -> stringResource(R.string.song_film_picker_search_song)
+                                        PickerMode.FILM -> stringResource(R.string.song_film_picker_search_film)
+                                        PickerMode.MUSIC_ALL -> stringResource(R.string.search_placeholder_music)
+                                        PickerMode.FILM_ALL -> stringResource(R.string.search_placeholder_film)
+                                        PickerMode.ARTIST -> stringResource(R.string.messaging_thread_attachment_artist)
+                                        PickerMode.ALBUM -> stringResource(R.string.messaging_thread_attachment_album)
+                                        PickerMode.DIRECTOR -> stringResource(R.string.messaging_thread_attachment_director)
+                                    },
                                     style = CorusFont.body,
                                     color = CorusColors.Secondary,
                                 )
@@ -223,7 +290,7 @@ fun SongFilmPickerSheet(
             // Content area: trending (empty query) | skeletons (searching) | results.
             val showTrending = searchQuery.isBlank()
             when {
-                showTrending && mode == PickerMode.SONG -> {
+                showTrending && (mode == PickerMode.SONG || mode == PickerMode.MUSIC_ALL) -> {
                     if (isLoadingTrending) {
                         SongRowSkeletons()
                     } else {
@@ -234,7 +301,7 @@ fun SongFilmPickerSheet(
                         )
                     }
                 }
-                showTrending && mode == PickerMode.FILM -> {
+                showTrending && (mode == PickerMode.FILM || mode == PickerMode.FILM_ALL) -> {
                     if (isLoadingTrending) {
                         FilmRowSkeletons()
                     } else {
@@ -245,12 +312,12 @@ fun SongFilmPickerSheet(
                     }
                 }
                 isSearching -> {
-                    if (mode == PickerMode.SONG) SongRowSkeletons() else FilmRowSkeletons()
+                    if (mode == PickerMode.FILM || mode == PickerMode.FILM_ALL) FilmRowSkeletons() else SongRowSkeletons()
                 }
                 else -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        if (mode == PickerMode.SONG) {
-                            itemsIndexed(tracks, key = { _, t -> t.id }) { index, track ->
+                        when (mode) {
+                            PickerMode.SONG -> itemsIndexed(tracks, key = { _, t -> t.id }) { index, track ->
                                 SongPickerRow(track = track, onClick = { onSongSelected(track) })
                                 if (index < tracks.lastIndex) {
                                     HorizontalDivider(
@@ -259,10 +326,115 @@ fun SongFilmPickerSheet(
                                     )
                                 }
                             }
-                        } else {
-                            itemsIndexed(movies, key = { _, m -> m.id }) { index, movie ->
+                            PickerMode.MUSIC_ALL -> {
+                                // Blended Music tab: capped artist/album sections
+                                // above the song list, one query feeding all three.
+                                val cappedArtists = artistRows.take(3)
+                                val cappedAlbums = albumRows.take(3)
+                                if (cappedArtists.isNotEmpty()) {
+                                    item(key = "header-artists") { PickerSectionHeader(stringResource(R.string.song_film_picker_artists)) }
+                                    itemsIndexed(cappedArtists, key = { _, a -> "artist-${a.id}" }) { index, a ->
+                                        EntityPickerRow(
+                                            imageUrl = a.imageUrl, circle = true, title = a.name,
+                                            subtitle = stringResource(R.string.messaging_thread_attachment_artist),
+                                        ) { onArtistSelected?.invoke(a.id, a.name, a.imageUrl) }
+                                        if (index < cappedArtists.lastIndex) {
+                                            HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(start = 72.dp))
+                                        }
+                                    }
+                                }
+                                if (cappedAlbums.isNotEmpty()) {
+                                    item(key = "header-albums") { PickerSectionHeader(stringResource(R.string.song_film_picker_albums)) }
+                                    itemsIndexed(cappedAlbums, key = { _, a -> "album-${a.id}" }) { index, a ->
+                                        EntityPickerRow(
+                                            imageUrl = a.coverUrl, circle = false, title = a.title,
+                                            subtitle = a.artistName.ifBlank { stringResource(R.string.messaging_thread_attachment_album) },
+                                        ) { onAlbumSelected?.invoke(a.id, a.title, a.artistName, a.coverUrl, a.year) }
+                                        if (index < cappedAlbums.lastIndex) {
+                                            HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(start = 72.dp))
+                                        }
+                                    }
+                                }
+                                if (tracks.isNotEmpty() && (cappedArtists.isNotEmpty() || cappedAlbums.isNotEmpty())) {
+                                    item(key = "header-songs") { PickerSectionHeader(stringResource(R.string.song_film_picker_songs)) }
+                                }
+                                itemsIndexed(tracks, key = { _, t -> "song-${t.id}" }) { index, track ->
+                                    SongPickerRow(track = track, onClick = { onSongSelected(track) })
+                                    if (index < tracks.lastIndex) {
+                                        HorizontalDivider(
+                                            color = CorusColors.Divider,
+                                            modifier = Modifier.padding(start = 72.dp),
+                                        )
+                                    }
+                                }
+                            }
+                            PickerMode.FILM -> itemsIndexed(movies, key = { _, m -> m.id }) { index, movie ->
                                 FilmSearchResultRow(movie = movie, onClick = { onFilmSelected(movie) })
                                 if (index < movies.lastIndex) {
+                                    HorizontalDivider(
+                                        color = CorusColors.Divider,
+                                        modifier = Modifier.padding(start = 72.dp),
+                                    )
+                                }
+                            }
+                            PickerMode.FILM_ALL -> {
+                                // Blended Film tab: capped director section above the films.
+                                val cappedDirectors = directorRows.take(3)
+                                if (cappedDirectors.isNotEmpty()) {
+                                    item(key = "header-directors") { PickerSectionHeader(stringResource(R.string.song_film_picker_directors)) }
+                                    itemsIndexed(cappedDirectors, key = { _, d -> "director-${d.id}" }) { index, d ->
+                                        EntityPickerRow(
+                                            imageUrl = d.imageUrl, circle = true, title = d.name,
+                                            subtitle = stringResource(R.string.messaging_thread_attachment_director),
+                                        ) { onDirectorSelected?.invoke(d.id, d.name, d.imageUrl) }
+                                        if (index < cappedDirectors.lastIndex) {
+                                            HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(start = 72.dp))
+                                        }
+                                    }
+                                    if (movies.isNotEmpty()) {
+                                        item(key = "header-films") { PickerSectionHeader(stringResource(R.string.song_film_picker_films)) }
+                                    }
+                                }
+                                itemsIndexed(movies, key = { _, m -> "film-${m.id}" }) { index, movie ->
+                                    FilmSearchResultRow(movie = movie, onClick = { onFilmSelected(movie) })
+                                    if (index < movies.lastIndex) {
+                                        HorizontalDivider(
+                                            color = CorusColors.Divider,
+                                            modifier = Modifier.padding(start = 72.dp),
+                                        )
+                                    }
+                                }
+                            }
+                            PickerMode.ARTIST -> itemsIndexed(artistRows, key = { _, a -> a.id }) { index, a ->
+                                EntityPickerRow(
+                                    imageUrl = a.imageUrl, circle = true, title = a.name,
+                                    subtitle = stringResource(R.string.messaging_thread_attachment_artist),
+                                ) { onArtistSelected?.invoke(a.id, a.name, a.imageUrl) }
+                                if (index < artistRows.lastIndex) {
+                                    HorizontalDivider(
+                                        color = CorusColors.Divider,
+                                        modifier = Modifier.padding(start = 72.dp),
+                                    )
+                                }
+                            }
+                            PickerMode.ALBUM -> itemsIndexed(albumRows, key = { _, a -> a.id }) { index, a ->
+                                EntityPickerRow(
+                                    imageUrl = a.coverUrl, circle = false, title = a.title,
+                                    subtitle = a.artistName.ifBlank { stringResource(R.string.messaging_thread_attachment_album) },
+                                ) { onAlbumSelected?.invoke(a.id, a.title, a.artistName, a.coverUrl, a.year) }
+                                if (index < albumRows.lastIndex) {
+                                    HorizontalDivider(
+                                        color = CorusColors.Divider,
+                                        modifier = Modifier.padding(start = 72.dp),
+                                    )
+                                }
+                            }
+                            PickerMode.DIRECTOR -> itemsIndexed(directorRows, key = { _, d -> d.id }) { index, d ->
+                                EntityPickerRow(
+                                    imageUrl = d.imageUrl, circle = true, title = d.name,
+                                    subtitle = stringResource(R.string.messaging_thread_attachment_director),
+                                ) { onDirectorSelected?.invoke(d.id, d.name, d.imageUrl) }
+                                if (index < directorRows.lastIndex) {
                                     HorizontalDivider(
                                         color = CorusColors.Divider,
                                         modifier = Modifier.padding(start = 72.dp),
@@ -277,13 +449,39 @@ fun SongFilmPickerSheet(
     }
 }
 
+/** Uppercase section label row inside the blended result lists. */
+@Composable
+private fun PickerSectionHeader(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = CorusFont.sectionHeader,
+        color = CorusColors.Secondary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg)
+            .padding(top = CorusSpacing.md, bottom = CorusSpacing.xs),
+    )
+}
+
+/** Segment label for a picker tab. */
+@Composable
+private fun pickerModeLabel(mode: PickerMode): String = when (mode) {
+    PickerMode.SONG -> stringResource(R.string.song_film_picker_songs)
+    PickerMode.FILM -> stringResource(R.string.song_film_picker_films)
+    PickerMode.MUSIC_ALL -> stringResource(R.string.comment_attachment_music)
+    PickerMode.FILM_ALL -> stringResource(R.string.comment_attachment_film)
+    PickerMode.ARTIST -> stringResource(R.string.song_film_picker_artists)
+    PickerMode.ALBUM -> stringResource(R.string.song_film_picker_albums)
+    PickerMode.DIRECTOR -> stringResource(R.string.song_film_picker_directors)
+}
+
 @Composable
 private fun PickerSegmentedToggle(
+    options: List<String>,
     selectedIndex: Int,
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val options = listOf(stringResource(R.string.song_film_picker_songs), stringResource(R.string.song_film_picker_films))
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -341,22 +539,13 @@ private fun SongPickerRow(track: CymbalTrack, onClick: () -> Unit) {
         }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-            ) {
-                Text(
-                    text = track.name,
-                    style = CorusFont.body,
-                    color = CorusColors.Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (track.explicit) {
-                    ExplicitBadge()
-                }
-            }
+            Text(
+                text = track.name,
+                style = CorusFont.body,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 text = track.artistName,
                 style = CorusFont.caption,

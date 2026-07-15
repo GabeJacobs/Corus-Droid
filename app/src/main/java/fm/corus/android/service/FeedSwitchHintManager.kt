@@ -111,6 +111,7 @@ class FeedSwitchHintManager @Inject constructor(
     fun dismiss() {
         hasDismissedHint = true
         _shouldShow.value = false
+        analyticsService.logFeedSwitchHintDismissed()
     }
 
     private fun retire() {

@@ -593,6 +593,24 @@ fun MainTabScreen(
             onNavigateToSong = { track -> navController?.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { movie -> navController?.navigate(movie.toFilmDetailRoute()) },
             onNavigateToHashtag = { hashtag -> navController?.navigate(HashtagFeedRoute(hashtag)) },
+            // Same gating as the DM entity bubbles: with artist pages off the
+            // comment attachment card renders but its tap stays inert.
+            onNavigateToArtist = if (artistPagesEnabled) {
+                { artist -> navController?.navigate(ArtistPageRoute(artist.artistId, artist.artistName, artist.artistImageURL)) }
+            } else null,
+            onNavigateToAlbum = if (artistPagesEnabled) {
+                { album ->
+                    navController?.navigate(
+                        AlbumPageRoute(
+                            album.albumId, album.albumTitle, album.albumArtistName,
+                            album.albumCoverURL, album.albumYear?.toIntOrNull(),
+                        ),
+                    )
+                }
+            } else null,
+            onNavigateToDirector = if (artistPagesEnabled) {
+                { director -> navController?.navigate(DirectorPageRoute(director.directorId, director.directorName, director.directorImageURL)) }
+            } else null,
         )
     }
 

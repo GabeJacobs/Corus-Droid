@@ -181,6 +181,12 @@ class AnalyticsServiceTest {
     }
 
     @Test
+    fun `logFeedSwitchHintDismissed emits feed_switch_hint_dismissed`() {
+        service.logFeedSwitchHintDismissed()
+        verify(firebase).logEvent(eq("feed_switch_hint_dismissed"), any<Bundle>())
+    }
+
+    @Test
     fun `event names are stable strings`() {
         // Compile-time parity check — if anyone renames a method, they must update this list too.
         val expected = setOf(

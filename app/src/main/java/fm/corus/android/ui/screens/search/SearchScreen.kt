@@ -1870,7 +1870,8 @@ private fun UnifiedFilterChipRow(
  * Film(4) → Hashtags(3), fixed order per web. Sections with results render;
  * music/film also render (as skeletons) while the fan-out is in flight —
  * they're the slow verticals, so a skeleton beats a reflow when they land.
- * Section See-alls narrow the active chip to that vertical.
+ * Section See-alls narrow the active chip to that vertical. When only one
+ * vertical has matches its cap is dropped (`soleSectionExpanded`).
  */
 @Composable
 private fun UnifiedAllResults(
@@ -1896,6 +1897,19 @@ private fun UnifiedAllResults(
         userResults.isEmpty() && songResults.isEmpty() && artistResults.isEmpty() &&
         filmResults.isEmpty() && hashtagResults.isEmpty()
 
+    // The blended caps exist to share the screen between verticals. When the
+    // fan-out has settled and only one section has matches, it shows all its
+    // results instead of stopping at the preview cap. An in-flight search
+    // counts as "may still have results" so the list never shrinks after a
+    // slow vertical lands.
+    val sectionsWithResults = listOf(
+        userResults.isNotEmpty(),
+        songResults.isNotEmpty() || (artistPagesEnabled && artistResults.isNotEmpty()),
+        filmResults.isNotEmpty(),
+        hashtagResults.isNotEmpty(),
+    ).count { it }
+    val soleSectionExpanded = !isSearching && sectionsWithResults == 1
+
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
@@ -1911,7 +1925,8 @@ private fun UnifiedAllResults(
                     onSeeAll = { onSelectFilter(UnifiedSearchFilter.USERS) },
                 )
             }
-            items(userResults.take(5), key = { "u-${it.id}" }) { user ->
+            val visibleUsers = if (soleSectionExpanded) userResults else userResults.take(5)
+            items(visibleUsers, key = { "u-${it.id}" }) { user ->
                 SuggestedUserRow(
                     user = user,
                     isFollowed = viewModel.isFollowed(user.id),
@@ -1954,7 +1969,7 @@ private fun UnifiedAllResults(
                         })
                     }
                 }
-                val visibleSongs = songResults.take(4)
+                val visibleSongs = if (soleSectionExpanded) songResults else songResults.take(4)
                 itemsIndexed(visibleSongs, key = { _, track -> "s-${track.id}" }) { index, track ->
                     SongSearchRow(track = track, onClick = { onNavigateToSong(track) })
                     if (index < visibleSongs.lastIndex) {
@@ -1982,7 +1997,7 @@ private fun UnifiedAllResults(
             if (filmLoading) {
                 items(4) { SkeletonTrendingFilmRow() }
             } else {
-                val visibleMovies = filmResults.take(4)
+                val visibleMovies = if (soleSectionExpanded) filmResults else filmResults.take(4)
                 itemsIndexed(visibleMovies, key = { _, movie -> "f-${movie.id}" }) { index, movie ->
                     // Director rows are omitted in the blended view (web
                     // parity) — the Film chip has them.
@@ -2015,7 +2030,7 @@ private fun UnifiedAllResults(
                     onSeeAll = { onSelectFilter(UnifiedSearchFilter.HASHTAGS) },
                 )
             }
-            val visibleTags = hashtagResults.take(3)
+            val visibleTags = if (soleSectionExpanded) hashtagResults else hashtagResults.take(3)
             itemsIndexed(visibleTags, key = { _, tag -> "h-${tag.name}" }) { index, tag ->
                 HashtagRow(
                     name = tag.name,
@@ -3001,22 +3016,7 @@ private fun SongSearchRow(track: CymbalTrack, onClick: () -> Unit) {
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-            ) {
-                Text(
-                    track.name,
-                    style = CorusFont.bodyMedium,
-                    color = CorusColors.Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (track.explicit) {
-                    fm.corus.android.ui.components.ExplicitBadge()
-                }
-            }
+            Text(track.name, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(track.artistName, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (track.durationMs > 0) {

@@ -254,6 +254,7 @@
     <string name="comment_attachment_picker_title">コメントに添付</string>
     <string name="comment_attachment_picker_reply_title">返信に添付</string>
     <string name="comment_attachment_song">曲</string>
+    <string name="comment_attachment_music">音楽</string>
     <string name="comment_attachment_film">映画</string>
     <string name="comment_attachment_gif">GIF</string>
     <string name="likes_title">いいね</string>
@@ -761,6 +762,9 @@
     <string name="share_post_cd_x">X でシェア</string>
     <string name="song_film_picker_songs">曲</string>
     <string name="song_film_picker_films">映画</string>
+    <string name="song_film_picker_artists">アーティスト</string>
+    <string name="song_film_picker_albums">アルバム</string>
+    <string name="song_film_picker_directors">監督</string>
     <string name="song_film_picker_search_song">曲を検索</string>
     <string name="song_film_picker_search_film">映画を検索</string>
     <string name="song_film_picker_cd_clear">クリア</string>
