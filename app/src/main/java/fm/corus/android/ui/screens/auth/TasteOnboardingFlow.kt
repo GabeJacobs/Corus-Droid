@@ -463,7 +463,10 @@ private fun TasteQuizScreen(
             }
         }
 
-        // Bottom CTA cluster
+        // Bottom CTA cluster — yields to the keyboard: while the search field
+        // is focused the bottom third belongs to results/slots, and FIND MY
+        // MATCHES can't be tapped mid-typing anyway.
+        if (!searchFocused) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -495,6 +498,7 @@ private fun TasteQuizScreen(
                 )
             }
             Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        }
         }
     }
 }
