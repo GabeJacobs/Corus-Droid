@@ -1186,6 +1186,7 @@ class FirestoreDataSource @Inject constructor(
             rank = (item["rank"] as? Number)?.toInt() ?: 0,
             artistName = name,
             albumArtURL = (item["albumArtURL"] as? String)?.takeIf { it.isNotBlank() },
+            albumArtLargeURL = (item["albumArtLargeURL"] as? String)?.takeIf { it.isNotBlank() },
             cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
         )
     }

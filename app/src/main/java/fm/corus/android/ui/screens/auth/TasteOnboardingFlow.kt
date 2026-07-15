@@ -459,6 +459,12 @@ private fun TasteQuizScreen(
             )
 
             val browsing = searchFocused && !searching
+            // Compact pick strip: while the full tray is hidden (searching /
+            // browsing) every add visibly lands here.
+            if ((searching || browsing) && picks.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                QuizMiniTray(picks = picks)
+            }
             if (searching || browsing) {
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
                 Row(
@@ -780,7 +786,7 @@ private fun QuizBrowseList(
                     enabled = !atMax,
                     onAdd = {
                         // Name-only pick: trending artists carry no Spotify id.
-                        viewModel.addQuizPick(QuizPick.Artist("", artist.artistName, artist.albumArtURL))
+                        viewModel.addQuizPick(QuizPick.Artist("", artist.artistName, artist.albumArtLargeURL ?: artist.albumArtURL))
                     },
                 )
             }
@@ -926,6 +932,65 @@ private fun Modifier.dashedRoundedBorder(color: Color, cornerRadius: Dp, width: 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+private fun QuizMiniTray(picks: List<QuizPick>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        picks.take(5).forEach { pick ->
+            key(pick.id) {
+                val art = pick.pickArt()
+                if (art != null) {
+                    AsyncImage(
+                        model = art,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp)),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(CorusColors.Accent.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            pick.pickTitle().take(1).uppercase(),
+                            style = CorusFont.caption,
+                            color = CorusColors.Accent,
+                        )
+                    }
+                }
+            }
+        }
+        if (picks.size > 5) {
+            Text("+${picks.size - 5}", style = CorusFont.caption, color = CorusColors.Secondary)
+        }
+        repeat(maxOf(0, 3 - picks.size)) {
+            val dashColor = CorusColors.Tertiary.copy(alpha = 0.4f)
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .drawBehind {
+                        drawRoundRect(
+                            color = dashColor,
+                            cornerRadius = CornerRadius(6.dp.toPx()),
+                            style = Stroke(
+                                width = 1.5.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f)),
+                            ),
+                        )
+                    },
+            )
+        }
+    }
+}
+
+@Composable
 private fun QuizPicksTray(
     picks: List<QuizPick>,
     atMax: Boolean,
@@ -944,9 +1009,29 @@ private fun QuizPicksTray(
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            picks.forEach { pick ->
+            // Past 6 picks the tray compacts: first 5 tiles + a "+x" overflow
+            // tile, so a big pick set never buries the CTA. Hidden picks still
+            // count (and post/match).
+            val visiblePicks = if (picks.size > 6) picks.take(5) else picks
+            visiblePicks.forEach { pick ->
                 key(pick.id) {
                     FilledPickSlot(pick = pick, onRemove = { onRemove(pick.id) })
+                }
+            }
+            if (picks.size > 6) {
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(CorusColors.Card)
+                        .clickable(onClick = onSlotTap),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "+${picks.size - 5}",
+                        style = CorusFont.screenTitle,
+                        color = CorusColors.Secondary,
+                    )
                 }
             }
             // Empty slots look tappable (they are the visual ask), so make them

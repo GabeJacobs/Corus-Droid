@@ -97,6 +97,7 @@ data class TrendingArtist(
     val rank: Int,
     val artistName: String,
     val albumArtURL: String? = null,
+    val albumArtLargeURL: String? = null,
     val cymbalCount: Int = 0,
 )
 

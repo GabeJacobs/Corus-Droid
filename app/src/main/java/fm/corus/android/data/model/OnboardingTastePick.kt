@@ -59,8 +59,10 @@ sealed class QuizPick {
 
 /** Art URL for the pick's tray tile / venn cover. Mirrors web `pickArt`. */
 fun QuizPick.pickArt(): String? = when (this) {
-    is QuizPick.Song -> track.albumArtURL
-    is QuizPick.Film -> movie.posterURL
+    // Large variants first — the 96dp tray tiles render blurry from the
+    // ~300px small art on high-density displays.
+    is QuizPick.Song -> track.albumArtLargeURL ?: track.albumArtURL
+    is QuizPick.Film -> movie.posterLargeURL ?: movie.posterURL
     is QuizPick.Artist -> imageUrl
     is QuizPick.Album -> coverUrl
     is QuizPick.Director -> imageUrl
@@ -97,7 +99,9 @@ fun postablePicks(picks: List<QuizPick>): List<QuizPick> =
     picks.filter { it is QuizPick.Song || it is QuizPick.Film }
 
 /** Max picks the quiz accepts — matches web `MAX_PICKS`. */
-const val MAX_QUIZ_PICKS = 8
+// Soft ceiling only (server sanitizes) — the tray compacts with a +x
+// overflow past 6 tiles instead of growing forever.
+const val MAX_QUIZ_PICKS = 20
 
 /**
  * Quiz picks → the `getOnboardingTasteMatches` callable's `picks` payload.
