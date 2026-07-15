@@ -64,6 +64,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -358,6 +359,10 @@ private fun TasteQuizScreen(
     var filter by remember { mutableStateOf(QuizFilter.ALL) }
 
     val searchFocus = remember { FocusRequester() }
+    // Tracks raw field focus: the question cluster hides the moment the
+    // keyboard comes up (not just once text arrives) so it never gets
+    // squeezed into truncation.
+    var searchFocused by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val focusSearch: () -> Unit = {
         searchFocus.requestFocus()
@@ -389,7 +394,7 @@ private fun TasteQuizScreen(
             // third while idle; while searching the question hides and results
             // take the room. INSTANT swap — no sliding animation between the
             // two states (design rule).
-            if (!searching) {
+            if (!searching && !searchFocused) {
                 Spacer(modifier = Modifier.weight(0.85f))
                 Text(
                     stringResource(R.string.onboarding_taste_quiz_question),
@@ -420,7 +425,8 @@ private fun TasteQuizScreen(
                 onSearch = { keyboard?.hide() },
                 modifier = Modifier
                     .padding(horizontal = CorusSpacing.xxl)
-                    .focusRequester(searchFocus),
+                    .focusRequester(searchFocus)
+                    .onFocusChanged { searchFocused = it.isFocused },
                 placeholderRes = R.string.onboarding_taste_search_placeholder,
             )
 
