@@ -2,7 +2,13 @@ package fm.corus.android.ui.screens.auth
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -395,31 +401,43 @@ private fun TasteQuizScreen(
         )
 
         Column(modifier = Modifier.weight(1f)) {
-            // Subtitle + search + slots read as ONE cluster parked in the upper
-            // third while idle; while searching the question hides and results
-            // take the room. INSTANT swap — no sliding animation between the
-            // two states (design rule).
-            if (!searching && !searchFocused) {
-                Spacer(modifier = Modifier.weight(0.85f))
-                Text(
-                    stringResource(R.string.onboarding_taste_quiz_question),
-                    style = CorusFont.screenTitle,
-                    color = CorusColors.Text,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.xxl),
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                Text(
-                    stringResource(R.string.onboarding_taste_quiz_instruction),
-                    style = CorusFont.body,
-                    color = CorusColors.Secondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.xxl),
-                )
+            // Subtitle + search + slots read as ONE centered cluster while
+            // idle; focusing the search animates the question away and the
+            // cluster up (product call: focus transitions glide on mobile;
+            // typing-driven swaps stay instant).
+            val questionVisible = !searching && !searchFocused
+            val topSpacerWeight by animateFloatAsState(
+                targetValue = if (questionVisible) 0.85f else 0.0001f,
+                animationSpec = tween(250),
+                label = "quiz-top-spacer",
+            )
+            Spacer(modifier = Modifier.weight(topSpacerWeight))
+            AnimatedVisibility(
+                visible = questionVisible,
+                enter = fadeIn(tween(200)) + expandVertically(tween(250)),
+                exit = fadeOut(tween(150)) + shrinkVertically(tween(250)),
+            ) {
+                Column {
+                    Text(
+                        stringResource(R.string.onboarding_taste_quiz_question),
+                        style = CorusFont.screenTitle,
+                        color = CorusColors.Text,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = CorusSpacing.xxl),
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    Text(
+                        stringResource(R.string.onboarding_taste_quiz_instruction),
+                        style = CorusFont.body,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = CorusSpacing.xxl),
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(CorusSpacing.lg))
@@ -470,8 +488,13 @@ private fun TasteQuizScreen(
 
         // Bottom CTA cluster — yields to the keyboard: while the search field
         // is focused the bottom third belongs to results/slots, and FIND MY
-        // MATCHES can't be tapped mid-typing anyway.
-        if (!searchFocused) {
+        // MATCHES can't be tapped mid-typing anyway. Fades/shrinks in step
+        // with the question cluster above.
+        AnimatedVisibility(
+            visible = !searchFocused,
+            enter = fadeIn(tween(200)) + expandVertically(tween(250)),
+            exit = fadeOut(tween(150)) + shrinkVertically(tween(250)),
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
