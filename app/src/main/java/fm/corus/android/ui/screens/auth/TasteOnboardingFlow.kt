@@ -1231,7 +1231,9 @@ private fun TasteSuggestionsScreen(
     var dwellDone by remember { mutableStateOf(picks.isEmpty()) }
     LaunchedEffect(Unit) {
         if (picks.isNotEmpty()) {
-            delay(2200)
+            // Long enough for the collision choreography's payoff — circles
+            // collide ~2.4s, lens glow ~3.5s — so the reveal lands on the beat.
+            delay(3600)
             dwellDone = true
         }
     }
