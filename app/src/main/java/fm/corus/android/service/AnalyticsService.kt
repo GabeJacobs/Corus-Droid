@@ -98,7 +98,14 @@ class AnalyticsService @Inject constructor(
 
     // MARK: - Onboarding Events
 
-    fun logOnboardingCompleted() = logEvent("onboarding_completed")
+    /**
+     * `taste_onboarding` carries the A/B variant (taste-match onboarding flow
+     * on/off) so BigQuery can compare signup completion rates across the two
+     * flows. The same param ships on web (analyticsEvents.ts
+     * trackOnboardingCompleted) and iOS.
+     */
+    fun logOnboardingCompleted(tasteOnboarding: Boolean) =
+        logEvent("onboarding_completed", mapOf("taste_onboarding" to if (tasteOnboarding) "on" else "off"))
     fun logContactsSynced(matchCount: Int) = logEvent("contacts_synced", mapOf("match_count" to matchCount))
     fun logContactsSyncSkipped() = logEvent("contacts_sync_skipped")
     fun logSyncContactsTapped() = logEvent("sync_contacts_tapped")
@@ -108,6 +115,41 @@ class AnalyticsService @Inject constructor(
     fun logOnboardingAvatarNudge(action: String) = logEvent("onboarding_avatar_nudge", mapOf("action" to action))
     fun logNotificationPermissionResult(granted: Boolean) = logEvent("notification_permission_result", mapOf("granted" to granted))
     fun logBotPreviewPlayed(botUserId: String) = logEvent("bot_preview_played", mapOf("bot_user_id" to botUserId))
+
+    // ── Taste-match onboarding (the flag-on flow) ──
+    // Event names + param keys mirror web's analyticsEvents.ts exactly so GA4
+    // reports the funnel cross-platform.
+
+    fun logOnboardingTasteIntroShown() = logEvent("onboarding_taste_intro_shown")
+    fun logOnboardingTasteQuizStarted() = logEvent("onboarding_taste_quiz_started")
+    fun logOnboardingTastePickAdded(kind: String, total: Int) =
+        logEvent("onboarding_taste_pick_added", mapOf("kind" to kind, "total" to total))
+    fun logOnboardingTasteQuizCompleted(
+        total: Int,
+        songs: Int,
+        films: Int,
+        artists: Int,
+        albums: Int,
+        directors: Int,
+    ) = logEvent(
+        "onboarding_taste_quiz_completed",
+        mapOf(
+            "total" to total,
+            "songs" to songs,
+            "films" to films,
+            "artists" to artists,
+            "albums" to albums,
+            "directors" to directors,
+        ),
+    )
+    fun logOnboardingTasteMatchesShown(matchCount: Int, strongCount: Int) =
+        logEvent("onboarding_taste_matches_shown", mapOf("match_count" to matchCount, "strong_count" to strongCount))
+    fun logOnboardingTasteMakerShown() = logEvent("onboarding_taste_maker_shown")
+    fun logOnboardingTasteMatchFollowed() = logEvent("onboarding_taste_match_followed")
+    fun logOnboardingTastePicksPosted(count: Int) =
+        logEvent("onboarding_taste_picks_posted", mapOf("count" to count))
+    fun logOnboardingTasteSkipped(stage: String) =
+        logEvent("onboarding_taste_skipped", mapOf("stage" to stage))
 
     /**
      * The user picked a preferred music service (onboarding or Settings). The

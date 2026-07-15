@@ -1105,4 +1105,64 @@
     <string name="compose_draft_choose_another">选择其他</string>
     <string name="feed_switch_hint_title">探索你的其他信息流</string>
     <string name="feed_switch_hint_subtitle">点按标志即可切换</string>
+    <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
+    <string name="onboarding_find_people_title">寻找可关注的人</string>
+    <string name="onboarding_cta_continue">继续</string>
+    <string name="onboarding_taste_intro_title">找到你的品味匹配</string>
+    <string name="onboarding_taste_intro_body">Corus 上满是品味出众的人。我们来找找和你品味相同的人。</string>
+    <string name="onboarding_taste_intro_duration">大约需要 20 秒。</string>
+    <string name="onboarding_taste_intro_cta">开始测试</string>
+    <string name="onboarding_taste_do_it_later">以后再说</string>
+    <string name="onboarding_taste_quiz_question">告诉我们你喜欢什么</string>
+    <string name="onboarding_taste_quiz_instruction">选几首歌、几部电影或几位艺人，我们会帮你找到品味相同的人。</string>
+    <string name="onboarding_taste_search_placeholder">搜索歌曲、电影和艺人</string>
+    <string name="onboarding_taste_chip_all">全部</string>
+    <string name="onboarding_taste_chip_music">音乐</string>
+    <string name="onboarding_taste_chip_film">电影</string>
+    <string name="onboarding_taste_section_artists">艺人</string>
+    <string name="onboarding_taste_section_albums">专辑</string>
+    <string name="onboarding_taste_section_songs">歌曲</string>
+    <string name="onboarding_taste_section_films">电影</string>
+    <string name="onboarding_taste_section_directors">导演</string>
+    <string name="onboarding_taste_row_artist">艺人</string>
+    <string name="onboarding_taste_row_director">导演</string>
+    <string name="onboarding_taste_no_results">没有找到结果。换个关键词试试。</string>
+    <string name="onboarding_taste_no_results_music">没有匹配的音乐。换个搜索或筛选试试。</string>
+    <string name="onboarding_taste_no_results_film">没有匹配的电影。换个搜索或筛选试试。</string>
+    <string name="onboarding_taste_nice_taste">品味不错。再多选几个，匹配会更准。</string>
+    <string name="onboarding_taste_cd_slot_search">搜索以添加最爱</string>
+    <string name="onboarding_taste_cd_add_another">再添加一个最爱</string>
+    <string name="onboarding_taste_cd_remove">移除%1$s</string>
+    <string name="onboarding_taste_find_matches_cta">找到我的匹配</string>
+    <string name="onboarding_taste_searching_title">正在寻找你的品味匹配…</string>
+    <string name="onboarding_taste_searching_body">正在 Corus 上寻找和你品味相同的人。</string>
+    <string name="onboarding_taste_cd_back">返回测试</string>
+    <string name="onboarding_suggestions_subtitle">关注几个人，让你的信息流动起来。</string>
+    <string name="onboarding_taste_matches_header">品味匹配</string>
+    <string name="onboarding_taste_see_all_n">查看全部 %1$d 人</string>
+    <string name="onboarding_taste_maker_title">你是品味先锋！</string>
+    <string name="onboarding_taste_maker_body">还没有人在 Corus 上分享过你的选择。你正是这个社区在寻找的人。发布你所爱，等有人和你品味相合时我们会通知你。</string>
+    <string name="onboarding_headstart_title">开启你的主页</string>
+    <string name="onboarding_headstart_subtitle">我们会发布你的选择，让大家能找到你。</string>
+    <string name="onboarding_headstart_start_fresh">从零开始</string>
+    <string name="onboarding_headstart_cd_dont_post">不发布%1$s</string>
+    <string name="taste_card_similar_taste">品味相近</string>
+    <plurals name="onboarding_taste_pick_more">
+        <item quantity="other">再选 %1$d 个即可解锁你的匹配</item>
+    </plurals>
+    <plurals name="onboarding_headstart_post_cta">
+        <item quantity="other">发布 %1$d 个最爱</item>
+    </plurals>
+    <plurals name="taste_card_artist_matches">
+        <item quantity="other">%1$d 位共同艺人</item>
+    </plurals>
+    <plurals name="taste_card_director_matches">
+        <item quantity="other">%1$d 位共同导演</item>
+    </plurals>
+    <plurals name="taste_card_song_matches">
+        <item quantity="other">%1$d 首共同歌曲</item>
+    </plurals>
+    <plurals name="taste_card_film_matches">
+        <item quantity="other">%1$d 部共同电影</item>
+    </plurals>
 </resources>

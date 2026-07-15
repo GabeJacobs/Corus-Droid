@@ -533,7 +533,9 @@ class AuthViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 authRepository.completeOnboarding(username, displayName, avatarData)
-                analyticsService.logOnboardingCompleted()
+                analyticsService.logOnboardingCompleted(
+                    tasteOnboarding = remoteConfigService.onboardingTasteMatchEnabled,
+                )
                 _authState.value = AuthState.NeedsSocialSetup
             } catch (e: Exception) {
                 _error.value = context.getString(R.string.auth_error_generic)

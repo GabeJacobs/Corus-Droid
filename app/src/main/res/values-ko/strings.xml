@@ -1106,4 +1106,64 @@
     <string name="compose_draft_choose_another">다른 항목 선택</string>
     <string name="feed_switch_hint_title">다른 피드를 살펴보세요</string>
     <string name="feed_switch_hint_subtitle">로고를 탭해서 전환하세요</string>
+    <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
+    <string name="onboarding_find_people_title">팔로우할 사람 찾기</string>
+    <string name="onboarding_cta_continue">계속</string>
+    <string name="onboarding_taste_intro_title">취향 매치를 찾아보세요</string>
+    <string name="onboarding_taste_intro_body">Corus에는 멋진 취향을 가진 사람들이 가득해요. 당신과 취향이 통하는 사람을 찾아볼게요.</string>
+    <string name="onboarding_taste_intro_duration">약 20초면 끝나요.</string>
+    <string name="onboarding_taste_intro_cta">퀴즈 시작하기</string>
+    <string name="onboarding_taste_do_it_later">나중에 하기</string>
+    <string name="onboarding_taste_quiz_question">좋아하는 걸 알려주세요</string>
+    <string name="onboarding_taste_quiz_instruction">좋아하는 노래, 영화, 아티스트를 몇 개 고르면 취향이 통하는 사람들을 찾아드려요.</string>
+    <string name="onboarding_taste_search_placeholder">노래, 영화, 아티스트 검색</string>
+    <string name="onboarding_taste_chip_all">전체</string>
+    <string name="onboarding_taste_chip_music">음악</string>
+    <string name="onboarding_taste_chip_film">영화</string>
+    <string name="onboarding_taste_section_artists">아티스트</string>
+    <string name="onboarding_taste_section_albums">앨범</string>
+    <string name="onboarding_taste_section_songs">노래</string>
+    <string name="onboarding_taste_section_films">영화</string>
+    <string name="onboarding_taste_section_directors">감독</string>
+    <string name="onboarding_taste_row_artist">아티스트</string>
+    <string name="onboarding_taste_row_director">감독</string>
+    <string name="onboarding_taste_no_results">결과가 없어요. 다른 검색어를 시도해 보세요.</string>
+    <string name="onboarding_taste_no_results_music">일치하는 음악이 없어요. 다른 검색어나 필터를 시도해 보세요.</string>
+    <string name="onboarding_taste_no_results_film">일치하는 영화가 없어요. 다른 검색어나 필터를 시도해 보세요.</string>
+    <string name="onboarding_taste_nice_taste">취향 좋네요. 더 추가하면 매치가 더 정확해져요.</string>
+    <string name="onboarding_taste_cd_slot_search">검색해서 좋아하는 것 추가</string>
+    <string name="onboarding_taste_cd_add_another">좋아하는 것 추가</string>
+    <string name="onboarding_taste_cd_remove">%1$s 제거</string>
+    <string name="onboarding_taste_find_matches_cta">내 매치 찾기</string>
+    <string name="onboarding_taste_searching_title">취향 매치를 찾는 중…</string>
+    <string name="onboarding_taste_searching_body">Corus에서 취향이 통하는 사람들을 찾고 있어요.</string>
+    <string name="onboarding_taste_cd_back">퀴즈로 돌아가기</string>
+    <string name="onboarding_suggestions_subtitle">몇 명을 팔로우하고 피드를 시작해 보세요.</string>
+    <string name="onboarding_taste_matches_header">취향 매치</string>
+    <string name="onboarding_taste_see_all_n">%1$d명 모두 보기</string>
+    <string name="onboarding_taste_maker_title">당신은 트렌드세터!</string>
+    <string name="onboarding_taste_maker_body">아직 Corus에서 아무도 당신의 선택을 공유하지 않았어요. 당신이야말로 이 커뮤니티가 찾는 사람이에요. 좋아하는 걸 포스트하면, 취향이 맞는 사람이 나타날 때 알려드릴게요.</string>
+    <string name="onboarding_headstart_title">프로필을 시작해 보세요</string>
+    <string name="onboarding_headstart_subtitle">당신의 선택을 포스트해서 사람들이 당신을 찾을 수 있게 할게요.</string>
+    <string name="onboarding_headstart_start_fresh">포스트 없이 시작</string>
+    <string name="onboarding_headstart_cd_dont_post">%1$s 포스트하지 않기</string>
+    <string name="taste_card_similar_taste">비슷한 취향</string>
+    <plurals name="onboarding_taste_pick_more">
+        <item quantity="other">%1$d개 더 고르면 매치를 볼 수 있어요</item>
+    </plurals>
+    <plurals name="onboarding_headstart_post_cta">
+        <item quantity="other">좋아하는 것 %1$d개 포스트</item>
+    </plurals>
+    <plurals name="taste_card_artist_matches">
+        <item quantity="other">공통 아티스트 %1$d명</item>
+    </plurals>
+    <plurals name="taste_card_director_matches">
+        <item quantity="other">공통 감독 %1$d명</item>
+    </plurals>
+    <plurals name="taste_card_song_matches">
+        <item quantity="other">공통 노래 %1$d곡</item>
+    </plurals>
+    <plurals name="taste_card_film_matches">
+        <item quantity="other">공통 영화 %1$d편</item>
+    </plurals>
 </resources>

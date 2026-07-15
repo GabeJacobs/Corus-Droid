@@ -981,4 +981,64 @@
     <string name="compose_draft_choose_another">別のものを選択</string>
     <string name="feed_switch_hint_title">他のフィードも見てみよう</string>
     <string name="feed_switch_hint_subtitle">ロゴをタップして切り替え</string>
+    <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
+    <string name="onboarding_find_people_title">フォローする人を見つけよう</string>
+    <string name="onboarding_cta_continue">次へ</string>
+    <string name="onboarding_taste_intro_title">好みの一致を見つけよう</string>
+    <string name="onboarding_taste_intro_body">Corus には素敵な好みを持つ人がたくさんいます。あなたと好みが合う人を見つけましょう。</string>
+    <string name="onboarding_taste_intro_duration">所要時間は約20秒。</string>
+    <string name="onboarding_taste_intro_cta">クイズを始める</string>
+    <string name="onboarding_taste_do_it_later">あとでやる</string>
+    <string name="onboarding_taste_quiz_question">好きなものを教えてください</string>
+    <string name="onboarding_taste_quiz_instruction">好きな曲・映画・アーティストをいくつか選ぶと、同じ好みの人を見つけます。</string>
+    <string name="onboarding_taste_search_placeholder">曲・映画・アーティストを検索</string>
+    <string name="onboarding_taste_chip_all">すべて</string>
+    <string name="onboarding_taste_chip_music">音楽</string>
+    <string name="onboarding_taste_chip_film">映画</string>
+    <string name="onboarding_taste_section_artists">アーティスト</string>
+    <string name="onboarding_taste_section_albums">アルバム</string>
+    <string name="onboarding_taste_section_songs">曲</string>
+    <string name="onboarding_taste_section_films">映画</string>
+    <string name="onboarding_taste_section_directors">監督</string>
+    <string name="onboarding_taste_row_artist">アーティスト</string>
+    <string name="onboarding_taste_row_director">監督</string>
+    <string name="onboarding_taste_no_results">見つかりませんでした。別のキーワードで検索してみてください。</string>
+    <string name="onboarding_taste_no_results_music">該当する音楽がありません。別の検索やフィルターを試してください。</string>
+    <string name="onboarding_taste_no_results_film">該当する映画がありません。別の検索やフィルターを試してください。</string>
+    <string name="onboarding_taste_nice_taste">いい趣味ですね。さらに追加すると一致の精度が上がります。</string>
+    <string name="onboarding_taste_cd_slot_search">検索してお気に入りを追加</string>
+    <string name="onboarding_taste_cd_add_another">お気に入りを追加</string>
+    <string name="onboarding_taste_cd_remove">%1$sを削除</string>
+    <string name="onboarding_taste_find_matches_cta">一致を見つける</string>
+    <string name="onboarding_taste_searching_title">好みの一致を探しています…</string>
+    <string name="onboarding_taste_searching_body">あなたと好みが合う人を Corus で探しています。</string>
+    <string name="onboarding_taste_cd_back">クイズに戻る</string>
+    <string name="onboarding_suggestions_subtitle">何人かフォローしてフィードを始めましょう。</string>
+    <string name="onboarding_taste_matches_header">好みの一致</string>
+    <string name="onboarding_taste_see_all_n">%1$d人すべて見る</string>
+    <string name="onboarding_taste_maker_title">あなたはテイストメーカー！</string>
+    <string name="onboarding_taste_maker_body">あなたの選んだ作品は、まだ Corus で誰もシェアしていません。あなたこそこのコミュニティが求めている人です。好きなものを投稿すれば、好みが一致する人が現れたときにお知らせします。</string>
+    <string name="onboarding_headstart_title">プロフィールを始めよう</string>
+    <string name="onboarding_headstart_subtitle">選んだ作品を投稿して、あなたを見つけてもらいましょう。</string>
+    <string name="onboarding_headstart_start_fresh">投稿せずに始める</string>
+    <string name="onboarding_headstart_cd_dont_post">%1$sを投稿しない</string>
+    <string name="taste_card_similar_taste">好みが近い</string>
+    <plurals name="onboarding_taste_pick_more">
+        <item quantity="other">あと%1$dつ選ぶと一致が見られます</item>
+    </plurals>
+    <plurals name="onboarding_headstart_post_cta">
+        <item quantity="other">お気に入り%1$d件を投稿</item>
+    </plurals>
+    <plurals name="taste_card_artist_matches">
+        <item quantity="other">共通のアーティスト%1$d組</item>
+    </plurals>
+    <plurals name="taste_card_director_matches">
+        <item quantity="other">共通の監督%1$d人</item>
+    </plurals>
+    <plurals name="taste_card_song_matches">
+        <item quantity="other">共通の曲%1$d曲</item>
+    </plurals>
+    <plurals name="taste_card_film_matches">
+        <item quantity="other">共通の映画%1$d本</item>
+    </plurals>
 </resources>

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.data.model.SuggestedUserMatch
@@ -171,7 +172,12 @@ fun TasteMatchCard(
                 )
             }
 
-            val flavorText = buildFlavorText(subtitle, matchData)
+            // Same priority as buildFlavorText, but the count-based fallback
+            // resolves through localized plurals (taste_card_* — shared with
+            // web's locale files) instead of hardcoded English.
+            val flavorText = subtitle?.takeIf { it.isNotBlank() }
+                ?: buildSharedNamesSubtitle(matchData)
+                ?: localizedBestMatchLabel(matchData)
             if (!flavorText.isNullOrBlank()) {
                 Text(
                     text = flavorText,
@@ -311,6 +317,43 @@ internal fun buildSharedNamesSubtitle(
         if (name.isNotEmpty() && seen.add(name.lowercase())) names.add(name)
     }
     return names.takeIf { it.isNotEmpty() }?.joinToString(", ")
+}
+
+/** Localized mirror of [buildBestMatchLabel]: identical priority order, but
+ *  each label resolves through the taste_card_* plurals (all 9 locales, same
+ *  strings as web). [buildFlavorText] keeps the pure English version for
+ *  unit tests; the composable renders this one. */
+@Composable
+private fun localizedBestMatchLabel(
+    matchData: fm.corus.android.data.model.MusicMatchData?,
+): String? {
+    if (matchData == null) return null
+    val totalTracks = matchData.totalSharedTracks
+    val totalMovies = matchData.totalSharedMovies
+
+    if (totalTracks > 0 && totalMovies > 0) {
+        return if (totalMovies > totalTracks) {
+            pluralStringResource(fm.corus.android.R.plurals.taste_card_film_matches, totalMovies, totalMovies)
+        } else {
+            pluralStringResource(fm.corus.android.R.plurals.taste_card_song_matches, totalTracks, totalTracks)
+        }
+    }
+    if (totalTracks > 0) {
+        return pluralStringResource(fm.corus.android.R.plurals.taste_card_song_matches, totalTracks, totalTracks)
+    }
+    if (matchData.sharedArtists > 0) {
+        return pluralStringResource(fm.corus.android.R.plurals.taste_card_artist_matches, matchData.sharedArtists, matchData.sharedArtists)
+    }
+    if (totalMovies > 0) {
+        return pluralStringResource(fm.corus.android.R.plurals.taste_card_film_matches, totalMovies, totalMovies)
+    }
+    if (matchData.sharedDirectors > 0) {
+        return pluralStringResource(fm.corus.android.R.plurals.taste_card_director_matches, matchData.sharedDirectors, matchData.sharedDirectors)
+    }
+    if (matchData.adjacentArtists > 0) {
+        return stringResource(fm.corus.android.R.string.taste_card_similar_taste)
+    }
+    return null
 }
 
 /** Count-based fallback label. Mirrors iOS `bestMatchLabel`. */

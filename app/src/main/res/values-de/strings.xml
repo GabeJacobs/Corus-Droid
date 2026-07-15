@@ -1108,4 +1108,70 @@
     <string name="compose_draft_choose_another">Anderen auswählen</string>
     <string name="feed_switch_hint_title">Entdecke deine anderen Feeds</string>
     <string name="feed_switch_hint_subtitle">Tippe aufs Logo zum Wechseln</string>
+    <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
+    <string name="onboarding_find_people_title">Finde Leute zum Folgen</string>
+    <string name="onboarding_cta_continue">WEITER</string>
+    <string name="onboarding_taste_intro_title">Finde deine Geschmacks-Matches</string>
+    <string name="onboarding_taste_intro_body">Corus ist voller Leute mit großartigem Geschmack. Finden wir die, die deinen teilen.</string>
+    <string name="onboarding_taste_intro_duration">Dauert etwa 20 Sekunden.</string>
+    <string name="onboarding_taste_intro_cta">QUIZ STARTEN</string>
+    <string name="onboarding_taste_do_it_later">Später</string>
+    <string name="onboarding_taste_quiz_question">Erzähl uns, was du liebst</string>
+    <string name="onboarding_taste_quiz_instruction">Wähle ein paar Songs, Filme oder Künstler, die du liebst, und wir finden die Leute, die deinen Geschmack teilen.</string>
+    <string name="onboarding_taste_search_placeholder">Songs, Filme und Künstler suchen</string>
+    <string name="onboarding_taste_chip_all">Alle</string>
+    <string name="onboarding_taste_chip_music">Musik</string>
+    <string name="onboarding_taste_chip_film">Film</string>
+    <string name="onboarding_taste_section_artists">Künstler</string>
+    <string name="onboarding_taste_section_albums">Alben</string>
+    <string name="onboarding_taste_section_songs">Songs</string>
+    <string name="onboarding_taste_section_films">Filme</string>
+    <string name="onboarding_taste_section_directors">Regisseure</string>
+    <string name="onboarding_taste_row_artist">Künstler</string>
+    <string name="onboarding_taste_row_director">Regisseur</string>
+    <string name="onboarding_taste_no_results">Nichts gefunden. Versuch eine andere Suche.</string>
+    <string name="onboarding_taste_no_results_music">Keine Musik gefunden. Versuch eine andere Suche oder einen anderen Filter.</string>
+    <string name="onboarding_taste_no_results_film">Keine Filme gefunden. Versuch eine andere Suche oder einen anderen Filter.</string>
+    <string name="onboarding_taste_nice_taste">Guter Geschmack. Füg mehr hinzu, um deine Matches zu schärfen.</string>
+    <string name="onboarding_taste_cd_slot_search">Suche, um einen Favoriten hinzuzufügen</string>
+    <string name="onboarding_taste_cd_add_another">Weiteren Favoriten hinzufügen</string>
+    <string name="onboarding_taste_cd_remove">%1$s entfernen</string>
+    <string name="onboarding_taste_find_matches_cta">MEINE MATCHES FINDEN</string>
+    <string name="onboarding_taste_searching_title">Wir suchen deine Geschmacks-Matches…</string>
+    <string name="onboarding_taste_searching_body">Wir durchsuchen Corus nach Leuten, die deinen Geschmack teilen.</string>
+    <string name="onboarding_taste_cd_back">Zurück zum Quiz</string>
+    <string name="onboarding_suggestions_subtitle">Folge ein paar Leuten, um deinen Feed zu starten.</string>
+    <string name="onboarding_taste_matches_header">Geschmacks-Matches</string>
+    <string name="onboarding_taste_see_all_n">Alle %1$d ansehen</string>
+    <string name="onboarding_taste_maker_title">Du bist ein Trendsetter!</string>
+    <string name="onboarding_taste_maker_body">Auf Corus hat noch niemand deine Auswahl geteilt. Du bist genau die Art von Person, die diese Community sucht. Poste, was du liebst, und wir sagen dir Bescheid, sobald jemand deinen Geschmack teilt.</string>
+    <string name="onboarding_headstart_title">Starte dein Profil</string>
+    <string name="onboarding_headstart_subtitle">Wir posten deine Auswahl, damit Leute dich finden können.</string>
+    <string name="onboarding_headstart_start_fresh">Ohne Posts starten</string>
+    <string name="onboarding_headstart_cd_dont_post">%1$s nicht posten</string>
+    <string name="taste_card_similar_taste">ähnlicher Geschmack</string>
+    <plurals name="onboarding_taste_pick_more">
+        <item quantity="one">Wähle noch %1$d, um deine Matches freizuschalten</item>
+        <item quantity="other">Wähle noch %1$d, um deine Matches freizuschalten</item>
+    </plurals>
+    <plurals name="onboarding_headstart_post_cta">
+        <item quantity="one">%1$d FAVORIT POSTEN</item>
+        <item quantity="other">%1$d FAVORITEN POSTEN</item>
+    </plurals>
+    <plurals name="taste_card_artist_matches">
+        <item quantity="one">%1$d gemeinsamer Künstler</item>
+        <item quantity="other">%1$d gemeinsame Künstler</item>
+    </plurals>
+    <plurals name="taste_card_director_matches">
+        <item quantity="one">%1$d gemeinsamer Regisseur</item>
+        <item quantity="other">%1$d gemeinsame Regisseure</item>
+    </plurals>
+    <plurals name="taste_card_song_matches">
+        <item quantity="one">%1$d gemeinsamer Song</item>
+        <item quantity="other">%1$d gemeinsame Songs</item>
+    </plurals>
+    <plurals name="taste_card_film_matches">
+        <item quantity="one">%1$d gemeinsamer Film</item>
+        <item quantity="other">%1$d gemeinsame Filme</item>
+    </plurals>
 </resources>

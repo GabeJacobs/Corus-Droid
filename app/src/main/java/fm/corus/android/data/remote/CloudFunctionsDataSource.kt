@@ -83,6 +83,68 @@ internal fun parseTasteMatchesGate(data: Map<String, Any?>?): TasteMatchesGateIn
     return TasteMatchesGateInfo(gated, postCount, threshold)
 }
 
+/** `getOnboardingTasteMatches` response: taste-aligned people for a brand-new
+ *  user, ranked by shared-artist count then activity. [strongCount] = matches
+ *  at the "Strong match" tier (>=3 shared); [totalCount] = candidates with >=1
+ *  shared, before the page limit. Mirrors web `OnboardingTasteMatchesResult`. */
+data class OnboardingTasteMatchesResult(
+    val users: List<SuggestedUserMatch> = emptyList(),
+    val strongCount: Int = 0,
+    val totalCount: Int = 0,
+)
+
+/**
+ * Parses a `getOnboardingTasteMatches` response. Rows carry the TasteMatchUser
+ * shape (identity fields + sharedArtists / sharedArtistNames /
+ * sharedDirectorNames / sharedTrackPreviews); this adapts each to a
+ * [SuggestedUserMatch] the canonical TasteMatchCard renders unchanged —
+ * mirroring web `tasteMatchUserToSuggestedMatch`, which builds matchData
+ * unconditionally (unlike the suggestion engine's gated parseUserRows: these
+ * rows have no similarityScore, and a 0-preview match must still show its
+ * shared-artist subtitle). Top-level + pure so it's unit-tested without
+ * mocking FirebaseFunctions (mirrors [parseTasteMatchesGate]).
+ */
+@Suppress("UNCHECKED_CAST")
+internal fun parseOnboardingTasteMatchesResponse(
+    data: Map<String, Any?>?,
+): OnboardingTasteMatchesResult {
+    if (data == null) return OnboardingTasteMatchesResult()
+    val rows = data["users"] as? List<Map<String, Any?>> ?: emptyList()
+    val users = rows.mapNotNull { row ->
+        val uid = row["id"] as? String ?: return@mapNotNull null
+        val user = CymbalUser.fromMap(uid, row)
+        val previews = (row["sharedTrackPreviews"] as? List<Map<String, Any?>>)?.map { dict ->
+            val albumArt = (dict["albumArtURL"] as? String)?.takeIf { it.isNotBlank() }
+            val poster = (dict["posterURL"] as? String)?.takeIf { it.isNotBlank() }
+            SharedTrackPreview(
+                trackId = dict["trackId"] as? String ?: "",
+                trackName = dict["trackName"] as? String ?: "",
+                artistName = dict["artistName"] as? String ?: "",
+                albumArtURL = albumArt,
+                posterURL = poster,
+                // Same isMovie derivation as web: a poster with no album art.
+                isMovie = albumArt == null && poster != null,
+            )
+        } ?: emptyList()
+        SuggestedUserMatch(
+            user = user,
+            matchData = MusicMatchData(
+                sharedArtists = (row["sharedArtists"] as? Number)?.toInt() ?: 0,
+                sharedTrackPreviews = previews,
+                sharedArtistNames = (row["sharedArtistNames"] as? List<*>)
+                    ?.filterIsInstance<String>() ?: emptyList(),
+                sharedDirectorNames = (row["sharedDirectorNames"] as? List<*>)
+                    ?.filterIsInstance<String>() ?: emptyList(),
+            ),
+        )
+    }
+    return OnboardingTasteMatchesResult(
+        users = users.filter { !it.user.isBot },
+        strongCount = (data["strongCount"] as? Number)?.toInt() ?: 0,
+        totalCount = (data["totalCount"] as? Number)?.toInt() ?: 0,
+    )
+}
+
 /**
  * Whether a feed mode builds its playlist from a live ranked session, so the
  * server can rebuild the exact list the user is scrolling. True for the ranked
@@ -1486,6 +1548,34 @@ class CloudFunctionsDataSource @Inject constructor(
             nextCursor = data["nextCursor"] as? String,
             hasMore = data["hasMore"] as? Boolean ?: false,
         )
+    }
+
+    /**
+     * Onboarding taste matches: hand the backend a few picks from a brand-new
+     * user (who hasn't posted yet) and get back taste-aligned people to follow,
+     * ranked by shared-artist count then activity (NOT the feed's
+     * library-discounted strength, which floats one-post ghosts). No hard >=3
+     * gate — the client tiers the result. [picks] is the
+     * [fm.corus.android.data.model.quizPicksToTastePicks] payload. Mirrors web
+     * `getOnboardingTasteMatches` (lib/firestore/onboarding-taste.ts).
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun getOnboardingTasteMatches(
+        picks: List<Map<String, Any?>>,
+        limit: Int = 20,
+        minSharedArtists: Int = 1,
+    ): OnboardingTasteMatchesResult {
+        if (picks.isEmpty()) return OnboardingTasteMatchesResult()
+        val result = withTimeout(SUGGESTED_USERS_TIMEOUT_MS) {
+            functions.getHttpsCallable("getOnboardingTasteMatches").call(
+                mapOf(
+                    "picks" to picks,
+                    "limit" to limit,
+                    "minSharedArtists" to minSharedArtists,
+                )
+            ).await()
+        }
+        return parseOnboardingTasteMatchesResponse(result.getData() as? Map<String, Any?>)
     }
 
     @Suppress("UNCHECKED_CAST")

@@ -78,6 +78,15 @@ fun SocialSetupFlow(
     onFinished: () -> Unit,
     viewModel: SocialSetupViewModel = hiltViewModel(),
 ) {
+    // Read the flag once per flow entry so a mid-flow Remote Config activation
+    // can't restructure the steps under the user's feet. Flag OFF renders the
+    // existing three-step flow byte-identically.
+    val tasteFlowEnabled = remember { viewModel.onboardingTasteMatchEnabled }
+    if (tasteFlowEnabled) {
+        TasteOnboardingFlow(onFinished = onFinished, viewModel = viewModel)
+        return
+    }
+
     var step by remember { mutableStateOf(SetupStep.SYNC_CONTACTS) }
 
     AnimatedContent(
@@ -112,16 +121,23 @@ fun SocialSetupFlow(
 // ═══════════════════════════════════════════════
 
 @Composable
-private fun MusicServiceScreen(
+internal fun MusicServiceScreen(
     viewModel: SocialSetupViewModel,
     onFinished: () -> Unit,
+    // Flag-on taste flow moves this step to #2, where finishing language and
+    // the push prompt would be wrong: the CTA reads CONTINUE and the prompt
+    // fires at the flow's real finish instead. Defaults preserve the legacy
+    // (flag-off) final-step behavior byte-identically.
+    ctaLabelRes: Int = R.string.music_service_get_started,
+    promptPushOnFinish: Boolean = true,
 ) {
     var selected by remember { mutableStateOf(MusicService.SPOTIFY) }
     val tidalEnabled = viewModel.tidalEnabled
     val deezerEnabled = viewModel.deezerEnabled
 
-    // This is the last onboarding step, so the push-permission prompt fires here
-    // (just before entering the app) regardless of which service was chosen.
+    // In the legacy flow this is the last onboarding step, so the push-permission
+    // prompt fires here (just before entering the app) regardless of which
+    // service was chosen.
     val context = LocalContext.current
     val pushPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -131,10 +147,12 @@ private fun MusicServiceScreen(
         onFinished()
     }
     val finishWithPushPrompt: () -> Unit = {
-        if (PushNotificationPermission.shouldRequestPushPermission(context)) {
+        if (promptPushOnFinish && PushNotificationPermission.shouldRequestPushPermission(context)) {
             pushPermissionLauncher.launch(PushNotificationPermission.permission)
-        } else {
+        } else if (promptPushOnFinish) {
             viewModel.markPushPermissionRequested()
+            onFinished()
+        } else {
             onFinished()
         }
     }
@@ -241,7 +259,7 @@ private fun MusicServiceScreen(
             colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
         ) {
             Text(
-                stringResource(id = R.string.music_service_get_started),
+                stringResource(id = ctaLabelRes),
                 style = CorusFont.button,
                 color = Color.White,
             )
@@ -343,9 +361,12 @@ private fun MusicServiceRow(
 // ═══════════════════════════════════════════════
 
 @Composable
-private fun SyncContactsScreen(
+internal fun SyncContactsScreen(
     viewModel: SocialSetupViewModel,
     onContinue: () -> Unit,
+    // The taste flow retitles this page to the umbrella "Find People to Follow"
+    // (contacts + taste quiz + suggestions are all one people-finding arc there).
+    titleRes: Int = R.string.social_setup_find_friends_title,
 ) {
     val context = LocalContext.current
     val isSyncing by viewModel.isSyncing.collectAsState()
@@ -372,7 +393,7 @@ private fun SyncContactsScreen(
         Spacer(modifier = Modifier.height(80.dp))
 
         Text(
-            stringResource(id = R.string.social_setup_find_friends_title),
+            stringResource(id = titleRes),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
         )
@@ -909,11 +930,12 @@ private fun OnboardingSeeAllScreen(
 // ═══════════════════════════════════════════════
 
 @Composable
-private fun OnboardingSearchBar(
+internal fun OnboardingSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit = {},
     modifier: Modifier = Modifier,
+    placeholderRes: Int = R.string.search_placeholder_users,
 ) {
     TextField(
         value = query,
@@ -923,7 +945,7 @@ private fun OnboardingSearchBar(
             .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
             .background(CorusColors.CardBackground)
             .border(1.dp, CorusColors.Divider, RoundedCornerShape(CorusSpacing.cornerRadiusMedium)),
-        placeholder = { Text(stringResource(id = R.string.search_placeholder_users), style = CorusFont.body, color = CorusColors.Tertiary) },
+        placeholder = { Text(stringResource(id = placeholderRes), style = CorusFont.body, color = CorusColors.Tertiary) },
         leadingIcon = {
             Icon(Icons.Filled.Search, contentDescription = null, tint = CorusColors.Tertiary)
         },
@@ -948,7 +970,7 @@ private fun OnboardingSearchBar(
 }
 
 @Composable
-private fun OnboardingSectionHeader(
+internal fun OnboardingSectionHeader(
     title: String,
     showSeeAll: Boolean = false,
     onSeeAll: () -> Unit = {},
@@ -972,7 +994,7 @@ private fun OnboardingSectionHeader(
 }
 
 @Composable
-private fun OnboardingUserRow(
+internal fun OnboardingUserRow(
     user: CymbalUser,
     subtitle: String? = null,
     isFollowed: Boolean,
@@ -1030,7 +1052,7 @@ private fun OnboardingUserRow(
 }
 
 @Composable
-private fun SkeletonUserRow() {
+internal fun SkeletonUserRow() {
     Row(
         modifier = Modifier
             .fillMaxWidth()

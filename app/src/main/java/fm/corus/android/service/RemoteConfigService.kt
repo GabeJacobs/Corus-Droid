@@ -263,6 +263,18 @@ class RemoteConfigService @Inject constructor(
     val unifiedSearchEnabled: Boolean
         get() = feedFlag("unified_search_enabled")
 
+    /// Gate for the taste-match onboarding flow (music-service step second,
+    /// taste quiz → venn interstitial → taste-matched suggestions → head-start
+    /// posts). OFF = the existing three-step social setup, byte-identical.
+    /// Shares `onboarding_taste_match_enabled` with web (already live there);
+    /// the server template default is true with an Android app-id condition
+    /// forcing FALSE, so this stays dark here until that condition flips.
+    /// Init-race-safe feedFlag path: a fresh signup reaches SocialSetupFlow
+    /// right after install, and the flow must branch correctly on its very
+    /// first frame.
+    val onboardingTasteMatchEnabled: Boolean
+        get() = feedFlag("onboarding_taste_match_enabled")
+
     /// One-time "feed switch hint" discovery coachmark (the bubble under the
     /// Corus logo teaching that the logo switches feed modes). Master gate;
     /// ships dark. Shares `feed_switch_hint_enabled` with iOS/web. Uses the
@@ -404,6 +416,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("profile_share_enabled", remoteConfig.getBoolean("profile_share_enabled"))
             .putBoolean("unified_search_enabled", remoteConfig.getBoolean("unified_search_enabled"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
+            .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
             .apply()
     }
@@ -479,6 +492,10 @@ class RemoteConfigService @Inject constructor(
             "profile_share_enabled" to false,
             "unified_search_enabled" to false,
             "feed_switch_hint_enabled" to false,
+            // Default FALSE in code — the server-side param defaults true (web
+            // is live) with an Android app-id condition forcing false; the
+            // in-code default keeps the flow dark even before the first fetch.
+            "onboarding_taste_match_enabled" to false,
             "feed_switch_hint_min_session" to 3L,
             "feed_switch_hint_max_impressions" to 3L,
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
