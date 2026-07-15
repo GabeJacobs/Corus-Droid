@@ -89,6 +89,17 @@ data class TrendingSong(
     val cymbalCount: Int,
 )
 
+/** One row of trending_cache/artists — song counters re-merged by artist
+ *  credit server-side; artwork is the artist's most-posted song's. Carries no
+ *  artist ids (counters are name-keyed), so picks made from it are name-only. */
+data class TrendingArtist(
+    val id: String,      // lowercased artist name
+    val rank: Int,
+    val artistName: String,
+    val albumArtURL: String? = null,
+    val cymbalCount: Int = 0,
+)
+
 data class TrendingMovie(
     val id: String,
     val rank: Int,

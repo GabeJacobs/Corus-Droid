@@ -1169,6 +1169,27 @@ class FirestoreDataSource @Inject constructor(
         }
     }
 
+    /** Same shape as `fetchTrendingSongsByWindow` but for artists
+     *  (trending_cache/artists — only month/year windows exist server-side). */
+    suspend fun fetchTrendingArtistsByWindow(limit: Int = 20): Map<TrendingWindow, List<TrendingArtist>> {
+        val doc = firestore.collection("trending_cache").document("artists").get().await()
+        val data = doc.data ?: return emptyMap()
+        return TrendingWindow.values().associateWith { window ->
+            pickWindowItems(data, window).take(limit).mapNotNull { parseTrendingArtist(it) }
+        }
+    }
+
+    private fun parseTrendingArtist(item: Map<String, Any?>): TrendingArtist? {
+        val name = (item["artistName"] as? String)?.takeIf { it.isNotBlank() } ?: return null
+        return TrendingArtist(
+            id = name.lowercase(),
+            rank = (item["rank"] as? Number)?.toInt() ?: 0,
+            artistName = name,
+            albumArtURL = (item["albumArtURL"] as? String)?.takeIf { it.isNotBlank() },
+            cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+        )
+    }
+
     // ── User Search ──
 
     suspend fun searchUsersByUsername(query: String, limit: Int = 20): List<CymbalUser> {

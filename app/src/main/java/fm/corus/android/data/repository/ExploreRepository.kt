@@ -3,6 +3,7 @@ package fm.corus.android.data.repository
 import fm.corus.android.data.model.CymbalHashtag
 import fm.corus.android.data.model.HashtagSuggestion
 import fm.corus.android.data.model.TrendingMovie
+import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
 import fm.corus.android.data.remote.FirestoreDataSource
@@ -20,6 +21,7 @@ class ExploreRepository @Inject constructor(
     // Per-media caches hold all three windows from a single Firestore read so
     // toggling the window in the UI doesn't trigger an extra network call.
     @Volatile private var trendingSongsCache: CacheEntry<Map<TrendingWindow, List<TrendingSong>>>? = null
+    @Volatile private var trendingArtistsCache: CacheEntry<Map<TrendingWindow, List<TrendingArtist>>>? = null
     @Volatile private var trendingMoviesCache: CacheEntry<Map<TrendingWindow, List<TrendingMovie>>>? = null
     @Volatile private var trendingHashtagsCache: CacheEntry<List<CymbalHashtag>>? = null
 
@@ -66,7 +68,18 @@ class ExploreRepository @Inject constructor(
         return all[window].orEmpty()
     }
 
+    suspend fun fetchTrendingArtists(
+        window: TrendingWindow = TrendingWindow.YEAR,
+        limit: Int = 20,
+    ): List<TrendingArtist> {
+        trendingArtistsCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value[window].orEmpty() }
+        val all = firestoreDataSource.fetchTrendingArtistsByWindow(limit)
+        trendingArtistsCache = CacheEntry(all)
+        return all[window].orEmpty()
+    }
+
     fun clearCaches() {
+        trendingArtistsCache = null
         trendingSongsCache = null
         trendingMoviesCache = null
         trendingHashtagsCache = null

@@ -25,6 +25,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.model.TrendingWindow
+import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.TMDBRepository
@@ -447,35 +448,29 @@ class SocialSetupViewModel @Inject constructor(
     // popular artists (YEAR trending songs deduped by artist, id-bearing
     // rows only) + YEAR trending films. No new backend endpoint. ──
 
-    data class PopularArtistRow(val id: String, val name: String, val imageUrl: String?)
-
-    private val _popularArtists = MutableStateFlow<List<PopularArtistRow>>(emptyList())
-    val popularArtists: StateFlow<List<PopularArtistRow>> = _popularArtists.asStateFlow()
+    private val _popularArtists = MutableStateFlow<List<TrendingArtist>>(emptyList())
+    val popularArtists: StateFlow<List<TrendingArtist>> = _popularArtists.asStateFlow()
 
     private val _popularFilms = MutableStateFlow<List<TrendingMovie>>(emptyList())
     val popularFilms: StateFlow<List<TrendingMovie>> = _popularFilms.asStateFlow()
 
+    private val _quizBrowseLoading = MutableStateFlow(false)
+    val quizBrowseLoading: StateFlow<Boolean> = _quizBrowseLoading.asStateFlow()
+
     private var quizBrowseLoadStarted = false
 
+    /** Prefetched by the intro step so browse is usually ready before the
+     *  first search-bar tap; the repository memoizes for TRENDING_TTL_MS. */
     fun loadQuizBrowseIfNeeded() {
         if (quizBrowseLoadStarted) return
         quizBrowseLoadStarted = true
+        _quizBrowseLoading.value = true
         viewModelScope.launch {
-            runCatching { exploreRepository.fetchTrendingSongs(TrendingWindow.YEAR) }
-                .getOrNull()?.let { songs ->
-                    val seen = HashSet<String>()
-                    val artists = mutableListOf<PopularArtistRow>()
-                    for (song in songs) {
-                        val name = song.track.artistName.trim()
-                        val artistId = song.track.artistIds.firstOrNull() ?: continue
-                        if (name.isEmpty() || !seen.add(name.lowercase())) continue
-                        artists += PopularArtistRow(artistId, name, song.track.albumArtURL)
-                        if (artists.size >= 5) break
-                    }
-                    _popularArtists.value = artists
-                }
+            runCatching { exploreRepository.fetchTrendingArtists(TrendingWindow.YEAR) }
+                .getOrNull()?.let { _popularArtists.value = it.take(5) }
             runCatching { exploreRepository.fetchTrendingMovies(TrendingWindow.YEAR) }
                 .getOrNull()?.let { _popularFilms.value = it.take(5) }
+            _quizBrowseLoading.value = false
         }
     }
 

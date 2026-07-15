@@ -164,7 +164,11 @@ internal fun TasteOnboardingFlow(
             onContinue = { step = TasteStep.TASTE_INTRO },
             titleRes = R.string.onboarding_sync_contacts_title,
         )
-        TasteStep.TASTE_INTRO -> TasteIntroScreen(
+        TasteStep.TASTE_INTRO -> {
+            // Warm the trending caches while the venn intro plays so the
+            // quiz's zero-state browse is ready before the first tap.
+            LaunchedEffect(Unit) { viewModel.loadQuizBrowseIfNeeded() }
+            TasteIntroScreen(
             viewModel = viewModel,
             onTakeQuiz = {
                 viewModel.analyticsService.logOnboardingTasteQuizStarted()
@@ -177,6 +181,7 @@ internal fun TasteOnboardingFlow(
                 step = TasteStep.SUGGESTIONS
             },
         )
+        }
         TasteStep.QUIZ -> TasteQuizScreen(
             viewModel = viewModel,
             onFindMatches = {
@@ -746,11 +751,19 @@ private fun QuizBrowseList(
 ) {
     val artists by viewModel.popularArtists.collectAsState()
     val films by viewModel.popularFilms.collectAsState()
+    val loading by viewModel.quizBrowseLoading.collectAsState()
     val pickIds = picks.map { it.id }.toSet()
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(bottom = CorusSpacing.xxl),
     ) {
+        if (loading && artists.isEmpty() && films.isEmpty()) {
+            // Trending cache still loading (the intro prefetch usually beats
+            // the first tap; this covers cold caches / slow networks).
+            items(6, key = { "browse-skeleton-$it" }) {
+                SkeletonUserRow()
+            }
+        }
         if (filter != QuizFilter.FILM && artists.isNotEmpty()) {
             item(key = "header-popular-artists") {
                 QuizSectionLabel(stringResource(R.string.onboarding_taste_popular_artists))
@@ -758,15 +771,16 @@ private fun QuizBrowseList(
             items(artists.size, key = { "popular-artist-${artists[it].id}" }) { i ->
                 val artist = artists[i]
                 QuizResultRow(
-                    imageUrl = artist.imageUrl,
+                    imageUrl = artist.albumArtURL,
                     circleImage = true,
-                    fallbackInitial = artist.name,
-                    title = artist.name,
+                    fallbackInitial = artist.artistName,
+                    title = artist.artistName,
                     subtitle = stringResource(R.string.onboarding_taste_row_artist),
                     added = "artist:${artist.id}" in pickIds,
                     enabled = !atMax,
                     onAdd = {
-                        viewModel.addQuizPick(QuizPick.Artist(artist.id, artist.name, artist.imageUrl))
+                        // Name-only pick: trending artists carry no Spotify id.
+                        viewModel.addQuizPick(QuizPick.Artist("", artist.artistName, artist.albumArtURL))
                     },
                 )
             }

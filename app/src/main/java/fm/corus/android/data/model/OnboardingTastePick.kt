@@ -32,7 +32,8 @@ sealed class QuizPick {
         val name: String,
         val imageUrl: String?,
     ) : QuizPick() {
-        override val id: String get() = "artist:$artistId"
+        // Trending-derived artists carry no Spotify id — dedupe by name.
+        override val id: String get() = "artist:" + artistId.ifEmpty { name.lowercase() }
         override val kind: String get() = "artist"
     }
 
