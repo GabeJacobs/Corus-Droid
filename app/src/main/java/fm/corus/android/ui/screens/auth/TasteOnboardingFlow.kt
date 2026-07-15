@@ -990,6 +990,7 @@ private fun QuizMiniTray(picks: List<QuizPick>) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun QuizPicksTray(
     picks: List<QuizPick>,
@@ -1023,7 +1024,7 @@ private fun QuizPicksTray(
                     modifier = Modifier
                         .size(96.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(CorusColors.Card)
+                        .background(CorusColors.CardBackground)
                         .clickable(onClick = onSlotTap),
                     contentAlignment = Alignment.Center,
                 ) {
