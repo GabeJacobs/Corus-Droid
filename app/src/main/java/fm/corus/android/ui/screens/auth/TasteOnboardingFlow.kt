@@ -77,6 +77,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -459,12 +460,6 @@ private fun TasteQuizScreen(
             )
 
             val browsing = searchFocused && !searching
-            // Compact pick strip: while the full tray is hidden (searching /
-            // browsing) every add visibly lands here.
-            if ((searching || browsing) && picks.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                QuizMiniTray(picks = picks)
-            }
             if (searching || browsing) {
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
                 Row(
@@ -584,7 +579,13 @@ private fun QuizResultsList(
     modifier: Modifier = Modifier,
 ) {
     val pickIds = remember(picks) { picks.map { it.id }.toSet() }
-    val clearAfterAdd: () -> Unit = { viewModel.quizSearch("") }
+    // Every add returns to the idle tray (keyboard down) so the pick visibly
+    // lands in its slot — tapping the next slot re-opens search.
+    val focusManager = LocalFocusManager.current
+    val clearAfterAdd: () -> Unit = {
+        viewModel.quizSearch("")
+        focusManager.clearFocus()
+    }
 
     if (isSearching) {
         Column(
@@ -759,6 +760,8 @@ private fun QuizBrowseList(
     val films by viewModel.popularFilms.collectAsState()
     val loading by viewModel.quizBrowseLoading.collectAsState()
     val pickIds = picks.map { it.id }.toSet()
+    // Adds return to the idle tray (keyboard down) so the pick visibly lands.
+    val focusManager = LocalFocusManager.current
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(bottom = CorusSpacing.xxl),
@@ -787,6 +790,7 @@ private fun QuizBrowseList(
                     onAdd = {
                         // Name-only pick: trending artists carry no Spotify id.
                         viewModel.addQuizPick(QuizPick.Artist("", artist.artistName, artist.albumArtLargeURL ?: artist.albumArtURL))
+                        focusManager.clearFocus()
                     },
                 )
             }
@@ -807,7 +811,10 @@ private fun QuizBrowseList(
                     added = movie.movieId in pickIds,
                     enabled = !atMax,
                     loading = addingFilmId == movie.movieId,
-                    onAdd = { viewModel.addFilmPick(movie.asCymbalMovie()) },
+                    onAdd = {
+                        viewModel.addFilmPick(movie.asCymbalMovie())
+                        focusManager.clearFocus()
+                    },
                 )
             }
         }
@@ -929,66 +936,6 @@ private fun Modifier.dashedRoundedBorder(color: Color, cornerRadius: Dp, width: 
             cornerRadius = CornerRadius(cornerRadius.toPx()),
         )
     }
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun QuizMiniTray(picks: List<QuizPick>) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        picks.take(5).forEach { pick ->
-            key(pick.id) {
-                val art = pick.pickArt()
-                if (art != null) {
-                    AsyncImage(
-                        model = art,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(6.dp)),
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(CorusColors.Accent.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            pick.pickTitle().take(1).uppercase(),
-                            style = CorusFont.caption,
-                            color = CorusColors.Accent,
-                        )
-                    }
-                }
-            }
-        }
-        if (picks.size > 5) {
-            Text("+${picks.size - 5}", style = CorusFont.caption, color = CorusColors.Secondary)
-        }
-        repeat(maxOf(0, 3 - picks.size)) {
-            val dashColor = CorusColors.Tertiary.copy(alpha = 0.4f)
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .drawBehind {
-                        drawRoundRect(
-                            color = dashColor,
-                            cornerRadius = CornerRadius(6.dp.toPx()),
-                            style = Stroke(
-                                width = 1.5.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f)),
-                            ),
-                        )
-                    },
-            )
-        }
-    }
-}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
