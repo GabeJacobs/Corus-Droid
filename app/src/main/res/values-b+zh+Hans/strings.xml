@@ -1124,6 +1124,8 @@
     <string name="onboarding_taste_section_songs">歌曲</string>
     <string name="onboarding_taste_section_films">电影</string>
     <string name="onboarding_taste_section_directors">导演</string>
+    <string name="onboarding_taste_popular_artists">Corus 热门艺人</string>
+    <string name="onboarding_taste_popular_films">Corus 热门电影</string>
     <string name="onboarding_taste_row_artist">艺人</string>
     <string name="onboarding_taste_row_director">导演</string>
     <string name="onboarding_taste_no_results">没有找到结果。换个关键词试试。</string>

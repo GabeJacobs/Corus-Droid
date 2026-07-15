@@ -1000,6 +1000,8 @@
     <string name="onboarding_taste_section_songs">曲</string>
     <string name="onboarding_taste_section_films">映画</string>
     <string name="onboarding_taste_section_directors">監督</string>
+    <string name="onboarding_taste_popular_artists">Corus で人気のアーティスト</string>
+    <string name="onboarding_taste_popular_films">Corus で人気の映画</string>
     <string name="onboarding_taste_row_artist">アーティスト</string>
     <string name="onboarding_taste_row_director">監督</string>
     <string name="onboarding_taste_no_results">見つかりませんでした。別のキーワードで検索してみてください。</string>

@@ -1127,6 +1127,8 @@
     <string name="onboarding_taste_section_songs">Canciones</string>
     <string name="onboarding_taste_section_films">Películas</string>
     <string name="onboarding_taste_section_directors">Directores</string>
+    <string name="onboarding_taste_popular_artists">Artistas populares en Corus</string>
+    <string name="onboarding_taste_popular_films">Películas populares en Corus</string>
     <string name="onboarding_taste_row_artist">Artista</string>
     <string name="onboarding_taste_row_director">Director</string>
     <string name="onboarding_taste_no_results">No hay resultados. Prueba otra búsqueda.</string>

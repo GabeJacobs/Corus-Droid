@@ -453,7 +453,8 @@ private fun TasteQuizScreen(
                 placeholderRes = R.string.onboarding_taste_search_placeholder,
             )
 
-            if (searching) {
+            val browsing = searchFocused && !searching
+            if (searching || browsing) {
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -464,10 +465,22 @@ private fun TasteQuizScreen(
                     QuizFilterChip(stringResource(R.string.onboarding_taste_chip_film), filter == QuizFilter.FILM) { filter = QuizFilter.FILM }
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
+            }
+            if (searching) {
                 QuizResultsList(
                     viewModel = viewModel,
                     results = results,
                     isSearching = isSearching,
+                    filter = filter,
+                    picks = picks,
+                    atMax = atMax,
+                    addingFilmId = addingFilmId,
+                    modifier = Modifier.weight(1f),
+                )
+            } else if (browsing) {
+                LaunchedEffect(Unit) { viewModel.loadQuizBrowseIfNeeded() }
+                QuizBrowseList(
+                    viewModel = viewModel,
                     filter = filter,
                     picks = picks,
                     atMax = atMax,
@@ -718,6 +731,67 @@ private fun QuizSectionLabel(label: String) {
             bottom = CorusSpacing.xs,
         ),
     )
+}
+
+/** Zero-state browse (search focused, empty query): tappable all-time
+ *  popular artists + films on Corus, filtered by the same chips. */
+@Composable
+private fun QuizBrowseList(
+    viewModel: SocialSetupViewModel,
+    filter: QuizFilter,
+    picks: List<QuizPick>,
+    atMax: Boolean,
+    addingFilmId: String?,
+    modifier: Modifier = Modifier,
+) {
+    val artists by viewModel.popularArtists.collectAsState()
+    val films by viewModel.popularFilms.collectAsState()
+    val pickIds = picks.map { it.id }.toSet()
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(bottom = CorusSpacing.xxl),
+    ) {
+        if (filter != QuizFilter.FILM && artists.isNotEmpty()) {
+            item(key = "header-popular-artists") {
+                QuizSectionLabel(stringResource(R.string.onboarding_taste_popular_artists))
+            }
+            items(artists.size, key = { "popular-artist-${artists[it].id}" }) { i ->
+                val artist = artists[i]
+                QuizResultRow(
+                    imageUrl = artist.imageUrl,
+                    circleImage = true,
+                    fallbackInitial = artist.name,
+                    title = artist.name,
+                    subtitle = stringResource(R.string.onboarding_taste_row_artist),
+                    added = "artist:${artist.id}" in pickIds,
+                    enabled = !atMax,
+                    onAdd = {
+                        viewModel.addQuizPick(QuizPick.Artist(artist.id, artist.name, artist.imageUrl))
+                    },
+                )
+            }
+        }
+        if (filter != QuizFilter.MUSIC && films.isNotEmpty()) {
+            item(key = "header-popular-films") {
+                QuizSectionLabel(stringResource(R.string.onboarding_taste_popular_films))
+            }
+            items(films.size, key = { "popular-film-${films[it].movieId}" }) { i ->
+                val movie = films[i]
+                QuizResultRow(
+                    imageUrl = movie.posterURL,
+                    circleImage = false,
+                    posterAspect = true,
+                    fallbackInitial = movie.movieTitle,
+                    title = movie.movieTitle,
+                    subtitle = movie.releaseYear,
+                    added = movie.movieId in pickIds,
+                    enabled = !atMax,
+                    loading = addingFilmId == movie.movieId,
+                    onAdd = { viewModel.addFilmPick(movie.asCymbalMovie()) },
+                )
+            }
+        }
+    }
 }
 
 @Composable

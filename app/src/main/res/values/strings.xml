@@ -1180,6 +1180,8 @@
     <string name="onboarding_taste_section_songs">Songs</string>
     <string name="onboarding_taste_section_films">Films</string>
     <string name="onboarding_taste_section_directors">Directors</string>
+    <string name="onboarding_taste_popular_artists">Popular artists on Corus</string>
+    <string name="onboarding_taste_popular_films">Popular films on Corus</string>
     <string name="onboarding_taste_row_artist">Artist</string>
     <string name="onboarding_taste_row_director">Director</string>
     <string name="onboarding_taste_no_results">Nothing matches that. Try another search.</string>
