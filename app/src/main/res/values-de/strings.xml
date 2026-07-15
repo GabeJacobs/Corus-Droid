@@ -78,6 +78,7 @@
     <string name="settings_row_sign_out">Abmelden</string>
     <string name="settings_row_delete_account">Konto löschen</string>
     <string name="settings_section_support">SUPPORT</string>
+    <string name="settings_section_danger_zone">GEFAHRENZONE</string>
     <string name="settings_share_app_text">Schau dir Corus an. Teile deinen Musik- &amp; Filmgeschmack! https://corus.fm</string>
     <string name="settings_share_app_chooser">Corus teilen</string>
     <string name="settings_row_send_feedback">Feedback senden</string>

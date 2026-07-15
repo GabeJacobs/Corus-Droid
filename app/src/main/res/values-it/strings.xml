@@ -78,6 +78,7 @@
     <string name="settings_row_sign_out">Esci</string>
     <string name="settings_row_delete_account">Elimina account</string>
     <string name="settings_section_support">ASSISTENZA</string>
+    <string name="settings_section_danger_zone">ZONA PERICOLOSA</string>
     <string name="settings_share_app_text">Dai un\'occhiata a Corus. Condividi i tuoi gusti su musica e film! https://corus.fm</string>
     <string name="settings_share_app_chooser">Condividi Corus</string>
     <string name="settings_row_send_feedback">Invia feedback</string>

@@ -78,6 +78,7 @@
     <string name="settings_row_sign_out">Sign Out</string>
     <string name="settings_row_delete_account">Delete Account</string>
     <string name="settings_section_support">SUPPORT</string>
+    <string name="settings_section_danger_zone">DANGER ZONE</string>
     <string name="settings_share_app_text">Check out Corus — share your music &amp; movie taste! https://corus.fm</string>
     <string name="settings_share_app_chooser">Share Corus</string>
     <string name="settings_row_send_feedback">Send Feedback</string>

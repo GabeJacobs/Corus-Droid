@@ -440,14 +440,6 @@ fun SettingsScreen(
                 onClick = { authViewModel.signOut() },
             )
 
-            // Delete Account
-            SettingsActionRow(
-                icon = Icons.Filled.Delete,
-                title = stringResource(R.string.settings_row_delete_account),
-                color = CorusColors.Error,
-                onClick = { showDeleteConfirm = true },
-            )
-
             // ── Section: Support ──
             SectionHeader(stringResource(R.string.settings_section_support))
 
@@ -515,6 +507,29 @@ fun SettingsScreen(
                     )
                     try { context.startActivity(intent) } catch (_: Exception) { }
                 },
+            )
+
+            // ── Section: Danger Zone ──
+            // Kept separate from Sign Out (and pushed below Support) so it can't
+            // be tapped by mistake while reaching for log out.
+            SectionHeader(stringResource(R.string.settings_section_danger_zone))
+
+            SettingsActionRow(
+                icon = Icons.Filled.Delete,
+                title = stringResource(R.string.settings_row_delete_account),
+                color = CorusColors.Error,
+                onClick = { showDeleteConfirm = true },
+            )
+
+            Text(
+                text = stringResource(R.string.settings_dialog_delete_message),
+                style = CorusFont.caption,
+                color = CorusColors.Tertiary,
+                modifier = Modifier.padding(
+                    start = CorusSpacing.lg,
+                    end = CorusSpacing.lg,
+                    top = CorusSpacing.sm,
+                ),
             )
 
             // ── Social links ──

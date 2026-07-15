@@ -72,6 +72,7 @@
     <string name="settings_row_sign_out">サインアウト</string>
     <string name="settings_row_delete_account">アカウントを削除</string>
     <string name="settings_section_support">サポート</string>
+    <string name="settings_section_danger_zone">危険ゾーン</string>
     <string name="settings_share_app_text">Corus をチェック。音楽と映画の好みをシェアしよう！ https://corus.fm</string>
     <string name="settings_share_app_chooser">Corus をシェア</string>
     <string name="settings_row_send_feedback">フィードバックを送信</string>
