@@ -390,7 +390,7 @@ private fun TasteQuizScreen(
             // take the room. INSTANT swap — no sliding animation between the
             // two states (design rule).
             if (!searching) {
-                Spacer(modifier = Modifier.height(72.dp))
+                Spacer(modifier = Modifier.weight(0.85f))
                 Text(
                     stringResource(R.string.onboarding_taste_quiz_question),
                     style = CorusFont.screenTitle,
@@ -453,6 +453,7 @@ private fun TasteQuizScreen(
                     onRemove = { viewModel.removeQuizPick(it) },
                     onSlotTap = focusSearch,
                 )
+                Spacer(modifier = Modifier.weight(1.15f))
             }
         }
 
