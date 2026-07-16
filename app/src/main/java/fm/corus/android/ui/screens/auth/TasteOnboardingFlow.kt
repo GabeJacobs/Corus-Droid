@@ -705,7 +705,10 @@ private fun QuizResultsList(
                     added = film.id in pickIds,
                     enabled = !atMax && addingFilmId == null,
                     loading = addingFilmId == film.id,
-                    onAdd = { viewModel.addFilmPick(film) },
+                    // Films resolve director details async — dismiss to the
+                    // idle tray AFTER the pick lands (every other row type
+                    // calls clearAfterAdd synchronously on tap).
+                    onAdd = { viewModel.addFilmPick(film) { clearAfterAdd() } },
                 )
             }
         }

@@ -474,7 +474,13 @@ class SocialSetupViewModel @Inject constructor(
         }
     }
 
-    fun addFilmPick(movie: CymbalMovie) {
+    /**
+     * [onAdded] runs after the pick lands (post director-detail resolve) so the
+     * caller can return the UI to the idle slot tray — films resolve async, so
+     * unlike the other row types the composable can't just dismiss on tap
+     * (the row's loading spinner would vanish mid-fetch).
+     */
+    fun addFilmPick(movie: CymbalMovie, onAdded: (() -> Unit)? = null) {
         if (_addingFilmId.value != null) return
         _addingFilmId.value = movie.id
         viewModelScope.launch {
@@ -488,6 +494,7 @@ class SocialSetupViewModel @Inject constructor(
                 }
                 addQuizPick(QuizPick.Film(resolved))
                 quizSearch("")
+                onAdded?.invoke()
             } finally {
                 _addingFilmId.value = null
             }
