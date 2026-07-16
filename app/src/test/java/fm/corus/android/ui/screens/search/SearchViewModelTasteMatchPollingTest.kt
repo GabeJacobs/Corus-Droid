@@ -235,4 +235,28 @@ class SearchViewModelTasteMatchPollingTest {
         assertTrue("taste matches load for a viewer at the threshold", vm.suggestedMatches.value.any { it.isTasteMatch })
         verify(userRepository, atLeast(1)).getSuggestedUsers(eq("viewer"), any())
     }
+
+    @Test
+    fun `a zero-post viewer WITH a quiz seed still fetches taste matches`() = runTest(testDispatcher) {
+        // Onboarding-quiz picks (users_v2.tasteSeedCount > 0) mean the backend
+        // can rank matches from the seed before the first post — the post-count
+        // pre-gate must not suppress the fetch for them.
+        whenever(authRepository.userProfile).thenReturn(
+            MutableStateFlow(
+                CymbalUser(
+                    id = "viewer", username = "viewer", displayName = "Viewer",
+                    cymbalCount = 0, tasteSeedCount = 5,
+                ),
+            ),
+        )
+        whenever(userRepository.getSuggestedUsers(eq("viewer"), any())).thenReturn(listOf(tasteMatch))
+
+        val vm = createViewModel()
+        vm.loadInitialData()
+        advanceUntilIdle()
+
+        assertFalse("a quiz seed bypasses the post-count gate", vm.belowTasteMatchThreshold.value)
+        assertTrue("seed-based taste matches load", vm.suggestedMatches.value.any { it.isTasteMatch })
+        verify(userRepository, atLeast(1)).getSuggestedUsers(eq("viewer"), any())
+    }
 }

@@ -45,6 +45,14 @@ data class CymbalUser(
      * renewals — so it represents the user's *original* sign-up.
      */
     val clubMemberSince: Date? = null,
+    /**
+     * Mirror of users_v2/{uid}.tasteSeedCount — how many onboarding-quiz picks
+     * the server persisted (private/tasteSeed). > 0 means taste matches can be
+     * ranked from the quiz seed before this user has posted, so the search
+     * rail's post-count pre-gate must not suppress the fetch. Absent (null) on
+     * accounts that never took the quiz.
+     */
+    val tasteSeedCount: Int? = null,
 ) {
     val hasClubAccess: Boolean get() = isClubMember || isVerified
 
@@ -189,6 +197,7 @@ data class CymbalUser(
             createdAt = (data["createdAt"] as? com.google.firebase.Timestamp)?.toDate()
                 ?: (data["createdAt"] as? Number)?.let { java.util.Date(it.toLong()) },
             clubMemberSince = (data["clubMemberSince"] as? com.google.firebase.Timestamp)?.toDate(),
+            tasteSeedCount = (data["tasteSeedCount"] as? Number)?.toInt(),
         )
     }
 }

@@ -209,7 +209,7 @@ class SearchViewModel @Inject constructor(
         // lands while they're on Search).
         viewModelScope.launch {
             authRepository.userProfile.collect { profile ->
-                _belowTasteMatchThreshold.value = isBelowTasteMatchThreshold(profile?.cymbalCount)
+                _belowTasteMatchThreshold.value = isBelowTasteMatchThreshold(profile)
             }
         }
         viewModelScope.launch {
@@ -508,7 +508,7 @@ class SearchViewModel @Inject constructor(
             // result (emptyList, not null) — the explainer renders, no skeleton.
             // Read the profile directly (not the derived flow, whose collection can
             // lag) so the guard is deterministic on the first load.
-            val belowThreshold = isBelowTasteMatchThreshold(authRepository.userProfile.value?.cymbalCount)
+            val belowThreshold = isBelowTasteMatchThreshold(authRepository.userProfile.value)
             val musicMatchesDeferred = async {
                 if (belowThreshold) {
                     emptyList<SuggestedUserMatch>()
@@ -649,7 +649,7 @@ class SearchViewModel @Inject constructor(
         // entirely so the skeleton never shows for them. Read the profile
         // directly (not the derived StateFlow, whose collection can lag) so the
         // guard is deterministic.
-        if (isBelowTasteMatchThreshold(authRepository.userProfile.value?.cymbalCount)) return
+        if (isBelowTasteMatchThreshold(authRepository.userProfile.value)) return
         if (_suggestedMatches.value.any { it.hasTasteMatch() }) return
 
         _isTasteMatchPolling.value = true
@@ -691,10 +691,16 @@ class SearchViewModel @Inject constructor(
     private fun SuggestedUserMatch.hasTasteMatch(): Boolean = isTasteMatch
 
     // Below the post threshold, taste matches can't exist yet (they need >=3
-    // shared artists). A null count (profile not loaded) is treated as "not
-    // below" so we fall back to normal skeleton behavior, matching iOS.
-    private fun isBelowTasteMatchThreshold(cymbalCount: Int?): Boolean =
-        cymbalCount != null && cymbalCount < TASTE_MATCH_MIN_POSTS
+    // shared artists). A null profile (not loaded) is treated as "not below"
+    // so we fall back to normal skeleton behavior, matching iOS.
+    // A persisted onboarding-quiz seed (tasteSeedCount > 0) bypasses the
+    // post-count check: the backend ranks matches from the quiz picks, so the
+    // fetch is NOT pointless for a quiz-taker who hasn't posted yet.
+    private fun isBelowTasteMatchThreshold(profile: CymbalUser?): Boolean {
+        if (profile == null) return false
+        if ((profile.tasteSeedCount ?: 0) > 0) return false
+        return profile.cymbalCount < TASTE_MATCH_MIN_POSTS
+    }
 
     private fun loadNewUsers() {
         val uid = authRepository.currentUserId ?: return
