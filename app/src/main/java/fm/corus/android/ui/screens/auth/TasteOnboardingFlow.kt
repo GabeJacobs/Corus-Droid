@@ -160,9 +160,12 @@ internal fun TasteOnboardingFlow(
             ctaLabelRes = R.string.onboarding_cta_continue,
             promptPushOnFinish = false,
         )
+        // Quiz skippers gave no taste signal — grab the contacts signal
+        // instead (product decision 07-16). All outcomes advance to
+        // suggestions.
         TasteStep.SYNC_CONTACTS -> SyncContactsScreen(
             viewModel = viewModel,
-            onContinue = { step = TasteStep.TASTE_INTRO },
+            onContinue = { step = TasteStep.SUGGESTIONS },
             titleRes = R.string.onboarding_sync_contacts_title,
         )
         TasteStep.TASTE_INTRO -> {
@@ -179,7 +182,7 @@ internal fun TasteOnboardingFlow(
             onSkip = {
                 viewModel.analyticsService.logOnboardingTasteSkipped("intro")
                 viewModel.discardQuizPicks()
-                step = TasteStep.SUGGESTIONS
+                step = TasteStep.SYNC_CONTACTS
             },
         )
         }
@@ -192,7 +195,7 @@ internal fun TasteOnboardingFlow(
             onSkip = {
                 viewModel.analyticsService.logOnboardingTasteSkipped("quiz")
                 viewModel.discardQuizPicks()
-                step = TasteStep.SUGGESTIONS
+                step = TasteStep.SYNC_CONTACTS
             },
         )
         TasteStep.SUGGESTIONS -> TasteSuggestionsScreen(
