@@ -570,7 +570,9 @@ class SocialSetupViewModel @Inject constructor(
     }
 
     val headstartPostables: List<QuizPick>
-        get() = postablePicks(_quizPicks.value).filter { it.id !in _headstartRemovedIds.value }
+        // Offer caps at the FIRST 5 postable picks: the server floors a new
+        // account's daily allowance at 5, and these posts count toward it.
+        get() = postablePicks(_quizPicks.value).take(5).filter { it.id !in _headstartRemovedIds.value }
 
     private val _isPostingPicks = MutableStateFlow(false)
     val isPostingPicks: StateFlow<Boolean> = _isPostingPicks.asStateFlow()

@@ -1536,7 +1536,7 @@ private fun HeadstartScreen(
     val removedIds by viewModel.headstartRemovedIds.collectAsState()
     val isPosting by viewModel.isPostingPicks.collectAsState()
     val postables = remember(picks, removedIds) {
-        postablePicks(picks).filter { it.id !in removedIds }
+        postablePicks(picks).take(5).filter { it.id !in removedIds }
     }
 
     Column(
