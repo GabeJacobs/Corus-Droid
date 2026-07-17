@@ -532,6 +532,12 @@ class SocialSetupViewModel @Inject constructor(
                 matchCount = result.users.size,
                 strongCount = result.strongCount,
             )
+            // The callable just stamped users_v2.tasteSeedCount server-side.
+            // Unlike iOS (live snapshot listener on the profile doc), Android's
+            // userProfile is one-shot-fetched BEFORE onboarding — without a
+            // refresh the search rail's post-count pre-gate never learns about
+            // the seed and keeps showing "as you post more" to quiz-takers.
+            runCatching { authRepository.refreshUserProfile() }
         }
     }
 
@@ -681,6 +687,10 @@ class SocialSetupViewModel @Inject constructor(
                 if (track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK) {
                     trackMap["audiomackId"] = track.audiomackId ?: ""
                     trackMap["audiomackUrl"] = track.audiomackUrl ?: ""
+                    // Carry the artist/album page URLs so the posted card's "…"
+                    // menu can link out to Audiomack (no Corus artist/album page).
+                    trackMap["audiomackArtistUrl"] = track.audiomackArtistUrl ?: ""
+                    trackMap["audiomackAlbumUrl"] = track.audiomackAlbumUrl ?: ""
                 }
                 payload["track"] = trackMap
             }
