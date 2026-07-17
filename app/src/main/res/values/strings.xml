@@ -1108,8 +1108,8 @@
     <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
     <string name="search_tab_music">Music</string>
     <string name="search_tab_film">Film</string>
-    <string name="search_placeholder_music">Search for songs, artists, or albums</string>
-    <string name="search_placeholder_film">Search for films or directors</string>
+    <string name="search_placeholder_music">Search for a song, artist or album</string>
+    <string name="search_placeholder_film">Search for a film or director</string>
     <string name="destination_artist_label">Artist</string>
     <string name="destination_director_label">Director</string>
     <string name="destination_album_label">Album</string>
