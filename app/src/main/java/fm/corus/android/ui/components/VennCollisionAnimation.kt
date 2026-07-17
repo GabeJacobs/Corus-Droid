@@ -157,6 +157,11 @@ private val VENN_INTRO_ART: List<List<String>> = listOf(
     ),
 )
 
+/** Every intro-art URL (primaries + error spares), exposed so the onboarding
+ *  flow can warm Coil's cache a screen EARLY — grey placeholder circles
+ *  resolving mid-choreography ruin the collision animation's reveal. */
+internal val vennIntroArtUrls: List<String> = VENN_INTRO_ART.flatten()
+
 // Keyframe tracks (fractions of the 7.5s loop — see globals.css comments).
 
 private val LOBE_X = KeyframeTrack(0f to 0f, 0.16f to 0f, 0.32f to 1f, 1f to 1f)

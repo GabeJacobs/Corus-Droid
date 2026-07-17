@@ -85,7 +85,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import fm.corus.android.R
 import fm.corus.android.data.model.MAX_QUIZ_PICKS
 import fm.corus.android.data.model.QuizPick
@@ -98,6 +100,7 @@ import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.components.TrophyCelebrationView
 import fm.corus.android.ui.components.VennCollisionAnimation
 import fm.corus.android.ui.components.VennDiagramIcon
+import fm.corus.android.ui.components.vennIntroArtUrls
 import fm.corus.android.ui.components.rememberReducedMotion
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -127,6 +130,20 @@ internal fun TasteOnboardingFlow(
     // intro pitch is a one-time screen, not a gate to re-clear. Mirrors web's
     // quizReached.
     var quizReached by remember { mutableStateOf(false) }
+
+    // Warm the venn intro art while the user is still on the music-service
+    // step: the avatar query + Coil fetches take 1-2s, and grey placeholder
+    // circles resolving mid-choreography ruin the collision animation. The
+    // avatars flow re-fires the prefetch once the Firestore query resolves.
+    val prefetchContext = LocalContext.current
+    val vennAvatarsForPrefetch by viewModel.vennAvatars.collectAsState()
+    LaunchedEffect(Unit) { viewModel.loadVennAvatarsIfNeeded() }
+    LaunchedEffect(vennAvatarsForPrefetch) {
+        val loader = SingletonImageLoader.get(prefetchContext)
+        (vennIntroArtUrls + vennAvatarsForPrefetch).forEach { url ->
+            loader.enqueue(ImageRequest.Builder(prefetchContext).data(url).build())
+        }
+    }
 
     // The push-permission prompt fires at the flow's REAL finish (the legacy
     // flow fired it on the music-service step, which is now step #2).
