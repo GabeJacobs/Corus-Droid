@@ -1455,6 +1455,21 @@ class FirestoreDataSource @Inject constructor(
         val mutualCount: Int,
     )
 
+    /** The viewer's persisted onboarding-quiz picks (users_v2/{uid}/private/
+     *  tasteSeed — owner-readable per rules, server-written by
+     *  getOnboardingTasteMatches). Raw pick maps, already in the shape the
+     *  matcher callable accepts. Empty when the user never took the quiz. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchMyTasteSeedPicks(uid: String): List<Map<String, Any?>> {
+        return try {
+            val doc = firestore.collection("users_v2").document(uid)
+                .collection("private").document("tasteSeed").get().await()
+            (doc.data?.get("picks") as? List<Map<String, Any?>>) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun fetchPrecomputedMutualConnections(userId: String, limit: Int = 20): List<MutualConnection> {
         val snapshot = firestore.collection("users_v2").document(userId)

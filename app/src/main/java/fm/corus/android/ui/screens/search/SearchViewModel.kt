@@ -405,6 +405,17 @@ class SearchViewModel @Inject constructor(
     private val _suggestedMatches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
     val suggestedMatches: StateFlow<List<SuggestedUserMatch>> = _suggestedMatches.asStateFlow()
 
+    // Quiz-seed fallback (web parity): onboarding shows matches at >=1 shared
+    // artist, but the rail's card bar (isTasteMatch) is >=3 — so a quiz-taker
+    // whose real list settles without a single qualifying match would see the
+    // "post more" explainer minutes after being SHOWN their matches. When that
+    // happens, re-run the onboarding matcher on the saved seed and render the
+    // same list they saw during signup. Viewer-side only; clears naturally
+    // once real (post-based) matches exist.
+    private val _seedTasteMatches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
+    val seedTasteMatches: StateFlow<List<SuggestedUserMatch>> = _seedTasteMatches.asStateFlow()
+    private var seedFallbackAttempted = false
+
     private val _isSuggestedLoading = MutableStateFlow(true)
     val isSuggestedLoading: StateFlow<Boolean> = _isSuggestedLoading.asStateFlow()
 
@@ -593,6 +604,12 @@ class SearchViewModel @Inject constructor(
                 // matches to show. A successful empty pull keeps this false so the
                 // "post more" explainer renders instead.
                 _tasteMatchLoadFailed.value = musicMatchesResult == null && merged.none { it.hasTasteMatch() }
+                // Successful pull, zero qualifying matches, and the viewer has a
+                // quiz seed → surface the onboarding matcher's list instead of
+                // the explainer.
+                if (musicMatchesResult != null && merged.none { it.hasTasteMatch() }) {
+                    loadSeedFallbackMatchesIfNeeded()
+                }
             } finally {
                 // Always clear the spinner, even if an await is cancelled or a merge
                 // step throws — the loader must never latch on (both fetches above
@@ -689,6 +706,27 @@ class SearchViewModel @Inject constructor(
     }
 
     private fun SuggestedUserMatch.hasTasteMatch(): Boolean = isTasteMatch
+
+    /** One attempt per session: read the saved quiz seed and re-run the
+     *  onboarding matcher on it. Gated on users_v2.tasteSeedCount so the
+     *  overwhelming majority of users (no quiz seed) never pay the read. */
+    private fun loadSeedFallbackMatchesIfNeeded() {
+        if (seedFallbackAttempted) return
+        val uid = authRepository.currentUserId ?: return
+        if ((authRepository.userProfile.value?.tasteSeedCount ?: 0) <= 0) return
+        seedFallbackAttempted = true
+        viewModelScope.launch {
+            try {
+                val picks = firestoreDataSource.fetchMyTasteSeedPicks(uid)
+                if (picks.isEmpty()) return@launch
+                val result = cloudFunctions.getOnboardingTasteMatches(picks)
+                _seedTasteMatches.value = result.users
+                Log.d("SearchVM", "Seed fallback matches: ${result.users.size}")
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Seed fallback failed", e)
+            }
+        }
+    }
 
     // Below the post threshold, taste matches can't exist yet (they need >=3
     // shared artists). A null profile (not loaded) is treated as "not below"

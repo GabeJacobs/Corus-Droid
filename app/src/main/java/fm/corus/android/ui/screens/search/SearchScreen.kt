@@ -102,6 +102,7 @@ import fm.corus.android.ui.components.SkeletonTrendingFilmRow
 import fm.corus.android.ui.components.SkeletonTrendingSongRow
 import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.components.SkeletonTasteMatchCard
+import fm.corus.android.ui.components.TasteMatchCard
 import fm.corus.android.ui.components.SkeletonUserRow
 // TasteMatchCard is now rendered inside HorizontalTasteMatchesRail, not here.
 import fm.corus.android.ui.components.UserAvatarView
@@ -290,6 +291,8 @@ fun SearchScreen(
 
     val followingIds by viewModel.followingIds.collectAsState()
     val localFollowedIds by viewModel.localFollowedIds.collectAsState()
+
+    val seedTasteMatches by viewModel.seedTasteMatches.collectAsState()
 
     // Derived suggestion categories (matching iOS logic)
     val musicMatchUsers = remember(suggestedMatches) {
@@ -502,6 +505,7 @@ fun SearchScreen(
                         UnifiedZeroStateContent(
                             listState = unifiedZeroListState,
                             musicMatchUsers = musicMatchUsers,
+                            seedTasteMatches = seedTasteMatches,
                             filterUnfollowedMatches = filterUnfollowedMatches,
                             onSetFilterUnfollowed = { filterUnfollowedMatches = it },
                             popularRailFilterFollowedIds = popularRailFilterFollowedIds,
@@ -555,6 +559,7 @@ fun SearchScreen(
                             SuggestedUsersContent(
                                 listState = usersListState,
                                 musicMatchUsers = musicMatchUsers,
+                                seedTasteMatches = seedTasteMatches,
                                 filterUnfollowedMatches = filterUnfollowedMatches,
                                 onSetFilterUnfollowed = { filterUnfollowedMatches = it },
                                 popularRailFilterFollowedIds = popularRailFilterFollowedIds,
@@ -999,6 +1004,7 @@ private fun RecentHashtagMedia() {
 private fun SuggestedUsersContent(
     listState: LazyListState = rememberLazyListState(),
     musicMatchUsers: List<SuggestedUserMatch>,
+    seedTasteMatches: List<SuggestedUserMatch>,
     filterUnfollowedMatches: Boolean,
     onSetFilterUnfollowed: (Boolean) -> Unit,
     popularRailFilterFollowedIds: Set<String>,
@@ -1058,6 +1064,7 @@ private fun SuggestedUsersContent(
 
         tasteMatchesSections(
             musicMatchUsers = musicMatchUsers,
+            seedTasteMatches = seedTasteMatches,
             isSuggestedLoading = isSuggestedLoading,
             isTasteMatchPolling = isTasteMatchPolling,
             tasteMatchLoadFailed = tasteMatchLoadFailed,
@@ -1189,6 +1196,7 @@ private fun LazyListScope.contactsSections(
 
 private fun LazyListScope.tasteMatchesSections(
     musicMatchUsers: List<SuggestedUserMatch>,
+    seedTasteMatches: List<SuggestedUserMatch>,
     isSuggestedLoading: Boolean,
     isTasteMatchPolling: Boolean,
     tasteMatchLoadFailed: Boolean,
@@ -1269,6 +1277,38 @@ private fun LazyListScope.tasteMatchesSections(
         // Failed/timed-out load with nothing to show: hide the section entirely
         // rather than implying the user has no taste matches. It reappears on the
         // next successful load (or the cold-start poll recovering).
+    } else if (seedTasteMatches.isNotEmpty()) {
+        // Quiz-seed fallback: the real (post-based) list settled without a
+        // qualifying match, so show the SAME people the onboarding matcher
+        // found for this user's quiz picks — never an explainer minutes after
+        // signup promised matches. Simple static rail (no pagination/filter:
+        // the onboarding matcher already returned the full ranked page).
+        item {
+            SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
+        }
+        item {
+            val cardWidth = horizontalRailCardWidth()
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+            ) {
+                items(seedTasteMatches.size, key = { seedTasteMatches[it].user.id }) { i ->
+                    val match = seedTasteMatches[i]
+                    TasteMatchCard(
+                        match = match,
+                        isFollowing = allFollowedIds.contains(match.user.id),
+                        onUserTap = {
+                            viewModel.logSearchSectionUserTapped(SearchSection.TasteMatches, match.user.id)
+                            onNavigateToUser(match.user.id)
+                        },
+                        onFollowTap = { viewModel.toggleFollow(match.user, SearchSection.TasteMatches) },
+                        modifier = Modifier.width(cardWidth),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        }
     } else {
         item {
             SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
@@ -1682,6 +1722,7 @@ private fun LazyListScope.compactTrendingHashtagsSection(
 private fun UnifiedZeroStateContent(
     listState: LazyListState,
     musicMatchUsers: List<SuggestedUserMatch>,
+    seedTasteMatches: List<SuggestedUserMatch>,
     filterUnfollowedMatches: Boolean,
     onSetFilterUnfollowed: (Boolean) -> Unit,
     popularRailFilterFollowedIds: Set<String>,
@@ -1747,6 +1788,7 @@ private fun UnifiedZeroStateContent(
         )
         tasteMatchesSections(
             musicMatchUsers = musicMatchUsers,
+            seedTasteMatches = seedTasteMatches,
             isSuggestedLoading = isSuggestedLoading,
             isTasteMatchPolling = isTasteMatchPolling,
             tasteMatchLoadFailed = tasteMatchLoadFailed,
