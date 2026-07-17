@@ -1163,7 +1163,10 @@ fun SkeletonTasteMatchCard(modifier: Modifier = Modifier) {
                 color = CorusColors.Divider,
                 shape = RoundedCornerShape(CorusSpacing.cornerRadiusLarge),
             )
-            .background(CorusColors.Skeleton)
+            // CardBackground (matching the real TasteMatchCard), NOT Skeleton:
+            // painting the whole card skeleton-gray hides the gray internal
+            // placeholders and the card reads as one oddly tall flat slab.
+            .background(CorusColors.CardBackground)
             .padding(CorusSpacing.sm),
         verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {
