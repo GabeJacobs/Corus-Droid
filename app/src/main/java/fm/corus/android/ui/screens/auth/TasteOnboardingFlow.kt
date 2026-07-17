@@ -540,12 +540,15 @@ private fun TasteQuizScreen(
             }
         }
 
-        // Bottom CTA cluster — yields to the keyboard: while the search field
-        // is focused the bottom third belongs to results/slots, and FIND MY
-        // MATCHES can't be tapped mid-typing anyway. Fades/shrinks in step
-        // with the question cluster above.
+        // Bottom CTA cluster — shows ONLY in the idle tray state. While the
+        // field is focused the bottom third belongs to results/slots; and with
+        // a typed query the results keep the full height even after the
+        // keyboard drops (tapping the IME search action shouldn't surface a
+        // footer over the list — product call 07-17). Clearing the query (or
+        // dismissing with it empty) returns to the tray, which brings this
+        // back. Fades/shrinks in step with the question cluster above.
         AnimatedVisibility(
-            visible = !searchFocused,
+            visible = !searchFocused && !searching,
             enter = fadeIn(tween(200)) + expandVertically(tween(250)),
             exit = fadeOut(tween(150)) + shrinkVertically(tween(250)),
         ) {
