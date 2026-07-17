@@ -4,7 +4,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -84,6 +86,7 @@ fun PostDetailScreen(
     onNavigateToFilm: (String) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
     onRepost: (CymbalPost) -> Unit = {},
+    onShowReposters: (String) -> Unit = {},
     /** Artist/director pages (artist_pages_enabled) — null while the flag is
      *  off, which keeps the artist/director subtitle as plain text. */
     onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)? = null,
@@ -276,6 +279,9 @@ fun PostDetailScreen(
                             onLikeTap = { viewModel.toggleLike(currentPost.id) },
                             onCommentTap = { onNavigateToComments(currentPost.id) },
                             onRepostTap = { onRepost(currentPost) },
+                            onRepostLongPress = if (viewModel.remoteConfig.repostersListEnabled && currentPost.repostCount > 0) {
+                                { onShowReposters(currentPost.id) }
+                            } else null,
                             onShareTap = { sharePost = currentPost },
                             onSaveTap = { viewModel.toggleSave(currentPost.id) },
                             onSongCountTap = {
@@ -811,6 +817,7 @@ private fun PostDetailEngagementRow(
     onLikeTap: () -> Unit,
     onCommentTap: () -> Unit,
     onRepostTap: () -> Unit,
+    onRepostLongPress: (() -> Unit)? = null,
     onShareTap: () -> Unit,
     onSaveTap: () -> Unit,
     onSongCountTap: () -> Unit,
@@ -839,12 +846,14 @@ private fun PostDetailEngagementRow(
             onClick = onCommentTap,
         )
 
-        // Repost
+        // Repost — tap composes a repost; when wired, press-and-hold opens the
+        // "who reposted" list.
         EngagementButton(
             icon = Icons.Filled.Repeat,
             count = repostCount,
             tint = CorusColors.Text,
             onClick = onRepostTap,
+            onLongClick = onRepostLongPress,
         )
 
         // Share
@@ -916,19 +925,31 @@ private fun PostDetailEngagementRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EngagementButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     count: Int,
     tint: Color,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Row(
-        modifier = Modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-            onClick = onClick,
-        ),
+        modifier = if (onLongClick != null) {
+            Modifier.combinedClickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
+        } else {
+            Modifier.clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
+        },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {

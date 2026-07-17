@@ -57,6 +57,7 @@ fun ProfileFeedScreen(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
     onRepost: (CymbalPost) -> Unit = {},
+    onShowReposters: (String) -> Unit = {},
     /** Artist/director pages (artist_pages_enabled) — null while the flag is
      *  off, which keeps post-card artist/director names as plain text. */
     onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)? = null,
@@ -250,6 +251,9 @@ fun ProfileFeedScreen(
                     onLikesTap = { onNavigateToLikes(post.id) },
                     onLikerTap = { liker -> onNavigateToUser(liker.id) },
                     onRepostTap = { onRepost(post) },
+                    onRepostLongPress = if (viewModel.remoteConfig.repostersListEnabled && post.repostCount > 0) {
+                        { onShowReposters(post.id) }
+                    } else null,
                     onShareTap = { sharePost = post },
                     onMenuTap = { menuPost = post },
                     onFilmPageTap = { onNavigateToFilm(post.movieId ?: "") },

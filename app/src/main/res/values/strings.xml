@@ -43,7 +43,7 @@
     <string name="settings_account_deleted_toast">Your account has been deleted.</string>
     <string name="settings_section_corus_club">CORUS CLUB</string>
     <string name="settings_row_join_club">Join the Corus Club</string>
-    <string name="settings_row_join_club_subtitle">The Taste Matches feed, unlimited posts &amp; more</string>
+    <string name="settings_row_join_club_subtitle">Taste Matches feed, profile customization &amp; more</string>
     <string name="settings_row_restore_purchases_subtitle">Already a member? Tap to sync your subscription</string>
     <string name="settings_restore_toast_success">Subscription restored</string>
     <string name="settings_restore_toast_none">No active subscription found</string>
@@ -1158,6 +1158,14 @@
     <string name="destination_no_posts_director">No posts from this director yet.</string>
     <string name="destination_no_posts_album">No one has posted from this album yet.</string>
     <string name="destination_no_posts_yet">No posts yet.</string>
+    <!-- Reposters ("who reposted this") list -->
+    <string name="reposters_title">Reposts</string>
+    <string name="reposters_empty">No reposts yet.</string>
+    <string name="reposters_load_error">Couldn\'t load reposts right now.</string>
+    <plurals name="reposters_count">
+        <item quantity="one">%1$d repost</item>
+        <item quantity="other">%1$d reposts</item>
+    </plurals>
     <string name="destination_album_load_error">We couldn\'t load this album.</string>
     <string name="destination_catalog_load_error">Couldn\'t load right now.</string>
     <string name="destination_no_tracks">No tracks found for this album.</string>

@@ -1440,6 +1440,29 @@ class CloudFunctionsDataSource @Inject constructor(
         return parseAlbumPostsResponse(result.getData() as? Map<String, Any?>)
     }
 
+    /** getReposters: the people who reposted [postId], each as their own repost
+     *  (a real post carrying repostedFromPostId), newest first. Reuses
+     *  [DestinationPostsPage] — `uniquePosterCount` carries the live total repost
+     *  count for the header; `posters`/`viewerPosts` are unused here. See the
+     *  backend getReposters + RepostersBottomSheet. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchReposters(
+        postId: String,
+        pageSize: Int = 20,
+        beforeMs: Long? = null,
+    ): DestinationPostsPage {
+        val params = mutableMapOf<String, Any>("postId" to postId, "pageSize" to pageSize)
+        beforeMs?.let { params["beforeMs"] = it }
+        val result = functions.getHttpsCallable("getReposters").call(params).await()
+        val data = result.getData() as? Map<String, Any?> ?: return DestinationPostsPage()
+        val posts = (data["posts"] as? List<Map<String, Any?>>)
+            ?.map { CymbalPost.fromCloudData(it) } ?: emptyList()
+        return DestinationPostsPage(
+            posts = posts,
+            uniquePosterCount = (data["totalCount"] as? Number)?.toInt() ?: posts.size,
+        )
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun fetchDirectorDetail(directorId: String): DirectorDetail {
         cachedCatalog(directorDetailCache, directorId)?.let { return it }

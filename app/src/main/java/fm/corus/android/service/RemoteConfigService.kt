@@ -346,6 +346,16 @@ class RemoteConfigService @Inject constructor(
             return remoteConfig.getBoolean("comment_controls_on_posts")
         }
 
+    /// Master gate for the "who reposted this" list: long-press the repost count
+    /// on a post to open a sheet of the people who reposted it, each row tapping
+    /// through to that person's repost. OFF = the repost button only opens
+    /// compose, byte-identical to today; the getReposters read is unused. Shares
+    /// `reposters_list_enabled` with iOS/web. Not first-frame-critical (the
+    /// affordance only matters once feed content is on screen), so a plain
+    /// getBoolean is fine.
+    val repostersListEnabled: Boolean
+        get() = remoteConfig.getBoolean("reposters_list_enabled")
+
     // Tracks the UID last pushed as the `user_id` signal so we can tell when it
     // changes (login / account switch) and force a fresh fetch. Null-vs-unset is
     // distinguished by [hasAppliedUserSignal] so the first apply always counts.
@@ -498,6 +508,7 @@ class RemoteConfigService @Inject constructor(
             "onboarding_taste_match_enabled" to false,
             "feed_switch_hint_min_session" to 3L,
             "feed_switch_hint_max_impressions" to 3L,
+            "reposters_list_enabled" to false,
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
         )
     }

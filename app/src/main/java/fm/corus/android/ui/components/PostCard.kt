@@ -8,7 +8,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -78,6 +80,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PostCard(
     post: CymbalPost,
@@ -101,6 +104,11 @@ fun PostCard(
     onTrailerTap: () -> Unit = {},
     onCommentTap: () -> Unit = {},
     onRepostTap: () -> Unit = {},
+    /** Press-and-hold on the repost count. Non-null only when the reposters list
+     *  is enabled AND this post has reposts (call sites gate on
+     *  `reposters_list_enabled` + repostCount > 0), which turns the repost
+     *  control into a combinedClickable. Null = plain tap-only, byte-identical. */
+    onRepostLongPress: (() -> Unit)? = null,
     onShareTap: () -> Unit = {},
     onMenuTap: () -> Unit = {},
     onSpotifyTap: () -> Unit = {},
@@ -1000,13 +1008,24 @@ fun PostCard(
                 }
             }
 
-            // Repost button
+            // Repost button — tap composes a repost; when wired, press-and-hold
+            // opens the "who reposted" list (see onRepostLongPress).
+            val repostInteraction = remember { MutableInteractionSource() }
             Row(
-                modifier = Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onRepostTap,
-                ),
+                modifier = if (onRepostLongPress != null) {
+                    Modifier.combinedClickable(
+                        interactionSource = repostInteraction,
+                        indication = null,
+                        onClick = onRepostTap,
+                        onLongClick = onRepostLongPress,
+                    )
+                } else {
+                    Modifier.clickable(
+                        interactionSource = repostInteraction,
+                        indication = null,
+                        onClick = onRepostTap,
+                    )
+                },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
             ) {

@@ -17,6 +17,7 @@ import fm.corus.android.ui.screens.feed.EditCaptionSheet
 import fm.corus.android.ui.screens.feed.FeedScreen
 import fm.corus.android.ui.screens.feed.FilmDetailScreen
 import fm.corus.android.ui.screens.feed.LikesBottomSheet
+import fm.corus.android.ui.screens.feed.RepostersBottomSheet
 import fm.corus.android.ui.screens.feed.PostDetailScreen
 import fm.corus.android.ui.screens.feed.SinglePostCommentsScreen
 import fm.corus.android.ui.screens.feed.SongDetailScreen
@@ -125,6 +126,7 @@ fun FeedNavGraph(
     onNavigateToCompose: () -> Unit = {},
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
+    var repostersPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
     val artistPagesEnabled = rememberArtistPagesEnabled()
     // Synchronous access to the cached following set so feed → profile
@@ -183,13 +185,14 @@ fun FeedNavGraph(
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
                 onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
                 onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
+                onShowReposters = { repostersPostId = it },
                 onNavigateToCompose = onNavigateToCompose,
                 onNavigateToArtist = if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null,
                 onNavigateToDirector = if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null,
                 onNavigateToAlbum = if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null,
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isFeedTabSelected, artistPagesEnabled = artistPagesEnabled)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isFeedTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -199,6 +202,25 @@ fun FeedNavGraph(
             onNavigateToUser = { userId ->
                 likesPostId = null
                 navController.navigate(OtherProfileRoute(userId))
+            },
+        )
+    }
+
+    repostersPostId?.let { postId ->
+        RepostersBottomSheet(
+            postId = postId,
+            onDismiss = { repostersPostId = null },
+            onNavigateToUser = { userId ->
+                repostersPostId = null
+                navController.navigate(OtherProfileRoute(userId))
+            },
+            onNavigateToPost = { pid ->
+                repostersPostId = null
+                navController.navigate(PostDetailRoute(pid))
+            },
+            onNavigateToFilm = { filmRoute ->
+                repostersPostId = null
+                navController.navigate(filmRoute)
             },
         )
     }
@@ -213,6 +235,7 @@ fun SearchNavGraph(
     onShowComments: (String) -> Unit = {},
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
+    var repostersPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
     val artistPagesEnabled = rememberArtistPagesEnabled()
 
@@ -239,7 +262,7 @@ fun SearchNavGraph(
                 onNavigateToTrending = { kind -> navController.navigate(TrendingListRoute(kind)) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -249,6 +272,25 @@ fun SearchNavGraph(
             onNavigateToUser = { userId ->
                 likesPostId = null
                 navController.navigate(OtherProfileRoute(userId))
+            },
+        )
+    }
+
+    repostersPostId?.let { postId ->
+        RepostersBottomSheet(
+            postId = postId,
+            onDismiss = { repostersPostId = null },
+            onNavigateToUser = { userId ->
+                repostersPostId = null
+                navController.navigate(OtherProfileRoute(userId))
+            },
+            onNavigateToPost = { pid ->
+                repostersPostId = null
+                navController.navigate(PostDetailRoute(pid))
+            },
+            onNavigateToFilm = { filmRoute ->
+                repostersPostId = null
+                navController.navigate(filmRoute)
             },
         )
     }
@@ -264,6 +306,7 @@ fun NotificationsNavGraph(
     onShowComments: (String) -> Unit = {},
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
+    var repostersPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
     val artistPagesEnabled = rememberArtistPagesEnabled()
 
@@ -289,7 +332,7 @@ fun NotificationsNavGraph(
                 },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -299,6 +342,25 @@ fun NotificationsNavGraph(
             onNavigateToUser = { userId ->
                 likesPostId = null
                 navController.navigate(OtherProfileRoute(userId))
+            },
+        )
+    }
+
+    repostersPostId?.let { postId ->
+        RepostersBottomSheet(
+            postId = postId,
+            onDismiss = { repostersPostId = null },
+            onNavigateToUser = { userId ->
+                repostersPostId = null
+                navController.navigate(OtherProfileRoute(userId))
+            },
+            onNavigateToPost = { pid ->
+                repostersPostId = null
+                navController.navigate(PostDetailRoute(pid))
+            },
+            onNavigateToFilm = { filmRoute ->
+                repostersPostId = null
+                navController.navigate(filmRoute)
             },
         )
     }
@@ -315,6 +377,7 @@ fun ProfileNavGraph(
     onShowComments: (String) -> Unit = {},
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
+    var repostersPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
     val artistPagesEnabled = rememberArtistPagesEnabled()
 
@@ -348,7 +411,7 @@ fun ProfileNavGraph(
                 onOpenCompose = onOpenCompose,
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -358,6 +421,25 @@ fun ProfileNavGraph(
             onNavigateToUser = { userId ->
                 likesPostId = null
                 navController.navigate(OtherProfileRoute(userId))
+            },
+        )
+    }
+
+    repostersPostId?.let { postId ->
+        RepostersBottomSheet(
+            postId = postId,
+            onDismiss = { repostersPostId = null },
+            onNavigateToUser = { userId ->
+                repostersPostId = null
+                navController.navigate(OtherProfileRoute(userId))
+            },
+            onNavigateToPost = { pid ->
+                repostersPostId = null
+                navController.navigate(PostDetailRoute(pid))
+            },
+            onNavigateToFilm = { filmRoute ->
+                repostersPostId = null
+                navController.navigate(filmRoute)
             },
         )
     }
@@ -372,6 +454,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     navigateToUserByUsername: (String) -> Unit,
     onShowComments: (String) -> Unit = {},
     onShowLikes: (String) -> Unit = {},
+    onShowReposters: (String) -> Unit = {},
     /**
      * True when the tab that owns this NavGraph is currently selected. Used
      * by feed-style destinations (ProfileFeedScreen) to gate registration
@@ -405,6 +488,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
+            onShowReposters = onShowReposters,
             onNavigateToArtist = navigateToArtist,
             onNavigateToDirector = navigateToDirector,
             onNavigateToAlbum = navigateToAlbum,
@@ -429,6 +513,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToFilm = { movieId -> navController.navigate(FilmDetailRoute(movieId)) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
+            onShowReposters = onShowReposters,
             onNavigateToArtist = navigateToArtist,
             onNavigateToDirector = navigateToDirector,
             onNavigateToAlbum = navigateToAlbum,
@@ -883,6 +968,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 navController.navigate(CommentLikesRoute(route.postId, commentId))
             },
             onRepost = { post -> mainTabViewModel.setRepostOriginalPost(post) },
+            onShowReposters = onShowReposters,
             onNavigateToArtist = navigateToArtist,
             onNavigateToDirector = navigateToDirector,
             onNavigateToAlbum = navigateToAlbum,

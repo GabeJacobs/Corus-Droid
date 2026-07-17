@@ -296,21 +296,21 @@ fun CymbalClubOfferScreen(
 
                 Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
 
-                // Features. When Taste Matches is live, advertise it as the headline
-                // perk right under Unlimited posts, taking the badge row's slot so the
-                // list stays at 5 (mirrors iOS).
+                // Features. Lead with the Taste Matches feed (when live) and profile
+                // customization; "Unlimited posts" sits mid-list now that the free tier
+                // is generous. Badge yields its slot to Taste Matches (mirrors iOS).
                 val tasteMatchesEnabled = viewModel.remoteConfig.tasteMatchesEnabled
                 Column(
                     modifier = Modifier.padding(horizontal = CorusSpacing.xl),
                     verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 ) {
-                    FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
                     if (tasteMatchesEnabled) {
                         FeatureRow(text = stringResource(R.string.club_feature_taste_matches)) {
                             VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
                         }
                     }
                     FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
+                    FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
                     FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
                     FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
                     if (!tasteMatchesEnabled) {
@@ -627,28 +627,30 @@ fun CymbalClubOfferSheet(
 
             Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
-            // Features. When Taste Matches is live, advertise it as the headline
-            // perk right under Unlimited posts, taking the badge row's slot so
-            // the list stays compact (mirrors the full-screen paywall + iOS).
+            // Features. Lead with the source-specific perk (when present) and the
+            // Taste Matches feed, then profile customization; "Unlimited posts" sits
+            // mid-list now that the free tier is generous (mirrors iOS + full paywall).
             val tasteMatchesEnabled = viewModel.remoteConfig.tasteMatchesEnabled
             Column(
                 modifier = Modifier.padding(horizontal = CorusSpacing.xl),
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
             ) {
-                if (source != PaywallSource.FIRST_POST) {
-                    FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+                // Source-specific perk leads when present, since it's the reason the
+                // user opened the paywall (e.g. the favorites cap).
+                if (source == PaywallSource.FAVORITE_LIMIT) {
+                    FeatureRow(icon = Icons.Filled.Star, text = stringResource(R.string.club_feature_favorites))
                 }
                 if (tasteMatchesEnabled) {
                     FeatureRow(text = stringResource(R.string.club_feature_taste_matches)) {
                         VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
                     }
                 }
-                // Source-specific perk sits right under posts so it's in the list,
-                // not just the subtitle.
-                if (source == PaywallSource.FAVORITE_LIMIT) {
-                    FeatureRow(icon = Icons.Filled.Star, text = stringResource(R.string.club_feature_favorites))
-                }
                 FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
+                // Free-tier posting is generous now, so this sits mid-list rather than
+                // leading; it's no longer the main draw.
+                if (source != PaywallSource.FIRST_POST) {
+                    FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+                }
                 FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
                 FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
                 // Drop the badge line on the favorites or Taste Matches paywalls

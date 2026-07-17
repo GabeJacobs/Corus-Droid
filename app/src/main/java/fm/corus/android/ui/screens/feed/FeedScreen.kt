@@ -130,6 +130,7 @@ fun FeedScreen(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (String) -> Unit = {},
     onRepost: (CymbalPost) -> Unit = {},
+    onShowReposters: (String) -> Unit = {},
     onNavigateToCompose: () -> Unit = {},
     /** Artist/director pages (artist_pages_enabled) — null while the flag is
      *  off, which keeps post-card artist/director names as plain text. */
@@ -866,6 +867,9 @@ fun FeedScreen(
                             onLikesTap = { onNavigateToLikes(post.id) },
                             onLikerTap = { liker -> onNavigateToUser(liker) },
                             onRepostTap = { onRepost(post) },
+                            onRepostLongPress = if (viewModel.remoteConfig.repostersListEnabled && post.repostCount > 0) {
+                                { onShowReposters(post.id) }
+                            } else null,
                             onShareTap = { sharePost = post },
                             onMenuTap = { menuPost = post },
                             onFilmPageTap = { onNavigateToFilm(post.movieId ?: "") },

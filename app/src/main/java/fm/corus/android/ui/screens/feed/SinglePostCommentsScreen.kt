@@ -100,6 +100,7 @@ fun SinglePostCommentsScreen(
     onNavigateToLikes: (String) -> Unit = {},
     onNavigateToCommentLikes: (commentId: String) -> Unit = {},
     onRepost: (CymbalPost) -> Unit = {},
+    onShowReposters: (String) -> Unit = {},
     /** Artist/director pages (artist_pages_enabled) — null while the flag is
      *  off, which keeps post-card artist/director names as plain text. */
     onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)? = null,
@@ -627,6 +628,9 @@ fun SinglePostCommentsScreen(
                             scope.launch { listState.animateScrollToItem(1) }
                         },
                         onRepostTap = { onRepost(p) },
+                        onRepostLongPress = if (viewModel.remoteConfig.repostersListEnabled && p.repostCount > 0) {
+                            { onShowReposters(p.id) }
+                        } else null,
                         onShareTap = {
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
