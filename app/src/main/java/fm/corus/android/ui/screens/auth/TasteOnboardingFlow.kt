@@ -1683,7 +1683,10 @@ private fun HeadstartTile(
         Box {
             Box(
                 modifier = Modifier
-                    .size(120.dp)
+                    .width(120.dp)
+                    // Films keep their native 2:3 poster shape; square-cropping
+                    // a poster chops the title art. Music art is square already.
+                    .height(if (pick is QuizPick.Film) 180.dp else 120.dp)
                     .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
                     .background(CorusColors.CardBackground),
             ) {
