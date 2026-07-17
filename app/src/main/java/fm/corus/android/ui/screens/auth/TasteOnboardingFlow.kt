@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.auth
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -27,11 +28,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -424,16 +423,15 @@ private fun TasteQuizScreen(
         searchFocus.requestFocus()
         keyboard?.show()
     }
-    // Android decouples IME visibility from field focus: the back gesture /
-    // IME down-chevron hides the keyboard WITHOUT unfocusing the TextField,
-    // which would strand the browse state on screen. iOS's FocusState drops
-    // with the keyboard, returning to the idle slots+question cluster — sync
-    // focus to the IME here so both platforms behave the same. (With text in
-    // the field, results stay visible either way: `searching` keys off text.)
+    // Dismissing the keyboard KEEPS the browse/results list up at full height
+    // (user feedback 07-17 — reverses the earlier dismiss-to-tray sync): the
+    // list is the point, the keyboard is just an input tool. The system back
+    // gesture (fired with the keyboard already down — the IME consumes the
+    // first back itself) is what returns to the idle slots+question tray.
+    // Adding a pick still returns to the tray via clearAfterAdd.
     val quizFocusManager = LocalFocusManager.current
-    val imeVisible = WindowInsets.isImeVisible
-    LaunchedEffect(imeVisible) {
-        if (!imeVisible && searchFocused) quizFocusManager.clearFocus()
+    BackHandler(enabled = searchFocused) {
+        quizFocusManager.clearFocus()
     }
 
     val searching = query.trim().isNotEmpty()
