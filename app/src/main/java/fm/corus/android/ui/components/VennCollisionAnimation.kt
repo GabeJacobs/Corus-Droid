@@ -22,7 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -76,8 +78,15 @@ internal class KeyframeTrack(private vararg val stops: Pair<Float, Float>) {
  * CSS animation-delay on an infinite loop: every iteration is offset by the
  * delay, so the per-element stagger holds on each pass. Wraps the master
  * fraction backwards by [delayFraction]. Pure — unit-tested.
+ *
+ * [wrap] = false is the FIRST cycle: CSS holds a delayed element at its
+ * from-state until the delay elapses (fill backwards), so we clamp to 0
+ * instead of wrapping — wrapping on cycle one renders the element's
+ * END-of-loop state on the opening frames (the match avatars appeared
+ * pre-settled in the lens before the circles ever collided).
  */
-internal fun staggeredFraction(master: Float, delayFraction: Float): Float {
+internal fun staggeredFraction(master: Float, delayFraction: Float, wrap: Boolean = true): Float {
+    if (!wrap) return (master - delayFraction).coerceAtLeast(0f)
     val f = (master - delayFraction) % 1f
     return if (f < 0f) f + 1f else f
 }
@@ -232,9 +241,19 @@ fun VennCollisionAnimation(
     // exact opening frame; an infinite transition starts advancing at
     // composition and would clip the first startDelayMs of beat one.
     val masterAnim = remember { Animatable(0f) }
+    // False until one full loop has run. Cycle one clamps the per-element
+    // stagger (CSS fill-backwards semantics); later cycles wrap so delayed
+    // elements finish their tails across the loop boundary.
+    var firstCycleDone by remember { mutableStateOf(false) }
     if (!reducedMotion) {
         LaunchedEffect(Unit) {
             if (startDelayMs > 0) delay(startDelayMs)
+            masterAnim.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(LOOP_MS, easing = LinearEasing),
+            )
+            masterAnim.snapTo(0f)
+            firstCycleDone = true
             masterAnim.animateTo(
                 targetValue = 1f,
                 animationSpec = infiniteRepeatable(
@@ -273,7 +292,7 @@ fun VennCollisionAnimation(
                     VENN_INTRO_ART[i]
                 }
                 val src = pool[minOf(artFailures[i], pool.size - 1)]
-                val ep = p?.let { staggeredFraction(it, i * 0.15f * 1000f / LOOP_MS) }
+                val ep = p?.let { staggeredFraction(it, i * 0.15f * 1000f / LOOP_MS, wrap = firstCycleDone) }
                 Box(
                     modifier = Modifier
                         .offset(spot.left.dp, spot.top.dp)
@@ -321,7 +340,7 @@ fun VennCollisionAnimation(
         ) {
             VennCircleOutline()
             SWIRL_SPOTS.forEachIndexed { i, spot ->
-                val ep = p?.let { staggeredFraction(it, i * 0.12f * 1000f / LOOP_MS) }
+                val ep = p?.let { staggeredFraction(it, i * 0.12f * 1000f / LOOP_MS, wrap = firstCycleDone) }
                 VennAvatar(
                     url = swirlAvatars.getOrNull(i),
                     size = 44f,
@@ -382,7 +401,7 @@ fun VennCollisionAnimation(
         // ── The match: fresh faces settle inside the oval ──
         if (p != null) {
             MATCH_SPOTS.forEachIndexed { i, spot ->
-                val ep = staggeredFraction(p, i * 0.18f * 1000f / LOOP_MS)
+                val ep = staggeredFraction(p, i * 0.18f * 1000f / LOOP_MS, wrap = firstCycleDone)
                 VennAvatar(
                     url = matchAvatars.getOrNull(i),
                     size = spot.size,

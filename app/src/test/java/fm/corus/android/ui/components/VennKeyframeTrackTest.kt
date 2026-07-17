@@ -62,4 +62,16 @@ class VennKeyframeTrackTest {
         // (the wrapped phase), matching an infinite CSS animation mid-stream.
         assertEquals(0.99f, staggeredFraction(0.01f, 0.02f), 1e-4f)
     }
+
+    @Test
+    fun `first cycle clamps delayed elements at their from-state instead of wrapping`() {
+        // wrap=false = the FIRST loop (CSS fill-backwards): before its delay
+        // elapses the element holds fraction 0 — the regression had match
+        // avatars rendering their END-of-loop settled state (visible, mid-lens)
+        // on the opening frames because the wrap put 0.01-0.02 at 0.99.
+        assertEquals(0f, staggeredFraction(0.01f, 0.02f, wrap = false), 1e-4f)
+        assertEquals(0f, staggeredFraction(0f, 0.18f, wrap = false), 1e-4f)
+        // Past the delay, identical to the wrapped steady state.
+        assertEquals(0.28f, staggeredFraction(0.3f, 0.02f, wrap = false), 1e-4f)
+    }
 }
