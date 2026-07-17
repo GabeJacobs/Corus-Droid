@@ -237,17 +237,6 @@ internal fun MusicServiceScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        TextButton(onClick = {
-            viewModel.saveMusicService(MusicService.SPOTIFY)
-            finishWithPushPrompt()
-        }) {
-            Text(
-                stringResource(id = R.string.music_service_skip),
-                style = CorusFont.caption,
-                color = CorusColors.Tertiary,
-            )
-        }
-
         Button(
             onClick = {
                 viewModel.saveMusicService(selected)
@@ -265,10 +254,20 @@ internal fun MusicServiceScreen(
             )
         }
 
-        // Skip sits ABOVE the button on this screen, so the primary is the
-        // bottom-most element — reserve the full zone (see
-        // ONBOARDING_CTA_BOTTOM_ZONE) to keep its baseline constant.
-        Spacer(modifier = Modifier.height(ONBOARDING_CTA_BOTTOM_ZONE))
+        // Secondary links always sit BELOW the primary (matches every other
+        // onboarding step); lg + the ~40dp link = ONBOARDING_CTA_BOTTOM_ZONE.
+        TextButton(onClick = {
+            viewModel.saveMusicService(MusicService.SPOTIFY)
+            finishWithPushPrompt()
+        }) {
+            Text(
+                stringResource(id = R.string.music_service_skip),
+                style = CorusFont.caption,
+                color = CorusColors.Tertiary,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
     }
 }
 
