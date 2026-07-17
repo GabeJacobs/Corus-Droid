@@ -265,7 +265,10 @@ internal fun MusicServiceScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+        // Skip sits ABOVE the button on this screen, so the primary is the
+        // bottom-most element — reserve the full zone (see
+        // ONBOARDING_CTA_BOTTOM_ZONE) to keep its baseline constant.
+        Spacer(modifier = Modifier.height(ONBOARDING_CTA_BOTTOM_ZONE))
     }
 }
 
@@ -460,7 +463,8 @@ internal fun SyncContactsScreen(
             Text(stringResource(id = R.string.social_setup_sync_later), style = CorusFont.caption, color = CorusColors.Tertiary)
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+        // lg + the ~40dp link above = ONBOARDING_CTA_BOTTOM_ZONE baseline.
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
     }
 }
 

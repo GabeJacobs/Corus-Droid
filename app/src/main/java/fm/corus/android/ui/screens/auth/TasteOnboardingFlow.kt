@@ -123,6 +123,12 @@ import kotlinx.coroutines.launch
  */
 private enum class TasteStep { MUSIC_SERVICE, SYNC_CONTACTS, TASTE_INTRO, QUIZ, SUGGESTIONS, HEADSTART }
 
+/** Every onboarding step pins its PRIMARY CTA's bottom edge to the same
+ *  baseline: 56dp above the nav bar. Steps with a secondary text link under
+ *  the button fill the zone with it (~40dp TextButton + lg); steps without
+ *  one reserve the full height so the button never jumps between screens. */
+internal val ONBOARDING_CTA_BOTTOM_ZONE = 56.dp
+
 @Composable
 internal fun TasteOnboardingFlow(
     onFinished: () -> Unit,
@@ -331,7 +337,8 @@ private fun TasteIntroScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+        // lg + the ~40dp link above = ONBOARDING_CTA_BOTTOM_ZONE baseline.
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
     }
 }
 
@@ -1425,7 +1432,9 @@ private fun TasteSuggestionsScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = CorusSpacing.xxl)
-                .padding(bottom = CorusSpacing.xxxl)
+                // No secondary link on this step — reserve its zone so the
+                // primary sits on the same baseline as every other step.
+                .padding(bottom = ONBOARDING_CTA_BOTTOM_ZONE)
                 .height(CorusSpacing.touchTarget),
             colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
         ) {
@@ -1673,7 +1682,8 @@ private fun HeadstartScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+        // lg + the ~40dp link above = ONBOARDING_CTA_BOTTOM_ZONE baseline.
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
     }
 }
 
