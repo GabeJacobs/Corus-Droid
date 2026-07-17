@@ -369,8 +369,10 @@ private fun VennSearchingScreen(
         // the user's actual picks. Community avatars still stream in — until
         // they do, pulsing skeleton circles hold their spots (the "still
         // searching" read).
+        val artPicks = picks.filter { it.pickArt() != null }.take(3)
         VennCollisionAnimation(
-            art = picks.mapNotNull { it.pickArt() }.take(3),
+            art = artPicks.mapNotNull { it.pickArt() },
+            artIsPoster = artPicks.map { it is QuizPick.Film },
             avatars = avatars,
             shimmerPlaceholders = true,
         )
@@ -1438,6 +1440,9 @@ private fun TasteSuggestionsScreen(
         }
 
         // Pinned CTA over the scrim: cards fade out as they pass underneath.
+        // The gradient hits FULL opacity at the button's top edge (overlay is
+        // 100dp tall: 40dp ramp + 44 button + 16 bottom), so CONTINUE sits on
+        // a clean soft band instead of colliding with card art.
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -1445,11 +1450,11 @@ private fun TasteSuggestionsScreen(
                 .background(
                     Brush.verticalGradient(
                         0f to CorusColors.Background.copy(alpha = 0f),
-                        0.55f to CorusColors.Background,
+                        0.4f to CorusColors.Background,
                         1f to CorusColors.Background,
                     ),
                 )
-                .padding(top = CorusSpacing.xxl),
+                .padding(top = 40.dp),
         ) {
             Button(
                 onClick = onContinue,

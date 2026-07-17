@@ -229,6 +229,12 @@ fun rememberReducedMotion(): Boolean {
 fun VennCollisionAnimation(
     modifier: Modifier = Modifier,
     art: List<String> = emptyList(),
+    // Parallel to [art]: true = 2:3 poster art (films), false = square (album
+    // covers). The third curated slot is poster-SHAPED for the curated film,
+    // but a user's own picks land in slots by order — a square album cover
+    // stuffed into the poster frame renders visibly cropped. Ignored when
+    // [art] is empty (curated slots keep their designed shapes).
+    artIsPoster: List<Boolean> = emptyList(),
     avatars: List<String> = emptyList(),
     shimmerPlaceholders: Boolean = false,
     // Hold the opening frame this long before the loop starts — the intro
@@ -292,11 +298,16 @@ fun VennCollisionAnimation(
                     VENN_INTRO_ART[i]
                 }
                 val src = pool[minOf(artFailures[i], pool.size - 1)]
+                // Custom picks size by their OWN media shape; curated art
+                // keeps each slot's designed frame (slot 3 = the film poster).
+                val poster = if (art.isNotEmpty()) artIsPoster.getOrNull(i) == true else spot.h != spot.w
+                val slotW = if (poster) 44f else 52f
+                val slotH = if (poster) 60f else 52f
                 val ep = p?.let { staggeredFraction(it, i * 0.15f * 1000f / LOOP_MS, wrap = firstCycleDone) }
                 Box(
                     modifier = Modifier
                         .offset(spot.left.dp, spot.top.dp)
-                        .size(spot.w.dp, spot.h.dp)
+                        .size(slotW.dp, slotH.dp)
                         .graphicsLayer {
                             if (ep != null) {
                                 alpha = COVER_ALPHA.at(ep)
