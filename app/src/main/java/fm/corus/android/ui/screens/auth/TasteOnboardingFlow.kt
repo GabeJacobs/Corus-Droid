@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -1284,6 +1285,11 @@ private fun TasteSuggestionsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // statusBarsPadding matters here: unlike the other steps (whose
+            // 60-80dp top spacers clear the status bar incidentally), this
+            // header is just lg + back arrow — without the inset the arrow
+            // crowds the clock.
+            .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
