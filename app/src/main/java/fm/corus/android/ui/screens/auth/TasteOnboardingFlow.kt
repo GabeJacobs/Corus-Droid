@@ -75,6 +75,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -128,6 +129,11 @@ private enum class TasteStep { MUSIC_SERVICE, SYNC_CONTACTS, TASTE_INTRO, QUIZ, 
  *  the button fill the zone with it (~40dp TextButton + lg); steps without
  *  one reserve the full height so the button never jumps between screens. */
 internal val ONBOARDING_CTA_BOTTOM_ZONE = 56.dp
+
+/** List steps use a sticky-footer CTA instead of the baseline zone: content
+ *  scrolls under the pinned button. Clearance = touchTarget + lg + the scrim's
+ *  gradient ramp, so the last row can scroll fully clear of the button. */
+private val STICKY_CTA_CLEARANCE = 100.dp
 
 @Composable
 internal fun TasteOnboardingFlow(
@@ -1347,12 +1353,17 @@ private fun TasteSuggestionsScreen(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
+        // Sticky-footer pattern (the flow's ONE list step): the grid scrolls
+        // UNDER the pinned CONTINUE, fading out into a scrim behind it —
+        // no reserved dead zone, and the peeking cards signal there's more to
+        // browse. Centered-content steps keep the fixed 56dp CTA baseline.
+        Box(modifier = Modifier.weight(1f)) {
         if (searchQuery.length >= 2) {
             // Friend search swaps the sections for people results — someone who
             // joined because a friend told them to can find that friend here.
             LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = CorusSpacing.lg),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = STICKY_CTA_CLEARANCE),
             ) {
                 if (isSearching) {
                     items(4) { SkeletonUserRow() }
@@ -1391,8 +1402,9 @@ private fun TasteSuggestionsScreen(
                 followedIds = followedIds,
                 onUserTap = { user -> viewModel.openUserPreview(user) },
                 onFollowTap = { user -> viewModel.toggleFollow(user.id) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 headerVerticalPadding = 0.dp,
+                bottomContentPadding = STICKY_CTA_CLEARANCE,
                 topContent = if (!hasFriendsSection && !hasTasteSection) null else {
                     {
                         Column(modifier = Modifier.fillMaxWidth()) {
@@ -1425,24 +1437,36 @@ private fun TasteSuggestionsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-
-        Button(
-            onClick = onContinue,
+        // Pinned CTA over the scrim: cards fade out as they pass underneath.
+        Column(
             modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.xxl)
-                // No secondary link on this step — reserve its zone so the
-                // primary sits on the same baseline as every other step.
-                .padding(bottom = ONBOARDING_CTA_BOTTOM_ZONE)
-                .height(CorusSpacing.touchTarget),
-            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                .background(
+                    Brush.verticalGradient(
+                        0f to CorusColors.Background.copy(alpha = 0f),
+                        0.55f to CorusColors.Background,
+                        1f to CorusColors.Background,
+                    ),
+                )
+                .padding(top = CorusSpacing.xxl),
         ) {
-            Text(
-                stringResource(R.string.onboarding_cta_continue),
-                style = CorusFont.button,
-                color = Color.White,
-            )
+            Button(
+                onClick = onContinue,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.xxl)
+                    .height(CorusSpacing.touchTarget),
+                colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+            ) {
+                Text(
+                    stringResource(R.string.onboarding_cta_continue),
+                    style = CorusFont.button,
+                    color = Color.White,
+                )
+            }
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        }
         }
     }
 

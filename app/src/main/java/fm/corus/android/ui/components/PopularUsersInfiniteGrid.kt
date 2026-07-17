@@ -77,6 +77,10 @@ fun PopularUsersInfiniteGrid(
     // the header spacing is driven entirely by the surrounding layout (matching
     // iOS); the empty-feed state keeps the default breathing room.
     headerVerticalPadding: Dp = CorusSpacing.sm,
+    // Extra clearance under the last row — onboarding's sticky CONTINUE
+    // overlays the grid, so its screen passes enough for content to scroll
+    // clear of the button.
+    bottomContentPadding: Dp = CorusSpacing.xxl,
     topContent: (@Composable () -> Unit)? = null,
     viewModel: PopularUsersInfiniteGridViewModel = hiltViewModel(),
 ) {
@@ -109,7 +113,7 @@ fun PopularUsersInfiniteGrid(
         contentPadding = PaddingValues(
             start = CorusSpacing.lg,
             end = CorusSpacing.lg,
-            bottom = CorusSpacing.xxl,
+            bottom = bottomContentPadding,
         ),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
