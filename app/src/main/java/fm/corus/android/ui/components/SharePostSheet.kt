@@ -78,8 +78,19 @@ fun SharePostSheet(
     var showCopied by remember { mutableStateOf(false) }
     var isSearchFocused by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    // A recipient chosen from search results is pinned to the front of the recents
+    // grid so the selection stays visible (with a checkmark) once the query clears —
+    // otherwise a searched-for, non-recent recipient would vanish from the sheet.
+    var pinnedUser by remember { mutableStateOf<CymbalUser?>(null) }
 
     val isSearchActive = isSearchFocused || searchQuery.isNotBlank()
+
+    // Recents with the pinned (searched-and-selected) recipient moved to the front.
+    val displayContacts = remember(recentContacts, pinnedUser) {
+        val pin = pinnedUser
+        if (pin != null) listOf(pin) + recentContacts.filter { it.id != pin.id }
+        else recentContacts
+    }
 
     // Auto-reset copied confirmation after 4 seconds
     LaunchedEffect(showCopied) {
@@ -164,7 +175,7 @@ fun SharePostSheet(
         // Contact grid or search results
         if (isSearchActive) {
             val hasQuery = searchQuery.isNotBlank()
-            val usersToShow = if (hasQuery) searchResults else recentContacts
+            val usersToShow = if (hasQuery) searchResults else displayContacts
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -199,6 +210,7 @@ fun SharePostSheet(
                             isSelected = selectedUser?.id == user.id,
                         ) {
                             selectedUser = user
+                            pinnedUser = user
                             searchQuery = ""
                             onSearchQueryChange("")
                             isSearchFocused = false
@@ -211,7 +223,7 @@ fun SharePostSheet(
             // Recent contacts grid
             if (isLoadingContacts) {
                 SkeletonShareContactsGrid()
-            } else if (recentContacts.isEmpty()) {
+            } else if (displayContacts.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -228,7 +240,7 @@ fun SharePostSheet(
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     verticalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
                 ) {
-                    items(recentContacts.take(6), key = { it.id }) { user ->
+                    items(displayContacts.take(6), key = { it.id }) { user ->
                         ShareContactCell(
                             user = user,
                             isSelected = selectedUser?.id == user.id,
