@@ -173,14 +173,28 @@ fun PostCard(
     val flipState = backCoverFlipState
     val haptics = LocalHapticManager.current
     val postCardContext = LocalContext.current
-    // Audiomack is link-out only (no in-app playback) — both the album-art play
-    // tap and the service badge open the track's Audiomack page externally.
+    // Audiomack full-song playback is link-out only — the service badge glyph
+    // opens the track's Audiomack page externally. (The album-art play tap now
+    // streams a ~30s in-app preview instead; see the onPreviewTap branch below.)
     // Gated on the source discriminator; null/blank url is a graceful no-op.
     val openAudiomack: () -> Unit = {
         post.track.audiomackLinkOutUrl?.let { url ->
             runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
         }
     }
+    // Audiomack has no Corus artist page (source-locked, no Spotify artistIds), so
+    // the artist name links out to Audiomack's own artist page instead. Mirrors
+    // [openAudiomack]; blank/absent url is a graceful no-op.
+    val openAudiomackArtist: () -> Unit = {
+        post.track.audiomackArtistLinkOutUrl?.let { url ->
+            runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        }
+    }
+    // Effective subtitle tap: internal artist/director nav (artist_pages_enabled)
+    // for non-Audiomack posts, else the Audiomack artist link-out when present.
+    // Independent of the flag — Audiomack link-out always works when the url is set.
+    val effectiveSubtitleTap: (() -> Unit)? = onSubtitleTap
+        ?: if (post.track.audiomackArtistLinkOutUrl != null) openAudiomackArtist else null
 
     // Inline Trending "Follow" pill state. `followTapped` latches so the pill
     // keeps rendering through its confirm→fade animation even after the
@@ -424,10 +438,11 @@ fun PostCard(
                                                 showUnavailableToast = false
                                             }
                                         }
-                                        // Audiomack never streams in-app — the
-                                        // album-art play tap opens its page instead.
-                                        post.isTrack && post.track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK ->
-                                            openAudiomack()
+                                        // Audiomack plays a ~30s in-app preview
+                                        // (resolved at play time), exactly like
+                                        // Spotify/Apple previews. The full song
+                                        // stays link-out only via the Audiomack
+                                        // badge glyph below (openAudiomack).
                                         post.isTrack -> onPreviewTap()
                                         // Prototype: a single tap plays the trailer inline when one
                                         // exists; posters without a trailer fall back to the overlay
@@ -793,14 +808,15 @@ fun PostCard(
                     color = CorusColors.Secondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    // Tappable artist/director name (artist_pages_enabled).
+                    // Tappable artist/director name: internal artist/director page
+                    // (artist_pages_enabled) or an Audiomack artist-page link-out.
                     // Deliberately identical styling either way; the clickable
                     // consumes the tap so it can't trigger the card's own tap.
-                    modifier = if (onSubtitleTap != null) {
+                    modifier = if (effectiveSubtitleTap != null) {
                         Modifier.clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = onSubtitleTap,
+                            onClick = effectiveSubtitleTap,
                         )
                     } else Modifier,
                 )

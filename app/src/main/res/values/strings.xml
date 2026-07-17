@@ -43,7 +43,7 @@
     <string name="settings_account_deleted_toast">Your account has been deleted.</string>
     <string name="settings_section_corus_club">CORUS CLUB</string>
     <string name="settings_row_join_club">Join the Corus Club</string>
-    <string name="settings_row_join_club_subtitle">Customize your profile, unlimited posts &amp; more</string>
+    <string name="settings_row_join_club_subtitle">The Taste Matches feed, unlimited posts &amp; more</string>
     <string name="settings_row_restore_purchases_subtitle">Already a member? Tap to sync your subscription</string>
     <string name="settings_restore_toast_success">Subscription restored</string>
     <string name="settings_restore_toast_none">No active subscription found</string>
@@ -973,7 +973,7 @@
     <string name="compose_segment_text">Text</string>
     <string name="compose_segment_voice">Voice</string>
     <string name="compose_caption_placeholder">Write a caption...</string>
-    <string name="compose_char_count_format">%1$d/700</string>
+    <string name="compose_char_count_format">%1$d/1000</string>
     <string name="compose_post_button">SET YOUR CORUS →</string>
     <string name="compose_reposted_from_format">Reposted from @%1$s</string>
     <string name="compose_director_unknown">Unknown</string>

@@ -1094,6 +1094,15 @@ fun FeedScreen(
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = clubOfferSource,
                 onDismiss = { showClubOffer = false },
+                onPurchaseSuccess = {
+                    // Complete the intent that opened this paywall: someone who
+                    // tapped Taste Matches and then paid expects to land in that
+                    // feed, not back where they were. Other sources keep the
+                    // default behavior (stay put).
+                    if (clubOfferSource == fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_MATCHES) {
+                        viewModel.onTasteMatchesUnlocked()
+                    }
+                },
             )
         }
     }

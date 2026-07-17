@@ -37,7 +37,7 @@
     <string name="settings_account_deleted_toast">アカウントが削除されました。</string>
     <string name="settings_section_corus_club">CORUS CLUB</string>
     <string name="settings_row_join_club">Corus Club に参加</string>
-    <string name="settings_row_join_club_subtitle">カスタムプロフィールバッジ、無制限の投稿など</string>
+    <string name="settings_row_join_club_subtitle">好みの一致フィード、無制限の投稿など</string>
     <string name="settings_row_restore_purchases_subtitle">すでにメンバーですか？タップしてサブスクリプションを同期</string>
     <string name="settings_restore_toast_success">サブスクリプションを復元しました</string>
     <string name="settings_restore_toast_none">有効なサブスクリプションが見つかりませんでした</string>
@@ -793,7 +793,7 @@
     <string name="compose_segment_text">テキスト</string>
     <string name="compose_segment_voice">ボイス</string>
     <string name="compose_caption_placeholder">キャプションを書く...</string>
-    <string name="compose_char_count_format">%1$d/700</string>
+    <string name="compose_char_count_format">%1$d/1000</string>
     <string name="compose_post_button">あなたの corus を決める →</string>
     <string name="compose_reposted_from_format">@%1$s からのリポスト</string>
     <string name="compose_director_unknown">不明</string>
@@ -1043,4 +1043,48 @@
     <plurals name="taste_card_film_matches">
         <item quantity="other">共通の映画%1$d本</item>
     </plurals>
+    <string name="feed_error_title">当社側で問題が発生しました</string>
+    <string name="feed_error_subtitle">フィードを読み込めませんでした。タップして再試行。</string>
+    <string name="film_detail_toast_film_sent">映画を送信しました！</string>
+    <string name="film_detail_resolving">読み込み中…</string>
+    <string name="film_detail_director_not_found">監督が見つかりませんでした</string>
+    <string name="song_detail_cd_share">曲をシェア</string>
+    <string name="song_detail_toast_song_sent">曲を送信しました！</string>
+    <string name="song_detail_resolving">読み込み中…</string>
+    <string name="song_detail_artist_not_found">このアーティストが見つかりませんでした</string>
+    <string name="song_detail_album_not_found">このアルバムが見つかりませんでした</string>
+    <string name="artist_detail_toast_artist_sent">アーティストを送信しました！</string>
+    <string name="album_detail_toast_album_sent">アルバムを送信しました！</string>
+    <string name="director_detail_toast_director_sent">監督を送信しました！</string>
+    <string name="profile_share_toast_profile_sent">プロフィールを送信しました！</string>
+    <string name="song_detail_listen_audiomack">Audiomack で聴く</string>
+    <string name="other_profile_unavailable_title">このアカウントは表示できません</string>
+    <string name="other_profile_unavailable_subtitle">このユーザーは存在しない可能性があります。</string>
+    <string name="other_profile_button_follow_back">フォローを返す</string>
+    <plurals name="follow_list_tab_followers">
+        <item quantity="one">フォロワー%1$s人</item>
+        <item quantity="other">フォロワー%1$s人</item>
+    </plurals>
+    <string name="follow_list_tab_following">フォロー中%1$s人</string>
+    <string name="follow_list_tab_mutual">共通%1$s人</string>
+    <string name="follow_list_no_mutuals">共通のフォロワーがいません</string>
+    <string name="suggested_users_followed_all_taste_matches">好みの一致の人はすべてフォロー済みです。</string>
+    <string name="suggested_users_show_all">すべて表示</string>
+    <string name="messaging_thread_deleted_account">削除されたアカウント</string>
+    <string name="messaging_thread_shared_profile">プロフィール</string>
+    <string name="messaging_thread_attachment_post">Corus</string>
+    <string name="messaging_group_chat">グループチャット</string>
+    <string name="messaging_group_soft_hint">まだ表示されない場合があります</string>
+    <string name="messaging_group_done">完了</string>
+    <string name="post_menu_open_audiomack">Audiomack で開く</string>
+    <string name="post_menu_go_to_artist">アーティストを見る</string>
+    <string name="post_menu_go_to_album">アルバムを見る</string>
+    <string name="now_playing_no_preview">プレビューはありません</string>
+    <string name="destination_song_label">曲</string>
+    <string name="destination_song_artist_format">曲 · %1$s</string>
+    <string name="destination_film_label">映画</string>
+    <string name="destination_film_year_format">映画 · %1$s</string>
+    <string name="destination_hashtag_label">ハッシュタグ</string>
+    <string name="destination_n_shared">%1$s人がシェア</string>
+    <string name="destination_artist_is_on_corus">%1$s がCorusにいます</string>
 </resources>

@@ -33,6 +33,19 @@ internal fun parseBackCoverResponse(data: Map<String, Any?>?): String? {
 }
 
 /**
+ * Parses a `resolveAudiomackPreview` Cloud Function response into a non-blank
+ * preview URL string. Response shape: `{ "previewUrl": "<signed url>" }` — a
+ * signed, short-lived URL that streams audio/mp4 (M4A) directly. Callers
+ * resolve it at play time and never persist it. Kept top-level so it can be
+ * unit-tested without instantiating the data source (mirrors
+ * [parseBackCoverResponse]).
+ */
+internal fun parseAudiomackPreviewResponse(data: Map<String, Any?>?): String? {
+    val url = data?.get("previewUrl") as? String
+    return url?.takeIf { it.isNotBlank() }
+}
+
+/**
  * Extracts matched user IDs from a `findContactMatches` response payload.
  * Response shape: `{ "matches": [ { "id": "...", "username": ... }, ... ] }`.
  * Kept top-level so it can be unit-tested without mocking FirebaseFunctions
@@ -1482,6 +1495,24 @@ class CloudFunctionsDataSource @Inject constructor(
         functions.getHttpsCallable("markSoundCloudUnavailable").call(
             mapOf("soundcloudId" to soundcloudId, "reason" to reason)
         ).await()
+    }
+
+    // ── Audiomack ──
+
+    /**
+     * Resolves a fresh, signed ~30s preview URL for an Audiomack track. The URL
+     * streams audio/mp4 (M4A) directly and is short-lived — resolve it at
+     * playback time, never at post-creation time, and never persist it (mirrors
+     * [soundcloudResolveStream], and the Apple preview lookup [appleMusicLookup]).
+     * Returns null when the server sends no usable url; the caller (NowPlaying)
+     * wraps this in try/catch and degrades to the Audiomack link-out on failure.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun resolveAudiomackPreview(audiomackId: String): String? {
+        val result = functions.getHttpsCallable("resolveAudiomackPreview").call(
+            mapOf("audiomackId" to audiomackId)
+        ).await()
+        return parseAudiomackPreviewResponse(result.getData() as? Map<String, Any?>)
     }
 
     // ── Social ──

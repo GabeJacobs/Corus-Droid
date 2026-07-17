@@ -188,8 +188,16 @@ fun PostMenuSheets(
                 // the flag is on (screens pass them together, mirroring the
                 // artist-subtitle path). Tap helpers no-op if a callback is null.
                 artistPagesEnabled = artistPagesEnabled,
-                onGoToArtist = onGoToArtistTap(post, onNavigateToArtist) ?: {},
-                onGoToAlbum = onGoToAlbumTap(post, onNavigateToAlbum) ?: {},
+                // Audiomack is source-locked with no Corus artist/album page, so
+                // its "Go to Artist"/"Go to Album" rows link out to Audiomack's own
+                // pages (only when the backend supplied a non-blank url). Non-
+                // Audiomack sources fall through to the internal-nav tap builders.
+                onGoToArtist = onGoToArtistTap(post, onNavigateToArtist)
+                    ?: post.track.audiomackArtistLinkOutUrl?.let { url -> { openExternalUrl(context, url) } }
+                    ?: {},
+                onGoToAlbum = onGoToAlbumTap(post, onNavigateToAlbum)
+                    ?: post.track.audiomackAlbumLinkOutUrl?.let { url -> { openExternalUrl(context, url) } }
+                    ?: {},
                 onGoToDirector = onGoToDirectorTap(post, onNavigateToDirector) ?: {},
                 onViewBackCover = {
                     val state = backCoverStateFor(post.id)
@@ -322,6 +330,15 @@ fun openTrackInPreferredService(
             scope.launch { open(resolveServiceLinkUrl(track)) }
         }
     }
+}
+
+/**
+ * Opens an external URL (an Audiomack artist/album page link-out from the "…"
+ * menu). Swallows the ActivityNotFoundException so a missing browser can't crash
+ * the tap. Mirrors the link-out pattern in [openTrackInPreferredService].
+ */
+internal fun openExternalUrl(context: Context, url: String) {
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
 }
 
 /**

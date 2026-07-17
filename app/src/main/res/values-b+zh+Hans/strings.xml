@@ -43,7 +43,7 @@
     <string name="settings_account_deleted_toast">你的账户已被删除。</string>
     <string name="settings_section_corus_club">CORUS CLUB</string>
     <string name="settings_row_join_club">加入 Corus Club</string>
-    <string name="settings_row_join_club_subtitle">自定义资料徽章、无限发布等更多权益</string>
+    <string name="settings_row_join_club_subtitle">品味匹配动态、无限发布等更多权益</string>
     <string name="settings_row_restore_purchases_subtitle">已经是会员？点按以同步你的订阅</string>
     <string name="settings_restore_toast_success">订阅已恢复</string>
     <string name="settings_restore_toast_none">未找到有效订阅</string>
@@ -903,7 +903,7 @@
     <string name="compose_segment_text">文字</string>
     <string name="compose_segment_voice">语音</string>
     <string name="compose_caption_placeholder">写点文字说明...</string>
-    <string name="compose_char_count_format">%1$d/700</string>
+    <string name="compose_char_count_format">%1$d/1000</string>
     <string name="compose_post_button">设置你的 CORUS →</string>
     <string name="compose_reposted_from_format">转发自 @%1$s</string>
     <string name="compose_director_unknown">未知</string>
@@ -1167,4 +1167,49 @@
     <plurals name="taste_card_film_matches">
         <item quantity="other">%1$d 部共同电影</item>
     </plurals>
+    <string name="feed_error_title">嗯，有点不对劲</string>
+    <string name="feed_error_subtitle">我们无法加载你的动态。点按重试。</string>
+    <string name="film_detail_toast_film_sent">电影已发送！</string>
+    <string name="film_detail_resolving">加载中…</string>
+    <string name="film_detail_director_not_found">找不到这位导演</string>
+    <string name="song_detail_cd_share">分享歌曲</string>
+    <string name="song_detail_toast_song_sent">歌曲已发送！</string>
+    <string name="song_detail_resolving">加载中…</string>
+    <string name="song_detail_artist_not_found">找不到这位艺人</string>
+    <string name="song_detail_album_not_found">找不到这张专辑</string>
+    <string name="artist_detail_toast_artist_sent">艺人已发送！</string>
+    <string name="album_detail_toast_album_sent">专辑已发送！</string>
+    <string name="director_detail_toast_director_sent">导演已发送！</string>
+    <string name="profile_share_toast_profile_sent">个人资料已发送！</string>
+    <string name="song_detail_listen_audiomack">在 Audiomack 上收听</string>
+    <string name="other_profile_unavailable_title">此账户不可用</string>
+    <string name="other_profile_unavailable_subtitle">此用户可能已不存在。</string>
+    <string name="other_profile_button_follow_back">回关</string>
+    <plurals name="follow_list_tab_followers">
+        <item quantity="one">%1$s 位粉丝</item>
+        <item quantity="other">%1$s 位粉丝</item>
+    </plurals>
+    <string name="follow_list_tab_following">%1$s 关注</string>
+    <string name="follow_list_tab_mutual">%1$s 共同关注</string>
+    <string name="follow_list_no_mutuals">没有共同关注</string>
+    <string name="hashtag_suggestion_trending">热门</string>
+    <string name="suggested_users_followed_all_taste_matches">你已经关注了所有的品味匹配。</string>
+    <string name="suggested_users_show_all">查看全部</string>
+    <string name="messaging_thread_deleted_account">已注销账户</string>
+    <string name="messaging_thread_shared_profile">个人资料</string>
+    <string name="messaging_thread_attachment_post">Corus</string>
+    <string name="messaging_group_chat">群聊</string>
+    <string name="messaging_group_soft_hint">可能还看不到</string>
+    <string name="messaging_group_done">完成</string>
+    <string name="post_menu_open_audiomack">在 Audiomack 中打开</string>
+    <string name="post_menu_go_to_artist">前往艺人</string>
+    <string name="post_menu_go_to_album">前往专辑</string>
+    <string name="now_playing_no_preview">没有可用的试听</string>
+    <string name="destination_song_label">歌曲</string>
+    <string name="destination_song_artist_format">歌曲 · %1$s</string>
+    <string name="destination_film_label">电影</string>
+    <string name="destination_film_year_format">电影 · %1$s</string>
+    <string name="destination_hashtag_label">话题标签</string>
+    <string name="destination_n_shared">%1$s 次分享</string>
+    <string name="destination_artist_is_on_corus">%1$s 在 Corus 上</string>
 </resources>

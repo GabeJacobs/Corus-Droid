@@ -69,6 +69,16 @@ data class CymbalTrack(
     val audiomackId: String? = null,
     val audiomackUrl: String? = null,
     /**
+     * Audiomack artist + album page URLs (backend-derived). Populated only for
+     * `source == AUDIOMACK` tracks. Audiomack is source-locked and link-out only
+     * (no Spotify artistIds/albumId), so these external URLs are what the post
+     * menu's "Go to Artist"/"Go to Album" rows and the tappable artist name open
+     * instead of a Corus artist/album page. `audiomackArtistUrl` is always present
+     * for Audiomack tracks; `audiomackAlbumUrl` is "" (-> null) for loose singles.
+     */
+    val audiomackArtistUrl: String? = null,
+    val audiomackAlbumUrl: String? = null,
+    /**
      * Apple Music catalog id. Populated for Apple-Music-only tracks (where
      * `source == APPLEMUSIC` and `id` is `am:<appleMusicId>`); also lazily
      * filled for Spotify-source posts by the backend's apple_music_mappings
@@ -105,6 +115,24 @@ data class CymbalTrack(
      */
     val audiomackLinkOutUrl: String?
         get() = if (source == TrackSource.AUDIOMACK) audiomackUrl?.takeIf { it.isNotBlank() } else null
+
+    /**
+     * External Audiomack artist-page URL to link out to. Non-null only for an
+     * Audiomack track carrying a usable [audiomackArtistUrl]; null for streamable
+     * sources and for Audiomack tracks missing the url. Mirrors [audiomackLinkOutUrl]
+     * so the "Go to Artist" row / tappable artist name and tests agree on when to show.
+     */
+    val audiomackArtistLinkOutUrl: String?
+        get() = if (source == TrackSource.AUDIOMACK) audiomackArtistUrl?.takeIf { it.isNotBlank() } else null
+
+    /**
+     * External Audiomack album-page URL to link out to. Non-null only for an
+     * Audiomack track carrying a usable [audiomackAlbumUrl]; null for streamable
+     * sources and for Audiomack loose singles (backend sends "" -> null), so the
+     * "Go to Album" row is never a dead item. Mirrors [audiomackLinkOutUrl].
+     */
+    val audiomackAlbumLinkOutUrl: String?
+        get() = if (source == TrackSource.AUDIOMACK) audiomackAlbumUrl?.takeIf { it.isNotBlank() } else null
 
     /**
      * Direct link to the song's Apple Music page. Prefers the resolved
@@ -194,6 +222,8 @@ data class CymbalTrack(
                 soundcloudPermalinkUrl = (data["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
                 audiomackId = (data["audiomackId"] as? String)?.ifEmpty { null },
                 audiomackUrl = (data["audiomackUrl"] as? String)?.ifEmpty { null },
+                audiomackArtistUrl = (data["audiomackArtistUrl"] as? String)?.ifEmpty { null },
+                audiomackAlbumUrl = (data["audiomackAlbumUrl"] as? String)?.ifEmpty { null },
                 // Tri-state, drives the service badge. Preserve "" (resolver
                 // confirmed NOT on Apple Music) vs null (unknown). See
                 // CymbalPost.fromMap and PostCard for why the distinction matters.

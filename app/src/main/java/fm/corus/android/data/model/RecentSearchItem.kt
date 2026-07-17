@@ -103,6 +103,8 @@ sealed class RecentSearchItem {
         val soundcloudPermalinkUrl: String? = null,
         val audiomackId: String? = null,
         val audiomackUrl: String? = null,
+        val audiomackArtistUrl: String? = null,
+        val audiomackAlbumUrl: String? = null,
         val isrc: String? = null,
         val artistIds: List<String> = emptyList(),
         val albumId: String? = null,
@@ -133,6 +135,8 @@ sealed class RecentSearchItem {
             soundcloudPermalinkUrl = soundcloudPermalinkUrl,
             audiomackId = audiomackId,
             audiomackUrl = audiomackUrl,
+            audiomackArtistUrl = audiomackArtistUrl,
+            audiomackAlbumUrl = audiomackAlbumUrl,
         )
     }
 
@@ -238,6 +242,8 @@ sealed class RecentSearchItem {
             soundcloudPermalinkUrl = t.soundcloudPermalinkUrl,
             audiomackId = t.audiomackId,
             audiomackUrl = t.audiomackUrl,
+            audiomackArtistUrl = t.audiomackArtistUrl,
+            audiomackAlbumUrl = t.audiomackAlbumUrl,
             isrc = t.isrc,
             artistIds = t.artistIds,
             albumId = t.albumId,

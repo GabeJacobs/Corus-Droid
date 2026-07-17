@@ -879,6 +879,23 @@ class FeedViewModel @Inject constructor(
         }
     }
 
+    /**
+     * A Club purchase completed from a Taste Matches paywall (mode-switcher tap
+     * or the in-feed gated backstop). Complete the original intent: the user
+     * tapped the premium mode and paid, so enter the feed without a second tap.
+     * If they were already on the mode (the backstop case), reload it instead —
+     * the gated page they're looking at was fetched as a non-member.
+     * [setFeedMode]'s premium gate passes because the repository flips
+     * hasFullAccess before reporting purchase success.
+     */
+    fun onTasteMatchesUnlocked() {
+        if (feedMode.value == "tasteMatches") {
+            loadFeed(refresh = true)
+        } else {
+            setFeedMode("tasteMatches")
+        }
+    }
+
     // ── Taste Matches cold-start seeding ──
 
     /** Fetch the caller's already-counted post covers (songs AND films) so the

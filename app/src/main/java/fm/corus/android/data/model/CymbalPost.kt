@@ -213,6 +213,13 @@ data class CymbalPost(
                 soundcloudPermalinkUrl = (data["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
                 audiomackId = (data["audiomackId"] as? String)?.ifEmpty { null },
                 audiomackUrl = (data["audiomackUrl"] as? String)?.ifEmpty { null },
+                // Audiomack artist/album page URLs — link-out targets for the "…"
+                // menu's "Go to Artist"/"Go to Album" and the tappable artist name
+                // (Audiomack carries no Spotify artistIds/albumId). Backend derives
+                // audiomackArtistUrl for every Audiomack post; audiomackAlbumUrl is
+                // "" (-> null) for loose singles so the album row is never dead.
+                audiomackArtistUrl = (data["audiomackArtistUrl"] as? String)?.ifEmpty { null },
+                audiomackAlbumUrl = (data["audiomackAlbumUrl"] as? String)?.ifEmpty { null },
                 // Tri-state, drives the service badge. Preserve "" (resolver
                 // confirmed NOT on Apple Music) vs null (unknown / field absent).
                 // Don't collapse "" to null, or a confirmed Spotify-only track

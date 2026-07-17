@@ -381,9 +381,18 @@ class SubscriptionRepository @Inject constructor(
                         try {
                             cloudFunctions.syncClubMemberStatus(userId, isClubMember = true)
                         } catch (_: Exception) { }
+                        // Report success only after the sync attempt (matches
+                        // iOS `purchase(package:)`): success handlers fire
+                        // server-gated requests right away — e.g. the feed
+                        // switching to Taste Matches — and the server reads
+                        // membership from Firestore, so the sync must land
+                        // first. Sync failure still reports Success: the local
+                        // entitlement is real and the webhook backfills.
+                        onResult(PurchaseOutcome.Success)
                     }
+                } else {
+                    onResult(PurchaseOutcome.Success)
                 }
-                onResult(PurchaseOutcome.Success)
             },
         )
     }

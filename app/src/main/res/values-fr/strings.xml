@@ -43,7 +43,7 @@
     <string name="settings_account_deleted_toast">Ton compte a été supprimé.</string>
     <string name="settings_section_corus_club">CORUS CLUB</string>
     <string name="settings_row_join_club">Rejoindre Corus Club</string>
-    <string name="settings_row_join_club_subtitle">Badge de profil personnalisé, publications illimitées et plus</string>
+    <string name="settings_row_join_club_subtitle">Fil d\'affinités de goûts, publications illimitées et plus</string>
     <string name="settings_row_restore_purchases_subtitle">Déjà membre ? Touche pour synchroniser ton abonnement</string>
     <string name="settings_restore_toast_success">Abonnement restauré</string>
     <string name="settings_restore_toast_none">Aucun abonnement actif trouvé</string>
@@ -904,7 +904,7 @@
     <string name="compose_segment_text">Texte</string>
     <string name="compose_segment_voice">Voix</string>
     <string name="compose_caption_placeholder">Écris une légende...</string>
-    <string name="compose_char_count_format">%1$d/700</string>
+    <string name="compose_char_count_format">%1$d/1000</string>
     <string name="compose_post_button">DÉFINIS TON CORUS →</string>
     <string name="compose_reposted_from_format">Republié de @%1$s</string>
     <string name="compose_director_unknown">Inconnu</string>
@@ -1176,4 +1176,48 @@
         <item quantity="one">%1$d film en commun</item>
         <item quantity="other">%1$d films en commun</item>
     </plurals>
+    <string name="feed_error_title">Un souci de notre côté</string>
+    <string name="feed_error_subtitle">Impossible de charger ton Feed. Touche pour réessayer.</string>
+    <string name="film_detail_toast_film_sent">Film envoyé !</string>
+    <string name="film_detail_resolving">Chargement…</string>
+    <string name="film_detail_director_not_found">Impossible de trouver le réalisateur</string>
+    <string name="song_detail_cd_share">Partager le titre</string>
+    <string name="song_detail_toast_song_sent">Chanson envoyée !</string>
+    <string name="song_detail_resolving">Chargement…</string>
+    <string name="song_detail_artist_not_found">Impossible de trouver cet artiste</string>
+    <string name="song_detail_album_not_found">Impossible de trouver cet album</string>
+    <string name="artist_detail_toast_artist_sent">Artiste envoyé !</string>
+    <string name="album_detail_toast_album_sent">Album envoyé !</string>
+    <string name="director_detail_toast_director_sent">Réalisateur envoyé !</string>
+    <string name="profile_share_toast_profile_sent">Profil envoyé !</string>
+    <string name="song_detail_listen_audiomack">Écouter sur Audiomack</string>
+    <string name="other_profile_unavailable_title">Ce compte est indisponible</string>
+    <string name="other_profile_unavailable_subtitle">Cet utilisateur n\'existe peut-être plus.</string>
+    <string name="other_profile_button_follow_back">SUIVRE EN RETOUR</string>
+    <plurals name="follow_list_tab_followers">
+        <item quantity="one">%1$s abonné</item>
+        <item quantity="other">%1$s abonnés</item>
+    </plurals>
+    <string name="follow_list_tab_following">%1$s abonnements</string>
+    <string name="follow_list_tab_mutual">%1$s en commun</string>
+    <string name="follow_list_no_mutuals">Aucun abonné en commun</string>
+    <string name="suggested_users_followed_all_taste_matches">Tu suis déjà toutes tes affinités de goûts.</string>
+    <string name="suggested_users_show_all">Tout afficher</string>
+    <string name="messaging_thread_deleted_account">Compte supprimé</string>
+    <string name="messaging_thread_shared_profile">Profil</string>
+    <string name="messaging_thread_attachment_post">Corus</string>
+    <string name="messaging_group_chat">Discussion de groupe</string>
+    <string name="messaging_group_soft_hint">Ne le voit peut-être pas encore</string>
+    <string name="messaging_group_done">OK</string>
+    <string name="post_menu_open_audiomack">Ouvrir dans Audiomack</string>
+    <string name="post_menu_go_to_artist">Aller à l\'artiste</string>
+    <string name="post_menu_go_to_album">Aller à l\'album</string>
+    <string name="now_playing_no_preview">Aucun extrait disponible</string>
+    <string name="destination_song_label">Chanson</string>
+    <string name="destination_song_artist_format">Chanson · %1$s</string>
+    <string name="destination_film_label">Film</string>
+    <string name="destination_film_year_format">Film · %1$s</string>
+    <string name="destination_hashtag_label">Hashtag</string>
+    <string name="destination_n_shared">%1$s partages</string>
+    <string name="destination_artist_is_on_corus">%1$s est sur Corus</string>
 </resources>

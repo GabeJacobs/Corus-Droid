@@ -68,6 +68,17 @@ sealed interface CatalogPlaybackOrigin {
     ) : CatalogPlaybackOrigin
 }
 
+/**
+ * Derives the raw Audiomack track id from an `amk:<id>`-prefixed Corus trackId,
+ * or null when the id isn't an Audiomack id (wrong/missing prefix, or nothing
+ * after the prefix). The backend tags Audiomack tracks with this prefix (same
+ * pattern as SoundCloud/Apple), so the preview resolver can recover the raw id
+ * without threading a separate field through the play queue. Kept top-level +
+ * pure so it's unit-tested without the manager.
+ */
+internal fun audiomackIdFromTrackId(trackId: String): String? =
+    trackId.takeIf { it.startsWith("amk:") }?.removePrefix("amk:")?.takeIf { it.isNotEmpty() }
+
 data class QueuedTrack(
     val trackId: String,
     val trackName: String,
@@ -847,11 +858,14 @@ class NowPlayingManager @Inject constructor(
         //   Spotify/Apple → use the 30s preview URL (looked up server-side via Apple Music).
         val resolvedUrl = when (track.source) {
             TrackSource.SOUNDCLOUD -> track.soundcloudId?.let { resolveSoundCloudStream(it) }
-            // Audiomack is link-out only — never stream in-app, and never fall
-            // through to the Apple-preview lookup (which would play a WRONG
-            // track for an Audiomack id). Yields null so playback stops
-            // gracefully here; the UI opens the Audiomack page instead.
-            TrackSource.AUDIOMACK -> null
+            // Audiomack plays a signed ~30s preview resolved at play time (short-
+            // lived; never cached on the post), exactly like the Spotify/Apple
+            // preview path. The raw Audiomack id is recovered from the `amk:`
+            // trackId prefix. It never falls through to the Apple-preview lookup
+            // (which would play a WRONG track for an Audiomack id); a failed
+            // resolve yields null → no-op, and the full song stays reachable via
+            // the "Listen on Audiomack" link-out.
+            TrackSource.AUDIOMACK -> audiomackIdFromTrackId(trackId)?.let { resolveAudiomackPreview(it) }
             else -> track.previewUrl?.takeIf { it.isNotBlank() }
                 ?: previewCache[trackId]
                 ?: lookupPreviewUrl(trackId, track.trackName, track.artistName, track.isrc)
@@ -864,11 +878,11 @@ class NowPlayingManager @Inject constructor(
 
         if (resolvedUrl == null) {
             // No playable preview (e.g. a Spotify track with no Apple Music
-            // match). Tell the user, but only on an explicit tap — auto-advance
-            // just stops rather than spamming a toast per dead track. Audiomack
-            // is intentionally unplayable (link-out only), so suppress the toast
-            // for it — the tap surfaces open the Audiomack page instead.
-            if (userInitiated && track.source != TrackSource.AUDIOMACK) _previewUnavailable.tryEmit(Unit)
+            // match, or an Audiomack preview that failed to resolve). Tell the
+            // user, but only on an explicit tap — auto-advance just stops rather
+            // than spamming a toast per dead track. Audiomack additionally keeps
+            // its "Listen on Audiomack" link-out for the full song.
+            if (userInitiated) _previewUnavailable.tryEmit(Unit)
             return
         }
 
@@ -972,6 +986,27 @@ class NowPlayingManager @Inject constructor(
                     runCatching { cloudFunctions.markSoundCloudUnavailable(soundcloudId, reason) }
                 }
             }
+            null
+        }
+    }
+
+    /**
+     * Calls the `resolveAudiomackPreview` Cloud Function for a signed ~30s
+     * preview URL (streams audio/mp4 directly, playable by ExoPlayer as-is).
+     * The URL is short-lived — resolved at play time, never persisted. Returns
+     * null on any error so playback degrades gracefully; the UI still exposes
+     * the "Listen on Audiomack" link-out for the full song. Mirrors
+     * [resolveSoundCloudStream] and [lookupPreviewUrl].
+     */
+    private suspend fun resolveAudiomackPreview(audiomackId: String): String? {
+        return try {
+            val url = withContext(Dispatchers.IO) {
+                cloudFunctions.resolveAudiomackPreview(audiomackId)
+            }
+            android.util.Log.i("NowPlaying", "resolveAudiomackPreview OK id=$audiomackId url=${url?.take(60)}…")
+            url
+        } catch (e: Exception) {
+            android.util.Log.w("NowPlaying", "resolveAudiomackPreview FAILED id=$audiomackId msg=${e.message}", e)
             null
         }
     }

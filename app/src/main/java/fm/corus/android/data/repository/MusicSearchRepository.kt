@@ -47,6 +47,11 @@ internal fun parseUnifiedTrack(d: Map<String, Any?>): CymbalTrack? {
         // (Audiomack blocks in-app playback). Absent/null for other sources.
         audiomackId = (d["audiomackId"] as? String)?.ifEmpty { null },
         audiomackUrl = (d["audiomackUrl"] as? String)?.ifEmpty { null },
+        // Audiomack artist/album page URLs — link-out targets for "Go to Artist"/
+        // "Go to Album" (Audiomack has no Spotify artistIds/albumId). Album url is
+        // "" (-> null) for loose singles.
+        audiomackArtistUrl = (d["audiomackArtistUrl"] as? String)?.ifEmpty { null },
+        audiomackAlbumUrl = (d["audiomackAlbumUrl"] as? String)?.ifEmpty { null },
         // Apple-Music-only tracks ship `appleMusicId` directly from
         // search; the `am:` prefix on `id` is the discriminator the
         // rest of the app branches on, but carrying the raw id avoids

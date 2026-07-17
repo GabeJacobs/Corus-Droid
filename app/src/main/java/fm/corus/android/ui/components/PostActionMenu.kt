@@ -231,20 +231,29 @@ internal fun showPostReportBlockActions(isMine: Boolean, authorIsBot: Boolean): 
     !isMine && !authorIsBot
 
 /**
- * Whether the "Go to Artist" row shows: track posts only (never films),
- * `artist_pages_enabled` on, and the post carries at least one artist id.
+ * Whether the "Go to Artist" row shows: track posts only (never films) that
+ * either carry an Audiomack artist link-out url (source-locked, link-out only —
+ * shown regardless of the flag since there's no Corus artist page), OR have
+ * `artist_pages_enabled` on plus at least one Spotify artist id.
  * Films route to the director page from their own subtitle, not here.
  */
 internal fun showGoToArtistRow(post: CymbalPost, artistPagesEnabled: Boolean): Boolean =
-    artistPagesEnabled && !post.isMovie && post.track.artistIds.any { it.isNotBlank() }
+    !post.isMovie && (
+        post.track.audiomackArtistLinkOutUrl != null ||
+            (artistPagesEnabled && post.track.artistIds.any { it.isNotBlank() })
+    )
 
 /**
- * Whether the "Go to Album" row shows: track posts only (never films),
- * `artist_pages_enabled` on, and the post carries a non-blank albumId
- * (absent/"" on SoundCloud and pre-backfill posts -> hidden).
+ * Whether the "Go to Album" row shows: track posts only (never films) that
+ * either carry an Audiomack album link-out url (link-out only; "" for loose
+ * singles -> hidden, never a dead item), OR have `artist_pages_enabled` on plus
+ * a non-blank albumId (absent/"" on SoundCloud and pre-backfill posts -> hidden).
  */
 internal fun showGoToAlbumRow(post: CymbalPost, artistPagesEnabled: Boolean): Boolean =
-    artistPagesEnabled && !post.isMovie && !post.track.albumId.isNullOrBlank()
+    !post.isMovie && (
+        post.track.audiomackAlbumLinkOutUrl != null ||
+            (artistPagesEnabled && !post.track.albumId.isNullOrBlank())
+    )
 
 /**
  * Whether the "Go to Director" row shows: movie posts only, `artist_pages_enabled`

@@ -12,10 +12,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
@@ -28,10 +28,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.revenuecat.purchases.Package
@@ -103,6 +105,45 @@ private fun savingsBadge(monthly: Package?, yearly: Package?): String? {
     val pct = Math.round((1.0 - yearlyAsMonthly / m) * 100).toInt()
     if (pct < 5) return null
     return "SAVE $pct%"
+}
+
+/**
+ * The FULL-SCREEN paywall's flexible middle region: the header + feature list,
+ * sitting between the close button and the pinned plan cards / CTA.
+ *
+ * A full-screen paywall can't shrink to its content the way the bottom sheet does,
+ * so its leftover space is CENTERED rather than pinned to the top — matching iOS
+ * (`.frame(minHeight: proxy.size.height, alignment: .center)`). A plain scrolling
+ * Column top-aligns instead, so on a tall phone every spare pixel pools into one
+ * dead gap between the disclaimer and the plan cards. The min-height match is what
+ * gives Arrangement.Center something to center within — a scrolling Column is
+ * otherwise only as tall as its content. Taller-than-viewport content still
+ * scrolls normally, so short screens are unaffected.
+ *
+ * (The sheet variant instead wraps its height to the content, so it needs no
+ * centering — see CymbalClubOfferSheet.)
+ */
+@Composable
+internal fun ColumnScope.CenteredScrollRegion(
+    verticalPadding: Dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = maxHeight)
+                .padding(vertical = verticalPadding),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content,
+        )
+    }
 }
 
 // --- Full-screen paywall ---
@@ -190,15 +231,7 @@ fun CymbalClubOfferScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // ── Scrollable header + features ──
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Spacer(modifier = Modifier.height(CorusSpacing.xxl))
-
+            CenteredScrollRegion(verticalPadding = CorusSpacing.xl) {
                 // Spinning vinyl record
                 fm.corus.android.ui.components.CymbalClubVinyl(size = 140.dp)
 
@@ -277,7 +310,7 @@ fun CymbalClubOfferScreen(
                             VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
                         }
                     }
-                    FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
+                    FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
                     FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
                     FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
                     if (!tasteMatchesEnabled) {
@@ -294,8 +327,6 @@ fun CymbalClubOfferScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
                 )
-
-                Spacer(modifier = Modifier.height(CorusSpacing.xl))
             }
 
             // ── Pinned bottom: plan cards, CTA, footer (always visible) ──
@@ -422,6 +453,13 @@ fun CymbalClubOfferSheet(
     viewModel: CymbalClubViewModel = hiltViewModel(),
     source: PaywallSource = PaywallSource.DEFAULT,
     onDismiss: () -> Unit = {},
+    /** Called on [CymbalClubViewModel.PurchaseResult.Success] (never on a plain
+     *  dismiss), before [onDismiss] — so the host can complete the action this
+     *  paywall interrupted (e.g. the feed switching to Taste Matches).
+     *  Membership is already synced to Firestore by then (the repository's
+     *  purchase path awaits the sync before reporting success), so gated
+     *  server calls made from the callback see the member status. */
+    onPurchaseSuccess: () -> Unit = {},
 ) {
     val packages by viewModel.packages.collectAsState()
     val isPurchasing by viewModel.isPurchasing.collectAsState()
@@ -450,6 +488,7 @@ fun CymbalClubOfferSheet(
             CymbalClubViewModel.PurchaseResult.Success -> {
                 ToastManager.show(context.getString(R.string.club_toast_welcome))
                 viewModel.clearResult()
+                onPurchaseSuccess()
                 onDismiss()
             }
             CymbalClubViewModel.PurchaseResult.Restored -> {
@@ -470,12 +509,14 @@ fun CymbalClubOfferSheet(
         }
     }
 
-    // The Club paywall is always content-heavy (vinyl, ~5 feature rows, two
-    // plan cards, CTA, footer), so it naturally lands near the top of the
-    // screen anyway. Cap it just shy of full height (94%) so it reads as a
-    // deliberate tall sheet that always sits slightly below the status
-    // bar / camera cutout — never stopping at an awkward in-between height
-    // and never crowding the system area at the top.
+    // Sheet height WRAPS the content (vinyl, ~5 feature rows, two plan cards,
+    // CTA, footer ≈ 690dp), capped just shy of the screen. A fixed 94%-height
+    // sheet looked right on a normal phone but on a tall device (Pixel 9 Pro,
+    // ~950dp) it stretched far past the content, leaving a dead band of empty
+    // space — so the sheet now shrinks to a right-sized card there while short
+    // phones still get a near-full, scrollable sheet (see the fill=false weight
+    // on the scroll region below). The cap keeps it below the status bar /
+    // camera cutout and away from an awkward in-between height.
     //
     // Two-zone layout (mirrors iOS): the header + features scroll in a flexible
     // region, while the plan cards, CTA, and footer links are PINNED to the
@@ -483,10 +524,11 @@ fun CymbalClubOfferSheet(
     // always visible — they can never be pushed under the CTA or the system
     // navigation bar (navigationBarsPadding reserves the gesture/button-bar
     // inset, since a ModalBottomSheet only insets its top edge).
+    val maxSheetHeight = (LocalConfiguration.current.screenHeightDp * 0.94f).dp
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.94f)
+            .heightIn(max = maxSheetHeight)
             .navigationBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -509,12 +551,16 @@ fun CymbalClubOfferSheet(
             }
         }
 
-        // ── Scrollable header + features (absorbs overflow on short screens) ──
+        // ── Header + features ──
+        // `weight(1f, fill = false)` lets this region SHRINK to its content so the
+        // whole sheet can wrap (see maxSheetHeight above) — yet still get a bounded
+        // height and scroll when content would overflow a short screen's cap.
         Column(
             modifier = Modifier
-                .weight(1f)
+                .weight(1f, fill = false)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = CorusSpacing.md),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Spinning vinyl record
@@ -602,7 +648,7 @@ fun CymbalClubOfferSheet(
                 if (source == PaywallSource.FAVORITE_LIMIT) {
                     FeatureRow(icon = Icons.Filled.Star, text = stringResource(R.string.club_feature_favorites))
                 }
-                FeatureRow(icon = Icons.Filled.Person, text = stringResource(R.string.club_feature_customization))
+                FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
                 FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
                 FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
                 // Drop the badge line on the favorites or Taste Matches paywalls
@@ -621,8 +667,6 @@ fun CymbalClubOfferSheet(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
             )
-
-            Spacer(modifier = Modifier.height(CorusSpacing.md))
         }
 
         // ── Pinned bottom: plan cards, CTA, footer (always visible) ──

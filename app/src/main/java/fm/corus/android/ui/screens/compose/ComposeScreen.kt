@@ -452,8 +452,8 @@ fun ComposeScreen(
                         selectedMovie = selectedMovie,
                         caption = caption,
                         onCaptionChange = { newCaption ->
-                            val trimmed = if (newCaption.text.length > 700) {
-                                newCaption.copy(text = newCaption.text.take(700))
+                            val trimmed = if (newCaption.text.length > 1000) {
+                                newCaption.copy(text = newCaption.text.take(1000))
                             } else newCaption
                             val textChanged = trimmed.text != caption.text
                             caption = trimmed
@@ -1460,12 +1460,12 @@ private fun ComposeModeContent(
             )
         }
 
-        // Character counter (visible at 650+)
-        if (caption.text.length >= 650) {
+        // Character counter (visible at 950+)
+        if (caption.text.length >= 950) {
             Text(
                 text = stringResource(R.string.compose_char_count_format, caption.text.length),
                 style = CorusFont.caption,
-                color = if (caption.text.length >= 700) CorusColors.Error else CorusColors.Secondary,
+                color = if (caption.text.length >= 1000) CorusColors.Error else CorusColors.Secondary,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = CorusSpacing.xs),

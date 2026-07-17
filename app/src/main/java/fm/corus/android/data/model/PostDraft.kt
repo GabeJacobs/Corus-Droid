@@ -95,6 +95,8 @@ data class PostDraft(
                 "soundcloudPermalinkUrl" to t.soundcloudPermalinkUrl,
                 "audiomackId" to t.audiomackId,
                 "audiomackUrl" to t.audiomackUrl,
+                "audiomackArtistUrl" to t.audiomackArtistUrl,
+                "audiomackAlbumUrl" to t.audiomackAlbumUrl,
                 "appleMusicId" to t.appleMusicId,
                 "isrc" to t.isrc,
             )
@@ -165,6 +167,8 @@ data class PostDraft(
                 soundcloudPermalinkUrl = (data["soundcloudPermalinkUrl"] as? String)?.ifEmpty { null },
                 audiomackId = (data["audiomackId"] as? String)?.ifEmpty { null },
                 audiomackUrl = (data["audiomackUrl"] as? String)?.ifEmpty { null },
+                audiomackArtistUrl = (data["audiomackArtistUrl"] as? String)?.ifEmpty { null },
+                audiomackAlbumUrl = (data["audiomackAlbumUrl"] as? String)?.ifEmpty { null },
                 appleMusicId = data["appleMusicId"] as? String,
             )
         }
