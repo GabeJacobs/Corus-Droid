@@ -1614,7 +1614,13 @@ private fun HeadstartScreen(
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                // INSIDE the scroll (which clips): the ✕ badges offset 6dp
+                // beyond each tile's top-right, so first-row badges need this
+                // headroom within the clip bounds or they render cut off. The
+                // quiz tray's identical badges don't need it — that FlowRow
+                // isn't scrollable, so nothing clips.
+                .padding(top = 6.dp, end = 6.dp),
         ) {
             postables.forEach { pick ->
                 key(pick.id) {
