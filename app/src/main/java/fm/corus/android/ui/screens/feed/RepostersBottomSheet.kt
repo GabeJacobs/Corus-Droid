@@ -23,6 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -30,8 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.ui.components.SkeletonUserRow
-import fm.corus.android.ui.navigation.FilmDetailRoute
-import fm.corus.android.ui.screens.destination.DestinationPostRow
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -39,10 +39,10 @@ import fm.corus.android.ui.theme.CorusSystemBars
 
 /**
  * "Reposts" — the people who reposted a post, each row their own repost of it.
- * A repost is a real post, so this reuses [DestinationPostRow]: the row taps
- * through to that person's repost, the avatar/name to their profile. Presented
- * as a ModalBottomSheet mirroring [LikesBottomSheet] (drag handle, opens
- * partially expanded, drags up; row-tap dismisses + navigates). Opened by
+ * A repost is a real post, so rows reuse the song page's [PostedByRow]: the row
+ * taps through to that person's repost, the avatar/name to their profile.
+ * Presented as a ModalBottomSheet mirroring [LikesBottomSheet] (drag handle,
+ * opens partially expanded, drags up; row-tap dismisses + navigates). Opened by
  * long-pressing a post's repost count (gated behind `reposters_list_enabled`).
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,9 +52,22 @@ fun RepostersBottomSheet(
     onDismiss: () -> Unit,
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
-    onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val scope = rememberCoroutineScope()
+
+    // Animate the sheet closed, THEN navigate — so the sheet visibly dismisses
+    // before the destination transitions in, matching iOS. Navigating first (or
+    // concurrently) runs the NavHost's slide behind the still-visible sheet, so
+    // by the time the sheet is gone the push already looks finished.
+    val closeThen: (() -> Unit) -> Unit = { action ->
+        scope.launch { sheetState.hide() }.invokeOnCompletion {
+            if (!sheetState.isVisible) {
+                onDismiss()
+                action()
+            }
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -66,10 +79,8 @@ fun RepostersBottomSheet(
         BackHandler { onDismiss() }
         RepostersSheetContent(
             postId = postId,
-            onDismiss = onDismiss,
-            onNavigateToUser = onNavigateToUser,
-            onNavigateToPost = onNavigateToPost,
-            onNavigateToFilm = onNavigateToFilm,
+            onNavigateToUser = { userId -> closeThen { onNavigateToUser(userId) } },
+            onNavigateToPost = { pid -> closeThen { onNavigateToPost(pid) } },
         )
     }
 }
@@ -78,10 +89,9 @@ fun RepostersBottomSheet(
 private fun RepostersSheetContent(
     postId: String,
     viewModel: RepostersViewModel = hiltViewModel(),
-    onDismiss: () -> Unit = {},
+    /** Already wrapped by the caller to close the sheet first, then navigate. */
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
-    onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
 ) {
     val posts by viewModel.posts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -147,32 +157,15 @@ private fun RepostersSheetContent(
                 }
             } else {
                 items(posts, key = { it.id }) { post ->
-                    DestinationPostRow(
+                    // Same package's song-page row: avatar + @username + display
+                    // name + caption + timestamp/chevron, vertically centred.
+                    // Deliberately NOT DestinationPostRow — its media chip is
+                    // redundant here (every repost is of the same song) and it
+                    // threw the row's vertical alignment off.
+                    PostedByRow(
                         post = post,
-                        onUserTap = {
-                            onNavigateToUser(post.user.id)
-                            onDismiss()
-                        },
-                        onPostTap = {
-                            onNavigateToPost(post.id)
-                            onDismiss()
-                        },
-                        onFilmChipTap = if (post.isMovie && post.movieId != null) {
-                            {
-                                onNavigateToFilm(
-                                    FilmDetailRoute(
-                                        movieId = post.movieId ?: "",
-                                        movieTitle = post.movieTitle,
-                                        directorName = post.directorName,
-                                        releaseYear = post.releaseYear,
-                                        posterURL = post.posterURL,
-                                        posterLargeURL = post.posterLargeURL,
-                                        trailerURL = post.trailerURL,
-                                    )
-                                )
-                                onDismiss()
-                            }
-                        } else null,
+                        onUserTap = { onNavigateToUser(post.user.id) },
+                        onPostTap = { onNavigateToPost(post.id) },
                     )
 
                     if (post.id == posts.lastOrNull()?.id && hasMore && !isLoadingMore) {

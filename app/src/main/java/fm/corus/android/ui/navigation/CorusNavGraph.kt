@@ -218,10 +218,6 @@ fun FeedNavGraph(
                 repostersPostId = null
                 navController.navigate(PostDetailRoute(pid))
             },
-            onNavigateToFilm = { filmRoute ->
-                repostersPostId = null
-                navController.navigate(filmRoute)
-            },
         )
     }
 }
@@ -288,10 +284,6 @@ fun SearchNavGraph(
                 repostersPostId = null
                 navController.navigate(PostDetailRoute(pid))
             },
-            onNavigateToFilm = { filmRoute ->
-                repostersPostId = null
-                navController.navigate(filmRoute)
-            },
         )
     }
 }
@@ -357,10 +349,6 @@ fun NotificationsNavGraph(
             onNavigateToPost = { pid ->
                 repostersPostId = null
                 navController.navigate(PostDetailRoute(pid))
-            },
-            onNavigateToFilm = { filmRoute ->
-                repostersPostId = null
-                navController.navigate(filmRoute)
             },
         )
     }
@@ -436,10 +424,6 @@ fun ProfileNavGraph(
             onNavigateToPost = { pid ->
                 repostersPostId = null
                 navController.navigate(PostDetailRoute(pid))
-            },
-            onNavigateToFilm = { filmRoute ->
-                repostersPostId = null
-                navController.navigate(filmRoute)
             },
         )
     }

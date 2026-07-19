@@ -27,7 +27,7 @@ enum class PaywallSource(val subtitle: String, val analyticsName: String) {
     FIRST_POST("Support Corus. Get Perks.", "first_post"),
     TENTH_POST("Support Corus. Get Perks.", "tenth_post"),
     PLAYLIST_LIMIT("Unlock playlist generation.", "playlist_limit"),
-    SAVE_LIMIT("Unlock unlimited saves.", "save_cap"),
+    SAVE_LIMIT("Unlock unlimited saves.", "save_limit"),
     FAVORITE_LIMIT("Unlock unlimited favorites.", "favorite_people_cap"),
     SETTINGS("Support Corus. Get Perks.", "settings"),
     NEW_RELEASE_FILTER("Unlock new release feeds.", "new_release_filter"),
@@ -69,7 +69,10 @@ class CymbalClubViewModel @Inject constructor(
         viewModelScope.launch { subscriptionRepository.checkStatus() }
     }
 
-    fun logPaywallShown() {
+    // `source` defaults to the nav-arg source (the full-screen route), but the
+    // bottom-sheet paywalls pass their own `source` param explicitly — otherwise
+    // every sheet presentation would log/attribute as `default`.
+    fun logPaywallShown(source: PaywallSource = this.source) {
         analyticsService.logPaywallShown(source.analyticsName, defaultPlan)
     }
 
@@ -77,7 +80,7 @@ class CymbalClubViewModel @Inject constructor(
         analyticsService.logPaywallDismissed()
     }
 
-    fun purchase(activity: Activity, pkg: Package, planName: String) {
+    fun purchase(activity: Activity, pkg: Package, planName: String, source: PaywallSource = this.source) {
         _isPurchasing.value = true
         _errorMessage.value = null
         analyticsService.logPurchaseStarted(planName, source.analyticsName)
@@ -87,7 +90,7 @@ class CymbalClubViewModel @Inject constructor(
             // webhook skips the INITIAL_PURCHASE and the server never sets
             // isClubMember, blocking the just-paid user until they restart.
             subscriptionRepository.ensureIdentified()
-            subscriptionRepository.purchase(activity, pkg) { outcome ->
+            subscriptionRepository.purchase(activity, pkg, source.analyticsName) { outcome ->
                 _isPurchasing.value = false
                 when (outcome) {
                     is PurchaseOutcome.Success -> {

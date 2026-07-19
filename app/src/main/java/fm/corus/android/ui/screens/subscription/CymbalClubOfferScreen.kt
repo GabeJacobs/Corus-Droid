@@ -480,7 +480,7 @@ fun CymbalClubOfferSheet(
     // be set — clear it so each presentation starts clean.
     LaunchedEffect(Unit) {
         viewModel.clearError()
-        viewModel.logPaywallShown()
+        viewModel.logPaywallShown(source)
     }
 
     LaunchedEffect(purchaseResult) {
@@ -728,7 +728,7 @@ fun CymbalClubOfferSheet(
             Button(
                 onClick = {
                     if (activity != null && selectedPackage != null) {
-                        viewModel.purchase(activity, selectedPackage!!, selectedPlan)
+                        viewModel.purchase(activity, selectedPackage!!, selectedPlan, source)
                     }
                 },
                 enabled = !isPurchasing && selectedPackage != null && !isClubMember,

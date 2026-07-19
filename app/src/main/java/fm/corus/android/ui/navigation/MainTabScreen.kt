@@ -121,7 +121,7 @@ fun MainTabScreen(
         viewModel.postEngagementManager.saveCapEvents.collect { event ->
             when (event) {
                 is fm.corus.android.domain.SaveCapEvent.PaywallRequested -> {
-                    viewModel.logPaywallShown("save_cap")
+                    viewModel.logPaywallShown("save_limit")
                     clubOfferSource = PaywallSource.SAVE_LIMIT
                     showClubOffer = true
                 }
@@ -133,7 +133,7 @@ fun MainTabScreen(
                     )
                     if (event.tappable && result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
                         viewModel.logSaveWarningTapped(event.savesRemaining)
-                        viewModel.logPaywallShown("save_cap")
+                        viewModel.logPaywallShown("save_limit")
                         clubOfferSource = PaywallSource.SAVE_LIMIT
                         showClubOffer = true
                     }

@@ -358,7 +358,18 @@ class SubscriptionRepository @Inject constructor(
         )
     }
 
-    fun purchase(activity: android.app.Activity, pkg: Package, onResult: (PurchaseOutcome) -> Unit) {
+    fun purchase(
+        activity: android.app.Activity,
+        pkg: Package,
+        paywallSource: String,
+        onResult: (PurchaseOutcome) -> Unit,
+    ) {
+        // Attribute the sale to the paywall that drove it, so the subscription
+        // record (not just the GA4 event) carries the source. Fail-quiet — an
+        // attribute hiccup must never block the purchase.
+        try {
+            Purchases.sharedInstance.setAttributes(mapOf("paywall_source" to paywallSource))
+        } catch (_: Exception) { }
         Purchases.sharedInstance.purchaseWith(
             purchaseParams = com.revenuecat.purchases.PurchaseParams.Builder(activity, pkg).build(),
             onError = { error, userCancelled ->
