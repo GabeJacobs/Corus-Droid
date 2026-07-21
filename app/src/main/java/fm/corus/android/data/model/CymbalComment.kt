@@ -309,7 +309,14 @@ data class CymbalComment(
         get() = attachedSong != null || attachedFilm != null || attachedArtist != null ||
             attachedAlbum != null || attachedDirector != null
 
+    fun isEditable(nowMs: Long = System.currentTimeMillis()): Boolean =
+        gifURL == null &&
+            !textIsAttachmentFallback &&
+            (nowMs - timestamp.time) < EDIT_WINDOW_MS
+
     companion object {
+        const val EDIT_WINDOW_MS = 15 * 60 * 1000L
+
         @Suppress("UNCHECKED_CAST")
         fun fromMap(data: Map<String, Any?>): CymbalComment {
             val userData = data["user"] as? Map<String, Any?> ?: emptyMap()

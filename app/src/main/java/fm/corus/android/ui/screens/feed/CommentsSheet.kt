@@ -1346,7 +1346,7 @@ private fun CommentRow(
                                 expanded = showMenu,
                                 onDismissRequest = { showMenu = false },
                             ) {
-                                if (comment.gifURL == null && !comment.textIsAttachmentFallback) {
+                                if (comment.isEditable()) {
                                     DropdownMenuItem(
                                         text = {
                                             Text(
