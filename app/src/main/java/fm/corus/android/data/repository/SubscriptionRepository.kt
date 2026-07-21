@@ -10,6 +10,7 @@ import com.revenuecat.purchases.models.StoreTransaction
 import com.revenuecat.purchases.purchaseWith
 import com.revenuecat.purchases.restorePurchasesWith
 import android.content.SharedPreferences
+import fm.corus.android.TestEnvironment
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -290,7 +291,7 @@ class SubscriptionRepository @Inject constructor(
 
     /** Suspend wrapper around `Purchases.logIn`. Resolves null on error. */
     private suspend fun awaitLogIn(uid: String): CustomerInfo? =
-        suspendCancellableCoroutine { cont ->
+        if (TestEnvironment.isActive) null else suspendCancellableCoroutine { cont ->
             Purchases.sharedInstance.logIn(
                 uid,
                 object : com.revenuecat.purchases.interfaces.LogInCallback {

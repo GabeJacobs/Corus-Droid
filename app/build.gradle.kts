@@ -71,12 +71,18 @@ android {
                 "APP_CHECK_DEBUG_TOKEN",
                 "\"${localProperties.getProperty("appcheck.debug.token", "")}\""
             )
+            buildConfigField(
+                "String",
+                "FIREBASE_EMULATOR_HOST",
+                "\"${localProperties.getProperty("firebase.emulator.host", "")}\""
+            )
         }
         release {
             isMinifyEnabled = false
             isShrinkResources = false
             signingConfig = signingConfigs.getByName("release")
             buildConfigField("String", "APP_CHECK_DEBUG_TOKEN", "\"\"")
+            buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"\"")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

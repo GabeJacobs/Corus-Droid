@@ -9,6 +9,7 @@ import coil3.SingletonImageLoader
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.revenuecat.purchases.LogLevel
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesConfiguration
@@ -32,6 +33,9 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
         // ones) at process start, before onboarding can run, so a brand-new user is
         // never mistaken for an existing one.
         AppearanceDefaultMigration.unsetThemeDefault(this)
+        if (TestEnvironment.isActive) {
+            FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled = false
+        }
         initAppCheck()
         initRevenueCat()
         createNotificationChannels()

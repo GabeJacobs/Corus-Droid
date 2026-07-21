@@ -7,6 +7,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import fm.corus.android.TestEnvironment
 import javax.inject.Singleton
 
 @Module
@@ -16,5 +17,7 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideFirebaseAnalytics(@ApplicationContext context: Context): FirebaseAnalytics =
-        FirebaseAnalytics.getInstance(context)
+        FirebaseAnalytics.getInstance(context).apply {
+            if (TestEnvironment.isActive) setAnalyticsCollectionEnabled(false)
+        }
 }

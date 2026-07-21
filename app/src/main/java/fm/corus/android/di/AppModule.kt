@@ -21,6 +21,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import fm.corus.android.TestEnvironment
 import okio.Path.Companion.toOkioPath
 import javax.inject.Singleton
 
@@ -33,20 +34,36 @@ object AppModule {
     @Provides
     @Singleton
     fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance().apply {
-        setCustomAuthDomain("auth.corus.fm")
+        if (TestEnvironment.isActive) {
+            useEmulator(TestEnvironment.host, TestEnvironment.AUTH_PORT)
+        } else {
+            setCustomAuthDomain("auth.corus.fm")
+        }
     }
 
     @Provides
     @Singleton
-    fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
+    fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance().apply {
+        if (TestEnvironment.isActive) {
+            useEmulator(TestEnvironment.host, TestEnvironment.FIRESTORE_PORT)
+        }
+    }
 
     @Provides
     @Singleton
-    fun provideFirebaseFunctions(): FirebaseFunctions = FirebaseFunctions.getInstance()
+    fun provideFirebaseFunctions(): FirebaseFunctions = FirebaseFunctions.getInstance().apply {
+        if (TestEnvironment.isActive) {
+            useEmulator(TestEnvironment.host, TestEnvironment.FUNCTIONS_PORT)
+        }
+    }
 
     @Provides
     @Singleton
-    fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance()
+    fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance().apply {
+        if (TestEnvironment.isActive) {
+            useEmulator(TestEnvironment.host, TestEnvironment.STORAGE_PORT)
+        }
+    }
 
     @Provides
     @Singleton
