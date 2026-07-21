@@ -65,9 +65,11 @@ fun MiniPlayerBar(
     onLikeTap: (() -> Unit)? = null,
     musicService: fm.corus.android.data.model.MusicService = fm.corus.android.data.model.MusicService.SPOTIFY,
     resolveLinkOut: (suspend () -> String?)? = null,
+    resolveSpotifyFromApple: (suspend () -> String?)? = null,
     modifier: Modifier = Modifier,
 ) {
     val state by nowPlayingManager.state.collectAsState()
+    val absentFromSpotify by fm.corus.android.domain.MusicServiceLinkOut.absentFromSpotify.collectAsState()
     val engagementStates = engagementManager?.states?.collectAsState()?.value ?: emptyMap()
     val isCurrentTrackLiked = state.sourcePostId
         ?.let { engagementStates[it]?.isLiked }
@@ -193,6 +195,7 @@ fun MiniPlayerBar(
                 // viewer's preferred service — they aren't in Spotify's
                 // catalog so "Open in Spotify" would 404.
                 val isSoundCloud = state.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
+                val isAudiomack = state.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
                 val isAppleMusic = state.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
                 if (isSoundCloud) {
                     SoundCloudAdaptiveLogo(
@@ -209,12 +212,32 @@ fun MiniPlayerBar(
                             },
                         size = 22.dp,
                     )
+                } else if (isAudiomack) {
+                    // Audiomack is source-locked (link-out only; not on Spotify/Apple)
+                    // — always show its mark and open audiomack.com, regardless of the
+                    // viewer's preferred service. Mirrors SoundCloud + iOS/web.
+                    AudiomackLogo(
+                        height = 22.dp,
+                        modifier = Modifier
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                val url = state.audiomackUrl
+                                if (!url.isNullOrBlank()) {
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                }
+                            },
+                    )
                 } else {
-                    // Glyph reflects the service the tap opens. Apple-only tracks
-                    // aren't on Spotify, so a Spotify viewer is routed to Apple
-                    // Music — show that. TIDAL/Deezer viewers keep their own glyph
-                    // (those catalogs carry the track). Mirrors iOS.
-                    val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                    // Glyph reflects the service the tap opens. Under Apple-primary
+                    // search an `applemusic`-sourced preview is usually ALSO on
+                    // Spotify, so a Spotify viewer sees their own glyph and the tap
+                    // resolves the Spotify target on demand. We fall back to the
+                    // Apple glyph only once a tap CONFIRMED the track isn't on
+                    // Spotify. TIDAL/Deezer viewers keep their own glyph. Mirrors iOS.
+                    val knownNotOnSpotify = isAppleMusic && state.trackId in absentFromSpotify
+                    val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY && knownNotOnSpotify) {
                         fm.corus.android.data.model.MusicService.APPLE_MUSIC
                     } else {
                         musicService
@@ -239,21 +262,51 @@ fun MiniPlayerBar(
                                         }
                                     }
                                 }
+                                fun openAppleSong() {
+                                    val tid = state.trackId
+                                    val amid = if (!tid.isNullOrBlank() && tid.startsWith("am:")) tid.removePrefix("am:") else null
+                                    if (!amid.isNullOrEmpty()) {
+                                        runCatching {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.apple.com/us/song/$amid")))
+                                        }
+                                    } else {
+                                        resolveAndOpen()
+                                    }
+                                }
                                 when {
-                                    // Apple-only track + Spotify/Apple viewer → link
-                                    // straight to the Apple Music song page (`am:` id),
-                                    // falling back to the resolver if there's no id.
-                                    isAppleMusic && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY ||
-                                        musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC) -> {
-                                        val tid = state.trackId
-                                        val amid = if (!tid.isNullOrBlank() && tid.startsWith("am:")) tid.removePrefix("am:") else null
-                                        if (!amid.isNullOrEmpty()) {
-                                            runCatching {
-                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.apple.com/us/song/$amid")))
+                                    // Apple-SOURCED + Spotify viewer, not yet confirmed
+                                    // absent: resolve the Spotify target on tap (server
+                                    // ISRC-cache-first → usually zero Spotify calls). A
+                                    // confirmed miss marks it absent (glyph flips to
+                                    // Apple) and opens Apple instead of a dead link.
+                                    isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY && !knownNotOnSpotify -> {
+                                        val resolve = resolveSpotifyFromApple
+                                        if (resolve != null) {
+                                            linkOutScope.launch {
+                                                val url = resolve()
+                                                when {
+                                                    !url.isNullOrBlank() ->
+                                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                                    // CONFIRMED not on Spotify → Apple, which has it.
+                                                    fm.corus.android.domain.MusicServiceLinkOut.knownNotOnSpotify(state.trackId) ->
+                                                        openAppleSong()
+                                                    // Transient / not-yet-deployed error: the tap promised
+                                                    // Spotify, so stay in Spotify (search), don't open Apple.
+                                                    else -> runCatching {
+                                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
+                                                            fm.corus.android.domain.MusicServiceLinkOut.spotifySearchUrl(state.trackName, state.artistName))))
+                                                    }
+                                                }
                                             }
                                         } else {
-                                            resolveAndOpen()
+                                            openAppleSong()
                                         }
+                                    }
+                                    // Confirmed Apple-only, or an Apple-Music viewer →
+                                    // the Apple Music song page.
+                                    isAppleMusic && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY ||
+                                        musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC) -> {
+                                        openAppleSong()
                                     }
                                     musicService == fm.corus.android.data.model.MusicService.SPOTIFY -> {
                                         val uri = state.spotifyURI

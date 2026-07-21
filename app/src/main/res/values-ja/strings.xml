@@ -785,6 +785,9 @@
     <string name="compose_cancel">キャンセル</string>
     <string name="compose_search_song">曲を検索</string>
     <string name="compose_search_film">映画を検索</string>
+    <!-- Unified compose picker (compose_unified_search_enabled): one field over songs AND films -->
+    <string name="compose_search_song_or_film">曲や映画を検索</string>
+    <string name="compose_recently_saved">最近保存したもの</string>
     <string name="compose_cd_pause">一時停止</string>
     <string name="compose_cd_play_preview">プレビューを再生</string>
     <string name="compose_cd_pause_preview">プレビューを一時停止</string>
@@ -1077,6 +1080,8 @@
     <string name="messaging_group_soft_hint">まだ表示されない場合があります</string>
     <string name="messaging_group_done">完了</string>
     <string name="post_menu_open_audiomack">Audiomack で開く</string>
+    <string name="post_menu_open_tidal">TIDAL で開く</string>
+    <string name="post_menu_open_deezer">Deezer で開く</string>
     <string name="post_menu_go_to_artist">アーティストを見る</string>
     <string name="post_menu_go_to_album">アルバムを見る</string>
     <string name="now_playing_no_preview">プレビューはありません</string>
@@ -1087,4 +1092,42 @@
     <string name="destination_hashtag_label">ハッシュタグ</string>
     <string name="destination_n_shared">%1$s人がシェア</string>
     <string name="destination_artist_is_on_corus">%1$s がCorusにいます</string>
+
+    <!-- Share-to-Corus target -->
+    <string name="share_title">Corus に共有</string>
+    <string name="share_cancel">キャンセル</string>
+    <string name="share_back">戻る</string>
+    <string name="share_close">閉じる</string>
+    <string name="share_try_again">再試行</string>
+    <string name="share_loading_song">曲を読み込み中…</string>
+    <string name="share_loading_album">アルバムを読み込み中…</string>
+    <string name="share_caption_placeholder">キャプションを書く…</string>
+    <string name="share_posted">Corus に投稿しました</string>
+    <string name="share_tap_song">曲をタップして投稿</string>
+    <string name="share_album_word">アルバム</string>
+    <string name="share_song_count_one">1曲</string>
+    <string name="share_song_count_many">%1$d曲</string>
+    <string name="share_track_unavailable">この曲は Corus では利用できません。</string>
+    <string name="share_post_limit">今日の投稿上限に達しました。</string>
+    <string name="share_hard_cap">絶好調ですね。少し経ってからまた来てください。</string>
+    <string name="share_posting_banned">このアカウントでは投稿できません。</string>
+    <string name="share_generic_error">問題が発生しました。もう一度お試しください。</string>
+    <string name="share_blocked_signin_title">まず Corus にサインインしてください</string>
+    <string name="share_blocked_signin_subtitle">Corus アプリを開いてサインインし、もう一度この曲を共有してください。</string>
+    <string name="share_blocked_unsupported_title">曲を共有してください</string>
+    <string name="share_blocked_unsupported_subtitle">Corus は Apple Music、Spotify、SoundCloud、Deezer、TIDAL の曲を投稿できます。アルバムの共有も可能で、ここで曲を選べます。</string>
+    <string name="share_blocked_song_title">この曲を読み込めませんでした</string>
+    <string name="share_blocked_album_title">このアルバムを読み込めませんでした</string>
+    <string name="share_blocked_unavailable_subtitle">読み込み中に問題が発生しました。しばらくしてからもう一度お試しください。</string>
+    <string name="share_blocked_nomatch_title">この曲はまだ Corus にありません</string>
+    <string name="share_blocked_nomatch_subtitle">Corus が投稿できるカタログに一致がありません。</string>
+    <string name="share_unreleased">この曲はまだリリースされていません。</string>
+    <string name="share_blocked_unreleased_title">この曲はまだ出ていません</string>
+    <string name="share_blocked_unreleased_subtitle">Corus はリリース済みの音楽のみ投稿できます。少し後にもう一度お試しください。</string>
+    <string name="reposters_title">リポスト</string>
+    <string name="reposters_empty">まだリポストはありません。</string>
+    <string name="reposters_load_error">現在リポストを読み込めませんでした。</string>
+    <plurals name="reposters_count">
+        <item quantity="other">%1$d件のリポスト</item>
+    </plurals>
 </resources>

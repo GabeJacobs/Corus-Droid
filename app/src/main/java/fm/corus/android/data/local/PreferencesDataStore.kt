@@ -245,6 +245,11 @@ class PreferencesDataStore @Inject constructor(
         // ViewModel can seed the active filter without awaiting DataStore
         // (avoids an all/music → film flash on cold launch).
         private const val FEED_FILTER_SYNC_KEY = "feed_filter"
+        // Synchronous mirror of LAST_COMPOSE_MEDIA_TYPE, same store/reasoning as
+        // the two above: the unified compose picker orders its trending pair by
+        // the last-posted medium, and that order must be right on the picker's
+        // first frame or the sections visibly reshuffle under the user.
+        private const val LAST_COMPOSE_MEDIA_TYPE_SYNC_KEY = "last_compose_media_type"
     }
 
     val trendingSongsWindow: Flow<String> = dataStore.data.map { prefs ->
@@ -386,13 +391,38 @@ class PreferencesDataStore @Inject constructor(
         context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
             .getString(FEED_FILTER_SYNC_KEY, null) ?: "ALL"
 
+    /**
+     * The medium ("track" / "movie") of the user's last pick in the compose
+     * picker. Mirrored into the synchronous `corus_prefs` store on every read
+     * and write so [lastComposeMediaTypeSyncSeed] can order the unified
+     * picker's trending pair without awaiting DataStore.
+     */
     val lastComposeMediaType: Flow<String> = dataStore.data.map { prefs ->
-        prefs[LAST_COMPOSE_MEDIA_TYPE] ?: "track"
+        (prefs[LAST_COMPOSE_MEDIA_TYPE] ?: "track").also { mirrorLastComposeMediaTypeSync(it) }
     }
 
     suspend fun setLastComposeMediaType(value: String) {
+        // Mirror FIRST: the picker reads the seed synchronously on its next
+        // open, which can easily beat the DataStore write's commit.
+        mirrorLastComposeMediaTypeSync(value)
         dataStore.edit { it[LAST_COMPOSE_MEDIA_TYPE] = value }
     }
+
+    private fun mirrorLastComposeMediaTypeSync(raw: String) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(LAST_COMPOSE_MEDIA_TYPE_SYNC_KEY, raw).apply()
+    }
+
+    /**
+     * Synchronous best-effort read of the last-posted medium, used to order the
+     * unified compose picker's TRENDING SONGS / TRENDING FILMS pair before the
+     * async [lastComposeMediaType] flow emits. Returns "track" when unknown
+     * (fresh install, or an existing install whose value hasn't been mirrored
+     * from DataStore yet) — the same default the flow uses.
+     */
+    fun lastComposeMediaTypeSyncSeed(): String =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(LAST_COMPOSE_MEDIA_TYPE_SYNC_KEY, null) ?: "track"
 
     val contactsSyncStatus: Flow<String> = dataStore.data.map { prefs ->
         prefs[CONTACTS_SYNC_STATUS] ?: "notAsked"

@@ -164,8 +164,17 @@ class SearchViewModel @Inject constructor(
      * only, so a cancelled fan-out never marks a vertical as served. Lets a
      * chip switch after the ALL fan-out reuse the results it just fetched
      * instead of clearing + refetching the same query (skeleton flash).
+     *
+     * Exposed as a flow because the blended view also reads it to decide when
+     * Music/Film have BOTH settled — the point at which their relative order is
+     * safe to compute (see [UnifiedSearchRanking]).
      */
-    private val lastFetchedQuery = mutableMapOf<UnifiedSearchFilter, String>()
+    private val _lastFetchedQuery = MutableStateFlow<Map<UnifiedSearchFilter, String>>(emptyMap())
+    val lastFetchedQuery: StateFlow<Map<UnifiedSearchFilter, String>> = _lastFetchedQuery.asStateFlow()
+
+    private fun markVerticalFetched(vertical: UnifiedSearchFilter, query: String) {
+        _lastFetchedQuery.value = _lastFetchedQuery.value + (vertical to query)
+    }
 
     /**
      * Chip tap: narrows/widens the rendered verticals. Re-runs the search so
@@ -884,7 +893,7 @@ class SearchViewModel @Inject constructor(
         searchJob = viewModelScope.launch {
             // Already served this exact query everywhere visible (chip switch
             // after the ALL fan-out): nothing to fetch.
-            val pending = verticals.filter { lastFetchedQuery[it] != query }
+            val pending = verticals.filter { _lastFetchedQuery.value[it] != query }
             if (pending.isEmpty()) {
                 _isSearching.value = false
                 return@launch
@@ -955,7 +964,7 @@ class SearchViewModel @Inject constructor(
         val results = cached ?: userRepository.searchUsers(key, includeFollowed = true)
         userSearchCache[key] = results
         _userSearchResults.value = results
-        lastFetchedQuery[UnifiedSearchFilter.USERS] = query
+        markVerticalFetched(UnifiedSearchFilter.USERS, query)
     }
 
     private suspend fun searchMusicVertical(query: String) {
@@ -973,7 +982,7 @@ class SearchViewModel @Inject constructor(
         _artistSearchResults.value = page.artists
         _albumSearchResults.value = page.albums
         _songsFirst.value = page.songsFirst
-        lastFetchedQuery[UnifiedSearchFilter.MUSIC] = query
+        markVerticalFetched(UnifiedSearchFilter.MUSIC, query)
     }
 
     private suspend fun searchFilmsVertical(query: String) = coroutineScope {
@@ -995,7 +1004,7 @@ class SearchViewModel @Inject constructor(
         } catch (_: Exception) { results }
         _filmSearchResults.value = withDirectors
         _directorSearchResults.value = directorsDeferred?.await() ?: emptyList()
-        lastFetchedQuery[UnifiedSearchFilter.FILM] = query
+        markVerticalFetched(UnifiedSearchFilter.FILM, query)
     }
 
     private suspend fun searchHashtagsVertical(query: String) {
@@ -1008,7 +1017,7 @@ class SearchViewModel @Inject constructor(
             hashtagSearchCache[key] = results
             _hashtagSearchResults.value = results
         }
-        lastFetchedQuery[UnifiedSearchFilter.HASHTAGS] = query
+        markVerticalFetched(UnifiedSearchFilter.HASHTAGS, query)
     }
 
     /** Manual retry from the offline empty state on SearchScreen. */
@@ -1018,7 +1027,7 @@ class SearchViewModel @Inject constructor(
         _searchHasError.value = false
         // Force every visible vertical to refetch — a retry must not be
         // swallowed by the served-query skip.
-        lastFetchedQuery.clear()
+        _lastFetchedQuery.value = emptyMap()
         search(query, _activeTab.value)
     }
 
@@ -1035,7 +1044,7 @@ class SearchViewModel @Inject constructor(
         _isSearching.value = false
         _searchHasError.value = false
         // Each unified search starts fresh on the blended view.
-        lastFetchedQuery.clear()
+        _lastFetchedQuery.value = emptyMap()
         _unifiedFilter.value = UnifiedSearchFilter.ALL
     }
 

@@ -263,6 +263,16 @@ class RemoteConfigService @Inject constructor(
     val unifiedSearchEnabled: Boolean
         get() = feedFlag("unified_search_enabled")
 
+    /// Unified compose picker: one search field over songs AND films with
+    /// All/Songs/Films chips and a blended zero state (recently saved +
+    /// trending, last-posted medium leading) instead of the Songs/Films
+    /// segmented toggle. OFF = today's picker, byte-identical. Shares
+    /// `compose_unified_search_enabled` with iOS. Uses the init-race-safe
+    /// feedFlag path: the picker is the first thing compose renders, so the
+    /// layout must be right on its very first frame after a cold launch.
+    val composeUnifiedSearchEnabled: Boolean
+        get() = feedFlag("compose_unified_search_enabled")
+
     /// Gate for the taste-match onboarding flow (music-service step second,
     /// taste quiz → venn interstitial → taste-matched suggestions → head-start
     /// posts). OFF = the existing three-step social setup, byte-identical.
@@ -425,6 +435,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("comment_entity_attachments_enabled", remoteConfig.getBoolean("comment_entity_attachments_enabled"))
             .putBoolean("profile_share_enabled", remoteConfig.getBoolean("profile_share_enabled"))
             .putBoolean("unified_search_enabled", remoteConfig.getBoolean("unified_search_enabled"))
+            .putBoolean("compose_unified_search_enabled", remoteConfig.getBoolean("compose_unified_search_enabled"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
@@ -454,6 +465,8 @@ class RemoteConfigService @Inject constructor(
                 "corus_flair_open=$corusFlairOpen " +
                 "trending_feed_enabled=${remoteConfig.getBoolean("trending_feed_enabled")} " +
                 "favorites_enabled=${remoteConfig.getBoolean("favorites_enabled")} " +
+                "unified_search_enabled=$unifiedSearchEnabled " +
+                "compose_unified_search_enabled=$composeUnifiedSearchEnabled " +
                 "uid=${auth.currentUser?.uid}"
         )
     }
@@ -501,6 +514,7 @@ class RemoteConfigService @Inject constructor(
             "comment_entity_attachments_enabled" to false,
             "profile_share_enabled" to false,
             "unified_search_enabled" to false,
+            "compose_unified_search_enabled" to false,
             "feed_switch_hint_enabled" to false,
             // Default FALSE in code — the server-side param defaults true (web
             // is live) with an Android app-id condition forcing false; the

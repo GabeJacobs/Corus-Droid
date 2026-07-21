@@ -3,18 +3,22 @@ package fm.corus.android.ui.screens.destination
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.TrackCorusStats
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for the artist "Popular" row's metadata split (matching web + iOS):
+ * Unit tests for the catalog row's metadata split (matching web + iOS):
  *
  *  - [catalogRowSubtitle] keeps the FULL "{album} · {year}" on art rows (the
  *    share count no longer lives on the subtitle line), and the artist name on
  *    album-tracklist numbered rows.
- *  - [catalogRowSharedCount] surfaces the Corus share count for the trailing
- *    slot ONLY on shared art rows — it returns null for unshared tracks and for
- *    numbered rows, which is how the row decides to keep showing the duration.
+ *  - [catalogRowSharedCount] surfaces the Corus share count for the trailing slot
+ *    on any shared row (artist Popular art rows AND album tracklist numbered
+ *    rows), and null when the track has no shares.
+ *  - [catalogRowShowsDuration] decides the fallback: art rows show the duration
+ *    when unshared; numbered (album) rows stay blank instead.
  */
 class CatalogTrackRowSharedCountTest {
 
@@ -49,18 +53,26 @@ class CatalogTrackRowSharedCountTest {
     }
 
     @Test
-    fun `shared art row surfaces the count for the trailing slot`() {
-        assertEquals(13, catalogRowSharedCount(number = null, corusStats = stats(13)))
+    fun `a shared row surfaces the count for the trailing slot`() {
+        // Both artist Popular (art) and album tracklist (numbered) rows now show
+        // the count when the track has shares.
+        assertEquals(13, catalogRowSharedCount(stats(13)))
     }
 
     @Test
-    fun `unshared art row keeps the duration (null count)`() {
-        assertNull(catalogRowSharedCount(number = null, corusStats = null))
-        assertNull(catalogRowSharedCount(number = null, corusStats = stats(0)))
+    fun `an unshared track has no count`() {
+        assertNull(catalogRowSharedCount(null))
+        assertNull(catalogRowSharedCount(stats(0)))
     }
 
     @Test
-    fun `numbered row never shows the shared count`() {
-        assertNull(catalogRowSharedCount(number = 2, corusStats = stats(13)))
+    fun `art rows fall back to the duration when unshared`() {
+        assertTrue(catalogRowShowsDuration(number = null, durationMs = 198_000))
+        assertFalse(catalogRowShowsDuration(number = null, durationMs = 0))
+    }
+
+    @Test
+    fun `album numbered rows never show the duration (blank when unshared)`() {
+        assertFalse(catalogRowShowsDuration(number = 2, durationMs = 198_000))
     }
 }

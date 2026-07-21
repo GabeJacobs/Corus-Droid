@@ -129,6 +129,8 @@ class ComposePostLimitTest {
             hapticManager,
             remoteConfigService,
             mock { on { isConnected } doReturn MutableStateFlow(true) },
+            mock(),
+            mock(),
         )
     }
 

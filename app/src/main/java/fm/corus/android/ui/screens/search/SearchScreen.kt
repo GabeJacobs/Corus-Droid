@@ -112,6 +112,7 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.horizontalRailCardWidth
 import fm.corus.android.ui.util.DateUtils
+import fm.corus.android.ui.util.UnifiedSearchRanking
 import androidx.compose.foundation.lazy.LazyRow
 
 enum class SearchTab(val labelRes: Int) {
@@ -151,6 +152,9 @@ fun SearchScreen(
     // Unified search: blended zero-state feed + filter chips instead of tabs.
     // Read once per composition, same as artistPagesEnabled.
     val unifiedSearchEnabled = viewModel.unifiedSearchEnabled
+    // Per-vertical "has committed results for this query" — the blended view
+    // needs Music AND Film both settled before it can order them.
+    val lastFetchedQuery by viewModel.lastFetchedQuery.collectAsState()
     val unifiedFilter by viewModel.unifiedFilter.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -441,6 +445,9 @@ fun SearchScreen(
                         when (unifiedFilter) {
                             UnifiedSearchFilter.ALL -> UnifiedAllResults(
                                 listState = unifiedAllListState,
+                                query = searchQuery,
+                                musicSettled = lastFetchedQuery[UnifiedSearchFilter.MUSIC] == searchQuery,
+                                filmSettled = lastFetchedQuery[UnifiedSearchFilter.FILM] == searchQuery,
                                 userResults = userResults,
                                 songResults = songSearchResults,
                                 artistResults = artistSearchResults,
@@ -1909,15 +1916,20 @@ private fun UnifiedFilterChipRow(
 
 /**
  * The blended "All" results: Users(5) → Music(2 artists + 4 songs) →
- * Film(4) → Hashtags(3), fixed order per web. Sections with results render;
- * music/film also render (as skeletons) while the fan-out is in flight —
- * they're the slow verticals, so a skeleton beats a reflow when they land.
- * Section See-alls narrow the active chip to that vertical. When only one
- * vertical has matches its cap is dropped (`soleSectionExpanded`).
+ * Film(4) → Hashtags(3), fixed order per web, except that Film swaps above
+ * Music for a query that's an exact film title with no exact song match (see
+ * [UnifiedSearchRanking]). Sections with results render; music/film also
+ * render (as skeletons) while the fan-out is in flight — they're the slow
+ * verticals, so a skeleton beats a reflow when they land. Section See-alls
+ * narrow the active chip to that vertical. When only one vertical has matches
+ * its cap is dropped (`soleSectionExpanded`).
  */
 @Composable
 private fun UnifiedAllResults(
     listState: LazyListState,
+    query: String,
+    musicSettled: Boolean,
+    filmSettled: Boolean,
     userResults: List<CymbalUser>,
     songResults: List<CymbalTrack>,
     artistResults: List<fm.corus.android.data.model.ArtistSummary>,
@@ -1952,35 +1964,24 @@ private fun UnifiedAllResults(
     ).count { it }
     val soleSectionExpanded = !isSearching && sectionsWithResults == 1
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = CorusSpacing.sm),
-    ) {
-        // ── Users ──
-        if (userResults.isNotEmpty()) {
-            item {
-                SectionHeader(
-                    icon = "people",
-                    title = stringResource(fm.corus.android.R.string.search_tab_users).uppercase(),
-                    showSeeAll = true,
-                    onSeeAll = { onSelectFilter(UnifiedSearchFilter.USERS) },
-                )
-            }
-            val visibleUsers = if (soleSectionExpanded) userResults else userResults.take(5)
-            items(visibleUsers, key = { "u-${it.id}" }) { user ->
-                SuggestedUserRow(
-                    user = user,
-                    isFollowed = viewModel.isFollowed(user.id),
-                    onTap = { onNavigateToUser(user.id) },
-                    onFollow = { viewModel.toggleFollow(user) },
-                )
-            }
-            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
-        }
+    // Film leads Music only for an exact film-title query that no visible song
+    // title matches exactly. Held back until BOTH verticals have settled so the
+    // order can't shuffle under the user as the slower one lands. Users and
+    // Hashtags keep their positions either way.
+    val filmsLead = musicSettled && filmSettled && UnifiedSearchRanking.filmsLeadBlendedResults(
+        query = query,
+        songTitles = songResults.map { it.name },
+        filmTitles = filmResults.map { it.title },
+        // The music section leads with artist rows (when artist pages are on),
+        // so an exact artist match must count as a music hit and keep film from
+        // jumping it (e.g. the band "Vampire Weekend" vs the same-named film).
+        artistNames = if (artistPagesEnabled) artistResults.map { it.name } else emptyList(),
+    )
 
-        // ── Music ──
-        val musicLoading = isSearching && songResults.isEmpty() && artistResults.isEmpty()
+    val musicLoading = isSearching && songResults.isEmpty() && artistResults.isEmpty()
+    val filmLoading = isSearching && filmResults.isEmpty()
+
+    val musicSection: LazyListScope.() -> Unit = {
         if (musicLoading || songResults.isNotEmpty() || (artistPagesEnabled && artistResults.isNotEmpty())) {
             item {
                 SectionHeader(
@@ -2021,9 +2022,9 @@ private fun UnifiedAllResults(
             }
             item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
         }
+    }
 
-        // ── Film ──
-        val filmLoading = isSearching && filmResults.isEmpty()
+    val filmSection: LazyListScope.() -> Unit = {
         if (filmLoading || filmResults.isNotEmpty()) {
             item {
                 SectionHeader(
@@ -2060,6 +2061,43 @@ private fun UnifiedAllResults(
                 }
             }
             item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = CorusSpacing.sm),
+    ) {
+        // ── Users ──
+        if (userResults.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    icon = "people",
+                    title = stringResource(fm.corus.android.R.string.search_tab_users).uppercase(),
+                    showSeeAll = true,
+                    onSeeAll = { onSelectFilter(UnifiedSearchFilter.USERS) },
+                )
+            }
+            val visibleUsers = if (soleSectionExpanded) userResults else userResults.take(5)
+            items(visibleUsers, key = { "u-${it.id}" }) { user ->
+                SuggestedUserRow(
+                    user = user,
+                    isFollowed = viewModel.isFollowed(user.id),
+                    onTap = { onNavigateToUser(user.id) },
+                    onFollow = { viewModel.toggleFollow(user) },
+                )
+            }
+            item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+        }
+
+        // ── Music / Film (order set by `filmsLead`) ──
+        if (filmsLead) {
+            filmSection()
+            musicSection()
+        } else {
+            musicSection()
+            filmSection()
         }
 
         // ── Hashtags ──

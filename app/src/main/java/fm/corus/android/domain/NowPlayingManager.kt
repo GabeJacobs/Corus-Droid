@@ -105,6 +105,10 @@ data class QueuedTrack(
     val source: TrackSource = TrackSource.SPOTIFY,
     val soundcloudId: String? = null,
     val soundcloudPermalinkUrl: String? = null,
+    /** audiomack.com link-out for an Audiomack-source track. Audiomack is source-
+     *  locked (link-out only, no Spotify/Apple equivalent), so the mini-player
+     *  shows the Audiomack mark + opens this, regardless of the viewer's service. */
+    val audiomackUrl: String? = null,
     /** Where this track was played from, when it came from an artist/album page.
      *  See [CatalogPlaybackOrigin]. */
     val catalogOrigin: CatalogPlaybackOrigin? = null,
@@ -119,11 +123,17 @@ data class NowPlayingState(
     val albumArtLargeURL: String? = null,
     val spotifyURI: String? = null,
     val spotifyWebURL: String? = null,
+    /** Recording ISRC when known (Apple search results carry one). Lets the
+     *  mini-player's Apple→Spotify open-tap hit the server ISRC cache (zero
+     *  Spotify calls). Null for older/SoundCloud tracks → name+artist fallback. */
+    val isrc: String? = null,
     val isPlaying: Boolean = false,
     val sourcePostId: String? = null,
     val hasNext: Boolean = false,
     val source: TrackSource = TrackSource.SPOTIFY,
     val soundcloudPermalinkUrl: String? = null,
+    /** audiomack.com link-out for an Audiomack-source track; source-locked mark. */
+    val audiomackUrl: String? = null,
     /** Set when the playing track came from an artist/album page; drives the
      *  mini-player "return to origin" tap. See [CatalogPlaybackOrigin]. */
     val catalogOrigin: CatalogPlaybackOrigin? = null,
@@ -801,6 +811,7 @@ class NowPlayingManager @Inject constructor(
         source: TrackSource = TrackSource.SPOTIFY,
         soundcloudId: String? = null,
         soundcloudPermalinkUrl: String? = null,
+        audiomackUrl: String? = null,
     ) {
         // Single-track path: clear any queued context so hasNext is false.
         queue = emptyList()
@@ -822,6 +833,7 @@ class NowPlayingManager @Inject constructor(
                 source = source,
                 soundcloudId = soundcloudId,
                 soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+                audiomackUrl = audiomackUrl,
             ),
         )
     }
@@ -866,6 +878,13 @@ class NowPlayingManager @Inject constructor(
             // resolve yields null → no-op, and the full song stays reachable via
             // the "Listen on Audiomack" link-out.
             TrackSource.AUDIOMACK -> audiomackIdFromTrackId(trackId)?.let { resolveAudiomackPreview(it) }
+            // TIDAL/Deezer exclusives are link-out only with no preview resolver.
+            // Like Audiomack, they never fall through to the Apple-preview lookup
+            // (a text-search match for a `tdl:`/`dzr:` id risks playing a WRONG
+            // track). A doc-carried previewUrl still plays; otherwise null →
+            // the unavailable toast, and the full song stays reachable via the
+            // TIDAL/Deezer badge link-out.
+            TrackSource.TIDAL, TrackSource.DEEZER -> track.previewUrl?.takeIf { it.isNotBlank() }
             else -> track.previewUrl?.takeIf { it.isNotBlank() }
                 ?: previewCache[trackId]
                 ?: lookupPreviewUrl(trackId, track.trackName, track.artistName, track.isrc)
@@ -922,11 +941,13 @@ class NowPlayingManager @Inject constructor(
             albumArtLargeURL = track.albumArtLargeURL,
             spotifyURI = track.spotifyURI,
             spotifyWebURL = track.spotifyWebURL,
+            isrc = track.isrc,
             isPlaying = true,
             sourcePostId = track.sourcePostId,
             hasNext = computeHasNext(),
             source = track.source,
             soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
+            audiomackUrl = track.audiomackUrl,
             catalogOrigin = track.catalogOrigin,
         )
 

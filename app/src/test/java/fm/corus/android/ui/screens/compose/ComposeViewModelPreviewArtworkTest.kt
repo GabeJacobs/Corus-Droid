@@ -113,6 +113,8 @@ class ComposeViewModelPreviewArtworkTest {
         hapticManager = hapticManager,
         remoteConfigService = remoteConfigService,
         networkMonitor = networkMonitor,
+        cloudFunctions = mock(),
+        preferencesDataStore = mock(),
     )
 
     @Test

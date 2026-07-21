@@ -36,6 +36,27 @@
         android:localeConfig="@xml/locales_config"
         tools:targetApi="35">
 
+        <!-- Share target: post a song to Corus from another app's share sheet
+             (Spotify / Apple Music / SoundCloud / Deezer links as text/plain).
+             taskAffinity="" + excludeFromRecents keep it in the SHARING app's
+             task, so it overlays that app like a sheet and Back returns there
+             instead of pulling the main Corus task forward — the Android twin
+             of the iOS CorusShare extension. -->
+        <activity
+            android:name=".share.ShareToCorusActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Corus"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

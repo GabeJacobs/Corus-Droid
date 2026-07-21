@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.FileCopy
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
@@ -82,6 +84,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.util.UnifiedSearchRanking
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,6 +116,15 @@ fun ComposeScreen(
     val trendingSongs by viewModel.trendingSongs.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val isLoadingTrending by viewModel.isLoadingTrending.collectAsState()
+    // Unified picker (compose_unified_search_enabled). Read once per screen so
+    // the layout can't swap under the user if the flag activates mid-session.
+    val unifiedPicker = remember { viewModel.composeUnifiedSearchEnabled }
+    val unifiedFilter by viewModel.unifiedFilter.collectAsState()
+    val unifiedSongResults by viewModel.unifiedSongResults.collectAsState()
+    val settledQueries by viewModel.settledQueries.collectAsState()
+    val savedItems by viewModel.savedItems.collectAsState()
+    val isLoadingSaved by viewModel.isLoadingSaved.collectAsState()
+    val lastComposeMediaType by viewModel.lastComposeMediaType.collectAsState()
     val isLoadingPreSelection by viewModel.isLoadingPreSelection.collectAsState()
     val repostedFromUsername by viewModel.repostedFromUsername.collectAsState()
     val showRepostAttribution by viewModel.showRepostAttribution.collectAsState()
@@ -398,7 +410,45 @@ fun ComposeScreen(
                 },
                 label = "search_compose_transition",
             ) { selected ->
-                if (!selected) {
+                if (!selected && unifiedPicker) {
+                    UnifiedSearchModeContent(
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { query ->
+                            searchQuery = query
+                            if (query.isBlank()) {
+                                viewModel.clearUnifiedSearch()
+                            } else {
+                                viewModel.searchUnified(query.trim())
+                            }
+                        },
+                        unifiedFilter = unifiedFilter,
+                        onFilterChange = { filter ->
+                            viewModel.setUnifiedFilter(filter)
+                            // Re-run so a vertical that hasn't served this query
+                            // yet fetches; already-served ones are no-ops, so
+                            // switching back and forth never refetches.
+                            val committed = searchQuery.trim()
+                            if (committed.isNotEmpty()) viewModel.searchUnified(committed)
+                        },
+                        songResults = unifiedSongResults,
+                        filmResults = filmResults,
+                        songsSettled = settledQueries[ComposeUnifiedFilter.SONGS] == searchQuery.trim(),
+                        filmsSettled = settledQueries[ComposeUnifiedFilter.FILMS] == searchQuery.trim(),
+                        searchHasError = searchHasError,
+                        isConnected = isConnected,
+                        onRetrySearch = { viewModel.searchUnified(searchQuery.trim()) },
+                        onSongClick = { track -> viewModel.selectTrack(track) },
+                        onFilmClick = { movie -> viewModel.selectFilmResult(movie) },
+                        savedItems = savedItems,
+                        onSavedClick = { item -> viewModel.selectSavedItem(item) },
+                        trendingSongs = trendingSongs,
+                        trendingMovies = trendingMovies,
+                        // ONE skeleton until EVERY zero-state source has settled.
+                        zeroStateLoading = isLoadingTrending || isLoadingSaved,
+                        filmsLeadZeroState = lastComposeMediaType == "movie",
+                        nowPlaying = viewModel.nowPlayingManager,
+                    )
+                } else if (!selected) {
                     SearchModeContent(
                         searchQuery = searchQuery,
                         onSearchQueryChange = { query ->
@@ -662,6 +712,604 @@ fun ComposeScreen(
         }
     }
     } // end Box
+}
+
+// ════════════════════════════════════════════════════════════
+// Unified Search Mode (compose_unified_search_enabled)
+// ════════════════════════════════════════════════════════════
+
+/** Rows each unified section shows. Small enough that the second section's
+ *  header is on screen with the keyboard up — the whole point of the blended
+ *  zero state is that BOTH media read as postable at a glance. Hard cap on the
+ *  zero state (no "show more": the full lists live behind search); in the
+ *  blended results the header's See All narrows to that vertical instead. */
+private const val UNIFIED_SECTION_CAP = 4
+
+/**
+ * The unified compose picker: one search field over songs AND films,
+ * All/Songs/Films chips once a query is typed, and a blended zero state
+ * (recently saved, then the trending pair led by the last-posted medium)
+ * instead of the Songs/Films segmented toggle. Mirrors iOS `SongSearchView`'s
+ * `isUnified` branch. Every row here is metric-free — no rank, no post count —
+ * so the sections read as one continuous list rather than a leaderboard.
+ */
+@Composable
+private fun UnifiedSearchModeContent(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    unifiedFilter: ComposeUnifiedFilter,
+    onFilterChange: (ComposeUnifiedFilter) -> Unit,
+    songResults: List<fm.corus.android.data.model.CymbalTrack>,
+    filmResults: List<CymbalMovie>,
+    songsSettled: Boolean,
+    filmsSettled: Boolean,
+    searchHasError: Boolean,
+    isConnected: Boolean,
+    onRetrySearch: () -> Unit,
+    onSongClick: (fm.corus.android.data.model.CymbalTrack) -> Unit,
+    onFilmClick: (CymbalMovie) -> Unit,
+    savedItems: List<SavedPickerItem>,
+    onSavedClick: (SavedPickerItem) -> Unit,
+    trendingSongs: List<TrendingSong>,
+    trendingMovies: List<TrendingMovie>,
+    zeroStateLoading: Boolean,
+    filmsLeadZeroState: Boolean,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
+) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val scrollDismissConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y != 0f) {
+                    keyboardController?.hide()
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Column(modifier = Modifier.fillMaxSize().imePadding().nestedScroll(scrollDismissConnection)) {
+        // ── Search bar (no segmented toggle: one field covers both media) ──
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+                .background(CorusColors.CardBackground, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = null,
+                tint = CorusColors.Tertiary,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
+                cursorBrush = SolidColor(CorusColors.Accent),
+                decorationBox = { innerTextField ->
+                    if (searchQuery.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.compose_search_song_or_film),
+                            style = CorusFont.body,
+                            color = CorusColors.Secondary,
+                        )
+                    }
+                    innerTextField()
+                },
+            )
+        }
+
+        // ── Filter chips — only once a query is typed (the zero state has no
+        // vertical to narrow). Reset to All by the ViewModel when it's cleared. ──
+        val hasQuery = searchQuery.isNotBlank()
+        if (hasQuery) {
+            ComposeUnifiedChipRow(selected = unifiedFilter, onSelect = onFilterChange)
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        } else {
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        }
+
+        if (!hasQuery) {
+            UnifiedZeroState(
+                savedItems = savedItems,
+                onSavedClick = onSavedClick,
+                trendingSongs = trendingSongs,
+                trendingMovies = trendingMovies,
+                isLoading = zeroStateLoading,
+                filmsLead = filmsLeadZeroState,
+                onSongClick = onSongClick,
+                onFilmClick = onFilmClick,
+                nowPlaying = nowPlaying,
+            )
+        } else {
+            when (unifiedFilter) {
+                ComposeUnifiedFilter.ALL -> UnifiedAllPickerResults(
+                    query = searchQuery.trim(),
+                    songResults = songResults,
+                    filmResults = filmResults,
+                    songsSettled = songsSettled,
+                    filmsSettled = filmsSettled,
+                    onSelectFilter = onFilterChange,
+                    onSongClick = onSongClick,
+                    onFilmClick = onFilmClick,
+                    nowPlaying = nowPlaying,
+                )
+                ComposeUnifiedFilter.SONGS -> UnifiedNarrowedResults(
+                    settled = songsSettled,
+                    isEmpty = songResults.isEmpty(),
+                    searchHasError = searchHasError,
+                    isConnected = isConnected,
+                    onRetrySearch = onRetrySearch,
+                    film = false,
+                ) {
+                    itemsIndexed(songResults, key = { _, track -> "s-${track.id}" }) { index, track ->
+                        PickerSongRow(track = track, nowPlaying = nowPlaying) { onSongClick(track) }
+                        if (index < songResults.lastIndex) PickerRowDivider()
+                    }
+                }
+                ComposeUnifiedFilter.FILMS -> UnifiedNarrowedResults(
+                    settled = filmsSettled,
+                    isEmpty = filmResults.isEmpty(),
+                    searchHasError = searchHasError,
+                    isConnected = isConnected,
+                    onRetrySearch = onRetrySearch,
+                    film = true,
+                ) {
+                    itemsIndexed(filmResults, key = { _, movie -> "f-${movie.id}" }) { index, movie ->
+                        FilmSearchResultRow(movie = movie, onClick = { onFilmClick(movie) })
+                        if (index < filmResults.lastIndex) PickerRowDivider()
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Pill chip row — mirrors the Search tab's `UnifiedFilterChipRow` exactly
+ *  (accent fill + white text active, divider border inactive), minus the
+ *  entity verticals compose can't post. */
+@Composable
+private fun ComposeUnifiedChipRow(
+    selected: ComposeUnifiedFilter,
+    onSelect: (ComposeUnifiedFilter) -> Unit,
+) {
+    androidx.compose.foundation.lazy.LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+    ) {
+        items(ComposeUnifiedFilter.entries.toList(), key = { it.value }) { filter ->
+            val isActive = filter == selected
+            val label = when (filter) {
+                ComposeUnifiedFilter.ALL -> stringResource(R.string.search_filter_all_chip)
+                ComposeUnifiedFilter.SONGS -> stringResource(R.string.compose_segment_songs)
+                ComposeUnifiedFilter.FILMS -> stringResource(R.string.compose_segment_films)
+            }
+            Button(
+                onClick = { if (!isActive) onSelect(filter) },
+                shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isActive) CorusColors.Accent else CorusColors.Background,
+                    contentColor = if (isActive) Color.White else CorusColors.Secondary,
+                ),
+                border = if (isActive) null else androidx.compose.foundation.BorderStroke(1.dp, CorusColors.Divider),
+                contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+                modifier = Modifier.height(32.dp),
+            ) {
+                Text(label, style = CorusFont.buttonSmall)
+            }
+        }
+    }
+}
+
+/**
+ * Blended zero state: your saved stuff first, then the trending pair with the
+ * last-posted medium leading — which is how this replaces the segmented
+ * picker's remembered tab without persisting any filter choice. Every section
+ * is capped at four with no "show more", and uses the same metric-free row, so
+ * nothing reads as "songs only".
+ *
+ * ONE skeleton covers the whole state until every source settles, then all
+ * sections pop in together — no section-by-section trickle.
+ *
+ * iOS also has a RECENTLY PLAYED section, but it's Apple-Music/MusicKit-only
+ * and has no Android equivalent, so it's omitted here.
+ */
+@Composable
+private fun UnifiedZeroState(
+    savedItems: List<SavedPickerItem>,
+    onSavedClick: (SavedPickerItem) -> Unit,
+    trendingSongs: List<TrendingSong>,
+    trendingMovies: List<TrendingMovie>,
+    isLoading: Boolean,
+    filmsLead: Boolean,
+    onSongClick: (fm.corus.android.data.model.CymbalTrack) -> Unit,
+    onFilmClick: (CymbalMovie) -> Unit,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
+) {
+    if (isLoading) {
+        PickerSkeletonList(film = false)
+        return
+    }
+    if (savedItems.isEmpty() && trendingSongs.isEmpty() && trendingMovies.isEmpty()) {
+        PickerEmptyState(
+            icon = Icons.Filled.Search,
+            message = stringResource(R.string.compose_search_song_or_film),
+        )
+        return
+    }
+
+    val savedSection: LazyListScope.() -> Unit = {
+        val visible = savedItems.take(UNIFIED_SECTION_CAP)
+        if (visible.isNotEmpty()) {
+            item(key = "hdr-saved") {
+                PickerSectionHeader(
+                    icon = Icons.Outlined.BookmarkBorder,
+                    title = stringResource(R.string.compose_recently_saved),
+                )
+            }
+            itemsIndexed(visible, key = { _, item -> "sv-${item.id}" }) { index, item ->
+                when (item) {
+                    is SavedPickerItem.Song -> PickerSongRow(
+                        track = item.track,
+                        nowPlaying = nowPlaying,
+                    ) { onSavedClick(item) }
+                    is SavedPickerItem.Film -> FilmSearchResultRow(
+                        movie = item.movie,
+                        onClick = { onSavedClick(item) },
+                    )
+                }
+                if (index < visible.lastIndex) PickerRowDivider()
+            }
+            item(key = "gap-saved") { PickerSectionGap() }
+        }
+    }
+
+    val trendingSongsSection: LazyListScope.() -> Unit = {
+        val visible = trendingSongs.take(UNIFIED_SECTION_CAP)
+        if (visible.isNotEmpty()) {
+            item(key = "hdr-tsongs") {
+                PickerSectionHeader(
+                    icon = Icons.Filled.TrendingUp,
+                    title = stringResource(R.string.compose_trending_songs),
+                )
+            }
+            itemsIndexed(visible, key = { _, song -> "ts-${song.id}" }) { index, song ->
+                PickerSongRow(track = song.track, nowPlaying = nowPlaying) { onSongClick(song.track) }
+                if (index < visible.lastIndex) PickerRowDivider()
+            }
+            item(key = "gap-tsongs") { PickerSectionGap() }
+        }
+    }
+
+    val trendingFilmsSection: LazyListScope.() -> Unit = {
+        val visible = trendingMovies.take(UNIFIED_SECTION_CAP)
+        if (visible.isNotEmpty()) {
+            item(key = "hdr-tfilms") {
+                PickerSectionHeader(
+                    icon = Icons.Filled.TrendingUp,
+                    title = stringResource(R.string.compose_trending_films),
+                )
+            }
+            itemsIndexed(visible, key = { _, movie -> "tf-${movie.id}" }) { index, movie ->
+                val film = movie.asCymbalMovie()
+                FilmSearchResultRow(movie = film, onClick = { onFilmClick(film) })
+                if (index < visible.lastIndex) PickerRowDivider()
+            }
+            item(key = "gap-tfilms") { PickerSectionGap() }
+        }
+    }
+
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        savedSection()
+        if (filmsLead) {
+            trendingFilmsSection()
+            trendingSongsSection()
+        } else {
+            trendingSongsSection()
+            trendingFilmsSection()
+        }
+    }
+}
+
+/**
+ * The blended "All" results: SONGS(4) then FILMS(4), each section's See All
+ * narrowing to that chip. Film swaps above Songs for a query that's an exact
+ * film title with no exact song match (see [UnifiedSearchRanking]) — held back
+ * until BOTH verticals have settled so the order can't shuffle under the user
+ * as the slower one lands. Sections keep rendering while their vertical loads,
+ * so the slow one shimmers in place instead of reflowing when it arrives.
+ */
+@Composable
+private fun UnifiedAllPickerResults(
+    query: String,
+    songResults: List<fm.corus.android.data.model.CymbalTrack>,
+    filmResults: List<CymbalMovie>,
+    songsSettled: Boolean,
+    filmsSettled: Boolean,
+    onSelectFilter: (ComposeUnifiedFilter) -> Unit,
+    onSongClick: (fm.corus.android.data.model.CymbalTrack) -> Unit,
+    onFilmClick: (CymbalMovie) -> Unit,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
+) {
+    val bothSettled = songsSettled && filmsSettled
+    // When exactly one vertical has matches (both settled), it drops its
+    // preview cap and shows everything — mirrors the Search tab.
+    val soleSectionExpanded = bothSettled && songResults.isEmpty() != filmResults.isEmpty()
+    val noMatches = bothSettled && songResults.isEmpty() && filmResults.isEmpty()
+    val filmsLead = bothSettled && UnifiedSearchRanking.filmsLeadBlendedResults(
+        query = query,
+        songTitles = songResults.map { it.name },
+        filmTitles = filmResults.map { it.title },
+    )
+    val songsVisible = !songsSettled || songResults.isNotEmpty()
+    val filmsVisible = !filmsSettled || filmResults.isNotEmpty()
+
+    val songsSection: LazyListScope.() -> Unit = {
+        item(key = "hdr-songs") {
+            PickerSectionHeader(
+                icon = null,
+                title = stringResource(R.string.compose_segment_songs).uppercase(),
+                onSeeAll = { onSelectFilter(ComposeUnifiedFilter.SONGS) },
+            )
+        }
+        if (!songsSettled) {
+            items(UNIFIED_SECTION_CAP, key = { "sk-s-$it" }) { index ->
+                SkeletonSongRow()
+                if (index < UNIFIED_SECTION_CAP - 1) PickerRowDivider()
+            }
+        } else {
+            val visible = if (soleSectionExpanded) songResults else songResults.take(UNIFIED_SECTION_CAP)
+            itemsIndexed(visible, key = { _, track -> "s-${track.id}" }) { index, track ->
+                PickerSongRow(track = track, nowPlaying = nowPlaying) { onSongClick(track) }
+                if (index < visible.lastIndex) PickerRowDivider()
+            }
+        }
+        item(key = "gap-songs") { PickerSectionGap() }
+    }
+
+    val filmsSection: LazyListScope.() -> Unit = {
+        item(key = "hdr-films") {
+            PickerSectionHeader(
+                icon = null,
+                title = stringResource(R.string.compose_segment_films).uppercase(),
+                onSeeAll = { onSelectFilter(ComposeUnifiedFilter.FILMS) },
+            )
+        }
+        if (!filmsSettled) {
+            items(UNIFIED_SECTION_CAP, key = { "sk-f-$it" }) { index ->
+                SkeletonFilmRow()
+                if (index < UNIFIED_SECTION_CAP - 1) PickerRowDivider()
+            }
+        } else {
+            val visible = if (soleSectionExpanded) filmResults else filmResults.take(UNIFIED_SECTION_CAP)
+            itemsIndexed(visible, key = { _, movie -> "f-${movie.id}" }) { index, movie ->
+                FilmSearchResultRow(movie = movie, onClick = { onFilmClick(movie) })
+                if (index < visible.lastIndex) PickerRowDivider()
+            }
+        }
+        item(key = "gap-films") { PickerSectionGap() }
+    }
+
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        if (filmsLead) {
+            if (filmsVisible) filmsSection()
+            if (songsVisible) songsSection()
+        } else {
+            if (songsVisible) songsSection()
+            if (filmsVisible) filmsSection()
+        }
+        if (noMatches) {
+            item(key = "no-matches") {
+                Text(
+                    text = stringResource(R.string.search_no_matches),
+                    style = CorusFont.body,
+                    color = CorusColors.Secondary,
+                    modifier = Modifier.fillMaxWidth().padding(CorusSpacing.xxl),
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+    }
+}
+
+/** A narrowed chip (Songs / Films): the vertical's full result list, with the
+ *  same skeleton / offline-retry / empty branching as the classic picker. */
+@Composable
+private fun UnifiedNarrowedResults(
+    settled: Boolean,
+    isEmpty: Boolean,
+    searchHasError: Boolean,
+    isConnected: Boolean,
+    onRetrySearch: () -> Unit,
+    film: Boolean,
+    rows: LazyListScope.() -> Unit,
+) {
+    when {
+        !settled -> PickerSkeletonList(film = film)
+        searchHasError && isEmpty -> fm.corus.android.ui.components.OfflineRetryState(
+            modifier = Modifier.fillMaxSize(),
+            onRetry = onRetrySearch,
+            icon = if (isConnected) Icons.Filled.WarningAmber else Icons.Filled.WifiOff,
+            title = if (isConnected) {
+                stringResource(R.string.search_service_unavailable_title)
+            } else {
+                stringResource(R.string.feed_offline_title)
+            },
+            subtitle = if (isConnected) {
+                stringResource(R.string.search_service_unavailable_subtitle)
+            } else {
+                stringResource(R.string.feed_offline_subtitle)
+            },
+        )
+        isEmpty -> PickerEmptyState(
+            icon = if (film) Icons.Filled.Movie else Icons.Filled.MusicNote,
+            message = stringResource(R.string.search_no_matches),
+        )
+        else -> LazyColumn(modifier = Modifier.fillMaxSize()) { rows() }
+    }
+}
+
+/** Eight shimmer rows — the picker's full-screen loading state. */
+@Composable
+private fun PickerSkeletonList(film: Boolean) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        items(8) { index ->
+            if (film) SkeletonFilmRow() else SkeletonSongRow()
+            if (index < 7) PickerRowDivider()
+        }
+    }
+}
+
+@Composable
+private fun PickerEmptyState(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    message: String,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = CorusColors.Tertiary,
+            modifier = Modifier.size(36.dp),
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
+        Text(text = message, style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+    }
+}
+
+/** Section header for the picker: optional accent icon + uppercase label, with
+ *  an optional trailing See All. Matches the Search tab's `SectionHeader`
+ *  treatment; the blended result headers pass no icon (iOS parity). */
+@Composable
+private fun PickerSectionHeader(
+    icon: androidx.compose.ui.graphics.vector.ImageVector?,
+    title: String,
+    onSeeAll: (() -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg)
+            .padding(top = CorusSpacing.sm, bottom = CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = CorusColors.Accent,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        }
+        Text(text = title, style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+        if (onSeeAll != null) {
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = stringResource(R.string.search_see_all),
+                style = CorusFont.captionMedium,
+                color = CorusColors.Accent,
+                modifier = Modifier.clickable(onClick = onSeeAll),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PickerRowDivider() {
+    HorizontalDivider(
+        color = CorusColors.Divider,
+        modifier = Modifier.padding(start = 72.dp),
+    )
+}
+
+/** Breathing room between a section's last row and the next header, so the
+ *  sections read as one continuous list rather than separate cards. */
+@Composable
+private fun PickerSectionGap() {
+    Spacer(modifier = Modifier.height(CorusSpacing.xl))
+}
+
+/**
+ * Song row for the unified picker: no rank, no post count. Tapping the album
+ * art previews (the overlay lives ON the art); tapping anywhere else picks the
+ * song. Mirrors iOS `SongPickerRow`, source badge included — the source decides
+ * where the resulting post links out.
+ */
+@Composable
+private fun PickerSongRow(
+    track: fm.corus.android.data.model.CymbalTrack,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .defaultMinSize(minHeight = CorusSpacing.touchTarget),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.size(CorusSpacing.albumArtSearch)) {
+            fm.corus.android.ui.components.SongPreviewArtwork(
+                track = track,
+                nowPlaying = nowPlaying,
+                size = CorusSpacing.albumArtSearch,
+                cornerRadius = CorusSpacing.cornerRadius,
+                contentDescription = track.name,
+            )
+            when (track.source) {
+                fm.corus.android.data.model.TrackSource.SOUNDCLOUD ->
+                    fm.corus.android.ui.components.SoundCloudBadgeOverlay(
+                        modifier = Modifier.align(Alignment.BottomEnd),
+                    )
+                fm.corus.android.data.model.TrackSource.AUDIOMACK ->
+                    fm.corus.android.ui.components.AudiomackBadgeOverlay(
+                        modifier = Modifier.align(Alignment.BottomEnd),
+                    )
+                // No Apple Music badge: those tracks come from Apple's catalog as
+                // a backfill for songs Spotify lacks, but they usually exist on
+                // TIDAL / Deezer too, so labeling them "Apple Music" implies an
+                // exclusivity that isn't real. (iOS parity.)
+                else -> Unit
+            }
+        }
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = track.name,
+                style = CorusFont.body,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = track.artistName,
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 // ════════════════════════════════════════════════════════════

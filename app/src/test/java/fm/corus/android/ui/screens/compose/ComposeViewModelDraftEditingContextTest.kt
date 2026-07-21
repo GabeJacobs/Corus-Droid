@@ -115,6 +115,8 @@ class ComposeViewModelDraftEditingContextTest {
         hapticManager = hapticManager,
         remoteConfigService = remoteConfigService,
         networkMonitor = networkMonitor,
+        cloudFunctions = mock(),
+        preferencesDataStore = mock(),
     )
 
     // An "sc:" id makes resumeDraft's staleness refresh return early (no

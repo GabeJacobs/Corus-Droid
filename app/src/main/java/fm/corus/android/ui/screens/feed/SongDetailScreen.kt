@@ -77,6 +77,8 @@ fun SongDetailScreen(
     soundcloudId: String? = null,
     soundcloudPermalinkUrl: String? = null,
     audiomackUrl: String? = null,
+    tidalURL: String? = null,
+    deezerURL: String? = null,
     isrc: String? = null,
     artistId: String? = null,
     artistIdCount: Int = 0,
@@ -110,6 +112,7 @@ fun SongDetailScreen(
     val nowPlayingState by viewModel.nowPlayingState.collectAsState()
     val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
+    val absentFromSpotify by fm.corus.android.domain.MusicServiceLinkOut.absentFromSpotify.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -136,8 +139,15 @@ fun SongDetailScreen(
     // still gets its "Listen on Audiomack" link-out). Link-out only — used to
     // open the Audiomack page; there is no in-app playback.
     val effectiveAudiomackUrl = songInfo?.track?.audiomackUrl ?: audiomackUrl
+    // TIDAL/Deezer page urls (Audiomack treatment): prefer the loaded post's
+    // track, fall back to the navigation hint. Link-out only — there is no
+    // in-app playback for these exclusive sources.
+    val effectiveTidalURL = songInfo?.track?.tidalURL ?: tidalURL
+    val effectiveDeezerURL = songInfo?.track?.deezerURL ?: deezerURL
     val isSoundCloud = effectiveSource == TrackSource.SOUNDCLOUD
     val isAudiomack = effectiveSource == TrackSource.AUDIOMACK
+    val isTidal = effectiveSource == TrackSource.TIDAL
+    val isDeezer = effectiveSource == TrackSource.DEEZER
     val isAppleMusic = effectiveSource == TrackSource.APPLEMUSIC
     // Apple Music URL is derived from the appleMusicId on the resolved
     // track (preferred) or the `am:` prefix on the trackId (fallback).
@@ -173,9 +183,10 @@ fun SongDetailScreen(
     val menuAlbumTrack = songInfo?.track
     val effectiveAlbumId = resolveSongAlbumId(albumId, posts) ?: vmResolvedAlbumId
 
-    // "Go to Album" is offered for everything except SoundCloud and Audiomack,
-    // which have no album concept / no ISRC to resolve with — a dead end.
-    val canShowAlbum = !isSoundCloud && !isAudiomack
+    // "Go to Album" is offered for everything except SoundCloud, Audiomack, and
+    // the TIDAL/Deezer exclusives, which have no album concept / no Spotify
+    // catalog presence to resolve against — a dead end.
+    val canShowAlbum = !isSoundCloud && !isAudiomack && !isTidal && !isDeezer
 
     val artistMissMsg = stringResource(R.string.song_detail_artist_not_found)
     val albumMissMsg = stringResource(R.string.song_detail_album_not_found)
@@ -559,28 +570,89 @@ fun SongDetailScreen(
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
                             Text(stringResource(R.string.song_detail_listen_audiomack), style = CorusFont.buttonSmall)
                         }
-                    } else if (isAppleMusic) {
-                        // Apple-only tracks (e.g. Joanna Newsom) aren't in Spotify's
-                        // catalog. If the viewer prefers a service that shares Apple's
-                        // catalog (TIDAL / Deezer) route there; otherwise — including
-                        // Spotify viewers — fall back to Apple Music, which is
-                        // guaranteed to have it. Never offer Spotify (it would 404).
-                        val opened = if (musicService == MusicService.TIDAL || musicService == MusicService.DEEZER) {
-                            musicService
-                        } else {
-                            MusicService.APPLE_MUSIC
-                        }
-                        // Spotify viewers can't open this in Spotify, so the label
-                        // shows the service we actually send them to.
-                        val displayed = if (musicService == MusicService.SPOTIFY) MusicService.APPLE_MUSIC else musicService
+                    } else if (isTidal && !effectiveTidalURL.isNullOrBlank()) {
+                        // Open in TIDAL capsule — exclusive source, link-out only
+                        // (no in-app playback). Brand-colored like the preferred-
+                        // service CTA; only shown when we have the page url.
                         Button(
                             onClick = {
-                                if (opened == MusicService.APPLE_MUSIC && !effectiveAppleMusicURL.isNullOrBlank()) {
-                                    // Open Apple Music directly via the resolved URL.
-                                    viewModel.analyticsService.logMusicServiceLinkTapped(MusicService.APPLE_MUSIC, trackId)
-                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(effectiveAppleMusicURL))) }
-                                } else {
-                                    openInService(opened)
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(effectiveTidalURL))) }
+                            },
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = serviceColor(MusicService.TIDAL),
+                                contentColor = serviceTextColor(MusicService.TIDAL),
+                            ),
+                            contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        ) {
+                            Text(
+                                stringResource(R.string.song_detail_open_in_service, MusicService.TIDAL.displayLabel),
+                                style = CorusFont.buttonSmall,
+                            )
+                        }
+                    } else if (isDeezer && !effectiveDeezerURL.isNullOrBlank()) {
+                        // Open in Deezer capsule — exclusive source, link-out only
+                        // (no in-app playback). Mirrors the TIDAL capsule above.
+                        Button(
+                            onClick = {
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(effectiveDeezerURL))) }
+                            },
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = serviceColor(MusicService.DEEZER),
+                                contentColor = serviceTextColor(MusicService.DEEZER),
+                            ),
+                            contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        ) {
+                            Text(
+                                stringResource(R.string.song_detail_open_in_service, MusicService.DEEZER.displayLabel),
+                                style = CorusFont.buttonSmall,
+                            )
+                        }
+                    } else if (isAppleMusic) {
+                        // Apple-SOURCED tracks under Apple-primary search are usually
+                        // ALSO on Spotify — Apple was just the search provider. So a
+                        // Spotify viewer sees "Play in Spotify" and the tap resolves
+                        // the exact Spotify track on demand (server ISRC-cache-first →
+                        // usually zero Spotify calls), exactly like the mini-player.
+                        // Only a prior confirmed miss routes to Apple, which is
+                        // guaranteed to have it. TIDAL/Deezer viewers keep theirs.
+                        val knownNotOnSpotify = trackId in absentFromSpotify
+                        val displayed = if (musicService == MusicService.SPOTIFY) {
+                            if (knownNotOnSpotify) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
+                        } else {
+                            musicService
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.analyticsService.logMusicServiceLinkTapped(displayed, trackId)
+                                when (displayed) {
+                                    MusicService.SPOTIFY -> scope.launch {
+                                        val url = viewModel.resolveSpotifyFromApple(
+                                            trackId, displayName.orEmpty(), displayArtist.orEmpty(), effectiveIsrc,
+                                        )
+                                        val target = when {
+                                            !url.isNullOrBlank() -> url // Spotify exact track
+                                            // CONFIRMED not on Spotify → Apple, which has it.
+                                            fm.corus.android.domain.MusicServiceLinkOut.knownNotOnSpotify(trackId) ->
+                                                effectiveAppleMusicURL
+                                            // Transient / not-yet-deployed error: the tap said Spotify,
+                                            // so stay in Spotify (search), don't open Apple.
+                                            else -> fm.corus.android.domain.MusicServiceLinkOut
+                                                .spotifySearchUrl(displayName.orEmpty(), displayArtist.orEmpty())
+                                        }
+                                        if (!target.isNullOrBlank()) {
+                                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target))) }
+                                        }
+                                    }
+                                    MusicService.APPLE_MUSIC -> {
+                                        if (!effectiveAppleMusicURL.isNullOrBlank()) {
+                                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(effectiveAppleMusicURL))) }
+                                        } else {
+                                            openInService(MusicService.APPLE_MUSIC)
+                                        }
+                                    }
+                                    else -> openInService(displayed) // tidal / deezer
                                 }
                             },
                             shape = RoundedCornerShape(50),
@@ -591,7 +663,11 @@ fun SongDetailScreen(
                             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                         ) {
                             Text(
-                                stringResource(R.string.song_detail_open_in_service, displayed.displayLabel),
+                                if (displayed == MusicService.SPOTIFY) {
+                                    stringResource(R.string.song_detail_play_in_service, displayed.displayLabel)
+                                } else {
+                                    stringResource(R.string.song_detail_open_in_service, displayed.displayLabel)
+                                },
                                 style = CorusFont.buttonSmall,
                             )
                         }

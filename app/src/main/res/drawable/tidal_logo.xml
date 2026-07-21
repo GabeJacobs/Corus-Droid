@@ -1,6 +1,8 @@
-<!-- PLACEHOLDER TIDAL logo (black rounded square + three diamonds), mirroring the
-     iOS/Web placeholder. Replace with the official TIDAL brand mark before
-     flipping the `tidal_enabled` Remote Config flag for production. -->
+<!-- PLACEHOLDER TIDAL logo. Geometrically IDENTICAL to the iOS asset
+     (Corus-iOS/.../Assets.xcassets/TidalLogo.imageset/TidalLogo.svg) and the web
+     TidalGlyph: same 361x361 viewport, same rounded square (r=80 arcs), same
+     three diamond paths. Replace all three with the official TIDAL brand mark
+     (https://tidal.com/logos) before production. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp"
     android:height="48dp"
@@ -8,7 +10,7 @@
     android:viewportHeight="361">
     <path
         android:fillColor="#000000"
-        android:pathData="M80,0 L281,0 Q361,0 361,80 L361,281 Q361,361 281,361 L80,361 Q0,361 0,281 L0,80 Q0,0 80,0 Z" />
+        android:pathData="M80,0 L281,0 A80,80 0 0 1 361,80 L361,281 A80,80 0 0 1 281,361 L80,361 A80,80 0 0 1 0,281 L0,80 A80,80 0 0 1 80,0 Z" />
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M120.5,120.5 L60.5,180.5 L120.5,240.5 L180.5,180.5 Z" />

@@ -182,6 +182,9 @@ data class CymbalPost(
             // fields (like SoundCloud) so no broken "Open in Spotify" link is
             // synthesized from a non-Spotify trackId.
             val isTrackAudiomack = trackSource == TrackSource.AUDIOMACK
+            // TIDAL/Deezer exclusives get the same Audiomack treatment: link-out
+            // only and not on Spotify, so the Spotify fields stay blank too.
+            val isTrackTidalOrDeezer = trackSource == TrackSource.TIDAL || trackSource == TrackSource.DEEZER
             val track = CymbalTrack(
                 id = data["trackId"] as? String ?: "",
                 name = data["trackName"] as? String ?: "",
@@ -200,8 +203,8 @@ data class CymbalPost(
                 albumId = (data["albumId"] as? String)?.ifEmpty { null },
                 albumArtURL = data["albumArtThumbnailURL"] as? String ?: data["albumArtURL"] as? String,
                 albumArtLargeURL = data["albumArtLargeURL"] as? String,
-                spotifyURI = if (isTrackSoundCloud || isTrackAudiomack) "" else (data["spotifyURI"] as? String ?: ""),
-                spotifyWebURL = if (isTrackSoundCloud || isTrackAudiomack) "" else (data["spotifyWebURL"] as? String ?: ""),
+                spotifyURI = if (isTrackSoundCloud || isTrackAudiomack || isTrackTidalOrDeezer) "" else (data["spotifyURI"] as? String ?: ""),
+                spotifyWebURL = if (isTrackSoundCloud || isTrackAudiomack || isTrackTidalOrDeezer) "" else (data["spotifyWebURL"] as? String ?: ""),
                 durationMs = (data["durationMs"] as? Number)?.toInt() ?: 0,
                 previewUrl = data["previewUrl"] as? String ?: data["previewURL"] as? String,
                 isrc = data["isrc"] as? String,
@@ -220,6 +223,15 @@ data class CymbalPost(
                 // "" (-> null) for loose singles so the album row is never dead.
                 audiomackArtistUrl = (data["audiomackArtistUrl"] as? String)?.ifEmpty { null },
                 audiomackAlbumUrl = (data["audiomackAlbumUrl"] as? String)?.ifEmpty { null },
+                // TIDAL/Deezer exclusive link-out fields (Audiomack treatment) —
+                // badge/CTA taps open these page URLs externally. Present only on
+                // `trackSource: "tidal"` / `"deezer"` post docs; no artist/album
+                // URL equivalents exist (those rows stay hidden via empty
+                // artistIds/albumId).
+                tidalId = (data["tidalId"] as? String)?.ifEmpty { null },
+                tidalURL = (data["tidalURL"] as? String)?.ifEmpty { null },
+                deezerId = (data["deezerId"] as? String)?.ifEmpty { null },
+                deezerURL = (data["deezerURL"] as? String)?.ifEmpty { null },
                 // Tri-state, drives the service badge. Preserve "" (resolver
                 // confirmed NOT on Apple Music) vs null (unknown / field absent).
                 // Don't collapse "" to null, or a confirmed Spotify-only track

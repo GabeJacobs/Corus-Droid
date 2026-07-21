@@ -150,6 +150,12 @@ class AlbumPageViewModel @Inject constructor(
     private val _uniquePosterCount = MutableStateFlow(0)
     val uniquePosterCount: StateFlow<Int> = _uniquePosterCount.asStateFlow()
 
+    // Per-track share counts (track id → count) for the tracklist's trailing
+    // "N shared" slot, from getAlbumPosts. Only tracks with a non-zero count are
+    // present; absent keys render a blank trailing slot.
+    private val _trackShareCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val trackShareCounts: StateFlow<Map<String, Int>> = _trackShareCounts.asStateFlow()
+
     private val _isPostsLoading = MutableStateFlow(true)
     val isPostsLoading: StateFlow<Boolean> = _isPostsLoading.asStateFlow()
 
@@ -187,6 +193,7 @@ class AlbumPageViewModel @Inject constructor(
                 val page = cloudFunctions.fetchAlbumPosts(albumId, pageSize = PAGE_SIZE)
                 _posts.value = page.posts
                 _uniquePosterCount.value = page.uniquePosterCount
+                _trackShareCounts.value = page.trackShareCounts
             } catch (_: Exception) {
                 _postsError.value = true
             }

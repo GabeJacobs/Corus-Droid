@@ -21,7 +21,25 @@ enum class TrackSource(val raw: String) {
      * `sc:` and Apple's `am:`. LINK-OUT ONLY: Audiomack blocks full streams, so
      * there is no in-app playback — play/badge taps open `audiomackUrl` externally.
      */
-    AUDIOMACK("audiomack");
+    AUDIOMACK("audiomack"),
+
+    /**
+     * TIDAL-exclusive tracks (no Spotify/Apple match anywhere). Backend-created
+     * only, marked `trackSource: "tidal"` with a `tdl:<id>` prefixed trackId —
+     * same discriminator pattern as Audiomack's `amk:`. LINK-OUT ONLY (Audiomack
+     * treatment): no in-app playback resolver — badge/CTA taps open `tidalURL`
+     * externally.
+     */
+    TIDAL("tidal"),
+
+    /**
+     * Deezer-exclusive tracks (no Spotify/Apple match anywhere). Backend-created
+     * only, marked `trackSource: "deezer"` with a `dzr:<id>` prefixed trackId —
+     * same discriminator pattern as Audiomack's `amk:`. LINK-OUT ONLY (Audiomack
+     * treatment): no in-app playback resolver — badge/CTA taps open `deezerURL`
+     * externally.
+     */
+    DEEZER("deezer");
 
     companion object {
         fun fromRaw(raw: String?): TrackSource = entries.firstOrNull { it.raw == raw } ?: SPOTIFY
@@ -79,6 +97,19 @@ data class CymbalTrack(
     val audiomackArtistUrl: String? = null,
     val audiomackAlbumUrl: String? = null,
     /**
+     * TIDAL / Deezer track id + canonical page URL. Populated only for
+     * `source == TIDAL` / `source == DEEZER` exclusive tracks (where `id` is
+     * `tdl:<tidalId>` / `dzr:<deezerId>`). Both sources are link-out only
+     * (Audiomack treatment) — badge/CTA taps open [tidalURL] / [deezerURL]
+     * externally. Unlike Audiomack there are no artist/album page URLs, so the
+     * "Go to Artist"/"Go to Album" rows simply stay hidden (empty artistIds /
+     * albumId).
+     */
+    val tidalId: String? = null,
+    val tidalURL: String? = null,
+    val deezerId: String? = null,
+    val deezerURL: String? = null,
+    /**
      * Apple Music catalog id. Populated for Apple-Music-only tracks (where
      * `source == APPLEMUSIC` and `id` is `am:<appleMusicId>`); also lazily
      * filled for Spotify-source posts by the backend's apple_music_mappings
@@ -115,6 +146,22 @@ data class CymbalTrack(
      */
     val audiomackLinkOutUrl: String?
         get() = if (source == TrackSource.AUDIOMACK) audiomackUrl?.takeIf { it.isNotBlank() } else null
+
+    /**
+     * External URL to open for a TIDAL-exclusive track. Non-null only when this
+     * is a TIDAL track carrying a usable [tidalURL]; null for streamable sources
+     * and for TIDAL tracks missing a url. Mirrors [audiomackLinkOutUrl].
+     */
+    val tidalLinkOutUrl: String?
+        get() = if (source == TrackSource.TIDAL) tidalURL?.takeIf { it.isNotBlank() } else null
+
+    /**
+     * External URL to open for a Deezer-exclusive track. Non-null only when this
+     * is a Deezer track carrying a usable [deezerURL]; null for streamable
+     * sources and for Deezer tracks missing a url. Mirrors [audiomackLinkOutUrl].
+     */
+    val deezerLinkOutUrl: String?
+        get() = if (source == TrackSource.DEEZER) deezerURL?.takeIf { it.isNotBlank() } else null
 
     /**
      * External Audiomack artist-page URL to link out to. Non-null only for an
@@ -175,6 +222,8 @@ data class CymbalTrack(
         soundcloudId = soundcloudId,
         soundcloudPermalinkUrl = soundcloudPermalinkUrl,
         audiomackUrl = audiomackUrl,
+        tidalURL = tidalURL,
+        deezerURL = deezerURL,
         isrc = isrc,
         artistId = artistIds.firstOrNull(),
         artistIdCount = artistIds.size,
@@ -194,7 +243,7 @@ data class CymbalTrack(
             // produces broken "Open in Spotify" links — leave those fields
             // blank for non-Spotify sources.
             val isNonSpotify = source == TrackSource.SOUNDCLOUD || source == TrackSource.APPLEMUSIC ||
-                source == TrackSource.AUDIOMACK
+                source == TrackSource.AUDIOMACK || source == TrackSource.TIDAL || source == TrackSource.DEEZER
             val rawSpotifyURI = data["spotifyURI"] as? String ?: ""
             val rawSpotifyWebURL = data["spotifyWebURL"] as? String ?: ""
             @Suppress("UNCHECKED_CAST")
@@ -224,6 +273,12 @@ data class CymbalTrack(
                 audiomackUrl = (data["audiomackUrl"] as? String)?.ifEmpty { null },
                 audiomackArtistUrl = (data["audiomackArtistUrl"] as? String)?.ifEmpty { null },
                 audiomackAlbumUrl = (data["audiomackAlbumUrl"] as? String)?.ifEmpty { null },
+                // TIDAL/Deezer exclusive link-out fields (Audiomack treatment).
+                // Present only on `trackSource: "tidal"` / `"deezer"` post docs.
+                tidalId = (data["tidalId"] as? String)?.ifEmpty { null },
+                tidalURL = (data["tidalURL"] as? String)?.ifEmpty { null },
+                deezerId = (data["deezerId"] as? String)?.ifEmpty { null },
+                deezerURL = (data["deezerURL"] as? String)?.ifEmpty { null },
                 // Tri-state, drives the service badge. Preserve "" (resolver
                 // confirmed NOT on Apple Music) vs null (unknown). See
                 // CymbalPost.fromMap and PostCard for why the distinction matters.

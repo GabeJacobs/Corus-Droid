@@ -896,6 +896,9 @@
     <string name="compose_cancel">취소</string>
     <string name="compose_search_song">곡 검색</string>
     <string name="compose_search_film">영화 검색</string>
+    <!-- Unified compose picker (compose_unified_search_enabled): one field over songs AND films -->
+    <string name="compose_search_song_or_film">곡 또는 영화 검색</string>
+    <string name="compose_recently_saved">최근 저장됨</string>
     <string name="compose_cd_pause">일시정지</string>
     <string name="compose_cd_play_preview">미리듣기 재생</string>
     <string name="compose_cd_pause_preview">미리듣기 일시정지</string>
@@ -1202,6 +1205,8 @@
     <string name="messaging_group_soft_hint">아직 못 볼 수도 있어요</string>
     <string name="messaging_group_done">완료</string>
     <string name="post_menu_open_audiomack">Audiomack에서 열기</string>
+    <string name="post_menu_open_tidal">TIDAL에서 열기</string>
+    <string name="post_menu_open_deezer">Deezer에서 열기</string>
     <string name="post_menu_go_to_artist">아티스트로 이동</string>
     <string name="post_menu_go_to_album">앨범으로 이동</string>
     <string name="now_playing_no_preview">미리듣기를 사용할 수 없어요</string>
@@ -1212,4 +1217,42 @@
     <string name="destination_hashtag_label">해시태그</string>
     <string name="destination_n_shared">%1$s명이 공유</string>
     <string name="destination_artist_is_on_corus">%1$s은(는) Corus에 있어요</string>
+
+    <!-- Share-to-Corus target -->
+    <string name="share_title">Corus에 공유</string>
+    <string name="share_cancel">취소</string>
+    <string name="share_back">뒤로</string>
+    <string name="share_close">닫기</string>
+    <string name="share_try_again">다시 시도</string>
+    <string name="share_loading_song">곡 불러오는 중…</string>
+    <string name="share_loading_album">앨범 불러오는 중…</string>
+    <string name="share_caption_placeholder">캡션 쓰기…</string>
+    <string name="share_posted">Corus에 게시됨</string>
+    <string name="share_tap_song">게시할 곡을 탭하세요</string>
+    <string name="share_album_word">앨범</string>
+    <string name="share_song_count_one">1곡</string>
+    <string name="share_song_count_many">%1$d곡</string>
+    <string name="share_track_unavailable">이 곡은 Corus에서 이용할 수 없습니다.</string>
+    <string name="share_post_limit">오늘의 게시 한도에 도달했습니다.</string>
+    <string name="share_hard_cap">기세가 좋네요. 잠시 후에 다시 오세요.</string>
+    <string name="share_posting_banned">이 계정에서는 게시할 수 없습니다.</string>
+    <string name="share_generic_error">문제가 발생했습니다. 다시 시도해 주세요.</string>
+    <string name="share_blocked_signin_title">먼저 Corus에 로그인하세요</string>
+    <string name="share_blocked_signin_subtitle">Corus 앱을 열어 로그인한 다음 이 곡을 다시 공유하세요.</string>
+    <string name="share_blocked_unsupported_title">곡을 공유하세요</string>
+    <string name="share_blocked_unsupported_subtitle">Corus는 Apple Music, Spotify, SoundCloud, Deezer, TIDAL의 곡을 게시할 수 있습니다. 앨범 공유도 가능하며 여기서 곡을 선택합니다.</string>
+    <string name="share_blocked_song_title">이 곡을 불러오지 못했습니다</string>
+    <string name="share_blocked_album_title">이 앨범을 불러오지 못했습니다</string>
+    <string name="share_blocked_unavailable_subtitle">불러오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.</string>
+    <string name="share_blocked_nomatch_title">이 곡은 아직 Corus에 없습니다</string>
+    <string name="share_blocked_nomatch_subtitle">Corus가 게시할 수 있는 카탈로그에 일치하는 곡이 없습니다.</string>
+    <string name="share_unreleased">이 곡은 아직 발매되지 않았습니다.</string>
+    <string name="share_blocked_unreleased_title">이 곡은 아직 나오지 않았습니다</string>
+    <string name="share_blocked_unreleased_subtitle">Corus는 발매된 음악만 게시할 수 있습니다. 조금 후에 다시 확인해 주세요.</string>
+    <string name="reposters_title">리포스트</string>
+    <string name="reposters_empty">아직 리포스트가 없습니다.</string>
+    <string name="reposters_load_error">지금은 리포스트를 불러오지 못했습니다.</string>
+    <plurals name="reposters_count">
+        <item quantity="other">리포스트 %1$d개</item>
+    </plurals>
 </resources>

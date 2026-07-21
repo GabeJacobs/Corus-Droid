@@ -59,6 +59,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.R
+import fm.corus.android.data.model.TrackCorusStats
 import fm.corus.android.data.model.primaryNameHint
 import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.ui.components.CorusHeaderIconButton
@@ -102,6 +103,7 @@ fun AlbumPageScreen(
     val catalogError by viewModel.catalogError.collectAsState()
     val posts by viewModel.posts.collectAsState()
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
+    val trackShareCounts by viewModel.trackShareCounts.collectAsState()
     val isPostsLoading by viewModel.isPostsLoading.collectAsState()
     val postsError by viewModel.postsError.collectAsState()
     val recentShareContacts by viewModel.recentShareContacts.collectAsState()
@@ -352,6 +354,12 @@ fun AlbumPageScreen(
                             number = index + 1,
                             queue = albumQueue,
                             origin = albumOrigin,
+                            // Trailing slot shows how many Corus users shared this
+                            // track (from getAlbumPosts) in place of its duration,
+                            // blank when none. No facepile on album rows.
+                            corusStats = trackShareCounts[track.id]?.let {
+                                TrackCorusStats(count = it, posters = emptyList())
+                            },
                             onRowTap = {
                                 viewModel.analyticsService.logPostFromAlbum(albumId, track.id)
                                 onNavigateToSong(track.toSongDetailRoute())

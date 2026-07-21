@@ -190,6 +190,19 @@ fun PostCard(
             runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
         }
     }
+    // TIDAL/Deezer exclusives get the Audiomack treatment: link-out only — the
+    // service badge glyph opens the track's TIDAL/Deezer page externally.
+    // Gated on the source discriminator; null/blank url is a graceful no-op.
+    val openTidal: () -> Unit = {
+        post.track.tidalLinkOutUrl?.let { url ->
+            runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        }
+    }
+    val openDeezer: () -> Unit = {
+        post.track.deezerLinkOutUrl?.let { url ->
+            runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        }
+    }
     // Audiomack has no Corus artist page (source-locked, no Spotify artistIds), so
     // the artist name links out to Audiomack's own artist page instead. Mirrors
     // [openAudiomack]; blank/absent url is a graceful no-op.
@@ -882,6 +895,8 @@ fun PostCard(
             } else {
                 val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
                 val isAudiomack = post.track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
+                val isTidal = post.track.source == fm.corus.android.data.model.TrackSource.TIDAL
+                val isDeezer = post.track.source == fm.corus.android.data.model.TrackSource.DEEZER
                 val isAppleMusic = post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
                 val cd = stringResource(
                     when {
@@ -909,6 +924,27 @@ fun PostCard(
                                 onClick = openAudiomack,
                             )
                             .semantics { contentDescription = cd },
+                    )
+                } else if (isTidal || isDeezer) {
+                    // TIDAL/Deezer exclusives lock to their own brand glyph (same
+                    // drawables the preferred-service badge uses). Their tap links
+                    // out (never streams) — bypasses onSpotifyTap, like Audiomack.
+                    Image(
+                        painter = painterResource(
+                            fm.corus.android.domain.MusicServiceLinkOut.logoRes(
+                                if (isTidal) fm.corus.android.data.model.MusicService.TIDAL
+                                else fm.corus.android.data.model.MusicService.DEEZER
+                            )
+                        ),
+                        contentDescription = cd,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = if (isTidal) openTidal else openDeezer,
+                            ),
+                        contentScale = ContentScale.Fit,
                     )
                 } else if (isSoundCloud) {
                     SoundCloudAdaptiveLogo(

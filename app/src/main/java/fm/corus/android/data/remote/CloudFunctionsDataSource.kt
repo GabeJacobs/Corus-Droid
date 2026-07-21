@@ -280,10 +280,16 @@ internal fun parseAlbumPostsResponse(
     if (data == null) return CloudFunctionsDataSource.AlbumPostsPage()
     val posts = (data["posts"] as? List<Map<String, Any?>>)
         ?.map { CymbalPost.fromCloudData(it) } ?: emptyList()
+    // Per-track share counts (track id → count). Callable numbers arrive as
+    // Number; only tracks with a non-zero count are present.
+    val trackShareCounts = (data["trackShareCounts"] as? Map<String, Any?>)
+        ?.mapNotNull { (id, value) -> (value as? Number)?.toInt()?.let { id to it } }
+        ?.toMap() ?: emptyMap()
     return CloudFunctionsDataSource.AlbumPostsPage(
         posts = posts,
         uniquePosterCount = (data["uniquePosterCount"] as? Number)?.toInt() ?: 0,
         firstPosterId = (data["firstPosterId"] as? String)?.ifEmpty { null },
+        trackShareCounts = trackShareCounts,
     )
 }
 
@@ -1362,11 +1368,14 @@ class CloudFunctionsDataSource @Inject constructor(
     )
 
     /** getAlbumPosts response. Posts arrive with isFirstPoster already stamped
-     *  server-side against [firstPosterId]. */
+     *  server-side against [firstPosterId]. [trackShareCounts] maps a catalog
+     *  track id → how many Corus users shared it, for the album tracklist's
+     *  trailing "N shared" slot; only tracks with a non-zero count are present. */
     data class AlbumPostsPage(
         val posts: List<CymbalPost> = emptyList(),
         val uniquePosterCount: Int = 0,
         val firstPosterId: String? = null,
+        val trackShareCounts: Map<String, Int> = emptyMap(),
     )
 
     private val artistDetailCache = ConcurrentHashMap<String, Pair<Long, ArtistDetail>>()
@@ -2062,6 +2071,24 @@ class CloudFunctionsDataSource @Inject constructor(
         return data["deezerURL"] as? String
     }
 
+    /** Result of [spotifyTrackLookup]. [found] == false means the backend
+     *  CONFIRMED the track isn't on Spotify (caller may remember it); a transient
+     *  error surfaces as a thrown exception, not this type. */
+    data class SpotifyLookupResult(val found: Boolean, val webUrl: String?)
+
+    /** Resolve an Apple/SoundCloud-sourced track to its Spotify OPEN target (the
+     *  reverse of [appleMusicLinkOutUrl]). ISRC-cache-first server-side, so the
+     *  common call costs zero Spotify quota. Backs the mini-player "open in
+     *  Spotify" tap under Apple-primary search. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun spotifyTrackLookup(name: String, artist: String, isrc: String?, appleTrackId: String?): SpotifyLookupResult {
+        val result = functions.getHttpsCallable("spotifyTrackLookup").call(linkOutParams(name, artist, isrc, appleTrackId)).await()
+        val data = result.getData() as? Map<String, Any?> ?: return SpotifyLookupResult(false, null)
+        val webUrl = (data["spotifyWebURL"] as? String)?.ifEmpty { null }
+        val found = (data["found"] as? Boolean ?: false) && webUrl != null
+        return SpotifyLookupResult(found, webUrl)
+    }
+
     @Suppress("UNCHECKED_CAST")
     /**
      * @param feedMode Which feed the user is viewing ("following" / "trending" /
@@ -2189,9 +2216,15 @@ class CloudFunctionsDataSource @Inject constructor(
                     throw PostLimitReachedException(recent, limit, hardCap)
                 }
                 com.google.firebase.functions.FirebaseFunctionsException.Code.NOT_FOUND -> {
+                    // Share-input resolution miss (tidal/deezer with no
+                    // catalog match) rides NOT_FOUND too — don't misreport it
+                    // as a missing repost original.
+                    if (e.message?.contains("no_catalog_match") == true) throw e
                     throw RepostOriginalMissingException()
                 }
                 com.google.firebase.functions.FirebaseFunctionsException.Code.FAILED_PRECONDITION -> {
+                    // The share unreleased gate rides FAILED_PRECONDITION too.
+                    if (e.message?.contains("unreleased") == true) throw e
                     throw PostingBannedException()
                 }
                 else -> throw e

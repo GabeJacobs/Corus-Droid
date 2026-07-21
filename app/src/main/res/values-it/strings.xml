@@ -896,6 +896,9 @@
     <string name="compose_cancel">Annulla</string>
     <string name="compose_search_song">Cerca un brano</string>
     <string name="compose_search_film">Cerca un film</string>
+    <!-- Unified compose picker (compose_unified_search_enabled): one field over songs AND films -->
+    <string name="compose_search_song_or_film">Cerca un brano o un film</string>
+    <string name="compose_recently_saved">SALVATI DI RECENTE</string>
     <string name="compose_cd_pause">Pausa</string>
     <string name="compose_cd_play_preview">Riproduci anteprima</string>
     <string name="compose_cd_pause_preview">Metti in pausa l\'anteprima</string>
@@ -1210,6 +1213,8 @@
     <string name="messaging_group_soft_hint">Potrebbe non vederlo ancora</string>
     <string name="messaging_group_done">Fatto</string>
     <string name="post_menu_open_audiomack">Apri in Audiomack</string>
+    <string name="post_menu_open_tidal">Apri in TIDAL</string>
+    <string name="post_menu_open_deezer">Apri in Deezer</string>
     <string name="post_menu_go_to_artist">Vai all\'artista</string>
     <string name="post_menu_go_to_album">Vai all\'album</string>
     <string name="now_playing_no_preview">Nessuna anteprima disponibile</string>
@@ -1220,4 +1225,43 @@
     <string name="destination_hashtag_label">Hashtag</string>
     <string name="destination_n_shared">%1$s condivisi</string>
     <string name="destination_artist_is_on_corus">%1$s è su Corus</string>
+
+    <!-- Share-to-Corus target -->
+    <string name="share_title">Condividi su Corus</string>
+    <string name="share_cancel">Annulla</string>
+    <string name="share_back">Indietro</string>
+    <string name="share_close">Chiudi</string>
+    <string name="share_try_again">Riprova</string>
+    <string name="share_loading_song">Caricamento brano…</string>
+    <string name="share_loading_album">Caricamento album…</string>
+    <string name="share_caption_placeholder">Scrivi una descrizione…</string>
+    <string name="share_posted">Pubblicato su Corus</string>
+    <string name="share_tap_song">Tocca un brano per pubblicarlo</string>
+    <string name="share_album_word">Album</string>
+    <string name="share_song_count_one">1 brano</string>
+    <string name="share_song_count_many">%1$d brani</string>
+    <string name="share_track_unavailable">Questo brano non è disponibile su Corus.</string>
+    <string name="share_post_limit">Hai raggiunto il limite di post di oggi.</string>
+    <string name="share_hard_cap">Sei inarrestabile. Torna tra un po\'.</string>
+    <string name="share_posting_banned">Pubblicare non è disponibile per questo account.</string>
+    <string name="share_generic_error">Qualcosa è andato storto. Riprova.</string>
+    <string name="share_blocked_signin_title">Prima accedi a Corus</string>
+    <string name="share_blocked_signin_subtitle">Apri l\'app Corus e accedi, poi condividi di nuovo questo brano.</string>
+    <string name="share_blocked_unsupported_title">Condividi un brano</string>
+    <string name="share_blocked_unsupported_subtitle">Corus può pubblicare brani da Apple Music, Spotify, SoundCloud, Deezer e TIDAL. Anche condividere un album funziona. Il brano lo scegli qui.</string>
+    <string name="share_blocked_song_title">Impossibile caricare questo brano</string>
+    <string name="share_blocked_album_title">Impossibile caricare questo album</string>
+    <string name="share_blocked_unavailable_subtitle">Qualcosa è andato storto nel caricamento. Riprova tra un momento.</string>
+    <string name="share_blocked_nomatch_title">Questo brano non è ancora su Corus</string>
+    <string name="share_blocked_nomatch_subtitle">Non ha una corrispondenza nei cataloghi da cui Corus può pubblicare.</string>
+    <string name="share_unreleased">Questo brano non è ancora uscito.</string>
+    <string name="share_blocked_unreleased_title">Questo brano non è ancora uscito</string>
+    <string name="share_blocked_unreleased_subtitle">Corus può pubblicare solo musica già uscita. Torna un po\' più tardi.</string>
+    <string name="reposters_title">Ripubblicazioni</string>
+    <string name="reposters_empty">Ancora nessuna ripubblicazione.</string>
+    <string name="reposters_load_error">Non è stato possibile caricare le ripubblicazioni al momento.</string>
+    <plurals name="reposters_count">
+        <item quantity="one">%1$d ripubblicazione</item>
+        <item quantity="other">%1$d ripubblicazioni</item>
+    </plurals>
 </resources>

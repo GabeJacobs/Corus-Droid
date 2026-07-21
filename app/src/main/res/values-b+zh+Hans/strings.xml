@@ -895,6 +895,9 @@
     <string name="compose_cancel">取消</string>
     <string name="compose_search_song">搜索歌曲</string>
     <string name="compose_search_film">搜索电影</string>
+    <!-- Unified compose picker (compose_unified_search_enabled): one field over songs AND films -->
+    <string name="compose_search_song_or_film">搜索歌曲或电影</string>
+    <string name="compose_recently_saved">最近收藏</string>
     <string name="compose_cd_pause">暂停</string>
     <string name="compose_cd_play_preview">播放试听</string>
     <string name="compose_cd_pause_preview">暂停试听</string>
@@ -1202,6 +1205,8 @@
     <string name="messaging_group_soft_hint">可能还看不到</string>
     <string name="messaging_group_done">完成</string>
     <string name="post_menu_open_audiomack">在 Audiomack 中打开</string>
+    <string name="post_menu_open_tidal">在 TIDAL 中打开</string>
+    <string name="post_menu_open_deezer">在 Deezer 中打开</string>
     <string name="post_menu_go_to_artist">前往艺人</string>
     <string name="post_menu_go_to_album">前往专辑</string>
     <string name="now_playing_no_preview">没有可用的试听</string>
@@ -1212,4 +1217,42 @@
     <string name="destination_hashtag_label">话题标签</string>
     <string name="destination_n_shared">%1$s 次分享</string>
     <string name="destination_artist_is_on_corus">%1$s 在 Corus 上</string>
+
+    <!-- Share-to-Corus target -->
+    <string name="share_title">分享到 Corus</string>
+    <string name="share_cancel">取消</string>
+    <string name="share_back">返回</string>
+    <string name="share_close">关闭</string>
+    <string name="share_try_again">重试</string>
+    <string name="share_loading_song">正在加载歌曲…</string>
+    <string name="share_loading_album">正在加载专辑…</string>
+    <string name="share_caption_placeholder">写点什么…</string>
+    <string name="share_posted">已发布到 Corus</string>
+    <string name="share_tap_song">点按歌曲即可发布</string>
+    <string name="share_album_word">专辑</string>
+    <string name="share_song_count_one">1 首歌</string>
+    <string name="share_song_count_many">%1$d 首歌</string>
+    <string name="share_track_unavailable">这首歌在 Corus 上不可用。</string>
+    <string name="share_post_limit">你已达到今天的发布上限。</string>
+    <string name="share_hard_cap">你状态正好。过一会儿再来吧。</string>
+    <string name="share_posting_banned">此账号暂时无法发布。</string>
+    <string name="share_generic_error">出了点问题。请重试。</string>
+    <string name="share_blocked_signin_title">请先登录 Corus</string>
+    <string name="share_blocked_signin_subtitle">打开 Corus 应用并登录，然后再次分享这首歌。</string>
+    <string name="share_blocked_unsupported_title">分享一首歌</string>
+    <string name="share_blocked_unsupported_subtitle">Corus 可以发布来自 Apple Music、Spotify、SoundCloud、Deezer 和 TIDAL 的歌曲。也可以分享专辑，在这里选择歌曲。</string>
+    <string name="share_blocked_song_title">无法加载这首歌</string>
+    <string name="share_blocked_album_title">无法加载这张专辑</string>
+    <string name="share_blocked_unavailable_subtitle">加载时出了点问题。请稍后重试。</string>
+    <string name="share_blocked_nomatch_title">这首歌还不在 Corus 上</string>
+    <string name="share_blocked_nomatch_subtitle">在 Corus 可发布的曲库中没有找到匹配。</string>
+    <string name="share_unreleased">这首歌尚未发行。</string>
+    <string name="share_blocked_unreleased_title">这首歌还没发行</string>
+    <string name="share_blocked_unreleased_subtitle">Corus 只能发布已发行的音乐。稍后再来看看吧。</string>
+    <string name="reposters_title">转发</string>
+    <string name="reposters_empty">还没有转发。</string>
+    <string name="reposters_load_error">暂时无法加载转发。</string>
+    <plurals name="reposters_count">
+        <item quantity="other">%1$d 次转发</item>
+    </plurals>
 </resources>

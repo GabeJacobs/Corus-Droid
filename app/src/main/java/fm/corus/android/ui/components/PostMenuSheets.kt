@@ -181,7 +181,7 @@ fun PostMenuSheets(
                 },
                 onViewSongPage = { onNavigateToSong(post.track) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
-                showBackCoverOption = actions.remoteConfig.vinylFlipEnabled && !post.isMovie && post.track.source != TrackSource.SOUNDCLOUD && post.track.source != TrackSource.AUDIOMACK,
+                showBackCoverOption = actions.remoteConfig.vinylFlipEnabled && !post.isMovie && post.track.source != TrackSource.SOUNDCLOUD && post.track.source != TrackSource.AUDIOMACK && post.track.source != TrackSource.TIDAL && post.track.source != TrackSource.DEEZER,
                 isBackCoverFlipped = backCoverStateFor(post.id).isFlipped,
                 isSaved = isSaved,
                 // Rows gate on the flag; the nav callbacks are non-null whenever
@@ -301,6 +301,10 @@ fun openTrackInPreferredService(
         // Audiomack is link-out only — open its page regardless of the viewer's
         // preferred service (mirrors the SoundCloud lock above).
         track.source == TrackSource.AUDIOMACK -> open(track.audiomackUrl)
+        // TIDAL/Deezer exclusives are link-out only too (Audiomack treatment) —
+        // open the track's own page regardless of the viewer's preferred service.
+        track.source == TrackSource.TIDAL -> open(track.tidalURL)
+        track.source == TrackSource.DEEZER -> open(track.deezerURL)
         track.source == TrackSource.APPLEMUSIC &&
             (musicService == MusicService.SPOTIFY || musicService == MusicService.APPLE_MUSIC) -> {
             // Apple-only tracks aren't on Spotify, so a Spotify (or Apple Music)

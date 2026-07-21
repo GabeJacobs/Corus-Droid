@@ -62,6 +62,17 @@ class SongDetailViewModel @Inject constructor(
     ): String? =
         fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrl(track, service, cloudFunctions)
 
+    /** Resolve an Apple-sourced track to its Spotify open URL (or null on a
+     *  confirmed miss / error). Backs the song-detail "Play in Spotify" tap under
+     *  Apple-primary search — the detail-page twin of the mini-player resolve. */
+    suspend fun resolveSpotifyFromApple(
+        trackId: String,
+        name: String,
+        artist: String,
+        isrc: String?,
+    ): String? =
+        fm.corus.android.domain.MusicServiceLinkOut.resolveSpotifyFromApple(trackId, name, artist, isrc, cloudFunctions)
+
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
 

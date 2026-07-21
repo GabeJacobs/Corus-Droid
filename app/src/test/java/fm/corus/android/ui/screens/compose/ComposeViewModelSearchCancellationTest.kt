@@ -122,6 +122,8 @@ class ComposeViewModelSearchCancellationTest {
         hapticManager = hapticManager,
         remoteConfigService = remoteConfigService,
         networkMonitor = networkMonitor,
+        cloudFunctions = mock(),
+        preferencesDataStore = mock(),
     )
 
     private fun track(id: String) = CymbalTrack(

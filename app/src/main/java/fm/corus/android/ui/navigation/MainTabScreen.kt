@@ -278,6 +278,7 @@ fun MainTabScreen(
                     onLikeTap = { viewModel.toggleLikeForCurrentTrack() },
                     musicService = musicService,
                     resolveLinkOut = { viewModel.resolveCurrentServiceLinkUrl() },
+                    resolveSpotifyFromApple = { viewModel.resolveCurrentSpotifyFromApple() },
                     onTrackTap = {
                         val state = viewModel.nowPlayingManager.state.value
                         val navController = navControllers[selectedTab] ?: return@MiniPlayerBar

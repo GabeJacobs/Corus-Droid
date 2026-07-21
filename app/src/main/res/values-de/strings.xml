@@ -896,6 +896,9 @@
     <string name="compose_cancel">Abbrechen</string>
     <string name="compose_search_song">Nach einem Song suchen</string>
     <string name="compose_search_film">Nach einem Film suchen</string>
+    <!-- Unified compose picker (compose_unified_search_enabled): one field over songs AND films -->
+    <string name="compose_search_song_or_film">Nach einem Song oder Film suchen</string>
+    <string name="compose_recently_saved">ZULETZT GESPEICHERT</string>
     <string name="compose_cd_pause">Pausieren</string>
     <string name="compose_cd_play_preview">Vorschau abspielen</string>
     <string name="compose_cd_pause_preview">Vorschau pausieren</string>
@@ -1210,6 +1213,8 @@
     <string name="messaging_group_soft_hint">Sieht das vielleicht noch nicht</string>
     <string name="messaging_group_done">Fertig</string>
     <string name="post_menu_open_audiomack">In Audiomack öffnen</string>
+    <string name="post_menu_open_tidal">In TIDAL öffnen</string>
+    <string name="post_menu_open_deezer">In Deezer öffnen</string>
     <string name="post_menu_go_to_artist">Zum Künstler</string>
     <string name="post_menu_go_to_album">Zum Album</string>
     <string name="now_playing_no_preview">Keine Vorschau verfügbar</string>
@@ -1220,4 +1225,43 @@
     <string name="destination_hashtag_label">Hashtag</string>
     <string name="destination_n_shared">%1$s geteilt</string>
     <string name="destination_artist_is_on_corus">%1$s ist auf Corus</string>
+
+    <!-- Share-to-Corus target -->
+    <string name="share_title">Auf Corus teilen</string>
+    <string name="share_cancel">Abbrechen</string>
+    <string name="share_back">Zurück</string>
+    <string name="share_close">Schließen</string>
+    <string name="share_try_again">Erneut versuchen</string>
+    <string name="share_loading_song">Song wird geladen…</string>
+    <string name="share_loading_album">Album wird geladen…</string>
+    <string name="share_caption_placeholder">Schreib eine Beschreibung…</string>
+    <string name="share_posted">Auf Corus gepostet</string>
+    <string name="share_tap_song">Tippe auf einen Song, um ihn zu posten</string>
+    <string name="share_album_word">Album</string>
+    <string name="share_song_count_one">1 Song</string>
+    <string name="share_song_count_many">%1$d Songs</string>
+    <string name="share_track_unavailable">Dieser Song ist auf Corus nicht verfügbar.</string>
+    <string name="share_post_limit">Du hast dein Tageslimit an Posts erreicht.</string>
+    <string name="share_hard_cap">Du bist auf einem Lauf. Schau später wieder vorbei.</string>
+    <string name="share_posting_banned">Posten ist für dieses Konto nicht verfügbar.</string>
+    <string name="share_generic_error">Etwas ist schiefgelaufen. Versuch es erneut.</string>
+    <string name="share_blocked_signin_title">Melde dich zuerst bei Corus an</string>
+    <string name="share_blocked_signin_subtitle">Öffne die Corus-App und melde dich an, dann teile diesen Song erneut.</string>
+    <string name="share_blocked_unsupported_title">Teile einen Song</string>
+    <string name="share_blocked_unsupported_subtitle">Corus kann Songs von Apple Music, Spotify, SoundCloud, Deezer und TIDAL posten. Ein Album teilen geht auch. Den Song wählst du hier aus.</string>
+    <string name="share_blocked_song_title">Dieser Song konnte nicht geladen werden</string>
+    <string name="share_blocked_album_title">Dieses Album konnte nicht geladen werden</string>
+    <string name="share_blocked_unavailable_subtitle">Beim Laden ist etwas schiefgelaufen. Versuch es gleich noch mal.</string>
+    <string name="share_blocked_nomatch_title">Dieser Song ist noch nicht auf Corus</string>
+    <string name="share_blocked_nomatch_subtitle">Es gibt keine Entsprechung in den Katalogen, aus denen Corus posten kann.</string>
+    <string name="share_unreleased">Dieser Song ist noch nicht erschienen.</string>
+    <string name="share_blocked_unreleased_title">Dieser Song ist noch nicht draußen</string>
+    <string name="share_blocked_unreleased_subtitle">Corus kann nur bereits erschienene Musik posten. Schau etwas später wieder vorbei.</string>
+    <string name="reposters_title">Reposts</string>
+    <string name="reposters_empty">Noch keine Reposts.</string>
+    <string name="reposters_load_error">Reposts konnten gerade nicht geladen werden.</string>
+    <plurals name="reposters_count">
+        <item quantity="one">%1$d Repost</item>
+        <item quantity="other">%1$d Reposts</item>
+    </plurals>
 </resources>

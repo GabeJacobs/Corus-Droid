@@ -93,10 +93,17 @@ internal fun catalogRowSubtitle(track: CymbalTrack, number: Int?): String =
     }
 
 /** The Corus share count shown in [CatalogTrackRow]'s trailing slot in place of
- *  the duration, or null when the row keeps its duration — i.e. an unshared
- *  track, or an album-tracklist (numbered) row. Mirrors web + iOS. */
-internal fun catalogRowSharedCount(number: Int?, corusStats: TrackCorusStats?): Int? =
-    if (number == null) corusStats?.count?.takeIf { it > 0 } else null
+ *  the duration, or null when the track has no shares. Shown on both artist
+ *  Popular (art) and album tracklist (numbered) rows. Mirrors web + iOS. */
+internal fun catalogRowSharedCount(corusStats: TrackCorusStats?): Int? =
+    corusStats?.count?.takeIf { it > 0 }
+
+/** Whether the trailing slot falls back to the duration when there's no share
+ *  count. Album tracklist (numbered) rows stay blank instead — mirroring web's
+ *  album tracklist; artist Popular (art, [number] == null) rows keep the
+ *  duration. Mirrors web + iOS. */
+internal fun catalogRowShowsDuration(number: Int?, durationMs: Int): Boolean =
+    number == null && durationMs > 0
 
 /** Section header ("Popular" / "Discography" / "Recent posts"…) with an
  *  optional trailing "See all". Matches the song-detail header treatment. */
@@ -667,9 +674,12 @@ internal fun CatalogTrackRow(
             }
         }
 
-        // Shared Popular rows (art leading, count > 0) show the social count in
-        // the trailing slot in place of the duration.
-        val sharedCount = catalogRowSharedCount(number, corusStats)
+        // Shared rows (count > 0) show the social count in the trailing slot in
+        // place of the duration — on artist Popular and album tracklist rows.
+        // Album (numbered) rows stay blank when unshared; artist rows fall back to
+        // the duration (catalogRowShowsDuration).
+        val sharedCount = catalogRowSharedCount(corusStats)
+        val showsDuration = catalogRowShowsDuration(number, track.durationMs)
         if (rowTapPlays) {
             // Navigation lives here on numbered rows: duration/shared + chevron
             // cluster, mirroring the posted-by rows' timestamp + chevron. Padding
@@ -703,7 +713,7 @@ internal fun CatalogTrackRow(
                             color = CorusColors.Tertiary,
                         )
                     }
-                } else if (track.durationMs > 0) {
+                } else if (showsDuration) {
                     Text(
                         text = track.formattedDuration,
                         style = CorusFont.caption.copy(fontFeatureSettings = "tnum"),
@@ -717,7 +727,7 @@ internal fun CatalogTrackRow(
                     modifier = Modifier.size(16.dp),
                 )
             }
-        } else if (track.durationMs > 0) {
+        } else if (showsDuration) {
             Text(
                 text = track.formattedDuration,
                 style = CorusFont.caption.copy(fontFeatureSettings = "tnum"),
@@ -748,6 +758,7 @@ internal fun CymbalTrack.toQueuedTrack(origin: CatalogPlaybackOrigin? = null) = 
     source = source,
     soundcloudId = soundcloudId,
     soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+    audiomackUrl = audiomackUrl,
     catalogOrigin = origin,
 )
 

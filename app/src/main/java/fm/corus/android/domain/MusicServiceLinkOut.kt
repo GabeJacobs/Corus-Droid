@@ -28,9 +28,28 @@ object MusicServiceLinkOut {
     private val appleCache = mutableMapOf<String, String>()
     private val tidalCache = mutableMapOf<String, String>()
     private val deezerCache = mutableMapOf<String, String>()
+    private val spotifyCache = mutableMapOf<String, String>() // Apple-sourced trackId -> Spotify web URL
 
     private val _isResolving = MutableStateFlow(false)
     val isResolving: StateFlow<Boolean> = _isResolving.asStateFlow()
+
+    // Apple-sourced track ids a tap CONFIRMED aren't on Spotify. Observable so the
+    // mini-player logo recomposes from the optimistic Spotify glyph to Apple once
+    // confirmed. In-memory / per-process — zero reads on browse.
+    private val _absentFromSpotify = MutableStateFlow<Set<String>>(emptySet())
+    val absentFromSpotify: StateFlow<Set<String>> = _absentFromSpotify.asStateFlow()
+
+    /** True once an open-tap CONFIRMED this Apple-sourced track isn't on Spotify. */
+    fun knownNotOnSpotify(trackId: String?): Boolean =
+        trackId != null && _absentFromSpotify.value.contains(trackId)
+
+    /** Spotify search URL for a track — the fallback when the exact-track resolve
+     *  ERRORS (transient / not-yet-deployed). The tap promised Spotify, so keep the
+     *  user in Spotify rather than opening Apple; only a CONFIRMED absence opens Apple. */
+    fun spotifySearchUrl(name: String, artist: String): String {
+        val q = java.net.URLEncoder.encode("$name $artist".trim(), "UTF-8")
+        return "https://open.spotify.com/search/$q"
+    }
 
     /** Drawable for the preferred-service glyph shown on a Spotify-source post. */
     @DrawableRes
@@ -108,6 +127,39 @@ object MusicServiceLinkOut {
         MusicService.APPLE_MUSIC -> cached(appleCache, trackId) { cloud.appleMusicLinkOutUrl(name, artist, isrc, trackId) }
         MusicService.TIDAL -> cached(tidalCache, trackId) { cloud.tidalLinkOutUrl(name, artist, isrc, trackId) }
         MusicService.DEEZER -> cached(deezerCache, trackId) { cloud.deezerLinkOutUrl(name, artist, isrc, trackId) }
+    }
+
+    /**
+     * Resolve an Apple-sourced track to its Spotify page and open URL. Under
+     * Apple-primary search a preview is Apple-sourced but usually also on Spotify,
+     * so a Spotify viewer's open-tap resolves here. Cache-first, then the
+     * ISRC-cache-first `spotifyTrackLookup` callable (the common tap costs zero
+     * Spotify calls). Returns the URL on a hit; null on a CONFIRMED miss (the
+     * track is remembered so its logo flips to Apple) or a transient error (not
+     * remembered — a later tap retries). Mirror of [resolveLinkOutUrlRaw]'s Apple
+     * branch in the opposite direction.
+     */
+    suspend fun resolveSpotifyFromApple(
+        trackId: String,
+        name: String,
+        artist: String,
+        isrc: String?,
+        cloud: CloudFunctionsDataSource,
+    ): String? {
+        spotifyCache[trackId]?.let { return it } // cache hit → instant, no overlay
+        _isResolving.value = true
+        try {
+            val res = runCatching { cloud.spotifyTrackLookup(name, artist, isrc, trackId) }.getOrNull()
+                ?: return null // transient error — don't remember; let a later tap retry
+            if (res.found && !res.webUrl.isNullOrBlank()) {
+                spotifyCache[trackId] = res.webUrl
+                return res.webUrl
+            }
+            _absentFromSpotify.value = _absentFromSpotify.value + trackId // confirmed absent
+            return null
+        } finally {
+            _isResolving.value = false
+        }
     }
 
     private suspend fun cached(

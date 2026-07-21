@@ -203,6 +203,27 @@ class DestinationParsingTest {
         assertEquals("u1", page.firstPosterId)
     }
 
+    @Test
+    fun `parses album posts per-track share counts (Int and Double)`() {
+        val page = parseAlbumPostsResponse(
+            mapOf(
+                "posts" to emptyList<Map<String, Any?>>(),
+                "uniquePosterCount" to 4,
+                // Firebase callables deliver JS numbers as Int or Double.
+                "trackShareCounts" to mapOf("t1" to 3, "t2" to 1.0),
+            )
+        )
+        assertEquals(mapOf("t1" to 3, "t2" to 1), page.trackShareCounts)
+    }
+
+    @Test
+    fun `album posts share counts default to empty when absent`() {
+        val page = parseAlbumPostsResponse(
+            mapOf("posts" to emptyList<Map<String, Any?>>(), "uniquePosterCount" to 0)
+        )
+        assertTrue(page.trackShareCounts.isEmpty())
+    }
+
     // ── resolveArtistIdByName (song page artist-line fallback) ──
 
     @Test

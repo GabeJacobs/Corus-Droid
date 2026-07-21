@@ -34,6 +34,9 @@ class SpotifyRepository @Inject constructor(
             spotifyWebURL = externalUrls["spotify"] as? String ?: "",
             durationMs = (item["duration_ms"] as? Number)?.toInt() ?: 0,
             previewUrl = item["preview_url"] as? String,
+            // Additive: carry the ISRC (canonical recording identity) — used by
+            // the share resolver's cross-catalog validation and stub enrichment.
+            isrc = ((item["external_ids"] as? Map<String, Any?>)?.get("isrc") as? String)?.ifEmpty { null },
             releaseDate = album["release_date"] as? String,
             releaseDatePrecision = album["release_date_precision"] as? String,
         )
@@ -68,6 +71,7 @@ class SpotifyRepository @Inject constructor(
                 spotifyWebURL = externalUrls["spotify"] as? String ?: "",
                 durationMs = (item["duration_ms"] as? Number)?.toInt() ?: 0,
                 previewUrl = item["preview_url"] as? String,
+                isrc = ((item["external_ids"] as? Map<String, Any?>)?.get("isrc") as? String)?.ifEmpty { null },
                 releaseDate = album["release_date"] as? String,
                 releaseDatePrecision = album["release_date_precision"] as? String,
             )

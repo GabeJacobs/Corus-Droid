@@ -48,6 +48,11 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
      *  link-out only, so the song page needs this to render "Listen on Audiomack"
      *  and link the play button out for a not-yet-posted (search-hit) track. */
     val audiomackUrl: String? = null,
+    /** TIDAL / Deezer link-out URLs (source "tidal" `tdl:` id / "deezer" `dzr:`
+     *  id). Same Audiomack treatment — link-out only, so the song page can
+     *  render its "Open in TIDAL/Deezer" CTA before the track's posts load. */
+    val tidalURL: String? = null,
+    val deezerURL: String? = null,
     /** The recording's ISRC, when the source track carries it. Lets the song
      *  page's "posted by" match the SAME recording across store IDs — e.g. an
      *  Apple-catalog "Popular" row (`am:` id, no spotifyURI) whose posts were
