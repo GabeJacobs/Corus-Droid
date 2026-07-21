@@ -308,6 +308,8 @@ class CommentsViewModel @Inject constructor(
     fun startEditing(comment: CymbalComment) {
         _replyingTo.value = null
         _editingComment.value = comment
+        clearMentions()
+        clearHashtags()
     }
 
     fun cancelEditing() {
