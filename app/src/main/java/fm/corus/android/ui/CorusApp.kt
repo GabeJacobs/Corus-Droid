@@ -81,7 +81,7 @@ fun CorusApp(
         CompositionLocalProvider(
             LocalHapticManager provides hapticManager,
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            CompactWidthContainer(modifier = Modifier.fillMaxSize()) {
                 when (authState) {
                     AuthViewModel.AuthState.Loading -> {
                         Box(
