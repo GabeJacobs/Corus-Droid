@@ -43,7 +43,7 @@ plugins {
 
 android {
     namespace = "fm.corus.android"
-    compileSdk = 35
+    compileSdk = 36
 
     signingConfigs {
         create("release") {
@@ -57,7 +57,7 @@ android {
     defaultConfig {
         applicationId = "fm.corus.android"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = resolvedVersionCode
         versionName = "1.3.2"
 
@@ -183,7 +183,7 @@ dependencies {
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation(libs.ktor.client.mock)
-    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("org.robolectric:robolectric:4.16.1")
     // Compose UI tests run as Robolectric local unit tests (see CorusBottomBarLayoutTest).
     testImplementation(platform(libs.compose.bom))
     testImplementation("androidx.compose.ui:ui-test-junit4")
