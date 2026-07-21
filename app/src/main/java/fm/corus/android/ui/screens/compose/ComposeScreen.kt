@@ -1208,7 +1208,8 @@ private fun PickerSectionHeader(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = CorusSpacing.lg)
-            .padding(top = CorusSpacing.sm, bottom = CorusSpacing.md),
+            // Header-to-first-row = sm, matching iOS's zeroSection spacing.
+            .padding(top = CorusSpacing.sm, bottom = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
@@ -1242,10 +1243,12 @@ private fun PickerRowDivider() {
 }
 
 /** Breathing room between a section's last row and the next header, so the
- *  sections read as one continuous list rather than separate cards. */
+ *  sections read as one continuous list rather than separate cards. Kept small
+ *  (xs) because the next header already carries sm top padding — together they
+ *  make ~12dp, matching iOS (iOS: outer VStack xs + header top sm). */
 @Composable
 private fun PickerSectionGap() {
-    Spacer(modifier = Modifier.height(CorusSpacing.xl))
+    Spacer(modifier = Modifier.height(CorusSpacing.xs))
 }
 
 /**

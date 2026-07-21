@@ -9,6 +9,7 @@ import android.util.Log
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.FeedDecade
 import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.SuggestedUserMatch
@@ -192,6 +193,10 @@ class FeedViewModel @Inject constructor(
             .getOrDefault(FeedFilter.ALL)
     )
     val feedFilter: StateFlow<FeedFilter> = _feedFilter.asStateFlow()
+
+    private val _feedDecade = MutableStateFlow(
+        FeedDecade.fromStored(preferencesDataStore.feedDecadeSyncSeed())
+    )
     // Back-compat for existing observers — derived from _feedFilter.
     val feedMediaFilter: StateFlow<MediaType?> = _feedFilter
         .let { upstream ->
@@ -307,6 +312,20 @@ class FeedViewModel @Inject constructor(
             resolveFeedMode(preferencesDataStore.feedModeSyncSeed()),
         )
 
+    fun isDecadeFilterVisible(mode: String): Boolean =
+        remoteConfig.feedDecadeFilterEnabled && mode == "trending"
+
+    private fun decadeApplicableTo(mode: String, decade: Int?): Int? =
+        if (isDecadeFilterVisible(mode)) decade else null
+
+    val appliedFeedDecade: StateFlow<Int?> =
+        combine(feedMode, _feedDecade) { mode, decade -> decadeApplicableTo(mode, decade) }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                decadeApplicableTo(feedMode.value, _feedDecade.value),
+            )
+
     // The mode the currently-shown page was actually loaded with. feedMode
     // resolves from DataStore asynchronously (its eager seed is "following"),
     // so the screen's first loadFeed() can fire and fetch Following before the
@@ -414,8 +433,13 @@ class FeedViewModel @Inject constructor(
             val saved = runCatching {
                 FeedFilter.valueOf(preferencesDataStore.feedFilter.first())
             }.getOrDefault(FeedFilter.ALL)
-            if (saved != _feedFilter.value) {
-                _feedFilter.value = saved
+            val savedDecade = FeedDecade.fromStored(
+                runCatching { preferencesDataStore.feedDecade.first() }.getOrNull()
+            )
+            val changed = saved != _feedFilter.value || savedDecade != _feedDecade.value
+            _feedFilter.value = saved
+            _feedDecade.value = savedDecade
+            if (changed) {
                 // If the screen already kicked off a default (ALL) load before the
                 // async restore landed, redo it so the page matches the restored
                 // filter. When the restore wins the race, the screen's initial
@@ -623,6 +647,7 @@ class FeedViewModel @Inject constructor(
                     // Pull-to-refresh (refresh=true) → boost recency so the
                     // newest posts lead. First load / pagination doesn't.
                     isRefresh = refresh,
+                    releaseDecade = decadeApplicableTo(mode, _feedDecade.value),
                 )
                 // Superseded-mode guard for the RANKED branch. Every write below
                 // (gate, session token, page index, seen-IDs) mutates state that
@@ -804,6 +829,37 @@ class FeedViewModel @Inject constructor(
         _feedFilter.value = filter
         // Persist so the selection survives an app restart (mirrors iOS).
         viewModelScope.launch { preferencesDataStore.setFeedFilter(filter.name) }
+        if (filter.newReleasesOnly && _feedDecade.value != null) {
+            analyticsService.logFeedDecadeChanged(FeedDecade.analyticsValue(null))
+            storeFeedDecade(null)
+        }
+        restartFeedForNarrowingChange()
+    }
+
+    fun setFeedDecade(decade: Int?) {
+        val next = FeedDecade.normalize(decade)
+        if (next == _feedDecade.value) return
+        analyticsService.logFeedDecadeChanged(FeedDecade.analyticsValue(next))
+        storeFeedDecade(next)
+        val downgraded = when {
+            next == null -> null
+            _feedFilter.value == FeedFilter.MUSIC_NEW_RELEASES -> FeedFilter.MUSIC
+            _feedFilter.value == FeedFilter.FILM_NEW_RELEASES -> FeedFilter.FILM
+            else -> null
+        }
+        if (downgraded != null) {
+            _feedFilter.value = downgraded
+            viewModelScope.launch { preferencesDataStore.setFeedFilter(downgraded.name) }
+        }
+        restartFeedForNarrowingChange()
+    }
+
+    private fun storeFeedDecade(decade: Int?) {
+        _feedDecade.value = decade
+        viewModelScope.launch { preferencesDataStore.setFeedDecade(FeedDecade.toStored(decade)) }
+    }
+
+    private fun restartFeedForNarrowingChange() {
         // Server-side filter changed — reset the paginated feed and re-fetch
         // so the returned page matches the new filter.
         lastTimestamp = null

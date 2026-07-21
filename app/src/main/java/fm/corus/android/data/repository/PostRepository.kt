@@ -62,9 +62,11 @@ class PostRepository @Inject constructor(
         newReleasesOnly: Boolean = false,
         scope: String = "trending",
         isRefresh: Boolean = false,
+        releaseDecade: Int? = null,
     ): CloudFunctionsDataSource.ForYouFeedPage {
         return cloudFunctions.getForYouFeed(
-            userId, pageSize, sessionToken, pageIndex, seenPostIds, mediaType, newReleasesOnly, scope, isRefresh
+            userId, pageSize, sessionToken, pageIndex, seenPostIds, mediaType, newReleasesOnly, scope, isRefresh,
+            releaseDecade,
         ).also { cachePosts(it.posts) }
     }
 

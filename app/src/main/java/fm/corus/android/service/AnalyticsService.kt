@@ -211,6 +211,7 @@ class AnalyticsService @Inject constructor(
     fun logSearchFilterChanged(filter: String) = logEvent("search_filter_changed", mapOf("filter" to filter))
     fun logFeedFilterChanged(filter: String) = logEvent("feed_filter_changed", mapOf("filter" to filter))
     fun logFeedModeChanged(mode: String) = logEvent("feed_mode_changed", mapOf("mode" to mode))
+    fun logFeedDecadeChanged(decade: String) = logEvent("feed_decade_changed", mapOf("decade" to decade))
     // Feed-switch hint discovery. `feed_switcher_opened` fires on every switcher
     // open regardless of the RC flag (baseline signal + permanent suppression);
     // `feed_switch_hint_shown` fires when the coachmark appears. Mirrors iOS/web.

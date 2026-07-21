@@ -407,6 +407,7 @@ class CloudFunctionsDataSource @Inject constructor(
         newReleasesOnly: Boolean = false,
         scope: String = "trending",
         isRefresh: Boolean = false,
+        releaseDecade: Int? = null,
     ): ForYouFeedPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
@@ -421,6 +422,7 @@ class CloudFunctionsDataSource @Inject constructor(
         }
         mediaType?.let { params["mediaType"] = it.value }
         if (newReleasesOnly) params["newReleasesOnly"] = true
+        releaseDecade?.let { params["releaseDecade"] = it }
 
         val result = functions.getHttpsCallable("getForYouFeed").call(params).await()
         val data = result.getData() as? Map<String, Any?>

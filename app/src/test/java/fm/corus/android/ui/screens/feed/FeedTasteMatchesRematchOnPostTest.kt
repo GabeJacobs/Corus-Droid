@@ -118,7 +118,7 @@ class FeedTasteMatchesRematchOnPostTest {
         // until a post shifts the viewer's taste, then a served page.
         wheneverBlocking {
             postRepository.getForYouFeed(
-                any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(),
+                any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
             )
         }.doSuspendableAnswer {
             if (serving) {

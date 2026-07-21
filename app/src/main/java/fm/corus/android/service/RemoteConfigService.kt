@@ -366,6 +366,9 @@ class RemoteConfigService @Inject constructor(
     val repostersListEnabled: Boolean
         get() = remoteConfig.getBoolean("reposters_list_enabled")
 
+    val feedDecadeFilterEnabled: Boolean
+        get() = feedFlag("feed_decade_filter_enabled")
+
     // Tracks the UID last pushed as the `user_id` signal so we can tell when it
     // changes (login / account switch) and force a fresh fetch. Null-vs-unset is
     // distinguished by [hasAppliedUserSignal] so the first apply always counts.
@@ -438,6 +441,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("compose_unified_search_enabled", remoteConfig.getBoolean("compose_unified_search_enabled"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
+            .putBoolean("feed_decade_filter_enabled", remoteConfig.getBoolean("feed_decade_filter_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
             .apply()
     }
@@ -523,6 +527,7 @@ class RemoteConfigService @Inject constructor(
             "feed_switch_hint_min_session" to 3L,
             "feed_switch_hint_max_impressions" to 3L,
             "reposters_list_enabled" to false,
+            "feed_decade_filter_enabled" to false,
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
         )
     }

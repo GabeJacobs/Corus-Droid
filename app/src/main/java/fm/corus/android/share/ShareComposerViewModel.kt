@@ -50,7 +50,7 @@ class ShareComposerViewModel @Inject constructor(
         data object AlbumPicker : Phase
         data object Ready : Phase
         data object Posting : Phase
-        data class Posted(val isFirstPoster: Boolean) : Phase
+        data class Posted(val isFirstPoster: Boolean, val postId: String) : Phase
         data class Blocked(val reason: BlockedReason) : Phase
     }
 
@@ -422,7 +422,7 @@ class ShareComposerViewModel @Inject constructor(
                         isFirstPoster = true,
                     )
                 }
-                _phase.value = Phase.Posted(isFirstPoster = result.isFirstPoster)
+                _phase.value = Phase.Posted(isFirstPoster = result.isFirstPoster, postId = result.postId)
             } catch (e: CloudFunctionsDataSource.PostLimitReachedException) {
                 _phase.value = Phase.Ready
                 ToastManager.show(if (e.hardCap) hardCapMessage else limitMessage)

@@ -176,6 +176,11 @@
     <string name="feed_filter_film">仅电影</string>
     <string name="feed_filter_music_new_releases">音乐新发布</string>
     <string name="feed_filter_film_new_releases">电影新上映</string>
+    <string name="feed_filter_decade">年代</string>
+    <string name="feed_filter_decade_any">所有年代</string>
+    <string name="feed_empty_decade_title">没有%1$s的内容</string>
+    <string name="feed_empty_decade_subtitle">这个年代的内容还不足以填满你的信息流。换一个年代试试。</string>
+    <string name="feed_empty_decade_show_all">显示全部年代</string>
     <string name="feed_empty_new_releases_title">还没有新发布</string>
     <string name="feed_empty_new_releases_subtitle">稍后再来查看你关注的人发布的更多新作。</string>
     <string name="feed_empty_new_releases_show_all">显示全部内容</string>

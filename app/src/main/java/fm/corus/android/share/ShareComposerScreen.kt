@@ -71,6 +71,7 @@ import fm.corus.android.ui.theme.CorusSpacing
 fun ShareComposerScreen(
     sharedText: String?,
     onFinish: () -> Unit,
+    onPosted: (postId: String) -> Unit,
     viewModel: ShareComposerViewModel = hiltViewModel(),
 ) {
     val phase by viewModel.phase.collectAsState()
@@ -93,15 +94,15 @@ fun ShareComposerScreen(
             is ShareComposerViewModel.Phase.Posted -> {
                 if (p.isFirstPoster && trophyPost != null) {
                     // Same staging as the app: the trophy overlays the inert
-                    // composer; dismissing it closes the share sheet.
+                    // composer; dismissing it lands the user in Corus on their post.
                     ComposerContent(viewModel, track, caption, commentsAudience, phase, enabled = false)
                     TrophyCelebrationView(
                         post = trophyPost!!,
                         visible = true,
-                        onDismiss = onFinish,
+                        onDismiss = { onPosted(p.postId) },
                     )
                 } else {
-                    PostedConfirmation(onFinish)
+                    PostedConfirmation(onDone = { onPosted(p.postId) })
                 }
             }
 
@@ -521,10 +522,10 @@ private fun CenteredLoading(label: String) {
 }
 
 @Composable
-private fun PostedConfirmation(onFinish: () -> Unit) {
+private fun PostedConfirmation(onDone: () -> Unit) {
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1200)
-        onFinish()
+        onDone()
     }
     Column(
         modifier = Modifier.fillMaxSize(),

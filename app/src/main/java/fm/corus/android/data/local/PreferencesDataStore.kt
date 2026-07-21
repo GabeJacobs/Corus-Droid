@@ -245,6 +245,8 @@ class PreferencesDataStore @Inject constructor(
         // ViewModel can seed the active filter without awaiting DataStore
         // (avoids an all/music → film flash on cold launch).
         private const val FEED_FILTER_SYNC_KEY = "feed_filter"
+        val FEED_DECADE = stringPreferencesKey("feed_decade")
+        private const val FEED_DECADE_SYNC_KEY = "feed_decade"
         // Synchronous mirror of LAST_COMPOSE_MEDIA_TYPE, same store/reasoning as
         // the two above: the unified compose picker orders its trending pair by
         // the last-posted medium, and that order must be right on the picker's
@@ -390,6 +392,24 @@ class PreferencesDataStore @Inject constructor(
     fun feedFilterSyncSeed(): String =
         context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
             .getString(FEED_FILTER_SYNC_KEY, null) ?: "ALL"
+
+    val feedDecade: Flow<String> = dataStore.data.map { prefs ->
+        (prefs[FEED_DECADE] ?: "").also { mirrorFeedDecadeSync(it) }
+    }
+
+    suspend fun setFeedDecade(value: String) {
+        mirrorFeedDecadeSync(value)
+        dataStore.edit { it[FEED_DECADE] = value }
+    }
+
+    private fun mirrorFeedDecadeSync(raw: String) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(FEED_DECADE_SYNC_KEY, raw).apply()
+    }
+
+    fun feedDecadeSyncSeed(): String =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(FEED_DECADE_SYNC_KEY, null) ?: ""
 
     /**
      * The medium ("track" / "movie") of the user's last pick in the compose

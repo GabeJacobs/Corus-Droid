@@ -33,8 +33,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
@@ -91,6 +94,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.FeedDecade
 import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.domain.FeedModeOrder
@@ -172,6 +176,8 @@ fun FeedScreen(
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val feedMode by viewModel.feedMode.collectAsState()
+    val feedDecade: Int? = viewModel.appliedFeedDecade.collectAsState().value
+    val showDecadeFilter = viewModel.isDecadeFilterVisible(feedMode)
     val followingUserIds by viewModel.followingUserIds.collectAsState()
     val followingLoaded by viewModel.followingLoaded.collectAsState()
     val forYouLoadFailed by viewModel.forYouLoadFailed.collectAsState()
@@ -325,6 +331,9 @@ fun FeedScreen(
             filterMenuExpanded = filterMenuExpanded,
             onFilterMenuExpandedChange = { filterMenuExpanded = it },
             onSetFilter = { viewModel.setFeedFilter(it) },
+            showDecadeFilter = showDecadeFilter,
+            feedDecade = feedDecade,
+            onSetDecade = { viewModel.setFeedDecade(it) },
             onGeneratePlaylist = {
                 val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
                 when {
@@ -751,6 +760,24 @@ fun FeedScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+                }
+            }
+
+            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedDecade != null -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    header()
+                    FeedDecadeEmptyState(
+                        decade = feedDecade,
+                        onShowAllDecades = {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                            viewModel.setFeedDecade(null)
+                        },
+                    )
                 }
             }
 
@@ -1735,13 +1762,57 @@ private fun Modifier.dashedBorder(color: Color, cornerRadius: Dp, strokeWidth: D
         )
     }
 
+@Composable
+internal fun FeedDecadeEmptyState(decade: Int, onShowAllDecades: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(modifier = Modifier.height(60.dp))
+        Icon(
+            imageVector = Icons.Filled.History,
+            contentDescription = null,
+            tint = CorusColors.Tertiary,
+            modifier = Modifier.size(36.dp),
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
+        Text(
+            text = stringResource(R.string.feed_empty_decade_title, FeedDecade.label(decade)),
+            style = CorusFont.songTitle,
+            color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+        Text(
+            text = stringResource(R.string.feed_empty_decade_subtitle),
+            style = CorusFont.body,
+            color = CorusColors.Tertiary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        Button(
+            onClick = onShowAllDecades,
+            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+            shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+        ) {
+            Text(
+                text = stringResource(R.string.feed_empty_decade_show_all),
+                style = CorusFont.button,
+                color = CorusColors.Background,
+            )
+        }
+        Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+    }
+}
+
 /**
  * Feed top bar — centered "corus" logo, filter menu on the left,
  * playlist button on the right. Rendered as the first item of the
  * scrolling list so it scrolls away with content (matching iOS).
  */
 @Composable
-private fun FeedHeader(
+internal fun FeedHeader(
     showPlaylistButton: Boolean,
     isGeneratingPlaylist: Boolean,
     feedFilter: FeedFilter,
@@ -1749,6 +1820,9 @@ private fun FeedHeader(
     onFilterMenuExpandedChange: (Boolean) -> Unit,
     onSetFilter: (FeedFilter) -> Unit,
     onGeneratePlaylist: () -> Unit,
+    showDecadeFilter: Boolean = false,
+    feedDecade: Int? = null,
+    onSetDecade: (Int?) -> Unit = {},
     trendingFeedEnabled: Boolean = false,
     favoritesEnabled: Boolean = false,
     tasteMatchesAvailable: Boolean = false,
@@ -1813,11 +1887,17 @@ private fun FeedHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box {
-                IconButton(onClick = { onFilterMenuExpandedChange(true) }) {
+                var decadeDrillIn by remember { mutableStateOf(false) }
+                IconButton(
+                    onClick = {
+                        decadeDrillIn = false
+                        onFilterMenuExpandedChange(true)
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.List,
                         contentDescription = stringResource(R.string.feed_cd_filter),
-                        tint = if (!feedFilter.isAll) CorusColors.Accent else CorusColors.Secondary,
+                        tint = if (!feedFilter.isAll || feedDecade != null) CorusColors.Accent else CorusColors.Secondary,
                     )
                 }
                 DropdownMenu(
@@ -1831,48 +1911,107 @@ private fun FeedHeader(
                             tint = CorusColors.Accent,
                         )
                     }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.feed_filter_all)) },
-                        trailingIcon = if (feedFilter == FeedFilter.ALL) activeCheckmark else null,
-                        onClick = {
-                            onSetFilter(FeedFilter.ALL)
-                            onFilterMenuExpandedChange(false)
-                        },
-                    )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.feed_filter_music)) },
-                        trailingIcon = if (feedFilter == FeedFilter.MUSIC) activeCheckmark else null,
-                        onClick = {
-                            onSetFilter(FeedFilter.MUSIC)
-                            onFilterMenuExpandedChange(false)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.feed_filter_film)) },
-                        trailingIcon = if (feedFilter == FeedFilter.FILM) activeCheckmark else null,
-                        onClick = {
-                            onSetFilter(FeedFilter.FILM)
-                            onFilterMenuExpandedChange(false)
-                        },
-                    )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.feed_filter_music_new_releases)) },
-                        trailingIcon = if (feedFilter == FeedFilter.MUSIC_NEW_RELEASES) activeCheckmark else null,
-                        onClick = {
-                            onSetFilter(FeedFilter.MUSIC_NEW_RELEASES)
-                            onFilterMenuExpandedChange(false)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.feed_filter_film_new_releases)) },
-                        trailingIcon = if (feedFilter == FeedFilter.FILM_NEW_RELEASES) activeCheckmark else null,
-                        onClick = {
-                            onSetFilter(FeedFilter.FILM_NEW_RELEASES)
-                            onFilterMenuExpandedChange(false)
-                        },
-                    )
+                    val decadeName = stringResource(R.string.feed_filter_decade)
+                    val decadeGroupLabel =
+                        if (feedDecade == null) decadeName
+                        else "$decadeName · ${FeedDecade.label(feedDecade)}"
+                    if (decadeDrillIn && showDecadeFilter) {
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                        contentDescription = null,
+                                        tint = CorusColors.Secondary,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Text(text = decadeGroupLabel, color = CorusColors.Secondary)
+                                }
+                            },
+                            onClick = { decadeDrillIn = false },
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.feed_filter_decade_any)) },
+                            trailingIcon = if (feedDecade == null) activeCheckmark else null,
+                            onClick = {
+                                onSetDecade(null)
+                                onFilterMenuExpandedChange(false)
+                            },
+                        )
+                        HorizontalDivider()
+                        FeedDecade.OFFERED.forEach { decade ->
+                            DropdownMenuItem(
+                                text = { Text(FeedDecade.label(decade)) },
+                                trailingIcon = if (feedDecade == decade) activeCheckmark else null,
+                                onClick = {
+                                    onSetDecade(decade)
+                                    onFilterMenuExpandedChange(false)
+                                },
+                            )
+                        }
+                    } else {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.feed_filter_all)) },
+                            trailingIcon = if (feedFilter == FeedFilter.ALL) activeCheckmark else null,
+                            onClick = {
+                                onSetFilter(FeedFilter.ALL)
+                                onFilterMenuExpandedChange(false)
+                            },
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.feed_filter_music)) },
+                            trailingIcon = if (feedFilter == FeedFilter.MUSIC) activeCheckmark else null,
+                            onClick = {
+                                onSetFilter(FeedFilter.MUSIC)
+                                onFilterMenuExpandedChange(false)
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.feed_filter_film)) },
+                            trailingIcon = if (feedFilter == FeedFilter.FILM) activeCheckmark else null,
+                            onClick = {
+                                onSetFilter(FeedFilter.FILM)
+                                onFilterMenuExpandedChange(false)
+                            },
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.feed_filter_music_new_releases)) },
+                            trailingIcon = if (feedFilter == FeedFilter.MUSIC_NEW_RELEASES) activeCheckmark else null,
+                            onClick = {
+                                onSetFilter(FeedFilter.MUSIC_NEW_RELEASES)
+                                onFilterMenuExpandedChange(false)
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.feed_filter_film_new_releases)) },
+                            trailingIcon = if (feedFilter == FeedFilter.FILM_NEW_RELEASES) activeCheckmark else null,
+                            onClick = {
+                                onSetFilter(FeedFilter.FILM_NEW_RELEASES)
+                                onFilterMenuExpandedChange(false)
+                            },
+                        )
+                        if (showDecadeFilter) {
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text(text = decadeGroupLabel) },
+                                trailingIcon = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (feedDecade != null) activeCheckmark()
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            tint = CorusColors.Secondary,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                },
+                                onClick = { decadeDrillIn = true },
+                            )
+                        }
+                    }
                 }
             }
             // Indicator icon next to the filter button. Same purple as the
@@ -1898,6 +2037,14 @@ private fun FeedHeader(
                     modifier = Modifier.size(20.dp),
                 )
                 FeedFilter.ALL -> {}
+            }
+            if (feedDecade != null) {
+                Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                Text(
+                    text = FeedDecade.label(feedDecade),
+                    style = CorusFont.button,
+                    color = CorusColors.Accent,
+                )
             }
         }
     }

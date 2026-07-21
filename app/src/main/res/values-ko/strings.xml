@@ -176,6 +176,11 @@
     <string name="feed_filter_film">영화만</string>
     <string name="feed_filter_music_new_releases">음악 신작</string>
     <string name="feed_filter_film_new_releases">영화 신작</string>
+    <string name="feed_filter_decade">연대</string>
+    <string name="feed_filter_decade_any">모든 연대</string>
+    <string name="feed_empty_decade_title">%1$s 게시물이 없어요</string>
+    <string name="feed_empty_decade_subtitle">그 연대의 게시물이 피드를 채울 만큼 많지 않아요. 다른 연대를 골라 보세요.</string>
+    <string name="feed_empty_decade_show_all">모든 연대 보기</string>
     <string name="feed_empty_new_releases_title">아직 신작이 없어요</string>
     <string name="feed_empty_new_releases_subtitle">팔로우하는 사람들의 신작을 보려면 나중에 다시 확인해 주세요.</string>
     <string name="feed_empty_new_releases_show_all">모든 게시물 보기</string>

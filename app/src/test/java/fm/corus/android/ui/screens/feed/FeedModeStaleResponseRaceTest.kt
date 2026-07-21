@@ -156,7 +156,7 @@ class FeedModeStaleResponseRaceTest {
             }
             wheneverBlocking {
                 postRepository.getForYouFeed(
-                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(),
+                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
                 )
             }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(trendingPosts, false, "tok", false))
 
@@ -217,7 +217,7 @@ class FeedModeStaleResponseRaceTest {
             val tmGate = CompletableDeferred<Unit>()
             wheneverBlocking {
                 postRepository.getForYouFeed(
-                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(),
+                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
                 )
             }.doSuspendableAnswer {
                 val sessionToken = it.getArgument<String?>(2)

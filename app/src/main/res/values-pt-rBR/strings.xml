@@ -902,6 +902,11 @@
     <string name="notifications_row_read_receipts">Confirmações de leitura</string>
     <string name="feed_filter_music_new_releases">Lançamentos de Música</string>
     <string name="feed_filter_film_new_releases">Lançamentos de Filmes</string>
+    <string name="feed_filter_decade">Década</string>
+    <string name="feed_filter_decade_any">Qualquer década</string>
+    <string name="feed_empty_decade_title">Nada dos %1$s</string>
+    <string name="feed_empty_decade_subtitle">Não há postagens suficientes dessa década para preencher seu feed. Tente outra década.</string>
+    <string name="feed_empty_decade_show_all">Ver todas as décadas</string>
     <string name="feed_empty_new_releases_title">Nenhum lançamento ainda</string>
     <string name="feed_empty_new_releases_subtitle">Volte mais tarde para ver novos lançamentos de quem você segue.</string>
     <string name="feed_empty_new_releases_show_all">Mostrar todos os coruses</string>

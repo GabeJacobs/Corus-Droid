@@ -176,6 +176,11 @@
     <string name="feed_filter_film">Solo film</string>
     <string name="feed_filter_music_new_releases">Nuove uscite musicali</string>
     <string name="feed_filter_film_new_releases">Nuove uscite di film</string>
+    <string name="feed_filter_decade">Decennio</string>
+    <string name="feed_filter_decade_any">Qualsiasi decennio</string>
+    <string name="feed_empty_decade_title">Niente dagli anni %1$s</string>
+    <string name="feed_empty_decade_subtitle">Non ci sono abbastanza post di quel decennio per riempire il tuo feed. Prova un altro decennio.</string>
+    <string name="feed_empty_decade_show_all">Mostra tutti i decenni</string>
     <string name="feed_empty_new_releases_title">Ancora nessuna nuova uscita</string>
     <string name="feed_empty_new_releases_subtitle">Torna più tardi per altre nuove uscite dalle persone che segui.</string>
     <string name="feed_empty_new_releases_show_all">Mostra tutti i post</string>

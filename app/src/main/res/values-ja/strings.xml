@@ -154,6 +154,11 @@
     <string name="feed_filter_film">映画のみ</string>
     <string name="feed_filter_music_new_releases">新着の音楽</string>
     <string name="feed_filter_film_new_releases">新着の映画</string>
+    <string name="feed_filter_decade">年代</string>
+    <string name="feed_filter_decade_any">すべての年代</string>
+    <string name="feed_empty_decade_title">%1$sの投稿はありません</string>
+    <string name="feed_empty_decade_subtitle">その年代の投稿はまだフィードを埋めるほどありません。別の年代を試してみてください。</string>
+    <string name="feed_empty_decade_show_all">すべての年代を表示</string>
     <string name="feed_empty_new_releases_title">まだ新着がありません</string>
     <string name="feed_empty_new_releases_subtitle">フォロー中の人からの新着は、しばらくしてからもう一度確認してください。</string>
     <string name="feed_empty_new_releases_show_all">すべての投稿を表示</string>

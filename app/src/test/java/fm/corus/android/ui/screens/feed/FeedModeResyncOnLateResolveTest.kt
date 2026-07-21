@@ -142,7 +142,7 @@ class FeedModeResyncOnLateResolveTest {
             }.doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
             wheneverBlocking {
                 postRepository.getForYouFeed(
-                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(),
+                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
                 )
             }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
 
@@ -164,7 +164,7 @@ class FeedModeResyncOnLateResolveTest {
             verifyBlocking(postRepository) {
                 getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(),
-                    eq("trending"), any(),
+                    eq("trending"), any(), anyOrNull(),
                 )
             }
         }
@@ -175,7 +175,7 @@ class FeedModeResyncOnLateResolveTest {
             whenever(remoteConfig.trendingFeedEnabled).doReturn(true)
             wheneverBlocking {
                 postRepository.getForYouFeed(
-                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(),
+                    any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
                 )
             }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
 

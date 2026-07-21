@@ -176,6 +176,11 @@
     <string name="feed_filter_film">Films uniquement</string>
     <string name="feed_filter_music_new_releases">Nouveautés musique</string>
     <string name="feed_filter_film_new_releases">Nouveautés films</string>
+    <string name="feed_filter_decade">Décennie</string>
+    <string name="feed_filter_decade_any">Toutes les décennies</string>
+    <string name="feed_empty_decade_title">Rien pour les %1$s</string>
+    <string name="feed_empty_decade_subtitle">Il n\'y a pas assez de publications de cette décennie pour remplir ton fil. Essaie une autre décennie.</string>
+    <string name="feed_empty_decade_show_all">Afficher toutes les décennies</string>
     <string name="feed_empty_new_releases_title">Aucune nouveauté pour l\'instant</string>
     <string name="feed_empty_new_releases_subtitle">Reviens plus tard pour découvrir plus de nouveautés des personnes que tu suis.</string>
     <string name="feed_empty_new_releases_show_all">Afficher toutes les publications</string>
