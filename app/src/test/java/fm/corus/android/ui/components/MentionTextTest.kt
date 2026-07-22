@@ -1,5 +1,6 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import org.junit.Assert.assertEquals
@@ -302,38 +303,86 @@ class MentionTextTest {
     }
 
     // ── bioTruncationCutoff ──
-    // Backs the last visible line off to a word boundary so the truncated bio reads
-    // "...published in brooklyn... more" rather than chopping mid-word.
+    // Longest prefix that still leaves room for "... more" inside the collapsed line budget.
 
     @Test
-    fun `bioTruncationCutoff breaks on the nearest preceding space`() {
-        val text = "dj and event producer published in brooklyn magazine"
-        // lineEnd lands inside "magazine"; back off 8 (reserve) -> index 44 ("a" of magazine),
-        // then to the preceding space after "brooklyn".
-        val cutoff = bioTruncationCutoff(text, lineEnd = 52, reserveChars = 8)
-        assertEquals("dj and event producer published in brooklyn ".length, cutoff)
-        assertEquals("dj and event producer published in brooklyn", text.substring(0, cutoff).trimEnd())
+    fun `bio truncation fills the full three-line budget`() {
+        // Hard-wrapped short lines: the old back-off-and-walk-to-a-space heuristic crossed a
+        // newline and collapsed this to two lines ("The best / Of... more").
+        val bio = "The best\nOf the\nBest\nof the best in the game"
+        val cutoff = bioTruncationCutoff(bio) { candidate -> fitsInThreeLines(candidate) }
+        val display = bioCollapsedDisplay(bio, cutoff)
+        assertEquals(3, lineCount(display, charsPerLine = 20))
+        assertEquals("The best\nOf the\nBest... more", display)
     }
 
     @Test
-    fun `bioTruncationCutoff falls back to the reserved index when the line has no space`() {
-        val text = "supercalifragilisticexpialidocious"
-        // No spaces to break on -> returns the raw backed-off index (lineEnd - reserveChars).
-        val cutoff = bioTruncationCutoff(text, lineEnd = 30, reserveChars = 8)
-        assertEquals(22, cutoff)
+    fun `bio truncation packs the last line up to the more label`() {
+        val bio = "dj and event producer published in brooklyn magazine every single month"
+        val cutoff = bioTruncationCutoff(bio) { candidate -> fitsInThreeLines(candidate) }
+        val display = bioCollapsedDisplay(bio, cutoff)
+        assertEquals(3, lineCount(display, charsPerLine = 20))
+        // One more character would have pushed "... more" onto a fourth line.
+        assertEquals(4, lineCount(bioCollapsedDisplay(bio, cutoff + 1), charsPerLine = 20))
     }
 
     @Test
-    fun `bioTruncationCutoff clamps lineEnd to the text length`() {
-        val text = "short bio here"
-        // lineEnd past the end must not throw; clamp before backing off.
-        val cutoff = bioTruncationCutoff(text, lineEnd = 999, reserveChars = 8)
-        assertEquals("short bio ".length, cutoff)
+    fun `bio truncation returns zero when nothing fits`() {
+        assertEquals(0, bioTruncationCutoff("some bio") { false })
     }
 
     @Test
-    fun `bioTruncationCutoff never returns a negative index`() {
-        val cutoff = bioTruncationCutoff("hi", lineEnd = 2, reserveChars = 8)
-        assertEquals(0, cutoff)
+    fun `bioCollapsedDisplay trims the trailing space before the ellipsis`() {
+        assertEquals("hello... more", bioCollapsedDisplay("hello world", 6))
     }
+
+    // ── buildLinkifiedBio ──
+
+    @Test
+    fun `buildLinkifiedBio tags emails and links without altering the text`() {
+        val bio = "culture writer\narielle@corus.fm\nlinktr.ee/ariellenyc"
+        val result = buildLinkifiedBio(bio, Color.Blue)
+        assertEquals(bio, result.text)
+        val targets = result
+            .getStringAnnotations(tag = "link", start = 0, end = bio.length)
+            .map { it.item }
+        assertEquals(listOf("arielle@corus.fm", "linktr.ee/ariellenyc"), targets)
+    }
+
+    @Test
+    fun `buildLinkifiedBio leaves plain prose alone`() {
+        val bio = "brooklyn / culture writer / heads know"
+        val result = buildLinkifiedBio(bio, Color.Blue)
+        assertEquals(bio, result.text)
+        assertEquals(0, result.getStringAnnotations(tag = "link", start = 0, end = bio.length).size)
+    }
+
+    @Test
+    fun `buildLinkifiedBio drops sentence punctuation trailing a link`() {
+        val bio = "find me at corus.fm."
+        val result = buildLinkifiedBio(bio, Color.Blue)
+        assertEquals(bio, result.text)
+        assertEquals(
+            listOf("corus.fm"),
+            result.getStringAnnotations(tag = "link", start = 0, end = bio.length).map { it.item },
+        )
+    }
+
+    // ── bioLinkUri ──
+
+    @Test
+    fun `bioLinkUri routes emails to mailto and bare domains to https`() {
+        assertEquals("mailto:arielle@corus.fm", bioLinkUri("arielle@corus.fm"))
+        assertEquals("https://linktr.ee/ariellenyc", bioLinkUri("linktr.ee/ariellenyc"))
+        assertEquals("https://corus.fm/brand", bioLinkUri("https://corus.fm/brand"))
+    }
+
+    /** Deterministic stand-in for text layout: hard breaks plus fixed-width wrapping. */
+    private fun lineCount(text: String, charsPerLine: Int): Int =
+        text.split("\n").sumOf { segment ->
+            maxOf(1, (segment.length + charsPerLine - 1) / charsPerLine)
+        }
+
+    private fun fitsInThreeLines(candidate: String): Boolean =
+        lineCount(candidate, charsPerLine = 20) <= 3
 }

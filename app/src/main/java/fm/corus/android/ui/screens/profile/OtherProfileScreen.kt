@@ -936,7 +936,8 @@ fun OtherProfileScreen(
                             val context = androidx.compose.ui.platform.LocalContext.current
                             Text(
                                 text = currentProfile.website!!.removePrefix("https://").removePrefix("http://"),
-                                style = CorusFont.caption,
+                                // Bio size, not caption — the whole block reads as one paragraph (matches iOS).
+                                style = CorusFont.bio,
                                 color = CorusColors.Accent,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,

@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -44,10 +45,12 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -320,27 +323,87 @@ fun ExpandableCaptionText(
     }
 }
 
+internal const val BIO_ELLIPSIS = "... "
+internal const val BIO_MORE = "more"
+
 /**
- * Backs [lineEnd] off by [reserveChars] (leaving room for the "... more" suffix) and then
- * to the nearest preceding space, so a truncated bio breaks on a word boundary rather than
- * mid-word. Falls back to the raw backed-off index when the line has no space to break on.
+ * Longest prefix of [text] that still fits the collapsed line budget once "... more" is
+ * appended, found by binary search over [fitsCollapsed] (which lays the candidate out and
+ * reports whether it stays inside the budget). Mirrors iOS `TextTruncator.fit()`.
+ *
+ * The old character-count heuristic (back off N chars, walk to the previous space) could
+ * walk back across a newline and silently drop a whole line — a bio of short hard-wrapped
+ * lines rendered two lines where three fit. Measuring the real candidate can't do that.
  * Pure + visible for testing.
  */
-internal fun bioTruncationCutoff(text: String, lineEnd: Int, reserveChars: Int = 8): Int {
-    val truncEnd = (lineEnd - reserveChars).coerceAtLeast(0).coerceAtMost(text.length)
-    var cutoff = truncEnd
-    while (cutoff > 0 && text[cutoff - 1] != ' ') cutoff--
-    if (cutoff == 0) cutoff = truncEnd
-    return cutoff
+internal fun bioTruncationCutoff(text: String, fitsCollapsed: (candidate: String) -> Boolean): Int {
+    var lo = 0
+    var hi = text.length
+    var best = 0
+    while (lo <= hi) {
+        val mid = (lo + hi) / 2
+        if (fitsCollapsed(bioCollapsedDisplay(text, mid))) {
+            best = mid
+            lo = mid + 1
+        } else {
+            hi = mid - 1
+        }
+    }
+    return best
+}
+
+/** The collapsed bio string for a given cutoff — what gets measured and what gets shown. */
+internal fun bioCollapsedDisplay(text: String, cutoff: Int): String =
+    text.take(cutoff).trimEnd() + BIO_ELLIPSIS + BIO_MORE
+
+private const val LINK_TAG = "link"
+
+/**
+ * Emails and web addresses (with or without a scheme) inside a bio. Emails come first in
+ * the alternation so `arielle@corus.fm` is one mailto link rather than a bare `corus.fm`
+ * domain. Matches what iOS gets from NSDataDetector's link checking.
+ */
+private val BIO_LINK_REGEX = Regex(
+    "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}" +
+        "|(https?://)?([A-Za-z0-9-]+\\.)+[A-Za-z]{2,}(/[^\\s]*)?"
+)
+
+/** Sentence punctuation that trails a link rather than belonging to it. */
+private const val LINK_TRAILING_PUNCTUATION = ".,;:!?)"
+
+/**
+ * Accent-colored, tappable emails and links inside an otherwise plain bio, tagged so
+ * [ExpandableBioText] can route a tap to the browser or mail app. Pure + visible for testing.
+ */
+internal fun buildLinkifiedBio(bio: String, linkColor: Color): AnnotatedString = buildAnnotatedString {
+    var lastIndex = 0
+    BIO_LINK_REGEX.findAll(bio).forEach { match ->
+        val target = match.value.trimEnd { it in LINK_TRAILING_PUNCTUATION }
+        if (target.isEmpty()) return@forEach
+        append(bio.substring(lastIndex, match.range.first))
+        pushStringAnnotation(tag = LINK_TAG, annotation = target)
+        withStyle(SpanStyle(color = linkColor)) { append(target) }
+        pop()
+        lastIndex = match.range.first + target.length
+    }
+    if (lastIndex < bio.length) append(bio.substring(lastIndex))
+}
+
+/** `mailto:` for addresses, `https://` for scheme-less domains. Pure + visible for testing. */
+internal fun bioLinkUri(target: String): String = when {
+    target.contains("://") -> target
+    target.contains("@") -> "mailto:$target"
+    else -> "https://$target"
 }
 
 /**
- * Expandable profile bio with a 4-line cap and a tap-to-reveal "... more" affordance.
- * Shows up to [maxCollapsedLines] lines collapsed; if the bio overflows it appends
- * "... more" (in primary text color so it stands out against the secondary-colored bio)
- * and tapping anywhere on the bio expands it to full. Bios are plain text — no mentions
- * or hashtags — so this is a lighter sibling of [ExpandableCaptionText]. Mirrors the iOS
- * ExpandableBioText in ProfileHeaderView.
+ * Expandable profile bio with a [maxCollapsedLines] cap and a tap-to-reveal "... more"
+ * affordance. Collapsed, it shows the longest prefix that still leaves room for "... more"
+ * on the last line ("more" in primary text color so it reads against the secondary-colored
+ * bio); tapping anywhere expands to the full bio. Emails and links are accent-colored and
+ * tappable once the full text is showing. Bios carry no mentions or hashtags, so this is a
+ * lighter sibling of [ExpandableCaptionText]. Mirrors the iOS ExpandableBioText in
+ * ProfileHeaderView.
  */
 @Composable
 fun ExpandableBioText(
@@ -353,9 +416,12 @@ fun ExpandableBioText(
     var overflowState by remember(bio) { mutableStateOf<Boolean?>(null) }
     var trimmedText by remember(bio) { mutableStateOf<AnnotatedString?>(null) }
 
+    val context = LocalContext.current
+    val measurer = rememberTextMeasurer()
     val moreColor = CorusColors.Text
+    val linkColor = CorusColors.Accent
     val bioStyle = CorusFont.bio.copy(color = CorusColors.Secondary)
-    val fullText = remember(bio) { AnnotatedString(bio) }
+    val fullText = remember(bio, linkColor) { buildLinkifiedBio(bio, linkColor) }
 
     val displayText = when {
         isExpanded -> fullText
@@ -381,15 +447,18 @@ fun ExpandableBioText(
                     if (!result.hasVisualOverflow) {
                         overflowState = false
                     } else {
-                        val lastLine = result.lineCount - 1
-                        val lineEnd = result.getLineEnd(lastLine, visibleEnd = true)
-                        val cutoff = bioTruncationCutoff(bio, lineEnd)
+                        val width = result.layoutInput.constraints.maxWidth
+                        val cutoff = bioTruncationCutoff(bio) { candidate ->
+                            measurer.measure(
+                                text = candidate,
+                                style = bioStyle,
+                                constraints = Constraints(maxWidth = width),
+                            ).lineCount <= maxCollapsedLines
+                        }
                         trimmedText = buildAnnotatedString {
-                            append(bio.substring(0, cutoff).trimEnd())
-                            append("... ")
-                            withStyle(SpanStyle(color = moreColor, fontWeight = FontWeight.SemiBold)) {
-                                append("more")
-                            }
+                            append(bio.take(cutoff).trimEnd())
+                            append(BIO_ELLIPSIS)
+                            withStyle(SpanStyle(color = moreColor)) { append(BIO_MORE) }
                         }
                         overflowState = true
                     }
@@ -400,12 +469,29 @@ fun ExpandableBioText(
                 text = displayText,
                 style = bioStyle,
                 maxLines = displayMaxLines,
-                onClick = {
-                    if (canExpand) isExpanded = true
+                onClick = { offset ->
+                    val link = displayText
+                        .getStringAnnotations(tag = LINK_TAG, start = offset, end = offset)
+                        .firstOrNull()
+                    when {
+                        link != null -> openBioLink(context, link.item)
+                        canExpand -> isExpanded = true
+                    }
                 },
             )
         }
     }
+}
+
+private fun openBioLink(context: android.content.Context, target: String) {
+    try {
+        context.startActivity(
+            android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse(bioLinkUri(target)),
+            )
+        )
+    } catch (_: Exception) { }
 }
 
 /**
@@ -523,10 +609,14 @@ fun UsernameWithFlair(
             if (flair != FlairStyle.NONE) {
                 Spacer(modifier = Modifier.width(4.dp))
                 if (flair.usesAssetImage) {
+                    // 18dp, not 14: the logo artwork carries its own transparent
+                    // margin, so at the icon size it reads visibly smaller than the
+                    // other flairs. Matches iOS UsernameWithBotBadge (18pt asset,
+                    // 12pt SF Symbols).
                     Image(
                         painter = painterResource(R.drawable.logo_no_background),
                         contentDescription = stringResource(R.string.mention_cd_corus),
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(18.dp),
                         contentScale = ContentScale.Fit,
                         colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(CorusColors.Accent),
                     )
