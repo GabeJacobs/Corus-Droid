@@ -1097,7 +1097,7 @@ class FirestoreDataSource @Inject constructor(
 
     suspend fun removeFCMToken(uid: String) {
         firestore.collection("users_v2").document(uid)
-            .update(mapOf("fcmToken" to FieldValue.delete()))
+            .update(mapOf("fcmToken" to FieldValue.delete(), "fcmTokenUpdatedAt" to FieldValue.delete()))
             .await()
     }
 

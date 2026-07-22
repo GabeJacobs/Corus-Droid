@@ -7,13 +7,17 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
 import fm.corus.android.MainActivity
 import fm.corus.android.R
+import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.domain.PostEngagementManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -21,7 +25,11 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var postEngagementManager: PostEngagementManager
 
+    @Inject lateinit var firestoreDataSource: FirestoreDataSource
+
     companion object {
+        private val tokenRegistrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
         private const val CHANNEL_ID = "corus_default"
         private const val CHANNEL_NAME = "Corus"
         // Dedicated channel for play-milestone pushes so users can mute just
@@ -51,10 +59,9 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        FirebaseFirestore.getInstance()
-            .collection("users_v2")
-            .document(uid)
-            .update("fcmToken", token)
+        tokenRegistrationScope.launch {
+            runCatching { firestoreDataSource.updateFCMToken(uid, token) }
+        }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
