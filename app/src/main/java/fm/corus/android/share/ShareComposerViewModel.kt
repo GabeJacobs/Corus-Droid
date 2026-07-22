@@ -13,6 +13,7 @@ import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
+import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.ToastManager
@@ -39,6 +40,7 @@ class ShareComposerViewModel @Inject constructor(
     private val subscriptionRepository: SubscriptionRepository,
     private val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
+    private val postCreationEvent: PostCreationEvent,
 ) : ViewModel() {
 
     enum class BlockedReason { NOT_SIGNED_IN, UNSUPPORTED_LINK, SONG_UNAVAILABLE, ALBUM_UNAVAILABLE, NOT_ON_CORUS, UNRELEASED }
@@ -50,7 +52,7 @@ class ShareComposerViewModel @Inject constructor(
         data object AlbumPicker : Phase
         data object Ready : Phase
         data object Posting : Phase
-        data class Posted(val isFirstPoster: Boolean, val postId: String) : Phase
+        data class Posted(val isFirstPoster: Boolean) : Phase
         data class Blocked(val reason: BlockedReason) : Phase
     }
 
@@ -412,6 +414,10 @@ class ShareComposerViewModel @Inject constructor(
                 analyticsService.logEvent("share_sheet_posted")
                 subscriptionRepository.incrementPostCount()
                 authRepository.bumpCymbalCount(1)
+                // Same signal ComposeViewModel fires: Feed + Profile listen on
+                // this singleton bus and refresh themselves, so the new post is
+                // already there when the user lands in the app (no manual pull).
+                postCreationEvent.notifyPostCreated(MediaType.TRACK)
 
                 if (result.isFirstPoster) {
                     _trophyPost.value = CymbalPost(
@@ -422,7 +428,7 @@ class ShareComposerViewModel @Inject constructor(
                         isFirstPoster = true,
                     )
                 }
-                _phase.value = Phase.Posted(isFirstPoster = result.isFirstPoster, postId = result.postId)
+                _phase.value = Phase.Posted(isFirstPoster = result.isFirstPoster)
             } catch (e: CloudFunctionsDataSource.PostLimitReachedException) {
                 _phase.value = Phase.Ready
                 ToastManager.show(if (e.hardCap) hardCapMessage else limitMessage)

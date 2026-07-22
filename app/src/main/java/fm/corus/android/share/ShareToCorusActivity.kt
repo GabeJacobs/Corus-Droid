@@ -1,7 +1,8 @@
 package fm.corus.android.share
 
+import android.app.Activity
 import android.content.Intent
-import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,10 +30,10 @@ import fm.corus.android.ui.theme.CorusTheme
  * Integrity), and Remote Config all just work.
  *
  * Finish behavior differs by outcome: cancel/close returns to the sharing app
- * (nothing happened, so don't yank the user away), but a SUCCESSFUL post opens
- * Corus on the post the user just made (unlike iOS, where the sandboxed
- * extension can't open its host app, Android can — the user asked to land in
- * Corus rather than bounce back to Spotify).
+ * (nothing happened, so don't yank the user away), but a SUCCESSFUL post brings
+ * Corus forward on whatever screen it was already showing. (iOS can't do this
+ * at all — a sandboxed extension may not open its host app — so there the sheet
+ * always dismisses back to the sharing app.)
  */
 @AndroidEntryPoint
 class ShareToCorusActivity : ComponentActivity() {
@@ -64,7 +65,7 @@ class ShareToCorusActivity : ComponentActivity() {
                     ShareComposerScreen(
                         sharedText = sharedText,
                         onFinish = { finish() },
-                        onPosted = ::openPostInCorus,
+                        onPosted = ::openCorus,
                     )
                 }
             }
@@ -72,20 +73,32 @@ class ShareToCorusActivity : ComponentActivity() {
     }
 
     /**
-     * Leaves the share overlay and opens the post the user just made in the
-     * Corus app. Routes through the existing `corus://post/{id}` deep link, so
-     * MainActivity (singleTask) either comes forward and handles it via
-     * onNewIntent or cold-starts and handles it in onCreate — the same path a
-     * push-notification tap uses. FLAG_ACTIVITY_NEW_TASK because we're starting
-     * from an activity hosted in the sharing app's task.
+     * Leaves the share overlay and brings Corus forward, deliberately WITHOUT a
+     * deep link: MainActivity is singleTask, so a plain launch resumes its task
+     * with the in-app navigation exactly where the user left it (its deep-link
+     * handler ignores non-ACTION_VIEW intents). The freshly created post is
+     * already accounted for — ShareComposerViewModel fires PostCreationEvent,
+     * which the Feed and Profile screens listen to. FLAG_ACTIVITY_NEW_TASK
+     * because we're starting from an activity hosted in the sharing app's task.
      */
-    private fun openPostInCorus(postId: String) {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            action = Intent.ACTION_VIEW
-            data = Uri.parse("corus://post/$postId")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
+    private fun openCorus() {
+        // Cut straight over with no transition on either side. This activity
+        // lives in the SHARING app's task, so reaching MainActivity crosses a
+        // task boundary — and the sheet's close animation stacked on top of the
+        // system's cross-task switch reads as a heavy "switching apps"
+        // ceremony. Suppressing both makes it a single instant beat.
+        val intent = Intent(this, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
         startActivity(intent)
-        finish()
+        // The two APIs want opposite ordering around finish(): the modern one
+        // must be armed before, the legacy one called after.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+            finish()
+        } else {
+            finish()
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
+        }
     }
 }

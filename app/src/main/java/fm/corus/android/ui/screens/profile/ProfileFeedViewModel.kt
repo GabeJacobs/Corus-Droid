@@ -39,7 +39,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class ProfileFeedSource { SONGS, FILMS, LIKES, SAVES, HASHTAG }
+enum class ProfileFeedSource(val mediaType: MediaType? = null) {
+    SONGS(MediaType.TRACK),
+    FILMS(MediaType.MOVIE),
+    LIKES,
+    SAVES,
+    HASHTAG,
+}
 
 /**
  * In-memory cache for passing initial posts from profile grids to the
@@ -256,15 +262,14 @@ class ProfileFeedViewModel @Inject constructor(
             try {
                 val (newPosts, newHasMore) = when (source) {
                     ProfileFeedSource.SONGS, ProfileFeedSource.FILMS -> {
-                        val allNew = cloudFunctions.getProfilePosts(
+                        val page = cloudFunctions.getProfilePosts(
                             userId = userId,
                             viewerId = viewerId,
                             limit = PAGE_SIZE,
                             lastTimestamp = null,
+                            mediaType = source.mediaType?.value,
                         )
-                        val mediaType = if (source == ProfileFeedSource.SONGS) MediaType.TRACK else MediaType.MOVIE
-                        val filtered = allNew.filter { it.mediaType == mediaType }.map { enrichPost(it) }
-                        filtered to (allNew.size >= PAGE_SIZE)
+                        page.map { enrichPost(it) } to (page.size >= PAGE_SIZE)
                     }
                     ProfileFeedSource.LIKES -> {
                         val page = cloudFunctions.getLikedPosts(
@@ -325,18 +330,17 @@ class ProfileFeedViewModel @Inject constructor(
                             _isLoadingMore.value = false
                             return
                         }
-                        val allNew = cloudFunctions.getProfilePosts(
+                        val page = cloudFunctions.getProfilePosts(
                             userId = userId,
                             viewerId = viewerId,
                             limit = PAGE_SIZE,
                             lastTimestamp = lastTimestamp,
+                            mediaType = source.mediaType?.value,
                         )
-                        val mediaType = if (source == ProfileFeedSource.SONGS) MediaType.TRACK else MediaType.MOVIE
-                        val filtered = allNew.filter { it.mediaType == mediaType }
                         val existingIds = _posts.value.map { it.id }.toSet()
-                        val unique = filtered.filter { it.id !in existingIds }.map { enrichPost(it) }
+                        val unique = page.filter { it.id !in existingIds }.map { enrichPost(it) }
                         _posts.value = _posts.value + unique
-                        if (allNew.size < PAGE_SIZE) _hasMore.value = false
+                        if (page.size < PAGE_SIZE) _hasMore.value = false
                         // Init engagement for new posts
                         unique.forEach { post ->
                             engagementManager.initState(

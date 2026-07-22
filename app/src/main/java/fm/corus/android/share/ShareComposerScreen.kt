@@ -71,7 +71,7 @@ import fm.corus.android.ui.theme.CorusSpacing
 fun ShareComposerScreen(
     sharedText: String?,
     onFinish: () -> Unit,
-    onPosted: (postId: String) -> Unit,
+    onPosted: () -> Unit,
     viewModel: ShareComposerViewModel = hiltViewModel(),
 ) {
     val phase by viewModel.phase.collectAsState()
@@ -99,10 +99,10 @@ fun ShareComposerScreen(
                     TrophyCelebrationView(
                         post = trophyPost!!,
                         visible = true,
-                        onDismiss = { onPosted(p.postId) },
+                        onDismiss = onPosted,
                     )
                 } else {
-                    PostedConfirmation(onDone = { onPosted(p.postId) })
+                    PostedConfirmation(onDone = onPosted)
                 }
             }
 

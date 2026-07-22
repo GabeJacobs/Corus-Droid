@@ -73,6 +73,7 @@ import fm.corus.android.ui.components.ReportContentType
 import fm.corus.android.ui.components.ReportSheet
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.components.applyMention
 import fm.corus.android.ui.components.buildMentionAnnotatedString
 import fm.corus.android.ui.components.parseMentionQuery
@@ -1054,17 +1055,25 @@ internal fun CommentContentRow(
         )
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    comment.user.username,
-                    style = CorusFont.captionMedium,
-                    color = CorusColors.Text,
-                    modifier = Modifier.clickable(onClick = onUserTap),
+            // Username + flair, matching the comments sheet (CommentsSheet.CommentRow)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            ) {
+                UsernameWithFlair(
+                    username = comment.user.username,
+                    isVerified = comment.user.isVerified,
+                    isClubMember = comment.user.isClubMember,
+                    flairStyle = comment.user.flairStyle,
+                    isBot = comment.user.isBot,
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onUserTap,
+                    ),
                 )
-                Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Text(DateUtils.relativeTime(LocalContext.current, comment.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
                 if (comment.isEdited) {
-                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
                     Text(stringResource(R.string.comments_edited), style = CorusFont.caption, color = CorusColors.Tertiary)
                 }
             }
