@@ -835,7 +835,6 @@
     <string name="club_plan_yearly">Anual</string>
     <string name="club_plan_monthly_price_format">%1$s/mês</string>
     <string name="club_plan_yearly_price_format">%1$s/ano</string>
-    <string name="club_plan_save_badge">ECONOMIZE 58%</string>
     <string name="club_plan_monthly_default_price">$3.99</string>
     <string name="club_plan_yearly_default_price">$29.99</string>
     <string name="club_cta_member">Você é membro!</string>
