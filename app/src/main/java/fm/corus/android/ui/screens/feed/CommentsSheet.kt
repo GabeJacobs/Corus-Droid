@@ -763,13 +763,14 @@ private fun CommentsSheetContent(
                 Box {
                     val entityAttachments = viewModel.commentEntityAttachmentsEnabled
                     // Opens the attach picker. With comment_entity_attachments_enabled
-                    // the picker's tabs read Music | Film — Music searches songs +
-                    // artists + albums in one query, Film searches films + directors.
-                    // Flag off keeps the legacy Songs/Films pair.
+                    // the picker is single-domain (no toggle): Music searches songs +
+                    // artists + albums in one query, Film searches films + directors —
+                    // the menu item already chose. Flag off keeps the Songs/Films pair.
                     val openPicker: (Boolean) -> Unit = { film ->
                         if (entityAttachments) {
-                            pickerModes = listOf(PickerMode.MUSIC_ALL, PickerMode.FILM_ALL)
-                            pickerInitialMode = if (film) PickerMode.FILM_ALL else PickerMode.MUSIC_ALL
+                            val only = if (film) PickerMode.FILM_ALL else PickerMode.MUSIC_ALL
+                            pickerModes = listOf(only)
+                            pickerInitialMode = only
                         } else {
                             pickerModes = listOf(PickerMode.SONG, PickerMode.FILM)
                             pickerInitialMode = if (film) PickerMode.FILM else PickerMode.SONG

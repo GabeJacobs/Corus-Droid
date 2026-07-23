@@ -209,19 +209,25 @@ fun SongFilmPickerSheet(
             HorizontalDivider(color = CorusColors.Divider)
 
             Column(modifier = Modifier.padding(horizontal = CorusSpacing.lg)) {
-                PickerSegmentedToggle(
-                    options = modes.map { pickerModeLabel(it) },
-                    selectedIndex = modes.indexOf(mode).coerceAtLeast(0),
-                    onSelected = { idx ->
-                        val newMode = modes[idx]
-                        if (newMode != mode) {
-                            mode = newMode
-                            clearResults()
-                            runSearch(searchQuery, newMode)
-                        }
-                    },
-                    modifier = Modifier.padding(vertical = CorusSpacing.sm),
-                )
+                // Toggle hidden when there's a single mode — the comment attach
+                // menu's Music/Film items already chose the domain.
+                if (modes.size > 1) {
+                    PickerSegmentedToggle(
+                        options = modes.map { pickerModeLabel(it) },
+                        selectedIndex = modes.indexOf(mode).coerceAtLeast(0),
+                        onSelected = { idx ->
+                            val newMode = modes[idx]
+                            if (newMode != mode) {
+                                mode = newMode
+                                clearResults()
+                                runSearch(searchQuery, newMode)
+                            }
+                        },
+                        modifier = Modifier.padding(vertical = CorusSpacing.sm),
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                }
 
                 val keyboardController = LocalSoftwareKeyboardController.current
                 Row(
