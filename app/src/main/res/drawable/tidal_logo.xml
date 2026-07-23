@@ -1,23 +1,30 @@
-<!-- PLACEHOLDER TIDAL logo. Geometrically IDENTICAL to the iOS asset
-     (Corus-iOS/.../Assets.xcassets/TidalLogo.imageset/TidalLogo.svg) and the web
-     TidalGlyph: same 361x361 viewport, same rounded square (r=80 arcs), same
-     three diamond paths. Replace all three with the official TIDAL brand mark
-     (https://tidal.com/logos) before production. -->
+<!-- Official TIDAL icon: the four-diamond mark (a row of three with one below
+     center) on TIDAL's black rounded-tile (their app-icon treatment) so it
+     reads on any background without per-site tinting, matching the
+     self-contained Spotify/Apple/Deezer badge marks. Diamond geometry is
+     verbatim from TIDAL's brand EPS (TIDAL Icon/RGB/EPS/icon-black-rgb.eps,
+     bbox 141.7323x94.4926), centered in a 189x189 tile (r=42 ≈ 22%) — the
+     diamond coordinates below are pre-translated by (+23.635,+47.25) since a
+     vector drawable can't group-transform. Geometrically identical to the web
+     TidalGlyph and the iOS TidalLogo.imageset; keep the three in sync. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp"
     android:height="48dp"
-    android:viewportWidth="361"
-    android:viewportHeight="361">
+    android:viewportWidth="189"
+    android:viewportHeight="189">
     <path
         android:fillColor="#000000"
-        android:pathData="M80,0 L281,0 A80,80 0 0 1 361,80 L361,281 A80,80 0 0 1 281,361 L80,361 A80,80 0 0 1 0,281 L0,80 A80,80 0 0 1 80,0 Z" />
+        android:pathData="M42,0 L147,0 A42,42 0 0 1 189,42 L189,147 A42,42 0 0 1 147,189 L42,189 A42,42 0 0 1 0,147 L0,42 A42,42 0 0 1 42,0 Z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M120.5,120.5 L60.5,180.5 L120.5,240.5 L180.5,180.5 Z" />
+        android:pathData="M70.8805,70.8736 L47.2574,94.4971 L23.635,70.8736 L47.2574,47.25 Z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M240.5,120.5 L180.5,180.5 L240.5,240.5 L300.5,180.5 Z" />
+        android:pathData="M118.1241,70.8726 L94.5026,94.4962 L70.8805,70.8726 L94.5026,47.25 Z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M180.5,60.5 L120.5,120.5 L180.5,180.5 L240.5,120.5 Z" />
+        android:pathData="M165.3673,70.8736 L141.745,94.4971 L118.1222,70.8736 L141.745,47.25 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M118.1241,118.1202 L94.5026,141.7423 L70.8805,118.1202 L94.5026,94.4962 Z" />
 </vector>
