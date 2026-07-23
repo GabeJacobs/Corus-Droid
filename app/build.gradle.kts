@@ -122,6 +122,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.animation)
     implementation(libs.compose.material.icons)
+    implementation(libs.haze)
     debugImplementation(libs.compose.ui.tooling)
 
     // AndroidX

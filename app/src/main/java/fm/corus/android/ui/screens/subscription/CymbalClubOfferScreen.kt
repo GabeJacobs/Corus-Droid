@@ -28,7 +28,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -44,6 +43,7 @@ import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.bottomSheetMaxHeight
 
 // Inside a ModalBottomSheet, LocalContext.current is a ContextWrapper around the
 // Activity, not the Activity itself, so a direct `as? Activity` cast returns null
@@ -524,7 +524,7 @@ fun CymbalClubOfferSheet(
     // always visible — they can never be pushed under the CTA or the system
     // navigation bar (navigationBarsPadding reserves the gesture/button-bar
     // inset, since a ModalBottomSheet only insets its top edge).
-    val maxSheetHeight = (LocalConfiguration.current.screenHeightDp * 0.94f).dp
+    val maxSheetHeight = bottomSheetMaxHeight()
     Column(
         modifier = Modifier
             .fillMaxWidth()

@@ -50,6 +50,11 @@ class ArtistPageViewModel @Inject constructor(
     /** Send-side gate for the "..." Share entry on this page. */
     val entityShareEnabled: Boolean get() = remoteConfigService.entityShareEnabled
 
+    /** Prototype gate for the immersive (full-bleed hero + frosted collapsing
+     *  bar) artist-page header. Debug-on, release RC-gated. */
+    val immersiveArtistHeaderEnabled: Boolean
+        get() = remoteConfigService.immersiveArtistHeaderEnabled
+
     // ── Artist share sheet ──
     // Mirrors the song-detail share plumbing (recipient picker + DM send), but
     // shares an *artist*: DMs send a `sharedArtist` message deep-linking to this

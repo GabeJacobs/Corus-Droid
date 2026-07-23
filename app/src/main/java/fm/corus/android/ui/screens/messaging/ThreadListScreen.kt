@@ -230,7 +230,7 @@ fun ThreadListScreen(
             // leading button morphs Cancel <-> back and the title cross-fades, while
             // only the bodies slide. Sliding the whole panel made the near-identical
             // headers look like they were shuffling. One fixed height = no resize.
-            Column(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
+            Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(CorusSpacing.bottomSheetMaxHeightFraction)) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

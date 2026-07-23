@@ -237,6 +237,22 @@ class RemoteConfigService @Inject constructor(
     val entityShareEnabled: Boolean
         get() = feedFlag("entity_share_enabled")
 
+    /// PROTOTYPE gate for the immersive artist-page header: a full-bleed hero
+    /// image with a frosted floating top bar that collapses into a solid title
+    /// bar on scroll, in place of the solid white TopAppBar. Purely cosmetic,
+    /// one screen. DEBUG builds default it ON so the look can be evaluated on a
+    /// device without any Remote Config change; release stays gated by the
+    /// `immersive_artist_header_enabled` RC key (default false) so production is
+    /// byte-identical until we flip it. A debug build can still force either
+    /// state via the corus_dev_flags override (see [commentControlsOnPosts]).
+    val immersiveArtistHeaderEnabled: Boolean
+        get() {
+            if (BuildConfig.DEBUG) {
+                return devPrefs.getBoolean("immersive_artist_header_enabled", true)
+            }
+            return feedFlag("immersive_artist_header_enabled")
+        }
+
     /// Send-side gate for the unified comment attach picker: the comment
     /// composer's "+" menu reads GIF / Music / Film, where Music searches songs,
     /// artists and albums and Film searches films and directors. OFF = today's
@@ -515,6 +531,7 @@ class RemoteConfigService @Inject constructor(
             // flipping the console key off must revert every client.
             "artist_pages_enabled" to false,
             "entity_share_enabled" to false,
+            "immersive_artist_header_enabled" to false,
             "comment_entity_attachments_enabled" to false,
             "profile_share_enabled" to false,
             "unified_search_enabled" to false,

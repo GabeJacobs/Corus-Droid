@@ -248,6 +248,7 @@ fun ExpandableCaptionText(
     var overflowState by remember(caption) { mutableStateOf<Boolean?>(null) }
     var trimmedText by remember(caption) { mutableStateOf<AnnotatedString?>(null) }
 
+    val measurer = rememberTextMeasurer()
     val fullText = remember(username, caption) {
         buildCaptionAnnotatedString(username = username, caption = caption)
     }
@@ -260,6 +261,8 @@ fun ExpandableCaptionText(
     val displayMaxLines = if (isExpanded) Int.MAX_VALUE else maxCollapsedLines
     val canExpand = !isExpanded && overflowState == true
     val secondaryColor = CorusColors.Secondary
+    // The single base style used to measure AND render, so the two never disagree.
+    val captionStyle = CorusFont.body.copy(color = CorusColors.Text)
 
     Column(
         modifier = modifier.animateContentSize(
@@ -267,35 +270,31 @@ fun ExpandableCaptionText(
         ),
     ) {
         if (overflowState == null) {
-            // First render: measure with BasicText to detect overflow
+            // First render: measure with BasicText to detect overflow.
             BasicText(
                 text = fullText,
-                style = CorusFont.body.copy(color = CorusColors.Text),
+                style = captionStyle,
                 maxLines = maxCollapsedLines,
                 overflow = TextOverflow.Ellipsis,
                 onTextLayout = { result ->
                     if (!result.hasVisualOverflow) {
                         overflowState = false
                     } else {
-                        val lastLine = result.lineCount - 1
-                        val lineEnd = result.getLineEnd(lastLine, visibleEnd = true)
-                        val reserveChars = 8
-                        val truncEnd = (lineEnd - reserveChars).coerceAtLeast(0)
-                        val plainFull = fullText.text
-                        var cutoff = truncEnd
-                        while (cutoff > 0 && plainFull[cutoff] != ' ') cutoff--
-                        if (cutoff == 0) cutoff = truncEnd
-
-                        val baseStyle = SpanStyle(
-                            fontFamily = NunitoFamily,
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 15.sp,
-                        )
-                        trimmedText = buildAnnotatedString {
-                            append(fullText, 0, cutoff)
-                            withStyle(baseStyle) { append("... ") }
-                            withStyle(baseStyle.copy(color = secondaryColor)) { append("more") }
+                        // Binary-search the longest prefix whose collapsed candidate still fits
+                        // the line budget, measuring the real candidate at each step. The old
+                        // "back off 8 chars, then walk to the previous space" heuristic could
+                        // walk back across a blank line and collapse the cutoff to ~the username:
+                        // a caption like "#tag\n\nquote…" then rendered as "user… more" with the
+                        // whole first line dropped. Mirrors ExpandableBioText / iOS CaptionTruncator.
+                        val width = result.layoutInput.constraints.maxWidth
+                        val cutoff = captionTruncationCutoff(fullText.length) { candidateEnd ->
+                            measurer.measure(
+                                text = buildCaptionCollapsedDisplay(fullText, candidateEnd, secondaryColor),
+                                style = captionStyle,
+                                constraints = Constraints(maxWidth = width),
+                            ).lineCount <= maxCollapsedLines
                         }
+                        trimmedText = buildCaptionCollapsedDisplay(fullText, cutoff, secondaryColor)
                         overflowState = true
                     }
                 },
@@ -303,7 +302,7 @@ fun ExpandableCaptionText(
         } else {
             ClickableText(
                 text = displayText,
-                style = CorusFont.body.copy(color = CorusColors.Text),
+                style = captionStyle,
                 maxLines = displayMaxLines,
                 onClick = { offset ->
                     displayText.getStringAnnotations(tag = USERNAME_TAG, start = offset, end = offset)
@@ -320,6 +319,62 @@ fun ExpandableCaptionText(
                 },
             )
         }
+    }
+}
+
+internal const val CAPTION_ELLIPSIS = "... "
+internal const val CAPTION_MORE = "more"
+
+/**
+ * Longest cutoff in 0..[maxLength] whose collapsed caption candidate still fits the line
+ * budget, found by binary search over [fits] (which lays the candidate out and reports
+ * whether it stays inside the budget). Mirrors [bioTruncationCutoff] and iOS
+ * CaptionTruncator.fit().
+ *
+ * Measuring the real candidate is what fixes the "caption shows nothing" bug: the old
+ * heuristic (back off a fixed number of chars, then walk to the previous space) could walk
+ * back across a blank line and silently drop the caption's whole first line — e.g. a caption
+ * like `#tag\n\nquote…` collapsed to just `username… more`. Pure + visible for testing.
+ */
+internal fun captionTruncationCutoff(maxLength: Int, fits: (cutoff: Int) -> Boolean): Int {
+    var lo = 0
+    var hi = maxLength
+    var best = 0
+    while (lo <= hi) {
+        val mid = (lo + hi) / 2
+        if (fits(mid)) {
+            best = mid
+            lo = mid + 1
+        } else {
+            hi = mid - 1
+        }
+    }
+    return best
+}
+
+/**
+ * The collapsed caption for a given [cutoff] — the exact AnnotatedString that gets both
+ * measured and rendered, so measurement and display can never disagree. Copies the
+ * username/mention/hashtag spans from [fullText] for the visible prefix (trailing whitespace
+ * trimmed so a cut landing right after a newline doesn't push "... more" onto its own line),
+ * then appends "... more" ("more" in [secondaryColor]). Pure + visible for testing.
+ */
+internal fun buildCaptionCollapsedDisplay(
+    fullText: AnnotatedString,
+    cutoff: Int,
+    secondaryColor: Color,
+): AnnotatedString {
+    val baseStyle = SpanStyle(
+        fontFamily = NunitoFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 15.sp,
+    )
+    var end = cutoff.coerceIn(0, fullText.length)
+    while (end > 0 && fullText.text[end - 1].isWhitespace()) end--
+    return buildAnnotatedString {
+        append(fullText, 0, end)
+        withStyle(baseStyle) { append(CAPTION_ELLIPSIS) }
+        withStyle(baseStyle.copy(color = secondaryColor)) { append(CAPTION_MORE) }
     }
 }
 

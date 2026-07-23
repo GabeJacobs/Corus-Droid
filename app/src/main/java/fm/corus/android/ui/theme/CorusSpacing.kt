@@ -38,6 +38,8 @@ object CorusSpacing {
 
     /** iPad-equivalent cap so wide screens don't blow out the layout. */
     val maxContentWidth = 645.dp
+
+    const val bottomSheetMaxHeightFraction = 0.94f
 }
 
 /**
@@ -54,3 +56,7 @@ fun horizontalRailCardWidth(): Dp {
     val computed = (screen - CorusSpacing.lg - CorusSpacing.md * 2) / 2.5f
     return maxOf(140.dp, computed)
 }
+
+@Composable
+fun bottomSheetMaxHeight(): Dp =
+    (LocalConfiguration.current.screenHeightDp * CorusSpacing.bottomSheetMaxHeightFraction).dp

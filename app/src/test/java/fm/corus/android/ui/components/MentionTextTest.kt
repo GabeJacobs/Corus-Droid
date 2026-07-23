@@ -4,7 +4,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MentionTextTest {
@@ -336,6 +338,54 @@ class MentionTextTest {
         assertEquals("hello... more", bioCollapsedDisplay("hello world", 6))
     }
 
+    // ── captionTruncationCutoff / buildCaptionCollapsedDisplay ──
+    // Regression: a caption with a short first line followed by a blank line — the exact
+    // "#insanetrophysnag\n\n\"Down on the West coast…\"" post that hid its whole caption on
+    // 1.3.3 (and froze/crashed iOS before its CaptionTruncator fix).
+
+    @Test
+    fun `captionTruncationCutoff returns the longest prefix that fits`() {
+        // Monotone budget: cutoffs 0..37 fit, everything past does not.
+        assertEquals(37, captionTruncationCutoff(100) { it <= 37 })
+    }
+
+    @Test
+    fun `captionTruncationCutoff returns zero when nothing fits`() {
+        assertEquals(0, captionTruncationCutoff(50) { false })
+    }
+
+    @Test
+    fun `buildCaptionCollapsedDisplay trims a trailing newline before the ellipsis`() {
+        // A cut landing right after a blank line must not push "... more" onto its own line.
+        val full = buildCaptionAnnotatedString("gabe", "hi\n\n") // text = "gabe hi\n\n"
+        assertEquals("gabe hi... more", buildCaptionCollapsedDisplay(full, full.length, Color.Gray).text)
+    }
+
+    @Test
+    fun `caption keeps its first line when a blank line follows`() {
+        val full = buildCaptionAnnotatedString("gabe", CAPTION_WITH_BLANK_LINE)
+        val cutoff = captionTruncationCutoff(full.length) { candidateEnd ->
+            lineCount(buildCaptionCollapsedDisplay(full, candidateEnd, Color.Gray).text, charsPerLine = 40) <= 2
+        }
+        val display = buildCaptionCollapsedDisplay(full, cutoff, Color.Gray).text
+        // The whole hashtag first line survives the two-line collapse.
+        assertEquals("gabe #insanetrophysnag... more", display)
+        assertTrue(display.contains("#insanetrophysnag"))
+    }
+
+    @Test
+    fun `shipped 1_3_3 heuristic dropped the caption first line`() {
+        // Faithful model of the old ExpandableCaptionText code path, run against the same
+        // layout stand-in as the bio tests. It backs off 8 chars from the end of the visible
+        // (blank) second line, walks to the previous space, and lands just after "gabe" —
+        // silently dropping "#insanetrophysnag". This is the bug the binary search fixes.
+        val full = buildCaptionAnnotatedString("gabe", CAPTION_WITH_BLANK_LINE)
+        val legacyCutoff = legacyCaptionCutoff(full.text, maxLines = 2, charsPerLine = 40)
+        val legacyDisplay = buildCaptionCollapsedDisplay(full, legacyCutoff, Color.Gray).text
+        assertEquals("gabe... more", legacyDisplay)
+        assertFalse(legacyDisplay.contains("#insanetrophysnag"))
+    }
+
     // ── buildLinkifiedBio ──
 
     @Test
@@ -385,4 +435,41 @@ class MentionTextTest {
 
     private fun fitsInThreeLines(candidate: String): Boolean =
         lineCount(candidate, charsPerLine = 20) <= 3
+
+    private val CAPTION_WITH_BLANK_LINE =
+        "#insanetrophysnag\n\nDown on the West coast, they got their icons"
+
+    /**
+     * Character offset at the end of the [maxLines]-th visual line under the layout stand-in —
+     * the model's answer to `TextLayoutResult.getLineEnd(maxLines - 1, visibleEnd = true)`.
+     */
+    private fun visibleEndOffset(text: String, maxLines: Int, charsPerLine: Int): Int {
+        var offset = 0
+        var linesUsed = 0
+        val segments = text.split("\n")
+        for ((i, seg) in segments.withIndex()) {
+            val segLines = maxOf(1, (seg.length + charsPerLine - 1) / charsPerLine)
+            var consumed = 0
+            for (l in 0 until segLines) {
+                val take = if (l == segLines - 1) seg.length - consumed else charsPerLine
+                val lineEnd = offset + consumed + take
+                linesUsed++
+                if (linesUsed == maxLines) return lineEnd
+                consumed += take
+            }
+            offset += seg.length
+            if (i < segments.lastIndex) offset += 1 // the '\n'
+        }
+        return text.length
+    }
+
+    /** Faithful model of the shipped 1.3.3 ExpandableCaptionText cutoff heuristic. */
+    private fun legacyCaptionCutoff(full: String, maxLines: Int, charsPerLine: Int): Int {
+        val lineEnd = visibleEndOffset(full, maxLines, charsPerLine)
+        val truncEnd = maxOf(0, lineEnd - 8)
+        var cutoff = truncEnd
+        while (cutoff > 0 && full[cutoff] != ' ') cutoff--
+        if (cutoff == 0) cutoff = truncEnd
+        return cutoff
+    }
 }

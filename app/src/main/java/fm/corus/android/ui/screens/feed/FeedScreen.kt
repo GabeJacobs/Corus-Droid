@@ -2039,7 +2039,7 @@ internal fun FeedHeader(
                 FeedFilter.ALL -> {}
             }
             if (feedDecade != null) {
-                Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                Spacer(modifier = Modifier.width(CorusSpacing.xs - 1.dp))
                 Text(
                     text = FeedDecade.label(feedDecade),
                     style = CorusFont.button,
