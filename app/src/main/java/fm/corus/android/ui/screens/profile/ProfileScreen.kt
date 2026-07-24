@@ -155,6 +155,9 @@ fun ProfileScreen(
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     var showPlaylistAlert by remember { mutableStateOf(false) }
     var showPlaylistChooser by remember { mutableStateOf(false) }
+    // Playlist export isn't available for YouTube Music yet, so a YT Music viewer
+    // gets an explainer that offers a Spotify playlist instead (mirrors the feed).
+    var showYouTubeMusicPlaylistExplainer by remember { mutableStateOf(false) }
     val likedPosts by viewModel.likedPosts.collectAsState()
     val savedPosts by viewModel.savedPosts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -565,6 +568,12 @@ fun ProfileScreen(
                                     .clickable(enabled = !isGeneratingPlaylist) {
                                         if (!hasSongs) {
                                             ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
+                                        } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
+                                            // Playlist export isn't available for YouTube Music yet —
+                                            // explain first, then offer a Spotify playlist instead
+                                            // (the explainer keeps the quick-vs-all choice). Checked
+                                            // before the full-export chooser so YT Music never lands on it.
+                                            showYouTubeMusicPlaylistExplainer = true
                                         } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
                                                 selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
                                             )
@@ -1302,6 +1311,33 @@ fun ProfileScreen(
                 viewModel.generatePlaylist(chooserSource, fullExport = true)
             },
             onDismiss = { showPlaylistChooser = false },
+        )
+    }
+
+    if (showYouTubeMusicPlaylistExplainer) {
+        val ytSource = when (selectedSegment) {
+            2 -> CloudFunctionsDataSource.ProfilePlaylistSource.Likes
+            3 -> CloudFunctionsDataSource.ProfilePlaylistSource.Saves
+            else -> CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+        }
+        val count = fm.corus.android.domain.profilePlaylistEligibleCount(
+            selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
+        )
+        val offersFull = fm.corus.android.domain.shouldOfferProfileFullExport(
+            selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
+        )
+        YouTubeMusicPlaylistDialog(
+            count = count,
+            offersFullExport = offersFull,
+            onQuick = {
+                showYouTubeMusicPlaylistExplainer = false
+                viewModel.generatePlaylist(ytSource, fullExport = false)
+            },
+            onAll = {
+                showYouTubeMusicPlaylistExplainer = false
+                viewModel.generatePlaylist(ytSource, fullExport = true)
+            },
+            onDismiss = { showYouTubeMusicPlaylistExplainer = false },
         )
     }
 }

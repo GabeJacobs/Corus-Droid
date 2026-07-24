@@ -71,6 +71,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.NunitoFamily
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.foundation.BorderStroke
@@ -80,6 +81,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.filled.PlayArrow
+
+/** Grace period before the album-art loading spinner is revealed. Fast / cached
+ *  previews start playing before this elapses, so they never flash a spinner —
+ *  the overlay fades straight to the pause icon. Tune here if the spinner still
+ *  peeks through on quick loads (raise) or takes too long to appear (lower). */
+private const val PREVIEW_SPINNER_DELAY_MS = 300L
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -581,8 +588,25 @@ fun PostCard(
                     // Preview loading/playing overlay (track posts only).
                     // Fades in/out to match iOS's .easeOut(duration: 0.2) so pausing
                     // doesn't make the scrim + pause icon vanish abruptly.
+                    //
+                    // The loading spinner is delayed by a short grace period: fast /
+                    // cached previews begin playing before it elapses, so the overlay
+                    // fades straight in to the pause icon with no spinner flash (like the
+                    // already-loaded case). The spinner only appears for genuinely slow
+                    // loads. Gating visibility on `showPreviewSpinner || isPreviewPlaying`
+                    // (not raw isPreviewLoading) is what lets the fast path skip it.
+                    var showPreviewSpinner by remember { mutableStateOf(false) }
+                    LaunchedEffect(isPreviewLoading) {
+                        if (isPreviewLoading) {
+                            showPreviewSpinner = false
+                            delay(PREVIEW_SPINNER_DELAY_MS)
+                            showPreviewSpinner = true // still loading after the grace period
+                        } else {
+                            showPreviewSpinner = false
+                        }
+                    }
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = post.isTrack && (isPreviewLoading || isPreviewPlaying) && !flipState.isLoading,
+                        visible = post.isTrack && (showPreviewSpinner || isPreviewPlaying) && !flipState.isLoading,
                         enter = fadeIn(animationSpec = tween(200)),
                         exit = fadeOut(animationSpec = tween(200)),
                     ) {
@@ -592,12 +616,11 @@ fun PostCard(
                                 .background(Color.Black.copy(alpha = 0.4f)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            // Crossfade the spinner -> pause-icon swap so starting
-                            // playback doesn't hard-cut the content mid fade-in. Mirrors
-                            // iOS's .transition(.opacity) on the pause glyph under the
-                            // same 200ms ease, so the whole overlay reads as one animation.
+                            // Crossfade the spinner -> pause-icon swap so a slow load's
+                            // spinner doesn't hard-cut to the pause icon when playback
+                            // starts. Mirrors iOS's .transition(.opacity) on the glyph.
                             Crossfade(
-                                targetState = isPreviewLoading,
+                                targetState = showPreviewSpinner,
                                 animationSpec = tween(200),
                                 label = "previewOverlayContent",
                             ) { loading ->

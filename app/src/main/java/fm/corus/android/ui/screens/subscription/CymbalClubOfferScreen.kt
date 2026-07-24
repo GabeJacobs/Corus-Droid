@@ -300,6 +300,9 @@ fun CymbalClubOfferScreen(
                 // customization; "Unlimited posts" sits mid-list now that the free tier
                 // is generous. Badge yields its slot to Taste Matches (mirrors iOS).
                 val tasteMatchesEnabled = viewModel.remoteConfig.tasteMatchesEnabled
+                // Playlist export has no YouTube Music path yet, so don't advertise
+                // it as a Club perk to a viewer who has YouTube Music selected.
+                val musicService by viewModel.musicServicePreference.current.collectAsState()
                 Column(
                     modifier = Modifier.padding(horizontal = CorusSpacing.xl),
                     verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
@@ -311,7 +314,9 @@ fun CymbalClubOfferScreen(
                     }
                     FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
                     FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
-                    FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+                    if (musicService != fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
+                        FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+                    }
                     FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
                     if (!tasteMatchesEnabled) {
                         FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
@@ -631,6 +636,9 @@ fun CymbalClubOfferSheet(
             // Taste Matches feed, then profile customization; "Unlimited posts" sits
             // mid-list now that the free tier is generous (mirrors iOS + full paywall).
             val tasteMatchesEnabled = viewModel.remoteConfig.tasteMatchesEnabled
+            // Playlist export has no YouTube Music path yet, so don't advertise
+            // it as a Club perk to a viewer who has YouTube Music selected.
+            val musicService by viewModel.musicServicePreference.current.collectAsState()
             Column(
                 modifier = Modifier.padding(horizontal = CorusSpacing.xl),
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
@@ -651,7 +659,9 @@ fun CymbalClubOfferSheet(
                 if (source != PaywallSource.FIRST_POST) {
                     FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
                 }
-                FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+                if (musicService != fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
+                    FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+                }
                 FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
                 // Drop the badge line on the favorites or Taste Matches paywalls
                 // to keep the list compact on phones (room is tight).

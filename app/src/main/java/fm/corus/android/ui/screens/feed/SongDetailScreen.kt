@@ -176,15 +176,19 @@ fun SongDetailScreen(
     val isTidal = effectiveSource == TrackSource.TIDAL
     val isDeezer = effectiveSource == TrackSource.DEEZER
     val isAppleMusic = effectiveSource == TrackSource.APPLEMUSIC
-    // Apple Music URL is derived from the appleMusicId on the resolved
-    // track (preferred) or the `am:` prefix on the trackId (fallback).
-    val effectiveAppleMusicURL = songInfo?.track?.appleMusicURL
-        ?: trackId.takeIf { it.startsWith("am:") }?.removePrefix("am:")?.takeIf { it.isNotEmpty() }
-            ?.let { "https://music.apple.com/us/song/$it" }
+    // Apple-Music identity for the folded RECORDING: prefer a resolved id from
+    // ANY loaded pressing over a stale empty-string miss on the pinned first post
+    // (posted on release day before Apple indexed the track). null = no pressing
+    // resolved one, so the base track's tri-state stands. See [resolveRecordingAppleId].
+    val recordingApple = resolveRecordingAppleId(
+        posts, fm.corus.android.domain.MusicServiceLinkOut.deviceStorefront(),
+    )
 
     // Stable track model for LINK-OUT resolution. Prefer the loaded post's track
-    // (carries isrc / appleMusicURL / resolved ids); fall back to route metadata.
-    val resolvedTrack = songInfo?.track ?: CymbalTrack(
+    // (carries isrc / resolved ids); fall back to route metadata. Overlay the
+    // folded-recording Apple id so a stale first-post miss can't hide the button
+    // or dead-end the tap (mirrors iOS, which reads the freshly-resolved seed).
+    val baseResolvedTrack = songInfo?.track ?: CymbalTrack(
         id = trackId,
         name = displayName ?: "",
         artistName = displayArtist ?: "",
@@ -199,6 +203,15 @@ fun SongDetailScreen(
         soundcloudId = effectiveSoundcloudId,
         soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
     )
+    val resolvedTrack = recordingApple?.let { (amid, storefront) ->
+        baseResolvedTrack.copy(appleMusicId = amid, appleMusicStorefront = storefront)
+    } ?: baseResolvedTrack
+
+    // Apple Music URL is derived from the resolved track's (folded) appleMusicId,
+    // or the `am:` prefix on the trackId (fallback for a not-yet-posted tap).
+    val effectiveAppleMusicURL = resolvedTrack.appleMusicURL
+        ?: trackId.takeIf { it.startsWith("am:") }?.removePrefix("am:")?.takeIf { it.isNotEmpty() }
+            ?.let { "https://music.apple.com/us/song/$it" }
 
     // "Post Song" composes the pressing the user TAPPED (the seed) — matching the
     // header art/album above and iOS — not whatever pressing the first post
@@ -1171,6 +1184,43 @@ private fun serviceTextColor(service: MusicService): Color =
 internal fun resolveSongAlbumId(routeAlbumId: String?, posts: List<CymbalPost>): String? =
     routeAlbumId?.takeIf { it.isNotBlank() }
         ?: posts.firstNotNullOfOrNull { it.track.albumId?.takeIf { id -> id.isNotBlank() } }
+
+/**
+ * Apple-Music identity for the folded RECORDING, chosen across every loaded
+ * pressing rather than whichever one sorts first. `getSongPosts` folds all
+ * pressings of one recording (by ISRC) onto this page and pins the earliest
+ * poster at posts[0]; that first poster may have posted on release day, before
+ * Apple indexed the track, leaving a stale `appleMusicId == ""` ("backend
+ * confirmed no Apple match") on the pinned post even though later pressings
+ * carry the resolved id. Apple availability is a property of the recording, so
+ * prefer a resolved, viewer-reachable id from ANY pressing over that stale
+ * empty-string miss — otherwise an Apple Music viewer is wrongly bounced to
+ * Spotify. Same "scan all posts, don't trust just the first" shape as
+ * [resolveSongAlbumId]; mirrors iOS, whose button reads the freshly-resolved
+ * seed rather than a week-old post snapshot.
+ *
+ * Returns (appleMusicId, appleMusicStorefront) when some pressing resolved a
+ * non-empty id, else null — meaning no pressing resolved one, so the caller
+ * keeps the base track's tri-state ("" = confirmed no Apple, null = unknown).
+ */
+internal fun resolveRecordingAppleId(
+    posts: List<CymbalPost>,
+    viewerStorefront: String,
+): Pair<String, String?>? {
+    val tracks = posts.map { it.track }
+    // A resolved id the viewer can actually open wins (Apple ids are storefront-
+    // specific — a US listener can't open a Brazil-only pressing).
+    tracks.firstOrNull { t ->
+        !t.appleMusicId.isNullOrEmpty() && t.appleMusicReachable(from = viewerStorefront)
+    }?.let { return it.appleMusicId!! to it.appleMusicStorefront }
+    // Else any resolved id, even a foreign-storefront one — the storefront gate
+    // in hasAppleMusicEquivalent / resolveLinkOutUrl still applies downstream, and
+    // surfacing it beats dropping to a stale "" miss.
+    tracks.firstOrNull { t -> !t.appleMusicId.isNullOrEmpty() }
+        ?.let { return it.appleMusicId!! to it.appleMusicStorefront }
+    // No pressing resolved an id -> leave the base track's tri-state untouched.
+    return null
+}
 
 /**
  * Header title/artist: the tapped row's value (route) wins; the first loaded

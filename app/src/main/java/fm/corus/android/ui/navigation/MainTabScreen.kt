@@ -57,6 +57,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.compose.ui.platform.LocalDensity
 import fm.corus.android.R
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.domain.CatalogPlaybackOrigin
@@ -72,6 +73,7 @@ import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.components.LocalContainingTabSelected
+import fm.corus.android.ui.components.currentStatusBarTopPx
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
@@ -542,6 +544,46 @@ fun MainTabScreen(
                 viewModel.dismissMilestonePaywall()
                 showClubOffer = true
             }
+        }
+    }
+
+    // Status-bar strip cover. The immersive detail pages (song/artist/album/director/
+    // film) paint their blurred backdrop UP into the shared, unclipped status-bar strip
+    // (see extendIntoStatusBar). When a non-immersive page (post/profile) is pushed on
+    // top, that strip paint can linger behind it (the strip isn't part of the pushed
+    // page's layout). Paint the theme surface over the strip whenever the visible tab's
+    // TOP screen isn't one of the immersive pages, so the strip reads as plain
+    // white/black there. Drawn above the tab content but below the full-screen overlays
+    // (compose/comments/photo below), which handle their own status bar.
+    run {
+        val activeNavController = when (selectedTab) {
+            CorusTab.FEED -> feedNavController
+            CorusTab.EXPLORE -> searchNavController
+            CorusTab.NOTIFICATIONS -> notificationsNavController
+            CorusTab.PROFILE -> profileNavController
+            CorusTab.COMPOSE -> feedNavController
+        }
+        // Gate on any VISIBLE entry (the top one AND any mid-transition one), not just
+        // the current top: when you tap back off an immersive page, the top flips to
+        // the non-immersive page instantly while the immersive page is still sliding
+        // out — reacting to the top alone snapped the white cover on over it (a flash).
+        // `visibleEntries` keeps the immersive entry until its exit animation finishes,
+        // so the cover only appears once no immersive page is on screen at all.
+        val visibleEntries by activeNavController.visibleEntries.collectAsState()
+        val anyImmersiveVisible = visibleEntries.any { entry ->
+            val route = entry.destination.route
+            route != null && listOf(
+                "SongDetailRoute", "FilmDetailRoute", "ArtistPageRoute", "AlbumPageRoute", "DirectorPageRoute",
+            ).any { route.contains(it) }
+        }
+        val stripTopPx = currentStatusBarTopPx()
+        if (!anyImmersiveVisible && stripTopPx > 0) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(with(LocalDensity.current) { stripTopPx.toDp() })
+                    .background(CorusColors.Background),
+            )
         }
     }
 

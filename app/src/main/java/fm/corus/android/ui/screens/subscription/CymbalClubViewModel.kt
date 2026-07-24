@@ -8,6 +8,7 @@ import com.revenuecat.purchases.Package
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.repository.PurchaseOutcome
 import fm.corus.android.data.repository.SubscriptionRepository
+import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +43,9 @@ class CymbalClubViewModel @Inject constructor(
     private val subscriptionRepository: SubscriptionRepository,
     private val analyticsService: AnalyticsService,
     val remoteConfig: RemoteConfigService,
+    // Exposed so the paywall can drop the "Export playlists" perk for YouTube
+    // Music viewers, who have no playlist export path yet.
+    val musicServicePreference: MusicServicePreference,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 

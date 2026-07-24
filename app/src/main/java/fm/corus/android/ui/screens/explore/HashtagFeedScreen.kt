@@ -43,6 +43,7 @@ import fm.corus.android.domain.shouldShowSpotifyPlaylistAlert
 import fm.corus.android.domain.usesSpotifyFallback
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.profile.PlaylistExportChooserDialog
+import fm.corus.android.ui.screens.profile.YouTubeMusicPlaylistDialog
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -89,6 +90,9 @@ fun HashtagFeedScreen(
     val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
     var showPlaylistAlert by remember { mutableStateOf(false) }
     var showPlaylistChooser by remember { mutableStateOf(false) }
+    // Playlist export isn't available for YouTube Music yet, so a YT Music viewer
+    // gets an explainer that offers a Spotify playlist instead (mirrors the feed).
+    var showYouTubeMusicPlaylistExplainer by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
 
     LaunchedEffect(playlistError) {
@@ -225,6 +229,12 @@ fun HashtagFeedScreen(
                                 onClick = {
                                     if (!hasSongs) {
                                         ToastManager.show(context.getString(R.string.profile_toast_no_songs_for_playlist))
+                                    } else if (musicService == MusicService.YOUTUBE_MUSIC) {
+                                        // No YouTube Music playlist export yet — explain, then offer
+                                        // a Spotify playlist (the explainer keeps quick vs all).
+                                        // Checked before the full-export chooser so YT Music
+                                        // never lands on it.
+                                        showYouTubeMusicPlaylistExplainer = true
                                     } else if (shouldOfferHashtagFullExport(totalCount)) {
                                         // >75 eligible songs → quick-vs-all chooser, which also
                                         // folds in the Spotify/SoundCloud caveat (no stacked popups).
@@ -397,6 +407,22 @@ fun HashtagFeedScreen(
                 viewModel.generateHashtagPlaylist(hashtag, fullExport = true)
             },
             onDismiss = { showPlaylistChooser = false },
+        )
+    }
+
+    if (showYouTubeMusicPlaylistExplainer) {
+        YouTubeMusicPlaylistDialog(
+            count = totalCount,
+            offersFullExport = shouldOfferHashtagFullExport(totalCount),
+            onQuick = {
+                showYouTubeMusicPlaylistExplainer = false
+                viewModel.generateHashtagPlaylist(hashtag, fullExport = false)
+            },
+            onAll = {
+                showYouTubeMusicPlaylistExplainer = false
+                viewModel.generateHashtagPlaylist(hashtag, fullExport = true)
+            },
+            onDismiss = { showYouTubeMusicPlaylistExplainer = false },
         )
     }
 

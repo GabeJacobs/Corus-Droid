@@ -142,6 +142,9 @@ fun OtherProfileScreen(
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     var showPlaylistAlert by remember { mutableStateOf(false) }
     var showPlaylistChooser by remember { mutableStateOf(false) }
+    // Playlist export isn't available for YouTube Music yet, so a YT Music viewer
+    // gets an explainer that offers a Spotify playlist instead (mirrors the feed).
+    var showYouTubeMusicPlaylistExplainer by remember { mutableStateOf(false) }
     val isLoading by viewModel.isLoading.collectAsState()
     val profileUnavailable by viewModel.profileUnavailable.collectAsState()
     val isFollowing by viewModel.isFollowing.collectAsState()
@@ -356,7 +359,11 @@ fun OtherProfileScreen(
                                     enabled = hasSongs && !isGeneratingPlaylist,
                                     onClick = {
                                         showMenu = false
-                                        if (fm.corus.android.domain.shouldOfferProfileFullExport(
+                                        if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
+                                            // No YouTube Music playlist export yet — explain, then
+                                            // offer a Spotify playlist (explainer keeps quick vs all).
+                                            showYouTubeMusicPlaylistExplainer = true
+                                        } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
                                                 selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
                                             )
                                         ) {
@@ -847,6 +854,10 @@ fun OtherProfileScreen(
                                         .clickable(enabled = hasSongs && !isGeneratingPlaylist) {
                                             if (!hasSongs) {
                                                 ToastManager.show(playlistContext.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
+                                            } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
+                                                // No YouTube Music playlist export yet — explain, then
+                                                // offer a Spotify playlist (explainer keeps quick vs all).
+                                                showYouTubeMusicPlaylistExplainer = true
                                             } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
                                                     selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
                                                 )
@@ -1406,6 +1417,28 @@ fun OtherProfileScreen(
                 viewModel.generatePlaylist(userId, playlistSource, fullExport = true)
             },
             onDismiss = { showPlaylistChooser = false },
+        )
+    }
+
+    if (showYouTubeMusicPlaylistExplainer) {
+        val count = fm.corus.android.domain.profilePlaylistEligibleCount(
+            selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
+        )
+        val offersFull = fm.corus.android.domain.shouldOfferProfileFullExport(
+            selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
+        )
+        YouTubeMusicPlaylistDialog(
+            count = count,
+            offersFullExport = offersFull,
+            onQuick = {
+                showYouTubeMusicPlaylistExplainer = false
+                viewModel.generatePlaylist(userId, playlistSource, fullExport = false)
+            },
+            onAll = {
+                showYouTubeMusicPlaylistExplainer = false
+                viewModel.generatePlaylist(userId, playlistSource, fullExport = true)
+            },
+            onDismiss = { showYouTubeMusicPlaylistExplainer = false },
         )
     }
 
