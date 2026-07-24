@@ -4,6 +4,11 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.model.TrackSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -38,6 +43,8 @@ class PostActionMenuTest {
     private fun trackPost(
         artistIds: List<String> = listOf("artist1"),
         albumId: String? = "album1",
+        source: TrackSource = TrackSource.SPOTIFY,
+        audiomackAlbumUrl: String? = null,
     ) = CymbalPost(
         id = "p1",
         user = user(),
@@ -48,6 +55,8 @@ class PostActionMenuTest {
             albumName = "Album",
             artistIds = artistIds,
             albumId = albumId,
+            source = source,
+            audiomackAlbumUrl = audiomackAlbumUrl,
         ),
         mediaType = MediaType.TRACK,
     )
@@ -108,13 +117,40 @@ class PostActionMenuTest {
     }
 
     @Test
-    fun `go to album hidden when album id is null`() {
-        assertFalse(showGoToAlbumRow(post = trackPost(albumId = null), artistPagesEnabled = true))
+    fun `go to album shown for spotify track even without an album id`() {
+        assertTrue(showGoToAlbumRow(post = trackPost(albumId = null), artistPagesEnabled = true))
+        assertTrue(showGoToAlbumRow(post = trackPost(albumId = "   "), artistPagesEnabled = true))
     }
 
     @Test
-    fun `go to album hidden when album id is blank`() {
-        assertFalse(showGoToAlbumRow(post = trackPost(albumId = "   "), artistPagesEnabled = true))
+    fun `go to album shown for apple-native track without an album id`() {
+        assertTrue(
+            showGoToAlbumRow(
+                post = trackPost(albumId = null, source = TrackSource.APPLEMUSIC),
+                artistPagesEnabled = true,
+            )
+        )
+    }
+
+    @Test
+    fun `go to album hidden for soundcloud tidal and deezer tracks`() {
+        assertFalse(showGoToAlbumRow(post = trackPost(albumId = null, source = TrackSource.SOUNDCLOUD), artistPagesEnabled = true))
+        assertFalse(showGoToAlbumRow(post = trackPost(albumId = null, source = TrackSource.TIDAL), artistPagesEnabled = true))
+        assertFalse(showGoToAlbumRow(post = trackPost(albumId = null, source = TrackSource.DEEZER), artistPagesEnabled = true))
+    }
+
+    @Test
+    fun `go to album shown for audiomack track with album link-out`() {
+        assertTrue(
+            showGoToAlbumRow(
+                post = trackPost(
+                    albumId = null,
+                    source = TrackSource.AUDIOMACK,
+                    audiomackAlbumUrl = "https://audiomack.com/album/x",
+                ),
+                artistPagesEnabled = true,
+            )
+        )
     }
 
     @Test
@@ -134,9 +170,22 @@ class PostActionMenuTest {
         assertNull(onGoToArtistTap(trackPost(), onNavigateToArtist = null))
     }
 
+    private fun albumTap(
+        post: CymbalPost,
+        onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)?,
+        scope: CoroutineScope = TestScope(),
+        resolveAlbumId: suspend (CymbalTrack) -> String? = { null },
+        onAlbumNotFound: () -> Unit = {},
+    ) = onGoToAlbumTap(post, onNavigateToAlbum, scope, resolveAlbumId, onAlbumNotFound)
+
     @Test
     fun `album tap builder is null when nav callback null`() {
-        assertNull(onGoToAlbumTap(trackPost(), onNavigateToAlbum = null))
+        assertNull(albumTap(trackPost(), onNavigateToAlbum = null))
+    }
+
+    @Test
+    fun `album tap builder is null for soundcloud tracks`() {
+        assertNull(albumTap(trackPost(source = TrackSource.SOUNDCLOUD), onNavigateToAlbum = {}))
     }
 
     @Test
@@ -146,7 +195,7 @@ class PostActionMenuTest {
 
     @Test
     fun `album tap builder is null for movie posts`() {
-        assertNull(onGoToAlbumTap(moviePost(), onNavigateToAlbum = {}))
+        assertNull(albumTap(moviePost(), onNavigateToAlbum = {}))
     }
 
     @Test
@@ -160,9 +209,40 @@ class PostActionMenuTest {
     @Test
     fun `album tap builder passes album id through untouched`() {
         var routed: fm.corus.android.ui.navigation.AlbumPageRoute? = null
-        val tap = onGoToAlbumTap(trackPost(albumId = "am:987"), onNavigateToAlbum = { routed = it })
+        val tap = albumTap(trackPost(albumId = "am:987"), onNavigateToAlbum = { routed = it })
         tap?.invoke()
         assertTrue(routed?.albumId == "am:987")
+    }
+
+    @Test
+    fun `album tap resolves the album id on tap when the post carries none`() = runTest {
+        var routed: fm.corus.android.ui.navigation.AlbumPageRoute? = null
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+        val tap = albumTap(
+            trackPost(albumId = null),
+            onNavigateToAlbum = { routed = it },
+            scope = scope,
+            resolveAlbumId = { "resolvedAlbum" },
+        )
+        tap?.invoke()
+        assertTrue(routed?.albumId == "resolvedAlbum")
+    }
+
+    @Test
+    fun `album tap reports a miss when the resolve finds nothing`() = runTest {
+        var routed: fm.corus.android.ui.navigation.AlbumPageRoute? = null
+        var missed = false
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+        val tap = albumTap(
+            trackPost(albumId = null),
+            onNavigateToAlbum = { routed = it },
+            scope = scope,
+            resolveAlbumId = { null },
+            onAlbumNotFound = { missed = true },
+        )
+        tap?.invoke()
+        assertNull(routed)
+        assertTrue(missed)
     }
 
     // ── albumId deserialization ──

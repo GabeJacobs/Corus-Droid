@@ -82,6 +82,7 @@ fun PostMenuSheets(
     val scope = rememberCoroutineScope()
     val postSentMsg = stringResource(R.string.post_menu_toast_post_sent)
     val captionUpdatedMsg = stringResource(R.string.post_menu_toast_caption_updated)
+    val albumNotFoundMsg = stringResource(R.string.song_detail_album_not_found)
     val engagementStates by actions.engagementStates.collectAsState()
 
     // When Share is tapped from the "…" menu, we can't open the share sheet
@@ -195,7 +196,9 @@ fun PostMenuSheets(
                 onGoToArtist = onGoToArtistTap(post, onNavigateToArtist)
                     ?: post.track.audiomackArtistLinkOutUrl?.let { url -> { openExternalUrl(context, url) } }
                     ?: {},
-                onGoToAlbum = onGoToAlbumTap(post, onNavigateToAlbum)
+                onGoToAlbum = onGoToAlbumTap(
+                    post, onNavigateToAlbum, scope, actions::resolveAlbumIdForTrack,
+                ) { ToastManager.show(albumNotFoundMsg) }
                     ?: post.track.audiomackAlbumLinkOutUrl?.let { url -> { openExternalUrl(context, url) } }
                     ?: {},
                 onGoToDirector = onGoToDirectorTap(post, onNavigateToDirector) ?: {},
@@ -381,20 +384,32 @@ internal fun onGoToArtistTap(
 internal fun onGoToAlbumTap(
     post: CymbalPost,
     onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)?,
+    scope: CoroutineScope,
+    resolveAlbumId: suspend (CymbalTrack) -> String?,
+    onAlbumNotFound: () -> Unit,
 ): (() -> Unit)? {
     val navigate = onNavigateToAlbum ?: return null
     if (post.isMovie) return null
-    val albumId = post.track.albumId?.takeIf { it.isNotBlank() } ?: return null
-    return {
-        navigate(
-            fm.corus.android.ui.navigation.AlbumPageRoute(
-                albumId = albumId,
-                title = post.track.albumName.ifBlank { null },
-                artist = post.track.artistName.ifBlank { null },
-                coverUrl = post.track.albumArtURL,
-                year = post.track.releaseDate?.take(4)?.toIntOrNull(),
-            )
+    if (post.track.source != TrackSource.SPOTIFY && post.track.source != TrackSource.APPLEMUSIC) return null
+    fun go(albumId: String) = navigate(
+        fm.corus.android.ui.navigation.AlbumPageRoute(
+            albumId = albumId,
+            title = post.track.albumName.ifBlank { null },
+            artist = post.track.artistName.ifBlank { null },
+            coverUrl = post.track.albumArtURL,
+            year = post.track.releaseDate?.take(4)?.toIntOrNull(),
         )
+    )
+    return {
+        val known = post.track.albumId?.takeIf { it.isNotBlank() }
+        if (known != null) {
+            go(known)
+        } else {
+            scope.launch {
+                val resolved = resolveAlbumId(post.track)?.takeIf { it.isNotBlank() }
+                if (resolved != null) go(resolved) else onAlbumNotFound()
+            }
+        }
     }
 }
 

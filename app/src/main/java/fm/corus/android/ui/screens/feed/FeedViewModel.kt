@@ -163,6 +163,10 @@ class FeedViewModel @Inject constructor(
             track, musicServicePreference.current.value, cloudFunctions,
         )
 
+    override suspend fun resolveAlbumIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
+        cloudFunctions.resolveTrackDestinations(track.id, track.isrc, track.name, track.artistName)
+            .albumId?.takeIf { it.isNotBlank() }
+
     /**
      * Mirrors iOS @AppStorage("feedFollowsNowPlaying"). When true, the feed
      * scrolls to the now-playing post on song changes (gated further by the

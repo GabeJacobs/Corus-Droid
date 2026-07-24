@@ -254,7 +254,8 @@ internal fun showGoToArtistRow(post: CymbalPost, artistPagesEnabled: Boolean): B
 internal fun showGoToAlbumRow(post: CymbalPost, artistPagesEnabled: Boolean): Boolean =
     !post.isMovie && (
         post.track.audiomackAlbumLinkOutUrl != null ||
-            (artistPagesEnabled && !post.track.albumId.isNullOrBlank())
+            (artistPagesEnabled &&
+                (post.track.source == TrackSource.SPOTIFY || post.track.source == TrackSource.APPLEMUSIC))
     )
 
 /**

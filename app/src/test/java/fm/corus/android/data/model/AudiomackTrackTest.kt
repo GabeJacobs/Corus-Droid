@@ -399,6 +399,14 @@ class AudiomackTrackTest {
         // builders return null and the menu wiring falls through to the Audiomack
         // link-out branch.
         assertNull(onGoToArtistTap(audiomackPost(), onNavigateToArtist = {}))
-        assertNull(onGoToAlbumTap(audiomackPost(), onNavigateToAlbum = {}))
+        assertNull(
+            onGoToAlbumTap(
+                audiomackPost(),
+                onNavigateToAlbum = {},
+                scope = kotlinx.coroutines.test.TestScope(),
+                resolveAlbumId = { null },
+                onAlbumNotFound = {},
+            )
+        )
     }
 }

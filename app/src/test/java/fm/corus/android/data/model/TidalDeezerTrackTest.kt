@@ -228,7 +228,15 @@ class TidalDeezerTrackTest {
         for (source in listOf(TrackSource.TIDAL, TrackSource.DEEZER)) {
             val post = exclusivePost(source)
             assertNull(onGoToArtistTap(post, onNavigateToArtist = {}))
-            assertNull(onGoToAlbumTap(post, onNavigateToAlbum = {}))
+            assertNull(
+                onGoToAlbumTap(
+                    post,
+                    onNavigateToAlbum = {},
+                    scope = kotlinx.coroutines.test.TestScope(),
+                    resolveAlbumId = { null },
+                    onAlbumNotFound = {},
+                )
+            )
         }
     }
 }
