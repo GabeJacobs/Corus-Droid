@@ -176,7 +176,8 @@ class PostActionMenuTest {
         scope: CoroutineScope = TestScope(),
         resolveAlbumId: suspend (CymbalTrack) -> String? = { null },
         onAlbumNotFound: () -> Unit = {},
-    ) = onGoToAlbumTap(post, onNavigateToAlbum, scope, resolveAlbumId, onAlbumNotFound)
+        onResolvingChange: (Boolean) -> Unit = {},
+    ) = onGoToAlbumTap(post, onNavigateToAlbum, scope, resolveAlbumId, onAlbumNotFound, onResolvingChange)
 
     @Test
     fun `album tap builder is null when nav callback null`() {
@@ -243,6 +244,33 @@ class PostActionMenuTest {
         tap?.invoke()
         assertNull(routed)
         assertTrue(missed)
+    }
+
+    @Test
+    fun `album tap toggles the resolving flag true then false around the resolve`() = runTest {
+        val states = mutableListOf<Boolean>()
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+        val tap = albumTap(
+            trackPost(albumId = null),
+            onNavigateToAlbum = {},
+            scope = scope,
+            resolveAlbumId = { "resolvedAlbum" },
+            onResolvingChange = { states.add(it) },
+        )
+        tap?.invoke()
+        assertTrue(states == listOf(true, false))
+    }
+
+    @Test
+    fun `fast-path album tap never toggles the resolving flag`() {
+        val states = mutableListOf<Boolean>()
+        val tap = albumTap(
+            trackPost(albumId = "am:987"),
+            onNavigateToAlbum = {},
+            onResolvingChange = { states.add(it) },
+        )
+        tap?.invoke()
+        assertTrue(states.isEmpty())
     }
 
     // ── albumId deserialization ──
