@@ -31,6 +31,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,6 +46,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -69,8 +71,12 @@ import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
 import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.components.LocalContainingTabSelected
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
+import androidx.core.view.WindowInsetsControllerCompat
+import android.app.Activity
 import fm.corus.android.ui.util.PushNotificationPermission
 import kotlinx.coroutines.flow.StateFlow
 
@@ -94,6 +100,25 @@ fun MainTabScreen(
     // Fallback push-permission prompt for users who signed up before the
     // onboarding ask shipped. Matches iOS MainTabView.requestNotificationPermissionIfNeeded.
     val context = LocalContext.current
+
+    // Re-assert the app's theme-default system-bar appearance on every tab switch.
+    // All tab NavHosts stay composed at once (see TabContent), so an immersive
+    // destination page (artist/song/album/director/film) on the tab we're leaving
+    // can't restore the status bar itself — it isn't disposed — and the arriving
+    // root screen only sets bar appearance from a one-shot CorusSystemBars
+    // SideEffect that already fired at launch. Without this, the immersive
+    // white-over-hero icons leak onto a light Feed/Profile as invisible
+    // white-on-white. The active immersive page (if any) re-applies its own
+    // override right after, keyed on its tab becoming selected again.
+    val darkTheme = LocalCorusDarkTheme.current
+    val rootView = LocalView.current
+    LaunchedEffect(selectedTab, darkTheme) {
+        (rootView.context as? Activity)?.window?.let { window ->
+            val controller = WindowInsetsControllerCompat(window, window.decorView)
+            controller.isAppearanceLightStatusBars = !darkTheme
+            controller.isAppearanceLightNavigationBars = !darkTheme
+        }
+    }
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     val isResolvingLinkOut by fm.corus.android.domain.MusicServiceLinkOut.isResolving.collectAsState()
     val pushPermissionLauncher = rememberLauncherForActivityResult(
@@ -638,7 +663,12 @@ private fun TabContent(visible: Boolean, content: @Composable () -> Unit) {
             .fillMaxSize()
             .then(if (!visible) Modifier.offset(x = 9999.dp) else Modifier)
     ) {
-        content()
+        // Tell descendants (notably an immersive header's status-bar control) whether
+        // this tab is the one on screen — every tab NavHost stays composed even while
+        // parked off-screen, so composition alone can't tell them apart.
+        CompositionLocalProvider(LocalContainingTabSelected provides visible) {
+            content()
+        }
     }
 }
 

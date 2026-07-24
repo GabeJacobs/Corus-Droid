@@ -271,6 +271,16 @@ class NowPlayingManager @Inject constructor(
     val loadingTrackId: StateFlow<String?> = _loadingTrackId.asStateFlow()
 
     /**
+     * The `sourcePostId` of the post whose track is currently loading. Lets a
+     * feed card tell "I'm the one loading" apart from a *different* post of the
+     * same song, which shares the same [loadingTrackId]. Null when loading was
+     * started without an originating post. Maintained in lockstep with
+     * [_loadingTrackId]. Mirrors iOS MusicPlaybackService.loadingSourcePostId.
+     */
+    private val _loadingSourcePostId = MutableStateFlow<String?>(null)
+    val loadingSourcePostId: StateFlow<String?> = _loadingSourcePostId.asStateFlow()
+
+    /**
      * One-shot event emitted when a *user-initiated* play resolves to no playable
      * preview (e.g. a Spotify track with no Apple Music match). The UI shows a
      * "No preview available" toast. Auto-advance does NOT emit — it silently
@@ -861,8 +871,11 @@ class NowPlayingManager @Inject constructor(
         // Cancel any in-flight load for a different track
         cancelLoading()
 
-        // Signal loading state
+        // Signal loading state. Track id + the post it came from are kept in
+        // lockstep so a feed card can tell its own load apart from a different
+        // post of the same song (both share the track id).
         _loadingTrackId.value = trackId
+        _loadingSourcePostId.value = track.sourcePostId
         val generation = ++playGeneration
 
         // Resolve playback URL.
@@ -894,6 +907,7 @@ class NowPlayingManager @Inject constructor(
         if (generation != playGeneration) return
 
         _loadingTrackId.value = null
+        _loadingSourcePostId.value = null
 
         if (resolvedUrl == null) {
             // No playable preview (e.g. a Spotify track with no Apple Music
@@ -1263,6 +1277,7 @@ class NowPlayingManager @Inject constructor(
     fun cancelLoading() {
         playGeneration++
         _loadingTrackId.value = null
+        _loadingSourcePostId.value = null
     }
 
     fun togglePlayPause() {

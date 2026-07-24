@@ -105,6 +105,10 @@ fun SongDetailScreen(
      *  of waiting for posts. Null = fall back to the loaded posts. */
     releaseDate: String? = null,
     releaseDatePrecision: String? = null,
+    /** Album name of the tapped pressing (search/catalog rows carry it). Names the
+     *  album line + "Post Song" draft after the pressing the user tapped rather
+     *  than the first loaded post's. Null = fall back to the loaded posts. */
+    albumName: String? = null,
     viewModel: SongDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -178,8 +182,8 @@ fun SongDetailScreen(
         ?: trackId.takeIf { it.startsWith("am:") }?.removePrefix("am:")?.takeIf { it.isNotEmpty() }
             ?.let { "https://music.apple.com/us/song/$it" }
 
-    // Stable track model for link-out resolution + composing. Prefer the loaded
-    // post's track (carries isrc / appleMusicURL); fall back to route metadata.
+    // Stable track model for LINK-OUT resolution. Prefer the loaded post's track
+    // (carries isrc / appleMusicURL / resolved ids); fall back to route metadata.
     val resolvedTrack = songInfo?.track ?: CymbalTrack(
         id = trackId,
         name = displayName ?: "",
@@ -194,6 +198,31 @@ fun SongDetailScreen(
         source = effectiveSource,
         soundcloudId = effectiveSoundcloudId,
         soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
+    )
+
+    // "Post Song" composes the pressing the user TAPPED (the seed) — matching the
+    // header art/album above and iOS — not whatever pressing the first post
+    // snapshotted. Built from raw route fields so an `am:` tap stays Apple-sourced
+    // instead of inheriting the first post's Spotify single. Same shape as the
+    // postless fallback above (a proven compose seed), plus the album/date/id the
+    // route carries.
+    val composeTrack = CymbalTrack(
+        id = trackId,
+        name = displayName ?: "",
+        artistName = displayArtist ?: "",
+        albumName = resolveSongHeaderText(route = albumName, post = songInfo?.track?.albumName) ?: "",
+        albumArtURL = artUrl,
+        albumArtLargeURL = albumArtLargeURL ?: artUrl,
+        spotifyURI = spotifyURI ?: "",
+        spotifyWebURL = spotifyWebURL ?: "",
+        previewUrl = previewUrl,
+        isrc = isrc,
+        source = TrackSource.fromRaw(source),
+        soundcloudId = soundcloudId,
+        soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+        albumId = albumId,
+        releaseDate = releaseDate,
+        releaseDatePrecision = releaseDatePrecision,
     )
 
     // Fast-path ids for the "Go to Artist" / "Go to Album" rows + tappable
@@ -549,15 +578,15 @@ fun SongDetailScreen(
                     )
                 }
 
-                // Album line (web/iOS parity): "{album} · {year}", muted, from
-                // the first loaded post (posts carry albumName + releaseDate).
-                // Tappable whenever the flag is on (except SoundCloud, no album);
+                // Album line ("{album} · {year}", muted): the tapped pressing
+                // (route) wins over the first post's snapshot, matching the header
+                // art + iOS. Tappable whenever the flag is on (except SoundCloud);
                 // goToAlbum uses a known id instantly or resolves it on tap. Same
                 // plain style either way — no accent, no underline.
-                val albumTrack = songInfo?.track
-                if (albumTrack != null && albumTrack.albumName.isNotBlank()) {
-                    val year = (albumTrack.releaseDate ?: "").take(4)
-                    val albumLine = if (year.isEmpty()) albumTrack.albumName else "${albumTrack.albumName} · $year"
+                val resolvedAlbumName = resolveSongHeaderText(route = albumName, post = songInfo?.track?.albumName)
+                if (resolvedAlbumName != null) {
+                    val year = (resolveSongHeaderText(route = releaseDate, post = songInfo?.track?.releaseDate) ?: "").take(4)
+                    val albumLine = if (year.isEmpty()) resolvedAlbumName else "$resolvedAlbumName · $year"
                     val albumTapModifier = if (onNavigateToAlbum != null && canShowAlbum) {
                         Modifier.clickable { goToAlbum() }
                     } else Modifier
@@ -595,7 +624,7 @@ fun SongDetailScreen(
                     Button(
                         onClick = {
                             viewModel.analyticsService.logPostThisSongTapped(trackId)
-                            onNavigateToCompose(resolvedTrack)
+                            onNavigateToCompose(composeTrack)
                         },
                         shape = RoundedCornerShape(50),
                         colors = ButtonDefaults.buttonColors(
@@ -828,7 +857,7 @@ fun SongDetailScreen(
                         Text(stringResource(R.string.song_detail_empty), style = CorusFont.body, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Button(
-                            onClick = { onNavigateToCompose(resolvedTrack) },
+                            onClick = { onNavigateToCompose(composeTrack) },
                             shape = RoundedCornerShape(50),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = CorusColors.Accent,

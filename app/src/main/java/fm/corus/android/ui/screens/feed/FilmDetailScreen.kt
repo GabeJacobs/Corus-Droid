@@ -7,7 +7,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,19 +31,31 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.domain.TrailerPlaybackCoordinator
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ImmersiveBarHeight
+import fm.corus.android.ui.components.ImmersiveCollapsingBar
+import fm.corus.android.ui.components.ImmersiveCoverBackdrop
+import fm.corus.android.ui.components.ImmersiveExtendUnderStatusBar
+import fm.corus.android.ui.components.ImmersiveStatusBarIcons
+import fm.corus.android.ui.components.currentStatusBarTopPx
+import fm.corus.android.ui.components.extendIntoStatusBar
+import fm.corus.android.ui.components.immersiveCollapseProgress
 import fm.corus.android.ui.components.InlineYouTubePlayer
 import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
@@ -59,6 +73,10 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.DateUtils
+
+/** Visible height of the film's blurred-poster backdrop (taller for the 2:3
+ *  poster); also the collapse distance basis via [ImmersiveBarHeight]. */
+private val FilmImmersiveHeroHeight = 440.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -182,8 +200,45 @@ fun FilmDetailScreen(
         viewModel.loadMoviePosts(movieId)
     }
 
+    // Immersive header (prototype): blurred-poster hero + shared frosted collapsing
+    // bar + status-bar blend (ui/components/ImmersiveHeader.kt).
+    val listState = rememberLazyListState()
+    val posterUrl = movieHeader?.posterLargeURL ?: movieHeader?.posterURL
+        ?: initialPosterLargeURL ?: initialPosterURL
+    val immersive = viewModel.immersiveHeaderEnabled && (posterUrl != null || isLoading)
+    val hazeState = remember { HazeState() }
+    val statusBarTopPx = currentStatusBarTopPx()
+    val extendUnderStatusBar = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
+    val statusBarPadding = if (extendUnderStatusBar) {
+        with(LocalDensity.current) { statusBarTopPx.toDp() }
+    } else {
+        0.dp
+    }
+    val heroCollapseDistancePx = with(LocalDensity.current) {
+        (FilmImmersiveHeroHeight - ImmersiveBarHeight).toPx()
+    }
+    val collapseProgress by remember {
+        derivedStateOf {
+            immersiveCollapseProgress(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+                heroCollapseDistancePx,
+            )
+        }
+    }
+    if (extendUnderStatusBar) {
+        ImmersiveStatusBarIcons(collapseProgress)
+    }
+
     Scaffold(
+        modifier = if (extendUnderStatusBar) {
+            Modifier.extendIntoStatusBar(statusBarTopPx)
+        } else {
+            Modifier
+        },
         topBar = {
+            // Immersive draws the shared floating bar over the blurred poster below.
+            if (!immersive) {
             TopAppBar(
                 title = {},
                 navigationIcon = {
@@ -231,11 +286,22 @@ fun FilmDetailScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
+            }
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        if (immersive) {
+            ImmersiveCoverBackdrop(
+                artUrl = posterUrl,
+                height = FilmImmersiveHeroHeight + statusBarPadding,
+                listState = listState,
+            )
+        }
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier),
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
         ) {
@@ -243,12 +309,25 @@ fun FilmDetailScreen(
             item {
                 val header = movieHeader
                 if (header == null && isLoading) {
+                    if (immersive) {
+                        Spacer(
+                            modifier = Modifier.height(
+                                statusBarPadding + ImmersiveBarHeight + CorusSpacing.md
+                            )
+                        )
+                    }
                     SkeletonFilmDetailHeader()
                     HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
                     return@item
                 }
 
-                Spacer(modifier = Modifier.height(CorusSpacing.xl))
+                // Immersive: clear the floating bar + status strip; plain: original gap.
+                Spacer(
+                    modifier = Modifier.height(
+                        if (immersive) statusBarPadding + ImmersiveBarHeight + CorusSpacing.md
+                        else CorusSpacing.xl
+                    )
+                )
 
                 if (header != null) {
                     val trailerVideoID = youTubeVideoID(header.trailerURL)
@@ -614,6 +693,49 @@ fun FilmDetailScreen(
                     color = Color.White,
                 )
             }
+        }
+        if (immersive) {
+            ImmersiveCollapsingBar(
+                hazeState = hazeState,
+                progress = collapseProgress,
+                title = movieHeader?.movieTitle,
+                onBack = onBack,
+                topInset = statusBarPadding,
+                actions = { tint ->
+                    Box {
+                        var menuOpen by remember { mutableStateOf(false) }
+                        CorusHeaderIconButton(
+                            onClick = { menuOpen = true },
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.feed_cd_more_options),
+                            tint = tint,
+                        )
+                        DropdownMenu(
+                            expanded = menuOpen,
+                            onDismissRequest = { menuOpen = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    showShareSheet = true
+                                },
+                            )
+                            if (onNavigateToDirector != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_go_to_director), style = CorusFont.body) },
+                                    leadingIcon = { Icon(Icons.Filled.MovieCreation, contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        goToDirector()
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
+            )
         }
         }
     }

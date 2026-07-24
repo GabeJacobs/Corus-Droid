@@ -58,6 +58,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
@@ -237,10 +238,23 @@ private fun PreviewHeader(
 private fun GridTile(post: CymbalPost, nowPlaying: NowPlayingManager) {
     val state by nowPlaying.state.collectAsState()
     val loadingTrackId by nowPlaying.loadingTrackId.collectAsState()
+    val loadingSourcePostId by nowPlaying.loadingSourcePostId.collectAsState()
     val scope = rememberCoroutineScope()
 
-    val isPlayingThis = post.isTrack && state.trackId == post.track.id && state.isPlaying
-    val isLoadingThis = post.isTrack && loadingTrackId == post.track.id
+    val isPlayingThis = post.isTrack && PostPlaybackHighlight.shouldHighlight(
+        activeTrackId = state.trackId,
+        activeSourcePostId = state.sourcePostId,
+        playbackActive = state.isPlaying,
+        postTrackId = post.track.id,
+        postId = post.id,
+    )
+    val isLoadingThis = post.isTrack && PostPlaybackHighlight.shouldHighlight(
+        activeTrackId = loadingTrackId,
+        activeSourcePostId = loadingSourcePostId,
+        playbackActive = true,
+        postTrackId = post.track.id,
+        postId = post.id,
+    )
 
     Box(
         modifier = Modifier

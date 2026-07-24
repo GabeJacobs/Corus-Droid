@@ -63,6 +63,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.ui.navigation.FilmDetailRoute
 import fm.corus.android.ui.components.CommentAttachmentCard
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
+import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.PickerMode
@@ -121,6 +122,7 @@ fun SinglePostCommentsScreen(
     val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
+    val loadingSourcePostId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -607,8 +609,20 @@ fun SinglePostCommentsScreen(
                         saveCount = saveCount,
                         saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
                         currentUser = currentUserProfile,
-                        isPreviewLoading = p.isTrack && loadingTrackId == p.track.id,
-                        isPreviewPlaying = p.isTrack && nowPlayingState.trackId == p.track.id && nowPlayingState.isPlaying,
+                        isPreviewLoading = p.isTrack && PostPlaybackHighlight.shouldHighlight(
+                            activeTrackId = loadingTrackId,
+                            activeSourcePostId = loadingSourcePostId,
+                            playbackActive = true,
+                            postTrackId = p.track.id,
+                            postId = p.id,
+                        ),
+                        isPreviewPlaying = p.isTrack && PostPlaybackHighlight.shouldHighlight(
+                            activeTrackId = nowPlayingState.trackId,
+                            activeSourcePostId = nowPlayingState.sourcePostId,
+                            playbackActive = nowPlayingState.isPlaying,
+                            postTrackId = p.track.id,
+                            postId = p.id,
+                        ),
                         hideComments = true,
                         onLikeTap = { viewModel.togglePostLike(p.id) },
                         onSaveTap = { viewModel.togglePostSave(p.id) },

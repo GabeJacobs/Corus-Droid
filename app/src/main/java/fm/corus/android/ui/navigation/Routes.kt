@@ -75,6 +75,11 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
      *  the loaded posts. */
     val releaseDate: String? = null,
     val releaseDatePrecision: String? = null,
+    /** Album name of the tapped pressing (search/catalog rows carry it). Lets the
+     *  song page's album line + the "Post Song" draft name the pressing the user
+     *  tapped instead of whatever pressing the first loaded post snapshotted.
+     *  Null = fall back to the loaded posts. */
+    val albumName: String? = null,
 )
 @Serializable data class FilmDetailRoute(
     val movieId: String,
