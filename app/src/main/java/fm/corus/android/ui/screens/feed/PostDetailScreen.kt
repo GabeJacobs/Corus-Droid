@@ -2,6 +2,9 @@ package fm.corus.android.ui.screens.feed
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -54,6 +57,7 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
 import fm.corus.android.domain.HapticManager
+import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.R
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CorusHeaderIconButton
@@ -103,6 +107,7 @@ fun PostDetailScreen(
     val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
+    val loadingSourcePostId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -193,8 +198,20 @@ fun PostDetailScreen(
                         val haptics = LocalHapticManager.current
                         PostDetailAlbumArt(
                             post = currentPost,
-                            isPreviewLoading = currentPost.isTrack && loadingTrackId == currentPost.track.id,
-                            isPreviewPlaying = currentPost.isTrack && nowPlayingState.trackId == currentPost.track.id && nowPlayingState.isPlaying,
+                            isPreviewLoading = currentPost.isTrack && PostPlaybackHighlight.shouldHighlight(
+                                activeTrackId = loadingTrackId,
+                                activeSourcePostId = loadingSourcePostId,
+                                playbackActive = true,
+                                postTrackId = currentPost.track.id,
+                                postId = currentPost.id,
+                            ),
+                            isPreviewPlaying = currentPost.isTrack && PostPlaybackHighlight.shouldHighlight(
+                                activeTrackId = nowPlayingState.trackId,
+                                activeSourcePostId = nowPlayingState.sourcePostId,
+                                playbackActive = nowPlayingState.isPlaying,
+                                postTrackId = currentPost.track.id,
+                                postId = currentPost.id,
+                            ),
                             flipState = backCoverFlipState,
                             onDoubleTap = {
                                 // Mirrors iOS PostDetailView.doubleTapLike haptic.
@@ -628,27 +645,43 @@ private fun PostDetailAlbumArt(
                     }
                 }
 
-                // Preview loading/playing overlay (track posts only)
-                if (post.isTrack && (isPreviewLoading || isPreviewPlaying) && !flipState.isLoading) {
+                // Preview loading/playing overlay (track posts only).
+                // Fades in/out to match iOS's .easeOut(duration: 0.2) so pausing
+                // doesn't make the scrim + pause icon vanish abruptly.
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = post.isTrack && (isPreviewLoading || isPreviewPlaying) && !flipState.isLoading,
+                    enter = fadeIn(animationSpec = tween(200)),
+                    exit = fadeOut(animationSpec = tween(200)),
+                ) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color.Black.copy(alpha = 0.4f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (isPreviewLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(40.dp),
-                                strokeWidth = 3.dp,
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Filled.Pause,
-                                contentDescription = stringResource(R.string.post_detail_cd_pause),
-                                tint = Color.White,
-                                modifier = Modifier.size(52.dp),
-                            )
+                        // Crossfade the spinner -> pause-icon swap so starting
+                        // playback doesn't hard-cut the content mid fade-in. Mirrors
+                        // iOS's .transition(.opacity) on the pause glyph under the
+                        // same 200ms ease, so the whole overlay reads as one animation.
+                        Crossfade(
+                            targetState = isPreviewLoading,
+                            animationSpec = tween(200),
+                            label = "previewOverlayContent",
+                        ) { loading ->
+                            if (loading) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(40.dp),
+                                    strokeWidth = 3.dp,
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Pause,
+                                    contentDescription = stringResource(R.string.post_detail_cd_pause),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(52.dp),
+                                )
+                            }
                         }
                     }
                 }

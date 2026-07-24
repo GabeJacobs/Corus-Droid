@@ -37,8 +37,14 @@ class FilmDetailViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
     private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
+    private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    /** Prototype gate for the immersive (blurred-poster hero + frosted collapsing
+     *  bar) film header. Shares the artist header's debug-on / RC-gated flag. */
+    val immersiveHeaderEnabled: Boolean
+        get() = remoteConfigService.immersiveArtistHeaderEnabled
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
@@ -207,15 +213,21 @@ class FilmDetailViewModel @Inject constructor(
                 _posts.value = moveFirstPosterToTop(unique, page.firstPosterId)
                 _hasMore.value = page.posts.size >= pageSize
 
-                // Update movie header from fetched post data
+                // Fill header gaps from the first post WITHOUT displacing the
+                // identity the caller (search/catalog row) already seeded — a
+                // poster the poster snapshotted can differ from the tapped row's
+                // current art. Posts only supply fields the route lacked.
                 page.posts.firstOrNull()?.let { post ->
-                    _movieHeader.value = MovieHeaderInfo(
-                        movieTitle = post.movieTitle,
-                        directorName = post.directorName,
-                        releaseYear = post.releaseYear,
-                        posterURL = post.posterURL,
-                        posterLargeURL = post.posterLargeURL,
-                        trailerURL = post.trailerURL,
+                    _movieHeader.value = mergeMovieHeader(
+                        existing = _movieHeader.value,
+                        fromPost = MovieHeaderInfo(
+                            movieTitle = post.movieTitle,
+                            directorName = post.directorName,
+                            releaseYear = post.releaseYear,
+                            posterURL = post.posterURL,
+                            posterLargeURL = post.posterLargeURL,
+                            trailerURL = post.trailerURL,
+                        ),
                     )
                 }
             } catch (e: Exception) {
@@ -278,3 +290,25 @@ data class MovieHeaderInfo(
     val posterLargeURL: String? = null,
     val trailerURL: String? = null,
 )
+
+/**
+ * Merge the first post's header snapshot into the header the caller already
+ * seeded from the tapped row. The seed's identity — poster, title, director,
+ * year, trailer — wins field-by-field; the post only fills fields the route
+ * left blank (deep links / notifications arrive with no seed, so the whole
+ * post-derived header is taken). Prevents the film-page poster visibly
+ * swapping to whatever art the first poster happened to snapshot, matching iOS
+ * (whose header renders the immutable seed movie) and the song page.
+ */
+internal fun mergeMovieHeader(existing: MovieHeaderInfo?, fromPost: MovieHeaderInfo): MovieHeaderInfo {
+    if (existing == null) return fromPost
+    fun keep(seed: String?, post: String?) = seed?.takeIf { it.isNotBlank() } ?: post
+    return MovieHeaderInfo(
+        movieTitle = keep(existing.movieTitle, fromPost.movieTitle),
+        directorName = keep(existing.directorName, fromPost.directorName),
+        releaseYear = keep(existing.releaseYear, fromPost.releaseYear),
+        posterURL = keep(existing.posterURL, fromPost.posterURL),
+        posterLargeURL = keep(existing.posterLargeURL, fromPost.posterLargeURL),
+        trailerURL = keep(existing.trailerURL, fromPost.trailerURL),
+    )
+}

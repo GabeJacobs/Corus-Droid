@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -54,6 +55,17 @@ import fm.corus.android.ui.theme.LocalCorusDarkTheme
 /** Prototype sub-toggle: also blend the status bar (hero + frosted bar draw up
  *  under it). Flip to false to keep the immersive header but stop at the strip. */
 internal const val ImmersiveExtendUnderStatusBar = true
+
+/**
+ * Whether the tab hosting the current composition is the one on screen. Every tab
+ * NavHost stays composed at once — `MainTabScreen` keeps the inactive ones
+ * off-screen (offset), not disposed — so an immersive page on a *background* tab is
+ * still in composition and must stop driving the shared, window-wide status-bar
+ * appearance. `MainTabScreen`'s `TabContent` provides this per tab; it defaults to
+ * true so an immersive screen shown outside the tab host (previews, tests) behaves
+ * normally.
+ */
+val LocalContainingTabSelected = compositionLocalOf { true }
 
 /** Height of the floating collapsing bar (excludes any status-bar inset). */
 internal val ImmersiveBarHeight = 56.dp
@@ -122,19 +134,42 @@ internal fun Modifier.extendIntoStatusBar(extraTopPx: Int): Modifier =
 internal fun ImmersiveStatusBarIcons(collapseProgress: Float) {
     val view = LocalView.current
     val darkTheme = LocalCorusDarkTheme.current
+    // The status bar is one window-wide resource, but every tab NavHost stays
+    // composed at once (inactive tabs are parked off-screen, not disposed). So this
+    // override must yield the bar the instant its own tab is deselected — otherwise
+    // the white-over-hero icons stay forced onto the light Feed/Profile the user
+    // switches to (white-on-white, invisible). While inactive we make NO write at
+    // all; MainTabScreen re-asserts the theme default on every tab switch, which
+    // both restores a non-immersive arriving tab and keeps two immersive tabs from
+    // racing over the bar. Re-keying on `active` re-applies our override the moment
+    // this tab is selected again (the LaunchedEffect below won't fire on its own —
+    // its appearance key is unchanged across the switch).
+    val active = LocalContainingTabSelected.current
+    // false → white icons over the dark hero; !darkTheme → theme default once the
+    // frosted bar has taken over (collapseProgress >= 0.5).
     val appearanceLightStatusBars = if (collapseProgress < 0.5f) false else !darkTheme
-    LaunchedEffect(appearanceLightStatusBars, view) {
+    LaunchedEffect(active, appearanceLightStatusBars, view) {
+        if (!active) return@LaunchedEffect
         (view.context as? Activity)?.window?.let { window ->
-            WindowInsetsControllerCompat(window, view)
+            WindowInsetsControllerCompat(window, window.decorView)
                 .isAppearanceLightStatusBars = appearanceLightStatusBars
         }
     }
+    // Restore the theme default when the immersive screen leaves composition by
+    // navigating BACK WITHIN its own tab: the popped page IS disposed while its tab
+    // stays selected (so the tab-switch reset above doesn't apply), and the restored
+    // feed/profile entry re-enters without re-asserting — CorusSystemBars only writes
+    // from a first-composition SideEffect, which a restored back-stack entry skips.
+    // Capture the controller EAGERLY (while the view is still attached), bound to the
+    // window's decorView, which stays attached through the pop transition. A
+    // controller built lazily inside onDispose — as this screen's ComposeView is
+    // detaching — silently dropped its write, leaving the bar stuck on white.
     DisposableEffect(view, darkTheme) {
+        val controller = (view.context as? Activity)?.window?.let { window ->
+            WindowInsetsControllerCompat(window, window.decorView)
+        }
         onDispose {
-            (view.context as? Activity)?.window?.let { window ->
-                WindowInsetsControllerCompat(window, view)
-                    .isAppearanceLightStatusBars = !darkTheme
-            }
+            controller?.isAppearanceLightStatusBars = !darkTheme
         }
     }
 }

@@ -88,6 +88,11 @@ fun OnboardingScreen(
     var usernameAvailable by remember { mutableStateOf<Boolean?>(null) }
     var checkingUsername by remember { mutableStateOf(false) }
     var usernameError by remember { mutableStateOf<String?>(null) }
+    // A too-short handle stays neutral while typing; the length message appears
+    // only when the user taps Continue at under 3 chars (showTooShortError),
+    // and clears on the next keystroke.
+    var usernameTooShort by remember { mutableStateOf(false) }
+    var showTooShortError by remember { mutableStateOf(false) }
     var showAvatarNudge by remember { mutableStateOf(false) }
     var showPhotoDialog by remember { mutableStateOf(false) }
 
@@ -143,21 +148,35 @@ fun OnboardingScreen(
 
     // Username availability check with debounce (min 1 char, matching iOS)
     LaunchedEffect(username) {
+        // Any keystroke clears a previously-tapped "too short" message.
+        showTooShortError = false
         when (val result = UsernameValidator.validate(username)) {
             is UsernameValidator.Result.Empty -> {
                 usernameAvailable = null
                 usernameError = null
+                usernameTooShort = false
+                checkingUsername = false
+                return@LaunchedEffect
+            }
+            is UsernameValidator.Result.TooShort -> {
+                // Neutral while typing — no red. The length message shows only if
+                // the user taps Continue (see showTooShortError / the button).
+                usernameAvailable = null
+                usernameError = null
+                usernameTooShort = true
                 checkingUsername = false
                 return@LaunchedEffect
             }
             is UsernameValidator.Result.Invalid -> {
                 usernameAvailable = false
                 usernameError = result.message
+                usernameTooShort = false
                 checkingUsername = false
                 return@LaunchedEffect
             }
             UsernameValidator.Result.Valid -> {
                 usernameError = null
+                usernameTooShort = false
             }
         }
         checkingUsername = true
@@ -174,6 +193,14 @@ fun OnboardingScreen(
     val canSubmit = usernameAvailable == true
             && DisplayNameValidator.hasVisibleCharacter(displayName)
             && !isLoading
+    // Continue is tappable (and looks enabled) once the name is filled and the
+    // handle is valid OR merely too short. Tapping while too short reveals the
+    // length message instead of submitting (see the button's onClick).
+    val canTapContinue = !isLoading &&
+            DisplayNameValidator.hasVisibleCharacter(displayName) &&
+            (usernameAvailable == true || usernameTooShort)
+    // Whether the field should render its red error treatment right now.
+    val showsUsernameError = usernameAvailable == false || (usernameTooShort && showTooShortError)
 
     val scrollState = rememberScrollState()
 
@@ -349,8 +376,8 @@ fun OnboardingScreen(
                 modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
             ) {
                 val borderColor = when {
+                    showsUsernameError -> CorusColors.Error
                     usernameAvailable == true -> CorusColors.Verified
-                    usernameAvailable == false -> CorusColors.Error
                     else -> CorusColors.Divider
                 }
 
@@ -410,7 +437,7 @@ fun OnboardingScreen(
                             tint = CorusColors.Verified,
                             modifier = Modifier.size(18.dp),
                         )
-                    } else if (usernameAvailable == false) {
+                    } else if (showsUsernameError) {
                         Icon(
                             Icons.Filled.Cancel,
                             contentDescription = null,
@@ -426,6 +453,13 @@ fun OnboardingScreen(
                     usernameError != null -> {
                         Text(
                             usernameError!!,
+                            style = CorusFont.caption,
+                            color = CorusColors.Error,
+                        )
+                    }
+                    usernameTooShort && showTooShortError -> {
+                        Text(
+                            UsernameValidator.lengthRangeMessage,
                             style = CorusFont.caption,
                             color = CorusColors.Error,
                         )
@@ -477,11 +511,17 @@ fun OnboardingScreen(
             // Continue button — matches iOS: full-width accent capsule
             Button(
                 onClick = {
-                    viewModel.analyticsService.logOnboardingProfileSubmitted()
-                    if (avatarUri == null && !showAvatarNudge) {
-                        showAvatarNudge = true
+                    if (usernameTooShort) {
+                        // Reveal the length message now instead of flashing it
+                        // while the user was still typing toward 3 chars.
+                        showTooShortError = true
                     } else {
-                        viewModel.completeOnboarding(username, displayName, avatarData)
+                        viewModel.analyticsService.logOnboardingProfileSubmitted()
+                        if (avatarUri == null && !showAvatarNudge) {
+                            showAvatarNudge = true
+                        } else {
+                            viewModel.completeOnboarding(username, displayName, avatarData)
+                        }
                     }
                 },
                 modifier = Modifier
@@ -489,10 +529,10 @@ fun OnboardingScreen(
                     .padding(horizontal = CorusSpacing.xxl)
                     .padding(top = CorusSpacing.lg)
                     .padding(bottom = CorusSpacing.md),
-                enabled = canSubmit,
+                enabled = canTapContinue,
                 shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (canSubmit) CorusColors.Accent else CorusColors.Accent.copy(alpha = 0.4f),
+                    containerColor = if (canTapContinue) CorusColors.Accent else CorusColors.Accent.copy(alpha = 0.4f),
                     disabledContainerColor = CorusColors.Accent.copy(alpha = 0.4f),
                 ),
                 contentPadding = PaddingValues(vertical = CorusSpacing.lg),

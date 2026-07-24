@@ -88,6 +88,7 @@ import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.ImmersiveBarHeight
 import fm.corus.android.ui.components.ImmersiveCollapsingBar
+import fm.corus.android.ui.components.ImmersiveCoverBackdrop
 import fm.corus.android.ui.components.ImmersiveExtendUnderStatusBar
 import fm.corus.android.ui.components.ImmersiveStatusBarIcons
 import fm.corus.android.ui.components.currentStatusBarTopPx
@@ -262,7 +263,7 @@ fun ArtistPageScreen(
     // art), 1 once the hero has scrolled up under the bar (bar frosted, name shown).
     // Driven straight off the list scroll so it tracks the finger.
     val heroCollapseDistancePx = with(LocalDensity.current) {
-        (ImmersiveHeroHeight - ImmersiveBarHeight).toPx()
+        (ArtistImmersiveHeroHeight - ImmersiveBarHeight).toPx()
     }
     val collapseProgress by remember {
         derivedStateOf {
@@ -273,7 +274,6 @@ fun ArtistPageScreen(
             )
         }
     }
-    val heroTapEnabled by remember { derivedStateOf { collapseProgress < 0.5f } }
 
     // Blend the status bar too: let the hero + frosted bar draw up under the status
     // strip (X / Spotify style). Contained to this screen — the shared tab scaffold
@@ -344,6 +344,13 @@ fun ArtistPageScreen(
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        if (immersive && heroImage != null) {
+            ImmersiveCoverBackdrop(
+                artUrl = heroImage,
+                height = ArtistImmersiveHeroHeight + statusBarPadding,
+                listState = listState,
+            )
+        }
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -351,26 +358,46 @@ fun ArtistPageScreen(
                 .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier),
             contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
         ) {
-            // ── Hero: full-bleed image with name on a bottom gradient scrim.
-            // Imageless artists (mostly featured-credit entities) get a compact
-            // name header instead of an empty card with a gradient over it. May
-            // upgrade to the full hero if the catalog fetch surfaces an image
-            // the navigation hint lacked. ──
+            // ── Hero: framed 5:3 photo card with the name on a bottom scrim, sitting
+            // on the blurred cover backdrop — matches the iOS artist page + the
+            // song/album/director pages (every destination page reads as framed art
+            // over a blurred surround). Imageless artists (mostly featured-credit
+            // entities) get a compact name header instead. May upgrade to the full
+            // hero if the catalog fetch surfaces an image the nav hint lacked. ──
             item {
                 if (heroImage != null && immersive) {
-                    ImmersiveArtistHero(
-                        heroImage = heroImage,
-                        artistName = artistName,
-                        artistLabel = stringResource(R.string.destination_artist_label),
-                        onTap = { onShowPhoto(ExpandedPhoto(heroImage, artistName)) },
-                        tapEnabled = heroTapEnabled,
-                        topInset = statusBarPadding,
-                    )
+                    Column {
+                        Spacer(
+                            modifier = Modifier.height(
+                                statusBarPadding + ImmersiveBarHeight + CorusSpacing.md
+                            )
+                        )
+                        ArtistHeroCard(
+                            heroImage = heroImage,
+                            artistName = artistName,
+                            artistLabel = stringResource(R.string.destination_artist_label),
+                            onTap = { onShowPhoto(ExpandedPhoto(heroImage, artistName)) },
+                        )
+                    }
                 } else if (immersive) {
-                    // Flag on, image not here yet — a full-bleed skeleton matching the
-                    // hero footprint (not the old inset card), so the shape holds
-                    // steady when the image lands.
-                    ImmersiveArtistHeroSkeleton(topInset = statusBarPadding)
+                    // Flag on, image not here yet — a framed 5:3 skeleton matching the
+                    // hero card (below the bar), so the shape holds when the image lands.
+                    Column {
+                        Spacer(
+                            modifier = Modifier.height(
+                                statusBarPadding + ImmersiveBarHeight + CorusSpacing.md
+                            )
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = CorusSpacing.lg)
+                                .aspectRatio(5f / 3f)
+                                .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
+                                .shimmer()
+                                .background(CorusColors.Skeleton),
+                        )
+                    }
                 } else if (heroImage != null) {
                     ArtistHeroCard(
                         heroImage = heroImage,
@@ -909,87 +936,9 @@ internal fun ArtistHeroCard(
     }
 }
 
-/** Height of the full-bleed immersive artist hero. Drives the collapse distance. */
-private val ImmersiveHeroHeight = 300.dp
-
-@Composable
-internal fun ImmersiveArtistHero(
-    heroImage: String,
-    artistName: String?,
-    artistLabel: String,
-    onTap: () -> Unit,
-    tapEnabled: Boolean,
-    topInset: Dp = 0.dp,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            // Grow by the status-bar height when blending it, so the visible hero
-            // below the strip keeps its intended height. Name stays bottom-aligned.
-            .height(ImmersiveHeroHeight + topInset)
-            .background(CorusColors.CardBackground)
-            .then(
-                if (tapEnabled) {
-                    Modifier.clickable(
-                        onClickLabel = stringResource(R.string.photo_viewer_open_cd),
-                    ) { onTap() }
-                } else {
-                    Modifier
-                },
-            ),
-    ) {
-        AsyncImage(
-            model = heroImage,
-            contentDescription = artistName,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-        )
-        // Bottom scrim + name, mirroring the inset hero's treatment.
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.35f),
-                            Color.Black.copy(alpha = 0.75f),
-                        ),
-                    ),
-                )
-                .padding(CorusSpacing.lg)
-                .padding(top = CorusSpacing.xxl),
-        ) {
-            Text(
-                text = artistName ?: artistLabel,
-                style = CorusFont.songTitleLarge,
-                color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
-            Text(
-                text = artistLabel,
-                style = CorusFont.captionMedium,
-                color = Color.White.copy(alpha = 0.8f),
-            )
-        }
-    }
-}
-
 /**
- * Loading placeholder for [ImmersiveArtistHero] — a full-bleed shimmer block of the
- * same footprint, so the header holds its shape from skeleton to loaded image with
- * no layout/shape swap. Kept in lockstep with the hero's shape and height.
+ * Height of the immersive artist hero region — drives the blurred [ImmersiveCoverBackdrop]
+ * height and the collapse distance. Matches the song/album pages (framed art card sitting
+ * on a blurred surround), so all destination pages collapse consistently + match iOS.
  */
-@Composable
-private fun ImmersiveArtistHeroSkeleton(topInset: Dp = 0.dp) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(ImmersiveHeroHeight + topInset)
-            .shimmer()
-            .background(CorusColors.Skeleton),
-    )
-}
+private val ArtistImmersiveHeroHeight = 340.dp

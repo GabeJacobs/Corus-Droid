@@ -56,6 +56,13 @@ class ChangeUsernameViewModel @Inject constructor(
                 _invalidReason.value = null
                 return
             }
+            is UsernameValidator.Result.TooShort -> {
+                // Neutral while typing — don't flash the length error mid-edit.
+                // Save stays disabled until the handle reaches 3 valid chars.
+                _validationState.value = ValidationState.Idle
+                _invalidReason.value = null
+                return
+            }
             is UsernameValidator.Result.Invalid -> {
                 _validationState.value = ValidationState.Invalid
                 _invalidReason.value = result.message

@@ -69,43 +69,6 @@ class DestinationPhotoTapTest {
     }
 
     @Test
-    fun `immersive hero tap fires the callback while expanded`() {
-        var taps = 0
-        composeRule.setContent {
-            ImmersiveArtistHero(
-                heroImage = "file:///hero.jpg",
-                artistName = "Tame Impala",
-                artistLabel = "Artist",
-                onTap = { taps++ },
-                tapEnabled = true,
-            )
-        }
-
-        composeRule.onNodeWithContentDescription("Tame Impala").performClick()
-
-        composeRule.runOnIdle { assertEquals(1, taps) }
-    }
-
-    @Test
-    fun `immersive hero exposes no click action and fires nothing once the bar owns the surface`() {
-        var taps = 0
-        composeRule.setContent {
-            ImmersiveArtistHero(
-                heroImage = "file:///hero.jpg",
-                artistName = "Tame Impala",
-                artistLabel = "Artist",
-                onTap = { taps++ },
-                tapEnabled = false,
-            )
-        }
-
-        composeRule.onAllNodes(hasClickAction()).assertCountEquals(0)
-        composeRule.onNodeWithContentDescription("Tame Impala").performClick()
-
-        composeRule.runOnIdle { assertEquals(0, taps) }
-    }
-
-    @Test
     fun `director photo card tap delivers exactly the rendered url`() {
         val url = "https://image.tmdb.org/t/p/h632/dir.jpg"
         var received: String? = null

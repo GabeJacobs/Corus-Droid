@@ -99,6 +99,7 @@ import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.domain.FeedModeOrder
 import fm.corus.android.domain.HapticManager
+import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.PopularUsersInfiniteGrid
 import fm.corus.android.ui.components.PostCard
@@ -174,6 +175,7 @@ fun FeedScreen(
     val hasTappedAlbumArt by viewModel.hasTappedAlbumArt.collectAsState()
     val isNewAccount by viewModel.isNewAccount.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
+    val loadingSourcePostId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val feedMode by viewModel.feedMode.collectAsState()
     val feedDecade: Int? = viewModel.appliedFeedDecade.collectAsState().value
@@ -873,8 +875,20 @@ fun FeedScreen(
                             saveCount = engagement?.saveCount ?: post.saveCount,
                             saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
                             currentUser = currentUserProfile,
-                            isPreviewLoading = loadingTrackId == post.track.id,
-                            isPreviewPlaying = nowPlayingState.trackId == post.track.id && nowPlayingState.isPlaying,
+                            isPreviewLoading = PostPlaybackHighlight.shouldHighlight(
+                                activeTrackId = loadingTrackId,
+                                activeSourcePostId = loadingSourcePostId,
+                                playbackActive = true,
+                                postTrackId = post.track.id,
+                                postId = post.id,
+                            ),
+                            isPreviewPlaying = PostPlaybackHighlight.shouldHighlight(
+                                activeTrackId = nowPlayingState.trackId,
+                                activeSourcePostId = nowPlayingState.sourcePostId,
+                                playbackActive = nowPlayingState.isPlaying,
+                                postTrackId = post.track.id,
+                                postId = post.id,
+                            ),
                             onLikeTap = { viewModel.toggleLike(post.id) },
                             onSaveTap = { viewModel.toggleSave(post.id) },
                             onUserTap = { onNavigateToUser(post.user) },
