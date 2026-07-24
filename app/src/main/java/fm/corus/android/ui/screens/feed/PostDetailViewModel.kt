@@ -62,6 +62,10 @@ class PostDetailViewModel @Inject constructor(
             track, musicServicePreference.current.value, cloudFunctions,
         )
 
+    override suspend fun resolveAlbumIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
+        cloudFunctions.resolveTrackDestinations(track.id, track.isrc, track.name, track.artistName)
+            .albumId?.takeIf { it.isNotBlank() }
+
     private val _post = MutableStateFlow<CymbalPost?>(null)
     val post: StateFlow<CymbalPost?> = _post.asStateFlow()
 

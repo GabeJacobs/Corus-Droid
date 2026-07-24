@@ -235,7 +235,12 @@ fun AlbumPageScreen(
                     )
                 },
                 actions = {
-                    if (viewModel.entityShareEnabled) {
+                    // "Share" is send-side gated by entityShareEnabled; "Go to
+                    // Artist" belongs to the artist-pages feature (this page is
+                    // only reachable when that's on) and shows only when the
+                    // catalog carries a Spotify artist id — am: albums don't,
+                    // matching the tappable artist name.
+                    if (viewModel.entityShareEnabled || artistId != null) {
                         Box {
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
@@ -247,13 +252,29 @@ fun AlbumPageScreen(
                                 onDismissRequest = { showMenu = false },
                                 containerColor = CorusColors.CardBackground,
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
-                                    onClick = {
-                                        showMenu = false
-                                        showShareSheet = true
-                                    },
-                                )
+                                if (viewModel.entityShareEnabled) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                        onClick = {
+                                            showMenu = false
+                                            showShareSheet = true
+                                        },
+                                    )
+                                }
+                                if (artistId != null) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
+                                        onClick = {
+                                            showMenu = false
+                                            onNavigateToArtist(
+                                                ArtistPageRoute(
+                                                    artistId = artistId,
+                                                    name = artistName?.let { primaryNameHint(it, catalog?.artistIds?.size ?: 0) },
+                                                )
+                                            )
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -518,7 +539,7 @@ fun AlbumPageScreen(
                 onBack = onBack,
                 topInset = statusBarPadding,
                 actions = { tint ->
-                    if (viewModel.entityShareEnabled) {
+                    if (viewModel.entityShareEnabled || artistId != null) {
                         Box {
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
@@ -531,13 +552,29 @@ fun AlbumPageScreen(
                                 onDismissRequest = { showMenu = false },
                                 containerColor = CorusColors.CardBackground,
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
-                                    onClick = {
-                                        showMenu = false
-                                        showShareSheet = true
-                                    },
-                                )
+                                if (viewModel.entityShareEnabled) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                        onClick = {
+                                            showMenu = false
+                                            showShareSheet = true
+                                        },
+                                    )
+                                }
+                                if (artistId != null) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
+                                        onClick = {
+                                            showMenu = false
+                                            onNavigateToArtist(
+                                                ArtistPageRoute(
+                                                    artistId = artistId,
+                                                    name = artistName?.let { primaryNameHint(it, catalog?.artistIds?.size ?: 0) },
+                                                )
+                                            )
+                                        },
+                                    )
+                                }
                             }
                         }
                     }

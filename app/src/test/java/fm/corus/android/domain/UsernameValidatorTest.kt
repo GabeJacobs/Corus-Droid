@@ -11,8 +11,10 @@ class UsernameValidatorTest {
         assertEquals(UsernameValidator.Result.Empty, UsernameValidator.validate(""))
     }
 
-    @Test fun `single letter is valid`() {
-        assertEquals(UsernameValidator.Result.Valid, UsernameValidator.validate("j"))
+    @Test fun `single letter is too short - neutral`() {
+        // Under 3 chars but well-formed: TooShort (neutral), not an error, so the
+        // field stays quiet while the user is still typing.
+        assertEquals(UsernameValidator.Result.TooShort, UsernameValidator.validate("j"))
     }
 
     @Test fun `single digit is invalid - needs a letter`() {
@@ -42,8 +44,37 @@ class UsernameValidatorTest {
         )
     }
 
-    @Test fun `a single letter among digits is valid`() {
-        assertEquals(UsernameValidator.Result.Valid, UsernameValidator.validate("a1"))
+    @Test fun `two chars is too short - neutral`() {
+        // "a1" has a letter and a valid charset but is under the 3-char minimum.
+        assertEquals(UsernameValidator.Result.TooShort, UsernameValidator.validate("a1"))
+    }
+
+    // Regression for the 07-24 screenshots: "ry" (2 chars) showed a green check.
+    // Now it's TooShort — neutral while typing, neither green nor a red error.
+    @Test fun `two-letter name is too short - neutral`() {
+        assertEquals(UsernameValidator.Result.TooShort, UsernameValidator.validate("ry"))
+    }
+
+    // A too-short name that also breaks a format rule reports the format reason,
+    // not TooShort (length isn't the only problem).
+    @Test fun `too short but malformed reports the format reason`() {
+        assertEquals(
+            "Only letters, numbers, underscores, and periods",
+            (UsernameValidator.validate("a!") as UsernameValidator.Result.Invalid).message,
+        )
+        assertEquals(
+            "Username must contain at least one letter",
+            (UsernameValidator.validate("12") as UsernameValidator.Result.Invalid).message,
+        )
+    }
+
+    @Test fun `three-char name is valid`() {
+        assertEquals(UsernameValidator.Result.Valid, UsernameValidator.validate("rya"))
+    }
+
+    @Test fun `min length mirrors the server rule`() {
+        // isValidUsername in backend/firestore.rules: u.size() >= 3
+        assertEquals(3, UsernameValidator.MIN_LENGTH)
     }
 
     @Test fun `letters numbers underscores periods are valid`() {
@@ -109,13 +140,38 @@ class UsernameValidatorTest {
         )
     }
 
+    // Regression for the 07-24 signup bug (hit on iOS, latent here): validate()
+    // had no length rule, so any surface that skipped clean() green-lit an
+    // over-long name that the Firestore rules then rejected.
+    @Test fun `over-limit name is invalid with the cross-platform copy`() {
+        val result = UsernameValidator.validate("a".repeat(26))
+        assertTrue(result is UsernameValidator.Result.Invalid)
+        assertEquals(
+            UsernameValidator.lengthRangeMessage,
+            (result as UsernameValidator.Result.Invalid).message,
+        )
+    }
+
+    @Test fun `name at the 25-char limit is valid`() {
+        assertEquals(UsernameValidator.Result.Valid, UsernameValidator.validate("a".repeat(25)))
+    }
+
+    @Test fun `21-char name fits under the raised limit`() {
+        assertEquals(UsernameValidator.Result.Valid, UsernameValidator.validate("musiccontrolsthemoney"))
+    }
+
+    @Test fun `max length mirrors the server rule`() {
+        // isValidUsername in backend/firestore.rules: u.size() <= 25
+        assertEquals(25, UsernameValidator.MAX_LENGTH)
+    }
+
     @Test fun `clean lowercases and strips invalid chars`() {
         assertEquals("jane.doe", UsernameValidator.clean("Jane.Doe!"))
     }
 
     @Test fun `clean truncates to max length`() {
         val long = "a".repeat(50)
-        assertEquals(20, UsernameValidator.clean(long).length)
+        assertEquals(25, UsernameValidator.clean(long).length)
     }
 
     @Test fun `reserved brand and system handles are reserved`() {

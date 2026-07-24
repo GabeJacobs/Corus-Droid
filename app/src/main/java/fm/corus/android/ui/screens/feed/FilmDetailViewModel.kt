@@ -37,8 +37,14 @@ class FilmDetailViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
     private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
+    private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    /** Prototype gate for the immersive (blurred-poster hero + frosted collapsing
+     *  bar) film header. Shares the artist header's debug-on / RC-gated flag. */
+    val immersiveHeaderEnabled: Boolean
+        get() = remoteConfigService.immersiveArtistHeaderEnabled
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()

@@ -78,6 +78,10 @@ class CommentsViewModel @Inject constructor(
             track, musicServicePreference.current.value, cloudFunctions,
         )
 
+    override suspend fun resolveAlbumIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
+        cloudFunctions.resolveTrackDestinations(track.id, track.isrc, track.name, track.artistName)
+            .albumId?.takeIf { it.isNotBlank() }
+
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport
 

@@ -179,6 +179,13 @@ class EditProfileViewModel @Inject constructor(
                 _usernameInvalidReason.value = null
                 return
             }
+            is UsernameValidator.Result.TooShort -> {
+                // This screen has no neutral state (empty is already INVALID), so
+                // keep its existing behavior and surface the length message.
+                _usernameState.value = UsernameState.INVALID
+                _usernameInvalidReason.value = UsernameValidator.lengthRangeMessage
+                return
+            }
             is UsernameValidator.Result.Invalid -> {
                 _usernameState.value = UsernameState.INVALID
                 _usernameInvalidReason.value = result.message

@@ -53,6 +53,7 @@ class FilmDetailViewModelShareTest {
             userRepository = userRepository,
             messageRepository = messageRepository,
             cloudFunctions = mock(),
+            remoteConfigService = mock(),
             context = mock(),
         )
     }

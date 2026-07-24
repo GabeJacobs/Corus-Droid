@@ -64,32 +64,21 @@ internal fun FullScreenPhotoViewer(
 
     BackHandler(enabled = photo != null) { onDismiss() }
 
-    val scale = remember { Animatable(1f) }
-    val offsetX = remember { Animatable(0f) }
-    val offsetY = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-
-    var isLoaded by remember { mutableStateOf(false) }
-    var loadFailed by remember { mutableStateOf(false) }
-    var imageAspect by remember { mutableFloatStateOf(0f) }
-
-    LaunchedEffect(photo) {
-        if (photo != null) {
-            scale.snapTo(1f)
-            offsetX.snapTo(0f)
-            offsetY.snapTo(0f)
-            isLoaded = false
-            loadFailed = false
-            imageAspect = 0f
-        }
-    }
-
     AnimatedVisibility(
         visible = photo != null,
         enter = fadeIn(),
         exit = fadeOut(),
     ) {
         shown?.let { p ->
+            val scale = remember { Animatable(1f) }
+            val offsetX = remember { Animatable(0f) }
+            val offsetY = remember { Animatable(0f) }
+            val scope = rememberCoroutineScope()
+
+            var isLoaded by remember { mutableStateOf(false) }
+            var loadFailed by remember { mutableStateOf(false) }
+            var imageAspect by remember { mutableFloatStateOf(0f) }
+
             val closeLabel = stringResource(R.string.full_screen_image_cd_close)
             val view = LocalView.current
             DisposableEffect(Unit) {

@@ -75,6 +75,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.material.icons.outlined.Movie
@@ -577,27 +578,43 @@ fun PostCard(
                         }
                     }
 
-                    // Preview loading/playing overlay (track posts only)
-                    if (post.isTrack && (isPreviewLoading || isPreviewPlaying) && !flipState.isLoading) {
+                    // Preview loading/playing overlay (track posts only).
+                    // Fades in/out to match iOS's .easeOut(duration: 0.2) so pausing
+                    // doesn't make the scrim + pause icon vanish abruptly.
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = post.isTrack && (isPreviewLoading || isPreviewPlaying) && !flipState.isLoading,
+                        enter = fadeIn(animationSpec = tween(200)),
+                        exit = fadeOut(animationSpec = tween(200)),
+                    ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(Color.Black.copy(alpha = 0.4f)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (isPreviewLoading) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.size(40.dp),
-                                    strokeWidth = 3.dp,
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Filled.Pause,
-                                    contentDescription = stringResource(R.string.post_card_cd_pause),
-                                    tint = Color.White,
-                                    modifier = Modifier.size(52.dp),
-                                )
+                            // Crossfade the spinner -> pause-icon swap so starting
+                            // playback doesn't hard-cut the content mid fade-in. Mirrors
+                            // iOS's .transition(.opacity) on the pause glyph under the
+                            // same 200ms ease, so the whole overlay reads as one animation.
+                            Crossfade(
+                                targetState = isPreviewLoading,
+                                animationSpec = tween(200),
+                                label = "previewOverlayContent",
+                            ) { loading ->
+                                if (loading) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        modifier = Modifier.size(40.dp),
+                                        strokeWidth = 3.dp,
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.Pause,
+                                        contentDescription = stringResource(R.string.post_card_cd_pause),
+                                        tint = Color.White,
+                                        modifier = Modifier.size(52.dp),
+                                    )
+                                }
                             }
                         }
                     }

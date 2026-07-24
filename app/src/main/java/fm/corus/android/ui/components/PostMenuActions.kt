@@ -41,4 +41,6 @@ interface PostMenuActions {
     /** Resolves the viewer's preferred-service catalog URL for [track] (Apple
      *  Music / TIDAL / Deezer); used by the post menu's "Open in service" row. */
     suspend fun resolveServiceLinkUrl(track: CymbalTrack): String?
+
+    suspend fun resolveAlbumIdForTrack(track: CymbalTrack): String?
 }
