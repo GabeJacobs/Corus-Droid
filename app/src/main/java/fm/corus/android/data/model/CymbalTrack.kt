@@ -230,6 +230,7 @@ data class CymbalTrack(
         albumId = albumId,
         releaseDate = releaseDate,
         releaseDatePrecision = releaseDatePrecision,
+        albumName = albumName,
     )
 
     companion object {

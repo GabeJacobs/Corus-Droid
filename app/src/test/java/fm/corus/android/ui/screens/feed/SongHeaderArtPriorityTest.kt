@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.data.model.CymbalTrack
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -94,5 +95,36 @@ class SongHeaderArtPriorityTest {
     @Test
     fun blankEverywhereResolvesNullTitle() {
         assertEquals(null, resolveSongHeaderText(route = "", post = " "))
+    }
+
+    // ── Album line: the tapped pressing's album name + year win over the first
+    // post's snapshot (the album line reuses resolveSongHeaderText for both). For
+    // Kelela "point blank": route = the "new avatar" album pressing; the first
+    // post = the earlier "point blank" single.
+    @Test
+    fun routeAlbumNameAndYearWinOverFirstPost() {
+        assertEquals("new avatar", resolveSongHeaderText(route = "new avatar", post = "point blank"))
+        // Year is derived from the resolved release date, take(4).
+        val year = (resolveSongHeaderText(route = "2026-07-10", post = "2026-06-01") ?: "").take(4)
+        assertEquals("2026", year)
+    }
+
+    @Test
+    fun albumNameFallsBackToPostWhenRouteLacksIt() {
+        assertEquals("point blank", resolveSongHeaderText(route = null, post = "point blank"))
+    }
+
+    // ── Route threading: toSongDetailRoute must carry albumName so the song page
+    // (album line + "Post Song" draft) can name the tapped pressing. A regression
+    // that drops it silently reverts the album line to the first post's album.
+    @Test
+    fun toSongDetailRouteCarriesAlbumName() {
+        val track = CymbalTrack(
+            id = "am:1888561542",
+            name = "point blank",
+            artistName = "Kelela",
+            albumName = "new avatar",
+        )
+        assertEquals("new avatar", track.toSongDetailRoute().albumName)
     }
 }
