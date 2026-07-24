@@ -883,6 +883,12 @@
     <string name="full_screen_image_cd">Imagem em tela cheia</string>
     <string name="full_screen_image_cd_close">Fechar</string>
 
+    <!-- Photo viewer -->
+    <string name="photo_viewer_open_cd">Ver foto</string>
+    <string name="photo_viewer_error">Não foi possível carregar a foto</string>
+    <string name="photo_viewer_photo_of">Foto de %1$s</string>
+    <string name="photo_viewer_photo">Foto</string>
+
     <!-- Comments audience picker (compose) and locked notice (comments sheet) -->
     <string name="comments_audience_everyone">Todos podem comentar</string>
     <string name="comments_audience_followers">Apenas seguidores</string>

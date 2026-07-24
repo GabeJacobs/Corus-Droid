@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.destination
 
+import fm.corus.android.ui.components.immersiveCollapseProgress
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

@@ -14,6 +14,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
@@ -28,62 +29,54 @@ class NetworkMonitorReconnectTest {
         on { getSystemService(Context.CONNECTIVITY_SERVICE) } doReturn connectivityManager
     }
 
-    private fun internetNetwork(): Network {
-        val caps = mock<NetworkCapabilities> {
-            on { hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } doReturn true
-        }
-        val network = mock<Network>()
-        whenever(connectivityManager.getNetworkCapabilities(network)) doReturn caps
-        return network
+    private fun caps(hasInternet: Boolean) = mock<NetworkCapabilities> {
+        on { hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } doReturn hasInternet
     }
 
-    private fun setActive(network: Network?) {
-        whenever(connectivityManager.activeNetwork) doReturn network
-    }
-
-    private fun monitorWithCallback(): Pair<NetworkMonitor, ConnectivityManager.NetworkCallback> {
-        val monitor = NetworkMonitor(context)
+    private fun defaultCallback(): ConnectivityManager.NetworkCallback {
         val captor = argumentCaptor<ConnectivityManager.NetworkCallback>()
-        verify(connectivityManager).registerNetworkCallback(any<NetworkRequest>(), captor.capture())
-        return monitor to captor.firstValue
+        verify(connectivityManager).registerDefaultNetworkCallback(captor.capture())
+        return captor.firstValue
     }
 
     @Test
-    fun `losing a redundant network stays online while another provides internet`() {
-        val wifi = internetNetwork()
-        val cellular = internetNetwork()
-        setActive(wifi)
-
-        val (monitor, callback) = monitorWithCallback()
-        assertTrue(monitor.isConnected.value)
-
-        callback.onLost(cellular)
-
-        assertTrue(monitor.isConnected.value)
+    fun `tracks the default network, never every internet network`() {
+        NetworkMonitor(context)
+        verify(connectivityManager).registerDefaultNetworkCallback(any())
+        verify(connectivityManager, never())
+            .registerNetworkCallback(any<NetworkRequest>(), any<ConnectivityManager.NetworkCallback>())
     }
 
     @Test
-    fun `reconnect after a drop clears offline`() {
-        setActive(null)
-        val (monitor, callback) = monitorWithCallback()
+    fun `default network available reports online`() {
+        whenever(connectivityManager.activeNetwork) doReturn null
+        val monitor = NetworkMonitor(context)
         assertFalse(monitor.isConnected.value)
 
-        val wifi = internetNetwork()
-        setActive(wifi)
-        callback.onAvailable(wifi)
+        defaultCallback().onAvailable(mock())
 
         assertTrue(monitor.isConnected.value)
     }
 
     @Test
-    fun `losing the only network goes offline`() {
-        val wifi = internetNetwork()
-        setActive(wifi)
-        val (monitor, callback) = monitorWithCallback()
+    fun `losing the default network reports offline`() {
+        val network = mock<Network>()
+        val internetCaps = caps(true)
+        whenever(connectivityManager.activeNetwork) doReturn network
+        whenever(connectivityManager.getNetworkCapabilities(network)) doReturn internetCaps
+        val monitor = NetworkMonitor(context)
         assertTrue(monitor.isConnected.value)
 
-        setActive(null)
-        callback.onLost(wifi)
+        defaultCallback().onLost(network)
+
+        assertFalse(monitor.isConnected.value)
+    }
+
+    @Test
+    fun `default network without internet reports offline`() {
+        val monitor = NetworkMonitor(context)
+
+        defaultCallback().onCapabilitiesChanged(mock(), caps(false))
 
         assertFalse(monitor.isConnected.value)
     }

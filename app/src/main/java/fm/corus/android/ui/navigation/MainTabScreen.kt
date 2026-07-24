@@ -58,6 +58,8 @@ import androidx.navigation.toRoute
 import fm.corus.android.R
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.domain.CatalogPlaybackOrigin
+import fm.corus.android.ui.components.ExpandedPhoto
+import fm.corus.android.ui.components.FullScreenPhotoViewer
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
@@ -183,6 +185,8 @@ fun MainTabScreen(
     // the tab bar like iOS and gets real window insets (the nav-graph content consumes
     // them). Tabs open it via onShowComments; navigation routes through the active tab.
     var commentPostId by remember { mutableStateOf<String?>(null) }
+
+    var expandedPhoto by remember { mutableStateOf<ExpandedPhoto?>(null) }
 
     // When a pre-selected media ID becomes non-null, open compose overlay.
     // Reset then immediately start the load so isLoadingPreSelection is true
@@ -446,6 +450,7 @@ fun MainTabScreen(
                     scrollToTopTrigger = feedScrollToTop.intValue,
                     isFeedTabSelected = selectedTab == CorusTab.FEED,
                     onShowComments = { commentPostId = it },
+                    onShowPhoto = { expandedPhoto = it },
                     onNavigateToCompose = {
                         if (viewModel.subscriptionRepository.canPost) {
                             composeViewModel.reset()
@@ -464,6 +469,7 @@ fun MainTabScreen(
                     scrollToTopTrigger = searchScrollToTop.intValue,
                     isContainingTabSelected = selectedTab == CorusTab.EXPLORE,
                     onShowComments = { commentPostId = it },
+                    onShowPhoto = { expandedPhoto = it },
                 )
             }
             TabContent(visible = selectedTab == CorusTab.NOTIFICATIONS) {
@@ -474,6 +480,7 @@ fun MainTabScreen(
                     tabActivationTrigger = notificationsTabActivation.intValue,
                     isContainingTabSelected = selectedTab == CorusTab.NOTIFICATIONS,
                     onShowComments = { commentPostId = it },
+                    onShowPhoto = { expandedPhoto = it },
                 )
             }
             TabContent(visible = selectedTab == CorusTab.PROFILE) {
@@ -484,6 +491,7 @@ fun MainTabScreen(
                     tabActivationTrigger = profileTabActivation.intValue,
                     isContainingTabSelected = selectedTab == CorusTab.PROFILE,
                     onShowComments = { commentPostId = it },
+                    onShowPhoto = { expandedPhoto = it },
                     onOpenCompose = { mediaType ->
                         if (viewModel.subscriptionRepository.canPost) {
                             composeViewModel.reset()
@@ -614,6 +622,11 @@ fun MainTabScreen(
             } else null,
         )
     }
+
+    FullScreenPhotoViewer(
+        photo = expandedPhoto,
+        onDismiss = { expandedPhoto = null },
+    )
 
     } // end outer Box
 }

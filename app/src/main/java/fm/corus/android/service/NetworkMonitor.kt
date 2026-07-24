@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,21 +22,18 @@ class NetworkMonitor @Inject constructor(
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            _isConnected.value = checkCurrentConnectivity()
+            _isConnected.value = true
         }
         override fun onLost(network: Network) {
-            _isConnected.value = checkCurrentConnectivity()
+            _isConnected.value = false
         }
         override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-            _isConnected.value = checkCurrentConnectivity()
+            _isConnected.value = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         }
     }
 
     init {
-        val request = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
-        connectivityManager.registerNetworkCallback(request, networkCallback)
+        connectivityManager.registerDefaultNetworkCallback(networkCallback)
     }
 
     private fun checkCurrentConnectivity(): Boolean {

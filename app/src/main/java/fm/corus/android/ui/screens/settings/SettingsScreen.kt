@@ -313,11 +313,17 @@ fun SettingsScreen(
             SectionHeader(stringResource(R.string.settings_section_general))
 
             val musicService by settingsViewModel.musicServicePreference.current.collectAsState()
-            val musicServiceOptions = remember(settingsViewModel.tidalEnabled, settingsViewModel.deezerEnabled) {
+            val musicServiceOptions = remember(
+                settingsViewModel.tidalEnabled,
+                settingsViewModel.youtubeMusicEnabled,
+                settingsViewModel.deezerEnabled,
+            ) {
                 buildList {
                     add(MusicService.SPOTIFY)
-                    // TIDAL / Deezer only appear when their Remote Config gates are on.
+                    // TIDAL / YouTube Music / Deezer only appear when their Remote
+                    // Config gates are on. YouTube Music sits below TIDAL, above Deezer.
                     if (settingsViewModel.tidalEnabled) add(MusicService.TIDAL)
+                    if (settingsViewModel.youtubeMusicEnabled) add(MusicService.YOUTUBE_MUSIC)
                     if (settingsViewModel.deezerEnabled) add(MusicService.DEEZER)
                     // Apple Music is intentionally last on Android.
                     add(MusicService.APPLE_MUSIC)

@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.destination
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -34,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -49,13 +51,20 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import com.valentinilk.shimmer.shimmer
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
@@ -76,6 +85,14 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ExpandedPhoto
+import fm.corus.android.ui.components.ImmersiveBarHeight
+import fm.corus.android.ui.components.ImmersiveCollapsingBar
+import fm.corus.android.ui.components.ImmersiveExtendUnderStatusBar
+import fm.corus.android.ui.components.ImmersiveStatusBarIcons
+import fm.corus.android.ui.components.currentStatusBarTopPx
+import fm.corus.android.ui.components.extendIntoStatusBar
+import fm.corus.android.ui.components.immersiveCollapseProgress
 import fm.corus.android.ui.components.ShareArtistSubject
 import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
@@ -88,6 +105,7 @@ import fm.corus.android.ui.navigation.AlbumPageRoute
 import fm.corus.android.ui.navigation.SongDetailRoute
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusSpacing
 
 /** Localized "{Album|Single|Compilation} · {year}" caption for a rail cover. */
@@ -144,6 +162,7 @@ fun ArtistPageScreen(
     onSeeAllPosts: () -> Unit = {},
     onSeeAllDiscography: () -> Unit = {},
     onSeeAllVideos: () -> Unit = {},
+    onShowPhoto: (ExpandedPhoto) -> Unit = {},
 ) {
     val detail by viewModel.detail.collectAsState()
     val isCatalogLoading by viewModel.isCatalogLoading.collectAsState()
@@ -230,9 +249,14 @@ fun ArtistPageScreen(
     }
 
     // Immersive header (prototype, flag-gated): a full-bleed hero with a frosted
-    // floating bar that collapses on scroll. Needs an image to be worth it; without
-    // one we fall back to the standard solid TopAppBar path below.
-    val immersive = viewModel.immersiveArtistHeaderEnabled && heroImage != null
+    // floating bar that collapses on scroll. Use it whenever we have — or might
+    // still be about to get — a hero image: an image is present, OR the catalog is
+    // still loading (one may arrive). Gating the loading case in too keeps the
+    // skeleton the same full-bleed shape as the loaded hero, so nothing changes
+    // shape when the image lands. A resolved imageless artist (detail loaded, no
+    // image) drops back to the standard solid TopAppBar + compact header below.
+    val immersive = viewModel.immersiveArtistHeaderEnabled &&
+        (heroImage != null || (detail == null && isCatalogLoading))
     val hazeState = remember { HazeState() }
     // Collapse progress: 0 while the hero fills the top (bar transparent over the
     // art), 1 once the hero has scrolled up under the bar (bar frosted, name shown).
@@ -249,8 +273,33 @@ fun ArtistPageScreen(
             )
         }
     }
+    val heroTapEnabled by remember { derivedStateOf { collapseProgress < 0.5f } }
+
+    // Blend the status bar too: let the hero + frosted bar draw up under the status
+    // strip (X / Spotify style). Contained to this screen — the shared tab scaffold
+    // has already consumed the Compose status-bar inset, so we read the real height
+    // straight from the window and grow the screen up by it via [extendIntoStatusBar]
+    // rather than changing that shared container. Flip [ImmersiveExtendUnderStatusBar]
+    // off to keep the immersive header but stop at the status strip.
+    val statusBarTopPx = currentStatusBarTopPx()
+    val extendUnderStatusBar = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
+    val statusBarPadding = if (extendUnderStatusBar) {
+        with(LocalDensity.current) { statusBarTopPx.toDp() }
+    } else {
+        0.dp
+    }
+    // White status-bar icons over the hero, theme default once collapsed (restored
+    // on leave). Only when actually blending the status bar.
+    if (extendUnderStatusBar) {
+        ImmersiveStatusBarIcons(collapseProgress)
+    }
 
     Scaffold(
+        modifier = if (extendUnderStatusBar) {
+            Modifier.extendIntoStatusBar(statusBarTopPx)
+        } else {
+            Modifier
+        },
         topBar = {
             // In immersive mode the floating bar (below) draws over the hero, so the
             // Scaffold contributes no top bar and the list runs to the content top.
@@ -313,54 +362,22 @@ fun ArtistPageScreen(
                         heroImage = heroImage,
                         artistName = artistName,
                         artistLabel = stringResource(R.string.destination_artist_label),
+                        onTap = { onShowPhoto(ExpandedPhoto(heroImage, artistName)) },
+                        tapEnabled = heroTapEnabled,
+                        topInset = statusBarPadding,
                     )
+                } else if (immersive) {
+                    // Flag on, image not here yet — a full-bleed skeleton matching the
+                    // hero footprint (not the old inset card), so the shape holds
+                    // steady when the image lands.
+                    ImmersiveArtistHeroSkeleton(topInset = statusBarPadding)
                 } else if (heroImage != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = CorusSpacing.lg)
-                            .aspectRatio(5f / 3f)
-                            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
-                            .background(CorusColors.CardBackground),
-                    ) {
-                        AsyncImage(
-                            model = heroImage,
-                            contentDescription = artistName,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .fillMaxWidth()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color.Transparent,
-                                            Color.Black.copy(alpha = 0.35f),
-                                            Color.Black.copy(alpha = 0.75f),
-                                        ),
-                                    ),
-                                )
-                                .padding(CorusSpacing.lg)
-                                .padding(top = CorusSpacing.xxl),
-                        ) {
-                            Text(
-                                text = artistName
-                                    ?: stringResource(R.string.destination_artist_label),
-                                style = CorusFont.songTitleLarge,
-                                color = Color.White,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
-                            Text(
-                                text = stringResource(R.string.destination_artist_label),
-                                style = CorusFont.captionMedium,
-                                color = Color.White.copy(alpha = 0.8f),
-                            )
-                        }
-                    }
+                    ArtistHeroCard(
+                        heroImage = heroImage,
+                        artistName = artistName,
+                        artistLabel = stringResource(R.string.destination_artist_label),
+                        onTap = { onShowPhoto(ExpandedPhoto(heroImage, artistName)) },
+                    )
                 } else if (detail == null && isCatalogLoading) {
                     // Still loading and the nav hint carried no image (e.g.
                     // tapped from a post, which passes only a name — search
@@ -712,17 +729,36 @@ fun ArtistPageScreen(
             }
         }
         if (immersive) {
-            ImmersiveArtistTopBar(
+            ImmersiveCollapsingBar(
                 hazeState = hazeState,
                 progress = collapseProgress,
                 title = artistName,
-                entityShareEnabled = viewModel.entityShareEnabled,
-                showMenu = showMenu,
-                onShowMenuChange = { showMenu = it },
                 onBack = onBack,
-                onShare = {
-                    showMenu = false
-                    showShareSheet = true
+                topInset = statusBarPadding,
+                actions = { tint ->
+                    if (viewModel.entityShareEnabled) {
+                        Box {
+                            CorusHeaderIconButton(
+                                onClick = { showMenu = true },
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                                tint = tint,
+                            )
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                                containerColor = CorusColors.CardBackground,
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                    onClick = {
+                                        showMenu = false
+                                        showShareSheet = true
+                                    },
+                                )
+                            }
+                        }
+                    }
                 },
             )
         }
@@ -813,47 +849,94 @@ internal fun DiscographyRailCell(
 }
 
 // ── Immersive artist header (immersive_artist_header_enabled) ──────────────────
-// A full-bleed hero with a frosted floating top bar that collapses into a solid
-// title bar as the list scrolls. Prototype: one screen, behind a flag. The hero
-// sits inside the tab content area — the shared MainTabScreen scaffold consumes
-// the status-bar inset — so the art runs edge-to-edge below the status strip
-// rather than under the clock. Extending it under the status bar would touch that
-// shared container and is deliberately left as a follow-up.
-
-/**
- * Immersive-header collapse fraction, driven off the list scroll: 0 while the
- * hero fills the top (bar transparent over the art), 1 once the hero has scrolled
- * up by [collapseDistancePx] or off-screen entirely (bar frosted, name shown).
- * Extracted for unit testing; guards the degenerate zero-distance case so the
- * division never yields NaN.
- */
-internal fun immersiveCollapseProgress(
-    firstVisibleItemIndex: Int,
-    firstVisibleItemScrollOffset: Int,
-    collapseDistancePx: Float,
-): Float = when {
-    firstVisibleItemIndex > 0 -> 1f
-    collapseDistancePx <= 0f -> 1f
-    else -> (firstVisibleItemScrollOffset / collapseDistancePx).coerceIn(0f, 1f)
-}
-
-/** Height of the full-bleed immersive hero. Drives the collapse distance. */
-private val ImmersiveHeroHeight = 300.dp
-
-/** Height of the floating collapsing bar. */
-private val ImmersiveBarHeight = 56.dp
+// A full-bleed hero + the shared frosted collapsing bar and status-bar plumbing
+// (see ui/components/ImmersiveHeader.kt). This file keeps only the artist-specific
+// hero; the bar, collapse math, and status-bar blend are shared with the other
+// immersive destination headers.
 
 @Composable
-private fun ImmersiveArtistHero(
+internal fun ArtistHeroCard(
     heroImage: String,
     artistName: String?,
     artistLabel: String,
+    onTap: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(ImmersiveHeroHeight)
+            .padding(horizontal = CorusSpacing.lg)
+            .aspectRatio(5f / 3f)
+            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
+            .clickable(onClickLabel = stringResource(R.string.photo_viewer_open_cd)) { onTap() }
             .background(CorusColors.CardBackground),
+    ) {
+        AsyncImage(
+            model = heroImage,
+            contentDescription = artistName,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.35f),
+                            Color.Black.copy(alpha = 0.75f),
+                        ),
+                    ),
+                )
+                .padding(CorusSpacing.lg)
+                .padding(top = CorusSpacing.xxl),
+        ) {
+            Text(
+                text = artistName ?: artistLabel,
+                style = CorusFont.songTitleLarge,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+            Text(
+                text = artistLabel,
+                style = CorusFont.captionMedium,
+                color = Color.White.copy(alpha = 0.8f),
+            )
+        }
+    }
+}
+
+/** Height of the full-bleed immersive artist hero. Drives the collapse distance. */
+private val ImmersiveHeroHeight = 300.dp
+
+@Composable
+internal fun ImmersiveArtistHero(
+    heroImage: String,
+    artistName: String?,
+    artistLabel: String,
+    onTap: () -> Unit,
+    tapEnabled: Boolean,
+    topInset: Dp = 0.dp,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            // Grow by the status-bar height when blending it, so the visible hero
+            // below the strip keeps its intended height. Name stays bottom-aligned.
+            .height(ImmersiveHeroHeight + topInset)
+            .background(CorusColors.CardBackground)
+            .then(
+                if (tapEnabled) {
+                    Modifier.clickable(
+                        onClickLabel = stringResource(R.string.photo_viewer_open_cd),
+                    ) { onTap() }
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         AsyncImage(
             model = heroImage,
@@ -895,118 +978,18 @@ private fun ImmersiveArtistHero(
     }
 }
 
+/**
+ * Loading placeholder for [ImmersiveArtistHero] — a full-bleed shimmer block of the
+ * same footprint, so the header holds its shape from skeleton to loaded image with
+ * no layout/shape swap. Kept in lockstep with the hero's shape and height.
+ */
 @Composable
-private fun ImmersiveArtistTopBar(
-    hazeState: HazeState,
-    progress: Float,
-    title: String?,
-    entityShareEnabled: Boolean,
-    showMenu: Boolean,
-    onShowMenuChange: (Boolean) -> Unit,
-    onBack: () -> Unit,
-    onShare: () -> Unit,
-) {
-    // Icons ride from white (over the dark hero at the top) to the theme text color
-    // (over the frosted surface once collapsed). The system status bar sits over the
-    // app background above this bar, so its own icons need no adjustment.
-    val iconTint = lerp(Color.White, CorusColors.Text, progress)
-    val frost = CorusColors.Background
-    val artistLabel = stringResource(R.string.destination_artist_label)
+private fun ImmersiveArtistHeroSkeleton(topInset: Dp = 0.dp) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(ImmersiveBarHeight)
-            // Real backdrop blur of the hero/list scrolling underneath. `alpha` ramps
-            // the whole effect in with the collapse, so at rest the bar is fully
-            // transparent and the art reads crisp; blur/tint appear only on scroll.
-            .hazeEffect(state = hazeState) {
-                alpha = progress
-                blurRadius = 30.dp
-                backgroundColor = frost
-                tints = listOf(HazeTint(frost.copy(alpha = 0.5f)))
-            }
-            // Soft top scrim for icon legibility over a bright hero; fades out as the
-            // frost fills in so it never darkens the collapsed bar.
-            .then(
-                if (progress < 1f) {
-                    Modifier.background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.28f * (1f - progress)),
-                                Color.Transparent,
-                            ),
-                        ),
-                    )
-                } else {
-                    Modifier
-                },
-            )
-            // Solid-at-the-top wash: the bar reads as opaque [frost] up top (seamless
-            // with the status strip above), then feathers into the frosted blur over
-            // the bottom third — so content emerges softly at the bottom edge instead
-            // of showing hard through the whole bar. Ramps in with the collapse.
-            .background(
-                Brush.verticalGradient(
-                    0f to frost.copy(alpha = progress),
-                    0.65f to frost.copy(alpha = 0.82f * progress),
-                    1f to Color.Transparent,
-                ),
-            ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = CorusSpacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CorusHeaderIconButton(
-                onClick = onBack,
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.feed_cd_back),
-                tint = iconTint,
-            )
-            // Title fades in as the bar collapses (invisible over the hero at rest).
-            Text(
-                text = title ?: artistLabel,
-                style = CorusFont.screenTitle,
-                color = CorusColors.Text.copy(alpha = progress),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = CorusSpacing.xs),
-            )
-            if (entityShareEnabled) {
-                Box {
-                    CorusHeaderIconButton(
-                        onClick = { onShowMenuChange(true) },
-                        imageVector = Icons.Filled.MoreVert,
-                        contentDescription = stringResource(R.string.feed_cd_more_options),
-                        tint = iconTint,
-                    )
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { onShowMenuChange(false) },
-                        containerColor = CorusColors.CardBackground,
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
-                            onClick = onShare,
-                        )
-                    }
-                }
-            } else {
-                // Balance the back button so the title stays optically centered-ish.
-                Spacer(modifier = Modifier.size(CorusSpacing.iconLg + CorusSpacing.lg))
-            }
-        }
-        // Hairline under the collapsed bar, dividing it from the list. Fades in.
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .height(0.5.dp)
-                .background(CorusColors.Divider.copy(alpha = progress)),
-        )
-    }
+            .height(ImmersiveHeroHeight + topInset)
+            .shimmer()
+            .background(CorusColors.Skeleton),
+    )
 }

@@ -74,6 +74,10 @@ class SocialSetupViewModel @Inject constructor(
     val tidalEnabled: Boolean
         get() = remoteConfigService.tidalEnabled
 
+    /** Whether the YouTube Music option should appear in the music-service picker. */
+    val youtubeMusicEnabled: Boolean
+        get() = remoteConfigService.youtubeMusicEnabled
+
     /** Whether the Deezer option should appear in the music-service picker. */
     val deezerEnabled: Boolean
         get() = remoteConfigService.deezerEnabled

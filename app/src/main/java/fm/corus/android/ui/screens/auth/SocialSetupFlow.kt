@@ -133,6 +133,7 @@ internal fun MusicServiceScreen(
 ) {
     var selected by remember { mutableStateOf(MusicService.SPOTIFY) }
     val tidalEnabled = viewModel.tidalEnabled
+    val youtubeMusicEnabled = viewModel.youtubeMusicEnabled
     val deezerEnabled = viewModel.deezerEnabled
 
     // In the legacy flow this is the last onboarding step, so the push-permission
@@ -210,12 +211,23 @@ internal fun MusicServiceScreen(
         }
 
         // Secondary tier — full-width list rows beneath the featured pair:
-        // Deezer first, then Apple Music. These link out to their own app.
+        // YouTube Music (below TIDAL, above Deezer), then Deezer, then Apple Music.
+        // These link out to their own app.
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
         ) {
+            // YouTube Music only appears when its Remote Config gate is on.
+            if (youtubeMusicEnabled) {
+                MusicServiceRow(
+                    logoRes = R.drawable.youtube_music_logo,
+                    label = MusicService.YOUTUBE_MUSIC.displayLabel,
+                    accent = CorusColors.YouTubeMusicRed,
+                    selected = selected == MusicService.YOUTUBE_MUSIC,
+                    onClick = { selected = MusicService.YOUTUBE_MUSIC },
+                )
+            }
             // Deezer only appears when its Remote Config gate is on.
             if (deezerEnabled) {
                 MusicServiceRow(

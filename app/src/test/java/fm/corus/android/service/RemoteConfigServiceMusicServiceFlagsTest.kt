@@ -66,6 +66,34 @@ class RemoteConfigServiceMusicServiceFlagsTest {
     }
 
     @Test
+    fun `youtube music defaults OFF while value is STATIC (dark until flipped)`() {
+        val remoteConfig = mock<FirebaseRemoteConfig>()
+        // Unlike TIDAL/Deezer (which default true), YouTube Music must be dark for
+        // everyone until the key is explicitly flipped on. If this regresses to
+        // true, a release before launch would surface YouTube Music during the
+        // fresh-signup STATIC window — the exact "no user sees a change" guarantee
+        // this feature ships under.
+        val ytmStatic = configValue(FirebaseRemoteConfig.VALUE_SOURCE_STATIC, false)
+        whenever(remoteConfig.getValue(eq("youtube_music_enabled"))).thenReturn(ytmStatic)
+
+        val service = service(remoteConfig)
+
+        assertFalse(service.youtubeMusicEnabled)
+    }
+
+    @Test
+    fun `youtube music honors an activated value of true`() {
+        val remoteConfig = mock<FirebaseRemoteConfig>()
+        // Flipping the key on in the console is what launches the feature.
+        val ytmRemote = configValue(FirebaseRemoteConfig.VALUE_SOURCE_REMOTE, true)
+        whenever(remoteConfig.getValue(eq("youtube_music_enabled"))).thenReturn(ytmRemote)
+
+        val service = service(remoteConfig)
+
+        assertTrue(service.youtubeMusicEnabled)
+    }
+
+    @Test
     fun `tidal and deezer honor an activated value of false`() {
         val remoteConfig = mock<FirebaseRemoteConfig>()
         // A real REMOTE/DEFAULT value of false must turn the cards off — the

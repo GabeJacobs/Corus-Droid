@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,9 +45,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
@@ -63,6 +67,14 @@ import fm.corus.android.data.model.TrackCorusStats
 import fm.corus.android.data.model.primaryNameHint
 import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ImmersiveBarHeight
+import fm.corus.android.ui.components.ImmersiveCollapsingBar
+import fm.corus.android.ui.components.ImmersiveCoverBackdrop
+import fm.corus.android.ui.components.ImmersiveExtendUnderStatusBar
+import fm.corus.android.ui.components.ImmersiveStatusBarIcons
+import fm.corus.android.ui.components.currentStatusBarTopPx
+import fm.corus.android.ui.components.extendIntoStatusBar
+import fm.corus.android.ui.components.immersiveCollapseProgress
 import fm.corus.android.ui.components.ShareAlbumSubject
 import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
@@ -74,6 +86,10 @@ import fm.corus.android.ui.navigation.SongDetailRoute
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+
+/** Visible height of the album's blurred-cover backdrop; also the collapse
+ *  distance basis via [ImmersiveBarHeight]. */
+private val AlbumImmersiveHeroHeight = 340.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -173,8 +189,42 @@ fun AlbumPageScreen(
         onInPlaceScrollConsumed()
     }
 
+    // Immersive header (prototype): blurred-cover hero + shared frosted collapsing
+    // bar + status-bar blend (ui/components/ImmersiveHeader.kt).
+    val immersive = viewModel.immersiveHeaderEnabled && (cover != null || isCatalogLoading)
+    val hazeState = remember { HazeState() }
+    val statusBarTopPx = currentStatusBarTopPx()
+    val extendUnderStatusBar = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
+    val statusBarPadding = if (extendUnderStatusBar) {
+        with(LocalDensity.current) { statusBarTopPx.toDp() }
+    } else {
+        0.dp
+    }
+    val heroCollapseDistancePx = with(LocalDensity.current) {
+        (AlbumImmersiveHeroHeight - ImmersiveBarHeight).toPx()
+    }
+    val collapseProgress by remember {
+        derivedStateOf {
+            immersiveCollapseProgress(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+                heroCollapseDistancePx,
+            )
+        }
+    }
+    if (extendUnderStatusBar) {
+        ImmersiveStatusBarIcons(collapseProgress)
+    }
+
     Scaffold(
+        modifier = if (extendUnderStatusBar) {
+            Modifier.extendIntoStatusBar(statusBarTopPx)
+        } else {
+            Modifier
+        },
         topBar = {
+            // Immersive draws the shared floating bar over the blurred cover below.
+            if (!immersive) {
             TopAppBar(
                 title = {},
                 navigationIcon = {
@@ -211,13 +261,22 @@ fun AlbumPageScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
+            }
         },
     ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        if (immersive) {
+            ImmersiveCoverBackdrop(
+                artUrl = cover,
+                height = AlbumImmersiveHeroHeight + statusBarPadding,
+                listState = listState,
+            )
+        }
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier),
             contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
         ) {
             // ── Header: cover (tap to play the album), title, tappable artist,
@@ -233,7 +292,12 @@ fun AlbumPageScreen(
                         .padding(horizontal = CorusSpacing.lg),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                    Spacer(
+                        modifier = Modifier.height(
+                            if (immersive) statusBarPadding + ImmersiveBarHeight + CorusSpacing.md
+                            else CorusSpacing.sm
+                        )
+                    )
                     if (cover != null) {
                         AsyncImage(
                             model = cover,
@@ -445,6 +509,41 @@ fun AlbumPageScreen(
                     },
                 )
             }
+        }
+        if (immersive) {
+            ImmersiveCollapsingBar(
+                hazeState = hazeState,
+                progress = collapseProgress,
+                title = title,
+                onBack = onBack,
+                topInset = statusBarPadding,
+                actions = { tint ->
+                    if (viewModel.entityShareEnabled) {
+                        Box {
+                            CorusHeaderIconButton(
+                                onClick = { showMenu = true },
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                                tint = tint,
+                            )
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                                containerColor = CorusColors.CardBackground,
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                    onClick = {
+                                        showMenu = false
+                                        showShareSheet = true
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
+            )
+        }
         }
     }
 

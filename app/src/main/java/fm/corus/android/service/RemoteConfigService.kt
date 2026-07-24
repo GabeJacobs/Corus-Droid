@@ -169,6 +169,14 @@ class RemoteConfigService @Inject constructor(
     val tidalEnabled: Boolean
         get() = flagWithDefault("tidal_enabled", true)
 
+    /// Master gate for the YouTube Music link-out service (onboarding + settings
+    /// picker + post link-out). Link-out only: playback stays on the preview and
+    /// playlist export falls back to Spotify, exactly like Deezer. Defaults to
+    /// FALSE so a build that ships before launch shows no change to any user until
+    /// the key is flipped on in Remote Config. Mirrors iOS/web `youtube_music_enabled`.
+    val youtubeMusicEnabled: Boolean
+        get() = flagWithDefault("youtube_music_enabled", false)
+
     /// Master gate for the Deezer link-out integration (onboarding + settings
     /// service picker + post link-out). Mirrors `tidalEnabled` / iOS+web
     /// `deezer_enabled`. Keep OFF until web + iOS + Android all ship.
@@ -517,6 +525,7 @@ class RemoteConfigService @Inject constructor(
             "favorite_people_cap_limit" to 4L,
             "soundcloud_enabled" to false,
             "tidal_enabled" to true,
+            "youtube_music_enabled" to false,
             "deezer_enabled" to true,
             "following_denorm_reads_enabled" to true,
             "comment_controls_on_posts" to true,

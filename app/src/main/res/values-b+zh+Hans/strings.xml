@@ -996,6 +996,12 @@
     <string name="full_screen_image_cd">全屏图片</string>
     <string name="full_screen_image_cd_close">关闭</string>
 
+    <!-- Photo viewer -->
+    <string name="photo_viewer_open_cd">查看照片</string>
+    <string name="photo_viewer_error">无法加载照片</string>
+    <string name="photo_viewer_photo_of">%1$s的照片</string>
+    <string name="photo_viewer_photo">照片</string>
+
     <!-- Comments audience -->
     <string name="comments_audience_everyone">所有人都可以评论</string>
     <string name="comments_audience_followers">仅粉丝</string>

@@ -997,6 +997,12 @@
     <string name="full_screen_image_cd">전체 화면 이미지</string>
     <string name="full_screen_image_cd_close">닫기</string>
 
+    <!-- Photo viewer -->
+    <string name="photo_viewer_open_cd">사진 보기</string>
+    <string name="photo_viewer_error">사진을 불러올 수 없습니다</string>
+    <string name="photo_viewer_photo_of">%1$s의 사진</string>
+    <string name="photo_viewer_photo">사진</string>
+
     <!-- Comments audience -->
     <string name="comments_audience_everyone">모두 댓글 가능</string>
     <string name="comments_audience_followers">팔로워만</string>

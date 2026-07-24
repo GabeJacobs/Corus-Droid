@@ -21,12 +21,14 @@ fun shouldShowSpotifyPlaylistAlert(service: MusicService, hasSoundCloud: Boolean
 /**
  * Whether the service has no native playlist path on Android and therefore
  * always produces a Spotify playlist instead (Apple Music needs iOS-only
- * MusicKit; Deezer is link-out only). These always show the "Spotify Feature"
- * warning and never the first-time export explainer. TIDAL and Spotify export
- * natively, so they get the one-time explainer instead.
+ * MusicKit; Deezer and YouTube Music are link-out only). These always show the
+ * "Spotify Feature" warning and never the first-time export explainer. TIDAL and
+ * Spotify export natively, so they get the one-time explainer instead.
  */
 fun usesSpotifyFallback(service: MusicService): Boolean =
-    service == MusicService.APPLE_MUSIC || service == MusicService.DEEZER
+    service == MusicService.APPLE_MUSIC ||
+        service == MusicService.DEEZER ||
+        service == MusicService.YOUTUBE_MUSIC
 
 /**
  * Eligible-song count for the playlist source the given profile tab maps to,

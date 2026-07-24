@@ -873,6 +873,10 @@
     <string name="avatar_crop_use_photo">この写真を使う</string>
     <string name="full_screen_image_cd">全画面の画像</string>
     <string name="full_screen_image_cd_close">閉じる</string>
+    <string name="photo_viewer_open_cd">写真を表示</string>
+    <string name="photo_viewer_error">写真を読み込めませんでした</string>
+    <string name="photo_viewer_photo_of">%1$sの写真</string>
+    <string name="photo_viewer_photo">写真</string>
     <string name="comments_audience_everyone">全員がコメントできます</string>
     <string name="comments_audience_followers">フォロワーのみ</string>
     <string name="comments_audience_following">フォロー中のアカウント</string>

@@ -59,6 +59,7 @@ object CorusColors {
     val SpotifyGreen = Color(0xFF1DB954)
     val AppleMusicPink = Color(0xFFFC3C44)
     val DeezerPurple = Color(0xFFA238FF)
+    val YouTubeMusicRed = Color(0xFFFF0000)
     val Error = Color(0xFFE74C3C)
 
     // ── Adaptive colors (resolved from LocalCorusPalette at composition time) ──

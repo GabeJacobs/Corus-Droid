@@ -51,12 +51,23 @@ object MusicServiceLinkOut {
         return "https://open.spotify.com/search/$q"
     }
 
+    /** YouTube Music search URL for a track. YouTube Music is link-out only and
+     *  we hold no track-id resolver, so the badge always opens a search scoped to
+     *  the track — mirrors the web client. Null only when there is nothing to
+     *  search, so the caller can fall back rather than open an empty query. */
+    fun youtubeMusicSearchUrl(name: String, artist: String): String? {
+        val query = "$name $artist".trim()
+        if (query.isEmpty()) return null
+        return "https://music.youtube.com/search?q=${java.net.URLEncoder.encode(query, "UTF-8")}"
+    }
+
     /** Drawable for the preferred-service glyph shown on a Spotify-source post. */
     @DrawableRes
     fun logoRes(service: MusicService): Int = when (service) {
         MusicService.SPOTIFY -> R.drawable.spotify_logo
         MusicService.APPLE_MUSIC -> R.drawable.apple_music_logo
         MusicService.TIDAL -> R.drawable.tidal_logo
+        MusicService.YOUTUBE_MUSIC -> R.drawable.youtube_music_logo
         MusicService.DEEZER -> R.drawable.deezer_logo
     }
 
@@ -126,6 +137,9 @@ object MusicServiceLinkOut {
         MusicService.SPOTIFY -> null
         MusicService.APPLE_MUSIC -> cached(appleCache, trackId) { cloud.appleMusicLinkOutUrl(name, artist, isrc, trackId) }
         MusicService.TIDAL -> cached(tidalCache, trackId) { cloud.tidalLinkOutUrl(name, artist, isrc, trackId) }
+        // YouTube Music resolves entirely client-side (a search URL), so it never
+        // touches the network or the resolving overlay — like Spotify's own path.
+        MusicService.YOUTUBE_MUSIC -> youtubeMusicSearchUrl(name, artist)
         MusicService.DEEZER -> cached(deezerCache, trackId) { cloud.deezerLinkOutUrl(name, artist, isrc, trackId) }
     }
 

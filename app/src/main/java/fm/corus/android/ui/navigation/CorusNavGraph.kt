@@ -45,6 +45,7 @@ import fm.corus.android.ui.screens.settings.SyncContactsSettingsScreen
 import fm.corus.android.ui.screens.search.SuggestedUsersListScreen
 import fm.corus.android.ui.screens.search.SuggestedUsersListViewModel
 import fm.corus.android.ui.screens.search.ContactFriendsListScreen
+import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.search.ContactFriendsListViewModel
 import androidx.compose.runtime.collectAsState
@@ -123,6 +124,7 @@ fun FeedNavGraph(
     scrollToTopTrigger: Int = 0,
     isFeedTabSelected: Boolean = true,
     onShowComments: (String) -> Unit = {},
+    onShowPhoto: (ExpandedPhoto) -> Unit = {},
     onNavigateToCompose: () -> Unit = {},
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
@@ -192,7 +194,7 @@ fun FeedNavGraph(
                 onNavigateToAlbum = if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null,
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isFeedTabSelected, artistPagesEnabled = artistPagesEnabled)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowPhoto = onShowPhoto, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isFeedTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -229,6 +231,7 @@ fun SearchNavGraph(
     scrollToTopTrigger: Int = 0,
     isContainingTabSelected: Boolean = true,
     onShowComments: (String) -> Unit = {},
+    onShowPhoto: (ExpandedPhoto) -> Unit = {},
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
     var repostersPostId by remember { mutableStateOf<String?>(null) }
@@ -258,7 +261,7 @@ fun SearchNavGraph(
                 onNavigateToTrending = { kind -> navController.navigate(TrendingListRoute(kind)) },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowPhoto = onShowPhoto, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -296,6 +299,7 @@ fun NotificationsNavGraph(
     tabActivationTrigger: Int = 0,
     isContainingTabSelected: Boolean = true,
     onShowComments: (String) -> Unit = {},
+    onShowPhoto: (ExpandedPhoto) -> Unit = {},
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
     var repostersPostId by remember { mutableStateOf<String?>(null) }
@@ -324,7 +328,7 @@ fun NotificationsNavGraph(
                 },
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowPhoto = onShowPhoto, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -363,6 +367,7 @@ fun ProfileNavGraph(
     onOpenCompose: (String) -> Unit = {},
     isContainingTabSelected: Boolean = true,
     onShowComments: (String) -> Unit = {},
+    onShowPhoto: (ExpandedPhoto) -> Unit = {},
 ) {
     var likesPostId by remember { mutableStateOf<String?>(null) }
     var repostersPostId by remember { mutableStateOf<String?>(null) }
@@ -399,7 +404,7 @@ fun ProfileNavGraph(
                 onOpenCompose = onOpenCompose,
             )
         }
-        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
+        sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowPhoto = onShowPhoto, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
 
     likesPostId?.let { postId ->
@@ -437,6 +442,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     mainTabViewModel: MainTabViewModel,
     navigateToUserByUsername: (String) -> Unit,
     onShowComments: (String) -> Unit = {},
+    onShowPhoto: (ExpandedPhoto) -> Unit = {},
     onShowLikes: (String) -> Unit = {},
     onShowReposters: (String) -> Unit = {},
     /**
@@ -654,6 +660,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onSeeAllVideos = {
                 navController.navigate(ArtistMusicVideosRoute(route.artistId, route.name))
             },
+            onShowPhoto = onShowPhoto,
         )
     }
 
@@ -700,6 +707,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onSeeAllTrailers = {
                 navController.navigate(DirectorTrailersRoute(route.directorId, route.name))
             },
+            onShowPhoto = onShowPhoto,
         )
     }
 

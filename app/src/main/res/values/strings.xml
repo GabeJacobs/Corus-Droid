@@ -1129,6 +1129,12 @@
     <string name="full_screen_image_cd">Full screen image</string>
     <string name="full_screen_image_cd_close">Close</string>
 
+    <!-- Photo viewer -->
+    <string name="photo_viewer_open_cd">View photo</string>
+    <string name="photo_viewer_error">Couldn\'t load photo</string>
+    <string name="photo_viewer_photo_of">Photo of %1$s</string>
+    <string name="photo_viewer_photo">Photo</string>
+
     <!-- Comments audience -->
     <string name="comments_audience_everyone">Everyone can comment</string>
     <string name="comments_audience_followers">Followers only</string>

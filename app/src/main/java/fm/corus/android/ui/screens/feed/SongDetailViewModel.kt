@@ -42,6 +42,11 @@ class SongDetailViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
+    /** Prototype gate for the immersive (blurred-cover hero + frosted collapsing
+     *  bar) song header. Shares the artist header's debug-on / RC-gated flag. */
+    val immersiveHeaderEnabled: Boolean
+        get() = remoteConfigService.immersiveArtistHeaderEnabled
+
     /**
      * Resolve the link-out URL for a Spotify-source track in the viewer's
      * *preferred* service (Apple Music / TIDAL / Deezer). Returns null for

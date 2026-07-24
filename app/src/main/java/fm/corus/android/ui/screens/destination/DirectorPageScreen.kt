@@ -46,6 +46,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
+import fm.corus.android.ui.components.ImmersiveBarHeight
+import fm.corus.android.ui.components.ImmersiveCollapsingBar
+import fm.corus.android.ui.components.ImmersiveCoverBackdrop
+import fm.corus.android.ui.components.ImmersiveExtendUnderStatusBar
+import fm.corus.android.ui.components.ImmersiveStatusBarIcons
+import fm.corus.android.ui.components.currentStatusBarTopPx
+import fm.corus.android.ui.components.extendIntoStatusBar
+import fm.corus.android.ui.components.immersiveCollapseProgress
 import fm.corus.android.R
 import fm.corus.android.data.model.DirectorFilm
 import fm.corus.android.data.model.MusicVideo
@@ -59,6 +73,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.ShareDirectorSubject
 import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
@@ -70,6 +85,10 @@ import fm.corus.android.ui.navigation.FilmDetailRoute
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+
+/** Visible height of the director's blurred-photo backdrop (taller for the 2:3
+ *  portrait); also the collapse distance basis via [ImmersiveBarHeight]. */
+private val DirectorImmersiveHeroHeight = 420.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,6 +104,7 @@ fun DirectorPageScreen(
     onSeeAllPosts: () -> Unit = {},
     onSeeAllFilmography: () -> Unit = {},
     onSeeAllTrailers: () -> Unit = {},
+    onShowPhoto: (ExpandedPhoto) -> Unit = {},
 ) {
     val detail by viewModel.detail.collectAsState()
     val isCatalogLoading by viewModel.isCatalogLoading.collectAsState()
@@ -115,8 +135,43 @@ fun DirectorPageScreen(
         viewModel.loadPosts(directorId, nameHint)
     }
 
+    // Immersive header (prototype): blurred-photo hero + shared frosted collapsing
+    // bar + status-bar blend (ui/components/ImmersiveHeader.kt).
+    val listState = rememberLazyListState()
+    val immersive = viewModel.immersiveHeaderEnabled && (photo != null || isCatalogLoading)
+    val hazeState = remember { HazeState() }
+    val statusBarTopPx = currentStatusBarTopPx()
+    val extendUnderStatusBar = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
+    val statusBarPadding = if (extendUnderStatusBar) {
+        with(LocalDensity.current) { statusBarTopPx.toDp() }
+    } else {
+        0.dp
+    }
+    val heroCollapseDistancePx = with(LocalDensity.current) {
+        (DirectorImmersiveHeroHeight - ImmersiveBarHeight).toPx()
+    }
+    val collapseProgress by remember {
+        derivedStateOf {
+            immersiveCollapseProgress(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+                heroCollapseDistancePx,
+            )
+        }
+    }
+    if (extendUnderStatusBar) {
+        ImmersiveStatusBarIcons(collapseProgress)
+    }
+
     Scaffold(
+        modifier = if (extendUnderStatusBar) {
+            Modifier.extendIntoStatusBar(statusBarTopPx)
+        } else {
+            Modifier
+        },
         topBar = {
+            // Immersive draws the shared floating bar over the blurred photo below.
+            if (!immersive) {
             TopAppBar(
                 title = {},
                 navigationIcon = {
@@ -153,12 +208,22 @@ fun DirectorPageScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
+            }
         },
     ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        if (immersive) {
+            ImmersiveCoverBackdrop(
+                artUrl = photo,
+                height = DirectorImmersiveHeroHeight + statusBarPadding,
+                listState = listState,
+            )
+        }
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier),
             contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
         ) {
             // ── Header: centered 2:3 portrait + name + "Director" ──
@@ -167,33 +232,17 @@ fun DirectorPageScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                    Box(
-                        modifier = Modifier
-                            .width(140.dp)
-                            .aspectRatio(2f / 3f)
-                            .shadow(4.dp, RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
-                            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
-                            .background(CorusColors.CardBackground),
-                    ) {
-                        if (photo != null) {
-                            AsyncImage(
-                                model = photo,
-                                contentDescription = directorName,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Filled.Movie,
-                                contentDescription = null,
-                                tint = CorusColors.Tertiary,
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .size(36.dp),
-                            )
-                        }
-                    }
+                    Spacer(
+                        modifier = Modifier.height(
+                            if (immersive) statusBarPadding + ImmersiveBarHeight + CorusSpacing.md
+                            else CorusSpacing.sm
+                        )
+                    )
+                    DirectorPhotoCard(
+                        photo = photo,
+                        directorName = directorName,
+                        onTap = { url -> onShowPhoto(ExpandedPhoto(url, directorName)) },
+                    )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                     if (directorName != null || catalogError) {
                         Text(
@@ -388,6 +437,41 @@ fun DirectorPageScreen(
                 )
             }
         }
+        if (immersive) {
+            ImmersiveCollapsingBar(
+                hazeState = hazeState,
+                progress = collapseProgress,
+                title = directorName,
+                onBack = onBack,
+                topInset = statusBarPadding,
+                actions = { tint ->
+                    if (viewModel.entityShareEnabled) {
+                        Box {
+                            CorusHeaderIconButton(
+                                onClick = { showMenu = true },
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                                tint = tint,
+                            )
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                                containerColor = CorusColors.CardBackground,
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                    onClick = {
+                                        showMenu = false
+                                        showShareSheet = true
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
+            )
+        }
+        }
     }
 
     if (showShareSheet) {
@@ -441,6 +525,49 @@ private fun fm.corus.android.data.model.CymbalPost.toFilmDetailRoute(movieId: St
         trailerURL = trailerURL,
         movieReleaseDate = movieReleaseDate,
     )
+
+@Composable
+internal fun DirectorPhotoCard(
+    photo: String?,
+    directorName: String?,
+    onTap: (String) -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .width(140.dp)
+            .aspectRatio(2f / 3f)
+            .shadow(4.dp, RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
+            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
+            .then(
+                if (photo != null) {
+                    Modifier.clickable(
+                        onClickLabel = stringResource(R.string.photo_viewer_open_cd),
+                    ) { onTap(photo) }
+                } else {
+                    Modifier
+                },
+            )
+            .background(CorusColors.CardBackground),
+    ) {
+        if (photo != null) {
+            AsyncImage(
+                model = photo,
+                contentDescription = directorName,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Filled.Movie,
+                contentDescription = null,
+                tint = CorusColors.Tertiary,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(36.dp),
+            )
+        }
+    }
+}
 
 @Composable
 internal fun FilmographyRailCell(

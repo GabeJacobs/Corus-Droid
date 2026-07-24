@@ -997,6 +997,12 @@
     <string name="full_screen_image_cd">Imagen en pantalla completa</string>
     <string name="full_screen_image_cd_close">Cerrar</string>
 
+    <!-- Photo viewer -->
+    <string name="photo_viewer_open_cd">Ver foto</string>
+    <string name="photo_viewer_error">No se pudo cargar la foto</string>
+    <string name="photo_viewer_photo_of">Foto de %1$s</string>
+    <string name="photo_viewer_photo">Foto</string>
+
     <!-- Comments audience -->
     <string name="comments_audience_everyone">Todos pueden comentar</string>
     <string name="comments_audience_followers">Solo seguidores</string>

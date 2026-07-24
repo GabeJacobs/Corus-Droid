@@ -30,6 +30,17 @@ class PlaylistGateTest {
     }
 
     @Test
+    fun `youtube music falls back to a spotify playlist like deezer`() {
+        // YouTube Music is link-out only with no client-side playlist path, so it
+        // must behave exactly like Deezer: always the "Spotify Feature" alert, and
+        // usesSpotifyFallback true so it gets the fallback path, not the native
+        // one-time explainer.
+        assertTrue(usesSpotifyFallback(MusicService.YOUTUBE_MUSIC))
+        assertTrue(shouldShowSpotifyPlaylistAlert(MusicService.YOUTUBE_MUSIC, hasSoundCloud = false))
+        assertTrue(shouldShowSpotifyPlaylistAlert(MusicService.YOUTUBE_MUSIC, hasSoundCloud = true))
+    }
+
+    @Test
     fun `spotify shows the alert only when soundcloud tracks would be skipped`() {
         assertFalse(shouldShowSpotifyPlaylistAlert(MusicService.SPOTIFY, hasSoundCloud = false))
         assertTrue(shouldShowSpotifyPlaylistAlert(MusicService.SPOTIFY, hasSoundCloud = true))

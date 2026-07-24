@@ -8,6 +8,7 @@ enum class MusicService(val value: String) {
     SPOTIFY("spotify"),
     APPLE_MUSIC("appleMusic"),
     TIDAL("tidal"),
+    YOUTUBE_MUSIC("youtubeMusic"),
     DEEZER("deezer");
 
     val displayLabel: String
@@ -15,6 +16,7 @@ enum class MusicService(val value: String) {
             SPOTIFY -> "Spotify"
             APPLE_MUSIC -> "Apple Music"
             TIDAL -> "TIDAL"
+            YOUTUBE_MUSIC -> "YouTube Music"
             DEEZER -> "Deezer"
         }
 

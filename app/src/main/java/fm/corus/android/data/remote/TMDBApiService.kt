@@ -23,6 +23,14 @@ class TMDBApiService @Inject constructor(
         }
 
         fun posterLargeURL(path: String?): String? = posterURL(path, "w780")
+
+        fun originalImageUrl(url: String): String {
+            if (!url.startsWith(IMAGE_BASE_URL)) return url
+            val rest = url.removePrefix(IMAGE_BASE_URL)
+            val slash = rest.indexOf('/')
+            if (slash <= 0) return url
+            return "${IMAGE_BASE_URL}original${rest.substring(slash)}"
+        }
     }
 
     /**

@@ -48,6 +48,11 @@ class AlbumPageViewModel @Inject constructor(
     /** Send-side gate for the "..." Share entry on this page. */
     val entityShareEnabled: Boolean get() = remoteConfigService.entityShareEnabled
 
+    /** Prototype gate for the immersive (blurred-cover hero + frosted collapsing
+     *  bar) album header. Shares the artist header's debug-on / RC-gated flag. */
+    val immersiveHeaderEnabled: Boolean
+        get() = remoteConfigService.immersiveArtistHeaderEnabled
+
     // ── Album share sheet ── (mirrors song-detail share plumbing; sends a
     // `sharedAlbum` DM deep-linking to this page. Reuses rankShareContacts.)
 

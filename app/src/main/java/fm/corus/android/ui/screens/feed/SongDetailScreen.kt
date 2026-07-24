@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,28 +26,44 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.valentinilk.shimmer.shimmer
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ImmersiveBarHeight
+import fm.corus.android.ui.components.ImmersiveCollapsingBar
+import fm.corus.android.ui.components.ImmersiveCoverBackdrop
+import fm.corus.android.ui.components.ImmersiveExtendUnderStatusBar
+import fm.corus.android.ui.components.ImmersiveStatusBarIcons
+import fm.corus.android.ui.components.currentStatusBarTopPx
+import fm.corus.android.ui.components.extendIntoStatusBar
+import fm.corus.android.ui.components.immersiveCollapseProgress
 import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.SkeletonUserRow
@@ -122,11 +139,17 @@ fun SongDetailScreen(
     val isShareSearching by viewModel.isShareSearching.collectAsState()
     val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
 
-    // Use route metadata immediately, upgrade to post data when available
+    // Header identity: the tapped row's metadata (route) paints first AND wins;
+    // loaded posts only fill fields the route lacked (see resolveSongHeaderArtUrl).
     val songInfo = posts.firstOrNull()
-    val displayName = songInfo?.displayTitle?.takeIf { it.isNotBlank() } ?: songName
-    val displayArtist = songInfo?.displaySubtitle?.takeIf { it.isNotBlank() } ?: artistName
-    val artUrl = songInfo?.track?.albumArtLargeURL ?: songInfo?.track?.albumArtURL ?: albumArtLargeURL ?: albumArtURL
+    val displayName = resolveSongHeaderText(route = songName, post = songInfo?.displayTitle)
+    val displayArtist = resolveSongHeaderText(route = artistName, post = songInfo?.displaySubtitle)
+    val artUrl = resolveSongHeaderArtUrl(
+        routeLarge = albumArtLargeURL,
+        routeSmall = albumArtURL,
+        postLarge = songInfo?.track?.albumArtLargeURL,
+        postSmall = songInfo?.track?.albumArtURL,
+    )
     val effectiveSpotifyURI = songInfo?.track?.spotifyURI ?: spotifyURI ?: ""
     val effectiveSpotifyWebURL = songInfo?.track?.spotifyWebURL ?: spotifyWebURL ?: ""
     val effectivePreviewUrl = songInfo?.track?.previewUrl ?: previewUrl
@@ -300,8 +323,47 @@ fun SongDetailScreen(
         )
     }
 
+    // Immersive header (prototype): a blurred-cover hero with the shared frosted
+    // collapsing bar + status-bar blend (ui/components/ImmersiveHeader.kt). Use it
+    // whenever we have — or are still loading — cover art. Falls back to the plain
+    // centered header + solid TopAppBar otherwise.
+    val listState = rememberLazyListState()
+    val immersive = viewModel.immersiveHeaderEnabled && (artUrl != null || isLoading)
+    val hazeState = remember { HazeState() }
+    val statusBarTopPx = currentStatusBarTopPx()
+    val extendUnderStatusBar = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
+    val statusBarPadding = if (extendUnderStatusBar) {
+        with(LocalDensity.current) { statusBarTopPx.toDp() }
+    } else {
+        0.dp
+    }
+    val heroCollapseDistancePx = with(LocalDensity.current) {
+        (SongImmersiveHeroHeight - ImmersiveBarHeight).toPx()
+    }
+    val collapseProgress by remember {
+        derivedStateOf {
+            immersiveCollapseProgress(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+                heroCollapseDistancePx,
+            )
+        }
+    }
+    // White status-bar icons over the blurred cover, theme default once collapsed.
+    if (extendUnderStatusBar) {
+        ImmersiveStatusBarIcons(collapseProgress)
+    }
+
     Scaffold(
+        modifier = if (extendUnderStatusBar) {
+            Modifier.extendIntoStatusBar(statusBarTopPx)
+        } else {
+            Modifier
+        },
         topBar = {
+            // Immersive mode draws the shared floating bar over the blurred cover
+            // (below), so the Scaffold contributes no top bar here.
+            if (!immersive) {
             TopAppBar(
                 title = {},
                 navigationIcon = {
@@ -360,17 +422,35 @@ fun SongDetailScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
+            }
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        if (immersive) {
+            // Blurred-cover hero behind the header; scrolls up with the content.
+            ImmersiveCoverBackdrop(
+                artUrl = artUrl,
+                height = SongImmersiveHeroHeight + statusBarPadding,
+                listState = listState,
+            )
+        }
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier),
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = CorusSpacing.xxl),
         ) {
             // Song header — always shown using route metadata
             item {
-                Spacer(modifier = Modifier.height(CorusSpacing.xl))
+                // Immersive: clear the floating bar + status strip; plain: original top gap.
+                Spacer(
+                    modifier = Modifier.height(
+                        if (immersive) statusBarPadding + ImmersiveBarHeight + CorusSpacing.md
+                        else CorusSpacing.xl
+                    )
+                )
 
                 if (artUrl != null) {
                     Box(
@@ -384,7 +464,7 @@ fun SongDetailScreen(
                                     trackName = displayName ?: "",
                                     artistName = displayArtist ?: "",
                                     albumArtURL = artUrl,
-                                    albumArtLargeURL = songInfo?.track?.albumArtLargeURL ?: albumArtLargeURL,
+                                    albumArtLargeURL = albumArtLargeURL ?: songInfo?.track?.albumArtLargeURL,
                                     previewUrl = effectivePreviewUrl,
                                     spotifyURI = effectiveSpotifyURI.ifBlank { null },
                                     spotifyWebURL = effectiveSpotifyWebURL.ifBlank { null },
@@ -836,6 +916,59 @@ fun SongDetailScreen(
                 )
             }
         }
+        if (immersive) {
+            ImmersiveCollapsingBar(
+                hazeState = hazeState,
+                progress = collapseProgress,
+                title = displayName,
+                onBack = onBack,
+                topInset = statusBarPadding,
+                actions = { tint ->
+                    Box {
+                        var menuOpen by remember { mutableStateOf(false) }
+                        CorusHeaderIconButton(
+                            onClick = { menuOpen = true },
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.feed_cd_more_options),
+                            tint = tint,
+                        )
+                        DropdownMenu(
+                            expanded = menuOpen,
+                            onDismissRequest = { menuOpen = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    showShareSheet = true
+                                },
+                            )
+                            if (onNavigateToArtist != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
+                                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        goToArtist()
+                                    },
+                                )
+                            }
+                            if (onNavigateToAlbum != null && canShowAlbum) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.post_menu_go_to_album), style = CorusFont.body) },
+                                    leadingIcon = { Icon(Icons.Filled.Album, contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        goToAlbum()
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
+            )
+        }
         }
     }
 
@@ -876,6 +1009,16 @@ fun SongDetailScreen(
         }
     }
 }
+
+// ── Immersive song header ──────────────────────────────────────────────────────
+// The song page leads with a centered square cover, not a landscape hero, so its
+// immersive variant is the Spotify/Apple move: a full-bleed BLURRED copy of the
+// cover as the backdrop, with the sharp cover + title floating on top and the
+// shared frosted collapsing bar. See ui/components/ImmersiveHeader.kt for the bar.
+
+/** Visible height of the blurred-cover backdrop (before adding any status inset).
+ *  Also the collapse distance basis via [ImmersiveBarHeight]. */
+private val SongImmersiveHeroHeight = 340.dp
 
 @Composable
 internal fun PostedByRow(
@@ -972,6 +1115,7 @@ private fun serviceColor(service: MusicService): Color = when (service) {
     MusicService.SPOTIFY -> CorusColors.SpotifyGreen
     MusicService.APPLE_MUSIC -> CorusColors.AppleMusicPink
     MusicService.TIDAL -> CorusColors.Tidal
+    MusicService.YOUTUBE_MUSIC -> CorusColors.YouTubeMusicRed
     MusicService.DEEZER -> CorusColors.DeezerPurple
 }
 
@@ -998,6 +1142,32 @@ private fun serviceTextColor(service: MusicService): Color =
 internal fun resolveSongAlbumId(routeAlbumId: String?, posts: List<CymbalPost>): String? =
     routeAlbumId?.takeIf { it.isNotBlank() }
         ?: posts.firstNotNullOfOrNull { it.track.albumId?.takeIf { id -> id.isNotBlank() } }
+
+/**
+ * Header title/artist: the tapped row's value (route) wins; the first loaded
+ * post only fills a field the route didn't carry. See [resolveSongHeaderArtUrl].
+ */
+internal fun resolveSongHeaderText(route: String?, post: String?): String? =
+    route?.takeIf { it.isNotBlank() } ?: post?.takeIf { it.isNotBlank() }
+
+/**
+ * Header cover art: the tapped row's art (route) wins; loaded posts only fill
+ * in when the route carried none (deep links, notifications). Posts snapshot
+ * whatever pressing each poster shared — e.g. a single whose recording was
+ * later re-homed onto an album with new art — so letting the first post
+ * *replace* route art made the header visibly swap covers once posts loaded.
+ * Mirrors iOS, whose header renders the immutable seed track.
+ */
+internal fun resolveSongHeaderArtUrl(
+    routeLarge: String?,
+    routeSmall: String?,
+    postLarge: String?,
+    postSmall: String?,
+): String? =
+    routeLarge?.takeIf { it.isNotBlank() }
+        ?: routeSmall?.takeIf { it.isNotBlank() }
+        ?: postLarge?.takeIf { it.isNotBlank() }
+        ?: postSmall?.takeIf { it.isNotBlank() }
 
 private fun formatUserCount(count: Int): String {
     return when {

@@ -118,6 +118,31 @@ class MusicServiceLinkOutTest {
     }
 
     @Test
+    fun `youtube music viewer opens a client-side search url without touching the cloud`() = runTest {
+        // YouTube Music is link-out only with no id resolver, so the tap builds a
+        // music.youtube.com search scoped to the track entirely client-side —
+        // never a network round-trip (mirrors the web client). A regression that
+        // routed it through a cloud lookup would both add latency and, with no
+        // such callable deployed, dead-end the tap.
+        val cloud = mock<CloudFunctionsDataSource>()
+        val track = spotifyTrack(id = "ytm1")
+        val url = MusicServiceLinkOut.resolveLinkOutUrl(track, MusicService.YOUTUBE_MUSIC, cloud)
+        assertEquals(
+            "https://music.youtube.com/search?q=Vou+Recome%C3%A7ar+Gal+Costa",
+            url,
+        )
+        verifyNoInteractions(cloud)
+    }
+
+    @Test
+    fun `youtube music search url is null when there is nothing to search`() {
+        // Guards the caller's fallback path: an empty query must not open an empty
+        // YouTube Music search.
+        assertNull(MusicServiceLinkOut.youtubeMusicSearchUrl("", ""))
+        assertNull(MusicServiceLinkOut.youtubeMusicSearchUrl("   ", "  "))
+    }
+
+    @Test
     fun `unknown (null) appleMusicId does NOT short-circuit to spotify - it falls through to the live lookup`() = runTest {
         // The whole-feed-shows-Spotify regression: an Apple Music viewer on a
         // track whose id is unknown (null) must NOT be sent to Spotify. It falls

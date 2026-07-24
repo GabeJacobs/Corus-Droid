@@ -47,6 +47,11 @@ class DirectorPageViewModel @Inject constructor(
     /** Send-side gate for the "..." Share entry on this page. */
     val entityShareEnabled: Boolean get() = remoteConfigService.entityShareEnabled
 
+    /** Prototype gate for the immersive (blurred-photo hero + frosted collapsing
+     *  bar) director header. Shares the artist header's debug-on / RC-gated flag. */
+    val immersiveHeaderEnabled: Boolean
+        get() = remoteConfigService.immersiveArtistHeaderEnabled
+
     // ── Director share sheet ── (mirrors song-detail share plumbing; sends a
     // `sharedDirector` DM deep-linking to this page. Reuses rankShareContacts.)
 
