@@ -25,12 +25,7 @@ class NetworkMonitor @Inject constructor(
             _isConnected.value = true
         }
         override fun onLost(network: Network) {
-            // A make-before-break handover (e.g. waking from sleep, Wi-Fi <-> cellular)
-            // delivers onAvailable(new) then onLost(old). Blindly going offline here would
-            // pin isConnected=false even though a validated default network is up. Re-derive
-            // from the current active network instead, so onLost only reports offline when
-            // there is genuinely no default network left.
-            _isConnected.value = checkCurrentConnectivity()
+            _isConnected.value = false
         }
         override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
             _isConnected.value = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)

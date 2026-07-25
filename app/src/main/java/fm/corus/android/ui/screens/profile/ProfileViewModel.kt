@@ -116,6 +116,7 @@ class ProfileViewModel @Inject constructor(
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
 
     val stylePack1Enabled: Boolean get() = remoteConfigService.stylePack1Enabled
+    val immersiveArtistHeaderEnabled: Boolean get() = remoteConfigService.immersiveArtistHeaderEnabled
 
     val corusFlairOpen: Boolean get() = remoteConfigService.corusFlairOpen
 

@@ -162,7 +162,39 @@ class FeedTransientRetryTest {
         }
 
     @Test
-    fun `persistent failure while online surfaces the error after one retry`() =
+    fun `slow cold-start that outlasts the first retry still auto-recovers`() =
+        runTest(testDispatcher) {
+            var calls = 0
+            wheneverBlocking {
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+            }.doSuspendableAnswer {
+                calls++
+                // Waking from a long sleep, the process was killed and this is a
+                // cold start: App Check / Play Integrity and a cold Functions
+                // instance can stay unready for several seconds — longer than a
+                // single retry covers. The first two attempts blip; the third,
+                // once warm, succeeds.
+                if (calls <= 2) throw RuntimeException("cold-start still warming up")
+                CloudFunctionsDataSource.FeedPage(listOf(post("p1"), post("p2")), false)
+            }
+
+            val viewModel = vm(connected = true)
+            advanceUntilIdle()
+
+            viewModel.loadFeed()
+            advanceUntilIdle()
+
+            // The device was online the whole time, so the reconnect handler never
+            // fires — the silent retries are the only automatic recovery. Without
+            // more than one, the user is stranded on the error panel until they tap
+            // Retry (the reported "sticks until Retry" bug).
+            assertEquals(3, calls)
+            assertFalse(viewModel.lastLoadFailed.value)
+            assertEquals(listOf("p1", "p2"), viewModel.posts.value.map { it.id })
+        }
+
+    @Test
+    fun `persistent failure while online surfaces the error after the retries are exhausted`() =
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
@@ -178,10 +210,11 @@ class FeedTransientRetryTest {
             viewModel.loadFeed()
             advanceUntilIdle()
 
-            // One initial attempt + exactly one silent retry, then the error
-            // surfaces. The screen keys its copy off isConnected (true here), so
-            // the user sees "something's off on our end," not a wifi blame.
-            assertEquals(2, calls)
+            // One initial attempt + FEED_TRANSIENT_MAX_RETRIES silent retries, then
+            // the error surfaces (a genuine, persistent outage — not a warm-up
+            // blip). The screen keys its copy off isConnected (true here), so the
+            // user sees "something's off on our end," not a wifi blame.
+            assertEquals(5, calls)
             assertTrue(viewModel.lastLoadFailed.value)
             assertTrue(viewModel.posts.value.isEmpty())
         }

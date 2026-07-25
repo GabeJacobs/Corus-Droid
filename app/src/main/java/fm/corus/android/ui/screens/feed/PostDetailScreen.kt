@@ -61,11 +61,14 @@ import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
+import fm.corus.android.domain.TrailerPlaybackCoordinator
 import fm.corus.android.R
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ImmersiveFrostedBar
+import fm.corus.android.ui.components.InlineYouTubePlayer
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
+import fm.corus.android.ui.components.youTubeVideoID
 import fm.corus.android.ui.components.LikedBySection
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.launchBackCoverFlip
@@ -204,7 +207,7 @@ fun PostDetailScreen(
                             onRefresh = { viewModel.refresh(postId) },
                         ),
                     contentPadding = PaddingValues(
-                        top = if (immersive) frost.contentTopPadding else 0.dp,
+                        top = if (immersive) frost.contentTopPadding else padding.calculateTopPadding(),
                         bottom = padding.calculateBottomPadding(),
                     ),
                 ) {
@@ -609,6 +612,23 @@ private fun PostDetailAlbumArt(
         }
     }
 
+    // Inline trailer playback for film posts (mirrors the feed's PostCard): a
+    // single tap plays the trailer in place — letterboxed 16:9 inside the portrait
+    // poster box — instead of navigating to the film page. Posters whose trailer
+    // isn't a YouTube URL fall back to onSongTap (the film page).
+    var inlineTrailerVideoID by remember(post.id) { mutableStateOf<String?>(null) }
+    // When another post (or music) claims the single trailer slot, tear this one
+    // down so at most one trailer plays app-wide.
+    val activeTrailerPostId by TrailerPlaybackCoordinator.activePostId.collectAsState()
+    LaunchedEffect(activeTrailerPostId) {
+        if (activeTrailerPostId != post.id && inlineTrailerVideoID != null) {
+            inlineTrailerVideoID = null
+        }
+    }
+    DisposableEffect(post.id) {
+        onDispose { TrailerPlaybackCoordinator.stop(post.id) }
+    }
+
     val aspectRatio = if (post.isMovie) 2f / 3f else 1f
     val flipRotation by animateFloatAsState(
         targetValue = if (flipState.isFlipped) 180f else 0f,
@@ -633,16 +653,29 @@ private fun PostDetailAlbumArt(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(flipState.isLoading) {
+                    .pointerInput(flipState.isLoading, post.id, post.isMovie) {
                         detectTapGestures(
                             onDoubleTap = {
                                 if (flipState.isLoading) return@detectTapGestures
+                                if (inlineTrailerVideoID != null) return@detectTapGestures
                                 onDoubleTap()
                                 showHeart = true
                             },
                             onTap = {
                                 if (flipState.isLoading) return@detectTapGestures
-                                onSongTap()
+                                if (inlineTrailerVideoID != null) return@detectTapGestures
+                                // Film posts: play the trailer inline when it's a
+                                // YouTube URL; otherwise fall back to onSongTap (the
+                                // film page). Track posts always defer to onSongTap.
+                                val videoID = if (post.isMovie) youTubeVideoID(post.trailerURL) else null
+                                if (videoID != null) {
+                                    inlineTrailerVideoID = videoID
+                                    // Claim the single slot: stops any other trailer
+                                    // and pauses music.
+                                    TrailerPlaybackCoordinator.play(post.id)
+                                } else {
+                                    onSongTap()
+                                }
                             },
                         )
                     },
@@ -749,6 +782,50 @@ private fun PostDetailAlbumArt(
                                     modifier = Modifier.size(52.dp),
                                 )
                             }
+                        }
+                    }
+                }
+
+                // Inline trailer player — letterboxed 16:9 against black inside the
+                // portrait poster box so the layout never reflows (mirrors the feed).
+                inlineTrailerVideoID?.let { videoID ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        InlineYouTubePlayer(
+                            videoID = videoID,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f),
+                            // Controls shown so the scrub bar is available; they
+                            // auto-hide during playback, so it stays clean.
+                            showControls = true,
+                            onEnded = {
+                                inlineTrailerVideoID = null
+                                TrailerPlaybackCoordinator.stop(post.id)
+                            },
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(CorusSpacing.md)
+                                .size(32.dp)
+                                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                                .clickable {
+                                    inlineTrailerVideoID = null
+                                    TrailerPlaybackCoordinator.stop(post.id)
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.post_card_cd_close_trailer),
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp),
+                            )
                         }
                     }
                 }

@@ -51,6 +51,9 @@ class NotificationsViewModel @Inject constructor(
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport
 
+    val immersiveArtistHeaderEnabled: Boolean
+        get() = remoteConfigService.immersiveArtistHeaderEnabled
+
     private val pageSize = 15
 
     private val _notifications = MutableStateFlow<List<CymbalNotification>>(emptyList())

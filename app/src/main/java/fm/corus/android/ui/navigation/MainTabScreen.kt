@@ -582,6 +582,11 @@ fun MainTabScreen(
                 add("ProfileByUsernameRoute")
                 add("PostDetailRoute")
                 add("SinglePostCommentsRoute")
+                // Tab roots (frosted status strip): feed + own profile.
+                add("FeedTabRoute")
+                add("ProfileTabRoute")
+                // Activity (frosted header overlay).
+                add("NotificationsTabRoute")
             }
         }
         val anyImmersiveVisible = visibleEntries.any { entry ->

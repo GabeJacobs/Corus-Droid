@@ -24,6 +24,10 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -63,6 +67,8 @@ import fm.corus.android.data.model.NotificationType
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
+import fm.corus.android.ui.components.FrostedHeaderOverlay
+import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.OfflineRetryState
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SkeletonNotificationRow
@@ -154,14 +160,17 @@ fun NotificationsScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Header
-        NotificationsHeader(
-            unreadMessageCount = unreadMessageCount,
-            onMessagesTapped = onNavigateToMessages,
-        )
+    val immersive = viewModel.immersiveArtistHeaderEnabled
+    val frost = rememberImmersiveHeaderState(immersive)
+    // The header is now a frosted overlay (below) that the list scrolls under, so the
+    // whole thing is a Box, not a Column. Its measured height sizes the list's top clearance.
+    Box(modifier = Modifier.fillMaxSize().then(frost.scaffoldModifier)) {
+        var headerOverlayPx by remember { mutableIntStateOf(0) }
+        val contentTop = if (immersive) with(LocalDensity.current) { headerOverlayPx.toDp() } else 0.dp
 
         val haptics = LocalHapticManager.current
+        @OptIn(ExperimentalMaterial3Api::class)
+        val pullState = rememberPullToRefreshState()
         @OptIn(ExperimentalMaterial3Api::class)
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -170,12 +179,23 @@ fun NotificationsScreen(
                 haptics.impact(HapticManager.ImpactStyle.LIGHT)
                 viewModel.refreshNotifications()
             },
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            state = pullState,
+            modifier = Modifier.fillMaxSize().then(frost.hazeSourceModifier()),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullState,
+                    isRefreshing = isRefreshing,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = contentTop),
+                )
+            },
         ) {
             when {
                 isLoading && notifications.isEmpty() -> {
                     // Loading skeleton — 12 shimmer rows
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(top = contentTop),
+                    ) {
                         items(12) {
                             SkeletonNotificationRow()
                         }
@@ -194,6 +214,7 @@ fun NotificationsScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .nestedScroll(dismissKeyboardOnScroll),
+                        contentPadding = PaddingValues(top = contentTop),
                     ) {
                         items(notifications, key = { it.id }) { notification ->
                             NotificationRow(
@@ -347,6 +368,20 @@ fun NotificationsScreen(
                     viewModel.setReplyingToNotification(null)
                     viewModel.clearReplyAttachment()
                 },
+            )
+        }
+
+        // Frosted header overlay (status strip + Activity header) — the list scrolls
+        // under it; its measured height sizes the list's top clearance above.
+        FrostedHeaderOverlay(
+            immersive = immersive,
+            hazeState = frost.hazeState,
+            topInset = frost.statusBarPadding,
+            modifier = Modifier.onGloballyPositioned { headerOverlayPx = it.size.height },
+        ) {
+            NotificationsHeader(
+                unreadMessageCount = unreadMessageCount,
+                onMessagesTapped = onNavigateToMessages,
             )
         }
     }

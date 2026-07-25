@@ -63,11 +63,22 @@ internal fun isNewAlbumArtHintAccount(creationTimestampMs: Long?): Boolean {
     return created >= ALBUM_ART_HINT_CUTOFF_MS
 }
 
-/** Backoff before the one silent retry of a feed load that failed while the
+/** Base backoff before a silent retry of a feed load that failed while the
  *  device is online. Long enough for a cold-start App Check / Play Integrity
- *  token to finish minting (the usual culprit), short enough to feel like part
- *  of the initial load rather than a second attempt. */
+ *  token to finish minting (the usual culprit), short enough that the first
+ *  retry still feels like part of the initial load. Escalated per attempt
+ *  (base * attemptNumber) so later retries wait proportionally longer. */
 private const val FEED_TRANSIENT_RETRY_BACKOFF_MS = 1200L
+
+/** How many times an online feed load is retried silently before the error
+ *  panel is surfaced. A cold start after the OS killed the process (waking the
+ *  phone from a long sleep) can leave App Check / Play Integrity and a cold
+ *  Functions instance unready for several seconds — far longer than a single
+ *  retry covered, which is what stranded users on the error panel after a normal
+ *  wake. With escalating backoff these retries span ~12s (1.2+2.4+3.6+4.8), long
+ *  enough that a normal cold start always recovers on its own. The error is then
+ *  reserved for a genuine, persistent outage, not a transient warm-up blip. */
+private const val FEED_TRANSIENT_MAX_RETRIES = 4
 
 /** Patches the matching post's preview-comments entry with the edited text so
  *  recycled post cards re-bind to fresh text instead of the stale denormalized
@@ -810,11 +821,16 @@ class FeedViewModel @Inject constructor(
             // still minting, a Functions UNAVAILABLE/INTERNAL, a dropped first
             // request) lands here even on strong wifi — exactly the blip a manual
             // "Retry" clears. When the screen has nothing to show and we ARE
-            // connected, retry once automatically before surfacing any error, so
-            // a momentary server blip never masquerades as "you're offline." The
-            // loading flag stays set through the backoff so the skeleton holds.
-            if (attempt == 0 && isConnected.value && _posts.value.isEmpty()) {
-                delay(FEED_TRANSIENT_RETRY_BACKOFF_MS)
+            // connected, retry automatically before surfacing any error, so a
+            // momentary server blip never masquerades as "you're offline." A
+            // single retry didn't cover a real cold start (process killed during a
+            // long sleep), so retry several times with escalating backoff; the
+            // device was online the whole time, so these retries are the only
+            // automatic recovery (the reconnect handler needs a connectivity
+            // transition that never comes). The loading flag stays set through the
+            // backoff so the skeleton holds instead of flashing an error.
+            if (attempt < FEED_TRANSIENT_MAX_RETRIES && isConnected.value && _posts.value.isEmpty()) {
+                delay(FEED_TRANSIENT_RETRY_BACKOFF_MS * (attempt + 1))
                 loadFeedSuspending(refresh = true, attempt = attempt + 1)
                 return
             }

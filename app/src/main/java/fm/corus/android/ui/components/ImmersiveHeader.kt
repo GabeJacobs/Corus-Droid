@@ -473,3 +473,70 @@ internal fun ImmersiveFrostedBar(
         }
     }
 }
+
+/**
+ * A no-controls frosted glass strip covering JUST the status bar, for the tab-root
+ * screens (feed, own profile) whose own header ("corus" switcher / settings row) is
+ * a scrolling list item rather than a fixed bar. Content scrolls under it and it
+ * blurs whatever passes beneath (Haze). Pair with: the screen extending up via
+ * [rememberImmersiveHeaderState].scaffoldModifier, [hazeSourceModifier] on the
+ * scrollable, and a top clearance of [ImmersiveHeaderState.statusBarPadding] on the
+ * first list item so the header sits just below the strip. No-op when [topInset] is 0.
+ */
+@Composable
+internal fun FrostedStatusStrip(
+    hazeState: HazeState,
+    topInset: Dp,
+    modifier: Modifier = Modifier,
+) {
+    if (topInset <= 0.dp) return
+    val frost = CorusColors.Background
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(topInset)
+            .hazeEffect(state = hazeState) {
+                blurRadius = 30.dp
+                backgroundColor = frost
+                // Match ImmersiveFrostedBar's frostiness.
+                tints = listOf(HazeTint(frost.copy(alpha = 0.8f)))
+            },
+    )
+}
+
+/**
+ * Frosted overlay wrapping an arbitrary FIXED header ([content]) — for tab roots
+ * whose header is NOT a scrolling list item (e.g. Activity). Covers the status strip
+ * ([topInset]) + the header and blurs the list scrolling beneath it (Haze). When
+ * [immersive] is false it degrades to a plain solid-background header so content still
+ * reads under it. Measure this via `Modifier.onGloballyPositioned` to size the list's
+ * top clearance (there's no fixed height — the header sizes to its content).
+ */
+@Composable
+internal fun FrostedHeaderOverlay(
+    immersive: Boolean,
+    hazeState: HazeState,
+    topInset: Dp,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val frost = CorusColors.Background
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (immersive) {
+                    Modifier.hazeEffect(state = hazeState) {
+                        blurRadius = 30.dp
+                        backgroundColor = frost
+                        tints = listOf(HazeTint(frost.copy(alpha = 0.8f)))
+                    }
+                } else {
+                    Modifier.background(frost)
+                },
+            )
+            .padding(top = if (immersive) topInset else 0.dp),
+    ) {
+        content()
+    }
+}

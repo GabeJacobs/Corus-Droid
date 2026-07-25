@@ -41,6 +41,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -76,6 +78,8 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import android.graphics.Bitmap
 import fm.corus.android.ui.components.AvatarCropView
+import fm.corus.android.ui.components.FrostedStatusStrip
+import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.ExpandableBioText
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.SelfieCaptureScreen
@@ -338,7 +342,11 @@ fun ProfileScreen(
         )
     }
 
+    val immersive = viewModel.immersiveArtistHeaderEnabled
+    val frost = rememberImmersiveHeaderState(immersive)
     val haptics = LocalHapticManager.current
+    val pullState = rememberPullToRefreshState()
+    Box(modifier = frost.scaffoldModifier) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = {
@@ -346,7 +354,17 @@ fun ProfileScreen(
             haptics.impact(HapticManager.ImpactStyle.LIGHT)
             viewModel.refreshProfile()
         },
-        modifier = Modifier.fillMaxSize(),
+        state = pullState,
+        modifier = Modifier.fillMaxSize().then(frost.hazeSourceModifier()),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = if (immersive) frost.statusBarPadding else 0.dp),
+            )
+        },
     ) {
     LazyVerticalGrid(
         state = gridState,
@@ -356,6 +374,8 @@ fun ProfileScreen(
         // All header content spans full width
         item(span = { GridItemSpan(3) }, key = "header_row") {
             Column {
+                // Clear the frosted status strip so the header row sits below it.
+                if (immersive) Spacer(Modifier.height(frost.statusBarPadding))
                 // ── Header Row: icon / display name / settings ──
                 Row(
                     modifier = Modifier
@@ -1079,6 +1099,13 @@ fun ProfileScreen(
                 }
             }
         }
+    }
+    }
+    if (immersive) {
+        FrostedStatusStrip(
+            hazeState = frost.hazeState,
+            topInset = frost.statusBarPadding,
+        )
     }
     }
 

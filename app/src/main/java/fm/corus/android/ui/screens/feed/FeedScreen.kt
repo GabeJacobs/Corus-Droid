@@ -56,6 +56,8 @@ import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.launch
@@ -101,7 +103,9 @@ import fm.corus.android.domain.FeedModeOrder
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.FrostedStatusStrip
 import fm.corus.android.ui.components.PopularUsersInfiniteGrid
+import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.SkeletonPostCard
@@ -329,7 +333,12 @@ fun FeedScreen(
         listState.animateScrollToItem(index = index + 1)
     }
 
+    val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
+    val frost = rememberImmersiveHeaderState(immersive)
+
     val header: @Composable () -> Unit = {
+        // Clear the frosted status strip so the "corus" switcher sits just below it.
+        if (immersive) Spacer(Modifier.height(frost.statusBarPadding))
         FeedHeader(
             showPlaylistButton = posts.isNotEmpty() && feedMediaFilter != MediaType.MOVIE,
             isGeneratingPlaylist = isGeneratingPlaylist,
@@ -374,6 +383,8 @@ fun FeedScreen(
     }
 
     val haptics = LocalHapticManager.current
+    val pullState = rememberPullToRefreshState()
+    Box(modifier = frost.scaffoldModifier) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = {
@@ -381,7 +392,17 @@ fun FeedScreen(
             haptics.impact(HapticManager.ImpactStyle.LIGHT)
             viewModel.loadFeed(refresh = true)
         },
-        modifier = Modifier.fillMaxSize(),
+        state = pullState,
+        modifier = Modifier.fillMaxSize().then(frost.hazeSourceModifier()),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = if (immersive) frost.statusBarPadding else 0.dp),
+            )
+        },
     ) {
         when {
             // Loading skeleton state — show until first load completes, while a
@@ -1038,6 +1059,13 @@ fun FeedScreen(
                 }
             }
         }
+    }
+    if (immersive) {
+        FrostedStatusStrip(
+            hazeState = frost.hazeState,
+            topInset = frost.statusBarPadding,
+        )
+    }
     }
 
     fm.corus.android.ui.components.DestinationResolvingHud(isResolvingSubtitle)
