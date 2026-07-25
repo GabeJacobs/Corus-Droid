@@ -67,6 +67,8 @@ import fm.corus.android.data.model.TrackCorusStats
 import fm.corus.android.data.model.primaryNameHint
 import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.ImmersiveBarHeight
 import fm.corus.android.ui.components.ImmersiveCollapsingBar
 import fm.corus.android.ui.components.ImmersiveCoverBackdrop
@@ -297,8 +299,9 @@ fun AlbumPageScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier),
-            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
+                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier)
+                .contentHazeSource(),
+            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl + LocalBottomBarHeight.current),
         ) {
             // ── Header: cover (tap to play the album), title, tappable artist,
             // meta line ──

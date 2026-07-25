@@ -48,6 +48,8 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.domain.TrailerPlaybackCoordinator
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.ImmersiveBarHeight
 import fm.corus.android.ui.components.ImmersiveCollapsingBar
 import fm.corus.android.ui.components.ImmersiveCoverBackdrop
@@ -301,9 +303,10 @@ fun FilmDetailScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier),
+                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier)
+                .contentHazeSource(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
+            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl + LocalBottomBarHeight.current),
         ) {
             // Film header
             item {

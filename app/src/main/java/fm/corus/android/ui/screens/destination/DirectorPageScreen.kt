@@ -73,6 +73,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.ShareDirectorSubject
 import fm.corus.android.ui.components.ShareMediaSheet
@@ -223,8 +225,9 @@ fun DirectorPageScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier),
-            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
+                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier)
+                .contentHazeSource(),
+            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl + LocalBottomBarHeight.current),
         ) {
             // ── Header: centered 2:3 portrait + name + "Director" ──
             item {

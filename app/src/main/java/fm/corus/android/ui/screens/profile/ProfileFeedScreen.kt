@@ -27,6 +27,8 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ImmersiveFrostedBar
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
@@ -240,6 +242,8 @@ fun ProfileFeedScreen(
                 // wrapper — PullToRefreshBox clipToBounds() and would clip the source
                 // off the status strip, leaving it a solid (opaque frost) band.
                 .then(frost.hazeSourceModifier())
+                // Also feed the shared frosted bottom bar so it blurs this feed.
+                .contentHazeSource()
                 .pullToRefresh(
                     isRefreshing = isRefreshing,
                     state = pullState,
@@ -252,6 +256,8 @@ fun ProfileFeedScreen(
             contentPadding = PaddingValues(
                 // Immersive: clear the frosted bar so the first post isn't pinned behind it.
                 top = if (immersive) frost.contentTopPadding else 0.dp,
+                // Clear the frosted bottom bar; content still scrolls under it.
+                bottom = LocalBottomBarHeight.current,
             ),
         ) {
             itemsIndexed(

@@ -56,6 +56,8 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.ImmersiveBarHeight
 import fm.corus.android.ui.components.ImmersiveCollapsingBar
 import fm.corus.android.ui.components.ImmersiveCoverBackdrop
@@ -480,9 +482,10 @@ fun SongDetailScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier),
+                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier)
+                .contentHazeSource(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(bottom = CorusSpacing.xxl),
+            contentPadding = PaddingValues(bottom = CorusSpacing.xxl + LocalBottomBarHeight.current),
         ) {
             // Song header — always shown using route metadata
             item {

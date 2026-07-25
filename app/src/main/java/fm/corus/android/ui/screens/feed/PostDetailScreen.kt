@@ -59,6 +59,8 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.domain.TrailerPlaybackCoordinator
@@ -201,6 +203,7 @@ fun PostDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(frost.hazeSourceModifier())
+                        .contentHazeSource()
                         .pullToRefresh(
                             isRefreshing = isRefreshing,
                             state = pullState,
@@ -208,7 +211,7 @@ fun PostDetailScreen(
                         ),
                     contentPadding = PaddingValues(
                         top = if (immersive) frost.contentTopPadding else padding.calculateTopPadding(),
-                        bottom = padding.calculateBottomPadding(),
+                        bottom = padding.calculateBottomPadding() + LocalBottomBarHeight.current,
                     ),
                 ) {
                     // Post header
