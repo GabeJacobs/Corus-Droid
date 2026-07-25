@@ -143,7 +143,6 @@
     <string name="feedback_submitting">送信中...</string>
     <string name="feedback_success">フィードバックありがとうございます！</string>
     <string name="feed_app_title">corus</string>
-    <string name="feed_screen_title_corus">corus</string>
     <string name="feed_screen_title_Corus">Corus</string>
     <string name="feed_cd_filter">フィルター</string>
     <string name="feed_cd_generate_playlist">フィードのプレイリストを作成</string>

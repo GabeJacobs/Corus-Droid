@@ -79,6 +79,8 @@ import fm.corus.android.ui.LocalHapticManager
 import android.graphics.Bitmap
 import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.FrostedStatusStrip
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.ExpandableBioText
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
@@ -355,7 +357,7 @@ fun ProfileScreen(
             viewModel.refreshProfile()
         },
         state = pullState,
-        modifier = Modifier.fillMaxSize().then(frost.hazeSourceModifier()),
+        modifier = Modifier.fillMaxSize().then(frost.hazeSourceModifier()).contentHazeSource(),
         indicator = {
             PullToRefreshDefaults.Indicator(
                 state = pullState,
@@ -370,6 +372,8 @@ fun ProfileScreen(
         state = gridState,
         columns = GridCells.Fixed(3),
         modifier = Modifier.fillMaxSize(),
+        // Clear the frosted bottom bar; the grid still scrolls under it.
+        contentPadding = PaddingValues(bottom = LocalBottomBarHeight.current),
     ) {
         // All header content spans full width
         item(span = { GridItemSpan(3) }, key = "header_row") {

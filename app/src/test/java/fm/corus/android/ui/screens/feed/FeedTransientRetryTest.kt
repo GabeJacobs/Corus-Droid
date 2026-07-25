@@ -220,7 +220,37 @@ class FeedTransientRetryTest {
         }
 
     @Test
-    fun `failure while offline surfaces immediately without a retry`() =
+    fun `cold start reading offline at first failure still retries within the grace and recovers`() =
+        runTest(testDispatcher) {
+            var calls = 0
+            wheneverBlocking {
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+            }.doSuspendableAnswer {
+                calls++
+                // Waking the phone, the app cold-starts before the Wi-Fi radio has
+                // re-associated, so NetworkMonitor momentarily seeds isConnected
+                // false and the first call fails. The radio comes up during the
+                // grace and the retry succeeds. The user must NOT see an error
+                // flash — it should load like any normal launch.
+                if (calls == 1) throw RuntimeException("radio not ready yet")
+                CloudFunctionsDataSource.FeedPage(listOf(post("p1")), false)
+            }
+
+            val viewModel = vm(connected = false)
+            advanceUntilIdle()
+
+            viewModel.loadFeed()
+            advanceUntilIdle()
+
+            // The connectivity grace retries despite the offline reading, and the
+            // load recovers with no error surfaced.
+            assertEquals(2, calls)
+            assertFalse(viewModel.lastLoadFailed.value)
+            assertEquals(listOf("p1"), viewModel.posts.value.map { it.id })
+        }
+
+    @Test
+    fun `failure while genuinely offline surfaces after the connectivity grace`() =
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
@@ -236,10 +266,11 @@ class FeedTransientRetryTest {
             viewModel.loadFeed()
             advanceUntilIdle()
 
-            // Genuinely offline: no point auto-retrying, so the failure is shown
-            // on the first attempt (the screen then shows the "check your
-            // internet" copy because isConnected is false).
-            assertEquals(1, calls)
+            // Genuinely offline: the connectivity grace gives the radio a brief
+            // chance to come up (so a normal wake never flashes an error), then the
+            // failure surfaces with the "check your internet" copy. One initial
+            // attempt + FEED_TRANSIENT_CONNECTIVITY_GRACE_RETRIES grace retries.
+            assertEquals(3, calls)
             assertTrue(viewModel.lastLoadFailed.value)
         }
 }

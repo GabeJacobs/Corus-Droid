@@ -80,6 +80,16 @@ private const val FEED_TRANSIENT_RETRY_BACKOFF_MS = 1200L
  *  reserved for a genuine, persistent outage, not a transient warm-up blip. */
 private const val FEED_TRANSIENT_MAX_RETRIES = 4
 
+/** How many of those retries fire even when the connectivity flag reads offline.
+ *  On a cold start right after waking the phone, the Wi-Fi radio may not have
+ *  re-associated yet, so NetworkMonitor can momentarily seed `isConnected` false
+ *  and the first call fails. Bailing straight to the offline error there is the
+ *  "empty error flash" we want to avoid — a normal wake should just load. So give
+ *  connectivity a brief grace (~1.2+2.4s) to establish before trusting an offline
+ *  reading; a genuinely offline device still surfaces the offline panel once the
+ *  grace is spent, then auto-recovers via the reconnect handler when it returns. */
+private const val FEED_TRANSIENT_CONNECTIVITY_GRACE_RETRIES = 2
+
 /** Patches the matching post's preview-comments entry with the edited text so
  *  recycled post cards re-bind to fresh text instead of the stale denormalized
  *  `previewComments` snapshot on the post doc. Server-side
@@ -820,16 +830,23 @@ class FeedViewModel @Inject constructor(
             // A transient cold-start hiccup (App Check / Play Integrity token
             // still minting, a Functions UNAVAILABLE/INTERNAL, a dropped first
             // request) lands here even on strong wifi — exactly the blip a manual
-            // "Retry" clears. When the screen has nothing to show and we ARE
-            // connected, retry automatically before surfacing any error, so a
-            // momentary server blip never masquerades as "you're offline." A
-            // single retry didn't cover a real cold start (process killed during a
-            // long sleep), so retry several times with escalating backoff; the
-            // device was online the whole time, so these retries are the only
-            // automatic recovery (the reconnect handler needs a connectivity
-            // transition that never comes). The loading flag stays set through the
-            // backoff so the skeleton holds instead of flashing an error.
-            if (attempt < FEED_TRANSIENT_MAX_RETRIES && isConnected.value && _posts.value.isEmpty()) {
+            // "Retry" clears. When the screen has nothing to show, retry
+            // automatically before surfacing any error, so a momentary server blip
+            // never masquerades as "you're offline." A single retry didn't cover a
+            // real cold start (process killed during a long sleep), so retry
+            // several times with escalating backoff; the device was online the
+            // whole time, so these retries are the only automatic recovery (the
+            // reconnect handler needs a connectivity transition that never comes).
+            // The first couple retries fire even if isConnected reads false, since
+            // the radio may not have re-associated yet on a fresh wake — trusting
+            // that stale-false reading is what flashed the empty error panel. The
+            // loading flag stays set through the backoff so the skeleton holds
+            // instead of flashing an error.
+            val withinConnectivityGrace = attempt < FEED_TRANSIENT_CONNECTIVITY_GRACE_RETRIES
+            if (attempt < FEED_TRANSIENT_MAX_RETRIES &&
+                (isConnected.value || withinConnectivityGrace) &&
+                _posts.value.isEmpty()
+            ) {
                 delay(FEED_TRANSIENT_RETRY_BACKOFF_MS * (attempt + 1))
                 loadFeedSuspending(refresh = true, attempt = attempt + 1)
                 return

@@ -92,6 +92,7 @@ import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ClubMembersCardRail
 import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.HorizontalPopularUsersRail
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.HorizontalTasteMatchesRail
 import fm.corus.android.ui.components.MutualConnectionsCardRail
 import fm.corus.android.ui.components.ShimmerAsyncImage
@@ -409,8 +410,10 @@ fun SearchScreen(
             )
         }
 
-        // Content area – a Box so the recent-searches overlay can sit on top
-        Box(modifier = Modifier.fillMaxSize()) {
+        // Content area – a Box so the recent-searches overlay can sit on top.
+        // Publish into the shared bottom-bar haze so search content frosts under the
+        // bar (results scroll under the glass, matching the other tabs).
+        Box(modifier = Modifier.fillMaxSize().contentHazeSource()) {
             val searchHaptics = LocalHapticManager.current
             PullToRefreshBox(
                 isRefreshing = isRefreshing,

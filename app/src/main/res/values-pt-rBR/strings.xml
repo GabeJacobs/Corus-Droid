@@ -163,7 +163,6 @@
 
     <!-- Feed: shared -->
     <string name="feed_app_title">corus</string>
-    <string name="feed_screen_title_corus">corus</string>
     <string name="feed_screen_title_Corus">Corus</string>
     <string name="feed_cd_filter">Filtrar</string>
     <string name="feed_cd_generate_playlist">Gerar playlist do feed</string>

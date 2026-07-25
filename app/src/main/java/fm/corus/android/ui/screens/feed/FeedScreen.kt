@@ -104,6 +104,8 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FrostedStatusStrip
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.PopularUsersInfiniteGrid
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.PostCard
@@ -393,7 +395,7 @@ fun FeedScreen(
             viewModel.loadFeed(refresh = true)
         },
         state = pullState,
-        modifier = Modifier.fillMaxSize().then(frost.hazeSourceModifier()),
+        modifier = Modifier.fillMaxSize().then(frost.hazeSourceModifier()).contentHazeSource(),
         indicator = {
             PullToRefreshDefaults.Indicator(
                 state = pullState,
@@ -868,7 +870,12 @@ fun FeedScreen(
 
             // Posts list
             else -> {
-                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    // Clear the frosted bottom bar; content still scrolls under it.
+                    contentPadding = PaddingValues(bottom = LocalBottomBarHeight.current),
+                ) {
                     item { header() }
                     itemsIndexed(
                         posts,

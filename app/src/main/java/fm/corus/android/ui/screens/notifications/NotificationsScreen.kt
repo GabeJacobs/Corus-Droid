@@ -69,6 +69,8 @@ import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.ui.components.FrostedHeaderOverlay
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.OfflineRetryState
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SkeletonNotificationRow
@@ -180,7 +182,7 @@ fun NotificationsScreen(
                 viewModel.refreshNotifications()
             },
             state = pullState,
-            modifier = Modifier.fillMaxSize().then(frost.hazeSourceModifier()),
+            modifier = Modifier.fillMaxSize().then(frost.hazeSourceModifier()).contentHazeSource(),
             indicator = {
                 PullToRefreshDefaults.Indicator(
                     state = pullState,
@@ -194,7 +196,7 @@ fun NotificationsScreen(
                     // Loading skeleton — 12 shimmer rows
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = contentTop),
+                        contentPadding = PaddingValues(top = contentTop, bottom = LocalBottomBarHeight.current),
                     ) {
                         items(12) {
                             SkeletonNotificationRow()
@@ -214,7 +216,7 @@ fun NotificationsScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .nestedScroll(dismissKeyboardOnScroll),
-                        contentPadding = PaddingValues(top = contentTop),
+                        contentPadding = PaddingValues(top = contentTop, bottom = LocalBottomBarHeight.current),
                     ) {
                         items(notifications, key = { it.id }) { notification ->
                             NotificationRow(

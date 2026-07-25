@@ -180,6 +180,53 @@ internal fun Modifier.extendIntoStatusBar(extraTopPx: Int): Modifier =
         }
     }
 
+/** The frosted bottom bar's height, published by MainTabScreen so scrollable screens
+ *  can clear it (add to `contentPadding` bottom) while their content still scrolls
+ *  under it. 0.dp when the frosted bottom bar is off. */
+val LocalBottomBarHeight = compositionLocalOf { 0.dp }
+
+/** HazeState the shared bottom bar (in MainTabScreen) blurs. Screens publish their
+ *  scrollable into it via [contentHazeSource] so the bar frosts whatever scrolls
+ *  under it — WITHOUT a wrapping source around each screen (which would corrupt the
+ *  screens' own top-strip haze). null when the frosted bottom bar is off. */
+val LocalContentHaze = compositionLocalOf<HazeState?> { null }
+
+/**
+ * Marks a scrollable as the source the shared frosted bottom bar blurs. Apply
+ * ALONGSIDE the screen's own [ImmersiveHeaderState.hazeSourceModifier] on the SAME
+ * scrollable node (siblings of the top strip, so no source ever wraps an effect).
+ * No-op when [LocalContentHaze] is null (bottom bar off).
+ */
+@Composable
+fun Modifier.contentHazeSource(): Modifier {
+    val state = LocalContentHaze.current ?: return this
+    return this.hazeSource(state)
+}
+
+/**
+ * Bottom-side mirror of [extendIntoStatusBar]: grows a node DOWN by [extraBottomPx]
+ * (so its scrollable content draws under the frosted bottom bar) while still
+ * reporting its original size, so nothing else in the layout moves. No-op when
+ * [extraBottomPx] <= 0.
+ */
+internal fun Modifier.extendIntoBottomBar(extraBottomPx: Int): Modifier =
+    if (extraBottomPx <= 0) {
+        this
+    } else {
+        layout { measurable, constraints ->
+            val grownMax = if (constraints.hasBoundedHeight) {
+                constraints.maxHeight + extraBottomPx
+            } else {
+                constraints.maxHeight
+            }
+            val placeable = measurable.measure(constraints.copy(maxHeight = grownMax))
+            val reportedHeight = (placeable.height - extraBottomPx).coerceAtLeast(0)
+            layout(placeable.width, reportedHeight) {
+                placeable.place(0, 0)
+            }
+        }
+    }
+
 /**
  * Toggles the system status-bar icons for an immersive header that blends the
  * status bar: white over the dark hero at the top, theme default once the frosted

@@ -150,7 +150,7 @@ fun PostDetailScreen(
             if (!immersive) {
                 TopAppBar(
                     title = {
-                        Text(stringResource(R.string.feed_screen_title_corus), style = CorusFont.screenTitle, color = CorusColors.Text)
+                        Text(stringResource(R.string.feed_screen_title_Corus), style = CorusFont.screenTitle, color = CorusColors.Text)
                     },
                     navigationIcon = {
                         CorusHeaderIconButton(
@@ -460,7 +460,7 @@ fun PostDetailScreen(
         if (immersive) {
             ImmersiveFrostedBar(
                 hazeState = frost.hazeState,
-                title = stringResource(R.string.feed_screen_title_corus),
+                title = stringResource(R.string.feed_screen_title_Corus),
                 onBack = onBack,
                 topInset = frost.statusBarPadding,
             )

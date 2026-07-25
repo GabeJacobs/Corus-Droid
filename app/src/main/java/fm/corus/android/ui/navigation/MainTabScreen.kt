@@ -64,6 +64,12 @@ import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.FullScreenPhotoViewer
 import fm.corus.android.ui.components.MiniPlayerBar
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.LocalContentHaze
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
 import fm.corus.android.ui.screens.feed.CommentsBottomSheet
@@ -81,6 +87,15 @@ import androidx.core.view.WindowInsetsControllerCompat
 import android.app.Activity
 import fm.corus.android.ui.util.PushNotificationPermission
 import kotlinx.coroutines.flow.StateFlow
+
+/**
+ * Experimental frosted bottom segment (mini-player + tab bar + Android nav-bar
+ * strip). When on, the whole bottom bar becomes translucent frosted glass and the
+ * tab content scrolls under it (Haze), matching the immersive top bars. Flip to
+ * `false` for a full one-line revert: the bar goes back to a solid opaque surface
+ * and content stops at its top edge.
+ */
+private const val FrostedBottomBar = true
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -299,10 +314,28 @@ fun MainTabScreen(
         onNotificationDestinationConsumed()
     }
 
+    // Experimental frosted bottom segment — one shared Haze layer for the
+    // mini-player, the tab bar, and the Android nav-bar strip behind it.
+    // `CorusColors.Background` is a @Composable getter, so read it here (in the
+    // composable body) and use the captured value inside the non-composable
+    // hazeEffect lambda below.
+    val bottomHaze = remember { HazeState() }
+    val bottomFrost = CorusColors.Background
+
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         bottomBar = {
-            Column {
+            Column(
+                modifier = if (FrostedBottomBar) {
+                    Modifier.hazeEffect(state = bottomHaze) {
+                        blurRadius = 30.dp
+                        backgroundColor = bottomFrost
+                        tints = listOf(HazeTint(bottomFrost.copy(alpha = 0.8f)))
+                    }
+                } else {
+                    Modifier
+                },
+            ) {
                 MiniPlayerBar(
                     nowPlayingManager = viewModel.nowPlayingManager,
                     engagementManager = viewModel.postEngagementManager,
@@ -407,6 +440,7 @@ fun MainTabScreen(
                     },
                 )
                 CorusBottomBar(
+                frosted = FrostedBottomBar,
                 selectedTab = selectedTab,
                 notificationTabBadgeCount = notificationTabBadge(
                     selectedTab = selectedTab,
@@ -465,9 +499,29 @@ fun MainTabScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .then(
+                    if (FrostedBottomBar) {
+                        // Drop the bottom-bar inset so tab content scrolls UNDER the
+                        // frosted bar (the Scaffold still draws the bar on top). NOTE:
+                        // do NOT put a hazeSource here — wrapping every screen in one
+                        // corrupts their own top-strip haze. Screens publish their
+                        // scrollable into `bottomHaze` via `contentHazeSource()` instead.
+                        Modifier.padding(top = padding.calculateTopPadding())
+                    } else {
+                        Modifier.padding(padding)
+                    }
+                )
                 .consumeWindowInsets(padding)
         ) {
+          CompositionLocalProvider(
+              // Frosted scrollables add this to their bottom contentPadding so their
+              // last row rests just above the bar while still scrolling under it.
+              LocalBottomBarHeight provides
+                  (if (FrostedBottomBar) padding.calculateBottomPadding() else 0.dp),
+              // The state the shared bottom bar blurs; screens feed their scrollable
+              // into it via contentHazeSource(). null (default) when the bar is off.
+              LocalContentHaze provides (if (FrostedBottomBar) bottomHaze else null),
+          ) {
             // Keep all tab NavHosts alive but only show the selected one.
             // This preserves scroll position and back stack per tab.
             TabContent(visible = selectedTab == CorusTab.FEED) {
@@ -531,6 +585,7 @@ fun MainTabScreen(
 
             // Toast overlay (inside padded Box so it renders above the bottom bar)
             fm.corus.android.ui.components.ToastHost()
+          }
         }
 
         // Milestone paywall — show club offer sheet
@@ -761,20 +816,25 @@ internal fun CorusBottomBar(
     notificationTabBadgeCount: Int,
     onTabSelected: (CorusTab) -> Unit,
     onComposeTapped: () -> Unit,
+    frosted: Boolean = false,
 ) {
     Column {
-        // Top divider line
+        // Top divider line. Hidden while frosted so the glass reads as one
+        // continuous surface with content blurring under it (no hard hairline).
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(0.5.dp)
-                .background(CorusColors.Divider)
+                .background(if (frosted) Color.Transparent else CorusColors.Divider)
         )
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CorusColors.Background)
+                // Transparent while frosted so the shared Haze layer shows through the
+                // whole bar AND the Android nav-bar strip (navigationBarsPadding keeps
+                // this background extended down into that strip).
+                .background(if (frosted) Color.Transparent else CorusColors.Background)
                 .padding(top = CorusSpacing.sm)
                 .navigationBarsPadding(),
             // Center every slot against the full bar height so the "+" lines up with

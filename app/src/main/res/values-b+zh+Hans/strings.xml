@@ -165,7 +165,6 @@
 
     <!-- Feed: shared -->
     <string name="feed_app_title">corus</string>
-    <string name="feed_screen_title_corus">corus</string>
     <string name="feed_screen_title_Corus">Corus</string>
     <string name="feed_cd_filter">筛选</string>
     <string name="feed_cd_generate_playlist">用动态生成歌单</string>
