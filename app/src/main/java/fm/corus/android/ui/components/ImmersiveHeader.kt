@@ -1,6 +1,8 @@
 package fm.corus.android.ui.components
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -23,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -40,6 +43,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -95,8 +99,60 @@ internal fun immersiveCollapseProgress(
 @Composable
 internal fun currentStatusBarTopPx(): Int {
     val view = LocalView.current
-    return ViewCompat.getRootWindowInsets(view)
-        ?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
+    // Prefer the Activity window's decorView: it's the true window root and always
+    // carries the real insets. `LocalView.current` can be a nested ComposeView whose
+    // `getRootWindowInsets` reports 0 (seen on the profile feed), which silently
+    // disabled the status-bar blend. The view's context is usually a ContextWrapper
+    // (ContextThemeWrapper), not the Activity directly, so unwrap it to find the
+    // Activity before reaching decorView; fall back to the local view.
+    var ctx: Context? = view.context
+    while (ctx is ContextWrapper && ctx !is Activity) ctx = ctx.baseContext
+    val root = (ctx as? Activity)?.window?.decorView ?: view
+    val insets = ViewCompat.getRootWindowInsets(root) ?: ViewCompat.getRootWindowInsets(view)
+    return insets?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
+}
+
+/**
+ * Per-screen plumbing for the no-hero immersive frosted bar (profile feed,
+ * other-profile, post detail, …): the Haze state, the status-bar extend, and the
+ * content top-padding, derived once so each screen doesn't repeat them. Pair with
+ * [ImmersiveFrostedBar] for the bar itself, and remember to (1) set the Scaffold's
+ * `contentWindowInsets = WindowInsets(0,0,0,0)` and drop its `topBar` while
+ * immersive, and (2) add the route to `MainTabScreen`'s status-strip-cover
+ * allow-list so the solid cover doesn't paint over the frosted strip.
+ */
+@Composable
+internal fun rememberImmersiveHeaderState(immersive: Boolean): ImmersiveHeaderState {
+    val hazeState = remember { HazeState() }
+    val statusBarTopPx = currentStatusBarTopPx()
+    val extend = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
+    val statusBarPadding = if (extend) {
+        with(LocalDensity.current) { statusBarTopPx.toDp() }
+    } else {
+        0.dp
+    }
+    return ImmersiveHeaderState(immersive, hazeState, statusBarTopPx, extend, statusBarPadding)
+}
+
+internal class ImmersiveHeaderState(
+    val immersive: Boolean,
+    val hazeState: HazeState,
+    private val statusBarTopPx: Int,
+    val extendUnderStatusBar: Boolean,
+    /** Height of the status strip the bar covers (0 when not blending it). */
+    val statusBarPadding: Dp,
+) {
+    /** Grows the screen's Scaffold up under the status strip (no-op when off). */
+    val scaffoldModifier: Modifier
+        get() = if (extendUnderStatusBar) Modifier.extendIntoStatusBar(statusBarTopPx) else Modifier
+
+    /** Top contentPadding so a scrollable's first item clears the frosted bar. */
+    val contentTopPadding: Dp
+        get() = statusBarPadding + ImmersiveBarHeight
+
+    /** Marks a scrollable as the frost's blur source (no-op when not immersive). */
+    fun hazeSourceModifier(): Modifier =
+        if (immersive) Modifier.hazeSource(hazeState) else Modifier
 }
 
 /**

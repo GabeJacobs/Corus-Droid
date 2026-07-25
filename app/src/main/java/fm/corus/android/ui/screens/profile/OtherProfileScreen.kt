@@ -38,7 +38,9 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -76,6 +78,8 @@ import fm.corus.android.ui.components.CorusHeaderIcon
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ExpandableBioText
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
+import fm.corus.android.ui.components.ImmersiveFrostedBar
+import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.FeaturedCymbalView
 import fm.corus.android.ui.components.FeaturedMoviePosterView
 import fm.corus.android.ui.components.ShareMediaSheet
@@ -270,17 +274,13 @@ fun OtherProfileScreen(
         }
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            TopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
-                    }
-                },
-                actions = {
+    val immersive = viewModel.immersiveArtistHeaderEnabled
+    val frost = rememberImmersiveHeaderState(immersive)
+
+    // Profile action icons (message / notify / favorite / menu) — shared between
+    // the plain TopAppBar (non-immersive) and the frosted bar (immersive) so there
+    // is a single definition.
+    val profileActions: @Composable RowScope.() -> Unit = {
                     // Dedicated message button (matching iOS outlined envelope icon)
                     IconButton(onClick = { onNavigateToMessages("", userId) }) {
                         Icon(Icons.Outlined.Email, contentDescription = stringResource(fm.corus.android.R.string.other_profile_cd_message), tint = CorusColors.Text, modifier = Modifier.size(20.dp))
@@ -464,12 +464,34 @@ fun OtherProfileScreen(
                             }
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
-                windowInsets = WindowInsets(0, 0, 0, 0),
-            )
+    }
+
+    Scaffold(
+        modifier = frost.scaffoldModifier,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        topBar = {
+            // Immersive draws the shared frosted bar over the content below instead.
+            if (!immersive) {
+                TopAppBar(
+                    title = { },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
+                        }
+                    },
+                    actions = profileActions,
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                )
+            }
         },
     ) { padding ->
+        val haptics = LocalHapticManager.current
+        val pullState = rememberPullToRefreshState()
+        // One Box so the frosted bar (below) overlays whatever state renders; `run`
+        // keeps the existing early-`return`s while still reaching the bar afterwards.
+        Box(modifier = Modifier.fillMaxSize()) {
+        run {
         // Banned (shadow or hard) or deleted account: getProfileData returned
         // NOT_FOUND, so the ViewModel bounced instead of loading. Show a neutral
         // "unavailable" state — never the stale header — and stop here.
@@ -499,7 +521,7 @@ fun OtherProfileScreen(
                     )
                 }
             }
-            return@Scaffold
+            return@run
         }
         val hasInitialData = initialDisplayName != null && initialUsername != null
         if (isLoading && profile == null) {
@@ -509,7 +531,7 @@ fun OtherProfileScreen(
                     columns = GridCells.Fixed(3),
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = padding.calculateTopPadding()),
+                        .padding(top = if (immersive) frost.contentTopPadding else padding.calculateTopPadding()),
                     contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
                 ) {
                     item(span = { GridItemSpan(3) }) {
@@ -668,14 +690,15 @@ fun OtherProfileScreen(
                         }
                     }
                 }
-                return@Scaffold
+                return@run
             }
 
             // No initial data — show full skeleton
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .padding(top = if (immersive) frost.contentTopPadding else 0.dp),
             ) {
                 if (initialAvatarURL != null || initialAvatarThumbURL != null) {
                     SkeletonProfileWithAvatar(
@@ -689,10 +712,10 @@ fun OtherProfileScreen(
                 }
                 SkeletonProfileGrid()
             }
-            return@Scaffold
+            return@run
         }
 
-        val currentProfile = profile ?: return@Scaffold
+        val currentProfile = profile ?: return@run
 
         if (isBlocked) {
             Box(
@@ -716,7 +739,7 @@ fun OtherProfileScreen(
                     }
                 }
             }
-            return@Scaffold
+            return@run
         }
 
         // Helper: populate cache and navigate to profile feed
@@ -742,25 +765,29 @@ fun OtherProfileScreen(
             )
         }
 
-        val haptics = LocalHapticManager.current
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = {
-                // Mirrors iOS OtherProfileView.refreshable haptic.
-                haptics.impact(HapticManager.ImpactStyle.LIGHT)
-                val onFilmsTab = !currentProfile.isBot && selectedSegment == 1
-                val onLikesTab = !currentProfile.isBot && selectedSegment == 2
-                viewModel.refresh(userId, includeFilms = onFilmsTab, includeLikes = onLikesTab)
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = padding.calculateTopPadding()),
-        ) {
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Fixed(3),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+            // Unclipped haze source (see ProfileFeedScreen) + pull-to-refresh as a
+            // modifier so the grid renders behind the frosted status strip.
+            modifier = Modifier
+                .fillMaxSize()
+                .then(frost.hazeSourceModifier())
+                .pullToRefresh(
+                    isRefreshing = isRefreshing,
+                    state = pullState,
+                    onRefresh = {
+                        // Mirrors iOS OtherProfileView.refreshable haptic.
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        val onFilmsTab = !currentProfile.isBot && selectedSegment == 1
+                        val onLikesTab = !currentProfile.isBot && selectedSegment == 2
+                        viewModel.refresh(userId, includeFilms = onFilmsTab, includeLikes = onLikesTab)
+                    },
+                ),
+            contentPadding = PaddingValues(
+                top = if (immersive) frost.contentTopPadding else 0.dp,
+                bottom = padding.calculateBottomPadding(),
+            ),
         ) {
             item(span = { GridItemSpan(3) }) {
                 Column {
@@ -1284,6 +1311,24 @@ fun OtherProfileScreen(
                     }
                 }
             }
+        }
+        }
+        // Refresh spinner + frosted bar overlay the whole content area (all states).
+        PullToRefreshDefaults.Indicator(
+            state = pullState,
+            isRefreshing = isRefreshing,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = if (immersive) frost.contentTopPadding else padding.calculateTopPadding()),
+        )
+        if (immersive) {
+            ImmersiveFrostedBar(
+                hazeState = frost.hazeState,
+                title = null,
+                onBack = onBack,
+                topInset = frost.statusBarPadding,
+                actions = profileActions,
+            )
         }
         }
 

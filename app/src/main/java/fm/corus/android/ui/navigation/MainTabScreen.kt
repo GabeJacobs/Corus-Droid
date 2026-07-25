@@ -570,11 +570,21 @@ fun MainTabScreen(
         // `visibleEntries` keeps the immersive entry until its exit animation finishes,
         // so the cover only appears once no immersive page is on screen at all.
         val visibleEntries by activeNavController.visibleEntries.collectAsState()
+        val immersiveRoutes = buildList {
+            add("SongDetailRoute"); add("FilmDetailRoute"); add("ArtistPageRoute")
+            add("AlbumPageRoute"); add("DirectorPageRoute")
+            // The profile feed + other-profile pages paint their own frosted status
+            // strip (no-hero immersive bar) only while the flag is on; otherwise
+            // they're plain pages that still want the cover.
+            if (viewModel.immersiveArtistHeaderEnabled) {
+                add("ProfileFeedRoute")
+                add("OtherProfileRoute")
+                add("ProfileByUsernameRoute")
+            }
+        }
         val anyImmersiveVisible = visibleEntries.any { entry ->
             val route = entry.destination.route
-            route != null && listOf(
-                "SongDetailRoute", "FilmDetailRoute", "ArtistPageRoute", "AlbumPageRoute", "DirectorPageRoute",
-            ).any { route.contains(it) }
+            route != null && immersiveRoutes.any { route.contains(it) }
         }
         val stripTopPx = currentStatusBarTopPx()
         if (!anyImmersiveVisible && stripTopPx > 0) {

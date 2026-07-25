@@ -59,6 +59,9 @@ class OtherProfileViewModel @Inject constructor(
     /** Whether the Favorites feature (star button) is enabled in Remote Config. */
     val favoritesEnabled: Boolean get() = remoteConfig.favoritesEnabled
 
+    /** Immersive frosted header/status-bar gate (shared with the hero + feed pages). */
+    val immersiveArtistHeaderEnabled: Boolean get() = remoteConfig.immersiveArtistHeaderEnabled
+
     /**
      * Resolve the link-out URL for a Spotify-source track given the viewer's
      * preferred service (Apple Music / TIDAL / Deezer), for the featured-post

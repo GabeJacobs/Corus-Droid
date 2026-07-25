@@ -38,7 +38,13 @@ class MainTabViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val analyticsService: fm.corus.android.service.AnalyticsService,
     val feedScrollRouter: fm.corus.android.domain.FeedScrollRouter,
+    private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
 ) : ViewModel() {
+
+    /** Whether the immersive header is on — the profile feed only paints its own
+     *  frosted status strip (so it opts out of the status-bar cover) while immersive. */
+    val immersiveArtistHeaderEnabled: Boolean
+        get() = remoteConfigService.immersiveArtistHeaderEnabled
 
     init {
         // Advertise group-chat support once per signed-in session so the backend

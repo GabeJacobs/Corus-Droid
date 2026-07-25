@@ -19,23 +19,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.ui.LocalHapticManager
-import fm.corus.android.ui.components.ImmersiveBarHeight
-import fm.corus.android.ui.components.ImmersiveExtendUnderStatusBar
 import fm.corus.android.ui.components.ImmersiveFrostedBar
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
-import fm.corus.android.ui.components.currentStatusBarTopPx
-import fm.corus.android.ui.components.extendIntoStatusBar
+import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.feed.FilmInfoSheet
 import fm.corus.android.ui.theme.CorusColors
@@ -201,22 +195,16 @@ fun ProfileFeedScreen(
     // it blurs the feed scrolling beneath it (Haze) and blends up under the status
     // bar. Gated by the same immersive_artist_header_enabled flag (debug-on).
     val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
-    val hazeState = remember { HazeState() }
-    val statusBarTopPx = currentStatusBarTopPx()
-    val extendUnderStatusBar = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
-    val statusBarPadding = if (extendUnderStatusBar) {
-        with(LocalDensity.current) { statusBarTopPx.toDp() }
-    } else {
-        0.dp
-    }
+    val frost = rememberImmersiveHeaderState(immersive)
     val barTitle = if (segment == 4 && hashtag.isNotEmpty()) "#$hashtag" else "@$username"
 
     Scaffold(
-        modifier = if (extendUnderStatusBar) {
-            Modifier.extendIntoStatusBar(statusBarTopPx)
-        } else {
-            Modifier
-        },
+        modifier = frost.scaffoldModifier,
+        // Don't let the Scaffold reserve the status-bar inset for its body: that
+        // pushes the content (and the frosted bar) back down by the status height,
+        // cancelling extendIntoStatusBar's upward shift and leaving the bar sitting
+        // below the status strip. The parent tab scaffold already handles insets.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             // Immersive draws the shared frosted bar over the feed below instead.
             if (!immersive) {
@@ -241,7 +229,7 @@ fun ProfileFeedScreen(
     ) { padding ->
         val haptics = LocalHapticManager.current
         val pullState = rememberPullToRefreshState()
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -251,7 +239,7 @@ fun ProfileFeedScreen(
                 // pull-to-refresh is a modifier here rather than a PullToRefreshBox
                 // wrapper — PullToRefreshBox clipToBounds() and would clip the source
                 // off the status strip, leaving it a solid (opaque frost) band.
-                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier)
+                .then(frost.hazeSourceModifier())
                 .pullToRefresh(
                     isRefreshing = isRefreshing,
                     state = pullState,
@@ -260,14 +248,10 @@ fun ProfileFeedScreen(
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
                         viewModel.refresh()
                     },
-                )
-                // Non-immersive: sit below the solid TopAppBar (immersive fills up
-                // under the frosted bar instead).
-                .then(if (immersive) Modifier else Modifier.padding(top = padding.calculateTopPadding())),
+                ),
             contentPadding = PaddingValues(
                 // Immersive: clear the frosted bar so the first post isn't pinned behind it.
-                top = if (immersive) statusBarPadding + ImmersiveBarHeight else 0.dp,
-                bottom = padding.calculateBottomPadding(),
+                top = if (immersive) frost.contentTopPadding else 0.dp,
             ),
         ) {
             itemsIndexed(
@@ -414,16 +398,16 @@ fun ProfileFeedScreen(
                 .align(Alignment.TopCenter)
                 .padding(
                     // Keep the spinner below the frosted bar + status strip.
-                    top = if (immersive) statusBarPadding + ImmersiveBarHeight
+                    top = if (immersive) frost.contentTopPadding
                     else padding.calculateTopPadding(),
                 ),
         )
         if (immersive) {
             ImmersiveFrostedBar(
-                hazeState = hazeState,
+                hazeState = frost.hazeState,
                 title = barTitle,
                 onBack = onBack,
-                topInset = statusBarPadding,
+                topInset = frost.statusBarPadding,
             )
         }
         }
