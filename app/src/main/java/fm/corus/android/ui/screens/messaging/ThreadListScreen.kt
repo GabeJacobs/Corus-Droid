@@ -101,7 +101,7 @@ fun ThreadListScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = CorusSpacing.xs, end = CorusSpacing.lg, top = CorusSpacing.md, bottom = CorusSpacing.md),
+                .padding(horizontal = CorusSpacing.sm, vertical = CorusSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CorusHeaderIconButton(
