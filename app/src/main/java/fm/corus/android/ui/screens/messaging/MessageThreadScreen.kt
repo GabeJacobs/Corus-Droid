@@ -169,6 +169,23 @@ internal fun computeDeliveryStatus(
     return if (idx < readBoundary) MessageDeliveryStatus.READ else MessageDeliveryStatus.SENT
 }
 
+/**
+ * Key that drives the "scroll to newest" effect.
+ *
+ * `messages.size` alone is too coarse: the newest bubble also changes height
+ * in place when its [MessageSendStatus] flips (SENDING → SENT drops the clock
+ * icon; SENDING → FAILED adds the error + retry affordance) without the count
+ * changing. Keying on the newest message's id AND send status keeps the list
+ * pinned to the bottom across those transitions too.
+ *
+ * Note this is a safety net, not the fix for the send-jump bug — that was the
+ * optimistic copy being dropped on ack, fixed in `MessageThreadViewModel`.
+ *
+ * Returns null for an empty thread (no scroll target).
+ */
+internal fun autoScrollKey(messages: List<CymbalMessage>): String? =
+    messages.firstOrNull()?.let { "${it.id}:${it.sendStatus}" }
+
 private val bubbleTimeFormatter: SimpleDateFormat by lazy {
     SimpleDateFormat("h:mm a", Locale.getDefault())
 }
@@ -647,8 +664,11 @@ fun MessageThreadScreen(
         }
     }
 
-    // Auto-scroll to newest message when the list grows (reverseLayout: index 0 = bottom)
-    LaunchedEffect(messages.size) {
+    // Keep the newest message pinned to the bottom (reverseLayout: index 0 = bottom).
+    // Keyed on autoScrollKey (newest id + send status), NOT messages.size, so it
+    // also re-pins when the newest bubble changes height in place on a send-status
+    // transition.
+    LaunchedEffect(autoScrollKey(messages)) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(0)
         }

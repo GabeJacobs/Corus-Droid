@@ -35,6 +35,7 @@ import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -112,9 +113,19 @@ class MessageThreadViewModelTest {
 
     // ── Successful send ──
 
+    /**
+     * Regression: the send callable returning is NOT the same moment the canonical
+     * Firestore doc lands in the snapshot. Dropping the optimistic copy on ack left
+     * a window where the message existed in neither `pending` nor `server`, so it
+     * vanished from the merged list. In the UI that shrank the reverseLayout
+     * LazyColumn by one item, which re-anchored it and hid the just-sent bubble
+     * behind the composer until the snapshot arrived and it animated back down
+     * (the "jump" Gabe reported on device). The optimistic copy must survive until
+     * the listener actually has the real message.
+     */
     @Test
-    fun `successful send removes pending message`() = runTest {
-        // Repository call succeeds immediately
+    fun `optimistic message stays visible between send ack and server snapshot`() = runTest {
+        // Repository call succeeds immediately; no snapshot has been delivered.
         whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doReturn(Unit)
 
@@ -122,7 +133,53 @@ class MessageThreadViewModelTest {
         advanceUntilIdle()
 
         val messages = viewModel.messages.first()
-        assertTrue("Pending message should be removed after successful send", messages.isEmpty())
+        assertEquals(
+            "Message must not disappear between the send ack and the server snapshot",
+            1, messages.size,
+        )
+        assertEquals("Hello", messages[0].text)
+        // ...and the ack clears the sending clock right away (iOS parity), so a
+        // lagging snapshot can't leave a delivered message spinning.
+        assertEquals(MessageSendStatus.SENT, messages[0].sendStatus)
+    }
+
+    /**
+     * The other half of the contract: once the canonical doc arrives (the server
+     * reuses our clientMessageId as the doc id) the optimistic copy is pruned, so
+     * keeping it past the ack must not leave a duplicate bubble.
+     */
+    @Test
+    fun `server snapshot supersedes the optimistic copy without duplicating`() = runTest {
+        val messagesFlow = MutableSharedFlow<List<CymbalMessage>>(extraBufferCapacity = 1)
+        whenever(messageRepository.listenToMessages(any())).doReturn(messagesFlow)
+        whenever(messageRepository.listenToRecipientUnreadCount(any(), any())).doReturn(emptyFlow())
+        whenever(messageRepository.listenToReadReceiptsEnabled(any())).doReturn(emptyFlow())
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+            .doReturn(Unit)
+
+        viewModel.loadMessages("thread1", "other")
+        advanceUntilIdle()
+
+        viewModel.sendMessage("thread1", "Hello")
+        advanceUntilIdle()
+        val clientId = viewModel.messages.first()[0].id
+
+        // Canonical doc lands, reusing the client id as the Firestore doc id.
+        messagesFlow.emit(
+            listOf(
+                CymbalMessage(
+                    id = clientId, threadId = "thread1", fromUserId = "user1",
+                    text = "Hello", type = MessageType.TEXT,
+                    sendStatus = MessageSendStatus.SENT,
+                )
+            )
+        )
+        advanceUntilIdle()
+
+        val messages = viewModel.messages.first()
+        assertEquals("Confirmed message must not be duplicated", 1, messages.size)
+        assertEquals(clientId, messages[0].id)
+        assertEquals(MessageSendStatus.SENT, messages[0].sendStatus)
     }
 
     // ── Failed send ──
@@ -176,8 +233,15 @@ class MessageThreadViewModelTest {
         viewModel.retrySendMessage(failedId)
         advanceUntilIdle()
 
-        // Message should be removed after successful retry
-        assertTrue(viewModel.messages.first().isEmpty())
+        // The retry was re-attempted against the repository...
+        verify(messageRepository, times(2)).sendTextMessage(
+            any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), eq(failedId),
+        )
+        // ...and the bubble stays put until the snapshot confirms it, rather than
+        // blinking out on the ack (see `optimistic message stays visible…`).
+        val afterRetry = viewModel.messages.first()
+        assertEquals(1, afterRetry.size)
+        assertEquals(failedId, afterRetry[0].id)
     }
 
     @Test
@@ -305,7 +369,7 @@ class MessageThreadViewModelTest {
     }
 
     @Test
-    fun `sendSongMessage removes pending on success`() = runTest {
+    fun `sendSongMessage keeps pending until the snapshot confirms it`() = runTest {
         whenever(messageRepository.sendSharedTrackMessage(
             any(), any(), any(), any(), anyOrNull(),
         )).doReturn(Unit)
@@ -314,7 +378,10 @@ class MessageThreadViewModelTest {
         viewModel.sendSongMessage("thread1", track)
         advanceUntilIdle()
 
-        assertTrue(viewModel.messages.first().isEmpty())
+        // Ack landed but no snapshot yet — the card must not blink out.
+        val messages = viewModel.messages.first()
+        assertEquals(1, messages.size)
+        assertEquals(MessageType.SHARED_TRACK, messages[0].type)
     }
 
     @Test
@@ -361,7 +428,7 @@ class MessageThreadViewModelTest {
     }
 
     @Test
-    fun `sendFilmMessage removes pending on success`() = runTest {
+    fun `sendFilmMessage keeps pending until the snapshot confirms it`() = runTest {
         whenever(messageRepository.sendSharedFilmMessage(
             any(), any(), any(), any(), anyOrNull(),
         )).doReturn(Unit)
@@ -370,7 +437,10 @@ class MessageThreadViewModelTest {
         viewModel.sendFilmMessage("thread1", movie)
         advanceUntilIdle()
 
-        assertTrue(viewModel.messages.first().isEmpty())
+        // Ack landed but no snapshot yet — the card must not blink out.
+        val messages = viewModel.messages.first()
+        assertEquals(1, messages.size)
+        assertEquals(MessageType.SHARED_FILM, messages[0].type)
     }
 
     // ── clientMessageId passed to repository ──

@@ -330,8 +330,8 @@ fun MainTabScreen(
                     Modifier.hazeEffect(state = bottomHaze) {
                         blurRadius = 30.dp
                         backgroundColor = bottomFrost
-                        // Bottom bar is whiter than the top bars (0.8) for legibility.
-                        tints = listOf(HazeTint(bottomFrost.copy(alpha = 0.9f)))
+                        // Bottom bar is a touch whiter than the top bars (0.78).
+                        tints = listOf(HazeTint(bottomFrost.copy(alpha = 0.88f)))
                     }
                 } else {
                     Modifier

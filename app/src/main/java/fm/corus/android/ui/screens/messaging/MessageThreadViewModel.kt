@@ -62,6 +62,19 @@ class MessageThreadViewModel @Inject constructor(
 
     private val _serverMessages = MutableStateFlow<List<CymbalMessage>>(emptyList())
 
+    /**
+     * Optimistic copies of messages we've sent, keyed by client message id.
+     *
+     * An entry is removed ONLY by [startListening], once the canonical Firestore
+     * doc for that id is actually in the snapshot. Do NOT drop it when the send
+     * callable returns: the ack and the snapshot are separate round-trips, so
+     * between them the message would exist in neither `pending` nor
+     * `_serverMessages` and would blink out of the merged [messages] list. In the
+     * UI that shrinks the reverseLayout LazyColumn by an item, which re-anchors it
+     * and hides the just-sent bubble behind the composer until the snapshot lands.
+     * The server reuses our clientMessageId as the doc id, so the prune always
+     * matches and holding the copy longer can't duplicate a bubble.
+     */
     private val _pendingMessages = MutableStateFlow<Map<String, CymbalMessage>>(emptyMap())
 
     /** Merged server + unconfirmed pending messages, reversed for reverseLayout LazyColumn. */
@@ -219,8 +232,15 @@ class MessageThreadViewModel @Inject constructor(
         seenMessageIds = emptySet()
         listenerJob = viewModelScope.launch {
             messageRepository.listenToMessages(threadId).collect { serverMessages ->
-                // Remove pending messages that the server has now confirmed
                 val confirmedIds = serverMessages.map { it.id }.toSet()
+                // Publish the server snapshot BEFORE pruning the matching pending
+                // copy. The `messages` combine filters pending by the current
+                // server ids, so setting server first means the confirmed message
+                // is already present when pending drops — it never blinks out of
+                // the merged list, which would otherwise re-anchor the reverseLayout
+                // list and hide the newest bubble behind the composer.
+                _serverMessages.value = serverMessages
+                // Remove pending messages that the server has now confirmed
                 _pendingMessages.value = _pendingMessages.value.filterKeys { it !in confirmedIds }
 
                 // Re-mark the thread read whenever a NEW message arrives from the
@@ -232,7 +252,6 @@ class MessageThreadViewModel @Inject constructor(
                     it.id !in seenMessageIds && it.fromUserId != myId
                 }
                 seenMessageIds = confirmedIds
-                _serverMessages.value = serverMessages
 
                 if (hasLoadedInitialMessages && hadNewIncoming && myId != null) {
                     messageRepository.markThreadRead(currentThreadId ?: threadId, myId)
@@ -493,9 +512,9 @@ class MessageThreadViewModel @Inject constructor(
                     replyToUserId = reply?.fromUserId,
                     clientMessageId = clientId,
                 )
-                // Server confirmed — Firestore listener will add the real message and
-                // startListening will prune the pending copy.
-                _pendingMessages.value = _pendingMessages.value - clientId
+                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
+                // copy itself is held until the listener has the canonical doc.
+                updatePendingStatus(clientId, MessageSendStatus.SENT)
             } catch (e: Exception) {
                 updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
             }
@@ -528,7 +547,9 @@ class MessageThreadViewModel @Inject constructor(
                     imageData = imageData,
                     clientMessageId = clientId,
                 )
-                _pendingMessages.value = _pendingMessages.value - clientId
+                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
+                // copy itself is held until the listener has the canonical doc.
+                updatePendingStatus(clientId, MessageSendStatus.SENT)
             } catch (e: Exception) {
                 updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
             }
@@ -565,7 +586,9 @@ class MessageThreadViewModel @Inject constructor(
                     gifURL = gifURL,
                     clientMessageId = clientId,
                 )
-                _pendingMessages.value = _pendingMessages.value - clientId
+                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
+                // copy itself is held until the listener has the canonical doc.
+                updatePendingStatus(clientId, MessageSendStatus.SENT)
             } catch (e: Exception) {
                 updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
             }
@@ -613,7 +636,9 @@ class MessageThreadViewModel @Inject constructor(
                     track = track,
                     clientMessageId = clientId,
                 )
-                _pendingMessages.value = _pendingMessages.value - clientId
+                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
+                // copy itself is held until the listener has the canonical doc.
+                updatePendingStatus(clientId, MessageSendStatus.SENT)
             } catch (e: Exception) {
                 updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
             }
@@ -653,7 +678,9 @@ class MessageThreadViewModel @Inject constructor(
                     movie = movie,
                     clientMessageId = clientId,
                 )
-                _pendingMessages.value = _pendingMessages.value - clientId
+                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
+                // copy itself is held until the listener has the canonical doc.
+                updatePendingStatus(clientId, MessageSendStatus.SENT)
             } catch (e: Exception) {
                 updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
             }
@@ -676,7 +703,9 @@ class MessageThreadViewModel @Inject constructor(
                     threadId = resolvedId, fromUserId = userId, artistId = artistId,
                     name = name, imageUrl = imageUrl, clientMessageId = clientId,
                 )
-                _pendingMessages.value = _pendingMessages.value - clientId
+                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
+                // copy itself is held until the listener has the canonical doc.
+                updatePendingStatus(clientId, MessageSendStatus.SENT)
             } catch (e: Exception) {
                 updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
             }
@@ -701,7 +730,9 @@ class MessageThreadViewModel @Inject constructor(
                     title = title, artistName = artistName ?: "", coverUrl = coverUrl,
                     year = year?.toString(), clientMessageId = clientId,
                 )
-                _pendingMessages.value = _pendingMessages.value - clientId
+                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
+                // copy itself is held until the listener has the canonical doc.
+                updatePendingStatus(clientId, MessageSendStatus.SENT)
             } catch (e: Exception) {
                 updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
             }
@@ -724,7 +755,9 @@ class MessageThreadViewModel @Inject constructor(
                     threadId = resolvedId, fromUserId = userId, directorId = directorId,
                     name = name, imageUrl = imageUrl, clientMessageId = clientId,
                 )
-                _pendingMessages.value = _pendingMessages.value - clientId
+                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
+                // copy itself is held until the listener has the canonical doc.
+                updatePendingStatus(clientId, MessageSendStatus.SENT)
             } catch (e: Exception) {
                 updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
             }
@@ -800,7 +833,9 @@ class MessageThreadViewModel @Inject constructor(
                     // Image retry is not supported — the original imageData is not retained
                     else -> {}
                 }
-                _pendingMessages.value = _pendingMessages.value - messageId
+                // Ack: mark sent so the retry affordance clears immediately; the copy
+                // itself is held until the listener has the canonical doc.
+                updatePendingStatus(messageId, MessageSendStatus.SENT)
             } catch (e: Exception) {
                 updatePendingStatus(messageId, MessageSendStatus.FAILED, failureReasonFrom(e))
             }
