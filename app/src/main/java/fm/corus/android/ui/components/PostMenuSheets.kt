@@ -94,7 +94,9 @@ fun PostMenuSheets(
     val postSentMsg = stringResource(R.string.post_menu_toast_post_sent)
     val captionUpdatedMsg = stringResource(R.string.post_menu_toast_caption_updated)
     val albumNotFoundMsg = stringResource(R.string.song_detail_album_not_found)
+    val artistNotFoundMsg = stringResource(R.string.song_detail_artist_not_found)
     var isResolvingAlbum by remember { mutableStateOf(false) }
+    var isResolvingArtist by remember { mutableStateOf(false) }
     val engagementStates by actions.engagementStates.collectAsState()
 
     // When Share is tapped from the "…" menu, we can't open the share sheet
@@ -205,7 +207,14 @@ fun PostMenuSheets(
                 // its "Go to Artist"/"Go to Album" rows link out to Audiomack's own
                 // pages (only when the backend supplied a non-blank url). Non-
                 // Audiomack sources fall through to the internal-nav tap builders.
-                onGoToArtist = onGoToArtistTap(post, onNavigateToArtist)
+                onGoToArtist = onGoToArtistTap(
+                    post = post,
+                    onNavigateToArtist = onNavigateToArtist,
+                    scope = scope,
+                    resolveArtistId = actions::resolveArtistIdForTrack,
+                    onArtistNotFound = { ToastManager.show(artistNotFoundMsg) },
+                    onResolvingChange = { isResolvingArtist = it },
+                )
                     ?: post.track.audiomackArtistLinkOutUrl?.let { url -> { openExternalUrl(context, url) } }
                     ?: {},
                 onGoToAlbum = onGoToAlbumTap(
@@ -294,28 +303,37 @@ fun PostMenuSheets(
         }
     }
 
-    if (isResolvingAlbum) {
-        Popup(alignment = Alignment.TopCenter) {
-            Row(
-                modifier = Modifier
-                    .padding(top = 72.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.Black.copy(alpha = 0.8f))
-                    .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                Text(
-                    text = stringResource(R.string.song_detail_resolving),
-                    style = CorusFont.caption,
-                    color = Color.White,
-                )
-            }
+    DestinationResolvingHud(visible = isResolvingAlbum || isResolvingArtist)
+}
+
+/**
+ * Top-center "Loading…" HUD shown while a destination id (artist / album) is
+ * resolved on tap. Shared by the post "…" menu rows and the post card's tappable
+ * artist subtitle so both give identical feedback during the brief resolve.
+ */
+@Composable
+fun DestinationResolvingHud(visible: Boolean) {
+    if (!visible) return
+    Popup(alignment = Alignment.TopCenter) {
+        Row(
+            modifier = Modifier
+                .padding(top = 72.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Color.Black.copy(alpha = 0.8f))
+                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircularProgressIndicator(
+                color = Color.White,
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            Text(
+                text = stringResource(R.string.song_detail_resolving),
+                style = CorusFont.caption,
+                color = Color.White,
+            )
         }
     }
 }
@@ -391,29 +409,55 @@ internal fun openExternalUrl(context: Context, url: String) {
 }
 
 /**
- * Builds the "Go to Artist" click for a track post: routes to the artist page
- * via `track.artistIds[0]`, reusing the exact route the post card's tappable
- * artist subtitle uses (first credited id, primaryNameHint for the name). Null
- * when [onNavigateToArtist] is null (flag off) or the post has no artist id.
+ * Builds the "Go to Artist" click for a track post: routes to the artist page,
+ * reusing the exact route the post card's tappable artist subtitle uses
+ * (first credited id, primaryNameHint for the name).
+ *
+ * Fast-path uses `track.artistIds[0]` when the post already carries one; when it
+ * doesn't (an Apple-Music search post lands with `artistIds:[]`), it resolves the
+ * artist id on tap via [resolveArtistId] behind a brief HUD, then navigates or
+ * reports a miss. Mirrors [onGoToAlbumTap]. Null when [onNavigateToArtist] is
+ * null (flag off), the post is a movie, or the source has no Corus artist page
+ * (only Spotify / Apple Music qualify; Audiomack link-out is handled by the caller).
  */
 internal fun onGoToArtistTap(
     post: CymbalPost,
     onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)?,
+    scope: CoroutineScope,
+    resolveArtistId: suspend (CymbalTrack) -> String?,
+    onArtistNotFound: () -> Unit,
+    onResolvingChange: (Boolean) -> Unit = {},
 ): (() -> Unit)? {
     val navigate = onNavigateToArtist ?: return null
     if (post.isMovie) return null
-    val artistId = post.track.artistIds.firstOrNull { it.isNotBlank() } ?: return null
-    val name = fm.corus.android.data.model.primaryNameHint(
-        post.track.artistName,
-        post.track.artistIds.size,
-    )
-    return {
+    if (post.track.source != TrackSource.SPOTIFY && post.track.source != TrackSource.APPLEMUSIC) return null
+    fun go(artistId: String) {
+        val name = fm.corus.android.data.model.primaryNameHint(
+            post.track.artistName,
+            post.track.artistIds.size,
+        )
         navigate(
             fm.corus.android.ui.navigation.ArtistPageRoute(
                 artistId = artistId,
                 name = name.ifEmpty { null },
             )
         )
+    }
+    return {
+        val known = post.track.artistIds.firstOrNull { it.isNotBlank() }
+        if (known != null) {
+            go(known)
+        } else {
+            scope.launch {
+                onResolvingChange(true)
+                try {
+                    val resolved = resolveArtistId(post.track)?.takeIf { it.isNotBlank() }
+                    if (resolved != null) go(resolved) else onArtistNotFound()
+                } finally {
+                    onResolvingChange(false)
+                }
+            }
+        }
     }
 }
 

@@ -63,6 +63,7 @@ import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.TrailerPlaybackCoordinator
@@ -71,6 +72,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.NunitoFamily
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Repeat
@@ -1427,18 +1429,26 @@ private fun InlineFollowPill(
 }
 
 /**
- * Builds the [PostCard] `onSubtitleTap` for a post: track posts route to the
- * artist page via `track.artistIds[0]`, movie posts to the director page via
- * `directorIds[0]`. Returns null — subtitle stays plain text — when the id
- * array is empty or the corresponding navigation callback is null (callers
- * pass null callbacks while `artist_pages_enabled` is off). Name hints follow
- * the primaryNameHint rule so a joined credit string ("Mount Kimbie, Micachu")
- * hints only the first credited name.
+ * Builds the [PostCard] `onSubtitleTap` for a post. Movie posts route to the
+ * director page via `directorIds[0]` (plain text when there's no id yet).
+ *
+ * Track posts route to the artist page and reuse [onGoToArtistTap] verbatim, so
+ * the tappable artist name behaves exactly like the "…" menu's Go to Artist row:
+ * the name is tappable for any Spotify/Apple track (SoundCloud/TIDAL/Deezer stay
+ * plain), fast-pathing an existing `artistIds[0]` and otherwise resolving the id
+ * on tap behind [onResolvingChange]'s HUD, with [onArtistNotFound] on a miss.
+ * That closes the window right after an Apple-Music-search post is created, where
+ * `artistIds` is still empty pending the backend backfill. Returns null (plain
+ * text) when the corresponding nav callback is null (flag off).
  */
 fun postSubtitleTap(
     post: CymbalPost,
     onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)?,
     onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)?,
+    scope: CoroutineScope,
+    resolveArtistId: suspend (CymbalTrack) -> String?,
+    onArtistNotFound: () -> Unit,
+    onResolvingChange: (Boolean) -> Unit = {},
 ): (() -> Unit)? {
     if (post.isMovie) {
         val navigate = onNavigateToDirector ?: return null
@@ -1456,18 +1466,12 @@ fun postSubtitleTap(
             )
         }
     }
-    val navigate = onNavigateToArtist ?: return null
-    val artistId = post.track.artistIds.firstOrNull() ?: return null
-    val name = fm.corus.android.data.model.primaryNameHint(
-        post.track.artistName,
-        post.track.artistIds.size,
+    return onGoToArtistTap(
+        post = post,
+        onNavigateToArtist = onNavigateToArtist,
+        scope = scope,
+        resolveArtistId = resolveArtistId,
+        onArtistNotFound = onArtistNotFound,
+        onResolvingChange = onResolvingChange,
     )
-    return {
-        navigate(
-            fm.corus.android.ui.navigation.ArtistPageRoute(
-                artistId = artistId,
-                name = name.ifEmpty { null },
-            )
-        )
-    }
 }

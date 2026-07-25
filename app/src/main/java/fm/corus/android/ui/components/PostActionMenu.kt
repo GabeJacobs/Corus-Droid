@@ -236,13 +236,20 @@ internal fun showPostReportBlockActions(isMine: Boolean, authorIsBot: Boolean): 
  * Whether the "Go to Artist" row shows: track posts only (never films) that
  * either carry an Audiomack artist link-out url (source-locked, link-out only —
  * shown regardless of the flag since there's no Corus artist page), OR have
- * `artist_pages_enabled` on plus at least one Spotify artist id.
- * Films route to the director page from their own subtitle, not here.
+ * `artist_pages_enabled` on and a Spotify/Apple-Music source.
+ *
+ * Shown for those sources even when the post carries no `artistIds` yet: an
+ * Apple-Music search post lands with `artistIds:[]` (the backend resolves the
+ * Spotify ids minutes later), so the row resolves the artist on tap instead of
+ * waiting for that backfill — mirroring [showGoToAlbumRow]. SoundCloud/TIDAL/
+ * Deezer have no Corus artist page and are excluded. Films route to the director
+ * page from their own subtitle, not here.
  */
 internal fun showGoToArtistRow(post: CymbalPost, artistPagesEnabled: Boolean): Boolean =
     !post.isMovie && (
         post.track.audiomackArtistLinkOutUrl != null ||
-            (artistPagesEnabled && post.track.artistIds.any { it.isNotBlank() })
+            (artistPagesEnabled &&
+                (post.track.source == TrackSource.SPOTIFY || post.track.source == TrackSource.APPLEMUSIC))
     )
 
 /**

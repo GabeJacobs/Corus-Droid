@@ -227,7 +227,15 @@ class TidalDeezerTrackTest {
         // final `?: {}` no-op is what remains behind the (hidden) rows.
         for (source in listOf(TrackSource.TIDAL, TrackSource.DEEZER)) {
             val post = exclusivePost(source)
-            assertNull(onGoToArtistTap(post, onNavigateToArtist = {}))
+            assertNull(
+                onGoToArtistTap(
+                    post,
+                    onNavigateToArtist = {},
+                    scope = kotlinx.coroutines.test.TestScope(),
+                    resolveArtistId = { null },
+                    onArtistNotFound = {},
+                )
+            )
             assertNull(
                 onGoToAlbumTap(
                     post,

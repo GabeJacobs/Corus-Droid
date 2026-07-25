@@ -249,9 +249,9 @@ class RemoteConfigService @Inject constructor(
     /// image with a frosted floating top bar that collapses into a solid title
     /// bar on scroll, in place of the solid white TopAppBar. Purely cosmetic,
     /// one screen. DEBUG builds default it ON so the look can be evaluated on a
-    /// device without any Remote Config change; release stays gated by the
-    /// `immersive_artist_header_enabled` RC key (default false) so production is
-    /// byte-identical until we flip it. A debug build can still force either
+    /// device without any Remote Config change; release reads the
+    /// `immersive_artist_header_enabled` RC key, now defaulted ON (in-code default
+    /// true + RC value true, set 2026-07-24). A debug build can still force either
     /// state via the corus_dev_flags override (see [commentControlsOnPosts]).
     val immersiveArtistHeaderEnabled: Boolean
         get() {
@@ -540,7 +540,7 @@ class RemoteConfigService @Inject constructor(
             // flipping the console key off must revert every client.
             "artist_pages_enabled" to false,
             "entity_share_enabled" to false,
-            "immersive_artist_header_enabled" to false,
+            "immersive_artist_header_enabled" to true,
             "comment_entity_attachments_enabled" to false,
             "profile_share_enabled" to false,
             "unified_search_enabled" to false,

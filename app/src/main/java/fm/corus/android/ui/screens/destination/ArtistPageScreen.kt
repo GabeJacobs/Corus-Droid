@@ -92,6 +92,7 @@ import fm.corus.android.ui.components.ImmersiveCoverBackdrop
 import fm.corus.android.ui.components.ImmersiveExtendUnderStatusBar
 import fm.corus.android.ui.components.ImmersiveStatusBarIcons
 import fm.corus.android.ui.components.currentStatusBarTopPx
+import fm.corus.android.ui.components.easedScrimStops
 import fm.corus.android.ui.components.extendIntoStatusBar
 import fm.corus.android.ui.components.immersiveCollapseProgress
 import fm.corus.android.ui.components.ShareArtistSubject
@@ -428,11 +429,9 @@ fun ArtistPageScreen(
                                     .fillMaxWidth()
                                     .background(
                                         Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Color.Black.copy(alpha = 0.35f),
-                                                Color.Black.copy(alpha = 0.75f),
-                                            ),
+                                            *easedScrimStops(
+                                                Color.Black, 0f, 1f, 0f, 0.75f,
+                                            ).toTypedArray(),
                                         ),
                                     )
                                     .padding(CorusSpacing.lg)
@@ -909,11 +908,7 @@ internal fun ArtistHeroCard(
                 .fillMaxWidth()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.35f),
-                            Color.Black.copy(alpha = 0.75f),
-                        ),
+                        *easedScrimStops(Color.Black, 0f, 1f, 0f, 0.75f).toTypedArray(),
                     ),
                 )
                 .padding(CorusSpacing.lg)

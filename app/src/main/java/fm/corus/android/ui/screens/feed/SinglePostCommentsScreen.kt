@@ -126,6 +126,10 @@ fun SinglePostCommentsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
+    // Resolve-on-tap state for the tappable artist name (subtitle) — shared HUD +
+    // miss toast, matching the "…" menu's Go to Artist row.
+    var isResolvingSubtitle by remember { mutableStateOf(false) }
+    val subtitleArtistNotFound = stringResource(R.string.song_detail_artist_not_found)
 
     val pendingSong by viewModel.pendingSong.collectAsState()
     val pendingFilm by viewModel.pendingFilm.collectAsState()
@@ -702,7 +706,13 @@ fun SinglePostCommentsScreen(
                         onMenuTap = { menuPost = p },
                         backCoverFlipState = backCoverFlipState,
                         onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
-                            p, onNavigateToArtist, onNavigateToDirector,
+                            post = p,
+                            onNavigateToArtist = onNavigateToArtist,
+                            onNavigateToDirector = onNavigateToDirector,
+                            scope = scope,
+                            resolveArtistId = viewModel::resolveArtistIdForTrack,
+                            onArtistNotFound = { ToastManager.show(subtitleArtistNotFound) },
+                            onResolvingChange = { isResolvingSubtitle = it },
                         ),
                     )
                     HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
@@ -796,6 +806,8 @@ fun SinglePostCommentsScreen(
             }
         }
     }
+
+    fm.corus.android.ui.components.DestinationResolvingHud(isResolvingSubtitle)
 
     fm.corus.android.ui.components.PostMenuSheets(
         menuPost = menuPost,

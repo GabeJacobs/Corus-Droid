@@ -207,6 +207,10 @@ fun FeedScreen(
     var showDeleteConfirm by remember { mutableStateOf<CymbalPost?>(null) }
     val backCoverStates = remember { mutableMapOf<String, fm.corus.android.ui.components.BackCoverFlipState>() }
     val scope = rememberCoroutineScope()
+    // Resolve-on-tap state for the tappable artist name (subtitle). Shared HUD +
+    // miss toast so tapping the name behaves like the "…" menu's Go to Artist row.
+    var isResolvingSubtitle by remember { mutableStateOf(false) }
+    val subtitleArtistNotFound = stringResource(R.string.song_detail_artist_not_found)
     fun backCoverStateFor(postId: String) =
         backCoverStates.getOrPut(postId) { fm.corus.android.ui.components.BackCoverFlipState() }
     var filmInfoPost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -991,7 +995,13 @@ fun FeedScreen(
                             isFollowingKnown = followingLoaded,
                             onFollowAuthor = { viewModel.followAuthor(post.user.id) },
                             onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
-                                post, onNavigateToArtist, onNavigateToDirector,
+                                post = post,
+                                onNavigateToArtist = onNavigateToArtist,
+                                onNavigateToDirector = onNavigateToDirector,
+                                scope = scope,
+                                resolveArtistId = viewModel::resolveArtistIdForTrack,
+                                onArtistNotFound = { ToastManager.show(subtitleArtistNotFound) },
+                                onResolvingChange = { isResolvingSubtitle = it },
                             ),
                         )
                         HorizontalDivider(
@@ -1029,6 +1039,8 @@ fun FeedScreen(
             }
         }
     }
+
+    fm.corus.android.ui.components.DestinationResolvingHud(isResolvingSubtitle)
 
     PostMenuSheets(
         menuPost = menuPost,

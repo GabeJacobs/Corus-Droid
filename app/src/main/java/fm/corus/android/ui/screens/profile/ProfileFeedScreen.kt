@@ -10,22 +10,32 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.ImmersiveBarHeight
+import fm.corus.android.ui.components.ImmersiveExtendUnderStatusBar
+import fm.corus.android.ui.components.ImmersiveFrostedBar
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
+import fm.corus.android.ui.components.currentStatusBarTopPx
+import fm.corus.android.ui.components.extendIntoStatusBar
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.feed.FilmInfoSheet
 import fm.corus.android.ui.theme.CorusColors
@@ -80,6 +90,10 @@ fun ProfileFeedScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
+    // Resolve-on-tap state for the tappable artist name (subtitle) — shared HUD +
+    // miss toast, matching the "…" menu's Go to Artist row.
+    var isResolvingSubtitle by remember { mutableStateOf(false) }
+    val subtitleArtistNotFound = androidx.compose.ui.res.stringResource(fm.corus.android.R.string.song_detail_artist_not_found)
 
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -182,43 +196,79 @@ fun ProfileFeedScreen(
         }
     }
 
+    // Immersive frosted nav bar (shared with the artist/album/director/song/film
+    // pages): there's no hero here, so the bar is frosted from the first frame —
+    // it blurs the feed scrolling beneath it (Haze) and blends up under the status
+    // bar. Gated by the same immersive_artist_header_enabled flag (debug-on).
+    val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
+    val hazeState = remember { HazeState() }
+    val statusBarTopPx = currentStatusBarTopPx()
+    val extendUnderStatusBar = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
+    val statusBarPadding = if (extendUnderStatusBar) {
+        with(LocalDensity.current) { statusBarTopPx.toDp() }
+    } else {
+        0.dp
+    }
+    val barTitle = if (segment == 4 && hashtag.isNotEmpty()) "#$hashtag" else "@$username"
+
     Scaffold(
+        modifier = if (extendUnderStatusBar) {
+            Modifier.extendIntoStatusBar(statusBarTopPx)
+        } else {
+            Modifier
+        },
         topBar = {
-            TopAppBar(
-                title = {
-                    val title = if (segment == 4 && hashtag.isNotEmpty()) "#$hashtag" else "@$username"
-                    Text(title, style = CorusFont.screenTitle, color = CorusColors.Text)
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = androidx.compose.ui.res.stringResource(fm.corus.android.R.string.common_back),
-                            tint = CorusColors.Text,
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
-                windowInsets = WindowInsets(0, 0, 0, 0),
-            )
+            // Immersive draws the shared frosted bar over the feed below instead.
+            if (!immersive) {
+                TopAppBar(
+                    title = {
+                        Text(barTitle, style = CorusFont.screenTitle, color = CorusColors.Text)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = androidx.compose.ui.res.stringResource(fm.corus.android.R.string.common_back),
+                                tint = CorusColors.Text,
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                )
+            }
         },
     ) { padding ->
         val haptics = LocalHapticManager.current
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = {
-                // Mirrors iOS ProfileFeedView.refreshable haptic.
-                haptics.impact(HapticManager.ImpactStyle.LIGHT)
-                viewModel.refresh()
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = padding.calculateTopPadding()),
-        ) {
+        val pullState = rememberPullToRefreshState()
+        Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+            modifier = Modifier
+                .fillMaxSize()
+                // The haze source must stay UNCLIPPED so the feed renders behind the
+                // status strip and the frosted bar can blur it there. That's why
+                // pull-to-refresh is a modifier here rather than a PullToRefreshBox
+                // wrapper — PullToRefreshBox clipToBounds() and would clip the source
+                // off the status strip, leaving it a solid (opaque frost) band.
+                .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier)
+                .pullToRefresh(
+                    isRefreshing = isRefreshing,
+                    state = pullState,
+                    onRefresh = {
+                        // Mirrors iOS ProfileFeedView.refreshable haptic.
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        viewModel.refresh()
+                    },
+                )
+                // Non-immersive: sit below the solid TopAppBar (immersive fills up
+                // under the frosted bar instead).
+                .then(if (immersive) Modifier else Modifier.padding(top = padding.calculateTopPadding())),
+            contentPadding = PaddingValues(
+                // Immersive: clear the frosted bar so the first post isn't pinned behind it.
+                top = if (immersive) statusBarPadding + ImmersiveBarHeight else 0.dp,
+                bottom = padding.calculateBottomPadding(),
+            ),
         ) {
             itemsIndexed(
                 posts,
@@ -325,7 +375,13 @@ fun ProfileFeedScreen(
                     onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                     backCoverFlipState = backCoverStateFor(post.id),
                     onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
-                        post, onNavigateToArtist, onNavigateToDirector,
+                        post = post,
+                        onNavigateToArtist = onNavigateToArtist,
+                        onNavigateToDirector = onNavigateToDirector,
+                        scope = scope,
+                        resolveArtistId = viewModel::resolveArtistIdForTrack,
+                        onArtistNotFound = { ToastManager.show(subtitleArtistNotFound) },
+                        onResolvingChange = { isResolvingSubtitle = it },
                     ),
                 )
                 HorizontalDivider(
@@ -351,8 +407,29 @@ fun ProfileFeedScreen(
                 }
             }
         }
+        PullToRefreshDefaults.Indicator(
+            state = pullState,
+            isRefreshing = isRefreshing,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(
+                    // Keep the spinner below the frosted bar + status strip.
+                    top = if (immersive) statusBarPadding + ImmersiveBarHeight
+                    else padding.calculateTopPadding(),
+                ),
+        )
+        if (immersive) {
+            ImmersiveFrostedBar(
+                hazeState = hazeState,
+                title = barTitle,
+                onBack = onBack,
+                topInset = statusBarPadding,
+            )
+        }
         }
     }
+
+    fm.corus.android.ui.components.DestinationResolvingHud(isResolvingSubtitle)
 
     PostMenuSheets(
         menuPost = menuPost,

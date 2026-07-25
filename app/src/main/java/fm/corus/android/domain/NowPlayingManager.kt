@@ -79,6 +79,34 @@ sealed interface CatalogPlaybackOrigin {
 internal fun audiomackIdFromTrackId(trackId: String): String? =
     trackId.takeIf { it.startsWith("amk:") }?.removePrefix("amk:")?.takeIf { it.isNotEmpty() }
 
+/**
+ * Whether a play tap for [tappedTrackId] coming from post [tappedSourcePostId]
+ * targets the SAME now-playing (or loading) entry given by [activeTrackId] /
+ * [activeSourcePostId] — the only case that should toggle pause/play instead of
+ * switching playback.
+ *
+ * The trending feed can show one song posted by several people: distinct cards
+ * that share a trackId but each carry their own post id. Matching on trackId
+ * alone made tapping a *second* post of the playing song pause it — it looked
+ * like a re-tap of the current track. When the active entry and the tap both
+ * know their post, they must be the same post to count as a re-tap; a different
+ * post of the same song falls through and switches playback to it. When either
+ * post id is unknown (single-track / search / detail playback with no
+ * originating post) we fall back to a track-id match so those flows keep
+ * toggling exactly as before. Mirrors the post-aware disambiguation in
+ * [PostPlaybackHighlight].
+ */
+internal fun isReTapOfActiveEntry(
+    activeTrackId: String?,
+    activeSourcePostId: String?,
+    tappedTrackId: String,
+    tappedSourcePostId: String?,
+): Boolean {
+    if (activeTrackId != tappedTrackId) return false
+    if (activeSourcePostId == null || tappedSourcePostId == null) return true
+    return activeSourcePostId == tappedSourcePostId
+}
+
 data class QueuedTrack(
     val trackId: String,
     val trackName: String,
@@ -193,6 +221,23 @@ class NowPlayingManager @Inject constructor(
     private fun computeHasNext(): Boolean {
         val idx = currentQueueIndex ?: return false
         return idx + 1 < queue.size || queueHasMore
+    }
+
+    /**
+     * Locate the queue slot for the active entry, preferring an exact post match
+     * so duplicate songs (one trackId across several posts) resolve to the post
+     * that was actually tapped rather than the first copy in the queue — which
+     * would otherwise make "next"/auto-advance continue from the wrong card.
+     * Falls back to a track-id match when the post id is unknown or absent from
+     * the queue, leaving non-feed / single-track playback unaffected.
+     */
+    private fun List<QueuedTrack>.indexOfActive(trackId: String?, sourcePostId: String?): Int? {
+        if (trackId == null) return null
+        if (sourcePostId != null) {
+            val exact = indexOfFirst { it.sourcePostId == sourcePostId }
+            if (exact >= 0) return exact
+        }
+        return indexOfFirst { it.trackId == trackId }.takeIf { it >= 0 }
     }
     private var player: ExoPlayer? = null
 
@@ -744,7 +789,7 @@ class NowPlayingManager @Inject constructor(
     /** Play a track that's part of a queue — enables autoplay and the mini-player next button. */
     suspend fun play(track: QueuedTrack, queue: List<QueuedTrack>) {
         this.queue = queue
-        this.currentQueueIndex = queue.indexOfFirst { it.trackId == track.trackId }.takeIf { it >= 0 }
+        this.currentQueueIndex = queue.indexOfActive(track.trackId, track.sourcePostId)
         // New playback context — drop any previous paginated-queue hook until caller re-wires it.
         this.queueHasMore = false
         this.loadMoreQueue = null
@@ -770,9 +815,7 @@ class NowPlayingManager @Inject constructor(
         queue = newQueue
         queueHasMore = hasMore
         loadMoreQueue = loadMore
-        currentQueueIndex = currentTrackId?.let { id ->
-            newQueue.indexOfFirst { it.trackId == id }.takeIf { it >= 0 }
-        }
+        currentQueueIndex = newQueue.indexOfActive(currentTrackId, _state.value.sourcePostId)
         _state.value = _state.value.copy(hasNext = computeHasNext())
     }
 
@@ -800,10 +843,7 @@ class NowPlayingManager @Inject constructor(
             return
         }
         queue = pruned
-        val curId = _state.value.trackId
-        currentQueueIndex = curId?.let { id ->
-            pruned.indexOfFirst { it.trackId == id }.takeIf { it >= 0 }
-        }
+        currentQueueIndex = pruned.indexOfActive(_state.value.trackId, _state.value.sourcePostId)
         _state.value = _state.value.copy(hasNext = computeHasNext())
     }
 
@@ -856,14 +896,20 @@ class NowPlayingManager @Inject constructor(
         TrailerPlaybackCoordinator.stopAll()
         VoiceNotePlayerManager.stopActivePlayer()
 
-        // If same track is already playing, toggle pause/play
-        if (_state.value.trackId == trackId && player != null) {
+        // If the SAME post's track is already playing, toggle pause/play. A
+        // *different* post of the same song (same trackId, different sourcePostId)
+        // is a distinct feed card, so it falls through and switches playback to it
+        // instead of pausing. See [isReTapOfActiveEntry] / [PostPlaybackHighlight].
+        if (player != null &&
+            isReTapOfActiveEntry(_state.value.trackId, _state.value.sourcePostId, trackId, track.sourcePostId)
+        ) {
             togglePlayPause()
             return
         }
 
-        // If same track is loading, cancel the request
-        if (_loadingTrackId.value == trackId) {
+        // If the SAME post's track is already loading, cancel the request. A
+        // different post of the same song has its own in-flight load — let it through.
+        if (isReTapOfActiveEntry(_loadingTrackId.value, _loadingSourcePostId.value, trackId, track.sourcePostId)) {
             cancelLoading()
             return
         }

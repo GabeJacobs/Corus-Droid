@@ -91,6 +91,10 @@ class ProfileFeedViewModel @Inject constructor(
         cloudFunctions.resolveTrackDestinations(track.id, track.isrc, track.name, track.artistName)
             .albumId?.takeIf { it.isNotBlank() }
 
+    override suspend fun resolveArtistIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
+        cloudFunctions.resolveTrackDestinations(track.id, track.isrc, track.name, track.artistName)
+            .artistIds.firstOrNull { it.isNotBlank() }
+
     /**
      * Mirrors iOS @AppStorage("feedFollowsNowPlaying"). Same key as
      * FeedViewModel; ProfileFeedScreen reuses this to gate auto-scroll.

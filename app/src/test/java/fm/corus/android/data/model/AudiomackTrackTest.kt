@@ -398,7 +398,15 @@ class AudiomackTrackTest {
         // Audiomack carries no Spotify artistIds/albumId, so the internal-nav
         // builders return null and the menu wiring falls through to the Audiomack
         // link-out branch.
-        assertNull(onGoToArtistTap(audiomackPost(), onNavigateToArtist = {}))
+        assertNull(
+            onGoToArtistTap(
+                audiomackPost(),
+                onNavigateToArtist = {},
+                scope = kotlinx.coroutines.test.TestScope(),
+                resolveArtistId = { null },
+                onArtistNotFound = {},
+            )
+        )
         assertNull(
             onGoToAlbumTap(
                 audiomackPost(),

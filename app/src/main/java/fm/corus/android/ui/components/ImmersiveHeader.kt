@@ -175,6 +175,30 @@ internal fun ImmersiveStatusBarIcons(collapseProgress: Float) {
 }
 
 /**
+ * Smoothstep-eased stops for one leg of a vertical scrim: [color] ramping from
+ * [fromAlpha] to [toAlpha] across positions [start]→[end], sampled as [samples] + 1
+ * stops along smoothstep (S(t) = 3t² − 2t³) so the alpha curve has zero slope at
+ * both ends. A plain two-stop linear ramp kinks into a visible "line" where it lifts
+ * off and where it tops out — most of all over dark imagery on displays that don't
+ * dither the gradient (Compose does not) — and easing removes both knees. The RGB of
+ * [color] is held constant across the ramp (only alpha moves), so the fade never
+ * crosses through a muddy grey the way a `Transparent`→opaque-color pair does.
+ */
+internal fun easedScrimStops(
+    color: Color,
+    start: Float,
+    end: Float,
+    fromAlpha: Float,
+    toAlpha: Float,
+    samples: Int = 8,
+): List<Pair<Float, Color>> = (0..samples).map { i ->
+    val t = i / samples.toFloat()
+    val eased = t * t * (3f - 2f * t)
+    val pos = start + (end - start) * t
+    pos to color.copy(alpha = fromAlpha + (toAlpha - fromAlpha) * eased)
+}
+
+/**
  * Blurred-cover hero backdrop for the centered-artwork pages (song, album,
  * director): a full-bleed BLURRED copy of the cover/photo ([artUrl]) — a shimmer
  * while it loads, for skeleton parity — that scrolls up with the header via
@@ -223,11 +247,16 @@ internal fun ImmersiveCoverBackdrop(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
+                    // Two eased legs: a soft top darkening for white status-icon
+                    // legibility, then a WIDE smoothstep fade into the app background so
+                    // the hero melts into the list with no visible line — even under a
+                    // dark subject. (Was a narrow 0.4→0.75 linear ramp, which kinked.)
                     Brush.verticalGradient(
-                        0f to Color.Black.copy(alpha = 0.22f),
-                        0.4f to Color.Transparent,
-                        0.75f to CorusColors.Background,
-                        1f to CorusColors.Background,
+                        *(
+                            easedScrimStops(Color.Black, 0f, 0.28f, 0.22f, 0f, samples = 4) +
+                                easedScrimStops(CorusColors.Background, 0.30f, 0.92f, 0f, 1f, samples = 10) +
+                                listOf(1f to CorusColors.Background)
+                            ).toTypedArray(),
                     ),
                 ),
         )
@@ -320,13 +349,69 @@ internal fun ImmersiveCollapsingBar(
             )
             actions(iconTint)
         }
-        // Hairline under the collapsed bar, dividing it from the list. Fades in.
-        Box(
+        // No bottom hairline: the frost + blur already separate the bar from the
+        // list, and a 0.5dp divider read as a stray near-white line on light pages.
+    }
+}
+
+/**
+ * Always-on frosted top bar for screens with NO hero (e.g. the profile feed): a
+ * fixed frosted-glass nav bar that blurs the list scrolling beneath it (Haze),
+ * with the title always shown. Unlike [ImmersiveCollapsingBar] the frost is
+ * UNIFORM across the whole bar — the status strip ([topInset]) included — so the
+ * status bar reads as one continuous piece of the nav bar rather than a separate
+ * opaque band. There's no hero to reveal over, so no transparent rest state and
+ * no collapse: the same frosted glass, top to bottom, at every scroll position.
+ */
+@Composable
+internal fun ImmersiveFrostedBar(
+    hazeState: HazeState,
+    title: String?,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    topInset: Dp = 0.dp,
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    val frost = CorusColors.Background
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(ImmersiveBarHeight + topInset)
+            // One uniform frost over the FULL height — status strip and nav row
+            // alike — so the status bar is the same frosted glass as the bar below
+            // it, not a separate solid band. `blur` is a no-op below Android 12,
+            // where Haze falls back to a translucent scrim of the same tint.
+            .hazeEffect(state = hazeState) {
+                blurRadius = 30.dp
+                backgroundColor = frost
+                tints = listOf(HazeTint(frost.copy(alpha = 0.6f)))
+            },
+    ) {
+        Row(
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .height(0.5.dp)
-                .background(CorusColors.Divider.copy(alpha = progress)),
-        )
+                .fillMaxSize()
+                // Push the controls below the status strip that the bar covers.
+                .padding(top = topInset)
+                .padding(horizontal = CorusSpacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CorusHeaderIconButton(
+                onClick = onBack,
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.feed_cd_back),
+                tint = CorusColors.Text,
+            )
+            Text(
+                text = title ?: "",
+                style = CorusFont.screenTitle,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = CorusSpacing.xs),
+            )
+            actions()
+        }
     }
 }

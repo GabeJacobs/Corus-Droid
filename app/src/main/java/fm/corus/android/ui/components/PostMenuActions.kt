@@ -43,4 +43,10 @@ interface PostMenuActions {
     suspend fun resolveServiceLinkUrl(track: CymbalTrack): String?
 
     suspend fun resolveAlbumIdForTrack(track: CymbalTrack): String?
+
+    /** Resolves the first Spotify artist id for [track] when it reached the client
+     *  without one (Apple-Music search posts land with `artistIds:[]`). Backs the
+     *  "Go to Artist" row's resolve-on-tap; null on a miss. Sibling of
+     *  [resolveAlbumIdForTrack] — one backend call serves both. */
+    suspend fun resolveArtistIdForTrack(track: CymbalTrack): String?
 }

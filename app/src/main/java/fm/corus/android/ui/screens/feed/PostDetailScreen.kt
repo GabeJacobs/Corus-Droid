@@ -118,6 +118,10 @@ fun PostDetailScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
+    // Resolve-on-tap state for the tappable artist name (subtitle) — shared HUD +
+    // miss toast, matching the "…" menu's Go to Artist row.
+    var isResolvingSubtitle by remember { mutableStateOf(false) }
+    val subtitleArtistNotFound = stringResource(R.string.song_detail_artist_not_found)
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -247,7 +251,13 @@ fun PostDetailScreen(
                                 }
                             },
                             onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
-                                currentPost, onNavigateToArtist, onNavigateToDirector,
+                                post = currentPost,
+                                onNavigateToArtist = onNavigateToArtist,
+                                onNavigateToDirector = onNavigateToDirector,
+                                scope = scope,
+                                resolveArtistId = viewModel::resolveArtistIdForTrack,
+                                onArtistNotFound = { fm.corus.android.ui.components.ToastManager.show(subtitleArtistNotFound) },
+                                onResolvingChange = { isResolvingSubtitle = it },
                             ),
                             onSpotifyTap = {
                                 if (currentPost.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
@@ -422,6 +432,8 @@ fun PostDetailScreen(
             }
         }
     }
+
+    fm.corus.android.ui.components.DestinationResolvingHud(isResolvingSubtitle)
 
     PostMenuSheets(
         menuPost = menuPost,

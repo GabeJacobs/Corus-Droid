@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,6 +46,7 @@ class PostActionMenuTest {
         albumId: String? = "album1",
         source: TrackSource = TrackSource.SPOTIFY,
         audiomackAlbumUrl: String? = null,
+        audiomackArtistUrl: String? = null,
     ) = CymbalPost(
         id = "p1",
         user = user(),
@@ -57,6 +59,7 @@ class PostActionMenuTest {
             albumId = albumId,
             source = source,
             audiomackAlbumUrl = audiomackAlbumUrl,
+            audiomackArtistUrl = audiomackArtistUrl,
         ),
         mediaType = MediaType.TRACK,
     )
@@ -91,14 +94,45 @@ class PostActionMenuTest {
         assertFalse(showGoToArtistRow(post = trackPost(), artistPagesEnabled = false))
     }
 
+    // Spotify/Apple tracks show the row even with no artistIds yet — it resolves
+    // the artist on tap (mirrors Go to Album). REGRESSION: an Apple-Music search
+    // post lands with artistIds:[] (the backend resolves the Spotify ids minutes
+    // later); "Go to Artist" used to stay hidden during that whole window.
     @Test
-    fun `go to artist hidden when no artist id`() {
-        assertFalse(showGoToArtistRow(post = trackPost(artistIds = emptyList()), artistPagesEnabled = true))
+    fun `go to artist shown for spotify track even without an artist id`() {
+        assertTrue(showGoToArtistRow(post = trackPost(artistIds = emptyList()), artistPagesEnabled = true))
+        assertTrue(showGoToArtistRow(post = trackPost(artistIds = listOf("", " ")), artistPagesEnabled = true))
     }
 
     @Test
-    fun `go to artist hidden when artist ids are blank`() {
-        assertFalse(showGoToArtistRow(post = trackPost(artistIds = listOf("", " ")), artistPagesEnabled = true))
+    fun `go to artist shown for apple-native track without an artist id`() {
+        assertTrue(
+            showGoToArtistRow(
+                post = trackPost(artistIds = emptyList(), source = TrackSource.APPLEMUSIC),
+                artistPagesEnabled = true,
+            )
+        )
+    }
+
+    @Test
+    fun `go to artist hidden for soundcloud tidal and deezer tracks`() {
+        assertFalse(showGoToArtistRow(post = trackPost(artistIds = emptyList(), source = TrackSource.SOUNDCLOUD), artistPagesEnabled = true))
+        assertFalse(showGoToArtistRow(post = trackPost(artistIds = emptyList(), source = TrackSource.TIDAL), artistPagesEnabled = true))
+        assertFalse(showGoToArtistRow(post = trackPost(artistIds = emptyList(), source = TrackSource.DEEZER), artistPagesEnabled = true))
+    }
+
+    @Test
+    fun `go to artist shown for audiomack track with artist link-out even when flag off`() {
+        assertTrue(
+            showGoToArtistRow(
+                post = trackPost(
+                    artistIds = emptyList(),
+                    source = TrackSource.AUDIOMACK,
+                    audiomackArtistUrl = "https://audiomack.com/artist/x",
+                ),
+                artistPagesEnabled = false,
+            )
+        )
     }
 
     @Test
@@ -167,7 +201,7 @@ class PostActionMenuTest {
 
     @Test
     fun `artist tap builder is null when nav callback null`() {
-        assertNull(onGoToArtistTap(trackPost(), onNavigateToArtist = null))
+        assertNull(artistTap(trackPost(), onNavigateToArtist = null))
     }
 
     private fun albumTap(
@@ -178,6 +212,15 @@ class PostActionMenuTest {
         onAlbumNotFound: () -> Unit = {},
         onResolvingChange: (Boolean) -> Unit = {},
     ) = onGoToAlbumTap(post, onNavigateToAlbum, scope, resolveAlbumId, onAlbumNotFound, onResolvingChange)
+
+    private fun artistTap(
+        post: CymbalPost,
+        onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)?,
+        scope: CoroutineScope = TestScope(),
+        resolveArtistId: suspend (CymbalTrack) -> String? = { null },
+        onArtistNotFound: () -> Unit = {},
+        onResolvingChange: (Boolean) -> Unit = {},
+    ) = onGoToArtistTap(post, onNavigateToArtist, scope, resolveArtistId, onArtistNotFound, onResolvingChange)
 
     @Test
     fun `album tap builder is null when nav callback null`() {
@@ -191,7 +234,12 @@ class PostActionMenuTest {
 
     @Test
     fun `artist tap builder is null for movie posts`() {
-        assertNull(onGoToArtistTap(moviePost(), onNavigateToArtist = {}))
+        assertNull(artistTap(moviePost(), onNavigateToArtist = {}))
+    }
+
+    @Test
+    fun `artist tap builder is null for soundcloud tracks`() {
+        assertNull(artistTap(trackPost(source = TrackSource.SOUNDCLOUD), onNavigateToArtist = {}))
     }
 
     @Test
@@ -202,9 +250,67 @@ class PostActionMenuTest {
     @Test
     fun `artist tap builder routes to first artist id`() {
         var routed: fm.corus.android.ui.navigation.ArtistPageRoute? = null
-        val tap = onGoToArtistTap(trackPost(artistIds = listOf("artistA", "artistB")), onNavigateToArtist = { routed = it })
+        val tap = artistTap(trackPost(artistIds = listOf("artistA", "artistB")), onNavigateToArtist = { routed = it })
         tap?.invoke()
         assertTrue(routed?.artistId == "artistA")
+    }
+
+    @Test
+    fun `artist tap resolves the artist id on tap when the post carries none`() = runTest {
+        var routed: fm.corus.android.ui.navigation.ArtistPageRoute? = null
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+        val tap = artistTap(
+            trackPost(artistIds = emptyList(), source = TrackSource.APPLEMUSIC),
+            onNavigateToArtist = { routed = it },
+            scope = scope,
+            resolveArtistId = { "resolvedArtist" },
+        )
+        tap?.invoke()
+        assertTrue(routed?.artistId == "resolvedArtist")
+    }
+
+    @Test
+    fun `artist tap reports a miss when the resolve finds nothing`() = runTest {
+        var routed: fm.corus.android.ui.navigation.ArtistPageRoute? = null
+        var missed = false
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+        val tap = artistTap(
+            trackPost(artistIds = emptyList(), source = TrackSource.APPLEMUSIC),
+            onNavigateToArtist = { routed = it },
+            scope = scope,
+            resolveArtistId = { null },
+            onArtistNotFound = { missed = true },
+        )
+        tap?.invoke()
+        assertNull(routed)
+        assertTrue(missed)
+    }
+
+    @Test
+    fun `artist tap toggles the resolving flag true then false around the resolve`() = runTest {
+        val states = mutableListOf<Boolean>()
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+        val tap = artistTap(
+            trackPost(artistIds = emptyList(), source = TrackSource.APPLEMUSIC),
+            onNavigateToArtist = {},
+            scope = scope,
+            resolveArtistId = { "resolvedArtist" },
+            onResolvingChange = { states.add(it) },
+        )
+        tap?.invoke()
+        assertTrue(states == listOf(true, false))
+    }
+
+    @Test
+    fun `fast-path artist tap never toggles the resolving flag`() {
+        val states = mutableListOf<Boolean>()
+        val tap = artistTap(
+            trackPost(artistIds = listOf("artistA")),
+            onNavigateToArtist = {},
+            onResolvingChange = { states.add(it) },
+        )
+        tap?.invoke()
+        assertTrue(states.isEmpty())
     }
 
     @Test
@@ -365,5 +471,62 @@ class PostActionMenuTest {
         tap?.invoke()
         assertTrue(routed?.directorId == "d99")
         assertTrue(routed?.name == "Greta Gerwig")
+    }
+
+    // ── Post-card tappable artist subtitle (postSubtitleTap) ──
+    // Track posts delegate to onGoToArtistTap (resolve-on-tap, same as the menu
+    // row); movie posts route to the director page. The resolve logic itself is
+    // covered by the onGoToArtistTap tests above — these lock the delegation.
+
+    private fun subtitleTap(
+        post: CymbalPost,
+        onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)? = {},
+        onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)? = {},
+        scope: CoroutineScope = TestScope(),
+        resolveArtistId: suspend (CymbalTrack) -> String? = { null },
+        onArtistNotFound: () -> Unit = {},
+        onResolvingChange: (Boolean) -> Unit = {},
+    ) = postSubtitleTap(post, onNavigateToArtist, onNavigateToDirector, scope, resolveArtistId, onArtistNotFound, onResolvingChange)
+
+    @Test
+    fun `subtitle tap is tappable for apple track without an artist id`() {
+        // REGRESSION: the name used to be plain text (null tap) until the backend
+        // backfilled artistIds; now it's tappable and resolves the id on tap.
+        assertNotNull(subtitleTap(trackPost(artistIds = emptyList(), source = TrackSource.APPLEMUSIC)))
+    }
+
+    @Test
+    fun `subtitle tap stays plain text for soundcloud track`() {
+        assertNull(subtitleTap(trackPost(source = TrackSource.SOUNDCLOUD)))
+    }
+
+    @Test
+    fun `subtitle tap stays plain text when artist nav callback null`() {
+        assertNull(subtitleTap(trackPost(), onNavigateToArtist = null))
+    }
+
+    @Test
+    fun `subtitle tap resolves the artist id on tap when the post carries none`() = runTest {
+        var routed: fm.corus.android.ui.navigation.ArtistPageRoute? = null
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+        val tap = subtitleTap(
+            trackPost(artistIds = emptyList(), source = TrackSource.APPLEMUSIC),
+            onNavigateToArtist = { routed = it },
+            scope = scope,
+            resolveArtistId = { "resolvedArtist" },
+        )
+        tap?.invoke()
+        assertTrue(routed?.artistId == "resolvedArtist")
+    }
+
+    @Test
+    fun `subtitle tap routes movie posts to the director page`() {
+        var routed: fm.corus.android.ui.navigation.DirectorPageRoute? = null
+        val tap = subtitleTap(
+            moviePost(directorIds = listOf("d7"), directorName = "Greta Gerwig"),
+            onNavigateToDirector = { routed = it },
+        )
+        tap?.invoke()
+        assertTrue(routed?.directorId == "d7")
     }
 }
