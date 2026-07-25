@@ -25,7 +25,9 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +64,8 @@ import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.R
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ImmersiveFrostedBar
+import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.LikedBySection
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.launchBackCoverFlip
@@ -132,24 +136,34 @@ fun PostDetailScreen(
         viewModel.loadPost(postId)
     }
 
+    val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
+    val frost = rememberImmersiveHeaderState(immersive)
+
     Scaffold(
+        modifier = frost.scaffoldModifier,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(stringResource(R.string.feed_screen_title_corus), style = CorusFont.screenTitle, color = CorusColors.Text)
-                },
-                navigationIcon = {
-                    CorusHeaderIconButton(
-                        onClick = onBack,
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.feed_cd_back),
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
-                windowInsets = WindowInsets(0, 0, 0, 0),
-            )
+            // Immersive draws the shared frosted bar over the post below instead.
+            if (!immersive) {
+                TopAppBar(
+                    title = {
+                        Text(stringResource(R.string.feed_screen_title_corus), style = CorusFont.screenTitle, color = CorusColors.Text)
+                    },
+                    navigationIcon = {
+                        CorusHeaderIconButton(
+                            onClick = onBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.feed_cd_back),
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                )
+            }
         },
     ) { padding ->
+        val pullState = rememberPullToRefreshState()
+        Box(modifier = Modifier.fillMaxSize()) {
         when {
             isLoading && post == null -> {
                 Box(
@@ -180,16 +194,19 @@ fun PostDetailScreen(
                 val isSaved = engagement?.isSaved ?: false
                 val saveCount = engagement?.saveCount ?: currentPost.saveCount
 
-                PullToRefreshBox(
-                    isRefreshing = isRefreshing,
-                    onRefresh = { viewModel.refresh(postId) },
+                LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = padding.calculateTopPadding()),
-                ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+                        .then(frost.hazeSourceModifier())
+                        .pullToRefresh(
+                            isRefreshing = isRefreshing,
+                            state = pullState,
+                            onRefresh = { viewModel.refresh(postId) },
+                        ),
+                    contentPadding = PaddingValues(
+                        top = if (immersive) frost.contentTopPadding else 0.dp,
+                        bottom = padding.calculateBottomPadding(),
+                    ),
                 ) {
                     // Post header
                     item {
@@ -428,8 +445,23 @@ fun PostDetailScreen(
                         )
                     }
                 }
-                }
             }
+        }
+        PullToRefreshDefaults.Indicator(
+            state = pullState,
+            isRefreshing = isRefreshing,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = if (immersive) frost.contentTopPadding else padding.calculateTopPadding()),
+        )
+        if (immersive) {
+            ImmersiveFrostedBar(
+                hazeState = frost.hazeState,
+                title = stringResource(R.string.feed_screen_title_corus),
+                onBack = onBack,
+                topInset = frost.statusBarPadding,
+            )
+        }
         }
     }
 

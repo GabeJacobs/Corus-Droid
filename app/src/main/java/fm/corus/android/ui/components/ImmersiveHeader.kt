@@ -440,7 +440,9 @@ internal fun ImmersiveFrostedBar(
             .hazeEffect(state = hazeState) {
                 blurRadius = 30.dp
                 backgroundColor = frost
-                tints = listOf(HazeTint(frost.copy(alpha = 0.6f)))
+                // `alpha` is THE frostiness knob: higher = whiter/more opaque, lower
+                // = more see-through.
+                tints = listOf(HazeTint(frost.copy(alpha = 0.8f)))
             },
     ) {
         Row(

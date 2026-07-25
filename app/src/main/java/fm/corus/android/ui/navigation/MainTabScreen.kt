@@ -580,6 +580,8 @@ fun MainTabScreen(
                 add("ProfileFeedRoute")
                 add("OtherProfileRoute")
                 add("ProfileByUsernameRoute")
+                add("PostDetailRoute")
+                add("SinglePostCommentsRoute")
             }
         }
         val anyImmersiveVisible = visibleEntries.any { entry ->

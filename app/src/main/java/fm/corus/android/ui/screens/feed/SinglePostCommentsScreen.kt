@@ -65,6 +65,8 @@ import fm.corus.android.ui.components.CommentAttachmentCard
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.ImmersiveFrostedBar
+import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SongFilmPickerSheet
@@ -210,20 +212,28 @@ fun SinglePostCommentsScreen(
         }
     }
 
+    val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
+    val frost = rememberImmersiveHeaderState(immersive)
+
     Scaffold(
+        modifier = frost.scaffoldModifier,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.feed_screen_title_Corus), style = CorusFont.screenTitle, color = CorusColors.Text) },
-                navigationIcon = {
-                    CorusHeaderIconButton(
-                        onClick = onBack,
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.feed_cd_back),
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
-                windowInsets = WindowInsets(0, 0, 0, 0),
-            )
+            // Immersive draws the shared frosted bar over the content below instead.
+            if (!immersive) {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.feed_screen_title_Corus), style = CorusFont.screenTitle, color = CorusColors.Text) },
+                    navigationIcon = {
+                        CorusHeaderIconButton(
+                            onClick = onBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.feed_cd_back),
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                )
+            }
         },
         bottomBar = {
             Column {
@@ -586,11 +596,18 @@ fun SinglePostCommentsScreen(
             }
         }
 
+        Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .then(frost.hazeSourceModifier())
+                // Bottom composer stays as layout padding; the top clears the
+                // frosted bar via contentPadding so the post scrolls under it.
+                .padding(bottom = padding.calculateBottomPadding()),
+            contentPadding = PaddingValues(
+                top = if (immersive) frost.contentTopPadding else padding.calculateTopPadding(),
+            ),
         ) {
             // Full post card (matches iOS SinglePostCommentsView)
             post?.let { p ->
@@ -804,6 +821,15 @@ fun SinglePostCommentsScreen(
                     )
                 }
             }
+        }
+        if (immersive) {
+            ImmersiveFrostedBar(
+                hazeState = frost.hazeState,
+                title = stringResource(R.string.feed_screen_title_Corus),
+                onBack = onBack,
+                topInset = frost.statusBarPadding,
+            )
+        }
         }
     }
 

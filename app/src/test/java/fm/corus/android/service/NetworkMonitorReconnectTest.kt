@@ -67,9 +67,40 @@ class NetworkMonitorReconnectTest {
         val monitor = NetworkMonitor(context)
         assertTrue(monitor.isConnected.value)
 
+        // Genuine disconnection with no replacement: the framework drops the
+        // default network, so activeNetwork becomes null.
+        whenever(connectivityManager.activeNetwork) doReturn null
         defaultCallback().onLost(network)
 
         assertFalse(monitor.isConnected.value)
+    }
+
+    @Test
+    fun `make-before-break handover stays online when a new default is already active`() {
+        val oldNetwork = mock<Network>()
+        val newNetwork = mock<Network>()
+        val internetCaps = caps(true)
+        // Before the handover, the old network is the active default with internet.
+        whenever(connectivityManager.activeNetwork) doReturn oldNetwork
+        whenever(connectivityManager.getNetworkCapabilities(oldNetwork)) doReturn internetCaps
+        whenever(connectivityManager.getNetworkCapabilities(newNetwork)) doReturn internetCaps
+        val monitor = NetworkMonitor(context)
+        val callback = defaultCallback()
+        assertTrue(monitor.isConnected.value)
+
+        // Waking from sleep, Android brings up a new default network first...
+        whenever(connectivityManager.activeNetwork) doReturn newNetwork
+        callback.onAvailable(newNetwork)
+        assertTrue(monitor.isConnected.value)
+
+        // ...then tears down the old one (make-before-break). A spurious onLost
+        // for the replaced network must NOT pin us offline while newNetwork is up.
+        callback.onLost(oldNetwork)
+
+        assertTrue(
+            "onLost for the replaced network pinned isConnected=false despite an active default",
+            monitor.isConnected.value,
+        )
     }
 
     @Test
