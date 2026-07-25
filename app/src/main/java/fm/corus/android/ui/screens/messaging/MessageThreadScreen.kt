@@ -15,7 +15,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -58,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -106,6 +106,7 @@ import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FullScreenImageView
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.EntityPickerSheet
+import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SongFilmPickerSheet
 import fm.corus.android.ui.components.UserAvatarView
@@ -653,7 +654,19 @@ fun MessageThreadScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background).imePadding()) {
+    // This thread renders inside the tab NavHost, UNDERNEATH the persistent global
+    // bottom bar (mini player + tab bar). Lift the whole column above whichever is
+    // taller: the on-screen keyboard, or that global bar when the keyboard is
+    // closed. Without this the composer bar hides behind the global bottom bar.
+    val composerBottomInset = with(LocalDensity.current) {
+        maxOf(WindowInsets.ime.getBottom(this).toDp(), LocalBottomBarHeight.current)
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CorusColors.Background)
+            .padding(bottom = composerBottomInset),
+    ) {
         // Header
         Row(
             modifier = Modifier

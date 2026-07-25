@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -66,6 +67,7 @@ import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ImmersiveFrostedBar
+import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.PickerMode
@@ -215,6 +217,14 @@ fun SinglePostCommentsScreen(
     val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
     val frost = rememberImmersiveHeaderState(immersive)
 
+    // This screen renders inside the tab NavHost, UNDERNEATH the persistent global
+    // bottom bar (mini player + tab bar). Lift the composer above whichever is
+    // taller: the on-screen keyboard, or that global bar when the keyboard is
+    // closed. Without this the composer (and the last comments) hide behind the bar.
+    val composerBottomInset = with(LocalDensity.current) {
+        maxOf(WindowInsets.ime.getBottom(this).toDp(), LocalBottomBarHeight.current)
+    }
+
     Scaffold(
         modifier = frost.scaffoldModifier,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -236,7 +246,7 @@ fun SinglePostCommentsScreen(
             }
         },
         bottomBar = {
-            Column {
+            Column(modifier = Modifier.padding(bottom = composerBottomInset)) {
                 // Audience-locked notice. When the viewer can't write a new
                 // comment, swap the composer for an inline notice — but only
                 // when they're not editing one of their own existing comments
@@ -249,9 +259,7 @@ fun SinglePostCommentsScreen(
                         authorUsername = post?.user?.username,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(CorusColors.Background)
-                            .navigationBarsPadding()
-                            .imePadding(),
+                            .background(CorusColors.Background),
                     )
                     return@Column
                 }
@@ -340,9 +348,7 @@ fun SinglePostCommentsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(CorusColors.Background)
-                        .navigationBarsPadding()
-                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
-                        .imePadding(),
+                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (editingComment == null) {
