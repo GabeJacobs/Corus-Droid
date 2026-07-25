@@ -79,6 +79,8 @@ import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ExpandableBioText
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.ImmersiveFrostedBar
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.FeaturedCymbalView
 import fm.corus.android.ui.components.FeaturedMoviePosterView
@@ -532,7 +534,8 @@ fun OtherProfileScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = if (immersive) frost.contentTopPadding else padding.calculateTopPadding()),
-                    contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+                    // Match the loaded grid: clear the shared frosted bottom bar.
+                    contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + LocalBottomBarHeight.current),
                 ) {
                     item(span = { GridItemSpan(3) }) {
                         Column {
@@ -769,10 +772,12 @@ fun OtherProfileScreen(
             state = gridState,
             columns = GridCells.Fixed(3),
             // Unclipped haze source (see ProfileFeedScreen) + pull-to-refresh as a
-            // modifier so the grid renders behind the frosted status strip.
+            // modifier so the grid renders behind the frosted status strip; also a
+            // source for the shared frosted bottom bar so the grid blurs under it too.
             modifier = Modifier
                 .fillMaxSize()
                 .then(frost.hazeSourceModifier())
+                .contentHazeSource()
                 .pullToRefresh(
                     isRefreshing = isRefreshing,
                     state = pullState,
@@ -786,7 +791,10 @@ fun OtherProfileScreen(
                 ),
             contentPadding = PaddingValues(
                 top = if (immersive) frost.contentTopPadding else 0.dp,
-                bottom = padding.calculateBottomPadding(),
+                // Clear the shared frosted bottom bar so the last row rests above it;
+                // the grid still scrolls under it. Without this the bottom rows are
+                // trapped behind the bar (and short profiles won't scroll at all).
+                bottom = padding.calculateBottomPadding() + LocalBottomBarHeight.current,
             ),
         ) {
             item(span = { GridItemSpan(3) }) {
