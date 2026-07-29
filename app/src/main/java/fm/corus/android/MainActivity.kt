@@ -13,6 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
 import fm.corus.android.data.repository.SubscriptionRepository
+import fm.corus.android.domain.SpotifyConnectContext
 import kotlinx.coroutines.launch
 import fm.corus.android.domain.SpotifyPlaybackService
 import fm.corus.android.service.AnalyticsService
@@ -84,6 +85,14 @@ class MainActivity : ComponentActivity() {
         handleSpotifyAuthRedirect(intent)
         handleNotificationIntent(intent)
         handleWebLinkIntent(intent)
+    }
+
+    @Deprecated("Required for Spotify auth-lib AuthorizationClient")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SpotifyConnectContext.AUTH_REQUEST_CODE) {
+            SpotifyConnectContext.deliverAuthorizationResult(resultCode, data)
+        }
     }
 
     private fun handleSpotifyAuthRedirect(intent: Intent?) {

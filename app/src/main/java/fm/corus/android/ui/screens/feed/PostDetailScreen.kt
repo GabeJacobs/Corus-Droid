@@ -58,6 +58,7 @@ import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.ui.components.AlbumArtPlaybackOverlayGlyph
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
 import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.contentHazeSource
@@ -124,6 +125,7 @@ fun PostDetailScreen(
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val loadingSourcePostId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
+    val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -232,17 +234,20 @@ fun PostDetailScreen(
                         val haptics = LocalHapticManager.current
                         PostDetailAlbumArt(
                             post = currentPost,
-                            isPreviewLoading = currentPost.isTrack && PostPlaybackHighlight.shouldHighlight(
-                                activeTrackId = loadingTrackId,
-                                activeSourcePostId = loadingSourcePostId,
-                                playbackActive = true,
+                            isPreviewLoading = currentPost.isTrack && PostPlaybackHighlight.isAlbumArtLoading(
+                                loadingTrackId = loadingTrackId,
+                                loadingSourcePostId = loadingSourcePostId,
+                                fullSongTrackId = nowPlayingState.trackId,
+                                fullSongSourcePostId = nowPlayingState.sourcePostId,
+                                isResolvingFullSong = isResolvingSpotify,
                                 postTrackId = currentPost.track.id,
                                 postId = currentPost.id,
                             ),
-                            isPreviewPlaying = currentPost.isTrack && PostPlaybackHighlight.shouldHighlight(
+                            isPreviewPlaying = currentPost.isTrack && PostPlaybackHighlight.shouldShowPlayingOverlay(
                                 activeTrackId = nowPlayingState.trackId,
                                 activeSourcePostId = nowPlayingState.sourcePostId,
-                                playbackActive = nowPlayingState.isPlaying,
+                                isPlaying = nowPlayingState.isPlaying,
+                                isResolvingFullSong = isResolvingSpotify,
                                 postTrackId = currentPost.track.id,
                                 postId = currentPost.id,
                             ),
@@ -740,8 +745,8 @@ private fun PostDetailAlbumArt(
                 // cached previews begin playing before it elapses, so the overlay
                 // fades straight in to the pause icon with no spinner flash (like the
                 // already-loaded case). The spinner only appears for genuinely slow
-                // loads. Gating visibility on `showPreviewSpinner || isPreviewPlaying`
-                // (not raw isPreviewLoading) is what lets the fast path skip it.
+                // loads. Gating visibility on playing || loading keeps the scrim up
+                // while resolving; the glyph prefers loading over pause (mirrors iOS).
                 var showPreviewSpinner by remember { mutableStateOf(false) }
                 LaunchedEffect(isPreviewLoading) {
                     if (isPreviewLoading) {
@@ -753,7 +758,7 @@ private fun PostDetailAlbumArt(
                     }
                 }
                 androidx.compose.animation.AnimatedVisibility(
-                    visible = post.isTrack && (showPreviewSpinner || isPreviewPlaying) && !flipState.isLoading,
+                    visible = post.isTrack && (isPreviewPlaying || isPreviewLoading) && !flipState.isLoading,
                     enter = fadeIn(animationSpec = tween(200)),
                     exit = fadeOut(animationSpec = tween(200)),
                 ) {
@@ -763,28 +768,17 @@ private fun PostDetailAlbumArt(
                             .background(Color.Black.copy(alpha = 0.4f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        // Crossfade the spinner -> pause-icon swap so a slow load's
-                        // spinner doesn't hard-cut to the pause icon when playback
-                        // starts. Mirrors iOS's .transition(.opacity) on the glyph.
-                        Crossfade(
-                            targetState = showPreviewSpinner,
-                            animationSpec = tween(200),
-                            label = "previewOverlayContent",
-                        ) { loading ->
-                            if (loading) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.size(40.dp),
-                                    strokeWidth = 3.dp,
+                        when {
+                            isPreviewLoading && (showPreviewSpinner || isPreviewPlaying) ->
+                                AlbumArtPlaybackOverlayGlyph(
+                                    loading = true,
+                                    pauseContentDescription = stringResource(R.string.post_detail_cd_pause),
                                 )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Filled.Pause,
-                                    contentDescription = stringResource(R.string.post_detail_cd_pause),
-                                    tint = Color.White,
-                                    modifier = Modifier.size(52.dp),
+                            isPreviewPlaying ->
+                                AlbumArtPlaybackOverlayGlyph(
+                                    loading = false,
+                                    pauseContentDescription = stringResource(R.string.post_detail_cd_pause),
                                 )
-                            }
                         }
                     }
                 }

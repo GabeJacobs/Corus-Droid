@@ -205,6 +205,8 @@ dependencies {
 
     // Spotify App Remote (full-playback experiment)
     implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
+    implementation("com.spotify.android:auth:1.2.5")
+    implementation("androidx.browser:browser:1.8.0")
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 

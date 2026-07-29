@@ -36,4 +36,42 @@ object PostPlaybackHighlight {
         if (!playbackActive || activeTrackId != postTrackId) return false
         return activeSourcePostId == null || activeSourcePostId == postId
     }
+
+    /** Full-song playback overlay — hidden while Spotify connect/auth is in flight. */
+    fun shouldShowPlayingOverlay(
+        activeTrackId: String?,
+        activeSourcePostId: String?,
+        isPlaying: Boolean,
+        isResolvingFullSong: Boolean,
+        postTrackId: String,
+        postId: String,
+    ): Boolean = shouldHighlight(
+        activeTrackId = activeTrackId,
+        activeSourcePostId = activeSourcePostId,
+        playbackActive = isPlaying && !isResolvingFullSong,
+        postTrackId = postTrackId,
+        postId = postId,
+    )
+
+    /** Preview ExoPlayer load and/or Spotify Connect auth+connect in flight. */
+    fun isAlbumArtLoading(
+        loadingTrackId: String?,
+        loadingSourcePostId: String?,
+        fullSongTrackId: String?,
+        fullSongSourcePostId: String?,
+        isResolvingFullSong: Boolean,
+        postTrackId: String,
+        postId: String,
+    ): Boolean {
+        if (shouldHighlight(loadingTrackId, loadingSourcePostId, true, postTrackId, postId)) {
+            return true
+        }
+        return shouldHighlight(
+            fullSongTrackId,
+            fullSongSourcePostId,
+            isResolvingFullSong,
+            postTrackId,
+            postId,
+        )
+    }
 }

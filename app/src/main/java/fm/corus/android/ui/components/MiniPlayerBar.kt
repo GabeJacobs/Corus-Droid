@@ -408,6 +408,7 @@ private fun ScrubberOverlay(
 ) {
     val time by ScrubberClock.time.collectAsState()
     val duration by ScrubberClock.duration.collectAsState()
+    val snapCounter by ScrubberClock.snapCounter.collectAsState()
     val canScrub = duration > 0L && hasActiveTrack
     val playbackFraction = if (duration > 0L) {
         (time.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
@@ -433,9 +434,12 @@ private fun ScrubberOverlay(
     // polled fraction — never the intermediate 0 — so an equality check
     // against 0 wouldn't fire.
     val animatable = remember { Animatable(displayedFraction) }
-    LaunchedEffect(displayedFraction, isScrubbing) {
+    var lastObservedSnapCounter by remember { mutableIntStateOf(snapCounter) }
+    LaunchedEffect(displayedFraction, isScrubbing, snapCounter) {
         when {
-            isScrubbing || displayedFraction < animatable.value ->
+            isScrubbing ||
+                displayedFraction < animatable.value ||
+                snapCounter != lastObservedSnapCounter ->
                 animatable.snapTo(displayedFraction)
             else ->
                 animatable.animateTo(
@@ -485,6 +489,11 @@ private fun ScrubberOverlay(
     LaunchedEffect(trackId) {
         pendingFraction = null
         isScrubbing = false
+        lastObservedSnapCounter = snapCounter
+    }
+
+    LaunchedEffect(snapCounter) {
+        lastObservedSnapCounter = snapCounter
     }
 
     // Reset cleanup: ScrubberClock.reset() lands before trackId updates

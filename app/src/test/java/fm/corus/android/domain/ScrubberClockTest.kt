@@ -59,6 +59,15 @@ class ScrubberClockTest {
     }
 
     @Test
+    fun snapTime_bumpsCounterAndSetsTime() {
+        ScrubberClock.update(time = 5000L, duration = 30000L)
+        val before = ScrubberClock.snapCounter.value
+        ScrubberClock.snapTime(0)
+        assertEquals(0L, ScrubberClock.time.value)
+        assertEquals(before + 1, ScrubberClock.snapCounter.value)
+    }
+
+    @Test
     fun reset_zerosBothFields() {
         ScrubberClock.update(time = 1500L, duration = 30000L)
         ScrubberClock.reset()

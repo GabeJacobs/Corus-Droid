@@ -11,6 +11,44 @@ import org.junit.Test
 
 class MentionTextTest {
 
+    // ── mentionHandle ──
+
+    @Test
+    fun `mentionHandle preserves interior dots`() {
+        assertEquals("epinephrine.auto", mentionHandle("@epinephrine.auto"))
+        assertEquals("miah.baxterr", mentionHandle("@miah.baxterr"))
+    }
+
+    @Test
+    fun `mentionHandle drops trailing sentence punctuation`() {
+        assertEquals("gabe", mentionHandle("@gabe!"))
+        assertEquals("miah.baxterr", mentionHandle("@miah.baxterr,"))
+        assertEquals("aiden", mentionHandle("@aiden?"))
+    }
+
+    @Test
+    fun `mentionHandle strips a trailing dot`() {
+        assertEquals("epinephrine.auto", mentionHandle("@epinephrine.auto."))
+        assertEquals("gabe", mentionHandle("@gabe."))
+        assertEquals("bvzzrd", mentionHandle("@bvzzrd."))
+    }
+
+    @Test
+    fun `mentionHandle stops at the first invalid character`() {
+        assertEquals("gabe", mentionHandle("@gabe's"))
+    }
+
+    @Test
+    fun `mentionHandle accepts a token with or without the leading at`() {
+        assertEquals("epinephrine.auto", mentionHandle("epinephrine.auto"))
+    }
+
+    @Test
+    fun `mentionHandle returns empty string when there is no valid handle`() {
+        assertEquals("", mentionHandle("@"))
+        assertEquals("", mentionHandle("@!!!"))
+    }
+
     // ── parseMentionQuery ──
 
     @Test
@@ -267,6 +305,15 @@ class MentionTextTest {
         val annotations = result.getStringAnnotations("mention", 0, result.length)
         assertEquals(1, annotations.size)
         assertEquals("gideon", annotations[0].item)
+    }
+
+    @Test
+    fun `buildMentionAnnotatedString strips trailing punctuation from mention annotation`() {
+        val result = buildMentionAnnotatedString("Thanks @bvzzrd. You care")
+        val annotations = result.getStringAnnotations("mention", 0, result.length)
+        assertEquals(1, annotations.size)
+        assertEquals("bvzzrd", annotations[0].item)
+        assertEquals("Thanks @bvzzrd. You care", result.text)
     }
 
     @Test

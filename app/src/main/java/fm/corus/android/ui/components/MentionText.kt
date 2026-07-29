@@ -69,6 +69,18 @@ private const val HASHTAG_TAG = "hashtag"
 private const val USERNAME_TAG = "username"
 
 /**
+ * Extracts the resolvable username from a whitespace-delimited `@mention` token
+ * (e.g. "@epinephrine.auto," -> "epinephrine.auto"), or "" when the token holds
+ * no valid handle. Mirrors web `mentionHandle` and iOS's punctuation trim on
+ * tap — interior dots are preserved; a trailing "." is sentence punctuation.
+ */
+fun mentionHandle(token: String): String {
+    val body = if (token.startsWith("@")) token.drop(1) else token
+    val match = Regex("^[a-z0-9._]+", RegexOption.IGNORE_CASE).find(body) ?: return ""
+    return match.value.lowercase().trimEnd('.')
+}
+
+/**
  * Builds an AnnotatedString with tappable @mentions and #hashtags.
  * Annotations are added so taps can be detected.
  */
@@ -87,16 +99,21 @@ fun buildMentionAnnotatedString(
             }
             val token = match.value
             if (token.startsWith("@")) {
-                pushStringAnnotation(tag = MENTION_TAG, annotation = token.removePrefix("@"))
-                withStyle(
-                    baseStyle.copy(
-                        color = CorusColors.Accent,
-                        fontWeight = FontWeight.ExtraBold,
-                    )
-                ) {
-                    append(token)
+                val handle = mentionHandle(token)
+                if (handle.isNotEmpty()) {
+                    pushStringAnnotation(tag = MENTION_TAG, annotation = handle)
+                    withStyle(
+                        baseStyle.copy(
+                            color = CorusColors.Accent,
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    ) {
+                        append(token)
+                    }
+                    pop()
+                } else {
+                    withStyle(baseStyle) { append(token) }
                 }
-                pop()
             } else {
                 pushStringAnnotation(tag = HASHTAG_TAG, annotation = token.removePrefix("#"))
                 withStyle(baseStyle.copy(color = CorusColors.Accent)) {
@@ -153,11 +170,16 @@ fun buildCaptionAnnotatedString(
             }
             val token = match.value
             if (token.startsWith("@")) {
-                pushStringAnnotation(tag = MENTION_TAG, annotation = token.removePrefix("@"))
-                withStyle(baseStyle.copy(color = CorusColors.Accent, fontWeight = FontWeight.ExtraBold)) {
-                    append(token)
+                val handle = mentionHandle(token)
+                if (handle.isNotEmpty()) {
+                    pushStringAnnotation(tag = MENTION_TAG, annotation = handle)
+                    withStyle(baseStyle.copy(color = CorusColors.Accent, fontWeight = FontWeight.ExtraBold)) {
+                        append(token)
+                    }
+                    pop()
+                } else {
+                    withStyle(baseStyle) { append(token) }
                 }
-                pop()
             } else {
                 pushStringAnnotation(tag = HASHTAG_TAG, annotation = token.removePrefix("#"))
                 withStyle(baseStyle.copy(color = CorusColors.Accent)) {
@@ -766,7 +788,10 @@ fun parseHashtagQuery(text: String, caret: Int = text.length): String? {
 
 /** Extract @mention usernames from text. */
 fun extractMentions(text: String): List<String> {
-    return Regex("@([\\w.]+)").findAll(text).map { it.groupValues[1].lowercase() }.toList()
+    return Regex("@[\\w.]+").findAll(text)
+        .map { mentionHandle(it.value) }
+        .filter { it.isNotEmpty() }
+        .toList()
 }
 
 /** Extract #hashtag names from text. */

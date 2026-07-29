@@ -124,7 +124,7 @@ object SpotifyPlaybackExperiment {
             source = track.source,
         )
         val launchBlock: suspend () -> Unit = {
-            nowPlaying.playViaSpotifyConnect(pending)
+            nowPlaying.playViaSpotifyConnect(pending, replaceSpotifyQueue = true)
         }
         if (scope != null) {
             scope.launch { launchBlock() }

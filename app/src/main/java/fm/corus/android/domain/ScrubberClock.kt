@@ -22,12 +22,19 @@ import kotlinx.coroutines.flow.asStateFlow
 object ScrubberClock {
     private val _time = MutableStateFlow(0L)
     private val _duration = MutableStateFlow(0L)
+    private val _snapCounter = MutableStateFlow(0)
 
     /** Current playback position in milliseconds. */
     val time: StateFlow<Long> = _time.asStateFlow()
 
     /** Duration of the currently-playing item in milliseconds. */
     val duration: StateFlow<Long> = _duration.asStateFlow()
+
+    /**
+     * Bumps on every snap-style write. [MiniPlayerBar] reads this so track-change
+     * snap-to-0 skips the 250ms tween (mirrors iOS ScrubberClock.snapCounter).
+     */
+    val snapCounter: StateFlow<Int> = _snapCounter.asStateFlow()
 
     /**
      * Update both fields. No-ops on stale values to avoid waking observers
@@ -41,6 +48,13 @@ object ScrubberClock {
     /** Set just the time — used after a seek so the scrubber doesn't flash. */
     fun setTime(t: Long) {
         if (t >= 0 && _time.value != t) _time.value = t
+    }
+
+    /** Set time and signal the view to skip animation for this change. */
+    fun snapTime(t: Long) {
+        if (t < 0) return
+        _snapCounter.value += 1
+        if (_time.value != t) _time.value = t
     }
 
     /** Wipe both fields — used on stop, track change snap-to-0, etc. */

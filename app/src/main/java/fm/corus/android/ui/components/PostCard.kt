@@ -89,6 +89,39 @@ import androidx.compose.material.icons.filled.PlayArrow
  *  the overlay fades straight to the pause icon. Tune here if the spinner still
  *  peeks through on quick loads (raise) or takes too long to appear (lower). */
 private const val PREVIEW_SPINNER_DELAY_MS = 300L
+private val ALBUM_ART_OVERLAY_GLYPH_BOX = 48.dp
+private val ALBUM_ART_PAUSE_ICON_SIZE = 48.dp
+/** Sized smaller than the pause icon; stays centered in the shared glyph box. */
+private val ALBUM_ART_SPINNER_SIZE = 26.dp
+private val ALBUM_ART_SPINNER_STROKE = 3.dp
+
+/** Fixed-size box so loading spinner and pause icon stay centered in the same spot. */
+@Composable
+internal fun AlbumArtPlaybackOverlayGlyph(
+    loading: Boolean,
+    pauseContentDescription: String,
+) {
+    Box(
+        modifier = Modifier.size(ALBUM_ART_OVERLAY_GLYPH_BOX),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (loading) {
+            CircularProgressIndicator(
+                color = Color.White,
+                trackColor = Color.White.copy(alpha = 0.22f),
+                modifier = Modifier.size(ALBUM_ART_SPINNER_SIZE),
+                strokeWidth = ALBUM_ART_SPINNER_STROKE,
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Filled.Pause,
+                contentDescription = pauseContentDescription,
+                tint = Color.White,
+                modifier = Modifier.size(ALBUM_ART_PAUSE_ICON_SIZE),
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -595,8 +628,9 @@ fun PostCard(
                     // cached previews begin playing before it elapses, so the overlay
                     // fades straight in to the pause icon with no spinner flash (like the
                     // already-loaded case). The spinner only appears for genuinely slow
-                    // loads. Gating visibility on `showPreviewSpinner || isPreviewPlaying`
-                    // (not raw isPreviewLoading) is what lets the fast path skip it.
+                    // loads. Gating visibility on `showPreviewSpinner || isPreviewPlaying ||
+                    // isPreviewLoading` keeps the scrim up while resolving; the glyph
+                    // prefers loading over pause (mirrors iOS if/else order).
                     var showPreviewSpinner by remember { mutableStateOf(false) }
                     LaunchedEffect(isPreviewLoading) {
                         if (isPreviewLoading) {
@@ -608,7 +642,7 @@ fun PostCard(
                         }
                     }
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = post.isTrack && (showPreviewSpinner || isPreviewPlaying) && !flipState.isLoading,
+                        visible = post.isTrack && (isPreviewPlaying || isPreviewLoading) && !flipState.isLoading,
                         enter = fadeIn(animationSpec = tween(200)),
                         exit = fadeOut(animationSpec = tween(200)),
                     ) {
@@ -618,28 +652,17 @@ fun PostCard(
                                 .background(Color.Black.copy(alpha = 0.4f)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            // Crossfade the spinner -> pause-icon swap so a slow load's
-                            // spinner doesn't hard-cut to the pause icon when playback
-                            // starts. Mirrors iOS's .transition(.opacity) on the glyph.
-                            Crossfade(
-                                targetState = showPreviewSpinner,
-                                animationSpec = tween(200),
-                                label = "previewOverlayContent",
-                            ) { loading ->
-                                if (loading) {
-                                    CircularProgressIndicator(
-                                        color = Color.White,
-                                        modifier = Modifier.size(40.dp),
-                                        strokeWidth = 3.dp,
+                            when {
+                                isPreviewLoading && (showPreviewSpinner || isPreviewPlaying) ->
+                                    AlbumArtPlaybackOverlayGlyph(
+                                        loading = true,
+                                        pauseContentDescription = stringResource(R.string.post_card_cd_pause),
                                     )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Filled.Pause,
-                                        contentDescription = stringResource(R.string.post_card_cd_pause),
-                                        tint = Color.White,
-                                        modifier = Modifier.size(52.dp),
+                                isPreviewPlaying ->
+                                    AlbumArtPlaybackOverlayGlyph(
+                                        loading = false,
+                                        pauseContentDescription = stringResource(R.string.post_card_cd_pause),
                                     )
-                                }
                             }
                         }
                     }

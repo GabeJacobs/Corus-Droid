@@ -72,10 +72,20 @@ class SpotifyPlaybackService @Inject constructor(
         private set
     var incomingContextUri: String? = null
         private set
+    /** Set on track change until the next player-context event (Android has no context on PlayerState). */
+    private var incomingContextAwaitingSinceMs: Long? = null
 
     var onTrackEnded: (() -> Unit)? = null
     var onPlayerTrackChanged: ((String) -> Unit)? = null
+    /** Fired when player context arrives after a track change so queue reconcile can re-run. */
+    var onPlayerContextUpdated: (() -> Unit)? = null
     var onPlayerStateUpdated: (() -> Unit)? = null
+
+    fun isAwaitingIncomingContext(maxWaitMs: Long = 800L): Boolean {
+        val since = incomingContextAwaitingSinceMs ?: return false
+        if (incomingContextUri != null) return false
+        return System.currentTimeMillis() - since < maxWaitMs
+    }
 
     private var appRemote: SpotifyAppRemote? = null
     private var playerStateSubscription: Subscription<PlayerState>? = null
@@ -135,12 +145,15 @@ class SpotifyPlaybackService @Inject constructor(
                 ?.removePrefix("access_token=")
         if (!token.isNullOrBlank()) {
             spotifyAuthService.storeAppRemoteAccessToken(token)
-            connectDeferred?.let { if (it.isActive) it.complete(Unit) }
-            connectDeferred = null
-            playDeferred?.let { if (it.isActive) it.complete(Unit) }
-            playDeferred = null
-            if (!isConnected) {
-                scope.launch { runCatching { connect(showAuthView = false) } }
+            android.util.Log.i("SpotifyPlayback", "Auth redirect received — reconnecting App Remote")
+            scope.launch {
+                runCatching { connect(showAuthView = false) }
+                    .onFailure { error ->
+                        android.util.Log.w(
+                            "SpotifyPlayback",
+                            "Post-redirect connect failed: ${error.message}",
+                        )
+                    }
             }
             return true
         }
@@ -181,42 +194,62 @@ class SpotifyPlaybackService @Inject constructor(
         }
 
         if (spotifyAuthService.cachedAccessToken() != null) {
-            var lastError: Exception? = null
-            repeat(2) { attempt ->
-                try {
-                    withPlayTimeout {
-                        connect(showAuthView = false)
-                        playUri(trackUri)
-                    }
-                    queueSessionId?.let { lastAppliedQueueSessionId = it }
-                    markRecentUsage()
-                    return
-                } catch (e: Exception) {
-                    cancelPendingContinuations()
-                    lastError = e
-                    if (isSpotifyAuthRequiredError(e)) {
-                        spotifyAuthService.clearAccessToken()
-                        clearRecentUsage()
-                    }
-                    if (attempt == 0) delay(300)
+            try {
+                withPlayTimeout {
+                    connect(showAuthView = false)
+                    playUri(trackUri)
                 }
+                queueSessionId?.let { lastAppliedQueueSessionId = it }
+                markRecentUsage()
+                return
+            } catch (e: Exception) {
+                cancelPendingContinuations()
+                android.util.Log.w(
+                    "SpotifyPlayback",
+                    "Cached token connect failed: ${e.message}",
+                )
+                discardStaleAppRemoteSession()
             }
-            android.util.Log.w(
-                "SpotifyPlayback",
-                "Silent reconnect failed, opening Spotify auth: ${lastError?.message}",
-            )
+            android.util.Log.w("SpotifyPlayback", "Silent reconnect failed, opening Spotify auth")
         }
 
         withPlayTimeout {
-            connect(showAuthView = true)
+            ensureAuthorizedAndConnected(requireInteractiveAuth = true)
             playUri(trackUri)
         }
         queueSessionId?.let { lastAppliedQueueSessionId = it }
         markRecentUsage()
     }
 
+    /**
+     * Silent App Remote connect, or auth-lib login first when [requireInteractiveAuth].
+     * Avoids ConnectionParams.showAuthView(true), which Android 14+ blocks when Spotify
+     * is not already in the foreground.
+     */
+    private suspend fun ensureAuthorizedAndConnected(requireInteractiveAuth: Boolean) {
+        if (isConnected) return
+        if (requireInteractiveAuth) {
+            android.util.Log.i("SpotifyPlayback", "Starting interactive Spotify auth (auth-lib)")
+            val token = SpotifyConnectContext.awaitInteractiveAuthorization()
+            spotifyAuthService.storeAppRemoteAccessToken(token)
+            android.util.Log.i("SpotifyPlayback", "Interactive auth succeeded — connecting App Remote")
+        }
+        connect(showAuthView = false)
+    }
+
     private suspend fun connect(showAuthView: Boolean) {
         if (isConnected) return
+        val connectContext = SpotifyConnectContext.currentActivity() ?: context
+        if (showAuthView && SpotifyConnectContext.currentActivity() == null) {
+            android.util.Log.w(
+                "SpotifyPlayback",
+                "connect(showAuthView=true) without Activity — auth UI may not appear",
+            )
+        }
+        android.util.Log.i(
+            "SpotifyPlayback",
+            "App Remote connect(showAuthView=$showAuthView, context=${connectContext.javaClass.simpleName})",
+        )
         suspendCancellableCoroutine { cont ->
             val deferred = CompletableDeferred<Unit>()
             connectDeferred = deferred
@@ -245,7 +278,7 @@ class SpotifyPlaybackService @Inject constructor(
                 .showAuthView(showAuthView)
                 .build()
             SpotifyAppRemote.connect(
-                SpotifyConnectContext.activityOr(context),
+                connectContext,
                 params,
                 object : Connector.ConnectionListener {
                     override fun onConnected(remote: SpotifyAppRemote) {
@@ -314,7 +347,16 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     private fun applyPlayerContext(ctx: PlayerContext) {
-        currentContextUri = ctx.uri?.takeIf { it.isNotEmpty() }
+        val newUri = ctx.uri?.takeIf { it.isNotEmpty() } ?: return
+        val wasAwaitingContext = incomingContextAwaitingSinceMs != null
+        if (wasAwaitingContext) {
+            incomingContextUri = newUri
+            incomingContextAwaitingSinceMs = null
+        }
+        currentContextUri = newUri
+        if (wasAwaitingContext) {
+            onPlayerContextUpdated?.invoke()
+        }
     }
 
     private fun subscribePlayerState() {
@@ -352,7 +394,10 @@ class SpotifyPlaybackService @Inject constructor(
             lastOutgoingDuration = _durationSeconds.value
             lastOutgoingContextUri = currentContextUri
             incomingPlaybackPosition = newPosition
-            incomingContextUri = currentContextUri
+            // iOS reads state.contextURI in the same callback; Android only gets context
+            // from subscribeToPlayerContext, so leave incoming null until applyPlayerContext.
+            incomingContextUri = null
+            incomingContextAwaitingSinceMs = System.currentTimeMillis()
             lastObservedTrackUri = uri
             onPlayerTrackChanged?.invoke(uri)
         }
@@ -588,10 +633,20 @@ class SpotifyPlaybackService @Inject constructor(
             .apply()
     }
 
-    private fun isSpotifyAuthRequiredError(error: Exception): Boolean {
-        val message = error.message ?: return false
-        return message.contains("authorization", ignoreCase = true) ||
-            message.contains("auth-flow", ignoreCase = true)
+    private fun discardStaleAppRemoteSession() {
+        spotifyAuthService.clearAccessToken()
+        clearRecentUsage()
+        if (appRemote?.isConnected == true) {
+            runCatching {
+                appRemote?.playerApi?.pause()?.setResultCallback { }
+            }
+            appRemote?.let { SpotifyAppRemote.disconnect(it) }
+        }
+        appRemote = null
+        cancelSubscription(playerStateSubscription)
+        playerStateSubscription = null
+        cancelSubscription(playerContextSubscription)
+        playerContextSubscription = null
     }
 
     private fun markRecentUsage() {

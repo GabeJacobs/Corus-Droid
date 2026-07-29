@@ -127,6 +127,7 @@ fun SinglePostCommentsScreen(
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val loadingSourcePostId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
+    val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -636,17 +637,20 @@ fun SinglePostCommentsScreen(
                         saveCount = saveCount,
                         saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
                         currentUser = currentUserProfile,
-                        isPreviewLoading = p.isTrack && PostPlaybackHighlight.shouldHighlight(
-                            activeTrackId = loadingTrackId,
-                            activeSourcePostId = loadingSourcePostId,
-                            playbackActive = true,
+                        isPreviewLoading = p.isTrack && PostPlaybackHighlight.isAlbumArtLoading(
+                            loadingTrackId = loadingTrackId,
+                            loadingSourcePostId = loadingSourcePostId,
+                            fullSongTrackId = nowPlayingState.trackId,
+                            fullSongSourcePostId = nowPlayingState.sourcePostId,
+                            isResolvingFullSong = isResolvingSpotify,
                             postTrackId = p.track.id,
                             postId = p.id,
                         ),
-                        isPreviewPlaying = p.isTrack && PostPlaybackHighlight.shouldHighlight(
+                        isPreviewPlaying = p.isTrack && PostPlaybackHighlight.shouldShowPlayingOverlay(
                             activeTrackId = nowPlayingState.trackId,
                             activeSourcePostId = nowPlayingState.sourcePostId,
-                            playbackActive = nowPlayingState.isPlaying,
+                            isPlaying = nowPlayingState.isPlaying,
+                            isResolvingFullSong = isResolvingSpotify,
                             postTrackId = p.track.id,
                             postId = p.id,
                         ),

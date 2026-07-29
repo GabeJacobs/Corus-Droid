@@ -182,6 +182,7 @@ fun FeedScreen(
     val isNewAccount by viewModel.isNewAccount.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val loadingSourcePostId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
+    val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val feedMode by viewModel.feedMode.collectAsState()
     val feedDecade: Int? = viewModel.appliedFeedDecade.collectAsState().value
@@ -907,17 +908,20 @@ fun FeedScreen(
                             saveCount = engagement?.saveCount ?: post.saveCount,
                             saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
                             currentUser = currentUserProfile,
-                            isPreviewLoading = PostPlaybackHighlight.shouldHighlight(
-                                activeTrackId = loadingTrackId,
-                                activeSourcePostId = loadingSourcePostId,
-                                playbackActive = true,
+                            isPreviewLoading = PostPlaybackHighlight.isAlbumArtLoading(
+                                loadingTrackId = loadingTrackId,
+                                loadingSourcePostId = loadingSourcePostId,
+                                fullSongTrackId = nowPlayingState.trackId,
+                                fullSongSourcePostId = nowPlayingState.sourcePostId,
+                                isResolvingFullSong = isResolvingSpotify,
                                 postTrackId = post.track.id,
                                 postId = post.id,
                             ),
-                            isPreviewPlaying = PostPlaybackHighlight.shouldHighlight(
+                            isPreviewPlaying = PostPlaybackHighlight.shouldShowPlayingOverlay(
                                 activeTrackId = nowPlayingState.trackId,
                                 activeSourcePostId = nowPlayingState.sourcePostId,
-                                playbackActive = nowPlayingState.isPlaying,
+                                isPlaying = nowPlayingState.isPlaying,
+                                isResolvingFullSong = isResolvingSpotify,
                                 postTrackId = post.track.id,
                                 postId = post.id,
                             ),
