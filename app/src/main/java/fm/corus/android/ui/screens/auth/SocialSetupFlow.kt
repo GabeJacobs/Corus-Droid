@@ -138,6 +138,8 @@ internal fun MusicServiceScreen(
     val tidalEnabled = viewModel.tidalEnabled
     val youtubeMusicEnabled = viewModel.youtubeMusicEnabled
     val deezerEnabled = viewModel.deezerEnabled
+    val spotifyAuthExperimentEnabled = viewModel.spotifyAuthExperimentEnabled
+    val fullPlaybackSubtitle = stringResource(R.string.music_service_full_playback)
 
     // In the legacy flow this is the last onboarding step, so the push-permission
     // prompt fires here (just before entering the app) regardless of which
@@ -185,8 +187,8 @@ internal fun MusicServiceScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         // Featured tier — Spotify + TIDAL as large side-by-side cards
-        // (mirrors the iOS two-tier layout). No playback subtitle on Android:
-        // it doesn't support in-app full playback for any service.
+        // (mirrors the iOS two-tier layout). Spotify shows the full-playback
+        // subtitle when the auth experiment is on.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
@@ -195,6 +197,7 @@ internal fun MusicServiceScreen(
                 modifier = Modifier.weight(1f),
                 logoRes = R.drawable.spotify_logo,
                 label = MusicService.SPOTIFY.displayLabel,
+                subtitle = if (spotifyAuthExperimentEnabled) fullPlaybackSubtitle else null,
                 accent = CorusColors.SpotifyGreen,
                 selected = selected == MusicService.SPOTIFY,
                 onClick = { selected = MusicService.SPOTIFY },
@@ -291,6 +294,7 @@ private fun MusicServiceCard(
     modifier: Modifier = Modifier,
     logoRes: Int,
     label: String,
+    subtitle: String? = null,
     accent: Color,
     selected: Boolean,
     onClick: () -> Unit,
@@ -305,7 +309,7 @@ private fun MusicServiceCard(
                 shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
             )
             .clickable(onClick = onClick)
-            .padding(vertical = CorusSpacing.xxl, horizontal = CorusSpacing.sm),
+            .padding(vertical = CorusSpacing.xxxl, horizontal = CorusSpacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Image(
@@ -319,6 +323,16 @@ private fun MusicServiceCard(
             style = CorusFont.bodyMedium,
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
+        )
+        // Always reserve two lines so cards with and without a subtitle
+        // (Spotify vs TIDAL) stay the same height.
+        Text(
+            text = subtitle.orEmpty(),
+            style = CorusFont.caption,
+            color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
+            minLines = 2,
+            maxLines = 2,
         )
     }
 }
