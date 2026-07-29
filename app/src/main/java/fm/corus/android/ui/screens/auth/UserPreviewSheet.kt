@@ -263,23 +263,27 @@ private fun GridTile(post: CymbalPost, nowPlaying: NowPlayingManager) {
             .then(
                 if (post.isTrack) Modifier.clickable {
                     val track = post.track
-                    scope.launch {
-                        nowPlaying.play(
-                            trackId = track.id,
-                            trackName = track.name,
-                            artistName = track.artistName,
-                            albumArtURL = track.albumArtURL,
-                            albumArtLargeURL = track.albumArtLargeURL,
-                            previewUrl = track.previewUrl,
-                            spotifyURI = track.spotifyURI,
-                            spotifyWebURL = track.spotifyWebURL,
-                            isrc = track.isrc,
-                            sourcePostId = post.id,
-                            source = track.source,
-                            soundcloudId = track.soundcloudId,
-                            soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
-                        )
-                    }
+                    nowPlaying.routePlayTap(
+                        track = track,
+                        sourcePostId = post.id,
+                        onPreview = {
+                            nowPlaying.play(
+                                trackId = track.id,
+                                trackName = track.name,
+                                artistName = track.artistName,
+                                albumArtURL = track.albumArtURL,
+                                albumArtLargeURL = track.albumArtLargeURL,
+                                previewUrl = track.previewUrl,
+                                spotifyURI = track.spotifyURI,
+                                spotifyWebURL = track.spotifyWebURL,
+                                isrc = track.isrc,
+                                sourcePostId = post.id,
+                                source = track.source,
+                                soundcloudId = track.soundcloudId,
+                                soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
+                            )
+                        },
+                    )
                 } else Modifier,
             ),
     ) {

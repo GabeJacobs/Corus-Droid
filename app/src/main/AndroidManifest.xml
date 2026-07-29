@@ -23,6 +23,7 @@
     <queries>
         <package android:name="com.instagram.android" />
         <package android:name="com.whatsapp" />
+        <package android:name="com.spotify.music" />
     </queries>
 
     <application
@@ -76,6 +77,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="corus" />
+            </intent-filter>
+
+            <!-- Spotify App Remote auth callback (corus://spotify-auth). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="corus" android:host="spotify-auth" />
             </intent-filter>
 
             <!-- Universal link: https://corus.fm — only the paths the app handles

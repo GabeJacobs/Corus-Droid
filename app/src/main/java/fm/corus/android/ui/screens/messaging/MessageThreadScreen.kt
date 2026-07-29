@@ -1895,19 +1895,24 @@ private fun SharedTrackContent(
                     if (artworkIsActive) {
                         nowPlayingManager.togglePlayPause()
                     } else {
-                        scope.launch {
-                            nowPlayingManager.play(
-                                trackId = song.trackId,
-                                trackName = song.trackName,
-                                artistName = song.artistName,
-                                albumArtURL = song.albumArtURL,
-                                albumArtLargeURL = song.albumArtLargeURL,
-                                previewUrl = song.previewUrl,
-                                spotifyURI = song.spotifyURI,
-                                spotifyWebURL = song.spotifyWebURL,
-                                isrc = song.isrc,
-                            )
-                        }
+                        val cymbalTrack = song.asCymbalTrack().copy(source = source)
+                        nowPlayingManager.routePlayTap(
+                            track = cymbalTrack,
+                            onPreview = {
+                                nowPlayingManager.play(
+                                    trackId = song.trackId,
+                                    trackName = song.trackName,
+                                    artistName = song.artistName,
+                                    albumArtURL = song.albumArtURL,
+                                    albumArtLargeURL = song.albumArtLargeURL,
+                                    previewUrl = song.previewUrl,
+                                    spotifyURI = song.spotifyURI,
+                                    spotifyWebURL = song.spotifyWebURL,
+                                    isrc = song.isrc,
+                                    source = source,
+                                )
+                            },
+                        )
                     }
                 },
             contentAlignment = Alignment.Center,

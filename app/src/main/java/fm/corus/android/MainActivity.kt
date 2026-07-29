@@ -14,6 +14,7 @@ import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
 import fm.corus.android.data.repository.SubscriptionRepository
 import kotlinx.coroutines.launch
+import fm.corus.android.domain.SpotifyPlaybackService
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.CorusFirebaseMessagingService
 import fm.corus.android.service.DeepLinkDestination
@@ -29,6 +30,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var subscriptionRepository: SubscriptionRepository
     @Inject lateinit var analyticsService: AnalyticsService
+    @Inject lateinit var spotifyPlaybackService: SpotifyPlaybackService
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LanguageManager.wrapContext(newBase))
@@ -39,6 +41,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleSpotifyAuthRedirect(intent)
         handleNotificationIntent(intent)
         handleWebLinkIntent(intent)
         enableEdgeToEdge()
@@ -65,11 +68,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        fm.corus.android.domain.SpotifyConnectContext.setActivity(this)
+    }
+
+    override fun onPause() {
+        fm.corus.android.domain.SpotifyConnectContext.setActivity(null)
+        super.onPause()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        handleSpotifyAuthRedirect(intent)
         handleNotificationIntent(intent)
         handleWebLinkIntent(intent)
+    }
+
+    private fun handleSpotifyAuthRedirect(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme == "corus" && uri.host == "spotify-auth") {
+            spotifyPlaybackService.handleRedirectUri(uri)
+            intent.data = null
+        }
     }
 
     /**

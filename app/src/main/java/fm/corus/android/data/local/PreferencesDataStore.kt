@@ -14,9 +14,11 @@ import fm.corus.android.data.model.SharedMoviePreview
 import fm.corus.android.data.model.SharedTrackPreview
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.SuggestionReason
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -224,6 +226,7 @@ class PreferencesDataStore @Inject constructor(
         val HAS_CONFIRMED_FEED_PLAYLIST = booleanPreferencesKey("has_confirmed_feed_playlist")
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
         val AUTOPLAY_NEXT_SONG = booleanPreferencesKey("autoplay_next_song")
+        val PLAY_FULL_SONGS = booleanPreferencesKey("play_full_songs")
         val FEED_FOLLOWS_NOW_PLAYING = booleanPreferencesKey("feed_follows_now_playing")
         val TRENDING_SONGS_WINDOW = stringPreferencesKey("trending_songs_window")
         val TRENDING_FILMS_WINDOW = stringPreferencesKey("trending_films_window")
@@ -286,6 +289,25 @@ class PreferencesDataStore @Inject constructor(
         dataStore.edit { it[AUTOPLAY_NEXT_SONG] = value }
     }
 
+    /** Mirrors iOS @AppStorage("playFullSongs") default (`true`). */
+    val playFullSongs: Flow<Boolean> = dataStore.data.map { prefs ->
+        (prefs[PLAY_FULL_SONGS] ?: true).also { mirrorPlayFullSongsSync(it) }
+    }
+
+    suspend fun setPlayFullSongs(value: Boolean) {
+        mirrorPlayFullSongsSync(value)
+        dataStore.edit { it[PLAY_FULL_SONGS] = value }
+    }
+
+    private fun mirrorPlayFullSongsSync(value: Boolean) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("play_full_songs", value).apply()
+    }
+
+    fun playFullSongsSync(): Boolean =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("play_full_songs", true)
+
     /**
      * When enabled, the feed (and a profile/hashtag feed if currently visible)
      * scrolls to the post for the song that just started playing. Mirrors iOS
@@ -326,6 +348,17 @@ class PreferencesDataStore @Inject constructor(
     suspend fun setFeedMode(value: String) {
         mirrorFeedModeSync(value)
         dataStore.edit { it[FEED_MODE] = value }
+    }
+
+    /**
+     * Synchronously seed the launch-critical feed-mode mirror (and queue the
+     * DataStore write) so a post-onboarding default can take effect before the
+     * next frame's FeedViewModel seed — without awaiting the suspend write.
+     * Prefer [setFeedMode] for normal interactive switches.
+     */
+    fun setFeedModeImmediate(value: String, scope: CoroutineScope) {
+        mirrorFeedModeSync(value)
+        scope.launch { dataStore.edit { it[FEED_MODE] = value } }
     }
 
     private fun mirrorFeedModeSync(raw: String) {

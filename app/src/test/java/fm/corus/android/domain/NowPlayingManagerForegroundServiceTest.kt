@@ -50,7 +50,7 @@ class NowPlayingManagerForegroundServiceTest {
     }
 
     private fun newManager(): NowPlayingManager =
-        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository, mock(), mock(), mock())
+        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository, mock(), mock(), mock(), mock(), mock(), mock())
 
     @Before
     fun setUp() {

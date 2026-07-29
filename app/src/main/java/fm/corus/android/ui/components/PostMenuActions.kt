@@ -44,6 +44,9 @@ interface PostMenuActions {
 
     suspend fun resolveAlbumIdForTrack(track: CymbalTrack): String?
 
+    /** Full resolveTrackDestinations payload for menu routing (album + Option A). */
+    suspend fun resolveTrackDestinationsForTrack(track: CymbalTrack): fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations
+
     /** Resolves the first Spotify artist id for [track] when it reached the client
      *  without one (Apple-Music search posts land with `artistIds:[]`). Backs the
      *  "Go to Artist" row's resolve-on-tap; null on a miss. Sibling of

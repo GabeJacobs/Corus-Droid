@@ -10,6 +10,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.BuildConfig
 import fm.corus.android.domain.FeedModeOrder
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -237,6 +240,10 @@ class RemoteConfigService @Inject constructor(
     val artistPagesEnabled: Boolean
         get() = feedFlag("artist_pages_enabled")
 
+    /** Option B gate for pre-release album destination pages. OFF = Option A only. */
+    val prereleaseAlbumPagesEnabled: Boolean
+        get() = feedFlag("prerelease_album_pages_enabled")
+
     /// Send-side gate for sharing an artist / album / director (the "..." Share
     /// menu on those destination pages + the Artist/Album/Director items in the
     /// DM composer "+" menu). Launch-dark: receiving/rendering those DMs is always
@@ -313,16 +320,17 @@ class RemoteConfigService @Inject constructor(
     /// Corus logo teaching that the logo switches feed modes). Master gate;
     /// ships dark. Shares `feed_switch_hint_enabled` with iOS/web. Uses the
     /// init-race-safe feedFlag path so a fresh signup doesn't briefly read the
-    /// wrong value, though the hint only appears after several sessions anyway.
+    /// wrong value. Default min session is 1 (first feed visit).
     val feedSwitchHintEnabled: Boolean
         get() = feedFlag("feed_switch_hint_enabled")
 
     /// App opens required before the hint can appear. Mirrors
-    /// `feed_switch_hint_min_session`.
+    /// `feed_switch_hint_min_session`. Default 1 so it can show on the first
+    /// post-signup feed visit.
     val feedSwitchHintMinSession: Int
         get() {
             val v = remoteConfig.getLong("feed_switch_hint_min_session").toInt()
-            return if (v > 0) v else 3
+            return if (v > 0) v else 1
         }
 
     /// Lifetime cap on how many times the hint is shown. Mirrors
@@ -393,11 +401,24 @@ class RemoteConfigService @Inject constructor(
     val feedDecadeFilterEnabled: Boolean
         get() = feedFlag("feed_decade_filter_enabled")
 
+    /// Gate for the Spotify App Remote full-playback auth experiment. OFF = zero
+    /// behavior change — all play taps stay on the existing 30s preview path.
+    /// Shares `spotify_auth_experiment_enabled` with iOS/web.
+    val spotifyAuthExperimentEnabled: Boolean
+        get() {
+            if (BuildConfig.DEBUG && devPrefs.contains("spotify_auth_experiment_enabled")) {
+                return devPrefs.getBoolean("spotify_auth_experiment_enabled", false)
+            }
+            return feedFlag("spotify_auth_experiment_enabled")
+        }
+
     // Tracks the UID last pushed as the `user_id` signal so we can tell when it
     // changes (login / account switch) and force a fresh fetch. Null-vs-unset is
     // distinguished by [hasAppliedUserSignal] so the first apply always counts.
     @Volatile private var lastAppliedUserSignal: String? = null
     @Volatile private var hasAppliedUserSignal = false
+    private val fetchMutex = Mutex()
+    private val initialFetchGate = CompletableDeferred<Unit>()
 
     /// Pushes the current user's UID into Remote Config as a custom signal so
     /// per-user targeting conditions (e.g. `app.customSignal['user_id']`) can
@@ -423,30 +444,53 @@ class RemoteConfigService @Inject constructor(
         }
     }
 
-    suspend fun fetchAndActivate() {
-        try {
-            // Make sure the user-targeting custom signal is in place before
-            // fetching so conditional values resolve correctly on the very
-            // first response. Mirrors iOS.
-            val signalChanged = setCurrentUserSignal(auth.currentUser?.uid)
-            // When the signed-in user changes, the cached config was fetched and
-            // evaluated against a *different* user_id signal. The normal 1h
-            // throttle would serve that stale per-user result for up to an hour,
-            // so per-user flags (e.g. favorites_enabled) wouldn't light up until
-            // then. Bypass the throttle on a signal change so this user's
-            // conditions resolve on this fetch.
-            val minIntervalSeconds = if (signalChanged) 0L else 3600L
-            val settings = FirebaseRemoteConfigSettings.Builder()
-                .setMinimumFetchIntervalInSeconds(minIntervalSeconds)
-                .build()
-            remoteConfig.setConfigSettingsAsync(settings).await()
-            remoteConfig.setDefaultsAsync(DEFAULTS).await()
-            val activated = remoteConfig.fetchAndActivate().await()
-            cacheFeedFlags()
-            logValues(activated)
-        } catch (e: Exception) {
-            Log.w("RemoteConfig", "fetchAndActivate failed", e)
+    suspend fun fetchAndActivate(forceFresh: Boolean = false) {
+        fetchMutex.withLock {
+            try {
+                // Make sure the user-targeting custom signal is in place before
+                // fetching so conditional values resolve correctly on the very
+                // first response. Mirrors iOS.
+                val signalChanged = setCurrentUserSignal(auth.currentUser?.uid)
+                // When the signed-in user changes, the cached config was fetched and
+                // evaluated against a *different* user_id signal. The normal 1h
+                // throttle would serve that stale per-user result for up to an hour,
+                // so per-user flags (e.g. favorites_enabled) wouldn't light up until
+                // then. Bypass the throttle on a signal change so this user's
+                // conditions resolve on this fetch. DEBUG builds mirror iOS (always 0).
+                val minIntervalSeconds = when {
+                    BuildConfig.DEBUG -> 0L
+                    forceFresh || signalChanged -> 0L
+                    else -> 3600L
+                }
+                val settings = FirebaseRemoteConfigSettings.Builder()
+                    .setMinimumFetchIntervalInSeconds(minIntervalSeconds)
+                    .build()
+                remoteConfig.setConfigSettingsAsync(settings).await()
+                remoteConfig.setDefaultsAsync(DEFAULTS).await()
+                val activated = if (forceFresh || signalChanged || BuildConfig.DEBUG) {
+                    remoteConfig.fetch().await()
+                    remoteConfig.activate().await()
+                } else {
+                    remoteConfig.fetchAndActivate().await()
+                }
+                cacheFeedFlags()
+                logValues(activated)
+            } catch (e: Exception) {
+                Log.w("RemoteConfig", "fetchAndActivate failed", e)
+            } finally {
+                if (!initialFetchGate.isCompleted) {
+                    initialFetchGate.complete(Unit)
+                }
+            }
         }
+    }
+
+    /** Wait until the first Remote Config fetch this process finishes (or fails). */
+    suspend fun awaitInitialFetch() {
+        if (!initialFetchGate.isCompleted) {
+            fetchAndActivate(forceFresh = true)
+        }
+        initialFetchGate.await()
     }
 
     /// Persist the feed flags so the next cold launch renders the chevron /
@@ -466,6 +510,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
             .putBoolean("feed_decade_filter_enabled", remoteConfig.getBoolean("feed_decade_filter_enabled"))
+            .putBoolean("spotify_auth_experiment_enabled", remoteConfig.getBoolean("spotify_auth_experiment_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
             .apply()
     }
@@ -495,6 +540,7 @@ class RemoteConfigService @Inject constructor(
                 "favorites_enabled=${remoteConfig.getBoolean("favorites_enabled")} " +
                 "unified_search_enabled=$unifiedSearchEnabled " +
                 "compose_unified_search_enabled=$composeUnifiedSearchEnabled " +
+                "spotify_auth_experiment_enabled=$spotifyAuthExperimentEnabled " +
                 "uid=${auth.currentUser?.uid}"
         )
     }
@@ -539,6 +585,7 @@ class RemoteConfigService @Inject constructor(
             // Default FALSE in code — the server template currently sends true;
             // flipping the console key off must revert every client.
             "artist_pages_enabled" to false,
+            "prerelease_album_pages_enabled" to false,
             "entity_share_enabled" to false,
             "immersive_artist_header_enabled" to true,
             "comment_entity_attachments_enabled" to false,
@@ -550,10 +597,11 @@ class RemoteConfigService @Inject constructor(
             // is live) with an Android app-id condition forcing false; the
             // in-code default keeps the flow dark even before the first fetch.
             "onboarding_taste_match_enabled" to false,
-            "feed_switch_hint_min_session" to 3L,
+            "feed_switch_hint_min_session" to 1L,
             "feed_switch_hint_max_impressions" to 3L,
             "reposters_list_enabled" to false,
             "feed_decade_filter_enabled" to false,
+            "spotify_auth_experiment_enabled" to false,
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
         )
     }

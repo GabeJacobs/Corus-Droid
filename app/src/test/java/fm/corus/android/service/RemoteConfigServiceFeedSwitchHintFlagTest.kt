@@ -22,7 +22,7 @@ import org.mockito.kotlin.whenever
  * `feed_switch_hint_*` gate the one-time feed-switch discovery coachmark and
  * must mirror iOS/web: `feed_switch_hint_enabled` defaults false and reads via
  * the init-race-safe feedFlag path; the numeric min-session / max-impressions
- * getters default to 3 when Remote Config has no positive value.
+ * getters default to 1 / 3 when Remote Config has no positive value.
  */
 class RemoteConfigServiceFeedSwitchHintFlagTest {
 
@@ -54,7 +54,7 @@ class RemoteConfigServiceFeedSwitchHintFlagTest {
         val captor = argumentCaptor<Map<String, Any>>()
         verify(remoteConfig).setDefaultsAsync(captor.capture())
         assertEquals(false, captor.firstValue["feed_switch_hint_enabled"])
-        assertEquals(3L, captor.firstValue["feed_switch_hint_min_session"])
+        assertEquals(1L, captor.firstValue["feed_switch_hint_min_session"])
         assertEquals(3L, captor.firstValue["feed_switch_hint_max_impressions"])
     }
 
@@ -81,13 +81,13 @@ class RemoteConfigServiceFeedSwitchHintFlagTest {
     }
 
     @Test
-    fun `min session and max impressions default to 3 when unset`() {
+    fun `min session defaults to 1 and max impressions to 3 when unset`() {
         val remoteConfig = mock<FirebaseRemoteConfig>()
         whenever(remoteConfig.getLong(eq("feed_switch_hint_min_session"))).thenReturn(0L)
         whenever(remoteConfig.getLong(eq("feed_switch_hint_max_impressions"))).thenReturn(0L)
 
         val svc = service(remoteConfig)
-        assertEquals(3, svc.feedSwitchHintMinSession)
+        assertEquals(1, svc.feedSwitchHintMinSession)
         assertEquals(3, svc.feedSwitchHintMaxImpressions)
     }
 

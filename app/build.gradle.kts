@@ -59,7 +59,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = resolvedVersionCode
-        versionName = "1.3.6"
+        versionName = "1.3.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -130,6 +130,7 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
+    implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     implementation(libs.datastore.preferences)
     implementation(libs.work.runtime)
     implementation(libs.appcompat)
@@ -201,6 +202,11 @@ dependencies {
     implementation(libs.exifinterface)
     implementation(libs.shimmer)
     implementation(libs.play.review)
+
+    // Spotify App Remote (full-playback experiment)
+    implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
+    implementation("com.google.code.gson:gson:2.11.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Subscriptions
     implementation(libs.revenuecat)

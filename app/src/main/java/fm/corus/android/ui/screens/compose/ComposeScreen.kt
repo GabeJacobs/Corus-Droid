@@ -136,6 +136,14 @@ fun ComposeScreen(
     val attachmentUnavailable by viewModel.attachmentUnavailable.collectAsState()
     val savingDraft by viewModel.savingDraft.collectAsState()
     var mediaType by remember { mutableStateOf(if (movieModeEnabled) MediaType.MOVIE else MediaType.TRACK) }
+    // Derive the active medium from what's selected so unified-picker film picks
+    // don't stay stuck on TRACK (iOS uses separate selectedTrack/selectedMovie
+    // paths). Falls back to the picker tab while nothing is selected yet.
+    val effectiveMediaType = when {
+        selectedMovie != null -> MediaType.MOVIE
+        selectedTrack != null -> MediaType.TRACK
+        else -> mediaType
+    }
     var searchQuery by remember { mutableStateOf("") }
     var caption by remember { mutableStateOf(TextFieldValue("")) }
     var captionMode by remember { mutableStateOf("text") } // "text" or "voice"
@@ -232,7 +240,7 @@ fun ComposeScreen(
     val isRepost = repostedFromUsername != null
     val hasSelectionForDraft = selectedTrack != null || selectedMovie != null
     val isDirty = viewModel.isDraftDirty(
-        mediaType = mediaType,
+        mediaType = effectiveMediaType,
         trackId = selectedTrack?.id,
         movieId = selectedMovie?.id,
         caption = if (captionMode == "text") caption.text else "",
@@ -437,10 +445,22 @@ fun ComposeScreen(
                         searchHasError = searchHasError,
                         isConnected = isConnected,
                         onRetrySearch = { viewModel.searchUnified(searchQuery.trim()) },
-                        onSongClick = { track -> viewModel.selectTrack(track) },
-                        onFilmClick = { movie -> viewModel.selectFilmResult(movie) },
+                        onSongClick = { track ->
+                            mediaType = MediaType.TRACK
+                            viewModel.selectTrack(track)
+                        },
+                        onFilmClick = { movie ->
+                            mediaType = MediaType.MOVIE
+                            viewModel.selectFilmResult(movie)
+                        },
                         savedItems = savedItems,
-                        onSavedClick = { item -> viewModel.selectSavedItem(item) },
+                        onSavedClick = { item ->
+                            when (item) {
+                                is SavedPickerItem.Song -> mediaType = MediaType.TRACK
+                                is SavedPickerItem.Film -> mediaType = MediaType.MOVIE
+                            }
+                            viewModel.selectSavedItem(item)
+                        },
                         trendingSongs = trendingSongs,
                         trendingMovies = trendingMovies,
                         // ONE skeleton until EVERY zero-state source has settled.
@@ -481,6 +501,7 @@ fun ComposeScreen(
                             viewModel.selectResult(result, mediaType)
                         },
                         onFilmClick = { movie ->
+                            mediaType = MediaType.MOVIE
                             viewModel.selectFilmResult(movie)
                         },
                         onPreviewTap = { trackId ->
@@ -491,13 +512,19 @@ fun ComposeScreen(
                         trendingSongs = trendingSongs,
                         trendingMovies = trendingMovies,
                         isLoadingTrending = isLoadingTrending,
-                        onTrendingSongClick = { viewModel.selectTrendingSong(it) },
-                        onTrendingMovieClick = { viewModel.selectTrendingMovie(it) },
+                        onTrendingSongClick = {
+                            mediaType = MediaType.TRACK
+                            viewModel.selectTrendingSong(it)
+                        },
+                        onTrendingMovieClick = {
+                            mediaType = MediaType.MOVIE
+                            viewModel.selectTrendingMovie(it)
+                        },
                         nowPlaying = viewModel.nowPlayingManager,
                     )
                 } else if (selectedTrack != null || selectedMovie != null) {
                     ComposeModeContent(
-                        mediaType = mediaType,
+                        mediaType = effectiveMediaType,
                         selectedTrack = selectedTrack,
                         selectedMovie = selectedMovie,
                         caption = caption,
@@ -513,7 +540,7 @@ fun ComposeScreen(
                         onPost = {
                             viewModel.createPost(
                                 caption = if (captionMode == "text") caption.text else "",
-                                mediaType = mediaType,
+                                mediaType = effectiveMediaType,
                                 // Reuse the stored URL for an unchanged resumed
                                 // note (freshVoiceNoteData() returns null then).
                                 voiceNoteData = freshVoiceNoteData(),
@@ -692,7 +719,7 @@ fun ComposeScreen(
                 onSave = {
                     scope.launch {
                         val ok = viewModel.saveCurrentDraft(
-                            mediaType = mediaType,
+                            mediaType = effectiveMediaType,
                             caption = caption.text,
                             captionMode = captionMode,
                             voiceNoteData = freshVoiceNoteData(),
@@ -1924,10 +1951,15 @@ private fun ComposeModeContent(
     attachmentUnavailable: Boolean = false,
     onChooseAnother: () -> Unit = {},
 ) {
-    val imageURL = if (mediaType == MediaType.TRACK) (selectedTrack?.albumArtLargeURL ?: selectedTrack?.albumArtURL) else selectedMovie?.posterURL
-    val title = if (mediaType == MediaType.TRACK) selectedTrack?.name.orEmpty() else selectedMovie?.title.orEmpty()
+    val isMovie = mediaType == MediaType.MOVIE
+    val imageURL = if (isMovie) {
+        selectedMovie?.posterLargeURL ?: selectedMovie?.posterURL
+    } else {
+        selectedTrack?.albumArtLargeURL ?: selectedTrack?.albumArtURL
+    }
+    val title = if (isMovie) selectedMovie?.title.orEmpty() else selectedTrack?.name.orEmpty()
     val unknownDirector = stringResource(R.string.compose_director_unknown)
-    val subtitle = if (mediaType == MediaType.TRACK) {
+    val subtitle = if (!isMovie) {
         selectedTrack?.artistName.orEmpty()
     } else {
         buildString {
@@ -1963,9 +1995,16 @@ private fun ComposeModeContent(
         ) {
             Box(
                 modifier = Modifier
-                    .size(CorusSpacing.albumArtThumbnail) // 56dp
+                    .then(
+                        if (isMovie) {
+                            // 2:3 movie poster — matches iOS ComposeView (56×84).
+                            Modifier.size(width = CorusSpacing.albumArtThumbnail, height = 84.dp)
+                        } else {
+                            Modifier.size(CorusSpacing.albumArtThumbnail) // 56dp square
+                        },
+                    )
                     .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
-                    .clickable(enabled = mediaType == MediaType.TRACK) { onAlbumArtTap() },
+                    .clickable(enabled = !isMovie) { onAlbumArtTap() },
                 contentAlignment = Alignment.Center,
             ) {
                 AsyncImage(
@@ -1974,7 +2013,7 @@ private fun ComposeModeContent(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
-                if (mediaType == MediaType.TRACK) {
+                if (!isMovie) {
                     Box(
                         modifier = Modifier
                             .size(22.dp)

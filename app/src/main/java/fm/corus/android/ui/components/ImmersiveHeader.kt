@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -184,6 +186,17 @@ internal fun Modifier.extendIntoStatusBar(extraTopPx: Int): Modifier =
  *  can clear it (add to `contentPadding` bottom) while their content still scrolls
  *  under it. 0.dp when the frosted bottom bar is off. */
 val LocalBottomBarHeight = compositionLocalOf { 0.dp }
+
+/**
+ * Consume taps on non-interactive bar chrome so they don't fall through to
+ * scrollable content under the frosted bottom bar. Nested clickables still win.
+ */
+@Composable
+fun Modifier.blockTouchPassthrough(): Modifier = clickable(
+    interactionSource = remember { MutableInteractionSource() },
+    indication = null,
+    onClick = {},
+)
 
 /** HazeState the shared bottom bar (in MainTabScreen) blurs. Screens publish their
  *  scrollable into it via [contentHazeSource] so the bar frosts whatever scrolls

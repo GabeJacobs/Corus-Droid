@@ -47,6 +47,7 @@ class NowPlayingManagerHashtagNamingTest {
         val manager = NowPlayingManager(
             context, mock(), preferencesDataStore, userRepository,
             mock(), mock(), mock<TidalPlaylistService>(),
+            mock(), mock(), mock(),
         )
 
         val (title, description) = manager.hashtagPlaylistNaming("indierock")

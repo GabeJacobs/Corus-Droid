@@ -12,7 +12,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -34,13 +35,18 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -52,6 +58,7 @@ import fm.corus.android.domain.ScrubberClock
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -89,6 +96,9 @@ fun MiniPlayerBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    // Scrubber's expanded touch strip straddles this row's top edge;
+                    // win hit tests here so transport controls stay tappable.
+                    .zIndex(2f)
                     .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
                 // 11dp gap between controls — a hair more than `sm` (8dp), tuned
@@ -140,54 +150,50 @@ fun MiniPlayerBar(
 
                 // Like (heart) — only when the current track has a source post.
                 if (state.sourcePostId != null && onLikeTap != null) {
-                    Icon(
-                        imageVector = if (isCurrentTrackLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    MiniPlayerIconButton(
+                        onClick = onLikeTap,
                         contentDescription = stringResource(R.string.post_card_cd_like),
-                        modifier = Modifier
-                            // Extra breathing room before the heart so the
-                            // title/artist text doesn't crowd it. Matches the
-                            // larger visual gap on iOS.
-                            .padding(start = CorusSpacing.sm)
-                            .size(22.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = onLikeTap,
-                            ),
-                        tint = if (isCurrentTrackLiked) CorusColors.Like else CorusColors.Text,
-                    )
+                        modifier = Modifier.padding(start = CorusSpacing.sm),
+                    ) {
+                        Icon(
+                            imageVector = if (isCurrentTrackLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = if (isCurrentTrackLiked) CorusColors.Like else CorusColors.Text,
+                        )
+                    }
                 }
 
                 // Play/Pause
-                Icon(
-                    imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (state.isPlaying) stringResource(R.string.mini_player_cd_pause) else stringResource(R.string.mini_player_cd_play),
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { nowPlayingManager.togglePlayPause() },
-                        ),
-                    tint = CorusColors.Text,
-                )
+                MiniPlayerIconButton(
+                    onClick = { nowPlayingManager.togglePlayPause() },
+                    contentDescription = if (state.isPlaying) {
+                        stringResource(R.string.mini_player_cd_pause)
+                    } else {
+                        stringResource(R.string.mini_player_cd_play)
+                    },
+                ) {
+                    Icon(
+                        imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = CorusColors.Text,
+                    )
+                }
 
                 // Next — always visible so the mini player has a consistent layout;
                 // disabled (grayed) when the current queue has no next track.
-                Icon(
-                    imageVector = Icons.Filled.SkipNext,
+                MiniPlayerIconButton(
+                    onClick = if (state.hasNext) ({ nowPlayingManager.skipToNext() }) else null,
                     contentDescription = stringResource(R.string.mini_player_cd_next),
-                    modifier = Modifier
-                        .size(28.dp)
-                        .then(
-                            if (state.hasNext) Modifier.clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = { nowPlayingManager.skipToNext() },
-                            ) else Modifier
-                        ),
-                    tint = if (state.hasNext) CorusColors.Text else CorusColors.Tertiary,
-                )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipNext,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = if (state.hasNext) CorusColors.Text else CorusColors.Tertiary,
+                    )
+                }
 
                 // Spotify / SoundCloud / Apple Music button (matches the
                 // source of the playing track). Apple-only and SoundCloud
@@ -198,37 +204,34 @@ fun MiniPlayerBar(
                 val isAudiomack = state.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
                 val isAppleMusic = state.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
                 if (isSoundCloud) {
-                    SoundCloudAdaptiveLogo(
-                        modifier = Modifier
-                            .size(22.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
-                                val permalink = state.soundcloudPermalinkUrl
-                                if (!permalink.isNullOrBlank()) {
-                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
-                                }
-                            },
-                        size = 22.dp,
-                    )
+                    MiniPlayerIconButton(
+                        onClick = {
+                            val permalink = state.soundcloudPermalinkUrl
+                            if (!permalink.isNullOrBlank()) {
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
+                            }
+                        },
+                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        width = miniPlayerServiceButtonWidth,
+                    ) {
+                        SoundCloudAdaptiveLogo(size = 22.dp)
+                    }
                 } else if (isAudiomack) {
                     // Audiomack is source-locked (link-out only; not on Spotify/Apple)
                     // — always show its mark and open audiomack.com, regardless of the
                     // viewer's preferred service. Mirrors SoundCloud + iOS/web.
-                    AudiomackLogo(
-                        height = 22.dp,
-                        modifier = Modifier
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
-                                val url = state.audiomackUrl
-                                if (!url.isNullOrBlank()) {
-                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                                }
-                            },
-                    )
+                    MiniPlayerIconButton(
+                        onClick = {
+                            val url = state.audiomackUrl
+                            if (!url.isNullOrBlank()) {
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                            }
+                        },
+                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        width = miniPlayerServiceButtonWidth,
+                    ) {
+                        AudiomackLogo(height = 22.dp)
+                    }
                 } else {
                     // Glyph reflects the service the tap opens. Under Apple-primary
                     // search an `applemusic`-sourced preview is usually ALSO on
@@ -242,94 +245,95 @@ fun MiniPlayerBar(
                     } else {
                         musicService
                     }
-                    Image(
-                        painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(displayedService)),
-                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
-                        modifier = Modifier
-                            .size(22.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
-                                fun resolveAndOpen() {
-                                    val resolve = resolveLinkOut
+                    MiniPlayerIconButton(
+                        onClick = {
+                            fun resolveAndOpen() {
+                                val resolve = resolveLinkOut
+                                if (resolve != null) {
+                                    linkOutScope.launch {
+                                        val url = resolve()
+                                        if (!url.isNullOrBlank()) {
+                                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                        }
+                                    }
+                                }
+                            }
+                            fun openAppleSong() {
+                                val tid = state.trackId
+                                val amid = if (!tid.isNullOrBlank() && tid.startsWith("am:")) tid.removePrefix("am:") else null
+                                if (!amid.isNullOrEmpty()) {
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.apple.com/us/song/$amid")))
+                                    }
+                                } else {
+                                    resolveAndOpen()
+                                }
+                            }
+                            when {
+                                // Apple-SOURCED + Spotify viewer, not yet confirmed
+                                // absent: resolve the Spotify target on tap (server
+                                // ISRC-cache-first → usually zero Spotify calls). A
+                                // confirmed miss marks it absent (glyph flips to
+                                // Apple) and opens Apple instead of a dead link.
+                                isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY && !knownNotOnSpotify -> {
+                                    val resolve = resolveSpotifyFromApple
                                     if (resolve != null) {
                                         linkOutScope.launch {
                                             val url = resolve()
-                                            if (!url.isNullOrBlank()) {
-                                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                                            }
-                                        }
-                                    }
-                                }
-                                fun openAppleSong() {
-                                    val tid = state.trackId
-                                    val amid = if (!tid.isNullOrBlank() && tid.startsWith("am:")) tid.removePrefix("am:") else null
-                                    if (!amid.isNullOrEmpty()) {
-                                        runCatching {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.apple.com/us/song/$amid")))
-                                        }
-                                    } else {
-                                        resolveAndOpen()
-                                    }
-                                }
-                                when {
-                                    // Apple-SOURCED + Spotify viewer, not yet confirmed
-                                    // absent: resolve the Spotify target on tap (server
-                                    // ISRC-cache-first → usually zero Spotify calls). A
-                                    // confirmed miss marks it absent (glyph flips to
-                                    // Apple) and opens Apple instead of a dead link.
-                                    isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY && !knownNotOnSpotify -> {
-                                        val resolve = resolveSpotifyFromApple
-                                        if (resolve != null) {
-                                            linkOutScope.launch {
-                                                val url = resolve()
-                                                when {
-                                                    !url.isNullOrBlank() ->
-                                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                                                    // CONFIRMED not on Spotify → Apple, which has it.
-                                                    fm.corus.android.domain.MusicServiceLinkOut.knownNotOnSpotify(state.trackId) ->
-                                                        openAppleSong()
-                                                    // Transient / not-yet-deployed error: the tap promised
-                                                    // Spotify, so stay in Spotify (search), don't open Apple.
-                                                    else -> runCatching {
-                                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
-                                                            fm.corus.android.domain.MusicServiceLinkOut.spotifySearchUrl(state.trackName, state.artistName))))
-                                                    }
+                                            when {
+                                                !url.isNullOrBlank() ->
+                                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                                // CONFIRMED not on Spotify → Apple, which has it.
+                                                fm.corus.android.domain.MusicServiceLinkOut.knownNotOnSpotify(state.trackId) ->
+                                                    openAppleSong()
+                                                // Transient / not-yet-deployed error: the tap promised
+                                                // Spotify, so stay in Spotify (search), don't open Apple.
+                                                else -> runCatching {
+                                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
+                                                        fm.corus.android.domain.MusicServiceLinkOut.spotifySearchUrl(state.trackName, state.artistName))))
                                                 }
                                             }
-                                        } else {
-                                            openAppleSong()
                                         }
-                                    }
-                                    // Confirmed Apple-only, or an Apple-Music viewer →
-                                    // the Apple Music song page.
-                                    isAppleMusic && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY ||
-                                        musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC) -> {
+                                    } else {
                                         openAppleSong()
                                     }
-                                    musicService == fm.corus.android.data.model.MusicService.SPOTIFY -> {
-                                        val uri = state.spotifyURI
-                                        val webUrl = state.spotifyWebURL
-                                        val opened = if (!uri.isNullOrBlank()) {
-                                            try {
-                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
-                                                true
-                                            } catch (_: Exception) { false }
-                                        } else false
-                                        if (!opened && !webUrl.isNullOrBlank()) {
-                                            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
-                                        }
-                                    }
-                                    else -> {
-                                        // Apple Music / TIDAL / Deezer preference
-                                        // (spotify-source post, or Apple-only + TIDAL/Deezer):
-                                        // resolve via host (network, cached) then open.
-                                        resolveAndOpen()
+                                }
+                                // Confirmed Apple-only, or an Apple-Music viewer →
+                                // the Apple Music song page.
+                                isAppleMusic && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY ||
+                                    musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC) -> {
+                                    openAppleSong()
+                                }
+                                musicService == fm.corus.android.data.model.MusicService.SPOTIFY -> {
+                                    val uri = state.spotifyURI
+                                    val webUrl = state.spotifyWebURL
+                                    val opened = if (!uri.isNullOrBlank()) {
+                                        try {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                                            true
+                                        } catch (_: Exception) { false }
+                                    } else false
+                                    if (!opened && !webUrl.isNullOrBlank()) {
+                                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
                                     }
                                 }
-                            },
-                    )
+                                else -> {
+                                    // Apple Music / TIDAL / Deezer preference
+                                    // (spotify-source post, or Apple-only + TIDAL/Deezer):
+                                    // resolve via host (network, cached) then open.
+                                    resolveAndOpen()
+                                }
+                            }
+                        },
+                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        width = miniPlayerServiceButtonWidth,
+                    ) {
+                        Image(
+                            painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(displayedService)),
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
             }
             HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
@@ -352,6 +356,48 @@ fun MiniPlayerBar(
 
 private val knobSize = 10.dp
 private val lineHeight = 2.5.dp
+/** Invisible touch target — visual strip stays [knobSize] tall. Mirrors iOS. */
+private val scrubTouchHeight = 32.dp
+private val scrubDragMin = 6.dp
+private val scrubLongPressHapticMs = 200L
+
+/** Transport-control hit width — matches iOS MiniPlayerBar button frames. */
+private val miniPlayerControlWidth = 36.dp
+/** Service-logo hit width — matches iOS MiniPlayerBar link-out frames. */
+private val miniPlayerServiceButtonWidth = 32.dp
+
+@Composable
+private fun MiniPlayerIconButton(
+    onClick: (() -> Unit)?,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    width: Dp = miniPlayerControlWidth,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .width(width)
+            .defaultMinSize(minHeight = CorusSpacing.touchTarget)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .semantics(mergeDescendants = true) {
+                this.contentDescription = contentDescription
+                if (onClick == null) disabled()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
 
 @Composable
 private fun ScrubberOverlay(
@@ -455,80 +501,134 @@ private fun ScrubberOverlay(
 
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
     val knobSizePx = with(density) { knobSize.toPx() }
+
+    fun commitScrubRelease(scrubbing: Boolean, fraction: Float) {
+        scope.launch {
+            if (scrubbing && duration > 0L) {
+                pendingFraction = fraction
+                nowPlayingManager.seek((fraction * duration).toLong())
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            isScrubbing = false
+        }
+    }
 
     Box(
         modifier = modifier
-            .height(knobSize)
-            // Center the knob on the top edge of the mini player by lifting
-            // the strip up by knobSize/2.
-            .offset(y = -knobSize / 2)
-            .alpha(if (hasActiveTrack) 1f else 0f)
+            .height(scrubTouchHeight)
+            // Center the touch target on the top edge of the mini player.
+            .offset(y = -scrubTouchHeight / 2)
+            .alpha(if (canScrub && hasActiveTrack) 1f else 0f)
             .onSizeChanged { widthPx = it.width }
-            .pointerInput(canScrub) {
-                if (!canScrub) return@pointerInput
-                // Horizontal-only drag detection: the gesture only engages once
-                // the user has moved past the platform's horizontal touch slop,
-                // so vertical "scroll the feed" drags on the strip are
-                // ignored, and pure taps don't commit a phantom seek.
-                detectHorizontalDragGestures(
-                    onDragStart = { offset ->
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isScrubbing = true
-                        scrubFraction = if (widthPx > 0) {
-                            (offset.x / widthPx).coerceIn(0f, 1f)
-                        } else 0f
-                    },
-                    onDragEnd = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (duration > 0L) {
-                            pendingFraction = scrubFraction
-                            nowPlayingManager.seek((scrubFraction * duration).toLong())
+            .pointerInput(canScrub, widthPx, duration) {
+                val minDragPx = with(density) { scrubDragMin.toPx() }
+                coroutineScope {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        if (!canScrub) {
+                            // Invisible strip still overlaps feed content above the
+                            // bar — consume so taps don't open posts underneath.
+                            do {
+                                val event = awaitPointerEvent()
+                                event.changes.forEach { it.consume() }
+                            } while (event.changes.any { it.pressed })
+                            return@awaitEachGesture
                         }
-                        isScrubbing = false
-                    },
-                    onDragCancel = { isScrubbing = false },
-                    onHorizontalDrag = { change, _ ->
-                        if (widthPx > 0) {
-                            scrubFraction = (change.position.x / widthPx).coerceIn(0f, 1f)
+                        var pressHapticFired = false
+                        val longPressJob = launch {
+                            delay(scrubLongPressHapticMs)
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            scope.launch { isKnobVisible = true }
+                            pressHapticFired = true
                         }
-                        change.consume()
-                    },
-                )
+                        var scrubbing = false
+                        var totalX = 0f
+                        var totalY = 0f
+                        try {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                if (event.changes.all { !it.pressed }) {
+                                    if (!scrubbing && abs(totalX) <= minDragPx && abs(totalY) <= minDragPx) {
+                                        // Tap on the strip — block feed posts below.
+                                        event.changes.forEach { it.consume() }
+                                    }
+                                    commitScrubRelease(scrubbing, scrubFraction)
+                                    break
+                                }
+                                val change = event.changes.firstOrNull() ?: break
+                                val delta = change.positionChange()
+                                if (!scrubbing) {
+                                    totalX += delta.x
+                                    totalY += delta.y
+                                    val dx = abs(totalX)
+                                    val dy = abs(totalY)
+                                    // More horizontal than vertical, and past a
+                                    // small threshold — lets feed scrolls pass through.
+                                    if (dx > minDragPx && dx > dy) {
+                                        longPressJob.cancel()
+                                        scrubbing = true
+                                        scope.launch {
+                                            isScrubbing = true
+                                            isKnobVisible = true
+                                        }
+                                        if (!pressHapticFired) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                        pressHapticFired = false
+                                    }
+                                }
+                                if (scrubbing && widthPx > 0) {
+                                    scrubFraction = (change.position.x / widthPx).coerceIn(0f, 1f)
+                                    change.consume()
+                                }
+                            }
+                        } finally {
+                            longPressJob.cancel()
+                        }
+                    }
+                }
             },
-        contentAlignment = Alignment.CenterStart,
+        contentAlignment = Alignment.Center,
     ) {
-        // Track line (full width, behind everything)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(lineHeight)
-                .clip(CircleShape)
-                .background(CorusColors.Divider),
-        )
-        // Filled progress
-        val fillWidthPx = (animatedFraction * widthPx).coerceAtLeast(0f)
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(0, 0) }
-                .width(with(density) { fillWidthPx.toDp() })
-                .height(lineHeight)
-                .clip(CircleShape)
-                .background(CorusColors.Secondary),
-        )
-        // Knob
-        val knobX = (animatedFraction * widthPx - knobSizePx / 2f).coerceIn(
-            -knobSizePx / 2f,
-            (widthPx - knobSizePx / 2f).coerceAtLeast(-knobSizePx / 2f),
-        )
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(knobX.roundToInt(), 0) }
-                .size(knobSize)
-                .alpha(knobAlpha)
-                .clip(CircleShape)
-                .background(CorusColors.Secondary)
-                .zIndex(1f),
-        )
+                .height(knobSize),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            // Track line (full width, behind everything)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(lineHeight)
+                    .clip(CircleShape)
+                    .background(CorusColors.Divider),
+            )
+            // Filled progress
+            val fillWidthPx = (animatedFraction * widthPx).coerceAtLeast(0f)
+            Box(
+                modifier = Modifier
+                    .width(with(density) { fillWidthPx.toDp() })
+                    .height(lineHeight)
+                    .clip(CircleShape)
+                    .background(CorusColors.Secondary),
+            )
+            // Knob
+            val knobX = (animatedFraction * widthPx - knobSizePx / 2f).coerceIn(
+                -knobSizePx / 2f,
+                (widthPx - knobSizePx / 2f).coerceAtLeast(-knobSizePx / 2f),
+            )
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(knobX.roundToInt(), 0) }
+                    .size(knobSize)
+                    .alpha(knobAlpha)
+                    .clip(CircleShape)
+                    .background(CorusColors.Secondary)
+                    .zIndex(1f),
+            )
+        }
     }
 }

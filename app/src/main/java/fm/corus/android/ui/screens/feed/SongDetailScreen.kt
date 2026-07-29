@@ -299,6 +299,15 @@ fun SongDetailScreen(
 
     // Open the album page: use a known id instantly, else resolve on tap.
     fun goToAlbum() {
+        val parentUnreleased = menuAlbumTrack?.parentAlbumUnreleased == true
+            || posts.any { it.track.parentAlbumUnreleased }
+        if (fm.corus.android.domain.shouldRouteGoToAlbumToSong(
+                resolvedTrack.copy(parentAlbumUnreleased = parentUnreleased),
+                viewModel.prereleaseAlbumPagesEnabled,
+            )
+        ) {
+            return
+        }
         val known = effectiveAlbumId
         if (known != null) {
             openAlbum(known)
@@ -307,7 +316,16 @@ fun SongDetailScreen(
         scope.launch {
             val dest = viewModel.resolveDestinations(
                 trackId, effectiveIsrc, displayName.orEmpty(), displayArtist.orEmpty(),
+                resolvedTrack.appleMusicId,
             )
+            if (fm.corus.android.domain.shouldRouteGoToAlbumToSong(
+                    resolvedTrack.copy(parentAlbumUnreleased = parentUnreleased),
+                    viewModel.prereleaseAlbumPagesEnabled,
+                    dest.goToAlbumAsSong,
+                )
+            ) {
+                return@launch
+            }
             val alid = dest.albumId
             if (alid != null) openAlbum(alid) else ToastManager.show(albumMissMsg)
         }

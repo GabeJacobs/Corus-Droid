@@ -125,6 +125,10 @@ data class CymbalTrack(
     val appleMusicStorefront: String? = null,
     val unavailable: Boolean = false,
     val unavailableReason: String? = null,
+    /** True when the track's parent album (Apple catalog) is not released yet. */
+    val parentAlbumUnreleased: Boolean = false,
+    /** Present on album-catalog tracks — false for not-yet-released rows. */
+    val isPlayable: Boolean? = null,
     /**
      * Whether the recording is explicit. Additive backend field on every
      * searchSongs track; defaulted so `EMPTY` and existing call sites still

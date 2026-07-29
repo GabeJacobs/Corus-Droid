@@ -34,6 +34,7 @@ import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.NowPlayingState
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.FeedSwitchHintManager
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -61,6 +62,7 @@ class SocialSetupViewModel @Inject constructor(
     private val musicSearchRepository: MusicSearchRepository,
     private val tmdbRepository: TMDBRepository,
     private val exploreRepository: ExploreRepository,
+    private val feedSwitchHintManager: FeedSwitchHintManager,
     val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
@@ -303,6 +305,15 @@ class SocialSetupViewModel @Inject constructor(
 
     fun logFollowFriendsOnboardingCompleted() {
         analyticsService.logFollowFriendsOnboardingCompleted(_followedIds.value.size)
+    }
+
+    /**
+     * Zero-follow signups land on Trending (not an empty Following feed).
+     * Marked programmatic so the feed-switch coachmark can still show.
+     * Call just before finishing onboarding, while [followedIds] is still known.
+     */
+    fun applyPostOnboardingFeedDefault() {
+        feedSwitchHintManager.applyPostOnboardingFeedDefault(_followedIds.value.size)
     }
 
     // ═══════════════════════════════════════════════

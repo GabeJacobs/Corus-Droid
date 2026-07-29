@@ -42,6 +42,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.MusicService
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.ui.LocalHapticManager
@@ -179,6 +180,7 @@ fun SettingsScreen(
     var hapticsEnabled by remember { mutableStateOf(true) }
     val autoplayNextSong by settingsViewModel.autoplayNextSong.collectAsState()
     val feedFollowsNowPlaying by settingsViewModel.feedFollowsNowPlaying.collectAsState()
+    val playFullSongs by settingsViewModel.playFullSongs.collectAsState()
 
     // Messaging
     var whoCanMessageMe by remember { mutableStateOf("Everyone") }
@@ -337,6 +339,16 @@ fun SettingsScreen(
                 labelFor = { it.displayLabel },
                 onSelect = { settingsViewModel.setMusicService(it) },
             )
+
+            if (musicService == MusicService.SPOTIFY && settingsViewModel.spotifyAuthExperimentEnabled) {
+                SettingsToggleRow(
+                    icon = Icons.Filled.QueueMusic,
+                    title = stringResource(R.string.settings_row_play_full_songs_title),
+                    subtitle = stringResource(R.string.settings_row_play_full_songs_spotify_subtitle),
+                    checked = playFullSongs,
+                    onCheckedChange = { settingsViewModel.setPlayFullSongs(it) },
+                )
+            }
 
             SettingsToggleRow(
                 icon = Icons.Filled.AllInclusive,

@@ -13,12 +13,12 @@ class FeedSwitchHintManagerTest {
 
     private fun show(
         enabled: Boolean = true,
-        minSession: Int = 3,
+        minSession: Int = 1,
         maxImpressions: Int = 3,
         hasOpened: Boolean = false,
         hasDismissed: Boolean = false,
         shownThisSession: Boolean = false,
-        sessionCount: Int = 3,
+        sessionCount: Int = 1,
         shownCount: Int = 0,
         hasExploredOtherFeed: Boolean = false,
     ) = FeedSwitchHintManager.computeShouldShow(
@@ -37,10 +37,13 @@ class FeedSwitchHintManagerTest {
 
     @Test fun `hidden when the flag is disabled`() = assertFalse(show(enabled = false))
 
-    @Test fun `hidden below the min session`() = assertFalse(show(sessionCount = 2))
+    @Test fun `hidden below the min session`() = assertFalse(show(sessionCount = 0, minSession = 1))
 
     @Test fun `shows at exactly the min session`() =
-        assertTrue(show(sessionCount = 3, minSession = 3))
+        assertTrue(show(sessionCount = 1, minSession = 1))
+
+    @Test fun `shows on first session when min is 1`() =
+        assertTrue(show(sessionCount = 1, minSession = 1))
 
     @Test fun `hidden once the switcher was opened`() = assertFalse(show(hasOpened = true))
 
@@ -48,6 +51,10 @@ class FeedSwitchHintManagerTest {
 
     @Test fun `hidden once another feed was explored`() =
         assertFalse(show(hasExploredOtherFeed = true))
+
+    @Test fun `shows when trending was only auto-defaulted after onboarding`() =
+        // Callers pass hasExploredOtherFeed=false when wasAutoDefaultedToTrending.
+        assertTrue(show(hasExploredOtherFeed = false, sessionCount = 1))
 
     @Test fun `hidden after it already showed this session`() =
         assertFalse(show(shownThisSession = true))

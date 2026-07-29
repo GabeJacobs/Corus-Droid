@@ -220,8 +220,10 @@ fun PostMenuSheets(
                 onGoToAlbum = onGoToAlbumTap(
                     post = post,
                     onNavigateToAlbum = onNavigateToAlbum,
+                    onNavigateToSong = { onNavigateToSong(post.track) },
+                    prereleaseAlbumPagesEnabled = actions.remoteConfig.prereleaseAlbumPagesEnabled,
                     scope = scope,
-                    resolveAlbumId = actions::resolveAlbumIdForTrack,
+                    resolveDestinations = actions::resolveTrackDestinationsForTrack,
                     onAlbumNotFound = { ToastManager.show(albumNotFoundMsg) },
                     onResolvingChange = { isResolvingAlbum = it },
                 )
@@ -470,15 +472,17 @@ internal fun onGoToArtistTap(
 internal fun onGoToAlbumTap(
     post: CymbalPost,
     onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)?,
+    onNavigateToSong: (() -> Unit)?,
+    prereleaseAlbumPagesEnabled: Boolean,
     scope: CoroutineScope,
-    resolveAlbumId: suspend (CymbalTrack) -> String?,
+    resolveDestinations: suspend (CymbalTrack) -> fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations,
     onAlbumNotFound: () -> Unit,
     onResolvingChange: (Boolean) -> Unit = {},
 ): (() -> Unit)? {
-    val navigate = onNavigateToAlbum ?: return null
+    val navigateAlbum = onNavigateToAlbum ?: return null
     if (post.isMovie) return null
     if (post.track.source != TrackSource.SPOTIFY && post.track.source != TrackSource.APPLEMUSIC) return null
-    fun go(albumId: String) = navigate(
+    fun go(albumId: String) = navigateAlbum(
         fm.corus.android.ui.navigation.AlbumPageRoute(
             albumId = albumId,
             title = post.track.albumName.ifBlank { null },
@@ -487,7 +491,24 @@ internal fun onGoToAlbumTap(
             year = post.track.releaseDate?.take(4)?.toIntOrNull(),
         )
     )
-    return {
+    fun routeToSongIfNeeded(dest: fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations): Boolean {
+        if (fm.corus.android.domain.shouldRouteGoToAlbumToSong(
+                post.track, prereleaseAlbumPagesEnabled, dest.goToAlbumAsSong,
+            )
+        ) {
+            onNavigateToSong?.invoke()
+            return true
+        }
+        return false
+    }
+    return albumTap@{
+        if (fm.corus.android.domain.shouldRouteGoToAlbumToSong(
+                post.track, prereleaseAlbumPagesEnabled,
+            )
+        ) {
+            onNavigateToSong?.invoke()
+            return@albumTap
+        }
         val known = post.track.albumId?.takeIf { it.isNotBlank() }
         if (known != null) {
             go(known)
@@ -495,7 +516,9 @@ internal fun onGoToAlbumTap(
             scope.launch {
                 onResolvingChange(true)
                 try {
-                    val resolved = resolveAlbumId(post.track)?.takeIf { it.isNotBlank() }
+                    val dest = resolveDestinations(post.track)
+                    if (routeToSongIfNeeded(dest)) return@launch
+                    val resolved = dest.albumId?.takeIf { it.isNotBlank() }
                     if (resolved != null) go(resolved) else onAlbumNotFound()
                 } finally {
                     onResolvingChange(false)

@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -51,6 +53,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -66,6 +69,7 @@ import fm.corus.android.ui.components.FullScreenPhotoViewer
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.LocalContentHaze
+import fm.corus.android.ui.components.blockTouchPassthrough
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
@@ -326,16 +330,23 @@ fun MainTabScreen(
     Scaffold(
         bottomBar = {
             Column(
-                modifier = if (FrostedBottomBar) {
-                    Modifier.hazeEffect(state = bottomHaze) {
-                        blurRadius = 30.dp
-                        backgroundColor = bottomFrost
-                        // Bottom bar is a touch whiter than the top bars (0.78).
-                        tints = listOf(HazeTint(bottomFrost.copy(alpha = 0.88f)))
-                    }
-                } else {
-                    Modifier
-                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (FrostedBottomBar) {
+                            Modifier.hazeEffect(state = bottomHaze) {
+                                blurRadius = 30.dp
+                                backgroundColor = bottomFrost
+                                // Bottom bar is a touch whiter than the top bars (0.78).
+                                tints = listOf(HazeTint(bottomFrost.copy(alpha = 0.88f)))
+                            }
+                        } else {
+                            Modifier
+                        },
+                    )
+                    // Feed scrolls under this bar; without a touch handler, Compose
+                    // lets taps on transparent/padding regions reach posts below.
+                    .blockTouchPassthrough(),
             ) {
                 MiniPlayerBar(
                     nowPlayingManager = viewModel.nowPlayingManager,
@@ -811,6 +822,28 @@ internal fun notificationTabBadge(
     notificationCount + unreadMessageCount
 }
 
+/**
+ * Floor for the gesture-navigation strip under the tab bar. 24dp is what AOSP
+ * (and Pixel) report for `navigationBars` in gesture mode; several OEMs report a
+ * thinner strip, which leaves the tab labels crowding the gesture handle.
+ */
+private val MinGestureNavPadding = 24.dp
+
+/**
+ * Bottom padding for the tab bar, given the system-reported `navigationBars` inset.
+ *
+ * `navigationBarsPadding()` alone hands the spacing to the OEM, and the reported
+ * gesture inset varies per manufacturer, so the same build looks roomy on Pixel and
+ * cramped elsewhere. Flooring it normalizes gesture mode without touching anything
+ * else:
+ *  - 3-button nav reports ~48dp, comfortably above the floor, so it is unchanged.
+ *  - A 0 inset means no gesture handle is drawn at all (e.g. Samsung with the
+ *    gesture hint hidden). There is nothing to clear, so we add nothing rather
+ *    than opening a dead 24dp gap.
+ */
+internal fun gestureNavBottomPadding(navInset: Dp): Dp =
+    if (navInset <= 0.dp) 0.dp else maxOf(navInset, MinGestureNavPadding)
+
 @Composable
 internal fun CorusBottomBar(
     selectedTab: CorusTab,
@@ -818,6 +851,8 @@ internal fun CorusBottomBar(
     onTabSelected: (CorusTab) -> Unit,
     onComposeTapped: () -> Unit,
     frosted: Boolean = false,
+    // Overridable so tests can drive the nav strip; Robolectric always reports 0.
+    navInset: Dp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
 ) {
     Column {
         // Top divider line. Hidden while frosted so the glass reads as one
@@ -837,7 +872,13 @@ internal fun CorusBottomBar(
                 // this background extended down into that strip).
                 .background(if (frosted) Color.Transparent else CorusColors.Background)
                 .padding(top = CorusSpacing.sm)
-                .navigationBarsPadding(),
+                // Same job navigationBarsPadding() did (extend the bar down through
+                // the nav strip and consume that inset), but with a floor so the
+                // gesture handle gets Pixel-like clearance on every OEM. See
+                // [gestureNavBottomPadding].
+                .consumeWindowInsets(WindowInsets.navigationBars)
+                .padding(bottom = gestureNavBottomPadding(navInset))
+                .height(56.dp), // SYNC-CHECK: breaks measured-height coupling
             // Center every slot against the full bar height so the "+" lines up with
             // the icon+label stack of the other tabs (the tab items are the tallest
             // children, so centering doesn't move them — it only drops the "+" to

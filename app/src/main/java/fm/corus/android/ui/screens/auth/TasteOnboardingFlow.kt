@@ -171,6 +171,7 @@ internal fun TasteOnboardingFlow(
     }
     val finishFlow: () -> Unit = {
         viewModel.logFollowFriendsOnboardingCompleted()
+        viewModel.applyPostOnboardingFeedDefault()
         if (PushNotificationPermission.shouldRequestPushPermission(context)) {
             pushPermissionLauncher.launch(PushNotificationPermission.permission)
         } else {

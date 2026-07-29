@@ -21,6 +21,7 @@ import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.domain.FullSongPlayCoordinator
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
@@ -88,12 +89,15 @@ class ProfileFeedViewModel @Inject constructor(
         )
 
     override suspend fun resolveAlbumIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
-        cloudFunctions.resolveTrackDestinations(track.id, track.isrc, track.name, track.artistName)
-            .albumId?.takeIf { it.isNotBlank() }
+        resolveTrackDestinationsForTrack(track).albumId?.takeIf { it.isNotBlank() }
+
+    override suspend fun resolveTrackDestinationsForTrack(track: fm.corus.android.data.model.CymbalTrack): fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations =
+        cloudFunctions.resolveTrackDestinations(
+            track.id, track.isrc, track.name, track.artistName, track.appleMusicId,
+        )
 
     override suspend fun resolveArtistIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
-        cloudFunctions.resolveTrackDestinations(track.id, track.isrc, track.name, track.artistName)
-            .artistIds.firstOrNull { it.isNotBlank() }
+        resolveTrackDestinationsForTrack(track).artistIds.firstOrNull { it.isNotBlank() }
 
     /**
      * Mirrors iOS @AppStorage("feedFollowsNowPlaying"). Same key as
@@ -460,18 +464,32 @@ class ProfileFeedViewModel @Inject constructor(
             val trackPosts = _posts.value.filter { it.mediaType == MediaType.TRACK }
             val queue = trackPosts.map { it.toQueuedTrack() }
             val track = post.toQueuedTrack()
-            if (queue.any { it.trackId == track.trackId }) {
-                nowPlayingManager.play(track = track, queue = queue)
-                // Re-wire the paginated-feed hook (play() resets it) so the next
-                // button can keep advancing as the profile feed paginates.
-                nowPlayingManager.updateFeedQueue(
-                    newQueue = queue,
-                    hasMore = _hasMore.value,
-                    loadMore = { loadMoreSuspending() },
-                )
-            } else {
-                nowPlayingManager.play(track = track, queue = listOf(track))
-            }
+            val outcome = FullSongPlayCoordinator.playTapOutcome(
+                track = post.track,
+                sourcePostId = post.id,
+                queue = queue,
+                nowPlaying = nowPlayingManager,
+                remoteConfig = remoteConfig,
+                musicService = musicServicePreference.current.value,
+                playFullSongs = preferencesDataStore.playFullSongsSync(),
+            )
+            FullSongPlayCoordinator.applyPlayTapOutcome(
+                outcome = outcome,
+                nowPlaying = nowPlayingManager,
+                onPreview = {
+                    if (queue.any { it.trackId == track.trackId }) {
+                        nowPlayingManager.play(track = track, queue = queue)
+                        nowPlayingManager.updateFeedQueue(
+                            newQueue = queue,
+                            hasMore = _hasMore.value,
+                            loadMore = { loadMoreSuspending() },
+                        )
+                    } else {
+                        nowPlayingManager.play(track = track, queue = listOf(track))
+                    }
+                },
+                scope = viewModelScope,
+            )
         }
     }
 

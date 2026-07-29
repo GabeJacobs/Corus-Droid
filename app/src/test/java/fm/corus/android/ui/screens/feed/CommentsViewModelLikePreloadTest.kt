@@ -155,6 +155,7 @@ class CommentsViewModelLikePreloadTest {
         cloudFunctions = mock(),
         musicServicePreference = mock(),
         remoteConfigService = remoteConfig,
+        preferencesDataStore = mock(),
         gifRepository = gifRepo,
         analyticsService = analytics,
         context = context,

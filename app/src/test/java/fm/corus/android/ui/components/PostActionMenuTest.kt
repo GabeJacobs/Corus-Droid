@@ -5,6 +5,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.data.remote.CloudFunctionsDataSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -208,10 +209,21 @@ class PostActionMenuTest {
         post: CymbalPost,
         onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)?,
         scope: CoroutineScope = TestScope(),
-        resolveAlbumId: suspend (CymbalTrack) -> String? = { null },
+        resolveDestinations: suspend (CymbalTrack) -> fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations = {
+            fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations()
+        },
         onAlbumNotFound: () -> Unit = {},
         onResolvingChange: (Boolean) -> Unit = {},
-    ) = onGoToAlbumTap(post, onNavigateToAlbum, scope, resolveAlbumId, onAlbumNotFound, onResolvingChange)
+    ) = onGoToAlbumTap(
+        post,
+        onNavigateToAlbum,
+        onNavigateToSong = {},
+        prereleaseAlbumPagesEnabled = false,
+        scope,
+        resolveDestinations,
+        onAlbumNotFound,
+        onResolvingChange,
+    )
 
     private fun artistTap(
         post: CymbalPost,
@@ -329,7 +341,7 @@ class PostActionMenuTest {
             trackPost(albumId = null),
             onNavigateToAlbum = { routed = it },
             scope = scope,
-            resolveAlbumId = { "resolvedAlbum" },
+            resolveDestinations = { CloudFunctionsDataSource.TrackDestinations(albumId = "resolvedAlbum") },
         )
         tap?.invoke()
         assertTrue(routed?.albumId == "resolvedAlbum")
@@ -344,7 +356,7 @@ class PostActionMenuTest {
             trackPost(albumId = null),
             onNavigateToAlbum = { routed = it },
             scope = scope,
-            resolveAlbumId = { null },
+            resolveDestinations = { CloudFunctionsDataSource.TrackDestinations(albumId = null) },
             onAlbumNotFound = { missed = true },
         )
         tap?.invoke()
@@ -360,7 +372,7 @@ class PostActionMenuTest {
             trackPost(albumId = null),
             onNavigateToAlbum = {},
             scope = scope,
-            resolveAlbumId = { "resolvedAlbum" },
+            resolveDestinations = { CloudFunctionsDataSource.TrackDestinations(albumId = "resolvedAlbum") },
             onResolvingChange = { states.add(it) },
         )
         tap?.invoke()

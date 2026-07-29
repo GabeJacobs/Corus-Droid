@@ -15,6 +15,8 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
+import fm.corus.android.domain.FullSongPlayCoordinator
+import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
@@ -45,6 +47,7 @@ class PostDetailViewModel @Inject constructor(
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
+    private val preferencesDataStore: PreferencesDataStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
 
@@ -63,12 +66,15 @@ class PostDetailViewModel @Inject constructor(
         )
 
     override suspend fun resolveAlbumIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
-        cloudFunctions.resolveTrackDestinations(track.id, track.isrc, track.name, track.artistName)
-            .albumId?.takeIf { it.isNotBlank() }
+        resolveTrackDestinationsForTrack(track).albumId?.takeIf { it.isNotBlank() }
+
+    override suspend fun resolveTrackDestinationsForTrack(track: fm.corus.android.data.model.CymbalTrack): fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations =
+        cloudFunctions.resolveTrackDestinations(
+            track.id, track.isrc, track.name, track.artistName, track.appleMusicId,
+        )
 
     override suspend fun resolveArtistIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
-        cloudFunctions.resolveTrackDestinations(track.id, track.isrc, track.name, track.artistName)
-            .artistIds.firstOrNull { it.isNotBlank() }
+        resolveTrackDestinationsForTrack(track).artistIds.firstOrNull { it.isNotBlank() }
 
     private val _post = MutableStateFlow<CymbalPost?>(null)
     val post: StateFlow<CymbalPost?> = _post.asStateFlow()
@@ -217,17 +223,36 @@ class PostDetailViewModel @Inject constructor(
     fun playPreview(post: CymbalPost) {
         nowPlayingManager.lastUserInitiatedSourcePostId = post.id
         viewModelScope.launch {
-            nowPlayingManager.play(
-                trackId = post.track.id,
-                trackName = post.track.name,
-                artistName = post.track.artistName,
-                albumArtURL = post.track.albumArtURL,
-                albumArtLargeURL = post.track.albumArtLargeURL,
-                previewUrl = post.track.previewUrl,
-                spotifyURI = post.track.spotifyURI,
-                spotifyWebURL = post.track.spotifyWebURL,
-                isrc = post.track.isrc,
+            val outcome = FullSongPlayCoordinator.playTapOutcome(
+                track = post.track,
                 sourcePostId = post.id,
+                nowPlaying = nowPlayingManager,
+                remoteConfig = remoteConfig,
+                musicService = musicServicePreference.current.value,
+                playFullSongs = preferencesDataStore.playFullSongsSync(),
+            )
+            FullSongPlayCoordinator.applyPlayTapOutcome(
+                outcome = outcome,
+                nowPlaying = nowPlayingManager,
+                onPreview = {
+                    nowPlayingManager.play(
+                        trackId = post.track.id,
+                        trackName = post.track.name,
+                        artistName = post.track.artistName,
+                        albumArtURL = post.track.albumArtURL,
+                        albumArtLargeURL = post.track.albumArtLargeURL,
+                        previewUrl = post.track.previewUrl,
+                        spotifyURI = post.track.spotifyURI,
+                        spotifyWebURL = post.track.spotifyWebURL,
+                        isrc = post.track.isrc,
+                        sourcePostId = post.id,
+                        source = post.track.source,
+                        soundcloudId = post.track.soundcloudId,
+                        soundcloudPermalinkUrl = post.track.soundcloudPermalinkUrl,
+                        audiomackUrl = post.track.audiomackUrl,
+                    )
+                },
+                scope = viewModelScope,
             )
         }
     }

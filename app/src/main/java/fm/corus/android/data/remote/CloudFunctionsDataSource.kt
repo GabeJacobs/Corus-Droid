@@ -233,6 +233,8 @@ internal fun parseAlbumCatalogResponse(data: Map<String, Any?>?): AlbumCatalog? 
         coverUrl = (album["coverUrl"] as? String)?.ifEmpty { null },
         tracks = (data["tracks"] as? List<Map<String, Any?>>)
             ?.mapNotNull { parseUnifiedTrack(it) } ?: emptyList(),
+        releaseDate = (album["releaseDate"] as? String)?.ifEmpty { null },
+        isPreRelease = album["isPreRelease"] as? Boolean ?: false,
     )
 }
 
@@ -1309,6 +1311,7 @@ class CloudFunctionsDataSource @Inject constructor(
     data class TrackDestinations(
         val artistIds: List<String> = emptyList(),
         val albumId: String? = null,
+        val goToAlbumAsSong: Boolean = false,
     )
 
     suspend fun resolveTrackDestinations(
@@ -1316,6 +1319,7 @@ class CloudFunctionsDataSource @Inject constructor(
         isrc: String?,
         name: String,
         artist: String,
+        appleMusicId: String? = null,
     ): TrackDestinations {
         return try {
             val params = mutableMapOf<String, Any>(
@@ -1324,13 +1328,15 @@ class CloudFunctionsDataSource @Inject constructor(
                 "artist" to artist,
             )
             if (!isrc.isNullOrBlank()) params["isrc"] = isrc
+            if (!appleMusicId.isNullOrBlank()) params["appleMusicId"] = appleMusicId
             val result = functions.getHttpsCallable("resolveTrackDestinations").call(params).await()
             val data = result.getData() as? Map<*, *>
             val artistIds = (data?.get("artistIds") as? List<*>)
                 ?.mapNotNull { (it as? String)?.takeIf { s -> s.isNotBlank() } }
                 ?: emptyList()
             val albumId = (data?.get("albumId") as? String)?.takeIf { it.isNotBlank() }
-            TrackDestinations(artistIds, albumId)
+            val goToAlbumAsSong = data?.get("goToAlbumAsSong") as? Boolean ?: false
+            TrackDestinations(artistIds, albumId, goToAlbumAsSong)
         } catch (_: Exception) {
             TrackDestinations()
         }
@@ -2076,7 +2082,7 @@ class CloudFunctionsDataSource @Inject constructor(
     /** Result of [spotifyTrackLookup]. [found] == false means the backend
      *  CONFIRMED the track isn't on Spotify (caller may remember it); a transient
      *  error surfaces as a thrown exception, not this type. */
-    data class SpotifyLookupResult(val found: Boolean, val webUrl: String?)
+    data class SpotifyLookupResult(val found: Boolean, val webUrl: String?, val spotifyUri: String? = null)
 
     /** Resolve an Apple/SoundCloud-sourced track to its Spotify OPEN target (the
      *  reverse of [appleMusicLinkOutUrl]). ISRC-cache-first server-side, so the
@@ -2087,8 +2093,9 @@ class CloudFunctionsDataSource @Inject constructor(
         val result = functions.getHttpsCallable("spotifyTrackLookup").call(linkOutParams(name, artist, isrc, appleTrackId)).await()
         val data = result.getData() as? Map<String, Any?> ?: return SpotifyLookupResult(false, null)
         val webUrl = (data["spotifyWebURL"] as? String)?.ifEmpty { null }
-        val found = (data["found"] as? Boolean ?: false) && webUrl != null
-        return SpotifyLookupResult(found, webUrl)
+        val spotifyUri = (data["spotifyURI"] as? String)?.ifEmpty { null }
+        val found = (data["found"] as? Boolean ?: false) && (webUrl != null || spotifyUri != null)
+        return SpotifyLookupResult(found, webUrl, spotifyUri)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -2193,6 +2200,12 @@ class CloudFunctionsDataSource @Inject constructor(
     /** Thrown when the account is banned/suspended. */
     class PostingBannedException : Exception("POSTING_BANNED")
 
+    /** Thrown when proactive UGC moderation rejects the caption
+     *  (INVALID_ARGUMENT + details.moderationBlocked). Dark until the
+     *  server's ugc_text_moderation_enabled Remote Config flag flips.
+     *  Mirrors iOS `PostService.CreatePostError.captionBlocked`. */
+    class CaptionBlockedException : Exception("CAPTION_BLOCKED")
+
     @Suppress("UNCHECKED_CAST")
     suspend fun createPost(payload: Map<String, Any?>): CreatePostResult {
         try {
@@ -2228,6 +2241,13 @@ class CloudFunctionsDataSource @Inject constructor(
                     // The share unreleased gate rides FAILED_PRECONDITION too.
                     if (e.message?.contains("unreleased") == true) throw e
                     throw PostingBannedException()
+                }
+                com.google.firebase.functions.FirebaseFunctionsException.Code.INVALID_ARGUMENT -> {
+                    // INVALID_ARGUMENT also rides plain validation failures
+                    // ("caption too long") — pivot on the details flag.
+                    val details = e.details as? Map<String, Any?>
+                    if (details?.get("moderationBlocked") == true) throw CaptionBlockedException()
+                    throw e
                 }
                 else -> throw e
             }

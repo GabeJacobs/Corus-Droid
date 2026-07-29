@@ -45,6 +45,7 @@ class SongDetailViewModelArtistResolutionTest {
             commentDeletedEvent = mock { on { events } doReturn kotlinx.coroutines.flow.MutableSharedFlow<fm.corus.android.domain.CommentDeletedEvent.Payload>() },
             cloudFunctions = cloudFunctions,
             remoteConfigService = mock(),
+            preferencesDataStore = mock(),
             musicServicePreference = mock(),
             authRepository = mock { on { currentUserId } doReturn "me" },
             userRepository = mock(),

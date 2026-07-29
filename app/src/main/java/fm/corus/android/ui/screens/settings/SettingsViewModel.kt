@@ -47,6 +47,17 @@ class SettingsViewModel @Inject constructor(
     val deezerEnabled: Boolean
         get() = remoteConfigService.deezerEnabled
 
+    /** Gate for the Spotify Connect full-playback experiment settings row. */
+    val spotifyAuthExperimentEnabled: Boolean
+        get() = remoteConfigService.spotifyAuthExperimentEnabled
+
+    val playFullSongs: StateFlow<Boolean> = preferencesDataStore.playFullSongs
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun setPlayFullSongs(value: Boolean) {
+        viewModelScope.launch { preferencesDataStore.setPlayFullSongs(value) }
+    }
+
     /** Persist the user's music-service choice (local cache + Firestore). */
     fun setMusicService(service: MusicService) {
         analyticsService.logMusicServiceSelected(service.value)

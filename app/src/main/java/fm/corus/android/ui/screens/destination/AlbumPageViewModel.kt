@@ -53,6 +53,9 @@ class AlbumPageViewModel @Inject constructor(
     val immersiveHeaderEnabled: Boolean
         get() = remoteConfigService.immersiveArtistHeaderEnabled
 
+    val prereleaseAlbumPagesEnabled: Boolean
+        get() = remoteConfigService.prereleaseAlbumPagesEnabled
+
     // ── Album share sheet ── (mirrors song-detail share plumbing; sends a
     // `sharedAlbum` DM deep-linking to this page. Reuses rankShareContacts.)
 

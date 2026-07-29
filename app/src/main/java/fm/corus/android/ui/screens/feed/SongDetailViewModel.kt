@@ -14,7 +14,9 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
+import fm.corus.android.domain.FullSongPlayCoordinator
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.R
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.ui.components.ToastManager
@@ -35,6 +37,7 @@ class SongDetailViewModel @Inject constructor(
     private val commentDeletedEvent: CommentDeletedEvent,
     private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
     private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
+    private val preferencesDataStore: PreferencesDataStore,
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
@@ -46,6 +49,9 @@ class SongDetailViewModel @Inject constructor(
      *  bar) song header. Shares the artist header's debug-on / RC-gated flag. */
     val immersiveHeaderEnabled: Boolean
         get() = remoteConfigService.immersiveArtistHeaderEnabled
+
+    val prereleaseAlbumPagesEnabled: Boolean
+        get() = remoteConfigService.prereleaseAlbumPagesEnabled
 
     /**
      * Resolve the link-out URL for a Spotify-source track in the viewer's
@@ -187,9 +193,10 @@ class SongDetailViewModel @Inject constructor(
         isrc: String?,
         name: String,
         artist: String,
+        appleMusicId: String? = null,
     ): fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations {
         _isResolvingDestination.value = true
-        val dest = cloudFunctions.resolveTrackDestinations(trackId, isrc, name, artist)
+        val dest = cloudFunctions.resolveTrackDestinations(trackId, isrc, name, artist, appleMusicId)
         _isResolvingDestination.value = false
         dest.artistIds.firstOrNull()?.let { _resolvedArtistId.value = it }
         dest.albumId?.takeIf { it.isNotBlank() }?.let { _resolvedAlbumId.value = it }
@@ -237,19 +244,48 @@ class SongDetailViewModel @Inject constructor(
         soundcloudPermalinkUrl: String? = null,
     ) {
         viewModelScope.launch {
-            nowPlayingManager.play(
-                trackId = trackId,
-                trackName = trackName,
+            val track = CymbalTrack(
+                id = trackId,
+                name = trackName,
                 artistName = artistName,
+                albumName = "",
                 albumArtURL = albumArtURL,
                 albumArtLargeURL = albumArtLargeURL,
                 previewUrl = previewUrl,
-                spotifyURI = spotifyURI,
-                spotifyWebURL = spotifyWebURL,
+                spotifyURI = spotifyURI ?: "",
+                spotifyWebURL = spotifyWebURL ?: "",
                 isrc = isrc,
                 source = source,
                 soundcloudId = soundcloudId,
                 soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+            )
+            val outcome = FullSongPlayCoordinator.playTapOutcome(
+                track = track,
+                nowPlaying = nowPlayingManager,
+                remoteConfig = remoteConfigService,
+                musicService = musicServicePreference.current.value,
+                playFullSongs = preferencesDataStore.playFullSongsSync(),
+            )
+            FullSongPlayCoordinator.applyPlayTapOutcome(
+                outcome = outcome,
+                nowPlaying = nowPlayingManager,
+                onPreview = {
+                    nowPlayingManager.play(
+                        trackId = trackId,
+                        trackName = trackName,
+                        artistName = artistName,
+                        albumArtURL = albumArtURL,
+                        albumArtLargeURL = albumArtLargeURL,
+                        previewUrl = previewUrl,
+                        spotifyURI = spotifyURI,
+                        spotifyWebURL = spotifyWebURL,
+                        isrc = isrc,
+                        source = source,
+                        soundcloudId = soundcloudId,
+                        soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+                    )
+                },
+                scope = viewModelScope,
             )
         }
     }

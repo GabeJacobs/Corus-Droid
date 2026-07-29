@@ -110,7 +110,10 @@ fun SocialSetupFlow(
             // ends onboarding (and fires the push-permission prompt).
             SetupStep.MUSIC_SERVICE -> MusicServiceScreen(
                 viewModel = viewModel,
-                onFinished = onFinished,
+                onFinished = {
+                    viewModel.applyPostOnboardingFeedDefault()
+                    onFinished()
+                },
             )
         }
     }

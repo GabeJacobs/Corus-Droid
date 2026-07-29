@@ -29,9 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -512,6 +512,7 @@ internal fun CatalogTrackRow(
      *  place of the duration, while the subtitle keeps album·year. Matches web +
      *  iOS. */
     corusStats: TrackCorusStats? = null,
+    playbackEnabled: Boolean = true,
     onRowTap: () -> Unit,
     /** Fired when a NEW preview starts (not on pause/resume of the current
      *  track) — the analytics hook. */
@@ -522,34 +523,36 @@ internal fun CatalogTrackRow(
     val isCurrent = state.trackId == track.id
     val isLoadingThis = loadingTrackId == track.id
     val isPlayingThis = isCurrent && state.isPlaying
-    val scope = rememberCoroutineScope()
 
-    val togglePlay: () -> Unit = {
+    val togglePlay: () -> Unit = togglePlay@{
+        if (!playbackEnabled) return@togglePlay
         if (isCurrent) {
             nowPlaying.togglePlayPause()
         } else {
-            scope.launch {
-                if (queue.isEmpty()) {
-                    nowPlaying.play(
-                        trackId = track.id,
-                        trackName = track.name,
-                        artistName = track.artistName,
-                        albumArtURL = track.albumArtURL,
-                        albumArtLargeURL = track.albumArtLargeURL,
-                        previewUrl = track.previewUrl,
-                        spotifyURI = track.spotifyURI.ifBlank { null },
-                        spotifyWebURL = track.spotifyWebURL.ifBlank { null },
-                        isrc = track.isrc,
-                        source = track.source,
-                        soundcloudId = track.soundcloudId,
-                        soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
-                    )
-                } else {
-                    // Play this track as part of the surrounding list so the
-                    // queue advances past it (mirrors the feed's playPreview).
-                    nowPlaying.play(track = track.toQueuedTrack(origin), queue = queue)
-                }
-            }
+            nowPlaying.routePlayTap(
+                track = track,
+                queue = queue,
+                onPreview = {
+                    if (queue.isEmpty()) {
+                        nowPlaying.play(
+                            trackId = track.id,
+                            trackName = track.name,
+                            artistName = track.artistName,
+                            albumArtURL = track.albumArtURL,
+                            albumArtLargeURL = track.albumArtLargeURL,
+                            previewUrl = track.previewUrl,
+                            spotifyURI = track.spotifyURI.ifBlank { null },
+                            spotifyWebURL = track.spotifyWebURL.ifBlank { null },
+                            isrc = track.isrc,
+                            source = track.source,
+                            soundcloudId = track.soundcloudId,
+                            soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
+                        )
+                    } else {
+                        nowPlaying.play(track = track.toQueuedTrack(origin), queue = queue)
+                    }
+                },
+            )
             onPreviewStarted()
         }
     }
@@ -561,7 +564,8 @@ internal fun CatalogTrackRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = if (rowTapPlays) togglePlay else onRowTap)
+            .graphicsLayer { alpha = if (playbackEnabled) 1f else 0.55f }
+            .clickable(onClick = if (rowTapPlays && playbackEnabled) togglePlay else onRowTap)
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs + 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),

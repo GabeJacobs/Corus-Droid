@@ -411,8 +411,10 @@ class AudiomackTrackTest {
             onGoToAlbumTap(
                 audiomackPost(),
                 onNavigateToAlbum = {},
+                onNavigateToSong = {},
+                prereleaseAlbumPagesEnabled = false,
                 scope = kotlinx.coroutines.test.TestScope(),
-                resolveAlbumId = { null },
+                resolveDestinations = { fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations() },
                 onAlbumNotFound = {},
             )
         )

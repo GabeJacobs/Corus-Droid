@@ -79,9 +79,9 @@ class CorusPlaybackService : MediaSessionService() {
         // whenever the track or play/pause state changes.
         serviceScope.launch {
             nowPlayingManager.state
-                .map { it.trackId to it.isPlaying }
+                .map { Triple(it.trackId, it.trackName, it.isPlaying) }
                 .distinctUntilChanged()
-                .collect { (trackId, _) ->
+                .collect { (trackId, _, _) ->
                     if (isForeground && trackId != null) {
                         getSystemService(NotificationManager::class.java)
                             ?.notify(NOTIFICATION_ID, buildNotification())

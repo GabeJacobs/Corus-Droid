@@ -175,6 +175,8 @@ data class AlbumCatalog(
     val year: Int? = null,
     val coverUrl: String? = null,
     val tracks: List<CymbalTrack> = emptyList(),
+    val releaseDate: String? = null,
+    val isPreRelease: Boolean = false,
 )
 
 /** getDirectorDetail response: TMDB person + filmography (films directed). */

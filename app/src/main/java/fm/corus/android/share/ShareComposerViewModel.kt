@@ -335,7 +335,15 @@ class ShareComposerViewModel @Inject constructor(
 
     // ── Post ───────────────────────────────────────────────────────────────
 
-    fun post(limitMessage: String, hardCapMessage: String, bannedMessage: String, genericMessage: String) {
+    fun post(
+        limitMessage: String,
+        hardCapMessage: String,
+        bannedMessage: String,
+        genericMessage: String,
+        // Defaulted so existing call sites keep compiling; the string only
+        // surfaces once the server's ugc_text_moderation_enabled flag flips.
+        moderationMessage: String = "Your caption may go against our community guidelines. Please edit it and try again.",
+    ) {
         val current = _track.value ?: return
         if (_phase.value != Phase.Ready) return
         _phase.value = Phase.Posting
@@ -435,6 +443,9 @@ class ShareComposerViewModel @Inject constructor(
             } catch (e: CloudFunctionsDataSource.PostingBannedException) {
                 _phase.value = Phase.Ready
                 ToastManager.show(bannedMessage)
+            } catch (e: CloudFunctionsDataSource.CaptionBlockedException) {
+                _phase.value = Phase.Ready
+                ToastManager.show(moderationMessage)
             } catch (e: com.google.firebase.functions.FirebaseFunctionsException) {
                 when {
                     e.message?.contains("no_catalog_match") == true ->

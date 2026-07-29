@@ -59,6 +59,7 @@ internal fun parseUnifiedTrack(d: Map<String, Any?>): CymbalTrack? {
         appleMusicId = (d["appleMusicId"] as? String)?.ifEmpty { null },
         // Additive backend field — drives the compact "E" badge in search rows.
         explicit = (d["explicit"] as? Boolean) ?: false,
+        isPlayable = d["isPlayable"] as? Boolean,
     )
 }
 

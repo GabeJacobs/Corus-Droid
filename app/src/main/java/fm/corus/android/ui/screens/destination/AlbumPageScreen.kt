@@ -136,6 +136,8 @@ fun AlbumPageScreen(
     val artistName = catalog?.artistName?.takeIf { it.isNotBlank() } ?: artistHint
     val cover = catalog?.coverUrl ?: coverUrlHint
     val artistId = catalog?.artistIds?.firstOrNull()
+    val showPreReleaseAlbumUI =
+        viewModel.prereleaseAlbumPagesEnabled && (catalog?.isPreRelease == true)
 
     // Marks tracks played from this page so the mini-player returns here and
     // scrolls to the song.
@@ -331,11 +333,18 @@ fun AlbumPageScreen(
                                 .shadow(4.dp, RoundedCornerShape(8.dp))
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable(enabled = albumQueue.isNotEmpty()) {
-                                    val first = albumQueue.firstOrNull() ?: return@clickable
-                                    viewModel.analyticsService.logAlbumTrackPreviewed(albumId, first.trackId)
-                                    scope.launch {
-                                        viewModel.nowPlayingManager.play(track = first, queue = albumQueue)
-                                    }
+                                    val firstTrack = tracks.firstOrNull() ?: return@clickable
+                                    viewModel.analyticsService.logAlbumTrackPreviewed(albumId, firstTrack.id)
+                                    viewModel.nowPlayingManager.routePlayTap(
+                                        track = firstTrack,
+                                        queue = albumQueue,
+                                        onPreview = {
+                                            viewModel.nowPlayingManager.play(
+                                                track = firstTrack.toQueuedTrack(albumOrigin),
+                                                queue = albumQueue,
+                                            )
+                                        },
+                                    )
                                 },
                             contentScale = ContentScale.Crop,
                         )
@@ -391,6 +400,16 @@ fun AlbumPageScreen(
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
                     )
+                    if (showPreReleaseAlbumUI) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                        Text(
+                            text = stringResource(R.string.destination_prerelease_album_hint),
+                            style = CorusFont.caption,
+                            color = CorusColors.Secondary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                 }
             }
@@ -442,6 +461,7 @@ fun AlbumPageScreen(
                             number = index + 1,
                             queue = albumQueue,
                             origin = albumOrigin,
+                            playbackEnabled = !showPreReleaseAlbumUI || fm.corus.android.domain.trackIsCatalogPlayable(track),
                             // Trailing slot shows how many Corus users shared this
                             // track (from getAlbumPosts) in place of its duration,
                             // blank when none. No facepile on album rows.

@@ -14,7 +14,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.domain.NowPlayingManager
-import kotlinx.coroutines.launch
 
 /**
  * Album art with a tap-to-preview play/pause overlay — same UX as
@@ -44,7 +42,6 @@ fun SongPreviewArtwork(
     val loadingTrackId by nowPlaying.loadingTrackId.collectAsState()
     val isLoading = loadingTrackId == track.id
     val isPlaying = state.trackId == track.id && state.isPlaying
-    val scope = rememberCoroutineScope()
 
     Box(
         modifier = modifier
@@ -54,22 +51,25 @@ fun SongPreviewArtwork(
                 if (state.trackId == track.id) {
                     nowPlaying.togglePlayPause()
                 } else {
-                    scope.launch {
-                        nowPlaying.play(
-                            trackId = track.id,
-                            trackName = track.name,
-                            artistName = track.artistName,
-                            albumArtURL = track.albumArtURL,
-                            albumArtLargeURL = track.albumArtLargeURL,
-                            previewUrl = track.previewUrl,
-                            spotifyURI = track.spotifyURI,
-                            spotifyWebURL = track.spotifyWebURL,
-                            isrc = track.isrc,
-                            source = track.source,
-                            soundcloudId = track.soundcloudId,
-                            soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
-                        )
-                    }
+                    nowPlaying.routePlayTap(
+                        track = track,
+                        onPreview = {
+                            nowPlaying.play(
+                                trackId = track.id,
+                                trackName = track.name,
+                                artistName = track.artistName,
+                                albumArtURL = track.albumArtURL,
+                                albumArtLargeURL = track.albumArtLargeURL,
+                                previewUrl = track.previewUrl,
+                                spotifyURI = track.spotifyURI,
+                                spotifyWebURL = track.spotifyWebURL,
+                                isrc = track.isrc,
+                                source = track.source,
+                                soundcloudId = track.soundcloudId,
+                                soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
+                            )
+                        },
+                    )
                 }
             },
     ) {

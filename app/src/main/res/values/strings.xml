@@ -56,6 +56,8 @@
     <string name="sync_contacts_permission_denied">Allow contacts access in your device settings to find friends on Corus</string>
     <string name="settings_section_general">GENERAL</string>
     <string name="settings_row_music_service">Music Service</string>
+    <string name="settings_row_play_full_songs_title">Play Full Songs</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">Play full tracks via Spotify instead of previews</string>
     <string name="settings_row_autoplay_title">Autoplay Next Song</string>
     <string name="settings_row_autoplay_subtitle">Automatically play the next song when one finishes</string>
     <string name="settings_row_feed_follows_now_playing_title">Autoscroll to Now Playing</string>
@@ -1155,6 +1157,7 @@
     <string name="destination_artist_label">Artist</string>
     <string name="destination_director_label">Director</string>
     <string name="destination_album_label">Album</string>
+    <string name="destination_prerelease_album_hint">Pre-release — only released tracks can be played.</string>
     <string name="destination_single_label">Single</string>
     <string name="destination_compilation_label">Compilation</string>
     <string name="destination_album_artist_format">Album · %1$s</string>

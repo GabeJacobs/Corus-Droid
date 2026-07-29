@@ -29,6 +29,7 @@ import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.FeedSwitchHintManager
 import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -57,6 +58,7 @@ class AuthViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val onboardingLocalStore: OnboardingLocalStore,
     private val preferencesDataStore: PreferencesDataStore,
+    private val feedSwitchHintManager: FeedSwitchHintManager,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -574,6 +576,7 @@ class AuthViewModel @Inject constructor(
             // account to sign in opens on the default (following) instead of
             // inheriting this user's choice.
             preferencesDataStore.setFeedMode("")
+            feedSwitchHintManager.clearAutoDefaultedToTrending()
             didSignInThisSession = false
         }
     }
@@ -715,6 +718,7 @@ class AuthViewModel @Inject constructor(
         unreadCountsRepository.stop()
         // Reset device-scoped feed mode so the next account opens on the default.
         viewModelScope.launch { preferencesDataStore.setFeedMode("") }
+        feedSwitchHintManager.clearAutoDefaultedToTrending()
         didSignInThisSession = false
         _isDeletingAccount.value = false
         _authState.value = AuthState.SignedOut

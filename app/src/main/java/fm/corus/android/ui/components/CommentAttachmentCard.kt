@@ -40,8 +40,6 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-
 /**
  * Compact attachment card rendered inside a comment when the comment carries a
  * song or film. Tapping the artwork plays a preview (song) or navigates (film).
@@ -67,7 +65,6 @@ fun CommentAttachmentCard(
     val state by nowPlaying.state.collectAsState()
     val loadingTrackId by nowPlaying.loadingTrackId.collectAsState()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     Row(
         modifier = modifier
@@ -92,19 +89,22 @@ fun CommentAttachmentCard(
                             if (state.trackId == attachedSong.trackId) {
                                 nowPlaying.togglePlayPause()
                             } else {
-                                scope.launch {
-                                    nowPlaying.play(
-                                        trackId = attachedSong.trackId,
-                                        trackName = attachedSong.trackName,
-                                        artistName = attachedSong.artistName,
-                                        albumArtURL = attachedSong.albumArtURL,
-                                        albumArtLargeURL = attachedSong.albumArtLargeURL,
-                                        previewUrl = attachedSong.previewUrl,
-                                        spotifyURI = attachedSong.spotifyURI,
-                                        spotifyWebURL = attachedSong.spotifyWebURL,
-                                        isrc = attachedSong.isrc,
-                                    )
-                                }
+                                nowPlaying.routePlayTap(
+                                    track = attachedSong.asCymbalTrack(),
+                                    onPreview = {
+                                        nowPlaying.play(
+                                            trackId = attachedSong.trackId,
+                                            trackName = attachedSong.trackName,
+                                            artistName = attachedSong.artistName,
+                                            albumArtURL = attachedSong.albumArtURL,
+                                            albumArtLargeURL = attachedSong.albumArtLargeURL,
+                                            previewUrl = attachedSong.previewUrl,
+                                            spotifyURI = attachedSong.spotifyURI,
+                                            spotifyWebURL = attachedSong.spotifyWebURL,
+                                            isrc = attachedSong.isrc,
+                                        )
+                                    },
+                                )
                             }
                         },
                 ) {
@@ -309,7 +309,6 @@ fun CommentAttachmentPendingChip(
     attachedDirector: CommentAttachedDirector? = null,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val state = nowPlaying?.state?.collectAsState()?.value
     val loadingTrackId = nowPlaying?.loadingTrackId?.collectAsState()?.value
 
@@ -379,19 +378,22 @@ fun CommentAttachmentPendingChip(
                                     if (state?.trackId == attachedSong.trackId) {
                                         nowPlaying.togglePlayPause()
                                     } else {
-                                        scope.launch {
-                                            nowPlaying.play(
-                                                trackId = attachedSong.trackId,
-                                                trackName = attachedSong.trackName,
-                                                artistName = attachedSong.artistName,
-                                                albumArtURL = attachedSong.albumArtURL,
-                                                albumArtLargeURL = attachedSong.albumArtLargeURL,
-                                                previewUrl = attachedSong.previewUrl,
-                                                spotifyURI = attachedSong.spotifyURI,
-                                                spotifyWebURL = attachedSong.spotifyWebURL,
-                                                isrc = attachedSong.isrc,
-                                            )
-                                        }
+                                        nowPlaying.routePlayTap(
+                                            track = attachedSong.asCymbalTrack(),
+                                            onPreview = {
+                                                nowPlaying.play(
+                                                    trackId = attachedSong.trackId,
+                                                    trackName = attachedSong.trackName,
+                                                    artistName = attachedSong.artistName,
+                                                    albumArtURL = attachedSong.albumArtURL,
+                                                    albumArtLargeURL = attachedSong.albumArtLargeURL,
+                                                    previewUrl = attachedSong.previewUrl,
+                                                    spotifyURI = attachedSong.spotifyURI,
+                                                    spotifyWebURL = attachedSong.spotifyWebURL,
+                                                    isrc = attachedSong.isrc,
+                                                )
+                                            },
+                                        )
                                     }
                                 }
                             } else Modifier,
