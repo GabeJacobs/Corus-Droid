@@ -29,13 +29,7 @@ object FullSongPlayCoordinator {
         playFullSongs: Boolean,
     ): PlayTapOutcome {
         remoteConfig.awaitInitialFetch()
-        if (SongPlayRouting.wantsSpotifyAuthExperiment(
-                source = track.source,
-                service = musicService,
-                experimentEnabled = remoteConfig.spotifyAuthExperimentEnabled,
-                playFullSongs = playFullSongs,
-            )
-        ) {
+        if (nowPlaying.spotifyExperimentEnabledForTrack(track.source)) {
             seedQueueIfNeeded(track, sourcePostId, queue, nowPlaying)
             return spotifyExperimentOutcome(track, sourcePostId, nowPlaying)
         }
@@ -107,15 +101,8 @@ object FullSongPlayCoordinator {
 object SpotifyPlaybackExperiment {
     fun shouldIntercept(
         source: fm.corus.android.data.model.TrackSource,
-        remoteConfig: RemoteConfigService,
-        musicService: MusicService,
-        playFullSongs: Boolean,
-    ): Boolean = SongPlayRouting.wantsSpotifyAuthExperiment(
-        source = source,
-        service = musicService,
-        experimentEnabled = remoteConfig.spotifyAuthExperimentEnabled,
-        playFullSongs = playFullSongs,
-    )
+        nowPlaying: NowPlayingManager,
+    ): Boolean = nowPlaying.spotifyExperimentEnabledForTrack(source)
 
     fun begin(
         track: CymbalTrack,

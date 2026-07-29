@@ -297,6 +297,7 @@ class NowPlayingManager @Inject constructor(
 
     fun spotifyExperimentEnabledForTrack(source: TrackSource): Boolean {
         if (!remoteConfigService.spotifyAuthExperimentEnabled) return false
+        if (!SpotifyPlaybackService.isSpotifyAppInstalled(context)) return false
         return SongPlayRouting.wantsSpotifyExperiment(
             source = source,
             service = musicServicePreference.current.value,
@@ -1037,7 +1038,11 @@ class NowPlayingManager @Inject constructor(
         )
     }
 
-    private suspend fun playInternal(track: QueuedTrack, userInitiated: Boolean = true) {
+    private suspend fun playInternal(
+        track: QueuedTrack,
+        userInitiated: Boolean = true,
+        forceSwitch: Boolean = false,
+    ) {
         val trackId = track.trackId
 
         // Audio sources are mutually exclusive: starting music stops any inline
@@ -1049,7 +1054,10 @@ class NowPlayingManager @Inject constructor(
         // *different* post of the same song (same trackId, different sourcePostId)
         // is a distinct feed card, so it falls through and switches playback to it
         // instead of pausing. See [isReTapOfActiveEntry] / [PostPlaybackHighlight].
-        if (player != null &&
+        // Skipped when recovering from a failed Spotify Connect attempt that already
+        // updated the mini-player state to this track.
+        if (!forceSwitch &&
+            player != null &&
             isReTapOfActiveEntry(_state.value.trackId, _state.value.sourcePostId, trackId, track.sourcePostId)
         ) {
             togglePlayPause()
@@ -1670,6 +1678,10 @@ class NowPlayingManager @Inject constructor(
             handleSpotifyPlaybackFailure(queuedTrackFrom(pending), userInitiated = true)
             return
         }
+        if (!SpotifyPlaybackService.isSpotifyAppInstalled(context)) {
+            handleSpotifyPlaybackFailure(queuedTrackFrom(pending), userInitiated = true)
+            return
+        }
 
         val prefs = context.getSharedPreferences("corus_prefs", Context.MODE_PRIVATE)
         val hasPriorSession = spotifyAuthService.cachedAccessToken() != null ||
@@ -1792,7 +1804,7 @@ class NowPlayingManager @Inject constructor(
         _isResolvingSpotify.value = false
         isSpotifyConnectPlaying = false
         silentlyHaltSpotifyForPreview()
-        playInternal(track, userInitiated = userInitiated)
+        playInternal(track, userInitiated = userInitiated, forceSwitch = true)
     }
 
     fun silentlyHaltSpotifyForPreview() {
