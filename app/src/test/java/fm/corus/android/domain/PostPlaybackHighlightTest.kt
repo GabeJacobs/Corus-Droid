@@ -78,4 +78,18 @@ class PostPlaybackHighlightTest {
             )
         )
     }
+
+    @Test
+    fun playingOverlayHiddenWhileResolvingFullSong() {
+        assertFalse(
+            PostPlaybackHighlight.shouldShowPlayingOverlay(
+                activeTrackId = "reckoning",
+                activeSourcePostId = "post-a",
+                isPlaying = true,
+                isResolvingFullSong = true,
+                postTrackId = "reckoning",
+                postId = "post-a",
+            )
+        )
+    }
 }
