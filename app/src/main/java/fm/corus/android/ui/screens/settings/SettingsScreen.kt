@@ -178,7 +178,6 @@ fun SettingsScreen(
 
     // General toggles
     var hapticsEnabled by remember { mutableStateOf(true) }
-    val autoplayNextSong by settingsViewModel.autoplayNextSong.collectAsState()
     val feedFollowsNowPlaying by settingsViewModel.feedFollowsNowPlaying.collectAsState()
     val playFullSongs by settingsViewModel.playFullSongs.collectAsState()
 
@@ -349,14 +348,6 @@ fun SettingsScreen(
                     onCheckedChange = { settingsViewModel.setPlayFullSongs(it) },
                 )
             }
-
-            SettingsToggleRow(
-                icon = Icons.Filled.AllInclusive,
-                title = stringResource(R.string.settings_row_autoplay_title),
-                subtitle = stringResource(R.string.settings_row_autoplay_subtitle),
-                checked = autoplayNextSong,
-                onCheckedChange = { settingsViewModel.setAutoplayNextSong(it) },
-            )
 
             SettingsToggleRow(
                 icon = Icons.Filled.GpsFixed,

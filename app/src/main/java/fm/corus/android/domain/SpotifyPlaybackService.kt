@@ -22,7 +22,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.locks.ReentrantLock
 import javax.inject.Inject
+import kotlin.concurrent.withLock
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -100,6 +102,24 @@ class SpotifyPlaybackService @Inject constructor(
     private var lastAppliedQueueSessionId: Int? = null
     private var lastPositionOnlyApplyTime: Long = 0L
 
+    /**
+     * Lock-screen / native Spotify skip can land on a stale queue entry before
+     * [applyPlayerState] runs on the main coroutine — pause misrouted tracks on
+     * the App Remote callback thread (mirrors iOS `attemptFastPathMisroutePause`).
+     */
+    private data class FastPathGuardState(
+        var expectedURI: String? = null,
+        var guardUntilMs: Long = 0L,
+        var lastObservedURI: String? = null,
+    )
+
+    private val fastPathGuardLock = ReentrantLock()
+    private val fastPathGuardState = FastPathGuardState()
+
+    /** Immutable for the player-state callback thread once connected. */
+    @Volatile
+    private var fastPathAppRemote: SpotifyAppRemote? = null
+
     private var proactiveReconnectJob: kotlinx.coroutines.Job? = null
     private var seekJob: kotlinx.coroutines.Job? = null
     private var lastProactiveReconnectAttempt: Long = 0L
@@ -109,6 +129,7 @@ class SpotifyPlaybackService @Inject constructor(
     companion object {
         private const val PROACTIVE_RECONNECT_DEBOUNCE_MS = 5_000L
         private const val PLAY_TIMEOUT_MS = 15_000L
+        private const val FAST_PATH_MISROUTE_MAX_POSITION_SEC = 2.0
         private const val LAST_USAGE_KEY = "fm.corus.spotify.lastAppRemoteUsage"
         private const val PREFS_NAME = "corus_prefs"
 
@@ -120,6 +141,41 @@ class SpotifyPlaybackService @Inject constructor(
 
         fun isSpotifyAppInstalled(context: Context): Boolean =
             context.packageManager.getLaunchIntentForPackage("com.spotify.music") != null
+
+        private fun spotifyTrackIdFromUri(uri: String): String? =
+            uri.removePrefix("spotify:track:").takeIf { uri.startsWith("spotify:track:") }
+
+        fun spotifyURIsMatch(a: String, b: String): Boolean {
+            if (a == b) return true
+            val aId = spotifyTrackIdFromUri(a) ?: return false
+            val bId = spotifyTrackIdFromUri(b) ?: return false
+            return normalizedSpotifyTrackId(aId) == normalizedSpotifyTrackId(bId)
+        }
+    }
+
+    /**
+     * Arm the delegate fast-path so a misrouted native Spotify skip is paused
+     * before the async [applyPlayerState] coroutine runs.
+     */
+    fun setFastPathPlaybackGuard(
+        expectedURI: String,
+        fromCurrentURI: String? = null,
+        durationMs: Long = 8_000L,
+    ) {
+        fastPathGuardLock.withLock {
+            fastPathGuardState.expectedURI = expectedURI
+            fastPathGuardState.guardUntilMs = System.currentTimeMillis() + durationMs
+            if (!fromCurrentURI.isNullOrEmpty()) {
+                fastPathGuardState.lastObservedURI = fromCurrentURI
+            }
+        }
+    }
+
+    fun clearFastPathPlaybackGuard() {
+        fastPathGuardLock.withLock {
+            fastPathGuardState.expectedURI = null
+            fastPathGuardState.guardUntilMs = 0L
+        }
     }
 
     fun trySilentReconnectIfNeeded() {
@@ -283,6 +339,7 @@ class SpotifyPlaybackService @Inject constructor(
                 object : Connector.ConnectionListener {
                     override fun onConnected(remote: SpotifyAppRemote) {
                         appRemote = remote
+                        fastPathAppRemote = remote
                         subscribePlayerState()
                         subscribePlayerContext()
                         if (deferred.isActive) deferred.complete(Unit)
@@ -363,12 +420,41 @@ class SpotifyPlaybackService @Inject constructor(
         val remote = appRemote ?: return
         cancelSubscription(playerStateSubscription)
         playerStateSubscription = remote.playerApi.subscribeToPlayerState().setEventCallback { state ->
+            attemptFastPathMisroutePause(state)
             scope.launch {
                 runCatching { applyPlayerState(state) }.onFailure { error ->
                     android.util.Log.w("SpotifyPlayback", "applyPlayerState failed: ${error.message}")
                 }
             }
         }
+    }
+
+    /**
+     * Pause a misrouted native skip on the App Remote callback thread — before
+     * [scope.launch] lets Spotify audibly start the wrong track.
+     */
+    private fun attemptFastPathMisroutePause(state: PlayerState) {
+        val track = state.track ?: return
+        val uri = track.uri ?: return
+        if (uri.isEmpty() || state.isPaused) return
+
+        val position = state.playbackPosition / 1000.0
+        if (position >= FAST_PATH_MISROUTE_MAX_POSITION_SEC) return
+
+        val shouldPause = fastPathGuardLock.withLock {
+            val now = System.currentTimeMillis()
+            val expected = fastPathGuardState.expectedURI
+            if (expected == null || now >= fastPathGuardState.guardUntilMs) return@withLock false
+            val trackChanged = fastPathGuardState.lastObservedURI?.let { last ->
+                !spotifyURIsMatch(last, uri)
+            } ?: true
+            if (!trackChanged) return@withLock false
+            fastPathGuardState.lastObservedURI = uri
+            !spotifyURIsMatch(uri, expected)
+        }
+        if (!shouldPause) return
+
+        fastPathAppRemote?.playerApi?.pause()?.setResultCallback { _isPlaying.value = false }
     }
 
     private fun applyPlayerState(state: PlayerState) {
@@ -389,6 +475,17 @@ class SpotifyPlaybackService @Inject constructor(
         val newDuration = (track.duration / 1000.0).coerceAtLeast(0.0)
 
         if (trackChanged) {
+            val matchedExpected = fastPathGuardLock.withLock {
+                val now = System.currentTimeMillis()
+                val expected = fastPathGuardState.expectedURI
+                expected != null &&
+                    now < fastPathGuardState.guardUntilMs &&
+                    spotifyURIsMatch(uri, expected)
+            }
+            if (matchedExpected) {
+                clearFastPathPlaybackGuard()
+            }
+
             lastOutgoingTrackUri = lastObservedTrackUri
             lastOutgoingPlaybackPosition = _positionSeconds.value
             lastOutgoingDuration = _durationSeconds.value
@@ -486,6 +583,7 @@ class SpotifyPlaybackService @Inject constructor(
             runCatching { pause() }
             SpotifyAppRemote.disconnect(remote)
             appRemote = null
+            fastPathAppRemote = null
             cancelSubscription(playerStateSubscription)
             playerStateSubscription = null
             cancelSubscription(playerContextSubscription)
@@ -496,6 +594,7 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     fun stop() {
+        clearFastPathPlaybackGuard()
         proactiveReconnectJob?.cancel()
         seekJob?.cancel()
         cancelPendingContinuations()
@@ -505,6 +604,7 @@ class SpotifyPlaybackService @Inject constructor(
         playerContextSubscription = null
         appRemote?.let { SpotifyAppRemote.disconnect(it) }
         appRemote = null
+        fastPathAppRemote = null
         _isPlaying.value = false
         _positionSeconds.value = 0.0
         _durationSeconds.value = 0.0
@@ -643,6 +743,7 @@ class SpotifyPlaybackService @Inject constructor(
             appRemote?.let { SpotifyAppRemote.disconnect(it) }
         }
         appRemote = null
+        fastPathAppRemote = null
         cancelSubscription(playerStateSubscription)
         playerStateSubscription = null
         cancelSubscription(playerContextSubscription)

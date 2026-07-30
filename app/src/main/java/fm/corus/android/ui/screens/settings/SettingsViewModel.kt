@@ -101,13 +101,6 @@ class SettingsViewModel @Inject constructor(
         _restoreResult.value = null
     }
 
-    val autoplayNextSong: StateFlow<Boolean> = preferencesDataStore.autoplayNextSong
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
-
-    fun setAutoplayNextSong(value: Boolean) {
-        viewModelScope.launch { preferencesDataStore.setAutoplayNextSong(value) }
-    }
-
     val feedFollowsNowPlaying: StateFlow<Boolean> = preferencesDataStore.feedFollowsNowPlaying
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 

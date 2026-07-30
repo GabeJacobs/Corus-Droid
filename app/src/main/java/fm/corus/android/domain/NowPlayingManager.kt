@@ -201,8 +201,6 @@ class NowPlayingManager @Inject constructor(
     private val recordedPlayPostIds = mutableSetOf<String>()
 
     @Volatile
-    private var autoplayEnabled: Boolean = true
-
     private var spotifyCorusBackgroundedAt: Long? = null
     private var spotifyDeviceLockedForQueueDriving = false
 
@@ -212,9 +210,6 @@ class NowPlayingManager @Inject constructor(
         TrailerPlaybackCoordinator.pauseMusic = { pause() }
         // Same for an audio caption: starting one pauses the song.
         VoiceNotePlayerManager.pauseMusic = { pause() }
-        managerScope.launch {
-            preferencesDataStore.autoplayNextSong.collect { autoplayEnabled = it }
-        }
         // Prune the queue whenever the local user unfollows someone — keeps
         // the mini-player from advancing into tracks belonging to a user
         // they just stopped following.
@@ -228,6 +223,7 @@ class NowPlayingManager @Inject constructor(
                 when (event) {
                     Lifecycle.Event.ON_STOP -> {
                         spotifyCorusBackgroundedAt = System.currentTimeMillis()
+                        refreshSpotifyFastPathSkipGuardWhenLocked()
                     }
                     Lifecycle.Event.ON_START -> spotifyCorusBackgroundedAt = null
                     else -> Unit
@@ -239,7 +235,10 @@ class NowPlayingManager @Inject constructor(
         val lockReceiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
                 spotifyDeviceLockedForQueueDriving = when (intent?.action) {
-                    Intent.ACTION_SCREEN_OFF -> true
+                    Intent.ACTION_SCREEN_OFF -> {
+                        refreshSpotifyFastPathSkipGuardWhenLocked()
+                        true
+                    }
                     Intent.ACTION_USER_PRESENT -> false
                     else -> keyguard.isKeyguardLocked
                 }
@@ -1260,9 +1259,8 @@ class NowPlayingManager @Inject constructor(
         }
     }
 
-    /** Auto-advance to the next queued preview when enabled by user setting. */
+    /** Auto-advance to the next queued track when playback ends. */
     private fun handlePlaybackEnded() {
-        if (!autoplayEnabled) return
         advanceToNext()
     }
 
@@ -1270,6 +1268,7 @@ class NowPlayingManager @Inject constructor(
         if (shouldRouteSpotifyFeedSkip()) {
             cancelDebouncedSpotifyRelinquish()
             spotifyFeedSkipRequestedUntil = System.currentTimeMillis() + 5000
+            armSpotifyFastPathSkipGuardForUpcomingFeedTrack()
             forceSpotifyFeedAdvanceToNextEntry()
             return
         }
@@ -1336,6 +1335,7 @@ class NowPlayingManager @Inject constructor(
         val nextUri = spotifyURI(next)
         spotifyCorusRequestedUri = nextUri
         spotifyCorusRequestedUntil = System.currentTimeMillis() + 8000
+        armSpotifyFastPathSkipGuard(expectedURI = nextUri)
         currentQueueIndex = idx + 1
         updateStateForTrack(next)
         managerScope.launch {
@@ -1443,6 +1443,7 @@ class NowPlayingManager @Inject constructor(
                 if (shouldRouteSpotifyFeedSkip()) {
                     cancelDebouncedSpotifyRelinquish()
                     spotifyFeedSkipRequestedUntil = System.currentTimeMillis() + 5000
+                    armSpotifyFastPathSkipGuardForUpcomingFeedTrack()
                     this@NowPlayingManager.forceSpotifyFeedAdvanceToNextEntry()
                 } else {
                     this@NowPlayingManager.skipToNext()
@@ -1757,6 +1758,7 @@ class NowPlayingManager @Inject constructor(
             spotifyExpectedTrackUri = resolvedUri
             spotifyCorusRequestedUri = resolvedUri
             spotifyCorusRequestedUntil = System.currentTimeMillis() + 8000
+            armSpotifyFastPathSkipGuard(expectedURI = resolvedUri)
 
             spotifyPlaybackService.play(
                 spotifyTrackId = pending.trackId,
@@ -1805,6 +1807,7 @@ class NowPlayingManager @Inject constructor(
             return
         }
         _isResolvingSpotify.value = false
+        refreshSpotifyFastPathSkipGuardWhenLocked()
     }
 
     private fun installSpotifyConnectDelegates() {
@@ -1966,7 +1969,7 @@ class NowPlayingManager @Inject constructor(
         spotifyNaturalEndAdvanceJob = managerScope.launch {
             delay(200)
             if (!isSpotifyConnectPlaying) return@launch
-            if (autoplayEnabled && computeHasNext()) {
+            if (computeHasNext()) {
                 forceSpotifyFeedAdvanceToNextEntry()
             } else {
                 _state.value = _state.value.copy(isPlaying = false)
@@ -2288,6 +2291,30 @@ class NowPlayingManager @Inject constructor(
 
     private fun spotifyURI(track: QueuedTrack): String =
         track.spotifyURI ?: "spotify:track:${SpotifyPlaybackService.normalizedSpotifyTrackId(track.trackId)}"
+
+    /** Arm Spotify's delegate fast-path before async reconcile (mirrors iOS). */
+    private fun armSpotifyFastPathSkipGuard(expectedURI: String, durationMs: Long = 8_000L) {
+        if (!remoteConfigService.spotifyAuthExperimentEnabled) return
+        spotifyPlaybackService.setFastPathPlaybackGuard(
+            expectedURI = expectedURI,
+            fromCurrentURI = spotifyPlaybackService.currentTrackUri.value,
+            durationMs = durationMs,
+        )
+    }
+
+    private fun armSpotifyFastPathSkipGuardForUpcomingFeedTrack(durationMs: Long = 8_000L) {
+        val idx = currentQueueIndex ?: return
+        val next = queue.getOrNull(idx + 1) ?: return
+        if (!spotifyExperimentEnabledForTrack(next.source)) return
+        armSpotifyFastPathSkipGuard(expectedURI = spotifyURI(next), durationMs = durationMs)
+    }
+
+    /** Pre-arm while locked/backgrounded so a native Spotify skip is silenced early. */
+    private fun refreshSpotifyFastPathSkipGuardWhenLocked() {
+        if (!spotifyDeviceLockedForQueueDriving && !corusAppIsBackgrounded()) return
+        if (!isSpotifyConnectPlaying || !computeHasNext()) return
+        armSpotifyFastPathSkipGuardForUpcomingFeedTrack(durationMs = 6_000L)
+    }
 
     private fun spotifyURIMatchesTrack(uri: String, track: QueuedTrack): Boolean {
         if (uri == spotifyURI(track)) return true
