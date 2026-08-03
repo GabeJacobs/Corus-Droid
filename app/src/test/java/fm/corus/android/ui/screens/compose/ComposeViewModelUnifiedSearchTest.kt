@@ -156,7 +156,7 @@ class ComposeViewModelUnifiedSearchTest {
 
     private fun stubBothVerticals() {
         musicSearchRepository.stub {
-            onBlocking { search(any(), any(), any(), any(), any(), any(), any()) } doReturn
+            onBlocking { search(any(), any(), any(), any(), any(), any(), any(), any()) } doReturn
                 MusicSearchRepository.Page(listOf(track("s1")), false)
         }
         tmdbRepository.stub {
@@ -194,7 +194,7 @@ class ComposeViewModelUnifiedSearchTest {
                 advanceUntilIdle()
 
                 verifyBlocking(musicSearchRepository, times(1)) {
-                    search(eq("dune"), any(), any(), any(), any(), any(), any())
+                    search(eq("dune"), any(), any(), any(), any(), any(), any(), any())
                 }
                 verifyBlocking(tmdbRepository, times(1)) { searchMovies(eq("dune"), any()) }
                 // Rows survive every switch — no clear, so no skeleton flash.
@@ -216,10 +216,10 @@ class ComposeViewModelUnifiedSearchTest {
                 advanceUntilIdle()
 
                 verifyBlocking(musicSearchRepository, times(1)) {
-                    search(eq("dune"), any(), any(), any(), any(), any(), any())
+                    search(eq("dune"), any(), any(), any(), any(), any(), any(), any())
                 }
                 verifyBlocking(musicSearchRepository, times(1)) {
-                    search(eq("rush"), any(), any(), any(), any(), any(), any())
+                    search(eq("rush"), any(), any(), any(), any(), any(), any(), any())
                 }
                 assertEquals("rush", vm.settledQueries.value[ComposeUnifiedFilter.FILMS])
             }

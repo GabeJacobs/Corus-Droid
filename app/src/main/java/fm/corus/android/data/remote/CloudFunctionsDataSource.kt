@@ -1243,6 +1243,7 @@ class CloudFunctionsDataSource @Inject constructor(
         includeSoundCloud: Boolean = true,
         includeArtists: Boolean = false,
         includeAlbums: Boolean = false,
+        albumsMatchArtist: Boolean = false,
         collapse: String = "recording",
     ): Map<String, Any?> {
         // `supports` declares which result sources this client can render.
@@ -1270,6 +1271,11 @@ class CloudFunctionsDataSource @Inject constructor(
         // can't be affected by the extension.
         if (includeArtists) params["includeArtists"] = true
         if (includeAlbums) params["includeAlbums"] = true
+        // Album PICKERS only: also keep albums whose ARTIST matches the query.
+        // The search tab's rule is title-only on purpose (an artist query shows
+        // the artist row, not their discography), which left a picker's Albums
+        // tab empty for "arcade fire". Absent → today's album list.
+        if (includeAlbums && albumsMatchArtist) params["albumsMatchArtist"] = true
         val result = functions.getHttpsCallable("searchSongs").call(params).await()
         return result.getData() as? Map<String, Any?> ?: emptyMap()
     }

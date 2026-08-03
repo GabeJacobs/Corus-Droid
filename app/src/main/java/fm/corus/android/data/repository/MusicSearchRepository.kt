@@ -80,8 +80,9 @@ class MusicSearchRepository @Inject constructor(
         /** Artist rows (max 3) — only populated when the caller passed
          *  `includeArtists = true` (artist_pages_enabled on) on page one. */
         val artists: List<ArtistSummary> = emptyList(),
-        /** Album rows (max 3, near-exact title matches) — only populated when
-         *  the caller passed `includeAlbums = true` on page one. */
+        /** Album rows (near-exact title matches, max 3; with
+         *  `albumsMatchArtist` also artist matches, max 5) — only populated
+         *  when the caller passed `includeAlbums = true` on page one. */
         val albums: List<AlbumSearchSummary> = emptyList(),
         /** True when the query is a song-title search (a track title exactly
          *  matches the query). The UI renders same-titled album rows below the
@@ -98,6 +99,10 @@ class MusicSearchRepository @Inject constructor(
         includeSoundCloud: Boolean = false,
         includeArtists: Boolean = false,
         includeAlbums: Boolean = false,
+        /** Album pickers only: keep albums whose ARTIST matches the query, so
+         *  "arcade fire" lists their records instead of nothing. Off elsewhere
+         *  — the search tab deliberately matches album TITLES only. */
+        albumsMatchArtist: Boolean = false,
         collapse: String = "recording",
     ): Page {
         if (query.isBlank()) return Page(emptyList(), false)
@@ -110,6 +115,7 @@ class MusicSearchRepository @Inject constructor(
             includeSoundCloud = includeSoundCloud,
             includeArtists = includeArtists,
             includeAlbums = includeAlbums,
+            albumsMatchArtist = albumsMatchArtist,
             collapse = collapse,
         )
         val raw = result["tracks"] as? List<Map<String, Any?>> ?: return Page(emptyList(), false)

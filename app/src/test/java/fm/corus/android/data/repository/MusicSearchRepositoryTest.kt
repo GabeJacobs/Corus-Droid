@@ -23,7 +23,7 @@ class MusicSearchRepositoryTest {
 
     private suspend fun stubSearch(response: Map<String, Any?>) {
         whenever(
-            cloudFunctions.searchSongs(any(), any(), any(), any(), any(), any(), any(), any()),
+            cloudFunctions.searchSongs(any(), any(), any(), any(), any(), any(), any(), any(), any()),
         ).thenReturn(response)
     }
 
@@ -44,6 +44,7 @@ class MusicSearchRepositoryTest {
             includeSoundCloud = eq(false),
             includeArtists = eq(false),
             includeAlbums = eq(false),
+            albumsMatchArtist = eq(false),
             collapse = eq("recording"),
         )
     }
@@ -62,6 +63,26 @@ class MusicSearchRepositoryTest {
             includeSoundCloud = eq(true),
             includeArtists = eq(false),
             includeAlbums = eq(false),
+            albumsMatchArtist = eq(false),
+            collapse = eq("recording"),
+        )
+    }
+
+    @Test
+    fun `albumsMatchArtist forwards to the callable`(): Unit = runBlocking {
+        stubSearch(emptyResponse)
+
+        repo.search("arcade fire", includeAlbums = true, albumsMatchArtist = true)
+
+        verify(cloudFunctions).searchSongs(
+            query = eq("arcade fire"),
+            offset = eq(0),
+            limit = eq(20),
+            market = any(),
+            includeSoundCloud = eq(false),
+            includeArtists = eq(false),
+            includeAlbums = eq(true),
+            albumsMatchArtist = eq(true),
             collapse = eq("recording"),
         )
     }

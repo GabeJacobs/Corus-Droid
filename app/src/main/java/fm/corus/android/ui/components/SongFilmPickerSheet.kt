@@ -136,6 +136,10 @@ fun SongFilmPickerSheet(
                             includeSoundCloud = viewModel.remoteConfigService.soundcloudEnabled,
                             includeArtists = true,
                             includeAlbums = true,
+                            // The sheet has an explicit Albums chip, so an
+                            // artist-name query has to list that artist's
+                            // albums rather than the search tab's nothing.
+                            albumsMatchArtist = true,
                         )
                         clearResults()
                         tracks = page.tracks
@@ -160,7 +164,8 @@ fun SongFilmPickerSheet(
                         artistRows = results
                     }
                     PickerMode.ALBUM -> {
-                        val results = musicSearchRepository.search(query, includeAlbums = true).albums
+                        val results = musicSearchRepository
+                            .search(query, includeAlbums = true, albumsMatchArtist = true).albums
                         clearResults()
                         albumRows = results
                     }
@@ -810,7 +815,8 @@ fun EntityPickerSheet(
             try {
                 when (kind) {
                     PickerMode.ARTIST -> artistRows = viewModel.musicSearchRepository.search(query, includeArtists = true).artists
-                    PickerMode.ALBUM -> albumRows = viewModel.musicSearchRepository.search(query, includeAlbums = true).albums
+                    PickerMode.ALBUM -> albumRows = viewModel.musicSearchRepository
+                        .search(query, includeAlbums = true, albumsMatchArtist = true).albums
                     PickerMode.DIRECTOR -> directorRows = viewModel.tmdbRepository.searchDirectors(query)
                     else -> {}
                 }

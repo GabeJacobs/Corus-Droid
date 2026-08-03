@@ -129,7 +129,7 @@ class SearchViewModelArtistPagesTest {
             whenever(remoteConfigService.artistPagesEnabled).thenReturn(true)
             whenever(remoteConfigService.soundcloudEnabled).thenReturn(false)
             whenever(
-                musicSearchRepository.search(any(), any(), any(), any(), any(), any(), any())
+                musicSearchRepository.search(any(), any(), any(), any(), any(), any(), any(), any())
             ).thenReturn(
                 MusicSearchRepository.Page(
                     tracks = emptyList(),
@@ -148,6 +148,7 @@ class SearchViewModelArtistPagesTest {
                 includeSoundCloud = eq(false),
                 includeArtists = eq(true),
                 includeAlbums = eq(true),
+                albumsMatchArtist = eq(false),
                 collapse = eq("recording"),
             )
             assertEquals(1, vm.artistSearchResults.value.size)
@@ -162,7 +163,7 @@ class SearchViewModelArtistPagesTest {
             whenever(remoteConfigService.artistPagesEnabled).thenReturn(false)
             whenever(remoteConfigService.soundcloudEnabled).thenReturn(false)
             whenever(
-                musicSearchRepository.search(any(), any(), any(), any(), any(), any(), any())
+                musicSearchRepository.search(any(), any(), any(), any(), any(), any(), any(), any())
             ).thenReturn(MusicSearchRepository.Page(tracks = emptyList(), hasMore = false))
 
             val vm = createViewModel()
@@ -174,6 +175,7 @@ class SearchViewModelArtistPagesTest {
                 includeSoundCloud = eq(false),
                 includeArtists = eq(false),
                 includeAlbums = eq(false),
+                albumsMatchArtist = eq(false),
                 collapse = eq("recording"),
             )
             assertTrue(vm.artistSearchResults.value.isEmpty())

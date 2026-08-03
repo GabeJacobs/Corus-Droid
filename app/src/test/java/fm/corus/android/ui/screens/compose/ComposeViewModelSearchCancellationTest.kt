@@ -142,10 +142,10 @@ class ComposeViewModelSearchCancellationTest {
                 // First query hangs (models a slow in-flight searchSongs call);
                 // it only ends when the job is cancelled. Second query resolves.
                 musicSearchRepository.stub {
-                    onBlocking { search(eq("a"), any(), any(), any(), any(), any(), any()) } doSuspendableAnswer {
+                    onBlocking { search(eq("a"), any(), any(), any(), any(), any(), any(), any()) } doSuspendableAnswer {
                         awaitCancellation()
                     }
-                    onBlocking { search(eq("ab"), any(), any(), any(), any(), any(), any()) } doReturn
+                    onBlocking { search(eq("ab"), any(), any(), any(), any(), any(), any(), any()) } doReturn
                         MusicSearchRepository.Page(listOf(track("ab")), false)
                 }
                 val vm = createViewModel()
@@ -182,7 +182,7 @@ class ComposeViewModelSearchCancellationTest {
         runTest(testDispatcher) {
             org.mockito.Mockito.mockStatic(android.util.Log::class.java).use {
                 musicSearchRepository.stub {
-                    onBlocking { search(eq("x"), any(), any(), any(), any(), any(), any()) } doThrow
+                    onBlocking { search(eq("x"), any(), any(), any(), any(), any(), any(), any()) } doThrow
                         RuntimeException("backend unreachable")
                 }
                 val vm = createViewModel()
@@ -203,7 +203,7 @@ class ComposeViewModelSearchCancellationTest {
         runTest(testDispatcher) {
             org.mockito.Mockito.mockStatic(android.util.Log::class.java).use {
                 musicSearchRepository.stub {
-                    onBlocking { search(eq("x"), any(), any(), any(), any(), any(), any()) } doThrow
+                    onBlocking { search(eq("x"), any(), any(), any(), any(), any(), any(), any()) } doThrow
                         RuntimeException("backend unreachable")
                 }
                 val vm = createViewModel()
