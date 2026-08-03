@@ -59,11 +59,12 @@ class MessageThreadViewModelTest {
         messageRepository = mock {
             on { listenToMessages(any()) } doReturn emptyFlow()
             on { listenToGroupThreadInfo(any()) } doReturn emptyFlow()
+            on { listenToThreadRow(any(), any()) } doReturn emptyFlow()
         }
         authRepository = mock {
             on { currentUserId } doReturn "user1"
         }
-        userRepository = mock()
+        userRepository = mock { on { blockedIds } doReturn kotlinx.coroutines.flow.MutableStateFlow(emptySet()) }
         remoteConfigService = mock {
             on { gifSupport } doReturn false
         }

@@ -122,8 +122,24 @@ class MessageThreadViewModel @Inject constructor(
     private val _resolvedThreadId = MutableStateFlow<String?>(null)
     val resolvedThreadId: StateFlow<String?> = _resolvedThreadId.asStateFlow()
 
+    /** The caller's own inbox row for this conversation; null until one is known. */
+    private val _threadRow = MutableStateFlow<MessageRepository.ThreadRowSnapshot?>(null)
+
+    /**
+     * Whether this conversation may be shown, and the screen's whole answer to
+     * that question — every way in lands here, including a tapped push and a
+     * deep link, neither of which passes through the inbox.
+     */
+    val threadAccess: StateFlow<ThreadAccess> = combine(
+        _threadRow,
+        userRepository.blockedIds,
+    ) { row, blockedIds ->
+        resolveThreadAccess(row, blockedIds) { userRepository.isUserBannedLocally(it) }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, ThreadAccess.RESOLVING)
+
     private var currentThreadId: String? = null
     private var listenerJob: Job? = null
+    private var threadRowJob: Job? = null
     private var recipientUnreadJob: Job? = null
     private var readReceiptsJob: Job? = null
     private var groupInfoJob: Job? = null
@@ -161,26 +177,25 @@ class MessageThreadViewModel @Inject constructor(
                     }
                 }
 
+                val userId = authRepository.currentUserId ?: throw IllegalStateException("Not signed in")
+
                 // Resolve threadId if empty (e.g. navigating from a user profile)
                 var resolvedId = threadId
                 if (resolvedId.isBlank()) {
-                    val userId = authRepository.currentUserId ?: throw IllegalStateException("Not signed in")
                     resolvedId = messageRepository.getOrCreateThread(userId, otherUserId)
                     currentThreadId = resolvedId
                 }
                 _resolvedThreadId.value = resolvedId
 
                 // Start real-time Firestore listener (matches iOS snapshot listener)
+                startThreadRowListener(userId, resolvedId)
                 startListening(resolvedId)
                 startThreadDocListener(resolvedId, otherUserId)
                 startGroupInfoListener(resolvedId)
 
                 // Mark as read
-                val userId = authRepository.currentUserId
-                if (userId != null) {
-                    messageRepository.markThreadRead(resolvedId, userId)
-                    startReadReceiptsListener(userId)
-                }
+                messageRepository.markThreadRead(resolvedId, userId)
+                startReadReceiptsListener(userId)
             } catch (_: Exception) {
                 // Setup failed before the message listener could deliver anything
                 // (e.g. not signed in, getOrCreateThread error). Clear the loading
@@ -188,6 +203,10 @@ class MessageThreadViewModel @Inject constructor(
                 // spinner is cleared by startListening's first snapshot instead, so
                 // it stays up until messages are actually ready to render.
                 _isLoading.value = false
+                // Getting this far without a conversation IS the refusal on the
+                // create path: getOrCreateThread enforces the same rule the row
+                // does, so there is nothing to show and nothing left to wait for.
+                _threadRow.value = MessageRepository.ThreadRowSnapshot(thread = null, fromCache = false)
             }
         }
     }
@@ -223,6 +242,13 @@ class MessageThreadViewModel @Inject constructor(
                 if (_otherAvatarURL.value == null) _otherAvatarURL.value = u.avatarURL
                 if (_otherAvatarThumbURL.value == null) _otherAvatarThumbURL.value = u.avatarThumbURL
             }
+        }
+    }
+
+    private fun startThreadRowListener(userId: String, threadId: String) {
+        threadRowJob?.cancel()
+        threadRowJob = viewModelScope.launch {
+            messageRepository.listenToThreadRow(userId, threadId).collect { _threadRow.value = it }
         }
     }
 
@@ -423,6 +449,7 @@ class MessageThreadViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         listenerJob?.cancel()
+        threadRowJob?.cancel()
         recipientUnreadJob?.cancel()
         readReceiptsJob?.cancel()
         groupInfoJob?.cancel()

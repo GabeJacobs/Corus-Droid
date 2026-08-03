@@ -593,6 +593,15 @@
     <string name="notif_msg_contact_joined">si è iscritto a %s!</string>
     <string name="notif_msg_repost">ha ripubblicato il tuo %s.</string>
     <string name="notif_msg_taste_match_default">è una nuova affinità di gusti.</string>
+    <string name="notif_taste_match_prefix_discovery">Nuova affinità di gusti: </string>
+    <string name="notif_taste_match_prefix_activity">Tu e </string>
+    <string name="notif_taste_match_suffix_activity_song"> avete entrambi condiviso la canzone </string>
+    <string name="notif_taste_match_suffix_activity_film"> avete entrambi condiviso il film </string>
+    <string name="notif_taste_match_prefix_milestone">Traguardo di affinità di gusti con </string>
+    <string name="notif_taste_match_prefix_default">Affinità di gusti con </string>
+    <string name="notif_taste_match_body_artists">Condividete %1$d artisti in comune</string>
+    <string name="notif_taste_match_body_songs">Condividete %1$d brani in comune</string>
+    <string name="notif_taste_match_body_films">Condividete %1$d film in comune</string>
     <string name="notif_msg_favorite">ti ha aggiunto ai suoi preferiti.</string>
     <string name="notif_msg_play_milestone">Il tuo corus è stato riprodotto %1$d volte.</string>
     <string name="notif_favorite_someone">Qualcuno</string>
@@ -703,6 +712,7 @@
     <string name="messaging_thread_placeholder">Messaggio...</string>
     <string name="messaging_thread_cd_shared_image">Immagine condivisa</string>
     <string name="messaging_thread_sending">Invio...</string>
+    <string name="messaging_thread_unavailable">Questa conversazione non è più disponibile</string>
     <string name="messaging_thread_user_messaging_disabled">Questo utente ha disattivato i messaggi</string>
     <string name="messaging_thread_failed_to_deliver">Consegna non riuscita</string>
     <string name="messaging_thread_tap_to_retry">· Tocca per riprovare</string>

@@ -74,6 +74,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -531,6 +532,53 @@ private fun isEmojiOnly(text: String): Boolean {
     return emojiCount in 1..3
 }
 
+/**
+ * Stands in for a conversation that is not (or not yet) the caller's to see: a
+ * way back, and either the wait for the answer or the answer itself. The wording
+ * is the one the other clients already use for this.
+ */
+@Composable
+private fun ClosedThread(access: ThreadAccess, onBack: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CorusColors.Background),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = CorusSpacing.sm, vertical = CorusSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(id = R.string.common_back),
+                )
+            }
+        }
+        HorizontalDivider(color = CorusColors.Divider)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (access == ThreadAccess.RESOLVING) {
+                CircularProgressIndicator(color = CorusColors.Accent)
+            } else {
+                Text(
+                    text = stringResource(id = R.string.messaging_thread_unavailable),
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.md),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun MessageThreadScreen(
     threadId: String,
@@ -625,6 +673,15 @@ fun MessageThreadScreen(
 
     LaunchedEffect(threadId) {
         viewModel.loadMessages(threadId, otherUserId)
+    }
+
+    // Nothing of the conversation is drawn until it is known to be the caller's
+    // to see, and it stops being drawn the moment it isn't — a block landing
+    // while the thread is open takes it away.
+    val access by viewModel.threadAccess.collectAsState()
+    if (access != ThreadAccess.OPEN) {
+        ClosedThread(access = access, onBack = onBack)
+        return
     }
 
     // Mark this thread as the one being actively viewed while the screen is in
@@ -993,11 +1050,11 @@ fun MessageThreadScreen(
                     }
                     HorizontalDivider(color = CorusColors.Divider)
                     DropdownMenuItem(
-                        text = { Text(stringResource(id = R.string.messaging_thread_attachment_song)) },
+                        text = { Text(stringResource(id = R.string.comment_attachment_music)) },
                         leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
                         onClick = {
                             showAttachmentMenu = false
-                            mediaPickerMode = PickerMode.SONG
+                            mediaPickerMode = PickerMode.MUSIC_ALL
                         },
                     )
                     DropdownMenuItem(
@@ -1005,36 +1062,9 @@ fun MessageThreadScreen(
                         leadingIcon = { Icon(Icons.Filled.Movie, contentDescription = null) },
                         onClick = {
                             showAttachmentMenu = false
-                            mediaPickerMode = PickerMode.FILM
+                            mediaPickerMode = PickerMode.FILM_ALL
                         },
                     )
-                    if (viewModel.entityShareEnabled) {
-                        HorizontalDivider(color = CorusColors.Divider)
-                        DropdownMenuItem(
-                            text = { Text(stringResource(id = R.string.messaging_thread_attachment_artist)) },
-                            leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
-                            onClick = {
-                                showAttachmentMenu = false
-                                mediaPickerMode = PickerMode.ARTIST
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(id = R.string.messaging_thread_attachment_album)) },
-                            leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
-                            onClick = {
-                                showAttachmentMenu = false
-                                mediaPickerMode = PickerMode.ALBUM
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(id = R.string.messaging_thread_attachment_director)) },
-                            leadingIcon = { Icon(Icons.Filled.Movie, contentDescription = null) },
-                            onClick = {
-                                showAttachmentMenu = false
-                                mediaPickerMode = PickerMode.DIRECTOR
-                            },
-                        )
-                    }
                 }
             }
 
@@ -1084,15 +1114,35 @@ fun MessageThreadScreen(
     }
 
     mediaPickerMode?.let { mode ->
-        if (mode == PickerMode.SONG || mode == PickerMode.FILM) {
+        if (mode == PickerMode.SONG || mode == PickerMode.FILM
+            || mode == PickerMode.MUSIC_ALL || mode == PickerMode.FILM_ALL) {
             SongFilmPickerSheet(
                 initialMode = mode,
+                modes = listOf(mode),
+                title = when (mode) {
+                    PickerMode.MUSIC_ALL -> stringResource(R.string.comment_attachment_music)
+                    PickerMode.FILM_ALL -> stringResource(R.string.messaging_thread_attachment_film)
+                    PickerMode.SONG -> stringResource(R.string.messaging_thread_attachment_song)
+                    else -> stringResource(R.string.messaging_thread_attachment_film)
+                },
                 onSongSelected = { track ->
                     viewModel.sendSongMessage(threadId, track)
                     mediaPickerMode = null
                 },
                 onFilmSelected = { movie ->
                     viewModel.sendFilmMessage(threadId, movie)
+                    mediaPickerMode = null
+                },
+                onArtistSelected = { id, name, image ->
+                    viewModel.sendArtistMessage(threadId, id, name, image)
+                    mediaPickerMode = null
+                },
+                onAlbumSelected = { id, title, artist, cover, year ->
+                    viewModel.sendAlbumMessage(threadId, id, title, artist, cover, year)
+                    mediaPickerMode = null
+                },
+                onDirectorSelected = { id, name, image ->
+                    viewModel.sendDirectorMessage(threadId, id, name, image)
                     mediaPickerMode = null
                 },
                 onDismiss = { mediaPickerMode = null },

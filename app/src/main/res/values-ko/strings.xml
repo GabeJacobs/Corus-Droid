@@ -593,6 +593,15 @@
     <string name="notif_msg_contact_joined">님이 %s에 가입했어요!</string>
     <string name="notif_msg_repost">님이 회원님의 %s을(를) 리포스트했습니다.</string>
     <string name="notif_msg_taste_match_default">님이 새로운 취향 매치예요.</string>
+    <string name="notif_taste_match_prefix_discovery">새 취향 매치: </string>
+    <string name="notif_taste_match_prefix_activity">회원님과 </string>
+    <string name="notif_taste_match_suffix_activity_song">님이 같은 곡 </string>
+    <string name="notif_taste_match_suffix_activity_film">님이 같은 영화 </string>
+    <string name="notif_taste_match_prefix_milestone">취향 매치 마일스톤 </string>
+    <string name="notif_taste_match_prefix_default">취향 매치 </string>
+    <string name="notif_taste_match_body_artists">공통 아티스트 %1$d명</string>
+    <string name="notif_taste_match_body_songs">공통 곡 %1$d곡</string>
+    <string name="notif_taste_match_body_films">공통 영화 %1$d편</string>
     <string name="notif_msg_favorite">님이 회원님을 즐겨찾기에 추가했습니다.</string>
     <string name="notif_msg_play_milestone">회원님의 corus가 %1$d번 재생되었어요.</string>
     <string name="notif_favorite_someone">누군가</string>
@@ -703,6 +712,7 @@
     <string name="messaging_thread_placeholder">메시지...</string>
     <string name="messaging_thread_cd_shared_image">공유된 이미지</string>
     <string name="messaging_thread_sending">보내는 중...</string>
+    <string name="messaging_thread_unavailable">이 대화는 더 이상 사용할 수 없어요</string>
     <string name="messaging_thread_user_messaging_disabled">이 사용자는 메시지를 받지 않아요</string>
     <string name="messaging_thread_failed_to_deliver">전송하지 못했어요</string>
     <string name="messaging_thread_tap_to_retry">· 눌러서 다시 시도</string>

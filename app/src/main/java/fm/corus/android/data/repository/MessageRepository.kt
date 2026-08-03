@@ -2,6 +2,8 @@ package fm.corus.android.data.repository
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.Query
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.CymbalMovie
@@ -23,6 +25,14 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * The inbox subscription was refused rather than dropped: this query is not the
+ * caller's to read — signed out, or the rules no longer allow it — so attaching
+ * again cannot succeed. Distinct from every other listener failure, which is a
+ * transient drop worth retrying.
+ */
+class InboxSubscriptionRefused(cause: Throwable) : Exception(cause)
 
 @Singleton
 class MessageRepository @Inject constructor(
@@ -452,6 +462,11 @@ class MessageRepository @Inject constructor(
      * These docs carry only `otherUserId` (not the resolved profile), so the
      * caller keeps the already-resolved `otherUser` for known threads and looks
      * up profiles only for genuinely new ones.
+     *
+     * A listener error tears the registration down for good, so it is surfaced
+     * as a flow failure rather than ignored — swallowing it left the inbox with
+     * no live source and no way back short of leaving the screen. The collector
+     * re-subscribes, except on an [InboxSubscriptionRefused], which says so.
      */
     fun listenToThreadSummaries(userId: String, limit: Long): Flow<List<CymbalThread>> = callbackFlow {
         val registration = firestore
@@ -461,7 +476,8 @@ class MessageRepository @Inject constructor(
             .orderBy("updatedAt", Query.Direction.DESCENDING)
             .limit(limit)
             .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null) return@addSnapshotListener
+                if (error != null) { close(subscriptionFailure(error)); return@addSnapshotListener }
+                if (snapshot == null) return@addSnapshotListener
                 val summaries = snapshot.documents.mapNotNull { doc ->
                     val data = doc.data ?: return@mapNotNull null
                     parseThreadSummary(doc.id, data)
@@ -471,12 +487,19 @@ class MessageRepository @Inject constructor(
         awaitClose { registration.remove() }
     }
 
+    private fun subscriptionFailure(error: FirebaseFirestoreException): Throwable =
+        when (error.code) {
+            FirebaseFirestoreException.Code.PERMISSION_DENIED,
+            FirebaseFirestoreException.Code.UNAUTHENTICATED -> InboxSubscriptionRefused(error)
+            else -> error
+        }
+
     /**
      * Parse a raw `users_v2/{uid}/threads` doc into a CymbalThread with no
      * `otherUser` (the doc only stores `otherUserId`). Timestamps are real
      * Firestore `Timestamp`s here, unlike the callable which serializes millis.
      */
-    private fun parseThreadSummary(id: String, data: Map<String, Any?>): CymbalThread {
+    internal fun parseThreadSummary(id: String, data: Map<String, Any?>): CymbalThread {
         val ts = data["lastMessageAt"] as? Timestamp ?: data["updatedAt"] as? Timestamp
         @Suppress("UNCHECKED_CAST")
         val memberIds = (data["memberIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
@@ -494,7 +517,56 @@ class MessageRepository @Inject constructor(
             groupPhotoURL = (data["groupPhotoURL"] ?: data["photoURL"]) as? String,
             memberIds = memberIds,
             createdBy = data["createdBy"] as? String,
+            blocked = data["blocked"] == true,
+            updatedAt = (data["updatedAt"] as? Timestamp)?.toDate(),
         )
+    }
+
+    /**
+     * The caller's own inbox row for one thread, as it stands right now. A null
+     * [thread] is the row being absent; [fromCache] says whether that absence is
+     * merely local, since a device that has never held the row cannot tell
+     * "gone" from "not fetched yet".
+     */
+    data class ThreadRowSnapshot(
+        val thread: CymbalThread?,
+        val fromCache: Boolean,
+    )
+
+    /**
+     * Live view of the caller's own inbox row for one conversation — the row the
+     * backend itself consults before it will hand that conversation over, so it
+     * is the same fact, arriving without a round trip and continuing to arrive
+     * for as long as the conversation is on screen.
+     *
+     * Metadata changes are included because an absent row carries no data change
+     * between the cache's answer and the server's, and absence only means
+     * anything once the server has said it.
+     */
+    fun listenToThreadRow(userId: String, threadId: String): Flow<ThreadRowSnapshot> = callbackFlow {
+        val registration = firestore
+            .collection("users_v2")
+            .document(userId)
+            .collection("threads")
+            .document(threadId)
+            .addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
+                if (error != null) {
+                    // The row is not the caller's to read — signed out, or the
+                    // rules refuse it. Nothing about waiting changes that, and a
+                    // conversation whose row cannot be read cannot be shown.
+                    trySend(ThreadRowSnapshot(thread = null, fromCache = false))
+                    return@addSnapshotListener
+                }
+                if (snapshot == null) return@addSnapshotListener
+                val data = snapshot.data
+                trySend(
+                    ThreadRowSnapshot(
+                        thread = data?.let { parseThreadSummary(snapshot.id, it) },
+                        fromCache = snapshot.metadata.isFromCache,
+                    )
+                )
+            }
+        awaitClose { registration.remove() }
     }
 
     /**

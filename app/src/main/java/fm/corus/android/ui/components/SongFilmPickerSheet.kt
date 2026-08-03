@@ -1,9 +1,11 @@
 package fm.corus.android.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,6 +66,9 @@ import androidx.lifecycle.ViewModel
 // directors.
 enum class PickerMode { SONG, FILM, ARTIST, ALBUM, DIRECTOR, MUSIC_ALL, FILM_ALL }
 
+private enum class MusicAttachFilter { ALL, SONGS, ARTISTS, ALBUMS }
+private enum class FilmAttachFilter { ALL, FILMS, DIRECTORS }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongFilmPickerSheet(
@@ -97,6 +102,8 @@ fun SongFilmPickerSheet(
     var albumRows by remember { mutableStateOf<List<AlbumSearchSummary>>(emptyList()) }
     var directorRows by remember { mutableStateOf<List<ArtistSummary>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
+    var musicAttachFilter by remember { mutableStateOf(MusicAttachFilter.ALL) }
+    var filmAttachFilter by remember { mutableStateOf(FilmAttachFilter.ALL) }
     val scope = rememberCoroutineScope()
     var searchJob by remember { mutableStateOf<Job?>(null) }
 
@@ -253,6 +260,10 @@ fun SongFilmPickerSheet(
                         value = searchQuery,
                         onValueChange = {
                             searchQuery = it
+                            if (it.isBlank()) {
+                                musicAttachFilter = MusicAttachFilter.ALL
+                                filmAttachFilter = FilmAttachFilter.ALL
+                            }
                             runSearch(it, mode)
                         },
                         modifier = Modifier.weight(1f),
@@ -289,6 +300,8 @@ fun SongFilmPickerSheet(
                                 .size(18.dp)
                                 .clickable {
                                     searchQuery = ""
+                                    musicAttachFilter = MusicAttachFilter.ALL
+                                    filmAttachFilter = FilmAttachFilter.ALL
                                     runSearch("", mode)
                                 },
                         )
@@ -296,6 +309,32 @@ fun SongFilmPickerSheet(
                 }
 
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
+                if (searchQuery.isNotBlank() && mode == PickerMode.MUSIC_ALL) {
+                    AttachFilterChipRow(
+                        labels = listOf(
+                            stringResource(R.string.search_filter_all_chip),
+                            stringResource(R.string.song_film_picker_songs),
+                            stringResource(R.string.song_film_picker_artists),
+                            stringResource(R.string.song_film_picker_albums),
+                        ),
+                        selectedIndex = musicAttachFilter.ordinal,
+                        onSelected = { musicAttachFilter = MusicAttachFilter.entries[it] },
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                }
+                if (searchQuery.isNotBlank() && mode == PickerMode.FILM_ALL) {
+                    AttachFilterChipRow(
+                        labels = listOf(
+                            stringResource(R.string.search_filter_all_chip),
+                            stringResource(R.string.song_film_picker_films),
+                            stringResource(R.string.song_film_picker_directors),
+                        ),
+                        selectedIndex = filmAttachFilter.ordinal,
+                        onSelected = { filmAttachFilter = FilmAttachFilter.entries[it] },
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                }
             }
 
             // Content area: trending (empty query) | skeletons (searching) | results.
@@ -340,8 +379,16 @@ fun SongFilmPickerSheet(
                             PickerMode.MUSIC_ALL -> {
                                 // Blended Music tab: capped artist/album sections
                                 // above the song list, one query feeding all three.
-                                val cappedArtists = artistRows.take(3)
-                                val cappedAlbums = albumRows.take(3)
+                                val showArtists = musicAttachFilter == MusicAttachFilter.ALL
+                                    || musicAttachFilter == MusicAttachFilter.ARTISTS
+                                val showAlbums = musicAttachFilter == MusicAttachFilter.ALL
+                                    || musicAttachFilter == MusicAttachFilter.ALBUMS
+                                val showSongs = musicAttachFilter == MusicAttachFilter.ALL
+                                    || musicAttachFilter == MusicAttachFilter.SONGS
+                                val artistCap = if (musicAttachFilter == MusicAttachFilter.ALL) 3 else artistRows.size
+                                val albumCap = if (musicAttachFilter == MusicAttachFilter.ALL) 3 else albumRows.size
+                                val cappedArtists = if (showArtists) artistRows.take(artistCap) else emptyList()
+                                val cappedAlbums = if (showAlbums) albumRows.take(albumCap) else emptyList()
                                 if (cappedArtists.isNotEmpty()) {
                                     item(key = "header-artists") { PickerSectionHeader(stringResource(R.string.song_film_picker_artists)) }
                                     itemsIndexed(cappedArtists, key = { _, a -> "artist-${a.id}" }) { index, a ->
@@ -366,16 +413,20 @@ fun SongFilmPickerSheet(
                                         }
                                     }
                                 }
-                                if (tracks.isNotEmpty() && (cappedArtists.isNotEmpty() || cappedAlbums.isNotEmpty())) {
+                                if (tracks.isNotEmpty() && showSongs
+                                    && musicAttachFilter == MusicAttachFilter.ALL
+                                    && (cappedArtists.isNotEmpty() || cappedAlbums.isNotEmpty())) {
                                     item(key = "header-songs") { PickerSectionHeader(stringResource(R.string.song_film_picker_songs)) }
                                 }
-                                itemsIndexed(tracks, key = { _, t -> "song-${t.id}" }) { index, track ->
-                                    SongPickerRow(track = track, onClick = { onSongSelected(track) })
-                                    if (index < tracks.lastIndex) {
-                                        HorizontalDivider(
-                                            color = CorusColors.Divider,
-                                            modifier = Modifier.padding(start = 72.dp),
-                                        )
+                                if (showSongs) {
+                                    itemsIndexed(tracks, key = { _, t -> "song-${t.id}" }) { index, track ->
+                                        SongPickerRow(track = track, onClick = { onSongSelected(track) })
+                                        if (index < tracks.lastIndex) {
+                                            HorizontalDivider(
+                                                color = CorusColors.Divider,
+                                                modifier = Modifier.padding(start = 72.dp),
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -390,7 +441,12 @@ fun SongFilmPickerSheet(
                             }
                             PickerMode.FILM_ALL -> {
                                 // Blended Film tab: capped director section above the films.
-                                val cappedDirectors = directorRows.take(3)
+                                val showDirectors = filmAttachFilter == FilmAttachFilter.ALL
+                                    || filmAttachFilter == FilmAttachFilter.DIRECTORS
+                                val showFilms = filmAttachFilter == FilmAttachFilter.ALL
+                                    || filmAttachFilter == FilmAttachFilter.FILMS
+                                val directorCap = if (filmAttachFilter == FilmAttachFilter.ALL) 3 else directorRows.size
+                                val cappedDirectors = if (showDirectors) directorRows.take(directorCap) else emptyList()
                                 if (cappedDirectors.isNotEmpty()) {
                                     item(key = "header-directors") { PickerSectionHeader(stringResource(R.string.song_film_picker_directors)) }
                                     itemsIndexed(cappedDirectors, key = { _, d -> "director-${d.id}" }) { index, d ->
@@ -402,17 +458,19 @@ fun SongFilmPickerSheet(
                                             HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(start = 72.dp))
                                         }
                                     }
-                                    if (movies.isNotEmpty()) {
+                                    if (showFilms && movies.isNotEmpty() && filmAttachFilter == FilmAttachFilter.ALL) {
                                         item(key = "header-films") { PickerSectionHeader(stringResource(R.string.song_film_picker_films)) }
                                     }
                                 }
-                                itemsIndexed(movies, key = { _, m -> "film-${m.id}" }) { index, movie ->
-                                    FilmSearchResultRow(movie = movie, onClick = { onFilmSelected(movie) })
-                                    if (index < movies.lastIndex) {
-                                        HorizontalDivider(
-                                            color = CorusColors.Divider,
-                                            modifier = Modifier.padding(start = 72.dp),
-                                        )
+                                if (showFilms) {
+                                    itemsIndexed(movies, key = { _, m -> "film-${m.id}" }) { index, movie ->
+                                        FilmSearchResultRow(movie = movie, onClick = { onFilmSelected(movie) })
+                                        if (index < movies.lastIndex) {
+                                            HorizontalDivider(
+                                                color = CorusColors.Divider,
+                                                modifier = Modifier.padding(start = 72.dp),
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -472,6 +530,41 @@ private fun PickerSectionHeader(text: String) {
             .padding(horizontal = CorusSpacing.lg)
             .padding(top = CorusSpacing.md, bottom = CorusSpacing.xs),
     )
+}
+
+/** Horizontal pill chips for blended attach pickers. */
+@Composable
+private fun AttachFilterChipRow(
+    labels: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+    ) {
+        items(labels.size) { index ->
+            val active = index == selectedIndex
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
+                    .background(if (active) CorusColors.Accent else Color.Transparent)
+                    .border(
+                        width = if (active) 0.dp else 1.dp,
+                        color = CorusColors.Divider,
+                        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                    )
+                    .clickable { if (!active) onSelected(index) }
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            ) {
+                Text(
+                    labels[index],
+                    style = CorusFont.captionMedium,
+                    color = if (active) Color.White else CorusColors.Secondary,
+                )
+            }
+        }
+    }
 }
 
 /** Segment label for a picker tab. */

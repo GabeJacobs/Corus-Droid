@@ -7,6 +7,7 @@ import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -49,6 +50,8 @@ class ThreadListInboxCacheTest {
     private fun repoWithCache(cache: MessageRepository.CachedInbox?): MessageRepository = mock {
         on { leftThreads } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
         on { cachedInbox } doReturn cache
+        on { listenToThreadSummaries(org.mockito.kotlin.any(), org.mockito.kotlin.any()) } doReturn
+            kotlinx.coroutines.flow.emptyFlow()
     }
 
     private fun viewModel(repo: MessageRepository) = ThreadListViewModel(
@@ -59,7 +62,7 @@ class ThreadListInboxCacheTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         authRepository = mock { on { currentUserId } doReturn "me" }
-        userRepository = mock()
+        userRepository = mock { on { blockedIds } doReturn MutableStateFlow(emptySet()) }
         remoteConfigService = mock()
         analyticsService = mock()
     }

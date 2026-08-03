@@ -16,7 +16,10 @@ class ApplyLiveThreadUpdatesTest {
 
     private fun user(id: String) = CymbalUser(id = id, username = "user-$id", displayName = "User $id")
 
-    private fun loaded(id: String, text: String = "hi", at: Long = 1_000L) = CymbalThread(
+    // A loaded row. `updated` is null by default, which is what a row fetched by
+    // the paginated callable knows about itself: the callable returns the message
+    // time only.
+    private fun loaded(id: String, text: String = "hi", at: Long = 1_000L, updated: Long? = null) = CymbalThread(
         id = id,
         otherUser = user(id),
         otherUserId = "u-$id",
@@ -24,10 +27,18 @@ class ApplyLiveThreadUpdatesTest {
         lastMessageAt = Date(at),
         lastMessageFromUserId = "u-$id",
         unreadCount = 0,
+        updatedAt = updated?.let { Date(it) },
     )
 
-    // A live summary as parsed from the raw thread doc: no otherUser resolved.
-    private fun summary(id: String, text: String = "hi", at: Long = 1_000L, unread: Int = 1) = CymbalThread(
+    // A live summary as parsed from the raw thread doc: no otherUser resolved,
+    // and it carries the `updatedAt` the window is ordered by.
+    private fun summary(
+        id: String,
+        text: String = "hi",
+        at: Long = 1_000L,
+        unread: Int = 1,
+        updated: Long = at,
+    ) = CymbalThread(
         id = id,
         otherUser = null,
         otherUserId = "u-$id",
@@ -35,6 +46,7 @@ class ApplyLiveThreadUpdatesTest {
         lastMessageAt = Date(at),
         lastMessageFromUserId = "u-$id",
         unreadCount = unread,
+        updatedAt = Date(updated),
     )
 
     @Test
@@ -148,13 +160,13 @@ class ApplyLiveThreadUpdatesTest {
 
     @Test
     fun pruneRespectsTheWindowWhenSnapshotIsFull() {
-        // A full window (live.size == pageSize) is authoritative only for its own
-        // time range: a thread inside the window that vanished is pruned, but an
-        // older paginated thread below the window is kept.
+        // A full window (live.size == pageSize) is authoritative only over the
+        // rows it is ordered by: a thread inside the window that vanished is
+        // pruned, but a thread below the window is kept.
         val existing = listOf(
-            loaded("a", at = 3_000),
-            loaded("vanished", at = 2_500),
-            loaded("old", at = 500),
+            loaded("a", at = 3_000, updated = 3_000),
+            loaded("vanished", at = 2_500, updated = 2_500),
+            loaded("old", at = 500, updated = 500),
         )
         val live = listOf(summary("a", at = 3_000), summary("b", at = 2_000))
 
@@ -162,6 +174,27 @@ class ApplyLiveThreadUpdatesTest {
 
         assertEquals(listOf("a", "old"), result.merged.map { it.id })
         assertEquals(listOf("b"), result.newThreads.map { it.id })
+    }
+
+    @Test
+    fun readingAnOldConversationDoesNotDeleteTheRowsAboveIt() {
+        // Marking a thread read bumps `updatedAt` and nothing else, so a months-old
+        // conversation the user just opened jumps to the top of the window carrying
+        // its ancient last-message time. The window is still authoritative only for
+        // the rows it covers — everything paged in below it must survive.
+        val existing = listOf(
+            loaded("a", at = 9_000, updated = 9_000),
+            loaded("paginated", at = 4_000),
+            loaded("ancient", at = 100, updated = 100),
+        )
+        val live = listOf(
+            summary("ancient", at = 100, updated = 20_000),
+            summary("a", at = 9_000),
+        )
+
+        val result = applyLiveThreadUpdates(existing, live, pageSize = 2)
+
+        assertEquals(listOf("a", "paginated", "ancient"), result.merged.map { it.id })
     }
 
     @Test

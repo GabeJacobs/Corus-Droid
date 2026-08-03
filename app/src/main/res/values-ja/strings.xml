@@ -533,6 +533,15 @@
     <string name="notif_msg_contact_joined">さんが%sに参加しました！</string>
     <string name="notif_msg_repost">さんがあなたの%sをリポストしました。</string>
     <string name="notif_msg_taste_match_default">さんは新しい好みの一致です。</string>
+    <string name="notif_taste_match_prefix_discovery">新しい好みの一致：</string>
+    <string name="notif_taste_match_prefix_activity">あなたと</string>
+    <string name="notif_taste_match_suffix_activity_song">さんと同じ曲「</string>
+    <string name="notif_taste_match_suffix_activity_film">さんと同じ映画「</string>
+    <string name="notif_taste_match_prefix_milestone">好みの一致のマイルストーン：</string>
+    <string name="notif_taste_match_prefix_default">好みの一致：</string>
+    <string name="notif_taste_match_body_artists">共通のアーティストが%1$d組あります</string>
+    <string name="notif_taste_match_body_songs">共通の曲が%1$d曲あります</string>
+    <string name="notif_taste_match_body_films">共通の映画が%1$d本あります</string>
     <string name="notif_msg_favorite">さんがあなたをお気に入りに追加しました。</string>
     <string name="notif_msg_play_milestone">あなたの corus が%1$d回再生されました。</string>
     <string name="notif_favorite_someone">誰か</string>
@@ -630,6 +639,7 @@
     <string name="messaging_thread_placeholder">メッセージ...</string>
     <string name="messaging_thread_cd_shared_image">シェアされた画像</string>
     <string name="messaging_thread_sending">送信中...</string>
+    <string name="messaging_thread_unavailable">この会話は利用できなくなりました</string>
     <string name="messaging_thread_user_messaging_disabled">このユーザーはメッセージを無効にしています</string>
     <string name="messaging_thread_failed_to_deliver">配信できませんでした</string>
     <string name="messaging_thread_tap_to_retry">· タップして再試行</string>

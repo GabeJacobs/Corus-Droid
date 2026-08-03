@@ -501,6 +501,26 @@
     <string name="notif_msg_contact_joined">entrou no %s!</string>
     <string name="notif_msg_repost">repostou seu %s.</string>
     <string name="notif_msg_taste_match_default">é uma nova combinação de gosto.</string>
+    <string name="notif_taste_match_prefix_discovery">Nova combinação de gosto: </string>
+    <string name="notif_taste_match_prefix_activity">Você e </string>
+    <string name="notif_taste_match_suffix_activity_song"> compartilharam a música </string>
+    <string name="notif_taste_match_suffix_activity_film"> compartilharam o filme </string>
+    <string name="notif_taste_match_prefix_milestone">Marco de combinação de gosto com </string>
+    <string name="notif_taste_match_prefix_default">Combinação de gosto com </string>
+    <string name="notif_taste_match_body_artists">Vocês têm %1$d artistas em comum</string>
+    <string name="notif_taste_match_body_songs">Vocês têm %1$d músicas em comum</string>
+    <string name="notif_taste_match_body_films">Vocês têm %1$d filmes em comum</string>
+    <string name="notif_taste_match_discovery_taste_in_common">Vocês têm gostos musicais em comum</string>
+    <string name="notif_taste_match_discovery_both_love">Vocês dois amam %1$s</string>
+    <string name="notif_taste_match_discovery_both_posted">Vocês dois postaram %1$s</string>
+    <string name="notif_taste_match_discovery_list_overflow">%1$s, %2$s e mais %3$d</string>
+    <string name="notif_taste_match_discovery_shared_two_artists">Vocês dois compartilham %1$s e %2$s</string>
+    <string name="notif_taste_match_discovery_posted_two_songs">Vocês dois postaram %1$s e %2$s</string>
+    <string name="notif_taste_match_discovery_love_and_posted">Vocês dois amam %1$s e postaram %2$s</string>
+    <string name="notif_taste_match_discovery_share_and_more">Vocês compartilham %1$s, %2$s e mais</string>
+    <string name="notif_taste_match_discovery_share_two">Vocês compartilham %1$s e %2$s</string>
+    <string name="notif_taste_match_fallback_song">uma música</string>
+    <string name="notif_taste_match_fallback_film">um filme</string>
 
     <!-- Tab bar -->
     <string name="tab_feed">Feed</string>
@@ -597,6 +617,7 @@
     <string name="messaging_thread_placeholder">Mensagem...</string>
     <string name="messaging_thread_cd_shared_image">Imagem compartilhada</string>
     <string name="messaging_thread_sending">Enviando...</string>
+    <string name="messaging_thread_unavailable">Esta conversa não está mais disponível</string>
     <string name="messaging_thread_user_messaging_disabled">Este usuário desativou mensagens</string>
     <string name="messaging_thread_failed_to_deliver">Falha ao entregar</string>
     <string name="messaging_thread_tap_to_retry">· Toque para tentar novamente</string>

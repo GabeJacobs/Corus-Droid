@@ -76,6 +76,11 @@ fun MiniPlayerBar(
     modifier: Modifier = Modifier,
 ) {
     val state by nowPlayingManager.state.collectAsState()
+    val isHydratingExternalSpotify by nowPlayingManager.isHydratingExternalSpotify.collectAsState()
+    val isExternalSpotifyListening by nowPlayingManager.isExternalSpotifyListeningFlow.collectAsState()
+    val showsMiniPlayer = state.hasActiveTrack && !isHydratingExternalSpotify &&
+        (!isExternalSpotifyListening ||
+            (state.trackName.isNotBlank() && state.trackName != "Unknown Track"))
     val absentFromSpotify by fm.corus.android.domain.MusicServiceLinkOut.absentFromSpotify.collectAsState()
     val engagementStates = engagementManager?.states?.collectAsState()?.value ?: emptyMap()
     val isCurrentTrackLiked = state.sourcePostId
@@ -85,7 +90,7 @@ fun MiniPlayerBar(
     val linkOutScope = androidx.compose.runtime.rememberCoroutineScope()
 
     AnimatedVisibility(
-        visible = state.hasActiveTrack,
+        visible = showsMiniPlayer,
         enter = fadeIn(),
         exit = fadeOut(),
         modifier = modifier,

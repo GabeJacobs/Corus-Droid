@@ -2,6 +2,11 @@ package fm.corus.android.data.model
 
 import java.util.Date
 
+data class TasteMatchDiscoveryItem(
+    val kind: String,
+    val name: String,
+)
+
 data class CymbalNotification(
     val id: String,
     val type: NotificationType,
@@ -16,6 +21,11 @@ data class CymbalNotification(
     val isRead: Boolean = false,
     /** Unique-listener count for PLAY_MILESTONE rows (null otherwise). */
     val playCount: Int? = null,
+    /** Overlap counts on taste_match rows — used to localize milestone copy. */
+    val sharedSongs: Int? = null,
+    val sharedFilms: Int? = null,
+    val sharedArtists: Int? = null,
+    val discoveryItems: List<TasteMatchDiscoveryItem>? = null,
 ) {
     val supportsCommentActions: Boolean
         get() = commentId != null && postId != null && type.supportsCommentActions
@@ -69,7 +79,22 @@ data class CymbalNotification(
                 timestamp = timestamp,
                 isRead = data["isRead"] as? Boolean ?: false,
                 playCount = (data["playCount"] as? Number)?.toInt(),
+                sharedSongs = (data["sharedSongs"] as? Number)?.toInt(),
+                sharedFilms = (data["sharedFilms"] as? Number)?.toInt(),
+                sharedArtists = (data["sharedArtists"] as? Number)?.toInt(),
+                discoveryItems = parseDiscoveryItems(data["discoveryItems"]),
             )
+        }
+
+        private fun parseDiscoveryItems(raw: Any?): List<TasteMatchDiscoveryItem>? {
+            val arr = raw as? List<*> ?: return null
+            val items = arr.mapNotNull { entry ->
+                val map = entry as? Map<*, *> ?: return@mapNotNull null
+                val name = map["name"] as? String ?: return@mapNotNull null
+                if (name.isEmpty()) return@mapNotNull null
+                TasteMatchDiscoveryItem(kind = map["kind"] as? String ?: "artist", name = name)
+            }
+            return items.ifEmpty { null }
         }
     }
 }

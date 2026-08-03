@@ -10,6 +10,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -80,7 +81,7 @@ class ThreadListLiveMergeFlashTest {
             on { recentlyLeftThreadIds() } doReturn emptySet()
         }
         authRepository = mock { on { currentUserId } doReturn "me" }
-        userRepository = mock()
+        userRepository = mock { on { blockedIds } doReturn MutableStateFlow(emptySet()) }
         remoteConfigService = mock()
         analyticsService = mock()
     }
@@ -94,30 +95,38 @@ class ThreadListLiveMergeFlashTest {
         messageRepository, authRepository, userRepository, remoteConfigService, analyticsService,
     )
 
+    /**
+     * The live listener's first (sub-pageSize, so "complete") snapshot carries only
+     * a brand-new thread: the known rows are absent from it and would be pruned.
+     * Gating the profile resolution freezes the inbox in the window where the empty
+     * list used to show.
+     */
+    private suspend fun arrangeSnapshotOfOnlyANewThread(): CompletableDeferred<Unit> {
+        whenever(messageRepository.listenToThreadSummaries(any(), any()))
+            .thenReturn(flowOf(listOf(summary("new", at = 9_000))))
+        val resolveGate = CompletableDeferred<Unit>()
+        whenever(userRepository.fetchUsersByIdsBatched(listOf("u-new"))).doSuspendableAnswer {
+            resolveGate.await()
+            listOf(user("new").copy(id = "u-new"))
+        }
+        return resolveGate
+    }
+
     @Test
     fun `partial live snapshot of only new threads does not blink the inbox empty`() = runTest {
-        // Cold load returns two known threads.
-        whenever(messageRepository.listThreadsPage(any(), any(), anyOrNull())).thenReturn(
-            CloudFunctionsDataSource.ThreadListPage(
+        // Reopening Messages: the last-rendered inbox is on screen from the first
+        // frame, and the snapshot arrives against it.
+        whenever(messageRepository.cachedInbox).doReturn(
+            MessageRepository.CachedInbox(
+                userId = "me",
                 threads = listOf(loaded("t1", at = 2_000), loaded("t2", at = 1_000)),
                 nextCursor = null,
                 hasMore = false,
             )
         )
-        // The live listener's first (sub-pageSize, so "complete") snapshot carries
-        // only a brand-new thread — the known rows are absent and would be pruned.
-        whenever(messageRepository.listenToThreadSummaries(any(), any()))
-            .thenReturn(flowOf(listOf(summary("new", at = 9_000))))
-        // Freeze the new thread's profile resolution so we can observe the inbox
-        // state while it's in flight (the window where the empty list used to show).
-        val resolveGate = CompletableDeferred<Unit>()
-        whenever(userRepository.fetchUserProfile("u-new")).doSuspendableAnswer {
-            resolveGate.await()
-            user("new")
-        }
+        val resolveGate = arrangeSnapshotOfOnlyANewThread()
 
         val vm = viewModel()
-        vm.loadThreads()
         advanceUntilIdle()
 
         // Resolution is still pending here. The inbox must keep showing the known
@@ -125,12 +134,38 @@ class ThreadListLiveMergeFlashTest {
         assertEquals(listOf("t1", "t2"), vm.threads.value.map { it.id })
 
         // Once the profile lands, the authoritative snapshot result is published:
-        // the new thread, resolved, with the pruned rows dropped (existing prune
-        // semantics) — identical final state, just without the empty flash.
+        // the new thread, resolved, with the pruned rows dropped — identical final
+        // state, just without the empty flash.
         resolveGate.complete(Unit)
         advanceUntilIdle()
 
         assertEquals(listOf("new"), vm.threads.value.map { it.id })
         assertEquals("user-new", vm.threads.value.first().otherUser?.username)
+    }
+
+    @Test
+    fun `rows that land while profiles resolve survive the deferred publish`() = runTest {
+        // Same snapshot, but the known rows arrive from the callable *during* the
+        // profile fetch. A server round trip that answers after the snapshot was
+        // raised is the newer word on what exists; the held publish must fold into
+        // it rather than roll the list back to what the snapshot decided.
+        whenever(messageRepository.listThreadsPage(any(), any(), anyOrNull())).thenReturn(
+            CloudFunctionsDataSource.ThreadListPage(
+                threads = listOf(loaded("t1", at = 2_000), loaded("t2", at = 1_000)),
+                nextCursor = null,
+                hasMore = false,
+            )
+        )
+        val resolveGate = arrangeSnapshotOfOnlyANewThread()
+
+        val vm = viewModel()
+        vm.loadThreads()
+        advanceUntilIdle()
+        assertEquals(listOf("t1", "t2"), vm.threads.value.map { it.id })
+
+        resolveGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("new", "t1", "t2"), vm.threads.value.map { it.id })
     }
 }

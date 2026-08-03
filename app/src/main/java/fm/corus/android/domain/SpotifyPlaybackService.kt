@@ -74,6 +74,27 @@ class SpotifyPlaybackService @Inject constructor(
         private set
     var incomingContextUri: String? = null
         private set
+
+    var currentTrackTitle: String? = null
+        private set
+    var currentTrackArtistName: String? = null
+        private set
+    var currentTrackAlbumTitle: String? = null
+        private set
+
+    data class AppRemoteDisplayMetadata(
+        val name: String,
+        val artistName: String,
+        val albumName: String,
+    )
+
+    /** Display metadata for whatever Spotify is playing — from App Remote, no Web API. */
+    fun appRemoteDisplayMetadata(): AppRemoteDisplayMetadata? {
+        val name = currentTrackTitle?.takeIf { it.isNotEmpty() } ?: return null
+        val artist = currentTrackArtistName?.takeIf { it.isNotEmpty() } ?: return null
+        return AppRemoteDisplayMetadata(name, artist, currentTrackAlbumTitle.orEmpty())
+    }
+
     /** Set on track change until the next player-context event (Android has no context on PlayerState). */
     private var incomingContextAwaitingSinceMs: Long? = null
 
@@ -469,6 +490,9 @@ class SpotifyPlaybackService @Inject constructor(
 
         val uri = track.uri ?: ""
         val playing = !state.isPaused
+        currentTrackTitle = track.name
+        currentTrackArtistName = track.artist?.name
+        currentTrackAlbumTitle = track.album?.name
         val playStateChanged = _isPlaying.value != playing
         val trackChanged = uri.isNotEmpty() && uri != lastObservedTrackUri
         val newPosition = state.playbackPosition / 1000.0

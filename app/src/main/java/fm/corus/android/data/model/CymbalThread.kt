@@ -21,6 +21,17 @@ data class CymbalThread(
      *  doc carries only `memberIds`, resolved by the consumer. */
     val members: List<CymbalUser> = emptyList(),
     val createdBy: String? = null,
+    /** True while the caller has the correspondent blocked. Stamped on the
+     *  caller's own mirror row for as long as the block exists, so the row
+     *  itself says whether it may be shown; callable rows never arrive blocked
+     *  because the server drops them. */
+    val blocked: Boolean = false,
+    /** When the row itself last changed — a new message, or the caller reading
+     *  the conversation. This is what the inbox is ordered and windowed by, so
+     *  it is not interchangeable with [lastMessageAt]. Null when unknown: the
+     *  callables return only the message time, and a row that came from one
+     *  cannot be placed in the live window's order. */
+    val updatedAt: Date? = null,
 ) {
     companion object {
         @Suppress("UNCHECKED_CAST")

@@ -54,7 +54,7 @@ class NowPlayingManagerLookupTest {
     }
 
     private fun newManager(cloudFunctions: CloudFunctionsDataSource): NowPlayingManager =
-        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository, mock(), mock(), mock(), mock(), mock(), mock())
+        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository, mock(), mock(), mock(), mock(), mock(), mock(), mock())
 
     @Before
     fun setUp() {

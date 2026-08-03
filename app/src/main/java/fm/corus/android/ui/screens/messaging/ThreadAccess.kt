@@ -1,0 +1,53 @@
+package fm.corus.android.ui.screens.messaging
+
+import fm.corus.android.data.model.CymbalThread
+import fm.corus.android.data.repository.MessageRepository
+
+/** Whether a conversation may be put in front of the caller yet, or at all. */
+enum class ThreadAccess { RESOLVING, OPEN, UNAVAILABLE }
+
+/**
+ * The one rule for whether the caller may see a conversation, mirroring the
+ * server's refusal so both sides hide exactly the same ones. It answers for a
+ * row of the inbox and for the conversation the user is trying to open, because
+ * those are the same question asked twice.
+ *
+ * A block is stamped on the blocker's own mirror row for as long as the block
+ * exists, which is the only word available for a block made on another device;
+ * [blockedIds] is the device's own block set, which answers the instant the user
+ * blocks and without waiting for the stamp to come back. A ban is not row data —
+ * it is global, and would have to mean something different for a group's member
+ * list — so it is resolved against the device's live banned set. Group rows
+ * always survive: one blocked or banned member must not hide a conversation from
+ * everyone else in it.
+ */
+internal fun mayShowThread(
+    thread: CymbalThread,
+    blockedIds: Set<String>,
+    isBanned: (String) -> Boolean,
+): Boolean =
+    thread.isGroup ||
+        (!thread.blocked && thread.otherUserId !in blockedIds && !isBanned(thread.otherUserId))
+
+/**
+ * Whether the conversation behind [row] may be opened. Nothing is drawn until
+ * the answer is known, so no entry point — a tapped push, a deep link, a tap in
+ * the app — can put a refused conversation on screen even for a frame, and a
+ * block landing while it is open takes it away.
+ *
+ * A row that is merely missing from the local cache is not an answer: a cold
+ * deep link has never held the row, and calling that unavailable would refuse
+ * every conversation opened from a notification.
+ */
+internal fun resolveThreadAccess(
+    row: MessageRepository.ThreadRowSnapshot?,
+    blockedIds: Set<String>,
+    isBanned: (String) -> Boolean,
+): ThreadAccess = when {
+    row == null -> ThreadAccess.RESOLVING
+    row.thread != null ->
+        if (mayShowThread(row.thread, blockedIds, isBanned)) ThreadAccess.OPEN
+        else ThreadAccess.UNAVAILABLE
+    row.fromCache -> ThreadAccess.RESOLVING
+    else -> ThreadAccess.UNAVAILABLE
+}

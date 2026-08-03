@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.InboxSubscriptionRefused
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
 import kotlinx.coroutines.Job
@@ -13,6 +14,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -29,6 +32,22 @@ internal fun mergeRefreshedThreads(
     val refreshedIds = refreshed.map { it.id }.toSet()
     return refreshed + existing.filter { it.id !in refreshedIds }
 }
+
+/**
+ * The rows the inbox is allowed to draw. Each is put to [mayShowThread], the
+ * same rule that decides whether the conversation itself may be opened.
+ *
+ * The rule reads two sources for a block because each covers rows the other
+ * cannot see here: the row's own stamp reaches this client only through the live
+ * listener's window, while the device's block set covers every row whatever path
+ * it arrived by — the paginated tail below that window, and the reopen cache
+ * that re-seeds it.
+ */
+internal fun visibleInboxRows(
+    threads: List<CymbalThread>,
+    blockedIds: Set<String>,
+    isBanned: (String) -> Boolean,
+): List<CymbalThread> = threads.filter { mayShowThread(it, blockedIds, isBanned) }
 
 /** Result of folding a live inbox snapshot into the loaded list. */
 internal data class LiveThreadMerge(
@@ -77,21 +96,32 @@ internal fun applyLiveThreadUpdates(
                 groupPhotoURL = lt.groupPhotoURL ?: ex.groupPhotoURL,
                 memberIds = if (lt.memberIds.isNotEmpty()) lt.memberIds else ex.memberIds,
                 createdBy = ex.createdBy ?: lt.createdBy,
+                blocked = lt.blocked,
+                updatedAt = lt.updatedAt,
             )
         } else {
             newThreads.add(lt)
         }
     }
     // Prune threads that vanished from the live window — left, removed by someone
-    // else, or deleted on another device. The snapshot is the newest `pageSize`
-    // threads by recency, so it's authoritative for that window; older paginated
-    // threads (below it) are kept.
+    // else, or deleted on another device. The window is the newest `pageSize`
+    // rows by `updatedAt`, so that is the only dimension it speaks for: a row is
+    // covered when its own `updatedAt` reaches the window's floor. Reading an old
+    // conversation bumps `updatedAt` alone, which pulls it into the window still
+    // carrying its ancient last-message time — measuring the floor in that
+    // dimension instead would collapse it and delete every newer row below.
+    // Rows the callable loaded carry no `updatedAt` and are outside the window's
+    // word entirely. A short snapshot is the exception: it holds every thread the
+    // user has, so anything missing from it is gone whatever its timestamps say.
     val liveIds = live.map { it.id }.toSet()
     val snapshotComplete = live.size < pageSize
-    val windowOldest = live.minOfOrNull { it.lastMessageAt.time }
-    if (windowOldest != null) {
+    val windowFloor = live.mapNotNull { it.updatedAt?.time }.minOrNull()
+    if (live.isNotEmpty()) {
         val kept = byId.filterValues { t ->
-            liveIds.contains(t.id) || !(snapshotComplete || t.lastMessageAt.time >= windowOldest)
+            val updated = t.updatedAt?.time
+            val covered = snapshotComplete ||
+                (windowFloor != null && updated != null && updated >= windowFloor)
+            liveIds.contains(t.id) || !covered
         }
         byId.clear()
         byId.putAll(kept)
@@ -114,17 +144,41 @@ class ThreadListViewModel @Inject constructor(
 
     /**
      * Last-rendered inbox from the singleton repository, scoped to the current
-     * user. Non-null when reopening Messages: the ViewModel seeds its threads,
-     * cursor and "loaded" flags from it so the screen renders immediately and
-     * reconciles in place via `refreshThreads()` instead of showing the skeleton.
-     * Null on a cold first open or after a user switch, which keeps the full
-     * skeleton + `loadThreads()` path.
+     * user. Non-null when reopening Messages within the same process: the
+     * ViewModel seeds its threads, cursor and "loaded" flags from it so the very
+     * first composed frame is already the list, with resolved profiles the live
+     * mirror docs don't carry. Null after a process restart or a user switch,
+     * where the live listener's first cached snapshot takes over instead.
      */
     private val seededInbox: MessageRepository.CachedInbox? =
         messageRepository.cachedInbox?.takeIf { it.userId == authRepository.currentUserId }
 
-    private val _threads = MutableStateFlow(seededInbox?.threads ?: emptyList())
+    /**
+     * Every row the screen draws passes through here, so a row the inbox may not
+     * show cannot reach it from any source — the reopen cache, the live snapshot,
+     * the paginated callable or search — and a row that becomes unshowable while
+     * loaded is dropped by the next publish rather than lingering.
+     */
+    private fun visible(threads: List<CymbalThread>): List<CymbalThread> =
+        visibleInboxRows(threads, userRepository.blockedIds.value) {
+            userRepository.isUserBannedLocally(it)
+        }
+
+    private val _threads = MutableStateFlow(visible(seededInbox?.threads ?: emptyList()))
     val threads: StateFlow<List<CymbalThread>> = _threads.asStateFlow()
+
+    /**
+     * Counts publishes rather than compares lists, so a publish that restates the
+     * same rows still registers: it is the act of publishing that says another
+     * source has spoken since, which is what the live listener needs to know
+     * before it overwrites the list with a decision it made earlier.
+     */
+    private var publishCount = 0L
+
+    private fun publishThreads(threads: List<CymbalThread>) {
+        publishCount++
+        _threads.value = visible(threads)
+    }
 
     // Resolved member profiles for group rows (stacked avatars + titles). The
     // live mirror carries only memberIds, so missing profiles are fetched here.
@@ -135,8 +189,14 @@ class ThreadListViewModel @Inject constructor(
         // Drop a group from the inbox the instant the user leaves it.
         viewModelScope.launch {
             messageRepository.leftThreads.collect { id ->
-                _threads.value = _threads.value.filterNot { it.id == id }
+                publishThreads(_threads.value.filterNot { it.id == id })
             }
+        }
+        // Re-test the list whenever the block set changes. Blocking someone is
+        // the moment their row must go, and for a row outside the live window
+        // that is the only word that will ever arrive.
+        viewModelScope.launch {
+            userRepository.blockedIds.collect { publishThreads(_threads.value) }
         }
         viewModelScope.launch {
             _threads.collect { list ->
@@ -180,7 +240,10 @@ class ThreadListViewModel @Inject constructor(
         runCatching { userRepository.searchUsers(query, limit = 15, includeFollowed = true) }
             .getOrDefault(emptyList())
 
-    // Skip the skeleton entirely when we seeded a known inbox.
+    // Permission to show the skeleton, not a claim that anything is pending: the
+    // screen draws it only while the list is also still empty. Seeding from the
+    // reopen cache withholds it outright; otherwise the live listener normally
+    // fills the list from its cache first and the skeleton never gets a frame.
     private val _isLoading = MutableStateFlow(seededInbox == null)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -199,13 +262,10 @@ class ThreadListViewModel @Inject constructor(
     private var nextCursor: Long? = seededInbox?.nextCursor
 
     /**
-     * The screen's LaunchedEffect re-runs every time it's recomposed after a
-     * back navigation. After the first successful load, reloads refresh in
-     * place instead of resetting to the first page, which would drop
-     * paginated-in threads and yank the scroll position.
-     *
-     * Starts true when seeded from the cross-instance inbox cache so the first
-     * `loadThreads()` after a reopen refreshes in place instead of cold-loading.
+     * Whether the callable has ever answered for this list. Its only remaining
+     * job is to decide whether the skeleton is allowed while the list is empty;
+     * both paths reconcile identically. Starts true when seeded from the
+     * cross-instance inbox cache, whose contents came from a previous answer.
      */
     private var hasLoadedThreads = seededInbox != null
 
@@ -240,7 +300,17 @@ class ThreadListViewModel @Inject constructor(
     val currentUserId: String? get() = authRepository.currentUserId
 
     private var searchJob: Job? = null
-    private var threadSummaryJob: Job? = null
+
+    /**
+     * The inbox's live source, subscribed while the ViewModel is being built so
+     * nothing on the presentation path waits on a network call: Firestore raises
+     * the first snapshot from its on-disk cache in milliseconds, which is what
+     * the screen renders. Attaching it here rather than inside [loadThreads] is
+     * also what makes "the list ends up with no live listener" unreachable — no
+     * callable outcome can skip it.
+     */
+    private val threadSummaryJob: Job? =
+        authRepository.currentUserId?.let { startThreadSummaryListener(it) }
 
     // Inbox search. The local filter in the screen only sees paged-in threads, so
     // a debounced backend `searchThreads` backfills matches from the full history.
@@ -253,27 +323,21 @@ class ThreadListViewModel @Inject constructor(
 
     private var inboxSearchJob: Job? = null
 
+    /**
+     * Reconciles the inbox against the paginated callable. This is never what
+     * the screen waits on — the live listener is already running and already
+     * rendering — so the only difference between a cold open and a re-entry is
+     * whether the skeleton is allowed while the list is still empty.
+     */
     fun loadThreads() {
         val userId = authRepository.currentUserId ?: return
         if (hasLoadedThreads) {
-            // Already loaded, or seeded from the cross-instance cache on reopen.
-            // Attach the live listener (a no-op if it's already running, but it
-            // isn't yet on a cache-seeded cold start) and reconcile in place.
-            startThreadSummaryListener(userId)
             viewModelScope.launch { refreshThreads(userId) }
             return
         }
         viewModelScope.launch {
             _isLoading.value = true
-            try {
-                val page = messageRepository.listThreadsPage(userId, limit = pageSize)
-                val left = messageRepository.recentlyLeftThreadIds()
-                _threads.value = page.threads.filter { it.lastMessageFromUserId != null && it.id !in left }
-                nextCursor = page.nextCursor
-                _hasMoreThreads.value = page.hasMore && page.nextCursor != null
-                hasLoadedThreads = true
-                startThreadSummaryListener(userId)
-            } catch (_: Exception) { }
+            refreshThreads(userId)
             _isLoading.value = false
         }
     }
@@ -281,22 +345,37 @@ class ThreadListViewModel @Inject constructor(
     /**
      * Keep the first page of the inbox live: merge a real-time snapshot of the
      * caller's threads so previews/timestamps/unread update without leaving the
-     * screen. Started once after the first load; the paginated callable still
-     * loads older threads on scroll. Profiles for brand-new threads (someone
-     * messaging you for the first time while you sit here) are resolved on the
-     * side and folded in.
+     * screen. The paginated callable still loads older threads on scroll.
+     * Profiles for threads not yet in the list — every thread on a cold open,
+     * or someone messaging you for the first time while you sit here — are
+     * resolved in one batched read and folded in.
      */
-    private fun startThreadSummaryListener(userId: String) {
-        if (threadSummaryJob != null) return
-        threadSummaryJob = viewModelScope.launch {
-            messageRepository.listenToThreadSummaries(userId, pageSize.toLong()).collect { liveRaw ->
+    private fun startThreadSummaryListener(userId: String): Job {
+        return viewModelScope.launch {
+            messageRepository.listenToThreadSummaries(userId, pageSize.toLong()).retryWhen { cause, attempt ->
+                // Re-subscribe after a dropped listener, backing off to 30s. A
+                // refusal is not a drop — nothing about attaching again changes
+                // the answer, so retrying it is a wakeup every few seconds behind
+                // a screen nobody is looking at, forever.
+                if (cause is InboxSubscriptionRefused) return@retryWhen false
+                delay(minOf(30_000L, 1_000L shl attempt.coerceAtMost(5L).toInt()))
+                true
+            }.catch { cause ->
+                // Ending the subscription is the whole response: there is no inbox
+                // to keep live for a caller who may no longer read it, and letting
+                // it out of the collector would take the process with it.
+                if (cause !is InboxSubscriptionRefused) throw cause
+            }.collect { liveRaw ->
                 // Drop threads the user just left before merging: a stale cache
                 // snapshot can still carry their mirror doc, and the async profile
                 // resolution below would otherwise re-add them after they're gone.
                 val left = messageRepository.recentlyLeftThreadIds()
                 val live = if (left.isEmpty()) liveRaw else liveRaw.filterNot { it.id in left }
-                val (merged, newThreads) = applyLiveThreadUpdates(_threads.value, live, pageSize)
+                val (merged, newRows) = applyLiveThreadUpdates(_threads.value, live, pageSize)
                 val mergedFiltered = if (left.isEmpty()) merged else merged.filterNot { it.id in left }
+                // Dropped before resolution, so a row the inbox may not draw
+                // never costs a profile read on its way to being discarded.
+                val newThreads = visible(newRows)
 
                 // The merge can transiently drop everything: a partial snapshot whose
                 // only threads are brand-new (still awaiting the profile resolution
@@ -306,41 +385,46 @@ class ThreadListViewModel @Inject constructor(
                 // after resolution — the final state is identical, minus the flash.
                 val deferEmptyPublish = mergedFiltered.isEmpty() && newThreads.isNotEmpty()
                 if (!deferEmptyPublish) {
-                    _threads.value = mergedFiltered
+                    publishThreads(mergedFiltered)
                 }
                 if (newThreads.isEmpty()) return@collect
+                val publishesBeforeResolution = publishCount
+                // One batched, cache-first read for every unresolved profile in
+                // the snapshot. Resolving them one at a time put a serial round
+                // trip per row between a cached snapshot and the rows it can
+                // draw, which on a cold open is the whole inbox.
+                val profiles = runCatching {
+                    userRepository.fetchUsersByIdsBatched(
+                        newThreads.flatMap { lt ->
+                            if (lt.isGroup) lt.memberIds else listOf(lt.otherUserId)
+                        }.filter { it.isNotBlank() && it != currentUserId }.distinct()
+                    )
+                }.getOrDefault(emptyList()).associateBy { it.id }
                 val resolved = newThreads.mapNotNull { lt ->
                     if (lt.isGroup) {
-                        // Resolve member profiles for a group someone added you to
-                        // while you were sitting on the inbox (1:1 rows resolve the
-                        // single otherUser below).
-                        val members = lt.memberIds
-                            .filter { it != currentUserId }
-                            .mapNotNull { runCatching { userRepository.fetchUserProfile(it) }.getOrNull() }
-                        lt.copy(members = members)
+                        lt.copy(members = lt.memberIds.mapNotNull { profiles[it] })
                     } else {
-                        val profile = runCatching {
-                            userRepository.fetchUserProfile(lt.otherUserId)
-                        }.getOrNull()
-                        profile?.let { lt.copy(otherUser = it) }
+                        profiles[lt.otherUserId]?.let { lt.copy(otherUser = it) }
                     }
                 }
-                if (resolved.isNotEmpty()) {
-                    // When the empty publish was deferred, fold the resolved rows into
-                    // the authoritative merged result (not the still-shown stale list,
-                    // which holds the rows the snapshot intentionally pruned). resolved
-                    // goes last so it wins over any stale duplicate.
-                    val base = if (deferEmptyPublish) mergedFiltered else _threads.value
-                    _threads.value = (base + resolved)
+                if (resolved.isEmpty() && !deferEmptyPublish) return@collect
+                // A deferred publish is still holding rows this snapshot decided to
+                // prune, so it publishes the snapshot's own result — unless another
+                // source published while the profiles were in flight, in which case
+                // that is the newer word on what the inbox holds and the resolved
+                // rows join it instead of rolling it back. resolved goes last so it
+                // wins over any stale duplicate.
+                val base = if (deferEmptyPublish && publishCount == publishesBeforeResolution) {
+                    mergedFiltered
+                } else {
+                    _threads.value
+                }
+                publishThreads(
+                    (base + resolved)
                         .associateBy { it.id }
                         .values
                         .sortedByDescending { it.lastMessageAt.time }
-                } else if (deferEmptyPublish) {
-                    // Resolution yielded nothing (every profile lookup failed). Publish
-                    // the merged result now so state stays consistent rather than stuck
-                    // on the stale rows; an empty inbox here is the honest result.
-                    _threads.value = mergedFiltered
-                }
+                )
             }
         }
     }
@@ -368,17 +452,27 @@ class ThreadListViewModel @Inject constructor(
             val left = messageRepository.recentlyLeftThreadIds()
             val refreshed = page.threads.filter { it.lastMessageFromUserId != null && it.id !in left }
             val merged = mergeRefreshedThreads(_threads.value, refreshed).filterNot { it.id in left }
-            val tailEmpty = merged.size == refreshed.size
-            _threads.value = merged
-            if (tailEmpty) {
-                // Everything loaded fits in the refreshed page, so its cursor is
-                // the list's cursor. With a tail, the existing cursor still
-                // points at the last fetched thread (the tail's end) and stays
-                // valid.
+            publishThreads(merged)
+            hasLoadedThreads = true
+            // The cursor belongs to whatever is oldest in the list. Rows older
+            // than the refreshed page came from pagination, and the existing
+            // cursor (the end of that tail) still points past them. Rows the
+            // page simply doesn't carry but that fall inside its recency window
+            // — the live listener publishes those before the callable answers —
+            // are not a tail, so the page's cursor is still the list's cursor.
+            val pageOldest = refreshed.minOfOrNull { it.lastMessageAt.time }
+            val hasOlderTail = pageOldest != null && merged.any { it.lastMessageAt.time < pageOldest }
+            if (!hasOlderTail) {
                 nextCursor = page.nextCursor
                 _hasMoreThreads.value = page.hasMore && page.nextCursor != null
             }
-        } catch (_: Exception) { }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // The live listener is the inbox's source of truth and is already
+            // attached, so a failed reconcile costs pagination state, not the
+            // list. Pull-to-refresh retries it.
+        }
     }
 
     fun loadMoreThreads() {
@@ -394,7 +488,7 @@ class ThreadListViewModel @Inject constructor(
                 val newThreads = page.threads
                     .filter { it.lastMessageFromUserId != null }
                     .filter { it.id !in existingIds }
-                _threads.value = _threads.value + newThreads
+                publishThreads(_threads.value + newThreads)
                 nextCursor = page.nextCursor
                 // The recency cursor strictly decreases each page, so it can't loop;
                 // stop when the server reports no more or the cursor didn't advance.
@@ -483,8 +577,10 @@ class ThreadListViewModel @Inject constructor(
                 return@launch
             }
             try {
-                _inboxSearchResults.value = messageRepository.searchThreads(userId, trimmed)
-                    .filter { it.lastMessageFromUserId != null }
+                _inboxSearchResults.value = visible(
+                    messageRepository.searchThreads(userId, trimmed)
+                        .filter { it.lastMessageFromUserId != null }
+                )
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (_: Exception) {

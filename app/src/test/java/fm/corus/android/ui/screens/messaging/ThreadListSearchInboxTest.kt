@@ -7,6 +7,7 @@ import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -63,11 +64,12 @@ class ThreadListSearchInboxTest {
         Dispatchers.setMain(testDispatcher)
         messageRepository = mock {
             on { leftThreads } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
+            on { listenToThreadSummaries(any(), any()) } doReturn kotlinx.coroutines.flow.emptyFlow()
         }
         authRepository = mock {
             on { currentUserId } doReturn "me"
         }
-        userRepository = mock()
+        userRepository = mock { on { blockedIds } doReturn MutableStateFlow(emptySet()) }
         val remoteConfigService = mock<fm.corus.android.service.RemoteConfigService>()
         analyticsService = mock()
         viewModel = ThreadListViewModel(messageRepository, authRepository, userRepository, remoteConfigService, analyticsService)

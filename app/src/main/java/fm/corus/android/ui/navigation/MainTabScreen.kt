@@ -358,6 +358,26 @@ fun MainTabScreen(
                     onTrackTap = {
                         val state = viewModel.nowPlayingManager.state.value
                         val navController = navControllers[selectedTab] ?: return@MiniPlayerBar
+                        // External Spotify: open the Corus song page for what's playing.
+                        if (viewModel.nowPlayingManager.isExternalSpotifyListening) {
+                            val track = viewModel.nowPlayingManager.externalSpotifyCymbalTrack()
+                            val trackId = track?.id ?: state.trackId
+                            if (trackId != null) {
+                                navController.navigate(
+                                    SongDetailRoute(
+                                        trackId = trackId,
+                                        albumArtURL = track?.albumArtURL ?: state.albumArtURL,
+                                        albumArtLargeURL = track?.albumArtLargeURL ?: state.albumArtLargeURL,
+                                        songName = track?.name ?: state.trackName,
+                                        artistName = track?.artistName ?: state.artistName,
+                                        spotifyURI = track?.spotifyURI ?: state.spotifyURI,
+                                        spotifyWebURL = track?.spotifyWebURL ?: state.spotifyWebURL,
+                                        source = TrackSource.SPOTIFY.raw,
+                                    ),
+                                )
+                            }
+                            return@MiniPlayerBar
+                        }
                         // Return-to-origin: a song played from an artist/album
                         // destination page reopens that page (pushed onto the
                         // active tab) scrolled to the song, instead of the
@@ -877,8 +897,7 @@ internal fun CorusBottomBar(
                 // gesture handle gets Pixel-like clearance on every OEM. See
                 // [gestureNavBottomPadding].
                 .consumeWindowInsets(WindowInsets.navigationBars)
-                .padding(bottom = gestureNavBottomPadding(navInset))
-                .height(56.dp), // SYNC-CHECK: breaks measured-height coupling
+                .padding(bottom = gestureNavBottomPadding(navInset)),
             // Center every slot against the full bar height so the "+" lines up with
             // the icon+label stack of the other tabs (the tab items are the tallest
             // children, so centering doesn't move them — it only drops the "+" to

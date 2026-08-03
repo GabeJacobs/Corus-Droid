@@ -63,6 +63,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CommentAttachedFilm
 import fm.corus.android.data.model.CommentAttachedSong
 import fm.corus.android.data.model.CymbalNotification
+import fm.corus.android.data.model.TasteMatchDiscoveryItem
 import fm.corus.android.data.model.NotificationType
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
@@ -728,22 +729,103 @@ private fun NotificationRow(
  */
 @androidx.compose.runtime.Composable
 @androidx.compose.runtime.ReadOnlyComposable
+private fun buildDiscoveryBodyLocalized(
+    items: List<TasteMatchDiscoveryItem>,
+    sharedSongs: Int,
+    sharedFilms: Int,
+    sharedArtists: Int,
+): String {
+    fun fmt(item: TasteMatchDiscoveryItem): String =
+        if (item.kind == "song" || item.kind == "film") "\"${item.name}\"" else item.name
+
+    val totalNamed = sharedSongs + sharedFilms + sharedArtists
+    if (items.isEmpty()) {
+        if (sharedArtists >= 2) return stringResource(R.string.notif_taste_match_body_artists, sharedArtists)
+        if (sharedSongs >= 2) return stringResource(R.string.notif_taste_match_body_songs, sharedSongs)
+        if (sharedFilms >= 2) return stringResource(R.string.notif_taste_match_body_films, sharedFilms)
+        return stringResource(R.string.notif_taste_match_discovery_taste_in_common)
+    }
+    if (items.size == 1) {
+        val item = items[0]
+        val name = fmt(item)
+        return if (item.kind == "song") {
+            stringResource(R.string.notif_taste_match_discovery_both_posted, name)
+        } else {
+            stringResource(R.string.notif_taste_match_discovery_both_love, name)
+        }
+    }
+    val a = items[0]
+    val b = items[1]
+    val fa = fmt(a)
+    val fb = fmt(b)
+    val overflow = maxOf(0, totalNamed - 2)
+    return when {
+        a.kind == "artist" && b.kind == "artist" && overflow >= 2 ->
+            stringResource(R.string.notif_taste_match_discovery_list_overflow, fa, fb, overflow)
+        a.kind == "artist" && b.kind == "artist" ->
+            stringResource(R.string.notif_taste_match_discovery_shared_two_artists, fa, fb)
+        a.kind == "song" && b.kind == "song" ->
+            stringResource(R.string.notif_taste_match_discovery_posted_two_songs, fa, fb)
+        a.kind == "artist" && b.kind == "song" ->
+            stringResource(R.string.notif_taste_match_discovery_love_and_posted, fa, fb)
+        a.kind == "song" && b.kind == "artist" ->
+            stringResource(R.string.notif_taste_match_discovery_love_and_posted, fb, fa)
+        overflow > 0 ->
+            stringResource(R.string.notif_taste_match_discovery_share_and_more, fa, fb)
+        else ->
+            stringResource(R.string.notif_taste_match_discovery_share_two, fa, fb)
+    }
+}
+
+@androidx.compose.runtime.Composable
+@androidx.compose.runtime.ReadOnlyComposable
+private fun localizedTasteMatchBody(notification: CymbalNotification): String {
+    return when (notification.subtype) {
+        "discovery" -> notification.discoveryItems?.takeIf { it.isNotEmpty() }?.let { items ->
+            buildDiscoveryBodyLocalized(
+                items = items,
+                sharedSongs = notification.sharedSongs ?: 0,
+                sharedFilms = notification.sharedFilms ?: 0,
+                sharedArtists = notification.sharedArtists ?: 0,
+            )
+        }
+        "milestone_artist" -> notification.sharedArtists?.takeIf { it > 0 }?.let {
+            stringResource(R.string.notif_taste_match_body_artists, it)
+        }
+        "milestone_song" -> notification.sharedSongs?.takeIf { it > 0 }?.let {
+            stringResource(R.string.notif_taste_match_body_songs, it)
+        }
+        "milestone_film" -> notification.sharedFilms?.takeIf { it > 0 }?.let {
+            stringResource(R.string.notif_taste_match_body_films, it)
+        }
+        "activity_song" -> notification.bodyText?.takeIf { it.isNotEmpty() }
+            ?: stringResource(R.string.notif_taste_match_fallback_song)
+        "activity_film" -> notification.bodyText?.takeIf { it.isNotEmpty() }
+            ?: stringResource(R.string.notif_taste_match_fallback_film)
+        else -> null
+    } ?: notification.bodyText.orEmpty()
+}
+
+@androidx.compose.runtime.Composable
+@androidx.compose.runtime.ReadOnlyComposable
 private fun buildTasteMatchAnnotated(
     notification: CymbalNotification,
     timeString: String,
 ): androidx.compose.ui.text.AnnotatedString {
     // Activity types render as one flowing sentence; discovery + milestones
     // use an em-dash because their body is its own complete clause.
-    val (prefix, suffix, bodySeparator) = when (notification.subtype) {
-        "discovery" -> Triple("New Taste Match: ", "", " — ")
-        "activity_song" -> Triple("You and ", " both shared the song ", "")
-        "activity_film" -> Triple("You and ", " both shared the film ", "")
+    val (prefixRes, suffixRes, bodySeparator) = when (notification.subtype) {
+        "discovery" -> Triple(R.string.notif_taste_match_prefix_discovery, null, " — ")
+        "activity_song" -> Triple(R.string.notif_taste_match_prefix_activity, R.string.notif_taste_match_suffix_activity_song, "")
+        "activity_film" -> Triple(R.string.notif_taste_match_prefix_activity, R.string.notif_taste_match_suffix_activity_film, "")
         "milestone_song", "milestone_film", "milestone_artist" ->
-            Triple("Taste match milestone with ", "", " — ")
-        else -> Triple("Taste match with ", "", " — ")
+            Triple(R.string.notif_taste_match_prefix_milestone, null, " — ")
+        else -> Triple(R.string.notif_taste_match_prefix_default, null, " — ")
     }
+    val prefix = stringResource(prefixRes)
+    val suffix = suffixRes?.let { stringResource(it) }.orEmpty()
     val username = notification.fromUser.username
-    val body = notification.bodyText.orEmpty()
+    val body = localizedTasteMatchBody(notification)
     return buildAnnotatedString {
         withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
             append(prefix)

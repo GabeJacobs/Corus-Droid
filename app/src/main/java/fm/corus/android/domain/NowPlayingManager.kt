@@ -21,10 +21,12 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.local.PreferencesDataStore
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.TidalPlaylistService
+import fm.corus.android.data.repository.SpotifyRepository
 import fm.corus.android.MainActivity
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.CorusPlaybackService
@@ -188,6 +190,7 @@ class NowPlayingManager @Inject constructor(
     private val remoteConfigService: RemoteConfigService,
     private val spotifyPlaybackService: SpotifyPlaybackService,
     private val spotifyAuthService: SpotifyAuthService,
+    private val spotifyRepository: SpotifyRepository,
 ) {
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -225,7 +228,10 @@ class NowPlayingManager @Inject constructor(
                         spotifyCorusBackgroundedAt = System.currentTimeMillis()
                         refreshSpotifyFastPathSkipGuardWhenLocked()
                     }
-                    Lifecycle.Event.ON_START -> spotifyCorusBackgroundedAt = null
+                    Lifecycle.Event.ON_START -> {
+                        spotifyCorusBackgroundedAt = null
+                        managerScope.launch { reconcileExternalSpotifyOnForeground() }
+                    }
                     else -> Unit
                 }
             },
@@ -262,6 +268,22 @@ class NowPlayingManager @Inject constructor(
     @Volatile
     var isSpotifyConnectPlaying: Boolean = false
         private set
+
+    /** User is listening in Spotify outside the Corus feed — mini player mirrors metadata. */
+    private val _isExternalSpotifyListening = MutableStateFlow(false)
+    val isExternalSpotifyListeningFlow: StateFlow<Boolean> = _isExternalSpotifyListening.asStateFlow()
+    val isExternalSpotifyListening: Boolean get() = _isExternalSpotifyListening.value
+
+    private val _isHydratingExternalSpotify = MutableStateFlow(false)
+    val isHydratingExternalSpotify: StateFlow<Boolean> = _isHydratingExternalSpotify.asStateFlow()
+
+    private var externalSpotifyCachedTrack: CymbalTrack? = null
+    private var externalSpotifyTrackURI: String? = null
+    private var externalSpotifyUserPaused = false
+    private var externalSpotifyPositionJob: Job? = null
+
+    /** Catalog track for external Spotify playback — mini-player tap → song page. */
+    fun externalSpotifyCymbalTrack(): CymbalTrack? = externalSpotifyCachedTrack
 
     val currentSourcePostId: String? get() = _state.value.sourcePostId
     val isPreviewMode: Boolean
@@ -427,14 +449,21 @@ class NowPlayingManager @Inject constructor(
      * back to the pre-seek position before the next poll lands.
      */
     fun seek(toMs: Long) {
-        if (isSpotifyConnectPlaying && remoteConfigService.spotifyAuthExperimentEnabled) {
+        if ((isSpotifyConnectPlaying || isExternalSpotifyListening) &&
+            remoteConfigService.spotifyAuthExperimentEnabled
+        ) {
             val seconds = toMs / 1000.0
             spotifyScrubberHoldAtZero = false
             spotifyScrubberHoldUntilTrackChangeFromUri = null
+            if (_state.value.isPlaying) userInitiatedPause = false
             ScrubberClock.snapTime(toMs)
             syncSpotifyScrubAnchor(seconds)
             spotifySeekJob?.cancel()
             spotifySeekJob = managerScope.launch {
+                if (isExternalSpotifyListening && !spotifyPlaybackService.isConnected) {
+                    spotifyPlaybackService.trySilentReconnectIfNeeded()
+                    delay(300)
+                }
                 runCatching { spotifyPlaybackService.seek(seconds) }
                     .onFailure { error ->
                         android.util.Log.w("NowPlaying", "Spotify seek failed: ${error.message}")
@@ -1603,6 +1632,25 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun togglePlayPause() {
+        if (isExternalSpotifyListening && remoteConfigService.spotifyAuthExperimentEnabled) {
+            managerScope.launch {
+                val svc = spotifyPlaybackService
+                if (_state.value.isPlaying) {
+                    externalSpotifyUserPaused = true
+                    _state.value = _state.value.copy(isPlaying = false)
+                    if (!svc.isConnected) svc.trySilentReconnectIfNeeded()
+                    delay(300)
+                    svc.pause()
+                } else {
+                    externalSpotifyUserPaused = false
+                    _state.value = _state.value.copy(isPlaying = true)
+                    if (!svc.isConnected) svc.trySilentReconnectIfNeeded()
+                    delay(300)
+                    svc.resume()
+                }
+            }
+            return
+        }
         if (isSpotifyConnectPlaying && remoteConfigService.spotifyAuthExperimentEnabled) {
             managerScope.launch {
                 if (spotifyPlaybackService.isPlaying.value) {
@@ -1633,6 +1681,7 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun stop() {
+        clearExternalSpotifyListening()
         if (isSpotifyConnectPlaying) {
             silentlyHaltSpotifyForPreview()
         }
@@ -1657,6 +1706,12 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun pause() {
+        if (isExternalSpotifyListening) {
+            externalSpotifyUserPaused = true
+            managerScope.launch { spotifyPlaybackService.pause() }
+            _state.value = _state.value.copy(isPlaying = false)
+            return
+        }
         if (isSpotifyConnectPlaying) {
             managerScope.launch { spotifyPlaybackService.pause() }
             _state.value = _state.value.copy(isPlaying = false)
@@ -1667,6 +1722,13 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun resume() {
+        if (isExternalSpotifyListening) {
+            externalSpotifyUserPaused = false
+            VoiceNotePlayerManager.stopActivePlayer()
+            managerScope.launch { spotifyPlaybackService.resume() }
+            _state.value = _state.value.copy(isPlaying = true)
+            return
+        }
         if (isSpotifyConnectPlaying) {
             VoiceNotePlayerManager.stopActivePlayer()
             managerScope.launch { spotifyPlaybackService.resume() }
@@ -1690,6 +1752,7 @@ class NowPlayingManager @Inject constructor(
             handleSpotifyPlaybackFailure(queuedTrackFrom(pending), userInitiated = true)
             return
         }
+        clearExternalSpotifyListening()
         if (!SpotifyPlaybackService.isSpotifyAppInstalled(context)) {
             handleSpotifyPlaybackFailure(queuedTrackFrom(pending), userInitiated = true)
             return
@@ -1811,6 +1874,7 @@ class NowPlayingManager @Inject constructor(
     }
 
     private fun installSpotifyConnectDelegates() {
+        clearExternalSpotifyListening()
         spotifyPlaybackService.onTrackEnded = { handleSpotifyConnectTrackEnded() }
         spotifyPlaybackService.onPlayerTrackChanged = { uri -> reconcileSpotifyQueuePosition(uri) }
         spotifyPlaybackService.onPlayerContextUpdated = {
@@ -1927,6 +1991,11 @@ class NowPlayingManager @Inject constructor(
 
         if (spotifyOutgoingChangeWasNaturalFeedTrackEnd()) return
 
+        if (shouldRelinquishExternalSpotifyPlayback(reporting)) {
+            relinquishSpotifyToExternalPlayback(reporting)
+            return
+        }
+
         spotifyInferMisroutedLockScreenSkipIfNeeded(reporting)
 
         val idx = currentQueueIndex
@@ -1948,11 +2017,11 @@ class NowPlayingManager @Inject constructor(
             return
         }
         if (shouldRelinquishForManualSpotifyPlayback(reporting)) {
-            if (corusAppIsBackgrounded()) {
-                relinquishSpotifyToExternalPlayback()
-            } else {
-                scheduleDebouncedSpotifyExternalPlaybackDecision(reporting)
-            }
+            relinquishSpotifyToExternalPlayback(reporting)
+            return
+        }
+        if (shouldRelinquishBecauseCorusPausedAndExternalTrack(reporting)) {
+            relinquishSpotifyToExternalPlayback(reporting)
             return
         }
         if (!computeHasNext()) return
@@ -2021,9 +2090,11 @@ class NowPlayingManager @Inject constructor(
             !state.isAtLeast(Lifecycle.State.RESUMED)
     }
 
-    /** User started playing outside the Corus feed in Spotify — release App Remote without pausing Spotify. */
-    fun relinquishSpotifyToExternalPlayback() {
+    /** User started playing outside the Corus feed in Spotify — release App Remote without pausing Spotify, then mirror in the mini player. */
+    fun relinquishSpotifyToExternalPlayback(reporting: String? = null) {
         if (!isSpotifyConnectPlaying) return
+        val externalUri = reporting ?: spotifyPlaybackService.currentTrackUri.value
+        spotifyPlaybackService.clearFastPathPlaybackGuard()
         spotifyConnectPlayJob?.cancel()
         cancelDebouncedSpotifyRelinquish()
         spotifyPlaybackService.onPlayerTrackChanged = null
@@ -2037,13 +2108,203 @@ class NowPlayingManager @Inject constructor(
         spotifyCorusRequestedUntil = null
         spotifyPendingExternalUri = null
         isSpotifyConnectPlaying = false
-        _state.value = _state.value.copy(isPlaying = false)
         spotifyConnectStartedAt = null
         spotifyConnectWasPlaying = false
         userInitiatedPause = false
+        externalSpotifyUserPaused = false
         _isResolvingSpotify.value = false
         resetSpotifyScrubAnchor()
         pauseSpotifyConnectTimePolling()
+        spotifyScrubberHoldAtZero = false
+        spotifyScrubberHoldUntilTrackChangeFromUri = null
+
+        if (!externalUri.isNullOrEmpty()) {
+            managerScope.launch { adoptExternalSpotifyPlayback(externalUri) }
+        } else {
+            _state.value = _state.value.copy(isPlaying = false)
+        }
+    }
+
+    private fun clearExternalSpotifyListening() {
+        if (!isExternalSpotifyListening) return
+        externalSpotifyCachedTrack = null
+        externalSpotifyTrackURI = null
+        externalSpotifyUserPaused = false
+        _isExternalSpotifyListening.value = false
+        _isHydratingExternalSpotify.value = false
+        spotifyScrubberHoldAtZero = false
+        spotifyScrubberHoldUntilTrackChangeFromUri = null
+        pauseExternalSpotifyTimePolling()
+        if (!isSpotifyConnectPlaying) {
+            spotifyPlaybackService.onPlayerTrackChanged = null
+            spotifyPlaybackService.onPlayerStateUpdated = null
+            spotifyPlaybackService.onPlayerContextUpdated = null
+        }
+    }
+
+    /** Hydrate and show whatever Spotify is playing — every Spotify song has a Corus song page. */
+    private suspend fun adoptExternalSpotifyPlayback(spotifyURI: String) {
+        if (!remoteConfigService.spotifyAuthExperimentEnabled) return
+        val trackId = spotifyURI.removePrefix("spotify:track:")
+            .takeIf { spotifyURI.startsWith("spotify:track:") } ?: return
+
+        val svc = spotifyPlaybackService
+        if (svc.isConnected) {
+            svc.refreshState()
+        }
+
+        val normalizedIncoming = SpotifyPlaybackService.normalizedSpotifyTrackId(trackId)
+        val normalizedCurrent = _state.value.trackId?.let { SpotifyPlaybackService.normalizedSpotifyTrackId(it) }
+
+        if (isExternalSpotifyListening && normalizedCurrent == normalizedIncoming) {
+            _state.value = _state.value.copy(isPlaying = svc.isPlaying.value)
+            syncExternalSpotifyScrubber()
+            return
+        }
+
+        beginSpotifyScrubberHoldAtZero(externalSpotifyTrackURI ?: svc.currentTrackUri.value)
+        _isHydratingExternalSpotify.value = true
+        try {
+            val appRemoteMeta = svc.appRemoteDisplayMetadata()
+            var track = withContext(Dispatchers.IO) {
+                runCatching { spotifyRepository.getTrack(trackId) }.getOrNull()
+            }
+            if (track == null) {
+                val meta = appRemoteMeta ?: svc.appRemoteDisplayMetadata()
+                if (meta != null) {
+                    val durationMs = maxOf(0, (svc.durationSeconds.value * 1000).toInt())
+                    track = CymbalTrack(
+                        id = trackId,
+                        name = meta.name,
+                        artistName = meta.artistName,
+                        albumName = meta.albumName,
+                        spotifyURI = spotifyURI,
+                        spotifyWebURL = "https://open.spotify.com/track/$trackId",
+                        durationMs = durationMs,
+                    )
+                }
+            }
+            if (track == null) return
+
+            externalSpotifyCachedTrack = track
+            externalSpotifyTrackURI = spotifyURI
+            _isExternalSpotifyListening.value = true
+            isSpotifyConnectPlaying = false
+            currentQueueIndex = null
+
+            _state.value = NowPlayingState(
+                trackId = track.id,
+                trackName = track.name,
+                artistName = track.artistName,
+                albumArtURL = track.albumArtURL,
+                albumArtLargeURL = track.albumArtLargeURL,
+                spotifyURI = track.spotifyURI,
+                spotifyWebURL = track.spotifyWebURL,
+                isrc = track.isrc,
+                isPlaying = svc.isPlaying.value,
+                source = TrackSource.SPOTIFY,
+                hasNext = false,
+            )
+            syncSpotifyScrubAnchor(svc.positionSeconds.value)
+            syncExternalSpotifyScrubber()
+            installExternalSpotifyDelegates()
+            startExternalSpotifyTimePolling()
+        } finally {
+            _isHydratingExternalSpotify.value = false
+        }
+    }
+
+    private suspend fun reconcileExternalSpotifyOnForeground() {
+        if (!remoteConfigService.spotifyAuthExperimentEnabled) return
+        if (spotifyCorusPlayIntentInFlight()) return
+
+        val svc = spotifyPlaybackService
+        if (svc.isConnected) {
+            svc.refreshState()
+        } else if (spotifyAuthService.cachedAccessToken() != null) {
+            svc.trySilentReconnectIfNeeded()
+            delay(500)
+            if (svc.isConnected) {
+                svc.refreshState()
+            }
+        }
+
+        val uri = svc.currentTrackUri.value?.takeIf { it.isNotEmpty() } ?: run {
+            if (isExternalSpotifyListening) {
+                _state.value = _state.value.copy(isPlaying = false)
+            }
+            return
+        }
+
+        if (isSpotifyConnectPlaying) {
+            if (shouldRelinquishExternalSpotifyPlayback(uri)) {
+                relinquishSpotifyToExternalPlayback(uri)
+            }
+            return
+        }
+
+        if (svc.isPlaying.value || isExternalSpotifyListening) {
+            adoptExternalSpotifyPlayback(uri)
+        } else if (isExternalSpotifyListening) {
+            _state.value = _state.value.copy(isPlaying = false)
+        }
+    }
+
+    private fun installExternalSpotifyDelegates() {
+        spotifyPlaybackService.clearFastPathPlaybackGuard()
+        spotifyPlaybackService.onTrackEnded = null
+        spotifyPlaybackService.onPlayerTrackChanged = { uri ->
+            managerScope.launch { adoptExternalSpotifyPlayback(uri) }
+        }
+        spotifyPlaybackService.onPlayerStateUpdated = {
+            syncExternalSpotifyPlaybackState()
+        }
+        spotifyPlaybackService.onPlayerContextUpdated = null
+    }
+
+    private fun syncExternalSpotifyPlaybackState() {
+        if (!isExternalSpotifyListening) return
+        val svc = spotifyPlaybackService
+        if (externalSpotifyUserPaused) {
+            if (svc.isPlaying.value) {
+                externalSpotifyUserPaused = false
+                _state.value = _state.value.copy(isPlaying = true)
+            } else {
+                _state.value = _state.value.copy(isPlaying = false)
+            }
+        } else {
+            _state.value = _state.value.copy(isPlaying = svc.isPlaying.value)
+        }
+    }
+
+    private fun syncExternalSpotifyScrubber() {
+        var durationMs = (spotifyPlaybackService.durationSeconds.value * 1000).toLong()
+        if (durationMs <= 0) {
+            externalSpotifyCachedTrack?.durationMs?.takeIf { it > 0 }?.let { durationMs = it.toLong() }
+        }
+        publishSpotifyScrubberTime(durationMs)
+    }
+
+    private fun startExternalSpotifyTimePolling() {
+        externalSpotifyPositionJob?.cancel()
+        externalSpotifyPositionJob = managerScope.launch {
+            refreshExternalSpotifyTime()
+            while (isActive) {
+                delay(500)
+                refreshExternalSpotifyTime()
+            }
+        }
+    }
+
+    private fun pauseExternalSpotifyTimePolling() {
+        externalSpotifyPositionJob?.cancel()
+        externalSpotifyPositionJob = null
+    }
+
+    private fun refreshExternalSpotifyTime() {
+        if (!isExternalSpotifyListening) return
+        syncExternalSpotifyPlaybackState()
+        syncExternalSpotifyScrubber()
     }
 
     private fun spotifyCorusRecentlyRequested(uri: String): Boolean {
@@ -2124,6 +2385,41 @@ class NowPlayingManager @Inject constructor(
     private fun spotifyURIExistsInCorusQueue(uri: String): Boolean =
         queue.any { spotifyURIMatchesTrack(uri, it) }
 
+    /** Corus intentionally paused Spotify Connect — don't auto-advance the feed. */
+    private fun corusSpotifySessionSuspended(): Boolean {
+        if (!isSpotifyConnectPlaying) return false
+        return userInitiatedPause || !_state.value.isPlaying
+    }
+
+    /** User paused from Corus, then started a different track in Spotify. */
+    private fun shouldRelinquishBecauseCorusPausedAndExternalTrack(reporting: String): Boolean {
+        if (!isSpotifyConnectPlaying) return false
+        if (spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true) return false
+        if (spotifyCorusPlayIntentInFlight()) return false
+        if (!corusSpotifySessionSuspended()) return false
+        val idx = currentQueueIndex ?: return false
+        val current = queue.getOrNull(idx) ?: return false
+        return !spotifyURIMatchesTrack(reporting, current)
+    }
+
+    /** Spotify is playing outside the Corus feed — mirror in the mini player, don't force-advance. */
+    private fun shouldRelinquishExternalSpotifyPlayback(reporting: String): Boolean {
+        if (!isSpotifyConnectPlaying) return false
+        if (spotifyReportingMatchesNextFeedEntry(reporting)) return false
+        if (spotifyPlaybackWasCorusInitiated(reporting)) return false
+        if (spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true) return false
+        if (spotifyCorusPlayIntentInFlight()) return false
+        if (shouldRelinquishForManualSpotifyPlayback(reporting)) return true
+        if (shouldRelinquishBecauseCorusPausedAndExternalTrack(reporting)) return true
+        if (corusAppIsBackgrounded()) return false
+        if (_state.value.isPlaying) return false
+        val idx = currentQueueIndex
+        if (idx == null || idx >= queue.size) {
+            return !spotifyURIExistsInCorusQueue(reporting)
+        }
+        return !spotifyURIMatchesTrack(reporting, queue[idx])
+    }
+
     private fun shouldRelinquishForManualSpotifyPlayback(reporting: String): Boolean {
         if (!isSpotifyConnectPlaying) return false
         if (spotifyReportingMatchesNextFeedEntry(reporting)) return false
@@ -2146,12 +2442,8 @@ class NowPlayingManager @Inject constructor(
 
     private fun shouldForceSpotifyFeedAdvanceForMisroutedSkip(reporting: String): Boolean {
         if (!computeHasNext() || !isSpotifyConnectPlaying) return false
-        // Context arrives on a separate App Remote subscription on Android; don't
-        // force-advance until we know whether the user changed Spotify context.
         if (spotifyPlaybackService.isAwaitingIncomingContext()) return false
-        // A manual Spotify pick (backgrounded + unlocked + manual signals) must
-        // relinquish, not force — the "URI not in queue" heuristic below would
-        // otherwise hijack every manual pick.
+        if (shouldRelinquishExternalSpotifyPlayback(reporting)) return false
         if (shouldRelinquishForManualSpotifyPlayback(reporting)) return false
         if (spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true) return true
         if (spotifyCorusPlayIntentInFlight()) return false
@@ -2171,9 +2463,14 @@ class NowPlayingManager @Inject constructor(
             if (!isSpotifyConnectPlaying) return@launch
             if (spotifyCorusPlayIntentInFlight()) return@launch
             if (shouldRelinquishForManualSpotifyPlayback(externalUri)) {
-                relinquishSpotifyToExternalPlayback()
+                relinquishSpotifyToExternalPlayback(externalUri)
                 return@launch
             }
+            if (shouldRelinquishBecauseCorusPausedAndExternalTrack(externalUri)) {
+                relinquishSpotifyToExternalPlayback(externalUri)
+                return@launch
+            }
+            if (corusSpotifySessionSuspended()) return@launch
             if (computeHasNext()) {
                 forceSpotifyFeedAdvanceToNextEntry()
             }
@@ -2397,12 +2694,22 @@ class NowPlayingManager @Inject constructor(
 
     private fun spotifyScrubberShouldAdvance(): Boolean {
         if (spotifyScrubberHoldAtZero) return false
+        if (isExternalSpotifyListening) {
+            if (externalSpotifyUserPaused) return false
+            return spotifyPlaybackService.isPlaying.value || _state.value.isPlaying
+        }
+        if (isSpotifyConnectPlaying && corusSpotifySessionSuspended()) return false
+        if (isSpotifyConnectPlaying && userInitiatedPause) return false
         return spotifyPlaybackService.isPlaying.value ||
             (_state.value.isPlaying && isSpotifyConnectPlaying)
     }
 
     private fun resetScrubberPosition() {
-        beginSpotifyScrubberHoldAtZero(spotifyPlaybackService.currentTrackUri.value)
+        if (isSpotifyConnectPlaying || isExternalSpotifyListening) {
+            beginSpotifyScrubberHoldAtZero(spotifyPlaybackService.currentTrackUri.value)
+        } else {
+            ScrubberClock.snapTime(0)
+        }
     }
 
     private fun beginSpotifyScrubberHoldAtZero(fromPreviousTrackUri: String?) {
