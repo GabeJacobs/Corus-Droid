@@ -542,6 +542,17 @@
     <string name="notif_taste_match_body_artists">共通のアーティストが%1$d組あります</string>
     <string name="notif_taste_match_body_songs">共通の曲が%1$d曲あります</string>
     <string name="notif_taste_match_body_films">共通の映画が%1$d本あります</string>
+    <string name="notif_taste_match_discovery_taste_in_common">音楽の好みが似ています</string>
+    <string name="notif_taste_match_discovery_both_love">二人とも%1$sが好きです</string>
+    <string name="notif_taste_match_discovery_both_posted">二人とも%1$sを投稿しました</string>
+    <string name="notif_taste_match_discovery_list_overflow">%1$s、%2$s、他%3$d件</string>
+    <string name="notif_taste_match_discovery_shared_two_artists">二人とも%1$sと%2$sをシェアしています</string>
+    <string name="notif_taste_match_discovery_posted_two_songs">二人とも%1$sと%2$sを投稿しました</string>
+    <string name="notif_taste_match_discovery_love_and_posted">二人とも%1$sが好きで、%2$sを投稿しました</string>
+    <string name="notif_taste_match_discovery_share_and_more">%1$s、%2$sなどをシェアしています</string>
+    <string name="notif_taste_match_discovery_share_two">%1$sと%2$sをシェアしています</string>
+    <string name="notif_taste_match_fallback_song">曲</string>
+    <string name="notif_taste_match_fallback_film">映画</string>
     <string name="notif_msg_favorite">さんがあなたをお気に入りに追加しました。</string>
     <string name="notif_msg_play_milestone">あなたの corus が%1$d回再生されました。</string>
     <string name="notif_favorite_someone">誰か</string>

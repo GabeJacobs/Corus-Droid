@@ -602,6 +602,17 @@
     <string name="notif_taste_match_body_artists">공통 아티스트 %1$d명</string>
     <string name="notif_taste_match_body_songs">공통 곡 %1$d곡</string>
     <string name="notif_taste_match_body_films">공통 영화 %1$d편</string>
+    <string name="notif_taste_match_discovery_taste_in_common">음악 취향이 비슷해요</string>
+    <string name="notif_taste_match_discovery_both_love">두 분 모두 %1$s을(를) 좋아해요</string>
+    <string name="notif_taste_match_discovery_both_posted">두 분 모두 %1$s을(를) 올렸어요</string>
+    <string name="notif_taste_match_discovery_list_overflow">%1$s, %2$s 외 %3$d개</string>
+    <string name="notif_taste_match_discovery_shared_two_artists">두 분 모두 %1$s와(과) %2$s를 공유했어요</string>
+    <string name="notif_taste_match_discovery_posted_two_songs">두 분 모두 %1$s와(과) %2$s를 올렸어요</string>
+    <string name="notif_taste_match_discovery_love_and_posted">두 분 모두 %1$s을(를) 좋아하고 %2$s을(를) 올렸어요</string>
+    <string name="notif_taste_match_discovery_share_and_more">%1$s, %2$s 등을 공유해요</string>
+    <string name="notif_taste_match_discovery_share_two">%1$s와(과) %2$s를 공유해요</string>
+    <string name="notif_taste_match_fallback_song">곡</string>
+    <string name="notif_taste_match_fallback_film">영화</string>
     <string name="notif_msg_favorite">님이 회원님을 즐겨찾기에 추가했습니다.</string>
     <string name="notif_msg_play_milestone">회원님의 corus가 %1$d번 재생되었어요.</string>
     <string name="notif_favorite_someone">누군가</string>

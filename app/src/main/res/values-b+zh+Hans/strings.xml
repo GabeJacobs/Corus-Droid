@@ -601,6 +601,17 @@
     <string name="notif_taste_match_body_artists">你们有 %1$d 位共同艺人</string>
     <string name="notif_taste_match_body_songs">你们有 %1$d 首共同歌曲</string>
     <string name="notif_taste_match_body_films">你们有 %1$d 部共同电影</string>
+    <string name="notif_taste_match_discovery_taste_in_common">你们的音乐品味很相似</string>
+    <string name="notif_taste_match_discovery_both_love">你们都喜欢 %1$s</string>
+    <string name="notif_taste_match_discovery_both_posted">你们都发布了 %1$s</string>
+    <string name="notif_taste_match_discovery_list_overflow">%1$s、%2$s 等 %3$d 个</string>
+    <string name="notif_taste_match_discovery_shared_two_artists">你们都分享了 %1$s 和 %2$s</string>
+    <string name="notif_taste_match_discovery_posted_two_songs">你们都发布了 %1$s 和 %2$s</string>
+    <string name="notif_taste_match_discovery_love_and_posted">你们都喜欢 %1$s，并发布了 %2$s</string>
+    <string name="notif_taste_match_discovery_share_and_more">你们分享了 %1$s、%2$s 等</string>
+    <string name="notif_taste_match_discovery_share_two">你们分享了 %1$s 和 %2$s</string>
+    <string name="notif_taste_match_fallback_song">一首歌</string>
+    <string name="notif_taste_match_fallback_film">一部电影</string>
     <string name="notif_msg_favorite">把你加入了收藏。</string>
     <string name="notif_msg_play_milestone">你的 corus 已被播放 %1$d 次。</string>
     <string name="notif_favorite_someone">有人</string>

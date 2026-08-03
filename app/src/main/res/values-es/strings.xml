@@ -602,6 +602,17 @@
     <string name="notif_taste_match_body_artists">Comparten %1$d artistas en común</string>
     <string name="notif_taste_match_body_songs">Comparten %1$d canciones en común</string>
     <string name="notif_taste_match_body_films">Comparten %1$d películas en común</string>
+    <string name="notif_taste_match_discovery_taste_in_common">Tenéis gustos musicales en común</string>
+    <string name="notif_taste_match_discovery_both_love">A los dos os gusta %1$s</string>
+    <string name="notif_taste_match_discovery_both_posted">Los dos publicasteis %1$s</string>
+    <string name="notif_taste_match_discovery_list_overflow">%1$s, %2$s y %3$d más</string>
+    <string name="notif_taste_match_discovery_shared_two_artists">Los dos compartisteis %1$s y %2$s</string>
+    <string name="notif_taste_match_discovery_posted_two_songs">Los dos publicasteis %1$s y %2$s</string>
+    <string name="notif_taste_match_discovery_love_and_posted">A los dos os gusta %1$s y publicasteis %2$s</string>
+    <string name="notif_taste_match_discovery_share_and_more">Compartís %1$s, %2$s y más</string>
+    <string name="notif_taste_match_discovery_share_two">Compartís %1$s y %2$s</string>
+    <string name="notif_taste_match_fallback_song">una canción</string>
+    <string name="notif_taste_match_fallback_film">una película</string>
     <string name="notif_msg_favorite">te agregó a sus favoritos.</string>
     <string name="notif_msg_play_milestone">Tu corus se reprodujo %1$d veces.</string>
     <string name="notif_favorite_someone">Alguien</string>
