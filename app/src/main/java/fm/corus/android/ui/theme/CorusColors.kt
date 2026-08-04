@@ -18,6 +18,7 @@ data class CorusColorPalette(
     val featuredBackgroundBottom: Color,
     val featuredFilmBackgroundTop: Color,
     val featuredFilmBackgroundBottom: Color,
+    val unreadRowHighlight: Color,
 )
 
 val LightCorusPalette = CorusColorPalette(
@@ -32,6 +33,7 @@ val LightCorusPalette = CorusColorPalette(
     featuredBackgroundBottom = Color(0xFFBFBFBF),
     featuredFilmBackgroundTop = Color(0xFFF3F3F3),
     featuredFilmBackgroundBottom = Color(0xFFBFBFBF),
+    unreadRowHighlight = CorusColors.Accent.copy(alpha = 0.04f),
 )
 
 val DarkCorusPalette = CorusColorPalette(
@@ -46,6 +48,10 @@ val DarkCorusPalette = CorusColorPalette(
     featuredBackgroundBottom = Color(0xFF0C0C0E),
     featuredFilmBackgroundTop = Color(0xFF333336),
     featuredFilmBackgroundBottom = Color(0xFF1F1F22),
+    // Dark mode's background is pure black, where the light palette's 4% accent
+    // composites to roughly nothing and every Activity row looks alike. Heavier
+    // tint lands the same "this one is new" cue. Matches iOS `unreadRowHighlight`.
+    unreadRowHighlight = CorusColors.Accent.copy(alpha = 0.09f),
 )
 
 val LocalCorusPalette = staticCompositionLocalOf { LightCorusPalette }
@@ -106,6 +112,11 @@ object CorusColors {
     val FeaturedFilmBackgroundBottom: Color
         @Composable @ReadOnlyComposable
         get() = LocalCorusPalette.current.featuredFilmBackgroundBottom
+
+    /** Wash behind Activity rows that arrived since the last visit. */
+    val UnreadRowHighlight: Color
+        @Composable @ReadOnlyComposable
+        get() = LocalCorusPalette.current.unreadRowHighlight
 
     /**
      * TIDAL's brand is monochrome — black on light, white on dark. Mirrors iOS

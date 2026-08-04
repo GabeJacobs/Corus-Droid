@@ -472,9 +472,10 @@ private fun NotificationRow(
     val showCommentActions = notification.supportsCommentActions
 
     // Subtle accent tint for notifications arrived since last visit, matches
-    // iOS `.background(Color.corusAccent.opacity(0.04))`.
+    // iOS `Color.unreadRowHighlight` (heavier in dark mode, where a 4% tint
+    // composites to nothing against black).
     val rowBackground = if (isNew) {
-        CorusColors.Accent.copy(alpha = 0.04f)
+        CorusColors.UnreadRowHighlight
     } else {
         Color.Transparent
     }
