@@ -1180,7 +1180,7 @@
     <string name="destination_artist_label">Artist</string>
     <string name="destination_director_label">Director</string>
     <string name="destination_album_label">Album</string>
-    <string name="destination_prerelease_album_hint">Pre-release — only released tracks can be played.</string>
+    <string name="destination_prerelease_album_hint">Pre-release. Only released tracks can be played.</string>
     <string name="destination_single_label">Single</string>
     <string name="destination_compilation_label">Compilation</string>
     <string name="destination_album_artist_format">Album · %1$s</string>

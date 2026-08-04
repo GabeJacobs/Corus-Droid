@@ -1159,4 +1159,9 @@
     <plurals name="reposters_count">
         <item quantity="other">%1$d件のリポスト</item>
     </plurals>
+    <string name="destination_prerelease_album_hint">発売前です。リリース済みの曲のみ再生できます。</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">プレビューではなく、Spotifyでフル尺の曲を再生します。Spotifyアプリのインストールとログインが必要です。</string>
+    <string name="settings_row_play_full_songs_title">フル尺の曲を再生</string>
+    <string name="settings_row_spotify_library_save_subtitle">保存した曲がSpotifyのライブラリに追加されます</string>
+    <string name="settings_row_spotify_library_save_title">保存した曲をライブラリに追加</string>
 </resources>
