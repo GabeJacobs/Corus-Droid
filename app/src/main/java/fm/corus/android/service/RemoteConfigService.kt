@@ -412,6 +412,17 @@ class RemoteConfigService @Inject constructor(
             return feedFlag("spotify_auth_experiment_enabled")
         }
 
+    /// Master gate for the "Add Saved Songs to Library" Spotify Web API opt-in:
+    /// when the user turns the settings toggle on (granting `user-library-modify`
+    /// via a separate OAuth + PKCE consent — NOT the App Remote token above), every
+    /// subsequent song save also PUTs the track into the user's Spotify "Liked
+    /// Songs" library. OFF = zero behavior change. Default false; server template
+    /// is already live (per-uid test condition, no platform restriction), so no
+    /// template change is needed here. Shares `spotify_library_save_enabled` with
+    /// iOS/web.
+    val spotifyLibrarySaveEnabled: Boolean
+        get() = flagWithDefault("spotify_library_save_enabled", false)
+
     // Tracks the UID last pushed as the `user_id` signal so we can tell when it
     // changes (login / account switch) and force a fresh fetch. Null-vs-unset is
     // distinguished by [hasAppliedUserSignal] so the first apply always counts.
@@ -602,6 +613,7 @@ class RemoteConfigService @Inject constructor(
             "reposters_list_enabled" to false,
             "feed_decade_filter_enabled" to false,
             "spotify_auth_experiment_enabled" to false,
+            "spotify_library_save_enabled" to false,
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
         )
     }

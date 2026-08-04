@@ -15,6 +15,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.domain.SpotifyConnectContext
 import kotlinx.coroutines.launch
+import fm.corus.android.domain.SpotifyLibraryAuthService
 import fm.corus.android.domain.SpotifyPlaybackService
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.CorusFirebaseMessagingService
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var subscriptionRepository: SubscriptionRepository
     @Inject lateinit var analyticsService: AnalyticsService
     @Inject lateinit var spotifyPlaybackService: SpotifyPlaybackService
+    @Inject lateinit var spotifyLibraryAuthService: SpotifyLibraryAuthService
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LanguageManager.wrapContext(newBase))
@@ -98,7 +100,18 @@ class MainActivity : ComponentActivity() {
     private fun handleSpotifyAuthRedirect(intent: Intent?) {
         val uri = intent?.data ?: return
         if (uri.scheme == "corus" && uri.host == "spotify-auth") {
-            spotifyPlaybackService.handleRedirectUri(uri)
+            // Both the App Remote playback flow and the library-save Web API
+            // flow share this same redirect URI (one registered Spotify
+            // Developer app). The library-save flow is a `code` exchange
+            // (Authorization Code + PKCE); App Remote returns an `access_token`
+            // (or `error`) directly. Route by presence of `code` FIRST so the
+            // two flows never cross — SpotifyPlaybackService.handleRedirectUri
+            // is untouched otherwise.
+            if (uri.getQueryParameter("code") != null) {
+                lifecycleScope.launch { spotifyLibraryAuthService.handleRedirect(uri) }
+            } else {
+                spotifyPlaybackService.handleRedirectUri(uri)
+            }
             intent.data = null
         }
     }

@@ -66,6 +66,7 @@ class PostEngagementManager @Inject constructor(
     private val remoteConfig: RemoteConfigService,
     private val analyticsService: AnalyticsService,
     private val saveChangedEvent: SaveChangedEvent,
+    private val spotifySaveAutoAdd: SpotifySaveAutoAdd,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -322,6 +323,11 @@ class PostEngagementManager @Inject constructor(
                                 postAlbumArtURL = post.displayImageURL,
                             )
                         } catch (_: Exception) { }
+                        // "Add Saved Songs to Library" opt-in — fire-and-forget,
+                        // only on a NEW save (never on unsave, see the `else`
+                        // branch below). Silently no-ops when the flag/toggle
+                        // are off or the post isn't resolvable on Spotify.
+                        spotifySaveAutoAdd.handleSaved(post)
                     }
                 } else {
                     val newCount = postRepository.unsavePost(userId, postId)

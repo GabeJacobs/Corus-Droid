@@ -227,6 +227,7 @@ class PreferencesDataStore @Inject constructor(
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
         val AUTOPLAY_NEXT_SONG = booleanPreferencesKey("autoplay_next_song")
         val PLAY_FULL_SONGS = booleanPreferencesKey("play_full_songs")
+        val AUTO_ADD_SPOTIFY = booleanPreferencesKey("auto_add_saved_to_spotify")
         val FEED_FOLLOWS_NOW_PLAYING = booleanPreferencesKey("feed_follows_now_playing")
         val TRENDING_SONGS_WINDOW = stringPreferencesKey("trending_songs_window")
         val TRENDING_FILMS_WINDOW = stringPreferencesKey("trending_films_window")
@@ -307,6 +308,23 @@ class PreferencesDataStore @Inject constructor(
     fun playFullSongsSync(): Boolean =
         context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean("play_full_songs", true)
+
+    /**
+     * Opt-in: once the user turns on the Settings "Add Saved Songs to Library"
+     * toggle for Spotify — after successfully completing the separate Spotify
+     * Web API OAuth consent for `user-library-modify` — every subsequent song
+     * save also adds the track to the user's Spotify library. Default OFF
+     * (opt-in, unlike [playFullSongs]). No sync-mirror to SharedPreferences:
+     * this is only read from the save path and the Settings screen, both well
+     * after cold start, not a launch-critical flag.
+     */
+    val autoAddSavedToSpotify: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[AUTO_ADD_SPOTIFY] ?: false
+    }
+
+    suspend fun setAutoAddSavedToSpotify(value: Boolean) {
+        dataStore.edit { it[AUTO_ADD_SPOTIFY] = value }
+    }
 
     /**
      * When enabled, the feed (and a profile/hashtag feed if currently visible)

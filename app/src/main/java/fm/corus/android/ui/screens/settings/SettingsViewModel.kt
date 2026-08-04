@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -10,6 +11,7 @@ import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.domain.MusicServicePreference
+import fm.corus.android.domain.SpotifyLibraryAuthService
 import fm.corus.android.i18n.AppLanguage
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -30,6 +32,7 @@ class SettingsViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
     private val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
+    private val spotifyLibraryAuthService: SpotifyLibraryAuthService,
 ) : ViewModel() {
 
     val isClubMember: StateFlow<Boolean> = subscriptionRepository.isClubMember
@@ -56,6 +59,34 @@ class SettingsViewModel @Inject constructor(
 
     fun setPlayFullSongs(value: Boolean) {
         viewModelScope.launch { preferencesDataStore.setPlayFullSongs(value) }
+    }
+
+    /** Gate for the "Add Saved Songs to Library" Spotify Web API opt-in settings row. */
+    val spotifyLibrarySaveEnabled: Boolean
+        get() = remoteConfigService.spotifyLibrarySaveEnabled
+
+    val autoAddSavedToSpotify: StateFlow<Boolean> = preferencesDataStore.autoAddSavedToSpotify
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /**
+     * Toggles the "Add Saved Songs to Library" opt-in. Turning ON requires the
+     * user to complete the Spotify Web API OAuth consent for
+     * `user-library-modify` first — the setting only persists once that login
+     * succeeds. A failed or cancelled login just leaves the toggle off with no
+     * dramatic error surfaced (mirrors the TIDAL playlist flow's best-effort
+     * failure handling). Turning OFF is immediate, no OAuth call.
+     */
+    fun onSpotifyLibrarySaveToggled(enabled: Boolean, context: Context) {
+        if (!enabled) {
+            viewModelScope.launch { preferencesDataStore.setAutoAddSavedToSpotify(false) }
+            return
+        }
+        viewModelScope.launch {
+            val success = spotifyLibraryAuthService.login(context)
+            if (success) {
+                preferencesDataStore.setAutoAddSavedToSpotify(true)
+            }
+        }
     }
 
     /** Persist the user's music-service choice (local cache + Firestore). */

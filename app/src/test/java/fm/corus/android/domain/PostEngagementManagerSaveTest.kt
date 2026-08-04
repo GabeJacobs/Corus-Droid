@@ -43,6 +43,7 @@ class PostEngagementManagerSaveTest {
         remoteConfig = mock(),
         analyticsService = mock(),
         saveChangedEvent = saveEvent,
+        spotifySaveAutoAdd = mock(),
     )
 
     /** checkSaveStatuses launches on Dispatchers.IO; poll briefly for the result. */

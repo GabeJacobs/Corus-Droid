@@ -462,6 +462,17 @@ class SpotifyPlaybackService @Inject constructor(
         val position = state.playbackPosition / 1000.0
         if (position >= FAST_PATH_MISROUTE_MAX_POSITION_SEC) return
 
+        // Podcasts, audiobooks and local files can never be a misrouted skip into
+        // Corus's stale Spotify queue — there is no such content on Corus, so the
+        // user started it in the Spotify app. Disarm instead of pausing it.
+        if (SpotifyContentUri.kindOf(uri) != SpotifyContentKind.TRACK) {
+            fastPathGuardLock.withLock {
+                fastPathGuardState.expectedURI = null
+                fastPathGuardState.guardUntilMs = 0L
+            }
+            return
+        }
+
         val shouldPause = fastPathGuardLock.withLock {
             val now = System.currentTimeMillis()
             val expected = fastPathGuardState.expectedURI

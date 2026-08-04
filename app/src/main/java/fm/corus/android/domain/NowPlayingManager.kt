@@ -1959,6 +1959,16 @@ class NowPlayingManager @Inject constructor(
     private fun reconcileSpotifyQueuePosition(uri: String) {
         if (!isSpotifyConnectPlaying || _isResolvingSpotify.value) return
         if (shouldIgnoreSpotifyReconcileDuringCorusHandoff(uri)) return
+        // A podcast / audiobook / local file is proof the user picked it in the
+        // Spotify app — Corus has no such content to skip to or reclaim. Release
+        // before any of the misrouted-skip heuristics below can force-advance the
+        // feed over it. Checked after the handoff guard so starting a Corus song
+        // *while* a podcast plays still works.
+        if (SpotifyContentUri.isUserChosenNonCorusContent(uri)) {
+            cancelDebouncedSpotifyRelinquish()
+            relinquishSpotifyToExternalPlayback(uri)
+            return
+        }
         manualSkipGuardUntil?.let { if (System.currentTimeMillis() < it) return }
         if (spotifyOutgoingChangeWasNaturalFeedTrackEnd()) {
             handleSpotifyNaturalFeedTrackEnd(uri)
@@ -1988,6 +1998,13 @@ class NowPlayingManager @Inject constructor(
 
     private fun reclaimSpotifyQueueAfterExternalSkip(reporting: String) {
         cancelDebouncedSpotifyRelinquish()
+
+        // Ahead of the natural-end check: a song ending does not entitle Corus to
+        // play over the podcast the user started in the meantime.
+        if (SpotifyContentUri.isUserChosenNonCorusContent(reporting)) {
+            relinquishSpotifyToExternalPlayback(reporting)
+            return
+        }
 
         if (spotifyOutgoingChangeWasNaturalFeedTrackEnd()) return
 
@@ -2030,6 +2047,13 @@ class NowPlayingManager @Inject constructor(
 
     private fun handleSpotifyConnectTrackEnded() {
         if (!isSpotifyConnectPlaying) return
+        // The song ended, but Spotify is already on a podcast the user started —
+        // hand the session over instead of advancing the feed on top of it.
+        val reporting = spotifyPlaybackService.currentTrackUri.value
+        if (SpotifyContentUri.isUserChosenNonCorusContent(reporting)) {
+            relinquishSpotifyToExternalPlayback(reporting)
+            return
+        }
         // Mute stale Spotify queue auto-advance immediately — the 400ms debounce
         // below is only for coalescing duplicate end signals, not for waiting.
         spotifyPlaybackService.pauseImmediately()
@@ -2118,7 +2142,11 @@ class NowPlayingManager @Inject constructor(
         spotifyScrubberHoldAtZero = false
         spotifyScrubberHoldUntilTrackChangeFromUri = null
 
-        if (!externalUri.isNullOrEmpty()) {
+        // Only songs can be mirrored in the mini player — a podcast has no Corus
+        // song page, so just stop showing Corus as playing and leave Spotify alone.
+        if (!externalUri.isNullOrEmpty() &&
+            SpotifyContentUri.kindOf(externalUri) == SpotifyContentKind.TRACK
+        ) {
             managerScope.launch { adoptExternalSpotifyPlayback(externalUri) }
         } else {
             _state.value = _state.value.copy(isPlaying = false)
@@ -2405,6 +2433,10 @@ class NowPlayingManager @Inject constructor(
     /** Spotify is playing outside the Corus feed — mirror in the mini player, don't force-advance. */
     private fun shouldRelinquishExternalSpotifyPlayback(reporting: String): Boolean {
         if (!isSpotifyConnectPlaying) return false
+        if (spotifyCorusPlayIntentInFlight()) return false
+        // Corus can never have started a podcast / audiobook / local file, so no
+        // feed-skip or lock-screen heuristic below applies — it is the user's own pick.
+        if (SpotifyContentUri.isUserChosenNonCorusContent(reporting)) return true
         if (spotifyReportingMatchesNextFeedEntry(reporting)) return false
         if (spotifyPlaybackWasCorusInitiated(reporting)) return false
         if (spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true) return false
@@ -2422,6 +2454,11 @@ class NowPlayingManager @Inject constructor(
 
     private fun shouldRelinquishForManualSpotifyPlayback(reporting: String): Boolean {
         if (!isSpotifyConnectPlaying) return false
+        // Non-track content is unambiguous: only the user can have started it, from
+        // anywhere — Spotify app, lock screen, Bluetooth, Android Auto. No context
+        // change needed to prove it (Android gets context on a later callback, so
+        // the check below is blind at track-change time), and it holds while locked.
+        if (SpotifyContentUri.isUserChosenNonCorusContent(reporting)) return true
         if (spotifyReportingMatchesNextFeedEntry(reporting)) return false
         if (spotifyPlaybackWasCorusInitiated(reporting)) return false
         if (spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true) return false
@@ -2442,6 +2479,9 @@ class NowPlayingManager @Inject constructor(
 
     private fun shouldForceSpotifyFeedAdvanceForMisroutedSkip(reporting: String): Boolean {
         if (!computeHasNext() || !isSpotifyConnectPlaying) return false
+        // Never force the feed over a podcast / audiobook — it is not a skip that
+        // misrouted to Spotify, it is what the user asked Spotify to play.
+        if (SpotifyContentUri.isUserChosenNonCorusContent(reporting)) return false
         if (spotifyPlaybackService.isAwaitingIncomingContext()) return false
         if (shouldRelinquishExternalSpotifyPlayback(reporting)) return false
         if (shouldRelinquishForManualSpotifyPlayback(reporting)) return false

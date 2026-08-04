@@ -33,6 +33,7 @@ class PostEngagementManagerLikeBatchTest {
         remoteConfig = mock(),
         analyticsService = mock(),
         saveChangedEvent = mock(),
+        spotifySaveAutoAdd = mock(),
     )
 
     /** checkLikeStatuses launches on Dispatchers.IO; poll briefly for the result. */

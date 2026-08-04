@@ -41,6 +41,7 @@ import fm.corus.android.BuildConfig
 import fm.corus.android.R
 import fm.corus.android.data.model.MusicService
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.ui.unit.dp
@@ -346,6 +347,17 @@ fun SettingsScreen(
                     subtitle = stringResource(R.string.settings_row_play_full_songs_spotify_subtitle),
                     checked = playFullSongs,
                     onCheckedChange = { settingsViewModel.setPlayFullSongs(it) },
+                )
+            }
+
+            if (musicService == MusicService.SPOTIFY && settingsViewModel.spotifyLibrarySaveEnabled) {
+                val autoAddSavedToSpotify by settingsViewModel.autoAddSavedToSpotify.collectAsState()
+                SettingsToggleRow(
+                    icon = Icons.Filled.LibraryAdd,
+                    title = stringResource(R.string.settings_row_spotify_library_save_title),
+                    subtitle = stringResource(R.string.settings_row_spotify_library_save_subtitle),
+                    checked = autoAddSavedToSpotify,
+                    onCheckedChange = { settingsViewModel.onSpotifyLibrarySaveToggled(it, context) },
                 )
             }
 
