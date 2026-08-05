@@ -138,16 +138,25 @@ sealed class SharedMusicLink {
         }
 
         /**
-         * Audiomack SONG page: `audiomack.com/{artist}/song/{slug}`. Albums
-         * and playlists use /album/ and /playlist/ segments and never match.
+         * Audiomack SONG page: `audiomack.com/{artist}/song/{slug}`. Also accepts
+         * legacy `/song/{artist}/{slug}` and locale-prefixed `/en/{artist}/song/{slug}`.
+         * Albums and playlists use /album/ and /playlist/ segments and never match.
          */
         private fun audiomackTrack(url: UrlParts): AudiomackTrack? {
             val isAudiomack = url.host == "audiomack.com" || url.host.endsWith(".audiomack.com")
             if (!isAudiomack) return null
-            if (url.segments.size != 3 || !url.segments[1].equals("song", ignoreCase = true)) return null
-            val (artist, _, slug) = url.segments
-            if (artist.isEmpty() || slug.isEmpty()) return null
-            return AudiomackTrack("https://audiomack.com/$artist/song/$slug")
+            var segments = url.segments
+            if (segments.size >= 4 && segments[0].length == 2 && segments[0].all { it.isLetter() }) {
+                segments = segments.drop(1)
+            }
+            if (segments.size != 3) return null
+            val (artist, songSlug) = when {
+                segments[1].equals("song", ignoreCase = true) -> segments[0] to segments[2]
+                segments[0].equals("song", ignoreCase = true) -> segments[1] to segments[2]
+                else -> return null
+            }
+            if (artist.isEmpty() || songSlug.isEmpty()) return null
+            return AudiomackTrack("https://audiomack.com/$artist/song/$songSlug")
         }
 
         /**

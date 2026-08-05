@@ -107,6 +107,14 @@ class ShareLinksTest {
             SharedMusicLink.AudiomackTrack("https://audiomack.com/j-cole/song/no-role-modelz"),
             SharedMusicLink.parse("https://audiomack.com/j-cole/song/no-role-modelz?ref=share"),
         )
+        assertEquals(
+            SharedMusicLink.AudiomackTrack("https://audiomack.com/j-cole/song/no-role-modelz"),
+            SharedMusicLink.parse("https://audiomack.com/en/j-cole/song/no-role-modelz"),
+        )
+        assertEquals(
+            SharedMusicLink.AudiomackTrack("https://audiomack.com/j-cole/song/no-role-modelz"),
+            SharedMusicLink.parse("https://audiomack.com/song/j-cole/no-role-modelz"),
+        )
         assertNull(SharedMusicLink.parse("https://audiomack.com/j-cole/album/forest-hills-drive"))
         assertNull(SharedMusicLink.parse("https://audiomack.com/j-cole"))
     }
