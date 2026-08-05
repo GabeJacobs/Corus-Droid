@@ -27,6 +27,7 @@ import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.TidalPlaylistService
 import fm.corus.android.data.repository.SpotifyRepository
+import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.MainActivity
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.CorusPlaybackService
@@ -191,6 +192,8 @@ class NowPlayingManager @Inject constructor(
     private val spotifyPlaybackService: SpotifyPlaybackService,
     private val spotifyAuthService: SpotifyAuthService,
     private val spotifyRepository: SpotifyRepository,
+    private val subscriptionRepository: SubscriptionRepository,
+    private val playbackModePromptManager: PlaybackModePromptManager,
 ) {
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -365,10 +368,18 @@ class NowPlayingManager @Inject constructor(
                 remoteConfig = remoteConfigService,
                 musicService = musicServicePreference.current.value,
                 playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playbackModePromptManager = playbackModePromptManager,
             )
             FullSongPlayCoordinator.applyPlayTapOutcome(
                 outcome = outcome,
+                track = track,
+                sourcePostId = sourcePostId,
+                queue = queue,
                 nowPlaying = this@NowPlayingManager,
+                remoteConfig = remoteConfigService,
+                musicService = musicServicePreference.current.value,
+                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playbackModePromptManager = playbackModePromptManager,
                 onPreview = onPreview,
                 scope = managerScope,
             )
@@ -540,8 +551,29 @@ class NowPlayingManager @Inject constructor(
     private val _paywallRequested = MutableStateFlow(false)
     val paywallRequested: StateFlow<Boolean> = _paywallRequested.asStateFlow()
 
+    private val _playlistPaywallContext = MutableStateFlow<PlaylistTrialField?>(null)
+    val playlistPaywallContext: StateFlow<PlaylistTrialField?> = _playlistPaywallContext.asStateFlow()
+
     fun clearPaywallRequested() {
         _paywallRequested.value = false
+        _playlistPaywallContext.value = null
+    }
+
+    private fun requestPlaylistPaywall(field: PlaylistTrialField) {
+        _playlistPaywallContext.value = field
+        _paywallRequested.value = true
+    }
+
+    private fun handleTrialConsumedIfNeeded(trialConsumed: Boolean, field: PlaylistTrialField) {
+        if (!trialConsumed) return
+        subscriptionRepository.markPlaylistTrialUsed(field)
+        val messageRes = when (field) {
+            PlaylistTrialField.Feed -> fm.corus.android.R.string.playlist_trial_consumed_feed
+            PlaylistTrialField.OwnProfile -> fm.corus.android.R.string.playlist_trial_consumed_own_profile
+            PlaylistTrialField.OtherProfile -> fm.corus.android.R.string.playlist_trial_consumed_other_profile
+            PlaylistTrialField.Hashtag -> fm.corus.android.R.string.playlist_trial_consumed_hashtag
+        }
+        ToastManager.show(context.getString(messageRes))
     }
 
     private fun isNetworkAvailable(): Boolean {
@@ -584,8 +616,9 @@ class NowPlayingManager @Inject constructor(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
+            handleTrialConsumedIfNeeded(result.trialConsumed, PlaylistTrialField.Feed)
         } catch (e: CloudFunctionsDataSource.PaywallRequiredException) {
-            _paywallRequested.value = true
+            requestPlaylistPaywall(PlaylistTrialField.Feed)
         } catch (e: CloudFunctionsDataSource.OnlySoundCloudException) {
             _playlistError.value = "Your feed only has SoundCloud tracks — Spotify playlists aren't available for those."
         } catch (e: UnknownHostException) {
@@ -631,8 +664,12 @@ class NowPlayingManager @Inject constructor(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
+            handleTrialConsumedIfNeeded(
+                result.trialConsumed,
+                PlaylistTrialUsed.profileField(isOwnProfile),
+            )
         } catch (e: CloudFunctionsDataSource.PaywallRequiredException) {
-            _paywallRequested.value = true
+            requestPlaylistPaywall(PlaylistTrialUsed.profileField(isOwnProfile))
         } catch (e: CloudFunctionsDataSource.OnlySoundCloudException) {
             _playlistError.value = "This profile only has SoundCloud tracks — Spotify playlists aren't available for those."
         } catch (e: UnknownHostException) {
@@ -676,8 +713,9 @@ class NowPlayingManager @Inject constructor(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
+            handleTrialConsumedIfNeeded(result.trialConsumed, PlaylistTrialField.Hashtag)
         } catch (e: CloudFunctionsDataSource.PaywallRequiredException) {
-            _paywallRequested.value = true
+            requestPlaylistPaywall(PlaylistTrialField.Hashtag)
         } catch (e: CloudFunctionsDataSource.OnlySoundCloudException) {
             _playlistError.value = context.getString(fm.corus.android.R.string.hashtag_playlist_only_soundcloud)
         } catch (e: UnknownHostException) {
@@ -724,14 +762,16 @@ class NowPlayingManager @Inject constructor(
         try {
             when (val outcome = cloudFunctions.generateFeedPlaylistTracks(newReleasesOnly, feedMode, sessionToken)) {
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Paywall ->
-                    _paywallRequested.value = true
+                    requestPlaylistPaywall(PlaylistTrialField.Feed)
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Failure ->
                     _playlistError.value = if (outcome.soundcloudSkipped > 0)
                         "Your feed only has SoundCloud tracks — playlists aren't available for those."
                     else
                         "No tracks found in your feed yet."
-                is CloudFunctionsDataSource.PlaylistTracksOutcome.Tracks ->
+                is CloudFunctionsDataSource.PlaylistTracksOutcome.Tracks -> {
+                    handleTrialConsumedIfNeeded(outcome.trialConsumed, PlaylistTrialField.Feed)
                     buildTidalPlaylist(feedPlaylistName(feedMode), "Generated by Corus", outcome.descriptors, outcome.soundcloudSkipped)
+                }
             }
         } catch (e: UnknownHostException) {
             _playlistError.value = "Couldn't connect. Check your connection."
@@ -763,13 +803,17 @@ class NowPlayingManager @Inject constructor(
         try {
             when (val outcome = cloudFunctions.generateProfilePlaylistTracks(userId, source, fullExport)) {
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Paywall ->
-                    _paywallRequested.value = true
+                    requestPlaylistPaywall(PlaylistTrialUsed.profileField(isOwnProfile))
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Failure ->
                     _playlistError.value = if (outcome.soundcloudSkipped > 0)
                         "This profile only has SoundCloud tracks — playlists aren't available for those."
                     else
                         "No songs to add to a playlist yet."
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Tracks -> {
+                    handleTrialConsumedIfNeeded(
+                        outcome.trialConsumed,
+                        PlaylistTrialUsed.profileField(isOwnProfile),
+                    )
                     val (title, description) = profilePlaylistNaming(outcome.username ?: "Corus", source, isOwnProfile)
                     buildTidalPlaylist(title, description, outcome.descriptors, outcome.soundcloudSkipped)
                 }
@@ -802,13 +846,14 @@ class NowPlayingManager @Inject constructor(
         try {
             when (val outcome = cloudFunctions.generateHashtagPlaylistTracks(hashtag, fullExport)) {
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Paywall ->
-                    _paywallRequested.value = true
+                    requestPlaylistPaywall(PlaylistTrialField.Hashtag)
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Failure ->
                     _playlistError.value = if (outcome.soundcloudSkipped > 0)
                         "This hashtag only has SoundCloud tracks, so playlists aren't available for those."
                     else
                         "No songs to add to a playlist yet."
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Tracks -> {
+                    handleTrialConsumedIfNeeded(outcome.trialConsumed, PlaylistTrialField.Hashtag)
                     val (title, description) = hashtagPlaylistNaming(hashtag)
                     buildTidalPlaylist(title, description, outcome.descriptors, outcome.soundcloudSkipped)
                 }

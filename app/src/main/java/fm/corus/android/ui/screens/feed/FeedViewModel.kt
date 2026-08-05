@@ -25,6 +25,7 @@ import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PlaylistTrialField
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
@@ -159,6 +160,7 @@ class FeedViewModel @Inject constructor(
     private val favoriteChangedEvent: fm.corus.android.domain.FavoriteChangedEvent,
     networkMonitor: NetworkMonitor,
     private val preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore,
+    private val playbackModePromptManager: fm.corus.android.domain.PlaybackModePromptManager,
     @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
 
@@ -420,6 +422,11 @@ class FeedViewModel @Inject constructor(
     fun markFeedPlaylistConfirmed() {
         viewModelScope.launch { preferencesDataStore.setHasConfirmedFeedPlaylist() }
     }
+
+    fun shouldPaywallFeedPlaylist(): Boolean =
+        subscriptionRepository.shouldPaywallPlaylist(PlaylistTrialField.Feed)
+
+    val hasFullAccess = subscriptionRepository.hasFullAccessFlow
 
     // ── Share search state ──
     private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
@@ -1108,10 +1115,18 @@ class FeedViewModel @Inject constructor(
                 remoteConfig = remoteConfig,
                 musicService = musicServicePreference.current.value,
                 playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playbackModePromptManager = playbackModePromptManager,
             )
             FullSongPlayCoordinator.applyPlayTapOutcome(
                 outcome = outcome,
+                track = post.track,
+                sourcePostId = post.id,
+                queue = queue,
                 nowPlaying = nowPlayingManager,
+                remoteConfig = remoteConfig,
+                musicService = musicServicePreference.current.value,
+                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playbackModePromptManager = playbackModePromptManager,
                 onPreview = {
                     if (queue.any { it.trackId == track.trackId }) {
                         nowPlayingManager.play(track = track, queue = queue)

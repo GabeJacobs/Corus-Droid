@@ -223,11 +223,17 @@ fun FeedScreen(
     var filmInfoPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showClubOffer by remember { mutableStateOf(false) }
     var clubOfferSource by remember { mutableStateOf(fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT) }
+    var clubPlaylistTrialContext by remember {
+        mutableStateOf<fm.corus.android.domain.PlaylistTrialField?>(null)
+    }
+    val hasFullAccess by viewModel.hasFullAccess.collectAsState()
 
     val paywallRequested by viewModel.nowPlayingManager.paywallRequested.collectAsState()
+    val playlistPaywallContext by viewModel.nowPlayingManager.playlistPaywallContext.collectAsState()
     LaunchedEffect(paywallRequested) {
         if (paywallRequested) {
             clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
+            clubPlaylistTrialContext = playlistPaywallContext
             showClubOffer = true
             viewModel.nowPlayingManager.clearPaywallRequested()
         }
@@ -353,6 +359,11 @@ fun FeedScreen(
             feedDecade = feedDecade,
             onSetDecade = { viewModel.setFeedDecade(it) },
             onGeneratePlaylist = {
+                if (viewModel.shouldPaywallFeedPlaylist()) {
+                    clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
+                    clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.Feed
+                    showClubOffer = true
+                } else {
                 val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
                 when {
                     // Apple Music / Deezer have no native playlist path on Android,
@@ -361,9 +372,9 @@ fun FeedScreen(
                     fm.corus.android.domain.usesSpotifyFallback(musicService) ->
                         showPlaylistAlert = true
                     // TIDAL / Spotify export natively and leave Corus — the first
-                    // such tap gets a one-time explainer. After that, Spotify still
-                    // shows the SoundCloud-skip notice when applicable.
-                    hasConfirmedFeedPlaylist -> {
+                    // such tap gets a one-time explainer for free users. After that,
+                    // Spotify still shows the SoundCloud-skip notice when applicable.
+                    hasConfirmedFeedPlaylist || hasFullAccess -> {
                         if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
                             showPlaylistAlert = true
                         } else {
@@ -371,6 +382,7 @@ fun FeedScreen(
                         }
                     }
                     else -> showFirstTimePlaylistDialog = true
+                }
                 }
             },
             trendingFeedEnabled = trendingFeedEnabled,
@@ -1149,10 +1161,10 @@ fun FeedScreen(
         val destination = if (musicService == fm.corus.android.data.model.MusicService.TIDAL) "TIDAL" else "Spotify"
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showFirstTimePlaylistDialog = false },
-            title = { androidx.compose.material3.Text("Generate a playlist?") },
+            title = { androidx.compose.material3.Text(stringResource(R.string.playlist_first_time_title)) },
             text = {
                 androidx.compose.material3.Text(
-                    "Corus will make a playlist from the songs in your feed and open it in $destination."
+                    stringResource(R.string.feed_playlist_first_time_body, destination)
                 )
             },
             confirmButton = {
@@ -1189,6 +1201,7 @@ fun FeedScreen(
             CorusSystemBars()
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = clubOfferSource,
+                playlistTrialContext = clubPlaylistTrialContext,
                 onDismiss = { showClubOffer = false },
                 onPurchaseSuccess = {
                     // Complete the intent that opened this paywall: someone who

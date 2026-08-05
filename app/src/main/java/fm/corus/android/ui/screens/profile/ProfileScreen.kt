@@ -112,6 +112,13 @@ import java.io.File
  *    non-empty, so the button doesn't sit enabled over an empty tab and
  *    doesn't flicker while the list is still loading.
  */
+/**
+ * Own-profile share placement trial (matches iOS `ProfileSharePlacementTrial`).
+ * `true`  → Edit + Share pills; playlist icon left of settings in the title row.
+ * `false` → restore Edit + Playlist labeled row; settings-only title trailing.
+ */
+private const val USE_ACTION_ROW_SHARE = true
+
 internal fun profilePlaylistEnabled(
     selectedSegment: Int,
     hasTrackPosts: Boolean,
@@ -201,11 +208,16 @@ fun ProfileScreen(
     var showStylePicker by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
     var clubOfferSource by remember { mutableStateOf(fm.corus.android.ui.screens.subscription.PaywallSource.DEFAULT) }
+    var clubPlaylistTrialContext by remember {
+        mutableStateOf<fm.corus.android.domain.PlaylistTrialField?>(null)
+    }
 
     val paywallRequested by viewModel.nowPlayingManager.paywallRequested.collectAsState()
+    val playlistPaywallContext by viewModel.nowPlayingManager.playlistPaywallContext.collectAsState()
     LaunchedEffect(paywallRequested) {
         if (paywallRequested) {
             clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
+            clubPlaylistTrialContext = playlistPaywallContext
             showClubOffer = true
             viewModel.nowPlayingManager.clearPaywallRequested()
         }
@@ -244,6 +256,70 @@ fun ProfileScreen(
     var cropBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var showSelfieCapture by remember { mutableStateOf(false) }
     val decodeScope = rememberCoroutineScope()
+
+    // Playlist affordance — shared by the title-row icon (trial) and the
+    // action-row capsule (legacy). Hoisted so the header can call the same tap
+    // path the old PLAYLIST button used.
+    val playlistSource = when (selectedSegment) {
+        2 -> CloudFunctionsDataSource.ProfilePlaylistSource.Likes
+        3 -> CloudFunctionsDataSource.ProfilePlaylistSource.Saves
+        else -> CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+    }
+    val hasSongs = profilePlaylistEnabled(
+        selectedSegment = selectedSegment,
+        hasTrackPosts = posts.any { it.mediaType == MediaType.TRACK },
+        likedCount = likedPosts.size,
+        savedCount = savedPosts.size,
+        isLoadingLiked = isLoadingLiked,
+        isLoadingSaved = isLoadingSaved,
+    )
+    val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
+    val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
+    LaunchedEffect(playlistError) {
+        if (playlistError != null) {
+            ToastManager.show(playlistError!!)
+            viewModel.nowPlayingManager.clearPlaylistError()
+        }
+    }
+
+    fun presentProfileShare() {
+        if (viewModel.profileShareEnabled) {
+            showShareSheet = true
+        } else {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, "https://corus.fm/u/${profile?.username.orEmpty()}")
+            }
+            try {
+                context.startActivity(Intent.createChooser(shareIntent, null))
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun handlePlaylistTap() {
+        if (!hasSongs) {
+            ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
+        } else if (viewModel.shouldPaywallOwnProfilePlaylist()) {
+            clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
+            clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.OwnProfile
+            showClubOffer = true
+        } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
+            showYouTubeMusicPlaylistExplainer = true
+        } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
+                selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
+            )
+        ) {
+            showPlaylistChooser = true
+        } else {
+            val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+                && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+            if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                showPlaylistAlert = true
+            } else {
+                viewModel.generatePlaylist(playlistSource)
+            }
+        }
+    }
 
     // In-app selfie camera — Samsung One UI ignores the front-camera intent extras,
     // so we capture in-app via CameraX with LENS_FACING_FRONT forced (matches onboarding).
@@ -381,41 +457,86 @@ fun ProfileScreen(
                 // Clear the frosted status strip so the header row sits below it.
                 if (immersive) Spacer(Modifier.height(frost.statusBarPadding))
                 // ── Header Row: icon / display name / settings ──
+                // Matched leading/trailing widths keep the display name centered
+                // when the trial adds a second trailing icon (playlist + settings).
+                val titleSideWidth = if (USE_ACTION_ROW_SHARE) 60.dp else 40.dp
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    // Profile customization icon (matching iOS CorusClub icon)
-                    if (posts.isNotEmpty()) {
-                        Icon(
-                            painter = painterResource(fm.corus.android.R.drawable.corus_club_vector),
-                            contentDescription = stringResource(fm.corus.android.R.string.profile_cd_customize),
-                            tint = CorusColors.Accent,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clickable { showStylePicker = true },
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.size(40.dp))
+                    // Profile customization icon (matching iOS CorusClub icon).
+                    Box(
+                        modifier = Modifier.width(titleSideWidth),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        if (posts.isNotEmpty()) {
+                            Icon(
+                                painter = painterResource(fm.corus.android.R.drawable.corus_club_vector),
+                                contentDescription = stringResource(fm.corus.android.R.string.profile_cd_customize),
+                                tint = CorusColors.Accent,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clickable { showStylePicker = true },
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.size(40.dp))
+                        }
                     }
 
                     Text(
                         text = currentProfile.displayName,
                         style = CorusFont.displayName,
                         color = CorusColors.Text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center,
                     )
 
-                    Icon(
-                        Icons.Filled.Settings,
-                        contentDescription = stringResource(fm.corus.android.R.string.profile_cd_settings),
-                        tint = CorusColors.Secondary,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clickable(onClick = onNavigateToSettings),
-                    )
+                    // Trailing chrome: trial puts playlist left of settings
+                    // (same 24dp size / Secondary tint so they share weight).
+                    Row(
+                        modifier = Modifier.width(titleSideWidth),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md, Alignment.End),
+                    ) {
+                        if (USE_ACTION_ROW_SHARE) {
+                            Box(
+                                modifier = Modifier.size(24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (isGeneratingPlaylist) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = CorusColors.Secondary,
+                                    )
+                                } else {
+                                    Icon(
+                                        painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                        contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
+                                        tint = CorusColors.Secondary,
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .alpha(if (!hasSongs) 0.35f else 1f)
+                                            .clickable(enabled = !isGeneratingPlaylist) {
+                                                handlePlaylistTap()
+                                            },
+                                    )
+                                }
+                            }
+                        }
+                        Icon(
+                            Icons.Filled.Settings,
+                            contentDescription = stringResource(fm.corus.android.R.string.profile_cd_settings),
+                            tint = CorusColors.Secondary,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable(onClick = onNavigateToSettings),
+                        )
+                    }
                 }
             }
         }
@@ -477,17 +598,7 @@ fun ProfileScreen(
                                     // Launch-dark: with profile_share_enabled ON, open the
                                     // in-app Corus share sheet (DM your profile + external
                                     // actions); OFF falls back to the native Android sheet.
-                                    if (viewModel.profileShareEnabled) {
-                                        showShareSheet = true
-                                    } else {
-                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(Intent.EXTRA_TEXT, "https://corus.fm/u/${currentProfile.username}")
-                                        }
-                                        try {
-                                            context.startActivity(Intent.createChooser(shareIntent, null))
-                                        } catch (_: Exception) { }
-                                    }
+                                    presentProfileShare()
                                 },
                             )
                         }
@@ -520,7 +631,8 @@ fun ProfileScreen(
 
                         Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-                        // Edit Profile button + playlist + vinyl picker
+                        // Action pills — trial: Edit + Share (playlist lives in
+                        // the title row). Legacy: Edit + Playlist capsule.
                         Row(
                             modifier = Modifier.padding(horizontal = CorusSpacing.xs),
                             verticalAlignment = Alignment.CenterVertically,
@@ -549,111 +661,72 @@ fun ProfileScreen(
 
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
-                            // Playlist button (matching iOS music.note.list)
-                            val playlistSource = when (selectedSegment) {
-                                2 -> CloudFunctionsDataSource.ProfilePlaylistSource.Likes
-                                3 -> CloudFunctionsDataSource.ProfilePlaylistSource.Saves
-                                else -> CloudFunctionsDataSource.ProfilePlaylistSource.Posts
-                            }
-                            // Whether the tab has anything to build a music playlist from.
-                            // Music: your posted tracks. Film: never (a playlist is music,
-                            // films aren't songs). Likes/Saves: their own lazy-loaded lists,
-                            // dimmed only once loaded empty so the button doesn't flicker.
-                            val hasSongs = profilePlaylistEnabled(
-                                selectedSegment = selectedSegment,
-                                hasTrackPosts = posts.any { it.mediaType == MediaType.TRACK },
-                                likedCount = likedPosts.size,
-                                savedCount = savedPosts.size,
-                                isLoadingLiked = isLoadingLiked,
-                                isLoadingSaved = isLoadingSaved,
-                            )
-                            val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
-                            val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
-
-                            LaunchedEffect(playlistError) {
-                                if (playlistError != null) {
-                                    ToastManager.show(playlistError!!)
-                                    viewModel.nowPlayingManager.clearPlaylistError()
-                                }
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .height(30.dp)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(Color.Transparent)
-                                    .then(
-                                        Modifier.border(
-                                            1.dp,
-                                            CorusColors.Divider,
-                                            RoundedCornerShape(50),
-                                        )
-                                    )
-                                    .clickable(enabled = !isGeneratingPlaylist) {
-                                        if (!hasSongs) {
-                                            ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
-                                        } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
-                                            // Playlist export isn't available for YouTube Music yet —
-                                            // explain first, then offer a Spotify playlist instead
-                                            // (the explainer keeps the quick-vs-all choice). Checked
-                                            // before the full-export chooser so YT Music never lands on it.
-                                            showYouTubeMusicPlaylistExplainer = true
-                                        } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
-                                                selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
-                                            )
-                                        ) {
-                                            // >75 eligible songs → quick-vs-all chooser, which also
-                                            // folds in the Spotify/SoundCloud caveat (no stacked popups).
-                                            showPlaylistChooser = true
-                                        } else {
-                                            // TIDAL builds on the user's own account (generates
-                                            // directly); Apple Music / Deezer and SoundCloud-on-
-                                            // Spotify still get the alert.
-                                            // SoundCloud preflight only meaningful for posts source —
-                                            // likes/saves aren't loaded into `posts`.
-                                            val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
-                                                && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                                            if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
-                                                showPlaylistAlert = true
-                                            } else {
-                                                viewModel.generatePlaylist(playlistSource)
-                                            }
-                                        }
-                                    }
-                                    .padding(horizontal = playlistHPad),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                // Always render label to preserve button width
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-                                    modifier = Modifier.alpha(
-                                        if (!hasSongs) 0.35f
-                                        else if (isGeneratingPlaylist) 0f
-                                        else 1f
-                                    ),
+                            if (USE_ACTION_ROW_SHARE) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(50))
+                                        .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
+                                        .clickable { presentProfileShare() }
+                                        .padding(vertical = CorusSpacing.sm - 2.dp),
+                                    contentAlignment = Alignment.Center,
                                 ) {
-                                    Icon(
-                                        painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
-                                        contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
-                                        modifier = Modifier.size(14.dp),
-                                        tint = CorusColors.Secondary,
-                                    )
-                                    Text(
-                                        text = stringResource(fm.corus.android.R.string.profile_button_playlist),
+                                    ShrinkToFitText(
+                                        text = stringResource(fm.corus.android.R.string.profile_button_share),
                                         style = CorusFont.button,
                                         color = CorusColors.Secondary,
                                     )
                                 }
-                                if (isGeneratingPlaylist) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(14.dp),
-                                        strokeWidth = 2.dp,
-                                        color = CorusColors.Secondary,
-                                    )
+                            } else {
+                                // Legacy PLAYLIST capsule (matching iOS music.note.list)
+                                Box(
+                                    modifier = Modifier
+                                        .height(30.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Color.Transparent)
+                                        .then(
+                                            Modifier.border(
+                                                1.dp,
+                                                CorusColors.Divider,
+                                                RoundedCornerShape(50),
+                                            )
+                                        )
+                                        .clickable(enabled = !isGeneratingPlaylist) {
+                                            handlePlaylistTap()
+                                        }
+                                        .padding(horizontal = playlistHPad),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+                                        modifier = Modifier.alpha(
+                                            if (!hasSongs) 0.35f
+                                            else if (isGeneratingPlaylist) 0f
+                                            else 1f
+                                        ),
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                            contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
+                                            modifier = Modifier.size(14.dp),
+                                            tint = CorusColors.Secondary,
+                                        )
+                                        Text(
+                                            text = stringResource(fm.corus.android.R.string.profile_button_playlist),
+                                            style = CorusFont.button,
+                                            color = CorusColors.Secondary,
+                                        )
+                                    }
+                                    if (isGeneratingPlaylist) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(14.dp),
+                                            strokeWidth = 2.dp,
+                                            color = CorusColors.Secondary,
+                                        )
+                                    }
                                 }
                             }
-
                         }
                     }
                 }
@@ -1191,6 +1264,7 @@ fun ProfileScreen(
             CorusSystemBars()
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = clubOfferSource,
+                playlistTrialContext = clubPlaylistTrialContext,
                 onDismiss = { showClubOffer = false },
             )
         }

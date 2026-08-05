@@ -1458,10 +1458,22 @@ class CloudFunctionsDataSource @Inject constructor(
     /** [albumId] may be a Spotify album id OR `am:{appleAlbumId}` — always
      *  passed through untouched; the backend branches on the prefix. */
     @Suppress("UNCHECKED_CAST")
-    suspend fun fetchAlbumCatalog(albumId: String): AlbumCatalog {
+    suspend fun fetchAlbumCatalog(
+        albumId: String,
+        albumName: String? = null,
+        artistName: String? = null,
+    ): AlbumCatalog {
         cachedCatalog(albumCatalogCache, albumId)?.let { return it }
+        // albumName/artistName are OPTIONAL hints, ignored on the happy path.
+        // They matter only when Spotify's catalog quota is exhausted AND no post
+        // carries this album id: the server receives only a Spotify album id, so
+        // without a name it cannot fall back to Apple and the page errors
+        // ("We couldn't load this album"). The header already knows both.
+        val params = mutableMapOf<String, Any>("albumId" to albumId)
+        albumName?.trim()?.takeIf { it.isNotEmpty() }?.let { params["albumName"] = it }
+        artistName?.trim()?.takeIf { it.isNotEmpty() }?.let { params["artistName"] = it }
         val result = functions.getHttpsCallable("getAlbumCatalog")
-            .call(mapOf("albumId" to albumId)).await()
+            .call(params).await()
         val catalog = parseAlbumCatalogResponse(result.getData() as? Map<String, Any?>)
             ?: throw Exception("Invalid getAlbumCatalog response")
         albumCatalogCache[albumId] = System.currentTimeMillis() to catalog
@@ -1855,6 +1867,7 @@ class CloudFunctionsDataSource @Inject constructor(
         val cached: Boolean,
         /** Number of SoundCloud tracks omitted from the Spotify playlist. */
         val soundcloudSkipped: Int = 0,
+        val trialConsumed: Boolean = false,
     )
 
     class PaywallRequiredException : Exception("Playlist generation limit reached")
@@ -1879,6 +1892,7 @@ class CloudFunctionsDataSource @Inject constructor(
             playlistWebURL = data["playlistWebURL"] as? String ?: throw Exception("Missing playlistWebURL"),
             cached = data["cached"] as? Boolean ?: false,
             soundcloudSkipped = (data["soundcloudSkipped"] as? Number)?.toInt() ?: 0,
+            trialConsumed = data["trialConsumed"] as? Boolean ?: false,
         )
     }
 
@@ -1910,6 +1924,7 @@ class CloudFunctionsDataSource @Inject constructor(
             val soundcloudSkipped: Int,
             /** Profile owner's username, for titling the playlist. null for feed. */
             val username: String?,
+            val trialConsumed: Boolean = false,
         ) : PlaylistTracksOutcome()
     }
 
@@ -1942,7 +1957,12 @@ class CloudFunctionsDataSource @Inject constructor(
                 PlaylistTrackDescriptor(trackId = trackId, isrc = isrc, name = name, artist = artist, album = album)
             }
             if (descriptors.isEmpty()) return PlaylistTracksOutcome.Failure(soundcloudSkipped)
-            return PlaylistTracksOutcome.Tracks(descriptors, soundcloudSkipped, data["username"] as? String)
+            return PlaylistTracksOutcome.Tracks(
+                descriptors,
+                soundcloudSkipped,
+                data["username"] as? String,
+                data["trialConsumed"] as? Boolean ?: false,
+            )
         }
 
         /** Request payload for the `generateHashtagPlaylist` callable. Shared by
@@ -1984,7 +2004,7 @@ class CloudFunctionsDataSource @Inject constructor(
         // identical to older clients for the posts case.
         val payload = mutableMapOf<String, Any>(
             "userId" to userId,
-            "supportsGating" to true,
+            "supportsPlaylistGating" to true,
         )
         if (source != ProfilePlaylistSource.Posts) {
             payload["source"] = source.wire
@@ -2135,7 +2155,7 @@ class CloudFunctionsDataSource @Inject constructor(
         feedMode: String = "following",
         sessionToken: String? = null,
     ): PlaylistResult {
-        val params = mutableMapOf<String, Any>("supportsGating" to true, "feedMode" to feedMode)
+        val params = mutableMapOf<String, Any>("supportsPlaylistGating" to true, "feedMode" to feedMode)
         if (newReleasesOnly) params["newReleasesOnly"] = true
         if (feedModeUsesRankedSession(feedMode) && !sessionToken.isNullOrEmpty())
             params["sessionToken"] = sessionToken

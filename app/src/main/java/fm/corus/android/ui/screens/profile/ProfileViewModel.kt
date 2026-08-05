@@ -17,6 +17,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PlaylistTrialField
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
@@ -114,6 +115,9 @@ class ProfileViewModel @Inject constructor(
 
     val isClubMember = subscriptionRepository.isClubMember
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
+
+    fun shouldPaywallOwnProfilePlaylist(): Boolean =
+        subscriptionRepository.shouldPaywallPlaylist(PlaylistTrialField.OwnProfile)
 
     val stylePack1Enabled: Boolean get() = remoteConfigService.stylePack1Enabled
     val immersiveArtistHeaderEnabled: Boolean get() = remoteConfigService.immersiveArtistHeaderEnabled

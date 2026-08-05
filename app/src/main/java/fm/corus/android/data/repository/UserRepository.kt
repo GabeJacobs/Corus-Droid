@@ -153,6 +153,7 @@ class UserRepository @Inject constructor(
                 if (isCurrentUser) {
                     subscriptionRepository.setSavesCount(entry.value.savesCount)
                     subscriptionRepository.setFavoritesCount(entry.value.favoritesCount)
+                    subscriptionRepository.setPlaylistTrialUsed(entry.value.playlistTrialUsed)
                 }
                 return entry.value
             }
@@ -162,6 +163,7 @@ class UserRepository @Inject constructor(
         if (uid == auth.currentUser?.uid) {
             subscriptionRepository.setSavesCount(user.savesCount)
             subscriptionRepository.setFavoritesCount(user.favoritesCount)
+            subscriptionRepository.setPlaylistTrialUsed(user.playlistTrialUsed)
         }
         return user
     }

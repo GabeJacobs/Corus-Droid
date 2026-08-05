@@ -205,12 +205,17 @@ fun OtherProfileScreen(
     var clubOfferSource by remember {
         mutableStateOf(fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT)
     }
+    var clubPlaylistTrialContext by remember {
+        mutableStateOf<fm.corus.android.domain.PlaylistTrialField?>(null)
+    }
     val gridState = rememberLazyGridState()
 
     val paywallRequested by viewModel.nowPlayingManager.paywallRequested.collectAsState()
+    val playlistPaywallContext by viewModel.nowPlayingManager.playlistPaywallContext.collectAsState()
     LaunchedEffect(paywallRequested) {
         if (paywallRequested) {
             clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
+            clubPlaylistTrialContext = playlistPaywallContext
             showClubOffer = true
             viewModel.nowPlayingManager.clearPaywallRequested()
         }
@@ -361,7 +366,11 @@ fun OtherProfileScreen(
                                     enabled = hasSongs && !isGeneratingPlaylist,
                                     onClick = {
                                         showMenu = false
-                                        if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
+                                        if (viewModel.shouldPaywallOtherProfilePlaylist()) {
+                                            clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
+                                            clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.OtherProfile
+                                            showClubOffer = true
+                                        } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
                                             // No YouTube Music playlist export yet — explain, then
                                             // offer a Spotify playlist (explainer keeps quick vs all).
                                             showYouTubeMusicPlaylistExplainer = true
@@ -889,6 +898,10 @@ fun OtherProfileScreen(
                                         .clickable(enabled = hasSongs && !isGeneratingPlaylist) {
                                             if (!hasSongs) {
                                                 ToastManager.show(playlistContext.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
+                                            } else if (viewModel.shouldPaywallOtherProfilePlaylist()) {
+                                                clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
+                                                clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.OtherProfile
+                                                showClubOffer = true
                                             } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
                                                 // No YouTube Music playlist export yet — explain, then
                                                 // offer a Spotify playlist (explainer keeps quick vs all).
@@ -1362,6 +1375,7 @@ fun OtherProfileScreen(
             BackHandler { showClubOffer = false }
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = clubOfferSource,
+                playlistTrialContext = clubPlaylistTrialContext,
                 onDismiss = { showClubOffer = false },
             )
         }

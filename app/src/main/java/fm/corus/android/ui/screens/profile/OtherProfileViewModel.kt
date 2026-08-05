@@ -21,6 +21,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PlaylistTrialField
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.ui.components.ToastManager
@@ -73,6 +74,9 @@ class OtherProfileViewModel @Inject constructor(
         )
 
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
+
+    fun shouldPaywallOtherProfilePlaylist(): Boolean =
+        subscriptionRepository.shouldPaywallPlaylist(PlaylistTrialField.OtherProfile)
 
     /** Send-side gate for the in-app "Share Profile" Corus share sheet. */
     val profileShareEnabled: Boolean get() = remoteConfig.profileShareEnabled

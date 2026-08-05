@@ -94,6 +94,9 @@ fun HashtagFeedScreen(
     // gets an explainer that offers a Spotify playlist instead (mirrors the feed).
     var showYouTubeMusicPlaylistExplainer by remember { mutableStateOf(false) }
     var showClubOffer by remember { mutableStateOf(false) }
+    var clubPlaylistTrialContext by remember {
+        mutableStateOf<fm.corus.android.domain.PlaylistTrialField?>(null)
+    }
 
     LaunchedEffect(playlistError) {
         if (playlistError != null) {
@@ -103,8 +106,10 @@ fun HashtagFeedScreen(
     }
 
     val paywallRequested by viewModel.nowPlayingManager.paywallRequested.collectAsState()
+    val playlistPaywallContext by viewModel.nowPlayingManager.playlistPaywallContext.collectAsState()
     LaunchedEffect(paywallRequested) {
         if (paywallRequested) {
+            clubPlaylistTrialContext = playlistPaywallContext
             showClubOffer = true
             viewModel.nowPlayingManager.clearPaywallRequested()
         }
@@ -229,6 +234,9 @@ fun HashtagFeedScreen(
                                 onClick = {
                                     if (!hasSongs) {
                                         ToastManager.show(context.getString(R.string.profile_toast_no_songs_for_playlist))
+                                    } else if (viewModel.shouldPaywallHashtagPlaylist()) {
+                                        clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.Hashtag
+                                        showClubOffer = true
                                     } else if (musicService == MusicService.YOUTUBE_MUSIC) {
                                         // No YouTube Music playlist export yet — explain, then offer
                                         // a Spotify playlist (the explainer keeps quick vs all).
@@ -438,6 +446,7 @@ fun HashtagFeedScreen(
             CorusSystemBars()
             fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
                 source = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT,
+                playlistTrialContext = clubPlaylistTrialContext,
                 onDismiss = { showClubOffer = false },
             )
         }

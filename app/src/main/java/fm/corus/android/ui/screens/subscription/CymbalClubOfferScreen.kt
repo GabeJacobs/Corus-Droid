@@ -44,6 +44,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.bottomSheetMaxHeight
+import fm.corus.android.domain.PlaylistTrialField
 
 // Inside a ModalBottomSheet, LocalContext.current is a ContextWrapper around the
 // Activity, not the Activity itself, so a direct `as? Activity` cast returns null
@@ -105,6 +106,17 @@ private fun savingsBadge(monthly: Package?, yearly: Package?): String? {
     val pct = Math.round((1.0 - yearlyAsMonthly / m) * 100).toInt()
     if (pct < 5) return null
     return "SAVE $pct%"
+}
+
+@Composable
+private fun playlistLimitSubtitle(context: PlaylistTrialField?): String {
+    return when (context) {
+        PlaylistTrialField.Feed -> stringResource(R.string.club_subtitle_playlist_limit_feed)
+        PlaylistTrialField.OwnProfile -> stringResource(R.string.club_subtitle_playlist_limit_own_profile)
+        PlaylistTrialField.OtherProfile -> stringResource(R.string.club_subtitle_playlist_limit_other_profile)
+        PlaylistTrialField.Hashtag -> stringResource(R.string.club_subtitle_playlist_limit_hashtag)
+        null -> stringResource(R.string.club_subtitle_playlist_limit)
+    }
 }
 
 /**
@@ -457,6 +469,7 @@ fun CymbalClubOfferScreen(
 fun CymbalClubOfferSheet(
     viewModel: CymbalClubViewModel = hiltViewModel(),
     source: PaywallSource = PaywallSource.DEFAULT,
+    playlistTrialContext: PlaylistTrialField? = null,
     onDismiss: () -> Unit = {},
     /** Called on [CymbalClubViewModel.PurchaseResult.Success] (never on a plain
      *  dismiss), before [onDismiss] — so the host can complete the action this
@@ -606,6 +619,29 @@ fun CymbalClubOfferSheet(
                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
             }
 
+            if (source == PaywallSource.PLAYLIST_LIMIT && playlistTrialContext != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QueueMusic,
+                        contentDescription = null,
+                        tint = CorusColors.Accent,
+                        modifier = Modifier.size(15.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.club_playlist_trial_used_eyebrow),
+                        style = CorusFont.caption.copy(
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp),
+                        ),
+                        color = CorusColors.Accent,
+                    )
+                }
+                Spacer(modifier = Modifier.height(CorusSpacing.xs))
+            }
+
             Text(
                 text = stringResource(R.string.club_title),
                 style = CorusFont.appTitle,
@@ -617,10 +653,13 @@ fun CymbalClubOfferSheet(
             // Post-limit: surface the trial with its duration when available,
             // otherwise the source's default subtitle ("Remove posting limits").
             val trial = trialDurationText(context, selectedPackage)
-            val subtitleText = if (source == PaywallSource.POST_LIMIT && trial != null)
-                context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
-            else
-                source.subtitle
+            val subtitleText = when {
+                source == PaywallSource.POST_LIMIT && trial != null ->
+                    context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
+                source == PaywallSource.PLAYLIST_LIMIT && playlistTrialContext != null ->
+                    playlistLimitSubtitle(playlistTrialContext)
+                else -> source.subtitle
+            }
 
             Text(
                 text = subtitleText,

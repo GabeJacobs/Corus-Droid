@@ -8,10 +8,12 @@ import fm.corus.android.data.model.HashtagContributor
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PlaylistTrialField
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
@@ -32,8 +34,12 @@ class HashtagFeedViewModel @Inject constructor(
     // the active music service directly, mirroring ProfileScreen.
     val nowPlayingManager: NowPlayingManager,
     val musicServicePreference: MusicServicePreference,
+    private val subscriptionRepository: SubscriptionRepository,
     private val analyticsService: AnalyticsService,
 ) : ViewModel() {
+
+    fun shouldPaywallHashtagPlaylist(): Boolean =
+        subscriptionRepository.shouldPaywallPlaylist(PlaylistTrialField.Hashtag)
 
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()

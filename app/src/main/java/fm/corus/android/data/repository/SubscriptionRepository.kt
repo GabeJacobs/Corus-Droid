@@ -12,6 +12,9 @@ import com.revenuecat.purchases.restorePurchasesWith
 import android.content.SharedPreferences
 import fm.corus.android.TestEnvironment
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.domain.PlaylistGatingUX
+import fm.corus.android.domain.PlaylistTrialField
+import fm.corus.android.domain.PlaylistTrialUsed
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.CoroutineScope
@@ -167,6 +170,21 @@ class SubscriptionRepository @Inject constructor(
         if (hasFullAccess) return false
         return _favoritesCount.value >= remoteConfig.favoritePeopleCapLimit
     }
+
+    /** Mirror of users_v2/{uid}.playlistTrialUsed — hydrated from profile reads. */
+    private val _playlistTrialUsed = MutableStateFlow(PlaylistTrialUsed())
+    val playlistTrialUsed: StateFlow<PlaylistTrialUsed> = _playlistTrialUsed.asStateFlow()
+
+    fun setPlaylistTrialUsed(used: PlaylistTrialUsed) {
+        _playlistTrialUsed.value = used
+    }
+
+    fun markPlaylistTrialUsed(field: PlaylistTrialField) {
+        _playlistTrialUsed.value = _playlistTrialUsed.value.markUsed(field)
+    }
+
+    fun shouldPaywallPlaylist(field: PlaylistTrialField): Boolean =
+        PlaylistGatingUX.shouldPaywallPlaylist(_playlistTrialUsed.value, field, hasFullAccess)
 
     fun updateVerifiedStatus(isVerified: Boolean) {
         _isVerified.value = isVerified
@@ -345,6 +363,7 @@ class SubscriptionRepository @Inject constructor(
         _recentPostCount.value = 0
         _totalPostCount.value = 0
         _postCountLoaded.value = false
+        _playlistTrialUsed.value = PlaylistTrialUsed()
         lastPostLimitRefreshAt = 0L
         Purchases.sharedInstance.updatedCustomerInfoListener = null
         try { Purchases.sharedInstance.logOut() } catch (_: Exception) { }

@@ -1,6 +1,7 @@
 package fm.corus.android.data.model
 
 import java.util.Date
+import fm.corus.android.domain.PlaylistTrialUsed
 
 data class CymbalUser(
     val id: String,
@@ -53,6 +54,8 @@ data class CymbalUser(
      * accounts that never took the quiz.
      */
     val tasteSeedCount: Int? = null,
+    /** Mirror of users_v2/{uid}.playlistTrialUsed for client-side playlist gating. */
+    val playlistTrialUsed: PlaylistTrialUsed = PlaylistTrialUsed(),
 ) {
     val hasClubAccess: Boolean get() = isClubMember || isVerified
 
@@ -198,6 +201,7 @@ data class CymbalUser(
                 ?: (data["createdAt"] as? Number)?.let { java.util.Date(it.toLong()) },
             clubMemberSince = (data["clubMemberSince"] as? com.google.firebase.Timestamp)?.toDate(),
             tasteSeedCount = (data["tasteSeedCount"] as? Number)?.toInt(),
+            playlistTrialUsed = PlaylistTrialUsed.fromFirestore(data),
         )
     }
 }
