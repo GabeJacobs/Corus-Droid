@@ -6,6 +6,7 @@ import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.repository.SpotifyRepository
+import fm.corus.android.data.repository.parseUnifiedTrack
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -361,23 +362,19 @@ class ShareResolver @Inject constructor(
         }
     }
 
-    /** Audiomack mirrors the SoundCloud strategy: slug → the same
-     * `searchSongs` callable as in-app search (inheriting its filtering + the
-     * audiomack RC gate), accepting ONLY the exact audiomackUrl match.
-     * Audiomack IS a post source, so the match posts directly. */
+    /** Audiomack share links resolve through a dedicated callable that hits
+     * Audiomack search directly and matches the shared page URL exactly.
+     * searchSongs dedups Audiomack rows that also exist on Spotify/Apple,
+     * which would break shares of major-label tracks like "Old Days". */
     private suspend fun resolveAudiomack(url: String): CymbalTrack? {
-        val segments = url.substringAfter("audiomack.com/").split('/')
-        if (segments.size != 3) return null
-        val query = "${segments[0]} ${segments[2]}"
-            .replace('-', ' ')
-            .replace('_', ' ')
-        val page = runCatching {
-            musicSearchRepository.search(query = query, limit = 20, includeSoundCloud = true, collapse = "cover")
+        val track = runCatching {
+            @Suppress("UNCHECKED_CAST")
+            val result = functions.getHttpsCallable("shareResolveAudiomackLink")
+                .call(mapOf("audiomackUrl" to url))
+                .await()
+            (result.getData() as? Map<String, Any?>)?.get("track") as? Map<String, Any?>
         }.getOrNull() ?: return null
-        val target = normalizedPermalink(url)
-        return page.tracks.firstOrNull { track ->
-            track.audiomackUrl?.let { normalizedPermalink(it) == target } == true
-        }
+        return parseUnifiedTrack(track)
     }
 
     private fun normalizedPermalink(raw: String): String {
