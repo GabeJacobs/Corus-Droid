@@ -56,6 +56,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.ui.screens.profile.OtherProfileViewModel
+import fm.corus.android.ui.screens.destination.EntityLinkScreen
+import fm.corus.android.ui.screens.destination.EntityLinkViewModel
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -629,6 +631,24 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     }
 
     // ── Artist / Album / Director destination pages (artist_pages_enabled) ──
+
+    composable<EntityLinkRoute> { backStackEntry ->
+        val route = backStackEntry.toRoute<EntityLinkRoute>()
+        val viewModel: EntityLinkViewModel = hiltViewModel()
+        val state by viewModel.state.collectAsState()
+        LaunchedEffect(route.segment, route.key) { viewModel.resolve(route.segment, route.key) }
+        LaunchedEffect(state) {
+            val ready = state as? EntityLinkViewModel.State.Ready ?: return@LaunchedEffect
+            navController.navigate(entityPageRoute(ready.segment, ready.entityId)) {
+                popUpTo<EntityLinkRoute> { inclusive = true }
+            }
+        }
+        EntityLinkScreen(
+            state = state,
+            onBack = { navController.popBackStack() },
+            onRetry = { viewModel.resolve(route.segment, route.key) },
+        )
+    }
 
     composable<ArtistPageRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<ArtistPageRoute>()

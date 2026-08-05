@@ -314,6 +314,12 @@ fun MainTabScreen(
             // offer screen renders a member-specific CTA when the user is already a
             // Club member, so the offer route is the correct target either way.
             is DeepLinkDestination.Club -> navController.navigate(CymbalClubOfferRoute())
+            // The key a public catalog URL carried, which may be an id or a
+            // clean-URL slug. EntityLinkRoute reads it and replaces itself with
+            // the entity's own page.
+            is DeepLinkDestination.Entity -> navController.navigate(
+                EntityLinkRoute(notificationDestination.segment.segment, notificationDestination.key)
+            )
         }
         onNotificationDestinationConsumed()
     }

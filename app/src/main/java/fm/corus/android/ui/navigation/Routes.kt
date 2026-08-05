@@ -1,5 +1,6 @@
 package fm.corus.android.ui.navigation
 
+import fm.corus.android.service.EntitySegment
 import kotlinx.serialization.Serializable
 
 /** SavedStateHandle key the mini-player uses to ask an already-visible
@@ -150,6 +151,13 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
 // name/image/title hints let each page paint its header instantly while the
 // catalog callable resolves — mirrors SongDetailRoute's hint pattern.
 
+/**
+ * A public corus.fm catalog link, before its key has been read. [key] is exactly
+ * what the URL carried — an id or a clean-URL slug — and this route replaces
+ * itself with the entity's own page as soon as it knows which one that is.
+ */
+@Serializable data class EntityLinkRoute(val segment: String, val key: String)
+
 @Serializable data class ArtistPageRoute(
     val artistId: String,
     val name: String? = null,
@@ -205,3 +213,12 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
     val directorId: String,
     val name: String? = null,
 )
+
+/** The page a public corus.fm catalog URL names, once its id is known. */
+fun entityPageRoute(segment: EntitySegment, entityId: String): Any = when (segment) {
+    EntitySegment.SONG -> SongDetailRoute(trackId = entityId)
+    EntitySegment.ALBUM -> AlbumPageRoute(albumId = entityId)
+    EntitySegment.ARTIST -> ArtistPageRoute(artistId = entityId)
+    EntitySegment.FILM -> FilmDetailRoute(movieId = entityId)
+    EntitySegment.DIRECTOR -> DirectorPageRoute(directorId = entityId)
+}

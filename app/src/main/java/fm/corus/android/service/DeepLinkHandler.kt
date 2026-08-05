@@ -12,6 +12,13 @@ sealed class DeepLinkDestination {
     data class Hashtag(val tag: String) : DeepLinkDestination()
     data object Club : DeepLinkDestination()
 
+    /**
+     * A catalog page named by a public URL. [key] is exactly what the path
+     * carried — an id or a clean-URL slug — because only the server can tell a
+     * slug what it names, and reading it here would be a second slug map.
+     */
+    data class Entity(val segment: EntitySegment, val key: String) : DeepLinkDestination()
+
     fun analyticsType(): String = when (this) {
         is Profile -> "profile"
         is ProfileByUsername -> "profile"
@@ -20,6 +27,7 @@ sealed class DeepLinkDestination {
         is Thread -> "thread"
         is Hashtag -> "hashtag"
         is Club -> "club"
+        is Entity -> segment.segment
     }
 }
 
@@ -33,11 +41,18 @@ object DeepLinkHandler {
         return when (uri.scheme) {
             "corus" -> parseCorusScheme(uri)
             "https" -> when (uri.host) {
-                // corus.fm hosts the canonical share links (/post, /u). app.corus.fm
-                // is the web app; we only claim its /settings/club paywall path (any
-                // other app.corus.fm link returns null and falls through to the
-                // browser). Both hosts share parseWebUrl.
-                "corus.fm", "app.corus.fm" -> parseWebUrl(uri)
+                // corus.fm hosts the public pages, and every one of them has a
+                // screen in the app.
+                "corus.fm" -> parsePublicUrl(uri)
+                // app.corus.fm IS the web app. The Club paywall is the one path
+                // worth taking over, because the app is where the purchase can
+                // actually happen; everything else there must stay in the browser
+                // rather than be answered by a second copy of the same screen.
+                "app.corus.fm" -> if (uri.pathSegments == listOf("settings", "club")) {
+                    DeepLinkDestination.Club
+                } else {
+                    null
+                }
                 else -> null
             }
             else -> null
@@ -51,20 +66,23 @@ object DeepLinkHandler {
             "thread" -> uri.pathSegments.firstOrNull()?.let { DeepLinkDestination.Thread(it) }
             "hashtag" -> uri.pathSegments.firstOrNull()?.let { DeepLinkDestination.Hashtag(it) }
             "club" -> DeepLinkDestination.Club
-            else -> null
+            else -> entityDestination(uri.host, uri.pathSegments.firstOrNull())
         }
     }
 
-    private fun parseWebUrl(uri: Uri): DeepLinkDestination? {
+    private fun entityDestination(segment: String?, key: String?): DeepLinkDestination? {
+        val entitySegment = segment?.let { EntitySegment.from(it) } ?: return null
+        if (key.isNullOrEmpty()) return null
+        return DeepLinkDestination.Entity(entitySegment, key)
+    }
+
+    private fun parsePublicUrl(uri: Uri): DeepLinkDestination? {
         val segments = uri.pathSegments
         if (segments.isEmpty()) return null
         return when (segments[0]) {
             "post" -> segments.getOrNull(1)?.let { DeepLinkDestination.Post(it) }
             "u" -> segments.getOrNull(1)?.let { DeepLinkDestination.ProfileByUsername(it) }
-            // app.corus.fm/settings/club -> Corus Club paywall. Only this exact
-            // /settings path is handled; other /settings/* links return null.
-            "settings" -> if (segments.getOrNull(1) == "club") DeepLinkDestination.Club else null
-            else -> null
+            else -> entityDestination(segments[0], segments.getOrNull(1))
         }
     }
 

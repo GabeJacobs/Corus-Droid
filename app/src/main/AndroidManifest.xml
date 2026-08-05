@@ -87,8 +87,10 @@
                 <data android:scheme="corus" android:host="spotify-auth" />
             </intent-filter>
 
-            <!-- Universal link: https://corus.fm — only the paths the app handles
-                 (see DeepLinkHandler.parseWebUrl). Other corus.fm paths (e.g. /privacy,
+            <!-- Universal link: https://corus.fm — the public pages, every one of
+                 which has a screen in the app (see DeepLinkHandler.parsePublicUrl;
+                 the shapes themselves are owned by Corus-Web
+                 app/lib/seo/public-routes.ts). Other corus.fm paths (e.g. /privacy,
                  /terms) fall through to the browser instead of being captured here. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -98,6 +100,11 @@
                 <data android:host="corus.fm" />
                 <data android:pathPrefix="/post/" />
                 <data android:pathPrefix="/u/" />
+                <data android:pathPrefix="/song/" />
+                <data android:pathPrefix="/album/" />
+                <data android:pathPrefix="/artist/" />
+                <data android:pathPrefix="/film/" />
+                <data android:pathPrefix="/director/" />
             </intent-filter>
 
             <!-- Universal link: https://app.corus.fm — the web-app host. Kept in
@@ -105,7 +112,7 @@
                  mixing app.corus.fm here with corus.fm above would cross-apply the
                  /post/ + /u/ prefixes to app.corus.fm and vice versa). Scoped to the
                  EXACT /settings/club path (the Corus Club paywall) so we don't claim
-                 any other app.corus.fm link — see DeepLinkHandler.parseWebUrl. -->
+                 any other app.corus.fm link — see DeepLinkHandler.parse. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

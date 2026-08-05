@@ -238,6 +238,11 @@
     <string name="feed_toast_post_deleted">Post deleted</string>
     <string name="feed_toast_failed_delete">Failed to delete post</string>
 
+    <!-- Public link resolution -->
+    <string name="entity_link_not_found">This link doesn\'t lead anywhere anymore</string>
+    <string name="entity_link_unreachable_title">Couldn\'t open this link</string>
+    <string name="entity_link_unreachable_subtitle">Check your internet connection and try again.</string>
+
     <!-- Feed: post detail -->
     <string name="post_detail_not_found">Post not found</string>
     <string name="post_detail_reposted_from">reposted from</string>

@@ -3,6 +3,7 @@ package fm.corus.android.data.remote
 import com.google.firebase.functions.FirebaseFunctions
 import fm.corus.android.data.model.*
 import fm.corus.android.data.repository.parseUnifiedTrack
+import fm.corus.android.service.EntitySegment
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 import java.util.Date
@@ -1403,6 +1404,22 @@ class CloudFunctionsDataSource @Inject constructor(
             return null
         }
         return entry.second
+    }
+
+    /**
+     * The entity a clean public URL names, from the server that owns the slug
+     * map. Returns null when nothing owns the slug — the same answer a slug for
+     * something hidden or never-existent gets. THROWS when the lookup itself
+     * failed, so a blip is never shown to the user as a dead link.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun resolveEntityLink(segment: EntitySegment, slug: String): String? {
+        val result = functions.getHttpsCallable("resolveEntityLink")
+            .call(mapOf("segment" to segment.segment, "slug" to slug))
+            .await()
+        val data = result.getData() as? Map<String, Any?>
+            ?: throw Exception("Invalid resolveEntityLink response")
+        return (data["entityId"] as? String)?.takeIf { it.isNotEmpty() }
     }
 
     @Suppress("UNCHECKED_CAST")
