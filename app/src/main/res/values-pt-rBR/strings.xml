@@ -1296,6 +1296,9 @@
     <string name="destination_prerelease_album_hint">Pré-lançamento. Apenas faixas já lançadas podem ser reproduzidas.</string>
     <string name="settings_row_play_full_songs_spotify_subtitle">Ouça faixas completas pelo Spotify em vez de prévias. Requer o app do Spotify instalado e conectado.</string>
     <string name="settings_row_play_full_songs_title">Reproduzir músicas completas</string>
-    <string name="settings_row_spotify_library_save_subtitle">As músicas que você salvar são adicionadas à sua biblioteca do Spotify</string>
+    <string name="settings_row_spotify_library_save_subtitle">As músicas que você salvar são adicionadas à sua biblioteca do Spotify. Requer o app do Spotify instalado e conectado.</string>
     <string name="settings_row_spotify_library_save_title">Adicionar músicas salvas à biblioteca</string>
+    <string name="entity_link_not_found">Este link não leva mais a lugar nenhum</string>
+    <string name="entity_link_unreachable_title">Não foi possível abrir este link</string>
+    <string name="entity_link_unreachable_subtitle">Não conseguimos acessar o Corus agora. Tente novamente em instantes.</string>
 </resources>

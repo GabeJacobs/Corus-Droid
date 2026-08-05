@@ -1298,6 +1298,9 @@
     <string name="destination_prerelease_album_hint">Avant-première. Seuls les titres déjà sortis peuvent être écoutés.</string>
     <string name="settings_row_play_full_songs_spotify_subtitle">Écoutez des titres complets via Spotify au lieu d\'extraits. Nécessite l\'app Spotify installée et connectée.</string>
     <string name="settings_row_play_full_songs_title">Écouter les titres complets</string>
-    <string name="settings_row_spotify_library_save_subtitle">Les titres que vous enregistrez sont ajoutés à votre bibliothèque Spotify</string>
+    <string name="settings_row_spotify_library_save_subtitle">Les titres que vous enregistrez sont ajoutés à votre bibliothèque Spotify. Nécessite l\'app Spotify installée et connectée.</string>
     <string name="settings_row_spotify_library_save_title">Ajouter les titres enregistrés à la bibliothèque</string>
+    <string name="entity_link_not_found">Ce lien ne mène plus nulle part</string>
+    <string name="entity_link_unreachable_title">Impossible d\'ouvrir ce lien</string>
+    <string name="entity_link_unreachable_subtitle">Nous n\'avons pas pu joindre Corus pour le moment. Réessaie dans un instant.</string>
 </resources>

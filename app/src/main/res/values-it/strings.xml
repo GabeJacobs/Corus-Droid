@@ -1298,6 +1298,9 @@
     <string name="destination_prerelease_album_hint">Prerelease. Si possono riprodurre solo i brani già usciti.</string>
     <string name="settings_row_play_full_songs_spotify_subtitle">Riproduci brani completi con Spotify invece delle anteprime. Richiede l\'app Spotify installata e con accesso effettuato.</string>
     <string name="settings_row_play_full_songs_title">Riproduci brani completi</string>
-    <string name="settings_row_spotify_library_save_subtitle">I brani che salvi vengono aggiunti alla tua libreria Spotify</string>
+    <string name="settings_row_spotify_library_save_subtitle">I brani che salvi vengono aggiunti alla tua libreria Spotify. Richiede l\'app Spotify installata e con accesso effettuato.</string>
     <string name="settings_row_spotify_library_save_title">Aggiungi i brani salvati alla libreria</string>
+    <string name="entity_link_not_found">Questo link non porta più da nessuna parte</string>
+    <string name="entity_link_unreachable_title">Impossibile aprire questo link</string>
+    <string name="entity_link_unreachable_subtitle">Non siamo riusciti a raggiungere Corus in questo momento. Riprova tra poco.</string>
 </resources>

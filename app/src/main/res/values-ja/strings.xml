@@ -1162,6 +1162,9 @@
     <string name="destination_prerelease_album_hint">発売前です。リリース済みの曲のみ再生できます。</string>
     <string name="settings_row_play_full_songs_spotify_subtitle">プレビューではなく、Spotifyでフル尺の曲を再生します。Spotifyアプリのインストールとログインが必要です。</string>
     <string name="settings_row_play_full_songs_title">フル尺の曲を再生</string>
-    <string name="settings_row_spotify_library_save_subtitle">保存した曲がSpotifyのライブラリに追加されます</string>
+    <string name="settings_row_spotify_library_save_subtitle">保存した曲がSpotifyのライブラリに追加されます。Spotifyアプリのインストールとログインが必要です。</string>
     <string name="settings_row_spotify_library_save_title">保存した曲をライブラリに追加</string>
+    <string name="entity_link_not_found">このリンクの参照先はもうありません</string>
+    <string name="entity_link_unreachable_title">このリンクを開けませんでした</string>
+    <string name="entity_link_unreachable_subtitle">現在Corusに接続できませんでした。しばらくしてからもう一度お試しください。</string>
 </resources>
