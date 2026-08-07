@@ -14,7 +14,9 @@ import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.ToastManager
@@ -44,8 +46,15 @@ class ArtistPageViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
     private val remoteConfigService: RemoteConfigService,
+    private val musicServicePreference: MusicServicePreference,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    fun catalogListeningEntitled(): Boolean = SongPlayRouting.catalogListeningEntitled(
+        context = context,
+        service = musicServicePreference.current.value,
+        remoteConfig = remoteConfigService,
+    )
 
     /** Send-side gate for the "..." Share entry on this page. */
     val entityShareEnabled: Boolean get() = remoteConfigService.entityShareEnabled

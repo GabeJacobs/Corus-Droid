@@ -227,6 +227,8 @@ class PreferencesDataStore @Inject constructor(
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
         val AUTOPLAY_NEXT_SONG = booleanPreferencesKey("autoplay_next_song")
         val PLAY_FULL_SONGS = booleanPreferencesKey("play_full_songs")
+        val ALWAYS_PLAY_FULL_SONGS = booleanPreferencesKey("always_play_full_songs")
+        val PLAYBACK_MODE_CHOSEN = booleanPreferencesKey("playback_mode_chosen")
         val AUTO_ADD_SPOTIFY = booleanPreferencesKey("auto_add_saved_to_spotify")
         val FEED_FOLLOWS_NOW_PLAYING = booleanPreferencesKey("feed_follows_now_playing")
         val TRENDING_SONGS_WINDOW = stringPreferencesKey("trending_songs_window")
@@ -240,6 +242,7 @@ class PreferencesDataStore @Inject constructor(
         private const val SYNC_PREFS_NAME = "corus_prefs"
         private const val FEED_MODE_SYNC_KEY = "feed_mode"
         val FOR_YOU_SEEN_IDS = stringPreferencesKey("for_you_seen_ids")
+        val PENDING_SPOTIFY_LIBRARY_URIS = stringPreferencesKey("pending_spotify_library_uris")
         // Active home-feed content filter (FeedFilter enum name). Mirrors iOS
         // @AppStorage("feedFilter"); persists the music/film/new-releases choice
         // across app restarts.
@@ -290,14 +293,27 @@ class PreferencesDataStore @Inject constructor(
         dataStore.edit { it[AUTOPLAY_NEXT_SONG] = value }
     }
 
-    /** Mirrors iOS @AppStorage("playFullSongs") default (`true`). */
+    /** Mirrors iOS @AppStorage("playFullSongs") default (`false`). */
     val playFullSongs: Flow<Boolean> = dataStore.data.map { prefs ->
-        (prefs[PLAY_FULL_SONGS] ?: true).also { mirrorPlayFullSongsSync(it) }
+        (prefs[PLAY_FULL_SONGS] ?: false).also { mirrorPlayFullSongsSync(it) }
     }
 
     suspend fun setPlayFullSongs(value: Boolean) {
         mirrorPlayFullSongsSync(value)
-        dataStore.edit { it[PLAY_FULL_SONGS] = value }
+        dataStore.edit {
+            it[PLAY_FULL_SONGS] = value
+            it[PLAYBACK_MODE_CHOSEN] = true
+        }
+    }
+
+    fun playbackModeChosenSync(): Boolean =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("playback_mode_chosen", false)
+
+    suspend fun setPlaybackModeChosen(value: Boolean) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("playback_mode_chosen", value).apply()
+        dataStore.edit { it[PLAYBACK_MODE_CHOSEN] = value }
     }
 
     private fun mirrorPlayFullSongsSync(value: Boolean) {
@@ -307,7 +323,35 @@ class PreferencesDataStore @Inject constructor(
 
     fun playFullSongsSync(): Boolean =
         context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean("play_full_songs", true)
+            .getBoolean("play_full_songs", false)
+
+    /** Mirrors iOS `@AppStorage("alwaysPlayFullSongs")` default (`false`). */
+    val alwaysPlayFullSongs: Flow<Boolean> = dataStore.data.map { prefs ->
+        (prefs[ALWAYS_PLAY_FULL_SONGS] ?: false).also { mirrorAlwaysPlayFullSongsSync(it) }
+    }
+
+    suspend fun setAlwaysPlayFullSongs(value: Boolean) {
+        mirrorAlwaysPlayFullSongsSync(value)
+        dataStore.edit { it[ALWAYS_PLAY_FULL_SONGS] = value }
+        if (value) {
+            setPlayFullSongs(true)
+        } else {
+            setPlayFullSongs(false)
+        }
+    }
+
+    private fun mirrorAlwaysPlayFullSongsSync(value: Boolean) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("always_play_full_songs", value).apply()
+    }
+
+    fun alwaysPlayFullSongsSync(): Boolean =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("always_play_full_songs", false)
+
+    /** Full playback on feed posts — always-on setting or mini-player toggle. */
+    fun effectivePlayFullSongsSync(): Boolean =
+        alwaysPlayFullSongsSync() || playFullSongsSync()
 
     /**
      * Opt-in: once the user turns on the Settings "Add Saved Songs to Library"
@@ -324,6 +368,21 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setAutoAddSavedToSpotify(value: Boolean) {
         dataStore.edit { it[AUTO_ADD_SPOTIFY] = value }
+    }
+
+    /**
+     * Spotify library saves that couldn't be delivered yet (JSON-encoded array
+     * of track URIs, oldest first, capped by
+     * [fm.corus.android.domain.SpotifyLibraryQueue.MAX_DEPTH]). App Remote can
+     * only write the library while its IPC session is live, so saves made with
+     * Spotify closed park here and drain on the next connect.
+     */
+    val pendingSpotifyLibraryUrisJson: Flow<String> = dataStore.data.map { prefs ->
+        prefs[PENDING_SPOTIFY_LIBRARY_URIS] ?: "[]"
+    }
+
+    suspend fun setPendingSpotifyLibraryUrisJson(value: String) {
+        dataStore.edit { it[PENDING_SPOTIFY_LIBRARY_URIS] = value }
     }
 
     /**

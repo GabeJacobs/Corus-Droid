@@ -84,10 +84,6 @@ class SocialSetupViewModel @Inject constructor(
     val deezerEnabled: Boolean
         get() = remoteConfigService.deezerEnabled
 
-    /** Spotify Connect full-playback experiment — shows full-song subtitle on Spotify. */
-    val spotifyAuthExperimentEnabled: Boolean
-        get() = remoteConfigService.spotifyAuthExperimentEnabled
-
     // ── Contact Sync ──
 
     private val _isSyncing = MutableStateFlow(false)

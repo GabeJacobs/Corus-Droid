@@ -37,18 +37,48 @@ class SpotifyAuthService @Inject constructor(
         return prefs.getString(ACCESS_TOKEN_KEY, null)
     }
 
-    /** App Remote authorization returns an access token directly (no refresh). */
-    fun storeAppRemoteAccessToken(token: String) {
+    /**
+     * App Remote authorization returns an access token directly (no refresh).
+     * [grantedScopes] is recorded alongside it so [appRemoteCanModifyLibrary]
+     * can answer honestly.
+     */
+    fun storeAppRemoteAccessToken(
+        token: String,
+        grantedScopes: Array<String> = APP_REMOTE_SCOPES,
+    ) {
         prefs.edit()
             .putString(ACCESS_TOKEN_KEY, token)
             .putLong(TOKEN_EXPIRY_KEY, System.currentTimeMillis() + 3_600_000L)
+            .putStringSet(SCOPES_KEY, grantedScopes.toSet())
             .apply()
+    }
+
+    /**
+     * True when the current App Remote session was authorized with the library
+     * scopes. False for a token minted by a build that predates them — those
+     * play fine but can't write the library. They expire within the hour and
+     * the next authorization picks the scopes up, so never force a reconnect
+     * over this.
+     */
+    fun appRemoteCanModifyLibrary(): Boolean {
+        val granted = prefs.getStringSet(SCOPES_KEY, emptySet()).orEmpty()
+        return LIBRARY_SCOPES.all { it in granted }
+    }
+
+    /**
+     * Forget the library grant without touching the token — used when the
+     * Spotify app rejects a library call despite the marker, so the next
+     * authorization re-asks instead of the queue retrying forever.
+     */
+    fun clearLibraryScopeGrant() {
+        prefs.edit().remove(SCOPES_KEY).apply()
     }
 
     fun clearAccessToken() {
         prefs.edit()
             .remove(ACCESS_TOKEN_KEY)
             .remove(TOKEN_EXPIRY_KEY)
+            .remove(SCOPES_KEY)
             .apply()
     }
 
@@ -56,9 +86,20 @@ class SpotifyAuthService @Inject constructor(
         const val CLIENT_ID = "6c95dc15990f43b0a3ed93f71f7d9689"
         const val REDIRECT_URI = "corus://spotify-auth"
 
+        /**
+         * What let `UserApi.addToLibrary` write Liked Songs over IPC instead
+         * of through the Web API (which is capped at 25 users while the
+         * Spotify app sits in development mode).
+         */
+        val LIBRARY_SCOPES = arrayOf("user-library-read", "user-library-modify")
+
+        /** Requested by [SpotifyConnectContext.beginInteractiveAuthorization]. */
+        val APP_REMOTE_SCOPES = arrayOf("app-remote-control") + LIBRARY_SCOPES
+
         private const val PREFS_NAME = "fm.corus.spotify.auth"
         private const val ACCESS_TOKEN_KEY = "accessToken"
         private const val TOKEN_EXPIRY_KEY = "tokenExpiry"
+        private const val SCOPES_KEY = "appRemoteScopes"
     }
 }
 

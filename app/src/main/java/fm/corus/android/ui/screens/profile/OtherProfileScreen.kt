@@ -84,6 +84,7 @@ import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.FeaturedCymbalView
 import fm.corus.android.ui.components.FeaturedMoviePosterView
+import fm.corus.android.ui.components.ProfileShareAnalytics
 import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.ShareProfileSubject
@@ -1418,6 +1419,26 @@ fun OtherProfileScreen(
                         showShareSheet = false
                     },
                     onDismiss = { showShareSheet = false },
+                    profileShareAnalytics = ProfileShareAnalytics(
+                        profileUserId = p.id,
+                        isOwnProfile = false,
+                        entryPoint = "overflow_menu",
+                        onShared = { method, _ ->
+                            viewModel.logProfileShared(
+                                profileUserId = p.id,
+                                method = method,
+                                isOwnProfile = false,
+                            )
+                        },
+                        onSheetOpened = {
+                            viewModel.logProfileShareSheetOpened(
+                                profileUserId = p.id,
+                                isOwnProfile = false,
+                                entryPoint = "overflow_menu",
+                            )
+                        },
+                        onThemeChanged = { _ -> },
+                    ),
                 )
             }
         }
@@ -1426,28 +1447,28 @@ fun OtherProfileScreen(
     if (showPlaylistAlert) {
         val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
             && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showPlaylistAlert = false },
-            title = { androidx.compose.material3.Text("Spotify Feature") },
-            text = {
-                androidx.compose.material3.Text(
-                    if (hasSoundCloud)
-                        "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
-                    else
-                        "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    showPlaylistAlert = false
-                    viewModel.generatePlaylist(userId, playlistSource)
-                }) { androidx.compose.material3.Text("Generate Spotify Playlist") }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showPlaylistAlert = false }) {
-                    androidx.compose.material3.Text("Cancel")
-                }
-            },
+        val message = if (hasSoundCloud) {
+            "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
+        } else {
+            "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
+        }
+        fm.corus.android.ui.components.CorusPromptOverlay(
+            visible = true,
+            title = "Spotify Feature",
+            message = message,
+            iconRes = fm.corus.android.R.drawable.spotify_logo,
+            onDismiss = { showPlaylistAlert = false },
+            buttons = listOf(
+                fm.corus.android.ui.components.CorusPromptButton(
+                    label = "Generate Spotify Playlist",
+                    emphasized = true,
+                    onClick = { viewModel.generatePlaylist(userId, playlistSource) },
+                ),
+                fm.corus.android.ui.components.CorusPromptButton(
+                    label = "Cancel",
+                    onClick = {},
+                ),
+            ),
         )
     }
 
@@ -1476,11 +1497,9 @@ fun OtherProfileScreen(
             count = count,
             caveat = caveat,
             onQuick = {
-                showPlaylistChooser = false
                 viewModel.generatePlaylist(userId, playlistSource, fullExport = false)
             },
             onAll = {
-                showPlaylistChooser = false
                 viewModel.generatePlaylist(userId, playlistSource, fullExport = true)
             },
             onDismiss = { showPlaylistChooser = false },
@@ -1498,11 +1517,9 @@ fun OtherProfileScreen(
             count = count,
             offersFullExport = offersFull,
             onQuick = {
-                showYouTubeMusicPlaylistExplainer = false
                 viewModel.generatePlaylist(userId, playlistSource, fullExport = false)
             },
             onAll = {
-                showYouTubeMusicPlaylistExplainer = false
                 viewModel.generatePlaylist(userId, playlistSource, fullExport = true)
             },
             onDismiss = { showYouTubeMusicPlaylistExplainer = false },

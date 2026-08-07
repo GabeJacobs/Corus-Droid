@@ -138,7 +138,6 @@ internal fun MusicServiceScreen(
     val tidalEnabled = viewModel.tidalEnabled
     val youtubeMusicEnabled = viewModel.youtubeMusicEnabled
     val deezerEnabled = viewModel.deezerEnabled
-    val spotifyAuthExperimentEnabled = viewModel.spotifyAuthExperimentEnabled
     val fullPlaybackSubtitle = stringResource(R.string.music_service_full_playback)
 
     // In the legacy flow this is the last onboarding step, so the push-permission
@@ -187,8 +186,7 @@ internal fun MusicServiceScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         // Featured tier — Spotify + TIDAL as large side-by-side cards
-        // (mirrors the iOS two-tier layout). Spotify shows the full-playback
-        // subtitle when the auth experiment is on.
+        // (mirrors the iOS two-tier layout). Spotify shows the full-playback subtitle.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
@@ -197,7 +195,7 @@ internal fun MusicServiceScreen(
                 modifier = Modifier.weight(1f),
                 logoRes = R.drawable.spotify_logo,
                 label = MusicService.SPOTIFY.displayLabel,
-                subtitle = if (spotifyAuthExperimentEnabled) fullPlaybackSubtitle else null,
+                subtitle = fullPlaybackSubtitle,
                 accent = CorusColors.SpotifyGreen,
                 selected = selected == MusicService.SPOTIFY,
                 onClick = { selected = MusicService.SPOTIFY },

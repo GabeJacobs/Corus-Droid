@@ -64,6 +64,7 @@ class CommentsViewModel @Inject constructor(
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     private val remoteConfigService: RemoteConfigService,
     private val preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore,
+    private val playbackModePromptManager: fm.corus.android.domain.PlaybackModePromptManager,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
     override val analyticsService: AnalyticsService,
     @ApplicationContext private val context: Context,
@@ -885,10 +886,17 @@ class CommentsViewModel @Inject constructor(
                 remoteConfig = remoteConfig,
                 musicService = musicServicePreference.current.value,
                 playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playbackModePromptManager = playbackModePromptManager,
             )
             FullSongPlayCoordinator.applyPlayTapOutcome(
                 outcome = outcome,
+                track = post.track,
+                sourcePostId = post.id,
                 nowPlaying = nowPlayingManager,
+                remoteConfig = remoteConfig,
+                musicService = musicServicePreference.current.value,
+                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playbackModePromptManager = playbackModePromptManager,
                 onPreview = {
                     nowPlayingManager.play(
                         trackId = post.track.id,

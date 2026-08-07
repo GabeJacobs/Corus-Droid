@@ -1,6 +1,5 @@
 package fm.corus.android.ui.screens.settings
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -11,7 +10,6 @@ import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.domain.MusicServicePreference
-import fm.corus.android.domain.SpotifyLibraryAuthService
 import fm.corus.android.i18n.AppLanguage
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -32,7 +30,6 @@ class SettingsViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
     private val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
-    private val spotifyLibraryAuthService: SpotifyLibraryAuthService,
 ) : ViewModel() {
 
     val isClubMember: StateFlow<Boolean> = subscriptionRepository.isClubMember
@@ -50,18 +47,14 @@ class SettingsViewModel @Inject constructor(
     val deezerEnabled: Boolean
         get() = remoteConfigService.deezerEnabled
 
-    /** Gate for the Spotify Connect full-playback experiment settings row. */
-    val spotifyAuthExperimentEnabled: Boolean
-        get() = remoteConfigService.spotifyAuthExperimentEnabled
-
     val playFullSongs: StateFlow<Boolean> = preferencesDataStore.playFullSongs
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun setPlayFullSongs(value: Boolean) {
         viewModelScope.launch { preferencesDataStore.setPlayFullSongs(value) }
     }
 
-    /** Gate for the "Add Saved Songs to Library" Spotify Web API opt-in settings row. */
+    /** Gate for the "Add Saved Songs to Library" App Remote opt-in settings row. */
     val spotifyLibrarySaveEnabled: Boolean
         get() = remoteConfigService.spotifyLibrarySaveEnabled
 
@@ -69,24 +62,14 @@ class SettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /**
-     * Toggles the "Add Saved Songs to Library" opt-in. Turning ON requires the
-     * user to complete the Spotify Web API OAuth consent for
-     * `user-library-modify` first — the setting only persists once that login
-     * succeeds. A failed or cancelled login just leaves the toggle off with no
-     * dramatic error surfaced (mirrors the TIDAL playlist flow's best-effort
-     * failure handling). Turning OFF is immediate, no OAuth call.
+     * Toggles the "Add Saved Songs to Library" opt-in. Saves are mirrored over
+     * App Remote now, so the library scopes ride along with the playback
+     * authorization the user already grants when they first play a full song.
+     * There's nothing to consent to here and no OAuth trip to make — this is
+     * just a preference.
      */
-    fun onSpotifyLibrarySaveToggled(enabled: Boolean, context: Context) {
-        if (!enabled) {
-            viewModelScope.launch { preferencesDataStore.setAutoAddSavedToSpotify(false) }
-            return
-        }
-        viewModelScope.launch {
-            val success = spotifyLibraryAuthService.login(context)
-            if (success) {
-                preferencesDataStore.setAutoAddSavedToSpotify(true)
-            }
-        }
+    fun onSpotifyLibrarySaveToggled(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.setAutoAddSavedToSpotify(enabled) }
     }
 
     /** Persist the user's music-service choice (local cache + Firestore). */

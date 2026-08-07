@@ -944,6 +944,20 @@ fun FeedScreen(
                             onPreviewTap = {
                                 viewModel.playPreview(post)
                             },
+                            isFullSongPlaying = PostPlaybackHighlight.shouldHighlight(
+                                activeTrackId = nowPlayingState.trackId,
+                                activeSourcePostId = nowPlayingState.sourcePostId,
+                                playbackActive = viewModel.nowPlayingManager.showsFullSongPlayingOverlay(musicService),
+                                postTrackId = post.track.id,
+                                postId = post.id,
+                            ),
+                            isFullSongLoading = PostPlaybackHighlight.shouldHighlight(
+                                activeTrackId = nowPlayingState.trackId,
+                                activeSourcePostId = nowPlayingState.sourcePostId,
+                                playbackActive = isResolvingSpotify,
+                                postTrackId = post.track.id,
+                                postId = post.id,
+                            ),
                             onTrailerTap = {
                                 post.trailerURL?.takeIf { it.isNotBlank() }?.let { url ->
                                     viewModel.nowPlayingManager.pause()
@@ -1032,13 +1046,15 @@ fun FeedScreen(
                             },
                             onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                             backCoverFlipState = backCoverStateFor(post.id),
-                            showsTapHint = index == 0 && isNewAccount && !hasTappedAlbumArt,
+                            showsTapHint = post.id == albumArtHintTargetPostId(posts)
+                                && isNewAccount && !hasTappedAlbumArt,
                             onAlbumArtTap = { viewModel.markAlbumArtTapped() },
                             isTrendingFeed = feedMode == "trending",
                             isFollowingAuthor = followingUserIds.contains(post.user.id),
                             isFollowingKnown = followingLoaded,
                             onFollowAuthor = { viewModel.followAuthor(post.user.id) },
                             onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
+                                context = context,
                                 post = post,
                                 onNavigateToArtist = onNavigateToArtist,
                                 onNavigateToDirector = onNavigateToDirector,
@@ -1129,63 +1145,58 @@ fun FeedScreen(
     // skipped from the Spotify playlist.
     if (showPlaylistAlert) {
         val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showPlaylistAlert = false },
-            title = { androidx.compose.material3.Text("Spotify Feature") },
-            text = {
-                androidx.compose.material3.Text(
-                    if (hasSoundCloud)
-                        "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
-                    else
-                        "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    showPlaylistAlert = false
-                    viewModel.generateFeedPlaylist()
-                }) { androidx.compose.material3.Text("Generate Spotify Playlist") }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showPlaylistAlert = false }) {
-                    androidx.compose.material3.Text("Cancel")
-                }
-            },
+        val message = if (hasSoundCloud) {
+            "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
+        } else {
+            "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
+        }
+        fm.corus.android.ui.components.CorusPromptOverlay(
+            visible = true,
+            title = "Spotify Feature",
+            message = message,
+            iconRes = R.drawable.spotify_logo,
+            onDismiss = { showPlaylistAlert = false },
+            buttons = listOf(
+                fm.corus.android.ui.components.CorusPromptButton(
+                    label = "Generate Spotify Playlist",
+                    emphasized = true,
+                    onClick = { viewModel.generateFeedPlaylist() },
+                ),
+                fm.corus.android.ui.components.CorusPromptButton(
+                    label = "Cancel",
+                    onClick = {},
+                ),
+            ),
         )
     }
 
-    // First-time explainer: the playlist button leaves Corus to open the user's
-    // music app, which surprises new users. Shown once, before the first
-    // generation; confirming records the flag and proceeds to the normal flow.
     if (showFirstTimePlaylistDialog) {
         val destination = if (musicService == fm.corus.android.data.model.MusicService.TIDAL) "TIDAL" else "Spotify"
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showFirstTimePlaylistDialog = false },
-            title = { androidx.compose.material3.Text(stringResource(R.string.playlist_first_time_title)) },
-            text = {
-                androidx.compose.material3.Text(
-                    stringResource(R.string.feed_playlist_first_time_body, destination)
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    showFirstTimePlaylistDialog = false
-                    viewModel.markFeedPlaylistConfirmed()
-                    // Reached only by TIDAL / Spotify (native). Spotify still warns
-                    // about skipped SoundCloud tracks; TIDAL generates directly.
-                    val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                    if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
-                        showPlaylistAlert = true
-                    } else {
-                        viewModel.generateFeedPlaylist()
-                    }
-                }) { androidx.compose.material3.Text("Export Playlist") }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showFirstTimePlaylistDialog = false }) {
-                    androidx.compose.material3.Text("Cancel")
-                }
-            },
+        fm.corus.android.ui.components.CorusPromptOverlay(
+            visible = true,
+            title = stringResource(R.string.playlist_first_time_title),
+            message = stringResource(R.string.feed_playlist_first_time_body, destination),
+            iconRes = fm.corus.android.domain.MusicServiceLinkOut.logoRes(musicService),
+            onDismiss = { showFirstTimePlaylistDialog = false },
+            buttons = listOf(
+                fm.corus.android.ui.components.CorusPromptButton(
+                    label = "Export Playlist",
+                    emphasized = true,
+                    onClick = {
+                        viewModel.markFeedPlaylistConfirmed()
+                        val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+                        if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                            showPlaylistAlert = true
+                        } else {
+                            viewModel.generateFeedPlaylist()
+                        }
+                    },
+                ),
+                fm.corus.android.ui.components.CorusPromptButton(
+                    label = "Cancel",
+                    onClick = {},
+                ),
+            ),
         )
     }
 

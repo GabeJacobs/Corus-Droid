@@ -188,6 +188,31 @@ class AnalyticsService @Inject constructor(
     fun logArtistShared(artistId: String, method: String) = logEvent("artist_shared", mapOf("artist_id" to artistId, "share_method" to method))
     fun logAlbumShared(albumId: String, method: String) = logEvent("album_shared", mapOf("album_id" to albumId, "share_method" to method))
     fun logDirectorShared(directorId: String, method: String) = logEvent("director_shared", mapOf("director_id" to directorId, "share_method" to method))
+    fun logProfileShared(
+        profileUserId: String,
+        method: String,
+        isOwnProfile: Boolean,
+        cardTheme: String? = null,
+    ) = logEvent(
+        "profile_shared",
+        buildMap {
+            put("profile_user_id", profileUserId)
+            put("share_method", method)
+            put("is_own_profile", isOwnProfile)
+            cardTheme?.let { put("card_theme", it) }
+        },
+    )
+    fun logProfileShareSheetOpened(profileUserId: String, isOwnProfile: Boolean, entryPoint: String) =
+        logEvent(
+            "profile_share_sheet_opened",
+            mapOf(
+                "profile_user_id" to profileUserId,
+                "is_own_profile" to isOwnProfile,
+                "entry_point" to entryPoint,
+            ),
+        )
+    fun logProfileShareThemeChanged(profileUserId: String, cardTheme: String) =
+        logEvent("profile_share_theme_changed", mapOf("profile_user_id" to profileUserId, "card_theme" to cardTheme))
     fun logCaptionEdited(postId: String) = logEvent("caption_edited", mapOf("post_id" to postId))
     fun logLikesListViewed(postId: String) = logEvent("likes_list_viewed", mapOf("post_id" to postId))
     fun logVoiceNoteRecorded() = logEvent("voice_note_recorded")

@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStore
+import fm.corus.android.data.local.corusPreferencesDataStore
 import coil3.ImageLoader
 import coil3.disk.DiskCache
 import coil3.gif.AnimatedImageDecoder
@@ -24,8 +24,6 @@ import dagger.hilt.components.SingletonComponent
 import fm.corus.android.TestEnvironment
 import okio.Path.Companion.toOkioPath
 import javax.inject.Singleton
-
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "corus_prefs")
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -81,7 +79,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
-        context.dataStore
+        context.corusPreferencesDataStore
 
     @Provides
     @Singleton

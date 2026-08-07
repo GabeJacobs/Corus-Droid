@@ -357,6 +357,7 @@
     <string name="profile_toast_no_songs_for_playlist">Nessun brano per creare una playlist</string>
     <string name="profile_button_edit">MODIFICA PROFILO</string>
     <string name="profile_button_playlist">PLAYLIST</string>
+    <string name="profile_button_share">CONDIVIDI PROFILO</string>
     <string name="hashtag_button_playlist">Playlist</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">follower</string>
@@ -1296,8 +1297,8 @@
         <item quantity="other">%1$d ripubblicazioni</item>
     </plurals>
     <string name="destination_prerelease_album_hint">Prerelease. Si possono riprodurre solo i brani già usciti.</string>
-    <string name="settings_row_play_full_songs_spotify_subtitle">Riproduci brani completi con Spotify invece delle anteprime. Richiede l\'app Spotify installata e con accesso effettuato.</string>
-    <string name="settings_row_play_full_songs_title">Riproduci brani completi</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">Riproduci brani completi sui post con Spotify invece delle anteprime. Le pagine album e brano riproducono sempre per intero. Richiede l\'app Spotify installata e con accesso effettuato.</string>
+    <string name="settings_row_play_full_songs_title">Riproduci brani completi sui post</string>
     <string name="settings_row_spotify_library_save_subtitle">I brani che salvi vengono aggiunti alla tua libreria Spotify. Richiede l\'app Spotify installata e con accesso effettuato.</string>
     <string name="settings_row_spotify_library_save_title">Aggiungi i brani salvati alla libreria</string>
     <string name="entity_link_not_found">Questo link non porta più da nessuna parte</string>

@@ -477,13 +477,13 @@ private const val IG_SHARE_TAG = "InstagramShare"
  * the iOS Facebook app id (1364343535452154): that was tried and silently regressed real
  * devices (the share spun and did nothing). The package name is the value verified to work.
  */
-internal fun buildAddToStoryIntent(uri: Uri, postId: String, sourceApplication: String): Intent =
+internal fun buildAddToStoryIntent(uri: Uri, contentUrl: String, sourceApplication: String): Intent =
     Intent("com.instagram.share.ADD_TO_STORY").apply {
         setDataAndType(uri, "image/png")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         putExtra("source_application", sourceApplication)
-        putExtra("content_url", "https://corus.fm/post/$postId")
+        putExtra("content_url", contentUrl)
     }
 
 /**
@@ -533,7 +533,7 @@ suspend fun shareToInstagramStories(
             )
         }.onFailure { Log.w(IG_SHARE_TAG, "grantUriPermission failed (continuing anyway)", it) }
 
-        val storyIntent = buildAddToStoryIntent(uri, post.id, context.packageName)
+        val storyIntent = buildAddToStoryIntent(uri, "https://corus.fm/post/${post.id}", context.packageName)
 
         withContext(Dispatchers.Main) {
             try {
@@ -558,7 +558,7 @@ suspend fun shareToInstagramStories(
  * image so the user can still post it to Instagram (feed/DM) or anywhere else when the
  * direct Stories hand-off isn't available. Returns true if a chooser was launched.
  */
-private fun shareImageViaChooser(context: Context, uri: Uri): Boolean = try {
+internal fun shareImageViaChooser(context: Context, uri: Uri): Boolean = try {
     val sendIntent = Intent(Intent.ACTION_SEND).apply {
         type = "image/png"
         putExtra(Intent.EXTRA_STREAM, uri)

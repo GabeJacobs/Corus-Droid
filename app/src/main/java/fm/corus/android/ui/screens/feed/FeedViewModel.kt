@@ -52,8 +52,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** 2026-05-10 00:00 UTC — the moment the album-art tap hint shipped. Accounts
- *  created on or after this instant see the one-time hint on the first feed
- *  post; older accounts never see it. */
+ *  created on or after this instant see the one-time hint on the first eligible
+ *  track in the feed; older accounts never see it. */
 internal val ALBUM_ART_HINT_CUTOFF_MS: Long =
     java.time.LocalDate.of(2026, 5, 10)
         .atStartOfDay(java.time.ZoneOffset.UTC)
@@ -64,6 +64,12 @@ internal fun isNewAlbumArtHintAccount(creationTimestampMs: Long?): Boolean {
     val created = creationTimestampMs ?: return false
     return created >= ALBUM_ART_HINT_CUTOFF_MS
 }
+
+/** First track in [posts] eligible for the new-user album-art tap hint. Skips
+ *  films and unavailable tracks so the hint still appears when the feed opens
+ *  with a movie post. */
+internal fun albumArtHintTargetPostId(posts: List<CymbalPost>): String? =
+    posts.firstOrNull { it.isTrack && !it.track.unavailable }?.id
 
 /** Base backoff before a silent retry of a feed load that failed while the
  *  device is online. Long enough for a cold-start App Check / Play Integrity
@@ -383,9 +389,9 @@ class FeedViewModel @Inject constructor(
     val currentUserProfile = authRepository.userProfile
 
     /**
-     * One-time tap-to-play hint on the first feed post's album art. Mirrors iOS
-     * AlbumArtView showsTapHint. Only newly-signed-up accounts see it, and only
-     * until they tap any album art once.
+     * One-time tap-to-play hint on the first eligible track's album art. Mirrors
+     * iOS AlbumArtView showsTapHint. Only newly-signed-up accounts see it, and
+     * only until they tap any album art once.
      */
     val hasTappedAlbumArt: StateFlow<Boolean> = preferencesDataStore.hasTappedAlbumArt
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -417,6 +423,9 @@ class FeedViewModel @Inject constructor(
      * tap shows an explainer + confirm; afterwards taps run directly.
      */
     val hasConfirmedFeedPlaylist: StateFlow<Boolean> = preferencesDataStore.hasConfirmedFeedPlaylist
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val playFullSongs: StateFlow<Boolean> = preferencesDataStore.playFullSongs
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun markFeedPlaylistConfirmed() {
@@ -1101,50 +1110,72 @@ class FeedViewModel @Inject constructor(
         }
     }
 
-    fun playPreview(post: fm.corus.android.data.model.CymbalPost) {
-        nowPlayingManager.lastUserInitiatedSourcePostId = post.id
+    fun playPreview(post: CymbalPost) {
+        viewModelScope.launch { routePostPlayTap(post, preferFullSong = false) }
+    }
+
+    fun playFullSong(post: CymbalPost) {
         viewModelScope.launch {
-            val trackPosts = filteredPosts.value.filter { it.mediaType == MediaType.TRACK }
-            val queue = trackPosts.map { it.toQueuedTrack() }
-            val track = post.toQueuedTrack()
-            val outcome = FullSongPlayCoordinator.playTapOutcome(
-                track = post.track,
-                sourcePostId = post.id,
-                queue = queue,
-                nowPlaying = nowPlayingManager,
-                remoteConfig = remoteConfig,
-                musicService = musicServicePreference.current.value,
-                playFullSongs = preferencesDataStore.playFullSongsSync(),
-                playbackModePromptManager = playbackModePromptManager,
-            )
-            FullSongPlayCoordinator.applyPlayTapOutcome(
-                outcome = outcome,
-                track = post.track,
-                sourcePostId = post.id,
-                queue = queue,
-                nowPlaying = nowPlayingManager,
-                remoteConfig = remoteConfig,
-                musicService = musicServicePreference.current.value,
-                playFullSongs = preferencesDataStore.playFullSongsSync(),
-                playbackModePromptManager = playbackModePromptManager,
-                onPreview = {
-                    if (queue.any { it.trackId == track.trackId }) {
-                        nowPlayingManager.play(track = track, queue = queue)
-                        nowPlayingManager.updateFeedQueue(
-                            newQueue = queue,
-                            hasMore = _hasMore.value,
-                            loadMore = { loadFeedSuspending(refresh = false) },
-                        )
-                    } else {
-                        nowPlayingManager.play(track = track, queue = listOf(track))
-                    }
-                },
-                scope = viewModelScope,
-            )
+            routePostPlayTap(post, preferFullSong = true, skipPlaybackModePrompt = true)
         }
     }
 
-    private fun fm.corus.android.data.model.CymbalPost.toQueuedTrack() = QueuedTrack(
+    private suspend fun routePostPlayTap(
+        post: CymbalPost,
+        preferFullSong: Boolean,
+        skipPlaybackModePrompt: Boolean = false,
+    ) {
+        nowPlayingManager.lastUserInitiatedSourcePostId = post.id
+        val musicService = musicServicePreference.current.value
+        if (!preferFullSong &&
+            nowPlayingManager.isFullSongSessionActive(musicService, post.track.id, post.id)
+        ) {
+            nowPlayingManager.togglePlayPause()
+            return
+        }
+        val trackPosts = filteredPosts.value.filter { it.mediaType == MediaType.TRACK }
+        val queue = trackPosts.map { it.toQueuedTrack() }
+        val track = post.toQueuedTrack()
+        val playFullSongs = preferencesDataStore.playFullSongsSync()
+        val outcome = FullSongPlayCoordinator.playTapOutcome(
+            track = post.track,
+            sourcePostId = post.id,
+            queue = queue,
+            nowPlaying = nowPlayingManager,
+            remoteConfig = remoteConfig,
+            musicService = musicService,
+            playFullSongs = playFullSongs,
+            playbackModePromptManager = playbackModePromptManager,
+            skipPlaybackModePrompt = skipPlaybackModePrompt,
+            preferFullSong = preferFullSong,
+        )
+        FullSongPlayCoordinator.applyPlayTapOutcome(
+            outcome = outcome,
+            track = post.track,
+            sourcePostId = post.id,
+            queue = queue,
+            nowPlaying = nowPlayingManager,
+            remoteConfig = remoteConfig,
+            musicService = musicService,
+            playFullSongs = playFullSongs,
+            playbackModePromptManager = playbackModePromptManager,
+            onPreview = {
+                if (queue.any { it.trackId == track.trackId }) {
+                    nowPlayingManager.play(track = track, queue = queue)
+                    nowPlayingManager.updateFeedQueue(
+                        newQueue = queue,
+                        hasMore = _hasMore.value,
+                        loadMore = { loadFeedSuspending(refresh = false) },
+                    )
+                } else {
+                    nowPlayingManager.play(track = track, queue = listOf(track))
+                }
+            },
+            scope = viewModelScope,
+        )
+    }
+
+    private fun CymbalPost.toQueuedTrack() = QueuedTrack(
         trackId = track.id,
         trackName = track.name,
         artistName = track.artistName,

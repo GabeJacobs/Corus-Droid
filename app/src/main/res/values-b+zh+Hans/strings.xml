@@ -357,6 +357,7 @@
     <string name="profile_toast_no_songs_for_playlist">没有可用于创建歌单的歌曲</string>
     <string name="profile_button_edit">编辑资料</string>
     <string name="profile_button_playlist">歌单</string>
+    <string name="profile_button_share">分享个人资料</string>
     <string name="hashtag_button_playlist">歌单</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">粉丝</string>
@@ -1287,8 +1288,8 @@
         <item quantity="other">%1$d 次转发</item>
     </plurals>
     <string name="destination_prerelease_album_hint">尚未发行。只能播放已发行的曲目。</string>
-    <string name="settings_row_play_full_songs_spotify_subtitle">通过 Spotify 播放完整歌曲，而不是试听。需要安装并登录 Spotify 应用。</string>
-    <string name="settings_row_play_full_songs_title">播放完整歌曲</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">通过 Spotify 在帖子中播放完整歌曲，而不是试听。专辑页和歌曲页始终播放完整版。需要安装并登录 Spotify 应用。</string>
+    <string name="settings_row_play_full_songs_title">在帖子中播放完整歌曲</string>
     <string name="settings_row_spotify_library_save_subtitle">你保存的歌曲会添加到 Spotify 音乐库。需要安装并登录 Spotify 应用。</string>
     <string name="settings_row_spotify_library_save_title">将保存的歌曲添加到音乐库</string>
     <string name="entity_link_not_found">此链接已失效</string>

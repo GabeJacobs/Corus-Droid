@@ -397,6 +397,7 @@ class ShareComposerViewModel @Inject constructor(
                     "deezer" -> trackMap["deezerId"] = shareInputId ?: ""
                 }
                 postTrack.isrc?.let { trackMap["isrc"] = it }
+                postTrack.albumId?.takeIf { it.isNotBlank() }?.let { trackMap["albumId"] = it }
                 postTrack.releaseDate?.let { trackMap["trackReleaseDate"] = it }
                 postTrack.releaseDatePrecision?.let { trackMap["trackReleaseDatePrecision"] = it }
                 postTrack.previewUrl?.let { trackMap["previewUrl"] = it }

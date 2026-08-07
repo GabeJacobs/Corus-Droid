@@ -292,6 +292,105 @@ class NowPlayingManager @Inject constructor(
     val isPreviewMode: Boolean
         get() = _state.value.hasActiveTrack && !isSpotifyConnectPlaying && player != null
 
+    /** Upgrade the current feed preview to in-app full playback (mini-player toggle). */
+    suspend fun upgradeCurrentPreviewToFullSong() {
+        if (!isPreviewMode || !isPlaying) return
+        val idx = currentQueueIndex
+        val track = when {
+            idx != null && idx in queue.indices -> queue[idx]
+            else -> QueuedTrack(
+                trackId = _state.value.trackId ?: return,
+                trackName = _state.value.trackName,
+                artistName = _state.value.artistName,
+                albumArtURL = _state.value.albumArtURL,
+                albumArtLargeURL = _state.value.albumArtLargeURL,
+                previewUrl = null,
+                spotifyURI = _state.value.spotifyURI,
+                spotifyWebURL = _state.value.spotifyWebURL,
+                isrc = _state.value.isrc,
+                sourcePostId = _state.value.sourcePostId,
+                source = _state.value.source,
+            )
+        }
+        val playFullSongs = preferencesDataStore.effectivePlayFullSongsSync()
+        val outcome = FullSongPlayCoordinator.playTapOutcome(
+            track = track.toCymbalTrack(),
+            sourcePostId = track.sourcePostId,
+            queue = queue,
+            nowPlaying = this,
+            remoteConfig = remoteConfigService,
+            musicService = musicServicePreference.current.value,
+            playFullSongs = playFullSongs,
+            playbackModePromptManager = playbackModePromptManager,
+            skipPlaybackModePrompt = true,
+            preferFullSong = true,
+        )
+        FullSongPlayCoordinator.applyPlayTapOutcome(
+            outcome = outcome,
+            track = track.toCymbalTrack(),
+            sourcePostId = track.sourcePostId,
+            queue = queue,
+            nowPlaying = this,
+            remoteConfig = remoteConfigService,
+            musicService = musicServicePreference.current.value,
+            playFullSongs = playFullSongs,
+            playbackModePromptManager = playbackModePromptManager,
+            onPreview = { playInternal(track, forceSwitch = true) },
+            scope = managerScope,
+        )
+    }
+
+    /** Downgrade the current in-app full session to a 30s preview (mini-player toggle). */
+    suspend fun downgradeCurrentFullSongToPreview() {
+        if (!_state.value.hasActiveTrack || !isPlaying || isPreviewMode) return
+        val idx = currentQueueIndex
+        val track = when {
+            idx != null && idx in queue.indices -> queue[idx]
+            else -> QueuedTrack(
+                trackId = _state.value.trackId ?: return,
+                trackName = _state.value.trackName,
+                artistName = _state.value.artistName,
+                albumArtURL = _state.value.albumArtURL,
+                albumArtLargeURL = _state.value.albumArtLargeURL,
+                previewUrl = null,
+                spotifyURI = _state.value.spotifyURI,
+                spotifyWebURL = _state.value.spotifyWebURL,
+                isrc = _state.value.isrc,
+                sourcePostId = _state.value.sourcePostId,
+                source = _state.value.source,
+            )
+        }
+        if (isExternalSpotifyListening) {
+            spotifyPlaybackService.pause()
+            clearExternalSpotifyListening()
+        }
+        silentlyHaltSpotifyForPreview()
+        playInternal(track, userInitiated = true, forceSwitch = true)
+    }
+
+    /** Apply a mini-player mode flip to the actively playing track, if any. */
+    suspend fun applyPlaybackModeToggle(toFull: Boolean) {
+        if (!_state.value.hasActiveTrack || !isPlaying) return
+        if (toFull) upgradeCurrentPreviewToFullSong() else downgradeCurrentFullSongToPreview()
+    }
+
+    private fun QueuedTrack.toCymbalTrack() = CymbalTrack(
+        id = trackId,
+        name = trackName,
+        artistName = artistName,
+        albumName = "",
+        albumArtURL = albumArtURL,
+        albumArtLargeURL = albumArtLargeURL,
+        spotifyURI = spotifyURI.orEmpty(),
+        spotifyWebURL = spotifyWebURL.orEmpty(),
+        previewUrl = previewUrl,
+        isrc = isrc,
+        source = source,
+        soundcloudId = soundcloudId,
+        soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+        audiomackUrl = audiomackUrl,
+    )
+
     private val _isResolvingSpotify = MutableStateFlow(false)
     val isResolvingSpotifyFlow: StateFlow<Boolean> = _isResolvingSpotify.asStateFlow()
     val isResolvingSpotify: Boolean get() = _isResolvingSpotify.value
@@ -324,15 +423,62 @@ class NowPlayingManager @Inject constructor(
     private var spotifyPositionJob: Job? = null
     private var spotifySeekJob: Job? = null
 
-    fun spotifyExperimentEnabledForTrack(source: TrackSource): Boolean {
-        if (!remoteConfigService.spotifyAuthExperimentEnabled) return false
+    fun spotifyExperimentEnabledForTrack(source: TrackSource, preferFullSong: Boolean = false): Boolean {
         if (!SpotifyPlaybackService.isSpotifyAppInstalled(context)) return false
+        val playFull = preferFullSong || preferencesDataStore.playFullSongsSync()
         return SongPlayRouting.wantsSpotifyExperiment(
             source = source,
             service = musicServicePreference.current.value,
-            experimentEnabled = true,
-            playFullSongs = preferencesDataStore.playFullSongsSync(),
+            playFullSongs = playFull,
         )
+    }
+
+    /** Album-art play/pause overlay for in-app full-song playback. */
+    fun showsFullSongPlayingOverlay(service: MusicService): Boolean {
+        if (_isResolvingSpotify.value) return false
+        return when (service) {
+            MusicService.SPOTIFY -> {
+                val spotifyActive = isSpotifyConnectPlaying || isExternalSpotifyListening
+                spotifyActive && _state.value.isPlaying
+            }
+            else -> false
+        }
+    }
+
+    /** Same post is in a full-song session — art tap toggles transport. */
+    fun isFullSongSessionActive(service: MusicService, trackId: String, sourcePostId: String): Boolean {
+        if (!isReTapOfActiveEntry(
+                activeTrackId = _state.value.trackId,
+                activeSourcePostId = _state.value.sourcePostId,
+                tappedTrackId = trackId,
+                tappedSourcePostId = sourcePostId,
+            )
+        ) {
+            return false
+        }
+        if (isPreviewMode) return false
+        return when (service) {
+            MusicService.SPOTIFY -> isSpotifyConnectPlaying || isExternalSpotifyListening
+            else -> false
+        }
+    }
+
+    /** Mini-player / lock-screen Next chains previews in 30s mode or during preview playback. */
+    val preferPreviewOnInAppSkip: Boolean
+        get() = isPreviewMode || !preferencesDataStore.playFullSongsSync()
+
+    private val isActiveFullSongSession: Boolean
+        get() {
+            if (isPreviewMode) return false
+            return when (musicServicePreference.current.value) {
+                MusicService.SPOTIFY -> isSpotifyConnectPlaying || isExternalSpotifyListening
+                else -> false
+            }
+        }
+
+    private fun shouldChainFullPlaybackOnSkip(preferPreviewOnNext: Boolean): Boolean {
+        if (preferPreviewOnNext) return false
+        return preferencesDataStore.playFullSongsSync()
     }
 
     fun setQueueFromCoordinator(
@@ -357,9 +503,12 @@ class NowPlayingManager @Inject constructor(
         track: fm.corus.android.data.model.CymbalTrack,
         sourcePostId: String? = null,
         queue: List<QueuedTrack> = emptyList(),
+        preferFullSong: Boolean = false,
+        skipPlaybackModePrompt: Boolean = false,
         onPreview: suspend () -> Unit,
     ) {
         managerScope.launch {
+            val playFullSongs = preferencesDataStore.effectivePlayFullSongsSync()
             val outcome = FullSongPlayCoordinator.playTapOutcome(
                 track = track,
                 sourcePostId = sourcePostId,
@@ -367,8 +516,10 @@ class NowPlayingManager @Inject constructor(
                 nowPlaying = this@NowPlayingManager,
                 remoteConfig = remoteConfigService,
                 musicService = musicServicePreference.current.value,
-                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playFullSongs = playFullSongs,
                 playbackModePromptManager = playbackModePromptManager,
+                skipPlaybackModePrompt = skipPlaybackModePrompt,
+                preferFullSong = preferFullSong,
             )
             FullSongPlayCoordinator.applyPlayTapOutcome(
                 outcome = outcome,
@@ -378,7 +529,7 @@ class NowPlayingManager @Inject constructor(
                 nowPlaying = this@NowPlayingManager,
                 remoteConfig = remoteConfigService,
                 musicService = musicServicePreference.current.value,
-                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playFullSongs = playFullSongs,
                 playbackModePromptManager = playbackModePromptManager,
                 onPreview = onPreview,
                 scope = managerScope,
@@ -460,9 +611,7 @@ class NowPlayingManager @Inject constructor(
      * back to the pre-seek position before the next poll lands.
      */
     fun seek(toMs: Long) {
-        if ((isSpotifyConnectPlaying || isExternalSpotifyListening) &&
-            remoteConfigService.spotifyAuthExperimentEnabled
-        ) {
+        if (isSpotifyConnectPlaying || isExternalSpotifyListening) {
             val seconds = toMs / 1000.0
             spotifyScrubberHoldAtZero = false
             spotifyScrubberHoldUntilTrackChangeFromUri = null
@@ -1170,14 +1319,15 @@ class NowPlayingManager @Inject constructor(
         //   Spotify/Apple → use the 30s preview URL (looked up server-side via Apple Music).
         val resolvedUrl = when (track.source) {
             TrackSource.SOUNDCLOUD -> track.soundcloudId?.let { resolveSoundCloudStream(it) }
-            // Audiomack plays a signed ~30s preview resolved at play time (short-
-            // lived; never cached on the post), exactly like the Spotify/Apple
-            // preview path. The raw Audiomack id is recovered from the `amk:`
-            // trackId prefix. It never falls through to the Apple-preview lookup
-            // (which would play a WRONG track for an Audiomack id); a failed
-            // resolve yields null → no-op, and the full song stays reachable via
-            // the "Listen on Audiomack" link-out.
-            TrackSource.AUDIOMACK -> audiomackIdFromTrackId(trackId)?.let { resolveAudiomackPreview(it) }
+            // Audiomack: prefer denormalized previewUrl (stamped at search/
+            // createPost). Fall back to resolveAudiomackPreview when missing —
+            // covers legacy posts and refresh-on-fail. Never falls through to
+            // the Apple-preview lookup (wrong track risk for an `amk:` id).
+            TrackSource.AUDIOMACK -> {
+                val denorm = track.previewUrl?.takeIf { it.isNotBlank() }
+                if (denorm != null) denorm
+                else audiomackIdFromTrackId(trackId)?.let { resolveAudiomackPreview(it) }
+            }
             // TIDAL/Deezer exclusives are link-out only with no preview resolver.
             // Like Audiomack, they never fall through to the Apple-preview lookup
             // (a text-search match for a `tdl:`/`dzr:` id risks playing a WRONG
@@ -1315,7 +1465,8 @@ class NowPlayingManager @Inject constructor(
     /**
      * Calls the `resolveAudiomackPreview` Cloud Function for a signed ~30s
      * preview URL (streams audio/mp4 directly, playable by ExoPlayer as-is).
-     * The URL is short-lived — resolved at play time, never persisted. Returns
+     * Prefer denormalized [Track.previewUrl] at play time; this is the
+     * fallback for legacy posts and when the stamped URL is missing. Returns
      * null on any error so playback degrades gracefully; the UI still exposes
      * the "Listen on Audiomack" link-out for the full song. Mirrors
      * [resolveSoundCloudStream] and [lookupPreviewUrl].
@@ -1335,11 +1486,11 @@ class NowPlayingManager @Inject constructor(
 
     /** Auto-advance to the next queued track when playback ends. */
     private fun handlePlaybackEnded() {
-        advanceToNext()
+        skipToNext(preferPreviewOnNext = true)
     }
 
-    fun skipToNext() {
-        if (shouldRouteSpotifyFeedSkip()) {
+    fun skipToNext(preferPreviewOnNext: Boolean = false) {
+        if (shouldRouteSpotifyFeedSkip(preferPreviewOnNext)) {
             cancelDebouncedSpotifyRelinquish()
             spotifyFeedSkipRequestedUntil = System.currentTimeMillis() + 5000
             armSpotifyFastPathSkipGuardForUpcomingFeedTrack()
@@ -1355,8 +1506,8 @@ class NowPlayingManager @Inject constructor(
         advanceToNext()
     }
 
-    fun shouldRouteSpotifyFeedSkip(): Boolean {
-        if (!remoteConfigService.spotifyAuthExperimentEnabled) return false
+    fun shouldRouteSpotifyFeedSkip(preferPreviewOnNext: Boolean = false): Boolean {
+        if (!shouldChainFullPlaybackOnSkip(preferPreviewOnNext)) return false
         if (musicServicePreference.current.value != MusicService.SPOTIFY) return false
         if (!_state.value.hasActiveTrack) return false
         val idx = currentQueueIndex ?: return isSpotifyConnectPlaying
@@ -1364,7 +1515,6 @@ class NowPlayingManager @Inject constructor(
         if (!SongPlayRouting.wantsSpotifyExperiment(
                 next.source,
                 MusicService.SPOTIFY,
-                experimentEnabled = true,
                 playFullSongs = preferencesDataStore.playFullSongsSync(),
             )
         ) {
@@ -1374,10 +1524,6 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun forceSpotifyFeedAdvanceToNextEntry() {
-        if (!remoteConfigService.spotifyAuthExperimentEnabled) {
-            skipToNextLegacyPreview()
-            return
-        }
         spotifyPlaybackService.pauseImmediately()
         val idx = currentQueueIndex ?: run { skipToNextLegacyPreview(); return }
         if (idx + 1 >= queue.size) {
@@ -1514,13 +1660,14 @@ class NowPlayingManager @Inject constructor(
         // per source via currentTrackIsSoundCloud.
         val sessionPlayer = object : ForwardingPlayer(exo) {
             override fun seekToNext() {
-                if (shouldRouteSpotifyFeedSkip()) {
+                val preferPreview = preferPreviewOnInAppSkip
+                if (shouldRouteSpotifyFeedSkip(preferPreview)) {
                     cancelDebouncedSpotifyRelinquish()
                     spotifyFeedSkipRequestedUntil = System.currentTimeMillis() + 5000
                     armSpotifyFastPathSkipGuardForUpcomingFeedTrack()
                     this@NowPlayingManager.forceSpotifyFeedAdvanceToNextEntry()
                 } else {
-                    this@NowPlayingManager.skipToNext()
+                    this@NowPlayingManager.skipToNext(preferPreviewOnNext = preferPreview)
                 }
             }
 
@@ -1677,7 +1824,7 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun togglePlayPause() {
-        if (isExternalSpotifyListening && remoteConfigService.spotifyAuthExperimentEnabled) {
+        if (isExternalSpotifyListening) {
             managerScope.launch {
                 val svc = spotifyPlaybackService
                 if (_state.value.isPlaying) {
@@ -1696,7 +1843,7 @@ class NowPlayingManager @Inject constructor(
             }
             return
         }
-        if (isSpotifyConnectPlaying && remoteConfigService.spotifyAuthExperimentEnabled) {
+        if (isSpotifyConnectPlaying) {
             managerScope.launch {
                 if (spotifyPlaybackService.isPlaying.value) {
                     userInitiatedPause = true
@@ -1789,14 +1936,6 @@ class NowPlayingManager @Inject constructor(
         pending: SpotifyAuthPendingPlay,
         replaceSpotifyQueue: Boolean = false,
     ) {
-        if (!remoteConfigService.spotifyAuthExperimentEnabled) {
-            android.util.Log.w(
-                "SpotifyPlayback",
-                "playViaSpotifyConnect skipped — spotify_auth_experiment_enabled=false",
-            )
-            handleSpotifyPlaybackFailure(queuedTrackFrom(pending), userInitiated = true)
-            return
-        }
         clearExternalSpotifyListening()
         if (!SpotifyPlaybackService.isSpotifyAppInstalled(context)) {
             handleSpotifyPlaybackFailure(queuedTrackFrom(pending), userInitiated = true)
@@ -1928,8 +2067,7 @@ class NowPlayingManager @Inject constructor(
             }
         }
         spotifyPlaybackService.onPlayerStateUpdated = {
-            if (remoteConfigService.spotifyAuthExperimentEnabled &&
-                isSpotifyConnectPlaying &&
+            if (isSpotifyConnectPlaying &&
                 !spotifyScrubberHoldAtZero &&
                 !userInitiatedPause &&
                 spotifyScrubberShouldAdvance()
@@ -2217,7 +2355,6 @@ class NowPlayingManager @Inject constructor(
 
     /** Hydrate and show whatever Spotify is playing — every Spotify song has a Corus song page. */
     private suspend fun adoptExternalSpotifyPlayback(spotifyURI: String) {
-        if (!remoteConfigService.spotifyAuthExperimentEnabled) return
         val trackId = spotifyURI.removePrefix("spotify:track:")
             .takeIf { spotifyURI.startsWith("spotify:track:") } ?: return
 
@@ -2288,7 +2425,6 @@ class NowPlayingManager @Inject constructor(
     }
 
     private suspend fun reconcileExternalSpotifyOnForeground() {
-        if (!remoteConfigService.spotifyAuthExperimentEnabled) return
         if (spotifyCorusPlayIntentInFlight()) return
 
         val svc = spotifyPlaybackService
@@ -2676,7 +2812,6 @@ class NowPlayingManager @Inject constructor(
 
     /** Arm Spotify's delegate fast-path before async reconcile (mirrors iOS). */
     private fun armSpotifyFastPathSkipGuard(expectedURI: String, durationMs: Long = 8_000L) {
-        if (!remoteConfigService.spotifyAuthExperimentEnabled) return
         spotifyPlaybackService.setFastPathPlaybackGuard(
             expectedURI = expectedURI,
             fromCurrentURI = spotifyPlaybackService.currentTrackUri.value,

@@ -357,6 +357,7 @@
     <string name="profile_toast_no_songs_for_playlist">플레이리스트를 만들 곡이 없어요</string>
     <string name="profile_button_edit">프로필 편집</string>
     <string name="profile_button_playlist">플레이리스트</string>
+    <string name="profile_button_share">프로필 공유</string>
     <string name="hashtag_button_playlist">플레이리스트</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">팔로워</string>
@@ -1287,8 +1288,8 @@
         <item quantity="other">리포스트 %1$d개</item>
     </plurals>
     <string name="destination_prerelease_album_hint">발매 전입니다. 발매된 곡만 재생할 수 있습니다.</string>
-    <string name="settings_row_play_full_songs_spotify_subtitle">미리듣기 대신 Spotify로 전체 곡을 재생합니다. Spotify 앱 설치와 로그인이 필요합니다.</string>
-    <string name="settings_row_play_full_songs_title">전체 곡 재생</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">미리듣기 대신 Spotify로 게시물에서 전체 곡을 재생합니다. 앨범 및 곡 페이지는 항상 전체 곡을 재생합니다. Spotify 앱 설치 및 로그인이 필요합니다.</string>
+    <string name="settings_row_play_full_songs_title">게시물에서 전체 곡 재생</string>
     <string name="settings_row_spotify_library_save_subtitle">저장한 곡이 Spotify 라이브러리에 추가됩니다。Spotify 앱 설치와 로그인이 필요합니다.</string>
     <string name="settings_row_spotify_library_save_title">저장한 곡을 라이브러리에 추가</string>
     <string name="entity_link_not_found">이 링크는 더 이상 유효하지 않습니다</string>

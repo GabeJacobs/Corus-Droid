@@ -131,6 +131,15 @@ object CorusColors {
         @Composable @ReadOnlyComposable
         get() = if (LocalCorusPalette.current.text == Color(0xFFF5F5F7)) Color.Black else Color.White
 
+    /** Per-post full-song control in light mode — soft disc + inner glyph. */
+    val MediaControlBackground: Color
+        @Composable @ReadOnlyComposable
+        get() = Color(0xFFEEEEF0)
+
+    val MediaControlForeground: Color
+        @Composable @ReadOnlyComposable
+        get() = LocalCorusPalette.current.secondary
+
     /** + button in the comment composer. White in dark, accent in light. */
     val CommentAttachmentPlus: Color
         @Composable @ReadOnlyComposable

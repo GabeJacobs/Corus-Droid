@@ -56,13 +56,16 @@
     <string name="sync_contacts_permission_denied">Allow contacts access in your device settings to find friends on Corus</string>
     <string name="settings_section_general">GENERAL</string>
     <string name="settings_row_music_service">Music Service</string>
-    <string name="settings_row_play_full_songs_title">Play Full Songs</string>
-    <string name="settings_row_play_full_songs_spotify_subtitle">Play full tracks via Spotify instead of previews. Requires the Spotify app installed and signed in.</string>
+    <string name="settings_row_play_full_songs_title">Play Full Songs on Posts</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">Play full tracks on posts via Spotify instead of previews. Album and song pages always play full. Requires the Spotify app installed and signed in.</string>
+    <string name="post_card_cd_play_full_song">Play full song</string>
+    <string name="post_card_cd_pause_full_song">Pause full song</string>
     <string name="playback_mode_prompt_title">How do you want to listen?</string>
-    <string name="playback_mode_prompt_body_spotify">Full songs play through the Spotify app and require Spotify Premium. Previews are 30-second clips that stay in Corus.</string>
-    <string name="playback_mode_prompt_body_apple_music">Full songs play through the Apple Music app and require an Apple Music subscription. Previews are 30-second clips that stay in Corus.</string>
+    <string name="playback_mode_prompt_body_spotify">Full songs require Spotify Premium and the Spotify app installed.</string>
+    <string name="playback_mode_prompt_body_apple_music">Full songs require an Apple Music subscription and the Apple Music app installed.</string>
     <string name="playback_mode_prompt_previews">30-Second Previews</string>
     <string name="playback_mode_prompt_full_songs">Full Songs</string>
+    <string name="playback_mode_prompt_settings_footnote">You can change this anytime in Settings.</string>
     <string name="settings_row_spotify_library_save_title">Add Saved Songs to Library</string>
     <string name="settings_row_spotify_library_save_subtitle">Songs you save are added to your Spotify library. Requires the Spotify app installed and signed in.</string>
     <string name="settings_row_autoplay_title">Autoplay Next Song</string>
@@ -885,6 +888,9 @@
     <string name="mini_player_cd_play">Play</string>
     <string name="mini_player_cd_next">Next</string>
     <string name="mini_player_cd_open_spotify">Open in Spotify</string>
+    <string name="mini_player_playback_mode_preview">30s</string>
+    <string name="mini_player_playback_mode_full">Full</string>
+    <string name="mini_player_cd_playback_mode">Playback mode</string>
 
     <!-- Post action menu -->
     <string name="post_menu_play_in_service">Play in %1$s</string>
@@ -972,6 +978,8 @@
     <string name="share_post_instagram">Instagram</string>
     <string name="share_post_x">X</string>
     <string name="share_post_cd_x">Share to X</string>
+    <string name="share_profile_title">Share your profile</string>
+    <string name="share_profile_subtitle">Preview of how your link will look when shared</string>
 
     <!-- Song/Film picker sheet -->
     <string name="song_film_picker_songs">Songs</string>
@@ -1087,23 +1095,23 @@
     <string name="club_subtitle_tenth_post">Support Corus. Get Perks.</string>
     <string name="club_subtitle_playlist_limit">Unlock playlist generation.</string>
     <string name="club_playlist_trial_used_eyebrow">FREE TRY USED</string>
-    <string name="club_subtitle_playlist_limit_feed">You already generated a playlist from your feed. Join Club for unlimited playlist generation.</string>
-    <string name="club_subtitle_playlist_limit_own_profile">You already generated a playlist from your profile. Join Club for unlimited playlist generation.</string>
-    <string name="club_subtitle_playlist_limit_other_profile">You already generated a playlist from this profile. Join Club for unlimited playlist generation.</string>
-    <string name="club_subtitle_playlist_limit_hashtag">You already generated a playlist from this hashtag. Join Club for unlimited playlist generation.</string>
+    <string name="club_subtitle_playlist_limit_feed">Join the Corus Club for unlimited playlist generations.</string>
+    <string name="club_subtitle_playlist_limit_own_profile">Join the Corus Club for unlimited playlist generations.</string>
+    <string name="club_subtitle_playlist_limit_other_profile">Join the Corus Club for unlimited playlist generations.</string>
+    <string name="club_subtitle_playlist_limit_hashtag">Join the Corus Club for unlimited playlist generations.</string>
     <string name="playlist_first_time_title">Try playlist generation free</string>
-    <string name="feed_playlist_first_time_body">Corus will turn your feed into a playlist and open it in %1$s. You get one free try — Club members can generate anytime.</string>
-    <string name="profile_playlist_first_time_body_own">Corus will turn your profile into a playlist and open it in %1$s. You get one free try on your profile — Club members can generate anytime.</string>
-    <string name="profile_playlist_first_time_body_other">Corus will turn this profile into a playlist and open it in %1$s. You get one free try on this profile — Club members can generate anytime.</string>
-    <string name="hashtag_playlist_first_time_body">Corus will turn this hashtag into a playlist and open it in %1$s. You get one free try on this hashtag — Club members can generate anytime.</string>
+    <string name="feed_playlist_first_time_body">Corus will turn your feed into a playlist and open it in %1$s. Club members can generate anytime.</string>
+    <string name="profile_playlist_first_time_body_own">Corus will turn your profile into a playlist and open it in %1$s. Club members can generate anytime.</string>
+    <string name="profile_playlist_first_time_body_other">Corus will turn this profile into a playlist and open it in %1$s. Club members can generate anytime.</string>
+    <string name="hashtag_playlist_first_time_body">Corus will turn this hashtag into a playlist and open it in %1$s. Club members can generate anytime.</string>
     <string name="playlist_trial_consumed_feed">Playlist created! That was your free try on your feed. Join Club to generate anytime.</string>
     <string name="playlist_trial_consumed_own_profile">Playlist created! That was your free try on your profile. Join Club to generate anytime.</string>
     <string name="playlist_trial_consumed_other_profile">Playlist created! That was your free try on this profile. Join Club to generate anytime.</string>
     <string name="playlist_trial_consumed_hashtag">Playlist created! That was your free try on this hashtag. Join Club to generate anytime.</string>
-    <string name="playlist_trial_suffix_feed">One free try — Club members can generate anytime.</string>
-    <string name="playlist_trial_suffix_own_profile">One free try on your profile — Club members can generate anytime.</string>
-    <string name="playlist_trial_suffix_other_profile">One free try on this profile — Club members can generate anytime.</string>
-    <string name="playlist_trial_suffix_hashtag">One free try on this hashtag — Club members can generate anytime.</string>
+    <string name="playlist_trial_suffix_feed">Club members can generate anytime.</string>
+    <string name="playlist_trial_suffix_own_profile">Club members can generate anytime.</string>
+    <string name="playlist_trial_suffix_other_profile">Club members can generate anytime.</string>
+    <string name="playlist_trial_suffix_hashtag">Club members can generate anytime.</string>
     <string name="club_subtitle_settings">Support Corus. Get Perks.</string>
     <string name="club_feature_unlimited">Unlimited posts</string>
     <string name="club_feature_favorites">Unlimited favorites</string>
@@ -1266,6 +1274,8 @@
     <string name="destination_album_load_error">We couldn\'t load this album.</string>
     <string name="destination_catalog_load_error">Couldn\'t load right now.</string>
     <string name="destination_no_tracks">No tracks found for this album.</string>
+    <string name="destination_album_play">Play</string>
+    <string name="destination_album_pause">Pause</string>
     <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
     <string name="onboarding_sync_contacts_title">Sync Your Contacts</string>
     <string name="onboarding_cta_continue">CONTINUE</string>

@@ -2,6 +2,7 @@ package fm.corus.android.data.model
 
 import fm.corus.android.data.remote.parseAudiomackPreviewResponse
 import fm.corus.android.data.repository.parseUnifiedTrack
+import androidx.test.core.app.ApplicationProvider
 import fm.corus.android.domain.audiomackIdFromTrackId
 import fm.corus.android.ui.components.onGoToAlbumTap
 import fm.corus.android.ui.components.onGoToArtistTap
@@ -394,12 +395,10 @@ class AudiomackTrackTest {
     }
 
     @Test
-    fun `audiomack internal-nav tap builders stay null so the link-out fallback fires`() {
-        // Audiomack carries no Spotify artistIds/albumId, so the internal-nav
-        // builders return null and the menu wiring falls through to the Audiomack
-        // link-out branch.
-        assertNull(
+    fun `audiomack internal-nav tap builders resolve via Corus when nav callback present`() {
+        assertNotNull(
             onGoToArtistTap(
+                ApplicationProvider.getApplicationContext(),
                 audiomackPost(),
                 onNavigateToArtist = {},
                 scope = kotlinx.coroutines.test.TestScope(),
@@ -407,8 +406,9 @@ class AudiomackTrackTest {
                 onArtistNotFound = {},
             )
         )
-        assertNull(
+        assertNotNull(
             onGoToAlbumTap(
+                ApplicationProvider.getApplicationContext(),
                 audiomackPost(),
                 onNavigateToAlbum = {},
                 onNavigateToSong = {},

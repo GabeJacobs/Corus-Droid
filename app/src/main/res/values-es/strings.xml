@@ -357,6 +357,7 @@
     <string name="profile_toast_no_songs_for_playlist">No hay canciones para crear una playlist</string>
     <string name="profile_button_edit">EDITAR PERFIL</string>
     <string name="profile_button_playlist">PLAYLIST</string>
+    <string name="profile_button_share">COMPARTIR PERFIL</string>
     <string name="hashtag_button_playlist">Playlist</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">seguidores</string>
@@ -1296,8 +1297,8 @@
         <item quantity="other">%1$d reposteos</item>
     </plurals>
     <string name="destination_prerelease_album_hint">Prelanzamiento. Solo se pueden reproducir las canciones ya publicadas.</string>
-    <string name="settings_row_play_full_songs_spotify_subtitle">Reproduce canciones completas con Spotify en lugar de fragmentos. Requiere la app de Spotify instalada y con sesión iniciada.</string>
-    <string name="settings_row_play_full_songs_title">Reproducir canciones completas</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">Reproduce canciones completas en posts con Spotify en lugar de fragmentos. Las páginas de álbumes y canciones siempre reproducen la versión completa. Requiere la app de Spotify instalada y con sesión iniciada.</string>
+    <string name="settings_row_play_full_songs_title">Reproducir canciones completas en posts</string>
     <string name="settings_row_spotify_library_save_subtitle">Las canciones que guardes se añaden a tu biblioteca de Spotify. Requiere la app de Spotify instalada y con sesión iniciada.</string>
     <string name="settings_row_spotify_library_save_title">Añadir canciones guardadas a la biblioteca</string>
     <string name="entity_link_not_found">Este enlace ya no lleva a ninguna parte</string>

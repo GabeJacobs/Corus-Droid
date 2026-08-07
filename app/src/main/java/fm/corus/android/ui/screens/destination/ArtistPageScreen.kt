@@ -591,6 +591,7 @@ fun ArtistPageScreen(
                             nowPlaying = viewModel.nowPlayingManager,
                             queue = popularQueue,
                             origin = artistOrigin,
+                            preferFullSongOnPlay = viewModel.catalogListeningEntitled(),
                             corusStats = detail?.corusStats?.get(track.id),
                             onRowTap = {
                                 viewModel.analyticsService.logPostFromArtistPage(artistId, track.id)

@@ -3,6 +3,7 @@ package fm.corus.android.ui.components
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -45,6 +46,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -52,9 +56,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import fm.corus.android.R
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.ScrubberClock
+import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -71,6 +77,9 @@ fun MiniPlayerBar(
     engagementManager: PostEngagementManager? = null,
     onLikeTap: (() -> Unit)? = null,
     musicService: fm.corus.android.data.model.MusicService = fm.corus.android.data.model.MusicService.SPOTIFY,
+    playFullSongs: Boolean = false,
+    onPlaybackModeChange: (Boolean) -> Unit = {},
+    remoteConfig: fm.corus.android.service.RemoteConfigService? = null,
     resolveLinkOut: (suspend () -> String?)? = null,
     resolveSpotifyFromApple: (suspend () -> String?)? = null,
     modifier: Modifier = Modifier,
@@ -88,6 +97,17 @@ fun MiniPlayerBar(
         ?: false
     val context = LocalContext.current
     val linkOutScope = androidx.compose.runtime.rememberCoroutineScope()
+    // Preview/full toggle when in-app full songs are available for the viewer's
+    // service; otherwise the streaming-service link-out (SoundCloud, Audiomack,
+    // TIDAL/Deezer exclusives, Apple Music on Android, etc.).
+    val showsPlaybackModeToggle = remoteConfig != null &&
+        SongPlayRouting.supportsInAppFullSong(
+            context = context,
+            source = state.source,
+            service = musicService,
+            remoteConfig = remoteConfig,
+        )
+    val playbackModeToggleShowsFull = playFullSongs
 
     AnimatedVisibility(
         visible = showsMiniPlayer,
@@ -153,53 +173,14 @@ fun MiniPlayerBar(
                     }
                 }
 
-                // Like (heart) — only when the current track has a source post.
-                if (state.sourcePostId != null && onLikeTap != null) {
-                    MiniPlayerIconButton(
-                        onClick = onLikeTap,
-                        contentDescription = stringResource(R.string.post_card_cd_like),
-                        modifier = Modifier.padding(start = CorusSpacing.sm),
-                    ) {
-                        Icon(
-                            imageVector = if (isCurrentTrackLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = null,
-                            modifier = Modifier.size(22.dp),
-                            tint = if (isCurrentTrackLiked) CorusColors.Like else CorusColors.Text,
-                        )
-                    }
-                }
-
-                // Play/Pause
-                MiniPlayerIconButton(
-                    onClick = { nowPlayingManager.togglePlayPause() },
-                    contentDescription = if (state.isPlaying) {
-                        stringResource(R.string.mini_player_cd_pause)
-                    } else {
-                        stringResource(R.string.mini_player_cd_play)
-                    },
-                ) {
-                    Icon(
-                        imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp),
-                        tint = CorusColors.Text,
+                // Mode / service control sits left of transport so skip stays at the far edge.
+                if (showsPlaybackModeToggle) {
+                    MiniPlayerPlaybackModeToggle(
+                        playFullSongs = playbackModeToggleShowsFull,
+                        onSelect = onPlaybackModeChange,
+                        modifier = Modifier.width(miniPlayerServiceButtonWidth + 40.dp),
                     )
-                }
-
-                // Next — always visible so the mini player has a consistent layout;
-                // disabled (grayed) when the current queue has no next track.
-                MiniPlayerIconButton(
-                    onClick = if (state.hasNext) ({ nowPlayingManager.skipToNext() }) else null,
-                    contentDescription = stringResource(R.string.mini_player_cd_next),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.SkipNext,
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp),
-                        tint = if (state.hasNext) CorusColors.Text else CorusColors.Tertiary,
-                    )
-                }
-
+                } else {
                 // Spotify / SoundCloud / Apple Music button (matches the
                 // source of the playing track). Apple-only and SoundCloud
                 // tracks lock to their respective brands regardless of the
@@ -207,7 +188,20 @@ fun MiniPlayerBar(
                 // catalog so "Open in Spotify" would 404.
                 val isSoundCloud = state.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
                 val isAudiomack = state.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
+                val isTidal = state.source == fm.corus.android.data.model.TrackSource.TIDAL
+                val isDeezer = state.source == fm.corus.android.data.model.TrackSource.DEEZER
                 val isAppleMusic = state.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
+                fun resolveAndOpenLinkOut() {
+                    val resolve = resolveLinkOut
+                    if (resolve != null) {
+                        linkOutScope.launch {
+                            val url = resolve()
+                            if (!url.isNullOrBlank()) {
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                            }
+                        }
+                    }
+                }
                 if (isSoundCloud) {
                     MiniPlayerIconButton(
                         onClick = {
@@ -237,6 +231,30 @@ fun MiniPlayerBar(
                     ) {
                         AudiomackLogo(height = 22.dp)
                     }
+                } else if (isTidal) {
+                    MiniPlayerIconButton(
+                        onClick = { resolveAndOpenLinkOut() },
+                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        width = miniPlayerServiceButtonWidth,
+                    ) {
+                        Image(
+                            painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(fm.corus.android.data.model.MusicService.TIDAL)),
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                } else if (isDeezer) {
+                    MiniPlayerIconButton(
+                        onClick = { resolveAndOpenLinkOut() },
+                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        width = miniPlayerServiceButtonWidth,
+                    ) {
+                        Image(
+                            painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(fm.corus.android.data.model.MusicService.DEEZER)),
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 } else {
                     // Glyph reflects the service the tap opens. Under Apple-primary
                     // search an `applemusic`-sourced preview is usually ALSO on
@@ -252,17 +270,7 @@ fun MiniPlayerBar(
                     }
                     MiniPlayerIconButton(
                         onClick = {
-                            fun resolveAndOpen() {
-                                val resolve = resolveLinkOut
-                                if (resolve != null) {
-                                    linkOutScope.launch {
-                                        val url = resolve()
-                                        if (!url.isNullOrBlank()) {
-                                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                                        }
-                                    }
-                                }
-                            }
+                            fun resolveAndOpen() = resolveAndOpenLinkOut()
                             fun openAppleSong() {
                                 val tid = state.trackId
                                 val amid = if (!tid.isNullOrBlank() && tid.startsWith("am:")) tid.removePrefix("am:") else null
@@ -339,6 +347,53 @@ fun MiniPlayerBar(
                             modifier = Modifier.size(22.dp),
                         )
                     }
+                }
+                }
+
+                // Like (heart) — only when the current track has a source post.
+                if (state.sourcePostId != null && onLikeTap != null) {
+                    MiniPlayerIconButton(
+                        onClick = onLikeTap,
+                        contentDescription = stringResource(R.string.post_card_cd_like),
+                    ) {
+                        Icon(
+                            imageVector = if (isCurrentTrackLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = if (isCurrentTrackLiked) CorusColors.Like else CorusColors.Text,
+                        )
+                    }
+                }
+
+                // Play/Pause
+                MiniPlayerIconButton(
+                    onClick = { nowPlayingManager.togglePlayPause() },
+                    contentDescription = if (state.isPlaying) {
+                        stringResource(R.string.mini_player_cd_pause)
+                    } else {
+                        stringResource(R.string.mini_player_cd_play)
+                    },
+                ) {
+                    Icon(
+                        imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = CorusColors.Text,
+                    )
+                }
+
+                // Next — always visible so the mini player has a consistent layout;
+                // disabled (grayed) when the current queue has no next track.
+                MiniPlayerIconButton(
+                    onClick = if (state.hasNext) ({ nowPlayingManager.skipToNext(preferPreviewOnNext = nowPlayingManager.preferPreviewOnInAppSkip) }) else null,
+                    contentDescription = stringResource(R.string.mini_player_cd_next),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipNext,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = if (state.hasNext) CorusColors.Text else CorusColors.Tertiary,
+                    )
                 }
             }
             HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
@@ -644,5 +699,84 @@ private fun ScrubberOverlay(
                     .zIndex(1f),
             )
         }
+    }
+}
+
+@Composable
+private fun MiniPlayerPlaybackModeToggle(
+    playFullSongs: Boolean,
+    onSelect: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val previewLabel = stringResource(R.string.mini_player_playback_mode_preview)
+    val fullLabel = stringResource(R.string.mini_player_playback_mode_full)
+    val cd = stringResource(R.string.mini_player_cd_playback_mode)
+    var displayedFull by remember { mutableStateOf(playFullSongs) }
+
+    LaunchedEffect(playFullSongs) {
+        if (displayedFull != playFullSongs) {
+            displayedFull = playFullSongs
+        }
+    }
+
+    Row(
+        modifier = modifier
+            .height(28.dp)
+            .clip(CircleShape)
+            .background(CorusColors.Divider.copy(alpha = 0.45f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    displayedFull = !displayedFull
+                    onSelect(displayedFull)
+                },
+            )
+            .padding(2.dp)
+            .semantics {
+                contentDescription = cd
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PlaybackModeSegment(
+            label = previewLabel,
+            selected = !displayedFull,
+            modifier = Modifier.weight(1f),
+        )
+        PlaybackModeSegment(
+            label = fullLabel,
+            selected = displayedFull,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun PlaybackModeSegment(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val segmentBackground by animateColorAsState(
+        targetValue = if (selected) CorusColors.Background else Color.Transparent,
+        animationSpec = tween(durationMillis = 200),
+        label = "playbackModeSegmentBackground",
+    )
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(CircleShape)
+            .background(segmentBackground),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = CorusFont.caption.copy(
+                fontSize = 11.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            ),
+            color = if (selected) CorusColors.Text else CorusColors.Secondary,
+            maxLines = 1,
+        )
     }
 }

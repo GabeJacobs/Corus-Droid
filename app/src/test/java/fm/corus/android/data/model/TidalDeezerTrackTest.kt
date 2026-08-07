@@ -1,5 +1,6 @@
 package fm.corus.android.data.model
 
+import androidx.test.core.app.ApplicationProvider
 import fm.corus.android.ui.components.onGoToAlbumTap
 import fm.corus.android.ui.components.onGoToArtistTap
 import fm.corus.android.ui.components.showGoToAlbumRow
@@ -229,6 +230,7 @@ class TidalDeezerTrackTest {
             val post = exclusivePost(source)
             assertNull(
                 onGoToArtistTap(
+                    ApplicationProvider.getApplicationContext(),
                     post,
                     onNavigateToArtist = {},
                     scope = kotlinx.coroutines.test.TestScope(),
@@ -238,6 +240,7 @@ class TidalDeezerTrackTest {
             )
             assertNull(
                 onGoToAlbumTap(
+                    ApplicationProvider.getApplicationContext(),
                     post,
                     onNavigateToAlbum = {},
                     onNavigateToSong = {},

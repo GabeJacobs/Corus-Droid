@@ -85,8 +85,8 @@ fun ProfileFeedScreen(
     val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
+    val scope = rememberCoroutineScope()
     // Resolve-on-tap state for the tappable artist name (subtitle) — shared HUD +
     // miss toast, matching the "…" menu's Go to Artist row.
     var isResolvingSubtitle by remember { mutableStateOf(false) }
@@ -299,6 +299,20 @@ fun ProfileFeedScreen(
                     onUserTap = { onNavigateToUser(post.user.id) },
                     onPostTap = { /* Already viewing post in feed */ },
                     onPreviewTap = { viewModel.playPreview(post) },
+                    isFullSongPlaying = PostPlaybackHighlight.shouldHighlight(
+                        activeTrackId = nowPlayingState.trackId,
+                        activeSourcePostId = nowPlayingState.sourcePostId,
+                        playbackActive = viewModel.nowPlayingManager.showsFullSongPlayingOverlay(musicService),
+                        postTrackId = post.track.id,
+                        postId = post.id,
+                    ),
+                    isFullSongLoading = PostPlaybackHighlight.shouldHighlight(
+                        activeTrackId = nowPlayingState.trackId,
+                        activeSourcePostId = nowPlayingState.sourcePostId,
+                        playbackActive = isResolvingSpotify,
+                        postTrackId = post.track.id,
+                        postId = post.id,
+                    ),
                     onTrailerTap = {
                         post.trailerURL?.let { url ->
                             viewModel.nowPlayingManager.pause()
@@ -369,6 +383,7 @@ fun ProfileFeedScreen(
                     onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                     backCoverFlipState = backCoverStateFor(post.id),
                     onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
+                        context = context,
                         post = post,
                         onNavigateToArtist = onNavigateToArtist,
                         onNavigateToDirector = onNavigateToDirector,

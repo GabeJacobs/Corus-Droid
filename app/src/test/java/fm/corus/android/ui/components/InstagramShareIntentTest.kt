@@ -25,7 +25,7 @@ class InstagramShareIntentTest {
 
     @Test
     fun `targets the instagram story action with a readable png`() {
-        val intent = buildAddToStoryIntent(uri, "p1", "fm.corus.android")
+        val intent = buildAddToStoryIntent(uri, "https://corus.fm/post/p1", "fm.corus.android")
 
         assertEquals("com.instagram.share.ADD_TO_STORY", intent.action)
         assertEquals("image/png", intent.type)
@@ -38,15 +38,22 @@ class InstagramShareIntentTest {
 
     @Test
     fun `forwards the source application id`() {
-        val intent = buildAddToStoryIntent(uri, "p1", "fm.corus.android")
+        val intent = buildAddToStoryIntent(uri, "https://corus.fm/post/p1", "fm.corus.android")
 
         assertEquals("fm.corus.android", intent.getStringExtra("source_application"))
     }
 
     @Test
     fun `carries the post deep link as content url`() {
-        val intent = buildAddToStoryIntent(uri, "abc123", "fm.corus.android")
+        val intent = buildAddToStoryIntent(uri, "https://corus.fm/post/abc123", "fm.corus.android")
 
         assertEquals("https://corus.fm/post/abc123", intent.getStringExtra("content_url"))
+    }
+
+    @Test
+    fun `carries the profile deep link as content url`() {
+        val intent = buildAddToStoryIntent(uri, "https://corus.fm/u/gabe", "fm.corus.android")
+
+        assertEquals("https://corus.fm/u/gabe", intent.getStringExtra("content_url"))
     }
 }

@@ -1,5 +1,7 @@
 package fm.corus.android.ui.components
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
@@ -17,6 +19,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PostActionMenuTest {
+
+    private val testContext: Context
+        get() = ApplicationProvider.getApplicationContext()
 
     @Test
     fun `report and block shown for non-owner human-authored posts`() {
@@ -215,6 +220,7 @@ class PostActionMenuTest {
         onAlbumNotFound: () -> Unit = {},
         onResolvingChange: (Boolean) -> Unit = {},
     ) = onGoToAlbumTap(
+        testContext,
         post,
         onNavigateToAlbum,
         onNavigateToSong = {},
@@ -232,7 +238,7 @@ class PostActionMenuTest {
         resolveArtistId: suspend (CymbalTrack) -> String? = { null },
         onArtistNotFound: () -> Unit = {},
         onResolvingChange: (Boolean) -> Unit = {},
-    ) = onGoToArtistTap(post, onNavigateToArtist, scope, resolveArtistId, onArtistNotFound, onResolvingChange)
+    ) = onGoToArtistTap(testContext, post, onNavigateToArtist, scope, resolveArtistId, onArtistNotFound, onResolvingChange)
 
     @Test
     fun `album tap builder is null when nav callback null`() {
@@ -498,7 +504,7 @@ class PostActionMenuTest {
         resolveArtistId: suspend (CymbalTrack) -> String? = { null },
         onArtistNotFound: () -> Unit = {},
         onResolvingChange: (Boolean) -> Unit = {},
-    ) = postSubtitleTap(post, onNavigateToArtist, onNavigateToDirector, scope, resolveArtistId, onArtistNotFound, onResolvingChange)
+    ) = postSubtitleTap(testContext, post, onNavigateToArtist, onNavigateToDirector, scope, resolveArtistId, onArtistNotFound, onResolvingChange)
 
     @Test
     fun `subtitle tap is tappable for apple track without an artist id`() {

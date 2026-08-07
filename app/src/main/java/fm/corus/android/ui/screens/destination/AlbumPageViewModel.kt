@@ -8,12 +8,17 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
 import fm.corus.android.data.model.AlbumCatalog
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.domain.CatalogPlaybackOrigin
+import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.ToastManager
@@ -42,8 +47,45 @@ class AlbumPageViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
     private val remoteConfigService: RemoteConfigService,
+    private val musicServicePreference: MusicServicePreference,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    fun catalogListeningEntitled(): Boolean = SongPlayRouting.catalogListeningEntitled(
+        context = context,
+        service = musicServicePreference.current.value,
+        remoteConfig = remoteConfigService,
+    )
+
+    /** Album-level playback: play track 1 and queue the rest when entitled;
+     *  toggle pause while any album track is current. Mirrors iOS `playAlbum()`. */
+    fun playAlbum(
+        albumId: String,
+        tracks: List<CymbalTrack>,
+        albumOrigin: CatalogPlaybackOrigin,
+        albumQueue: List<QueuedTrack>,
+    ) {
+        val firstTrack = tracks.firstOrNull() ?: return
+        if (catalogListeningEntitled()) {
+            val currentId = nowPlayingManager.currentTrackId
+            if (currentId != null && tracks.any { it.id == currentId }) {
+                nowPlayingManager.togglePlayPause()
+                return
+            }
+        }
+        analyticsService.logAlbumTrackPreviewed(albumId, firstTrack.id)
+        nowPlayingManager.routePlayTap(
+            track = firstTrack,
+            queue = albumQueue,
+            preferFullSong = catalogListeningEntitled(),
+            onPreview = {
+                nowPlayingManager.play(
+                    track = firstTrack.toQueuedTrack(albumOrigin),
+                    queue = albumQueue,
+                )
+            },
+        )
+    }
 
     /** Send-side gate for the "..." Share entry on this page. */
     val entityShareEnabled: Boolean get() = remoteConfigService.entityShareEnabled
@@ -172,20 +214,20 @@ class AlbumPageViewModel @Inject constructor(
 
     private var loadedAlbumId: String? = null
 
-    fun load(albumId: String) {
+    fun load(albumId: String, albumName: String? = null, artistName: String? = null) {
         if (loadedAlbumId == albumId) return
         loadedAlbumId = albumId
-        loadCatalog(albumId)
+        loadCatalog(albumId, albumName, artistName)
         loadPosts(albumId)
     }
 
     /** Also the "Try again" hook for a failed catalog fetch. */
-    fun loadCatalog(albumId: String) {
+    fun loadCatalog(albumId: String, albumName: String? = null, artistName: String? = null) {
         viewModelScope.launch {
             _isCatalogLoading.value = true
             _catalogError.value = false
             try {
-                _catalog.value = cloudFunctions.fetchAlbumCatalog(albumId)
+                _catalog.value = cloudFunctions.fetchAlbumCatalog(albumId, albumName, artistName)
             } catch (_: Exception) {
                 _catalogError.value = true
             }

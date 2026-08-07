@@ -357,6 +357,7 @@
     <string name="profile_toast_no_songs_for_playlist">Keine Songs für eine Playlist</string>
     <string name="profile_button_edit">PROFIL BEARBEITEN</string>
     <string name="profile_button_playlist">PLAYLIST</string>
+    <string name="profile_button_share">PROFIL TEILEN</string>
     <string name="hashtag_button_playlist">Playlist</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">Follower</string>
@@ -1296,8 +1297,8 @@
         <item quantity="other">%1$d Reposts</item>
     </plurals>
     <string name="destination_prerelease_album_hint">Vorab-Veröffentlichung. Nur erschienene Titel können abgespielt werden.</string>
-    <string name="settings_row_play_full_songs_spotify_subtitle">Ganze Titel über Spotify statt Vorschauen abspielen. Erfordert die installierte Spotify-App mit Anmeldung.</string>
-    <string name="settings_row_play_full_songs_title">Ganze Songs abspielen</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">Ganze Titel bei Posts über Spotify statt Vorschauen abspielen. Album- und Song-Seiten spielen immer in voller Länge. Erfordert die installierte Spotify-App mit Anmeldung.</string>
+    <string name="settings_row_play_full_songs_title">Ganze Songs bei Posts abspielen</string>
     <string name="settings_row_spotify_library_save_subtitle">Gespeicherte Songs werden zu deiner Spotify-Mediathek hinzugefügt. Erfordert die installierte Spotify-App mit Anmeldung.</string>
     <string name="settings_row_spotify_library_save_title">Gespeicherte Songs zur Mediathek hinzufügen</string>
     <string name="entity_link_not_found">Dieser Link führt nirgendwohin mehr</string>

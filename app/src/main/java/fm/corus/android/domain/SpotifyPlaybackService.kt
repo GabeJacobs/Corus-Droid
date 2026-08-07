@@ -10,7 +10,6 @@ import com.spotify.protocol.client.Subscription
 import com.spotify.protocol.types.PlayerContext
 import com.spotify.protocol.types.PlayerState
 import dagger.hilt.android.qualifiers.ApplicationContext
-import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +23,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.locks.ReentrantLock
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlin.concurrent.withLock
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -43,8 +43,10 @@ sealed class SpotifyPlaybackError(message: String) : Exception(message) {
 @Singleton
 class SpotifyPlaybackService @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val remoteConfig: RemoteConfigService,
     private val spotifyAuthService: SpotifyAuthService,
+    // Provider, not a direct injection: SpotifySaveAutoAdd depends on this
+    // service to deliver saves, so a plain field would be a Hilt cycle.
+    private val spotifySaveAutoAdd: Provider<SpotifySaveAutoAdd>,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -200,7 +202,6 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     fun trySilentReconnectIfNeeded() {
-        if (!remoteConfig.spotifyAuthExperimentEnabled) return
         scheduleProactiveReconnect()
     }
 
@@ -270,25 +271,32 @@ class SpotifyPlaybackService @Inject constructor(
             clearStaleSpotifyQueue()
         }
 
-        if (spotifyAuthService.cachedAccessToken() != null) {
-            try {
-                withPlayTimeout {
-                    connect(showAuthView = false)
-                    playUri(trackUri)
-                }
-                queueSessionId?.let { lastAppliedQueueSessionId = it }
-                markRecentUsage()
-                return
-            } catch (e: Exception) {
-                cancelPendingContinuations()
-                android.util.Log.w(
-                    "SpotifyPlayback",
-                    "Cached token connect failed: ${e.message}",
-                )
-                discardStaleAppRemoteSession()
+        // Always try silent first, whatever [SpotifyAuthService] holds. The App
+        // Remote grant lives in the Spotify app, not here: [ConnectionParams]
+        // carries only the client id and redirect URI, and the cached token is
+        // never handed to the SDK — it only records that we authorized once, and
+        // it expires after an hour with no refresh. Gating this attempt on it
+        // sent every play tap past that hour into auth-lib's consent flow, which
+        // on devices that fall back to its WebView handler paints a full-screen
+        // "Loading…" dialog over Corus. Interactive auth is the fallback for a
+        // connect App Remote actually refused.
+        try {
+            withPlayTimeout {
+                connect(showAuthView = false)
+                playUri(trackUri)
             }
-            android.util.Log.w("SpotifyPlayback", "Silent reconnect failed, opening Spotify auth")
+            queueSessionId?.let { lastAppliedQueueSessionId = it }
+            markRecentUsage()
+            return
+        } catch (e: Exception) {
+            cancelPendingContinuations()
+            android.util.Log.w(
+                "SpotifyPlayback",
+                "Silent connect failed: ${e.message}",
+            )
+            discardStaleAppRemoteSession()
         }
+        android.util.Log.w("SpotifyPlayback", "Silent reconnect failed, opening Spotify auth")
 
         withPlayTimeout {
             ensureAuthorizedAndConnected(requireInteractiveAuth = true)
@@ -364,6 +372,7 @@ class SpotifyPlaybackService @Inject constructor(
                         subscribePlayerState()
                         subscribePlayerContext()
                         if (deferred.isActive) deferred.complete(Unit)
+                        spotifySaveAutoAdd.get().flushPendingLibraryAdds()
                     }
 
                     override fun onFailure(error: Throwable) {
@@ -691,6 +700,51 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     /**
+     * Adds a track or album to the user's Spotify library ("Liked Songs").
+     *
+     * The Spotify app performs the write over IPC, so this never reaches
+     * api.spotify.com and isn't subject to the Web API's development-mode
+     * 25-user cap — which is the whole reason this path exists. Requires a
+     * live App Remote session; callers park the URI in [SpotifyLibraryQueue]
+     * when there isn't one.
+     *
+     * Unlike [awaitPlayerApiVoid], a missing session throws rather than
+     * silently succeeding: the caller has to tell "delivered" from "couldn't
+     * deliver" to decide whether to keep the save queued.
+     */
+    suspend fun addToLibrary(uri: String) {
+        val remote = appRemote ?: throw SpotifyPlaybackError.NotConnected()
+        if (!remote.isConnected) throw SpotifyPlaybackError.NotConnected()
+        val result = remote.userApi.addToLibrary(uri)
+        suspendCancellableCoroutine { cont ->
+            var finished = false
+            fun finish(error: Throwable?) {
+                if (finished) return
+                finished = true
+                if (!cont.isActive) return
+                if (error == null) {
+                    cont.resume(Unit)
+                } else {
+                    cont.resumeWithException(
+                        error as? Exception ?: SpotifyPlaybackError.ApiError(
+                            error.message ?: "Couldn't save to your Spotify library",
+                        ),
+                    )
+                }
+            }
+            cont.invokeOnCancellation { finished = true }
+            result.setResultCallback { finish(null) }
+            result.setErrorCallback { error ->
+                finish(
+                    SpotifyPlaybackError.ApiError(
+                        error.message ?: "Couldn't save to your Spotify library",
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
      * Resume a Spotify [CallResult] at most once, with error handling.
      * Prevents "Already resumed" crashes when the SDK fires duplicate callbacks.
      */
@@ -786,7 +840,6 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     private fun markRecentUsage() {
-        if (!remoteConfig.spotifyAuthExperimentEnabled) return
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putLong(LAST_USAGE_KEY, System.currentTimeMillis())
@@ -794,7 +847,6 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     private fun scheduleProactiveReconnect() {
-        if (!remoteConfig.spotifyAuthExperimentEnabled) return
         if (!hasRecentUsage() && spotifyAuthService.cachedAccessToken() == null) return
         if (isConnected) return
         val now = System.currentTimeMillis()

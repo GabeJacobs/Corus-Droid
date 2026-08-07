@@ -87,9 +87,11 @@ import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.SelfieCaptureScreen
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.uriToBitmap
+import fm.corus.android.ui.components.ProfileShareAnalytics
 import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.ShareProfileSubject
+import fm.corus.android.ui.components.shareCardPreviewUrl
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -249,6 +251,7 @@ fun ProfileScreen(
     var showAvatarMenu by remember { mutableStateOf(false) }
     var showFullScreenAvatar by remember { mutableStateOf(false) }
     var showShareSheet by remember { mutableStateOf(false) }
+    var profileShareEntryPoint by remember { mutableStateOf("unknown") }
     val recentShareContacts by viewModel.recentShareContacts.collectAsState()
     val shareSearchResults by viewModel.shareSearchResults.collectAsState()
     val isShareSearching by viewModel.isShareSearching.collectAsState()
@@ -282,7 +285,8 @@ fun ProfileScreen(
         }
     }
 
-    fun presentProfileShare() {
+    fun presentProfileShare(entryPoint: String = "action_row") {
+        profileShareEntryPoint = entryPoint
         if (viewModel.profileShareEnabled) {
             showShareSheet = true
         } else {
@@ -598,7 +602,7 @@ fun ProfileScreen(
                                     // Launch-dark: with profile_share_enabled ON, open the
                                     // in-app Corus share sheet (DM your profile + external
                                     // actions); OFF falls back to the native Android sheet.
-                                    presentProfileShare()
+                                    presentProfileShare("avatar_menu")
                                 },
                             )
                         }
@@ -667,7 +671,7 @@ fun ProfileScreen(
                                         .weight(1f)
                                         .clip(RoundedCornerShape(50))
                                         .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
-                                        .clickable { presentProfileShare() }
+                                        .clickable { presentProfileShare("action_row") }
                                         .padding(vertical = CorusSpacing.sm - 2.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
@@ -1274,6 +1278,31 @@ fun ProfileScreen(
     if (showShareSheet) {
         val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val sentMsg = stringResource(fm.corus.android.R.string.profile_share_toast_profile_sent)
+        val shareCardVersion = remember(currentProfile.id, currentProfile.cymbalCount, posts.firstOrNull()?.id) {
+            "${currentProfile.cymbalCount}-${posts.firstOrNull()?.id ?: "none"}"
+        }
+        val shareProfileSubject = remember(currentProfile, posts, shareCardVersion) {
+            ShareProfileSubject(
+                id = currentProfile.id,
+                username = currentProfile.username,
+                displayName = currentProfile.displayName,
+                avatarUrl = currentProfile.avatarURL ?: currentProfile.avatarThumbURL,
+                bio = currentProfile.bio.takeIf { it.isNotBlank() },
+                artworkUrls = posts.take(9).mapNotNull { it.displayImageLargeURL ?: it.displayImageURL },
+                previewVersion = shareCardVersion,
+            )
+        }
+        LaunchedEffect(shareCardVersion) {
+            val previewUrl = shareCardPreviewUrl(
+                shareableLink = "https://corus.fm/u/${currentProfile.username}",
+                version = shareCardVersion,
+            )
+            if (previewUrl.isNotBlank()) {
+                coil3.SingletonImageLoader.get(context).enqueue(
+                    coil3.request.ImageRequest.Builder(context).data(previewUrl).build(),
+                )
+            }
+        }
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
         ModalBottomSheet(
             onDismissRequest = { showShareSheet = false },
@@ -1283,14 +1312,7 @@ fun ProfileScreen(
         ) {
             CorusSystemBars()
             ShareMediaSheet(
-                subject = ShareMediaSubject.Profile(
-                    ShareProfileSubject(
-                        id = currentProfile.id,
-                        username = currentProfile.username,
-                        displayName = currentProfile.displayName,
-                        avatarUrl = currentProfile.avatarURL,
-                    )
-                ),
+                subject = ShareMediaSubject.Profile(shareProfileSubject),
                 recentContacts = recentShareContacts,
                 searchResults = shareSearchResults,
                 isSearching = isShareSearching,
@@ -1305,6 +1327,31 @@ fun ProfileScreen(
                     showShareSheet = false
                 },
                 onDismiss = { showShareSheet = false },
+                isOwnProfile = true,
+                instagramShareEnabled = viewModel.instagramShareEnabled,
+                profileShareAnalytics = ProfileShareAnalytics(
+                    profileUserId = currentProfile.id,
+                    isOwnProfile = true,
+                    entryPoint = profileShareEntryPoint,
+                    onShared = { method, theme ->
+                        viewModel.logProfileShared(
+                            profileUserId = currentProfile.id,
+                            method = method,
+                            isOwnProfile = true,
+                            cardTheme = theme,
+                        )
+                    },
+                    onSheetOpened = {
+                        viewModel.logProfileShareSheetOpened(
+                            profileUserId = currentProfile.id,
+                            isOwnProfile = true,
+                            entryPoint = profileShareEntryPoint,
+                        )
+                    },
+                    onThemeChanged = { theme ->
+                        viewModel.logProfileShareThemeChanged(currentProfile.id, theme)
+                    },
+                ),
             )
         }
     }
@@ -1352,28 +1399,28 @@ fun ProfileScreen(
         }
         val hasSoundCloud = alertSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
             && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showPlaylistAlert = false },
-            title = { androidx.compose.material3.Text("Spotify Feature") },
-            text = {
-                androidx.compose.material3.Text(
-                    if (hasSoundCloud)
-                        "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
-                    else
-                        "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    showPlaylistAlert = false
-                    viewModel.generatePlaylist(alertSource)
-                }) { androidx.compose.material3.Text("Generate Spotify Playlist") }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showPlaylistAlert = false }) {
-                    androidx.compose.material3.Text("Cancel")
-                }
-            },
+        val message = if (hasSoundCloud) {
+            "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
+        } else {
+            "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
+        }
+        fm.corus.android.ui.components.CorusPromptOverlay(
+            visible = true,
+            title = "Spotify Feature",
+            message = message,
+            iconRes = fm.corus.android.R.drawable.spotify_logo,
+            onDismiss = { showPlaylistAlert = false },
+            buttons = listOf(
+                fm.corus.android.ui.components.CorusPromptButton(
+                    label = "Generate Spotify Playlist",
+                    emphasized = true,
+                    onClick = { viewModel.generatePlaylist(alertSource) },
+                ),
+                fm.corus.android.ui.components.CorusPromptButton(
+                    label = "Cancel",
+                    onClick = {},
+                ),
+            ),
         )
     }
 
@@ -1408,11 +1455,9 @@ fun ProfileScreen(
             count = count,
             caveat = caveat,
             onQuick = {
-                showPlaylistChooser = false
                 viewModel.generatePlaylist(chooserSource, fullExport = false)
             },
             onAll = {
-                showPlaylistChooser = false
                 viewModel.generatePlaylist(chooserSource, fullExport = true)
             },
             onDismiss = { showPlaylistChooser = false },
@@ -1435,11 +1480,9 @@ fun ProfileScreen(
             count = count,
             offersFullExport = offersFull,
             onQuick = {
-                showYouTubeMusicPlaylistExplainer = false
                 viewModel.generatePlaylist(ytSource, fullExport = false)
             },
             onAll = {
-                showYouTubeMusicPlaylistExplainer = false
                 viewModel.generatePlaylist(ytSource, fullExport = true)
             },
             onDismiss = { showYouTubeMusicPlaylistExplainer = false },

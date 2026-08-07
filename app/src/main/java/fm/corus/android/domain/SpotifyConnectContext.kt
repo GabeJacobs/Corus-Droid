@@ -46,7 +46,10 @@ object SpotifyConnectContext {
             AuthorizationResponse.Type.TOKEN,
             SpotifyAuthService.REDIRECT_URI,
         )
-            .setScopes(arrayOf("app-remote-control"))
+            // Library scopes ride along with the playback authorization so
+            // "Add Saved Songs to Library" never needs its own consent trip.
+            // See SpotifyAuthService.APP_REMOTE_SCOPES.
+            .setScopes(SpotifyAuthService.APP_REMOTE_SCOPES)
             .build()
         AuthorizationClient.openLoginActivity(activity, AUTH_REQUEST_CODE, request)
         // Result delivered via deliverAuthorizationResult; store callbacks on service side

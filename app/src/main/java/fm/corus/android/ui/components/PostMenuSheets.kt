@@ -207,18 +207,20 @@ fun PostMenuSheets(
                 // its "Go to Artist"/"Go to Album" rows link out to Audiomack's own
                 // pages (only when the backend supplied a non-blank url). Non-
                 // Audiomack sources fall through to the internal-nav tap builders.
-                onGoToArtist = onGoToArtistTap(
+                onGoToArtist = resolveMenuGoToArtistTap(
+                    context = context,
                     post = post,
+                    artistPagesEnabled = artistPagesEnabled,
                     onNavigateToArtist = onNavigateToArtist,
                     scope = scope,
                     resolveArtistId = actions::resolveArtistIdForTrack,
                     onArtistNotFound = { ToastManager.show(artistNotFoundMsg) },
                     onResolvingChange = { isResolvingArtist = it },
-                )
-                    ?: post.track.audiomackArtistLinkOutUrl?.let { url -> { openExternalUrl(context, url) } }
-                    ?: {},
-                onGoToAlbum = onGoToAlbumTap(
+                ),
+                onGoToAlbum = resolveMenuGoToAlbumTap(
+                    context = context,
                     post = post,
+                    artistPagesEnabled = artistPagesEnabled,
                     onNavigateToAlbum = onNavigateToAlbum,
                     onNavigateToSong = { onNavigateToSong(post.track) },
                     prereleaseAlbumPagesEnabled = actions.remoteConfig.prereleaseAlbumPagesEnabled,
@@ -226,9 +228,7 @@ fun PostMenuSheets(
                     resolveDestinations = actions::resolveTrackDestinationsForTrack,
                     onAlbumNotFound = { ToastManager.show(albumNotFoundMsg) },
                     onResolvingChange = { isResolvingAlbum = it },
-                )
-                    ?: post.track.audiomackAlbumLinkOutUrl?.let { url -> { openExternalUrl(context, url) } }
-                    ?: {},
+                ),
                 onGoToDirector = onGoToDirectorTap(post, onNavigateToDirector) ?: {},
                 onViewBackCover = {
                     val state = backCoverStateFor(post.id)
@@ -410,6 +410,62 @@ internal fun openExternalUrl(context: Context, url: String) {
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
 }
 
+/** Menu "Go to Artist" tap: internal nav when enabled, Audiomack link-out fallback. */
+internal fun resolveMenuGoToArtistTap(
+    context: Context,
+    post: CymbalPost,
+    artistPagesEnabled: Boolean,
+    onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)?,
+    scope: CoroutineScope,
+    resolveArtistId: suspend (CymbalTrack) -> String?,
+    onArtistNotFound: () -> Unit,
+    onResolvingChange: (Boolean) -> Unit,
+): () -> Unit {
+    return onGoToArtistTap(
+        context = context,
+        post = post,
+        onNavigateToArtist = onNavigateToArtist,
+        scope = scope,
+        resolveArtistId = resolveArtistId,
+        onArtistNotFound = onArtistNotFound,
+        onResolvingChange = onResolvingChange,
+    ) ?: if (!artistPagesEnabled) {
+        post.track.audiomackArtistLinkOutUrl?.let { url -> { openExternalUrl(context, url) } }
+    } else {
+        null
+    } ?: {}
+}
+
+/** Menu "Go to Album" tap: internal nav when enabled, Audiomack link-out fallback. */
+internal fun resolveMenuGoToAlbumTap(
+    context: Context,
+    post: CymbalPost,
+    artistPagesEnabled: Boolean,
+    onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)?,
+    onNavigateToSong: () -> Unit,
+    prereleaseAlbumPagesEnabled: Boolean,
+    scope: CoroutineScope,
+    resolveDestinations: suspend (CymbalTrack) -> fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations,
+    onAlbumNotFound: () -> Unit,
+    onResolvingChange: (Boolean) -> Unit,
+): () -> Unit {
+    return onGoToAlbumTap(
+        context = context,
+        post = post,
+        onNavigateToAlbum = onNavigateToAlbum,
+        onNavigateToSong = onNavigateToSong,
+        prereleaseAlbumPagesEnabled = prereleaseAlbumPagesEnabled,
+        scope = scope,
+        resolveDestinations = resolveDestinations,
+        onAlbumNotFound = onAlbumNotFound,
+        onResolvingChange = onResolvingChange,
+    ) ?: if (!artistPagesEnabled) {
+        post.track.audiomackAlbumLinkOutUrl?.let { url -> { openExternalUrl(context, url) } }
+    } else {
+        null
+    } ?: {}
+}
+
 /**
  * Builds the "Go to Artist" click for a track post: routes to the artist page,
  * reusing the exact route the post card's tappable artist subtitle uses
@@ -420,9 +476,10 @@ internal fun openExternalUrl(context: Context, url: String) {
  * artist id on tap via [resolveArtistId] behind a brief HUD, then navigates or
  * reports a miss. Mirrors [onGoToAlbumTap]. Null when [onNavigateToArtist] is
  * null (flag off), the post is a movie, or the source has no Corus artist page
- * (only Spotify / Apple Music qualify; Audiomack link-out is handled by the caller).
+ * (Spotify / Apple Music / Audiomack with ISRC resolve; Audiomack link-out fallback).
  */
 internal fun onGoToArtistTap(
+    context: Context,
     post: CymbalPost,
     onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)?,
     scope: CoroutineScope,
@@ -432,7 +489,9 @@ internal fun onGoToArtistTap(
 ): (() -> Unit)? {
     val navigate = onNavigateToArtist ?: return null
     if (post.isMovie) return null
-    if (post.track.source != TrackSource.SPOTIFY && post.track.source != TrackSource.APPLEMUSIC) return null
+    if (post.track.source != TrackSource.SPOTIFY
+        && post.track.source != TrackSource.APPLEMUSIC
+        && post.track.source != TrackSource.AUDIOMACK) return null
     fun go(artistId: String) {
         val name = fm.corus.android.data.model.primaryNameHint(
             post.track.artistName,
@@ -454,7 +513,11 @@ internal fun onGoToArtistTap(
                 onResolvingChange(true)
                 try {
                     val resolved = resolveArtistId(post.track)?.takeIf { it.isNotBlank() }
-                    if (resolved != null) go(resolved) else onArtistNotFound()
+                    if (resolved != null) go(resolved)
+                    else if (post.track.source == TrackSource.AUDIOMACK) {
+                        post.track.audiomackArtistLinkOutUrl?.let { openExternalUrl(context, it) }
+                            ?: onArtistNotFound()
+                    } else onArtistNotFound()
                 } finally {
                     onResolvingChange(false)
                 }
@@ -470,6 +533,7 @@ internal fun onGoToArtistTap(
  * [onNavigateToAlbum] is null (flag off) or the post carries no album id.
  */
 internal fun onGoToAlbumTap(
+    context: Context,
     post: CymbalPost,
     onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)?,
     onNavigateToSong: (() -> Unit)?,
@@ -481,7 +545,9 @@ internal fun onGoToAlbumTap(
 ): (() -> Unit)? {
     val navigateAlbum = onNavigateToAlbum ?: return null
     if (post.isMovie) return null
-    if (post.track.source != TrackSource.SPOTIFY && post.track.source != TrackSource.APPLEMUSIC) return null
+    if (post.track.source != TrackSource.SPOTIFY
+        && post.track.source != TrackSource.APPLEMUSIC
+        && post.track.source != TrackSource.AUDIOMACK) return null
     fun go(albumId: String) = navigateAlbum(
         fm.corus.android.ui.navigation.AlbumPageRoute(
             albumId = albumId,
@@ -519,7 +585,11 @@ internal fun onGoToAlbumTap(
                     val dest = resolveDestinations(post.track)
                     if (routeToSongIfNeeded(dest)) return@launch
                     val resolved = dest.albumId?.takeIf { it.isNotBlank() }
-                    if (resolved != null) go(resolved) else onAlbumNotFound()
+                    if (resolved != null) go(resolved)
+                    else if (post.track.source == TrackSource.AUDIOMACK) {
+                        post.track.audiomackAlbumLinkOutUrl?.let { openExternalUrl(context, it) }
+                            ?: onAlbumNotFound()
+                    } else onAlbumNotFound()
                 } finally {
                     onResolvingChange(false)
                 }

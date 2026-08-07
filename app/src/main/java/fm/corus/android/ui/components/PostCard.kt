@@ -1,5 +1,6 @@
 package fm.corus.android.ui.components
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.core.Animatable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -71,6 +74,7 @@ import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.LocalCorusPalette
 import fm.corus.android.ui.theme.NunitoFamily
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -81,7 +85,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.material.icons.outlined.Movie
-import androidx.compose.material.icons.filled.PlayArrow
 
 /** Grace period before the album-art loading spinner is revealed. Fast / cached
  *  previews start playing before this elapses, so they never flash a spinner —
@@ -93,6 +96,10 @@ private val ALBUM_ART_PAUSE_ICON_SIZE = 48.dp
 /** Sized smaller than the pause icon; stays centered in the shared glyph box. */
 private val ALBUM_ART_SPINNER_SIZE = 26.dp
 private val ALBUM_ART_SPINNER_STROKE = 3.dp
+
+/** Optical nudge for post-row media controls — mirrors iOS `offset(y: -4)`. */
+internal val PostRowServiceControlYOffset = (-4).dp
+internal val PostRowFullSongControlXOffset = 1.dp
 
 /** Fixed-size box so loading spinner and pause icon stay centered in the same spot. */
 @Composable
@@ -143,6 +150,8 @@ fun PostCard(
     isPreviewLoading: Boolean = false,
     isPreviewPlaying: Boolean = false,
     onPreviewTap: () -> Unit = {},
+    isFullSongPlaying: Boolean = false,
+    isFullSongLoading: Boolean = false,
     onTrailerTap: () -> Unit = {},
     onCommentTap: () -> Unit = {},
     onRepostTap: () -> Unit = {},
@@ -957,6 +966,10 @@ fun PostCard(
                     }
                 }
             } else {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                 val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
                 val isAudiomack = post.track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
                 val isTidal = post.track.source == fm.corus.android.data.model.TrackSource.TIDAL
@@ -970,6 +983,7 @@ fun PostCard(
                     }
                 )
                 val tapModifier = Modifier
+                    .offset(y = PostRowServiceControlYOffset)
                     .size(28.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -982,6 +996,7 @@ fun PostCard(
                     AudiomackLogo(
                         height = 20.dp,
                         modifier = Modifier
+                            .offset(y = PostRowServiceControlYOffset)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -1002,6 +1017,7 @@ fun PostCard(
                         ),
                         contentDescription = cd,
                         modifier = Modifier
+                            .offset(y = PostRowServiceControlYOffset)
                             .size(28.dp)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
@@ -1045,6 +1061,7 @@ fun PostCard(
                         modifier = tapModifier,
                         contentScale = ContentScale.Fit,
                     )
+                }
                 }
             }
         }
@@ -1450,6 +1467,61 @@ private fun InlineFollowPill(
     }
 }
 
+/** Per-post full-song play/pause beside the service badge. Dark: 26dp icon;
+ *  light: soft 28dp disc + inner glyph. */
+@Composable
+internal fun InAppFullSongButton(
+    isPlaying: Boolean,
+    isLoading: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val isDark = LocalCorusPalette.current.text == Color(0xFFF5F5F7)
+    val controlSize = if (isDark) 26.dp else 28.dp
+    Box(
+        modifier = modifier.size(controlSize),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(if (isDark) 18.dp else 20.dp),
+                strokeWidth = 2.dp,
+                color = if (isDark) CorusColors.Secondary else CorusColors.MediaControlForeground,
+            )
+        } else if (isDark) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = null,
+                tint = CorusColors.Secondary,
+                modifier = Modifier.size(controlSize),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(controlSize)
+                    .clip(CircleShape)
+                    .background(CorusColors.MediaControlBackground),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (isPlaying) {
+                    Icon(
+                        imageVector = Icons.Filled.Pause,
+                        contentDescription = null,
+                        tint = CorusColors.MediaControlForeground,
+                        modifier = Modifier.size(12.dp),
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_in_app_play_fill),
+                        contentDescription = null,
+                        tint = CorusColors.MediaControlForeground,
+                        modifier = Modifier.size(12.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 /**
  * Builds the [PostCard] `onSubtitleTap` for a post. Movie posts route to the
  * director page via `directorIds[0]` (plain text when there's no id yet).
@@ -1464,6 +1536,7 @@ private fun InlineFollowPill(
  * text) when the corresponding nav callback is null (flag off).
  */
 fun postSubtitleTap(
+    context: Context,
     post: CymbalPost,
     onNavigateToArtist: ((fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit)?,
     onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)?,
@@ -1489,6 +1562,7 @@ fun postSubtitleTap(
         }
     }
     return onGoToArtistTap(
+        context = context,
         post = post,
         onNavigateToArtist = onNavigateToArtist,
         scope = scope,

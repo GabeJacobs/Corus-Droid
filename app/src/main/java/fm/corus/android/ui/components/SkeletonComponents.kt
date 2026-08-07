@@ -388,13 +388,22 @@ fun SkeletonProfileView(
                         .clip(RoundedCornerShape(4.dp))
                         .background(CorusColors.Skeleton)
                 )
-                // Settings icon placeholder
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(CorusColors.Skeleton)
-                )
+                // Trailing chrome placeholder — playlist (24) + gap + settings (24)
+                // matches the loaded own-profile title row so content doesn't jump.
+                Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md)) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(CorusColors.Skeleton)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(CorusColors.Skeleton)
+                    )
+                }
             }
         } else {
             // OtherProfileScreen header: the real layout is just a centered display

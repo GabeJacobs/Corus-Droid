@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import fm.corus.android.BuildConfig
 import fm.corus.android.R
 import fm.corus.android.data.model.MusicService
+import fm.corus.android.domain.SpotifyPlaybackService
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.MusicNote
@@ -340,7 +341,9 @@ fun SettingsScreen(
                 onSelect = { settingsViewModel.setMusicService(it) },
             )
 
-            if (musicService == MusicService.SPOTIFY && settingsViewModel.spotifyAuthExperimentEnabled) {
+            if (musicService == MusicService.SPOTIFY &&
+                SpotifyPlaybackService.isSpotifyAppInstalled(context)
+            ) {
                 SettingsToggleRow(
                     icon = Icons.Filled.QueueMusic,
                     title = stringResource(R.string.settings_row_play_full_songs_title),
@@ -357,7 +360,7 @@ fun SettingsScreen(
                     title = stringResource(R.string.settings_row_spotify_library_save_title),
                     subtitle = stringResource(R.string.settings_row_spotify_library_save_subtitle),
                     checked = autoAddSavedToSpotify,
-                    onCheckedChange = { settingsViewModel.onSpotifyLibrarySaveToggled(it, context) },
+                    onCheckedChange = { settingsViewModel.onSpotifyLibrarySaveToggled(it) },
                 )
             }
 

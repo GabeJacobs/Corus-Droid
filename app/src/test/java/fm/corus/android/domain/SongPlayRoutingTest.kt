@@ -57,27 +57,22 @@ class SongPlayRoutingTest {
     fun spotifyAuthExperimentRouting() {
         assertTrue(
             SongPlayRouting.wantsSpotifyAuthExperiment(
-                TrackSource.SPOTIFY, MusicService.SPOTIFY, experimentEnabled = true, playFullSongs = true,
+                TrackSource.SPOTIFY, MusicService.SPOTIFY, playFullSongs = true,
             ),
         )
         assertFalse(
             SongPlayRouting.wantsSpotifyAuthExperiment(
-                TrackSource.SPOTIFY, MusicService.SPOTIFY, experimentEnabled = true, playFullSongs = false,
+                TrackSource.SPOTIFY, MusicService.SPOTIFY, playFullSongs = false,
             ),
         )
         assertFalse(
             SongPlayRouting.wantsSpotifyAuthExperiment(
-                TrackSource.SPOTIFY, MusicService.SPOTIFY, experimentEnabled = false, playFullSongs = true,
+                TrackSource.SPOTIFY, MusicService.APPLE_MUSIC, playFullSongs = true,
             ),
         )
         assertFalse(
             SongPlayRouting.wantsSpotifyAuthExperiment(
-                TrackSource.SPOTIFY, MusicService.APPLE_MUSIC, experimentEnabled = true, playFullSongs = true,
-            ),
-        )
-        assertFalse(
-            SongPlayRouting.wantsSpotifyAuthExperiment(
-                TrackSource.SOUNDCLOUD, MusicService.SPOTIFY, experimentEnabled = true, playFullSongs = true,
+                TrackSource.SOUNDCLOUD, MusicService.SPOTIFY, playFullSongs = true,
             ),
         )
     }

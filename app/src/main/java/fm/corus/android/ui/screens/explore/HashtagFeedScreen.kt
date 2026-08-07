@@ -362,28 +362,28 @@ fun HashtagFeedScreen(
 
     if (showPlaylistAlert) {
         val hasSoundCloud = posts.any { it.isTrack && it.track.source == TrackSource.SOUNDCLOUD }
-        AlertDialog(
-            onDismissRequest = { showPlaylistAlert = false },
-            title = { Text("Spotify Feature") },
-            text = {
-                Text(
-                    if (hasSoundCloud)
-                        "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
-                    else
-                        "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showPlaylistAlert = false
-                    viewModel.generateHashtagPlaylist(hashtag)
-                }) { Text("Generate Spotify Playlist") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPlaylistAlert = false }) {
-                    Text("Cancel")
-                }
-            },
+        val message = if (hasSoundCloud) {
+            "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
+        } else {
+            "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
+        }
+        fm.corus.android.ui.components.CorusPromptOverlay(
+            visible = true,
+            title = "Spotify Feature",
+            message = message,
+            iconRes = R.drawable.spotify_logo,
+            onDismiss = { showPlaylistAlert = false },
+            buttons = listOf(
+                fm.corus.android.ui.components.CorusPromptButton(
+                    label = "Generate Spotify Playlist",
+                    emphasized = true,
+                    onClick = { viewModel.generateHashtagPlaylist(hashtag) },
+                ),
+                fm.corus.android.ui.components.CorusPromptButton(
+                    label = "Cancel",
+                    onClick = {},
+                ),
+            ),
         )
     }
 
@@ -407,11 +407,9 @@ fun HashtagFeedScreen(
             count = totalCount,
             caveat = caveat,
             onQuick = {
-                showPlaylistChooser = false
                 viewModel.generateHashtagPlaylist(hashtag, fullExport = false)
             },
             onAll = {
-                showPlaylistChooser = false
                 viewModel.generateHashtagPlaylist(hashtag, fullExport = true)
             },
             onDismiss = { showPlaylistChooser = false },
@@ -423,11 +421,9 @@ fun HashtagFeedScreen(
             count = totalCount,
             offersFullExport = shouldOfferHashtagFullExport(totalCount),
             onQuick = {
-                showYouTubeMusicPlaylistExplainer = false
                 viewModel.generateHashtagPlaylist(hashtag, fullExport = false)
             },
             onAll = {
-                showYouTubeMusicPlaylistExplainer = false
                 viewModel.generateHashtagPlaylist(hashtag, fullExport = true)
             },
             onDismiss = { showYouTubeMusicPlaylistExplainer = false },

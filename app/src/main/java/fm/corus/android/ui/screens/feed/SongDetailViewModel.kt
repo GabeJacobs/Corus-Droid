@@ -15,6 +15,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.FullSongPlayCoordinator
+import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.R
@@ -38,6 +39,7 @@ class SongDetailViewModel @Inject constructor(
     private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
     private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
     private val preferencesDataStore: PreferencesDataStore,
+    private val playbackModePromptManager: fm.corus.android.domain.PlaybackModePromptManager,
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
@@ -259,16 +261,28 @@ class SongDetailViewModel @Inject constructor(
                 soundcloudId = soundcloudId,
                 soundcloudPermalinkUrl = soundcloudPermalinkUrl,
             )
+            val preferFull = SongPlayRouting.catalogListeningEntitled(
+                context = context,
+                service = musicServicePreference.current.value,
+                remoteConfig = remoteConfigService,
+            )
             val outcome = FullSongPlayCoordinator.playTapOutcome(
                 track = track,
                 nowPlaying = nowPlayingManager,
                 remoteConfig = remoteConfigService,
                 musicService = musicServicePreference.current.value,
                 playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playbackModePromptManager = playbackModePromptManager,
+                preferFullSong = preferFull,
             )
             FullSongPlayCoordinator.applyPlayTapOutcome(
                 outcome = outcome,
+                track = track,
                 nowPlaying = nowPlayingManager,
+                remoteConfig = remoteConfigService,
+                musicService = musicServicePreference.current.value,
+                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playbackModePromptManager = playbackModePromptManager,
                 onPreview = {
                     nowPlayingManager.play(
                         trackId = trackId,

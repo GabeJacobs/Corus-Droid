@@ -153,6 +153,11 @@ fun AlbumPageScreen(
     // package.
     val tracks = catalog?.tracks ?: emptyList()
     val albumQueue = remember(tracks, albumOrigin) { tracks.map { it.toQueuedTrack(albumOrigin) } }
+    val canPlayFullSongs = viewModel.catalogListeningEntitled()
+    val showAlbumPlayPill = canPlayFullSongs && !catalogError && (catalog == null || tracks.isNotEmpty())
+    val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
+    val currentTrackInAlbum = nowPlayingState.trackId?.let { id -> tracks.any { it.id == id } } == true
+    val isPlayingThisAlbum = currentTrackInAlbum && nowPlayingState.isPlaying
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     // Estimated tracklist-row height (px), for centering the return-to-origin
@@ -161,7 +166,9 @@ fun AlbumPageScreen(
 
     LaunchedEffect(albumId) {
         viewModel.analyticsService.logAlbumPageViewed(albumId)
-        viewModel.load(albumId)
+        // Pass the header hints: they let the server fall back to Apple when
+        // Spotify's catalog quota is exhausted and no post carries this album id.
+        viewModel.load(albumId, titleHint, artistHint)
     }
 
     // Mini-player "return to origin": scroll the tracklist to the playing song
@@ -306,11 +313,7 @@ fun AlbumPageScreen(
             contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl + LocalBottomBarHeight.current),
         ) {
             // ── Header: cover (tap to play the album), title, tappable artist,
-            // meta line ──
-            // Tapping the cover plays the album as queued 30s previews (Android
-            // has no full-track tier), mirroring tapping the first track row.
-            // There's still no separate album Play button — the art tap is the
-            // affordance.
+            // meta line, Play/Pause pill (entitled users) ──
             item {
                 Column(
                     modifier = Modifier
@@ -333,17 +336,11 @@ fun AlbumPageScreen(
                                 .shadow(4.dp, RoundedCornerShape(8.dp))
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable(enabled = albumQueue.isNotEmpty()) {
-                                    val firstTrack = tracks.firstOrNull() ?: return@clickable
-                                    viewModel.analyticsService.logAlbumTrackPreviewed(albumId, firstTrack.id)
-                                    viewModel.nowPlayingManager.routePlayTap(
-                                        track = firstTrack,
-                                        queue = albumQueue,
-                                        onPreview = {
-                                            viewModel.nowPlayingManager.play(
-                                                track = firstTrack.toQueuedTrack(albumOrigin),
-                                                queue = albumQueue,
-                                            )
-                                        },
+                                    viewModel.playAlbum(
+                                        albumId = albumId,
+                                        tracks = tracks,
+                                        albumOrigin = albumOrigin,
+                                        albumQueue = albumQueue,
                                     )
                                 },
                             contentScale = ContentScale.Crop,
@@ -410,6 +407,21 @@ fun AlbumPageScreen(
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
+                    if (showAlbumPlayPill) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.md))
+                        AlbumPlayPausePill(
+                            isPlaying = isPlayingThisAlbum,
+                            showShimmer = catalog == null && isCatalogLoading,
+                            onClick = {
+                                viewModel.playAlbum(
+                                    albumId = albumId,
+                                    tracks = tracks,
+                                    albumOrigin = albumOrigin,
+                                    albumQueue = albumQueue,
+                                )
+                            },
+                        )
+                    }
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                 }
             }
@@ -430,7 +442,7 @@ fun AlbumPageScreen(
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )
-                        TextButton(onClick = { viewModel.loadCatalog(albumId) }) {
+                        TextButton(onClick = { viewModel.loadCatalog(albumId, titleHint, artistHint) }) {
                             Text(
                                 text = stringResource(R.string.song_detail_try_again),
                                 style = CorusFont.buttonSmall,
@@ -461,6 +473,7 @@ fun AlbumPageScreen(
                             number = index + 1,
                             queue = albumQueue,
                             origin = albumOrigin,
+                            preferFullSongOnPlay = viewModel.catalogListeningEntitled(),
                             playbackEnabled = !showPreReleaseAlbumUI || fm.corus.android.domain.trackIsCatalogPlayable(track),
                             // Trailing slot shows how many Corus users shared this
                             // track (from getAlbumPosts) in place of its duration,

@@ -118,6 +118,12 @@ fun SharePostSheet(
                 .background(CorusColors.Tertiary.copy(alpha = 0.4f)),
         )
 
+        // What the link looks like once it lands. Hidden while searching so the
+        // results list gets the height the keyboard takes.
+        if (!isSearchActive) {
+            ShareLinkPreviewCard(shareableLink = shareableLink)
+        }
+
         // Search bar
         Row(
             modifier = Modifier
@@ -544,7 +550,7 @@ internal fun ShareActionButton(
 }
 
 @Composable
-private fun InstagramShareButton(
+internal fun InstagramShareButton(
     isLoading: Boolean,
     onClick: () -> Unit,
 ) {

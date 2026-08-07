@@ -172,6 +172,12 @@ class RemoteConfigService @Inject constructor(
     val tidalEnabled: Boolean
         get() = flagWithDefault("tidal_enabled", true)
 
+    /// Gate for streaming full TIDAL tracks in-app instead of 30s preview +
+    /// link-out. Nested under `tidalEnabled`: both must be true. Mirrors iOS/web
+    /// `tidal_full_playback_enabled`. Defaults false until TIDAL grants streaming.
+    val tidalFullPlaybackEnabled: Boolean
+        get() = flagWithDefault("tidal_full_playback_enabled", false)
+
     /// Master gate for the YouTube Music link-out service (onboarding + settings
     /// picker + post link-out). Link-out only: playback stays on the preview and
     /// playlist export falls back to Spotify, exactly like Deezer. Defaults to
@@ -401,17 +407,6 @@ class RemoteConfigService @Inject constructor(
     val feedDecadeFilterEnabled: Boolean
         get() = feedFlag("feed_decade_filter_enabled")
 
-    /// Gate for the Spotify App Remote full-playback auth experiment. OFF = zero
-    /// behavior change — all play taps stay on the existing 30s preview path.
-    /// Shares `spotify_auth_experiment_enabled` with iOS/web.
-    val spotifyAuthExperimentEnabled: Boolean
-        get() {
-            if (BuildConfig.DEBUG && devPrefs.contains("spotify_auth_experiment_enabled")) {
-                return devPrefs.getBoolean("spotify_auth_experiment_enabled", false)
-            }
-            return feedFlag("spotify_auth_experiment_enabled")
-        }
-
     /// Master gate for the "Add Saved Songs to Library" Spotify Web API opt-in:
     /// when the user turns the settings toggle on (granting `user-library-modify`
     /// via a separate OAuth + PKCE consent — NOT the App Remote token above), every
@@ -521,7 +516,6 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
             .putBoolean("feed_decade_filter_enabled", remoteConfig.getBoolean("feed_decade_filter_enabled"))
-            .putBoolean("spotify_auth_experiment_enabled", remoteConfig.getBoolean("spotify_auth_experiment_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
             .apply()
     }
@@ -551,7 +545,6 @@ class RemoteConfigService @Inject constructor(
                 "favorites_enabled=${remoteConfig.getBoolean("favorites_enabled")} " +
                 "unified_search_enabled=$unifiedSearchEnabled " +
                 "compose_unified_search_enabled=$composeUnifiedSearchEnabled " +
-                "spotify_auth_experiment_enabled=$spotifyAuthExperimentEnabled " +
                 "uid=${auth.currentUser?.uid}"
         )
     }
@@ -582,6 +575,7 @@ class RemoteConfigService @Inject constructor(
             "favorite_people_cap_limit" to 4L,
             "soundcloud_enabled" to false,
             "tidal_enabled" to true,
+            "tidal_full_playback_enabled" to false,
             "youtube_music_enabled" to false,
             "deezer_enabled" to true,
             "following_denorm_reads_enabled" to true,
@@ -612,7 +606,6 @@ class RemoteConfigService @Inject constructor(
             "feed_switch_hint_max_impressions" to 3L,
             "reposters_list_enabled" to false,
             "feed_decade_filter_enabled" to false,
-            "spotify_auth_experiment_enabled" to false,
             "spotify_library_save_enabled" to false,
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
         )

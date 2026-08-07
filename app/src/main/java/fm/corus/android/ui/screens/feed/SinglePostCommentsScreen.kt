@@ -733,6 +733,7 @@ fun SinglePostCommentsScreen(
                         onMenuTap = { menuPost = p },
                         backCoverFlipState = backCoverFlipState,
                         onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
+                            context = context,
                             post = p,
                             onNavigateToArtist = onNavigateToArtist,
                             onNavigateToDirector = onNavigateToDirector,

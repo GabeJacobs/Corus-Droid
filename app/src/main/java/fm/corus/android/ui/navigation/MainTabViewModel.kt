@@ -38,8 +38,19 @@ class MainTabViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val analyticsService: fm.corus.android.service.AnalyticsService,
     val feedScrollRouter: fm.corus.android.domain.FeedScrollRouter,
-    private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
+    val remoteConfigService: fm.corus.android.service.RemoteConfigService,
+    val playbackModePromptManager: fm.corus.android.domain.PlaybackModePromptManager,
 ) : ViewModel() {
+
+    val playFullSongs = preferencesDataStore.playFullSongs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setPlayFullSongs(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesDataStore.setPlayFullSongs(enabled)
+            nowPlayingManager.applyPlaybackModeToggle(toFull = enabled)
+        }
+    }
 
     /** Whether the immersive header is on — the profile feed only paints its own
      *  frosted status strip (so it opts out of the status-bar cover) while immersive. */

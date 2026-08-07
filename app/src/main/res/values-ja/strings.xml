@@ -315,6 +315,7 @@
     <string name="profile_toast_no_songs_for_playlist">プレイリストを作成する曲がありません</string>
     <string name="profile_button_edit">プロフィールを編集</string>
     <string name="profile_button_playlist">プレイリスト</string>
+    <string name="profile_button_share">プロフィールをシェア</string>
     <string name="hashtag_button_playlist">プレイリスト</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">フォロワー</string>
@@ -1160,8 +1161,8 @@
         <item quantity="other">%1$d件のリポスト</item>
     </plurals>
     <string name="destination_prerelease_album_hint">発売前です。リリース済みの曲のみ再生できます。</string>
-    <string name="settings_row_play_full_songs_spotify_subtitle">プレビューではなく、Spotifyでフル尺の曲を再生します。Spotifyアプリのインストールとログインが必要です。</string>
-    <string name="settings_row_play_full_songs_title">フル尺の曲を再生</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">プレビューではなく、Spotifyで投稿の曲をフル尺再生します。アルバムページと曲ページは常にフル尺で再生されます。Spotifyアプリのインストールとログインが必要です。</string>
+    <string name="settings_row_play_full_songs_title">投稿でフル尺の曲を再生</string>
     <string name="settings_row_spotify_library_save_subtitle">保存した曲がSpotifyのライブラリに追加されます。Spotifyアプリのインストールとログインが必要です。</string>
     <string name="settings_row_spotify_library_save_title">保存した曲をライブラリに追加</string>
     <string name="entity_link_not_found">このリンクの参照先はもうありません</string>

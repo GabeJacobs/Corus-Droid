@@ -24,6 +24,7 @@ import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PlaylistTrialField
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.ui.components.ShareCardTheme
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.feed.SHARE_CONTACTS_TARGET
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
@@ -159,6 +160,24 @@ class OtherProfileViewModel @Inject constructor(
                 ToastManager.show(context.getString(R.string.feed_toast_failed_send_post))
             }
         }
+    }
+
+    fun logProfileShared(
+        profileUserId: String,
+        method: String,
+        isOwnProfile: Boolean,
+        cardTheme: ShareCardTheme? = null,
+    ) {
+        analyticsService.logProfileShared(
+            profileUserId = profileUserId,
+            method = method,
+            isOwnProfile = isOwnProfile,
+            cardTheme = cardTheme?.analyticsValue,
+        )
+    }
+
+    fun logProfileShareSheetOpened(profileUserId: String, isOwnProfile: Boolean, entryPoint: String) {
+        analyticsService.logProfileShareSheetOpened(profileUserId, isOwnProfile, entryPoint)
     }
 
     init {

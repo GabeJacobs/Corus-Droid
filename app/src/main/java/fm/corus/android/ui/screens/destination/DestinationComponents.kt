@@ -31,9 +31,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -79,6 +80,61 @@ internal fun formatDestinationCount(count: Int): String = when {
     count < 1000 -> "$count"
     count < 1_000_000 -> String.format("%.2fK", count / 1000.0)
     else -> String.format("%.2fM", count / 1_000_000.0)
+}
+
+/** Album-page Play/Pause pill — mirrors iOS `AlbumPageView.playButtonLabel`. */
+@Composable
+internal fun AlbumPlayPausePill(
+    isPlaying: Boolean,
+    showShimmer: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(50)
+    val label = @Composable {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(shape)
+                .background(CorusColors.Accent)
+                .padding(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(12.dp),
+            )
+            Text(
+                text = stringResource(
+                    if (isPlaying) R.string.destination_album_pause else R.string.destination_album_play,
+                ),
+                style = CorusFont.buttonSmall,
+                color = Color.White,
+            )
+        }
+    }
+
+    if (showShimmer) {
+        Box(modifier = modifier) {
+            Box(modifier = Modifier.alpha(0f)) { label() }
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(shape)
+                    .shimmer(),
+            )
+        }
+    } else {
+        Box(
+            modifier = modifier
+                .clip(shape)
+                .clickable(onClick = onClick),
+        ) {
+            label()
+        }
+    }
 }
 
 /** [CatalogTrackRow] subtitle: "{album} · {year}" on artist "Popular" (art)
@@ -513,6 +569,7 @@ internal fun CatalogTrackRow(
      *  iOS. */
     corusStats: TrackCorusStats? = null,
     playbackEnabled: Boolean = true,
+    preferFullSongOnPlay: Boolean = false,
     onRowTap: () -> Unit,
     /** Fired when a NEW preview starts (not on pause/resume of the current
      *  track) — the analytics hook. */
@@ -532,6 +589,7 @@ internal fun CatalogTrackRow(
             nowPlaying.routePlayTap(
                 track = track,
                 queue = queue,
+                preferFullSong = preferFullSongOnPlay,
                 onPreview = {
                     if (queue.isEmpty()) {
                         nowPlaying.play(

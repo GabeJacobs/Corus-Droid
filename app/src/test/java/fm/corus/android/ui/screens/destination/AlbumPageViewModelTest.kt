@@ -8,9 +8,11 @@ import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -45,6 +47,7 @@ class AlbumPageViewModelTest {
     private lateinit var userRepository: UserRepository
     private lateinit var messageRepository: MessageRepository
     private lateinit var remoteConfigService: RemoteConfigService
+    private lateinit var musicServicePreference: MusicServicePreference
     private lateinit var context: android.content.Context
 
     @Before
@@ -57,6 +60,8 @@ class AlbumPageViewModelTest {
         userRepository = mock()
         messageRepository = mock()
         remoteConfigService = mock()
+        musicServicePreference = mock()
+        whenever(musicServicePreference.current).thenReturn(MutableStateFlow(fm.corus.android.data.model.MusicService.SPOTIFY))
         context = mock()
     }
 
@@ -73,6 +78,7 @@ class AlbumPageViewModelTest {
         userRepository = userRepository,
         messageRepository = messageRepository,
         remoteConfigService = remoteConfigService,
+        musicServicePreference = musicServicePreference,
         context = context,
     )
 

@@ -45,6 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Intent
@@ -58,6 +60,8 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.AlbumArtPlaybackOverlayGlyph
+import fm.corus.android.ui.components.PostRowFullSongControlXOffset
+import fm.corus.android.ui.components.PostRowServiceControlYOffset
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
 import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.contentHazeSource
@@ -278,6 +282,7 @@ fun PostDetailScreen(
                                 }
                             },
                             onSubtitleTap = fm.corus.android.ui.components.postSubtitleTap(
+                                context = context,
                                 post = currentPost,
                                 onNavigateToArtist = onNavigateToArtist,
                                 onNavigateToDirector = onNavigateToDirector,
@@ -922,12 +927,17 @@ private fun PostDetailSongInfo(
                 )
             }
         } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
             // Non-Spotify sources lock to their own brand badge. The track
             // isn't on Spotify and a Spotify icon would be misleading
             // (SoundCloud → cloudmark; Apple Music → Apple glyph).
             if (post.track.source == TrackSource.SOUNDCLOUD) {
                 SoundCloudAdaptiveLogo(
                     modifier = Modifier
+                        .offset(y = PostRowServiceControlYOffset)
                         .size(28.dp)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -964,6 +974,7 @@ private fun PostDetailSongInfo(
                     painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(displayedService)),
                     contentDescription = stringResource(R.string.post_detail_cd_play_spotify),
                     modifier = Modifier
+                        .offset(y = PostRowServiceControlYOffset)
                         .size(28.dp)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -972,6 +983,7 @@ private fun PostDetailSongInfo(
                         ),
                     contentScale = ContentScale.Fit,
                 )
+            }
             }
         }
     }

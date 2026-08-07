@@ -25,6 +25,7 @@ import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.components.ShareCardTheme
 import fm.corus.android.ui.screens.feed.SHARE_CONTACTS_TARGET
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
@@ -126,6 +127,7 @@ class ProfileViewModel @Inject constructor(
 
     /** Send-side gate for the in-app "Share Profile Link" Corus share sheet. */
     val profileShareEnabled: Boolean get() = remoteConfigService.profileShareEnabled
+    val instagramShareEnabled: Boolean get() = remoteConfigService.instagramShareEnabled
 
     // ── Profile share sheet ──
     // Sharing your own profile: DMs send a `sharedProfile` message deep-linking
@@ -205,6 +207,28 @@ class ProfileViewModel @Inject constructor(
                 ToastManager.show(context.getString(R.string.feed_toast_failed_send_post))
             }
         }
+    }
+
+    fun logProfileShared(
+        profileUserId: String,
+        method: String,
+        isOwnProfile: Boolean,
+        cardTheme: ShareCardTheme? = null,
+    ) {
+        analyticsService.logProfileShared(
+            profileUserId = profileUserId,
+            method = method,
+            isOwnProfile = isOwnProfile,
+            cardTheme = cardTheme?.analyticsValue,
+        )
+    }
+
+    fun logProfileShareSheetOpened(profileUserId: String, isOwnProfile: Boolean, entryPoint: String) {
+        analyticsService.logProfileShareSheetOpened(profileUserId, isOwnProfile, entryPoint)
+    }
+
+    fun logProfileShareThemeChanged(profileUserId: String, cardTheme: ShareCardTheme) {
+        analyticsService.logProfileShareThemeChanged(profileUserId, cardTheme.analyticsValue)
     }
 
     val engagementStates = engagementManager.states

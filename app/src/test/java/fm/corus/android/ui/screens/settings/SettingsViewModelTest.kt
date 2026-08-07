@@ -5,7 +5,6 @@ import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.domain.MusicServicePreference
-import fm.corus.android.domain.SpotifyLibraryAuthService
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import org.junit.Assert.assertFalse
@@ -57,7 +56,6 @@ class SettingsViewModelTest {
             preferencesDataStore,
             remoteConfig,
             analyticsService,
-            mock<SpotifyLibraryAuthService>(),
         )
     }
 
@@ -110,7 +108,6 @@ class SettingsViewModelTest {
             },
             remoteConfig,
             analyticsService,
-            mock<SpotifyLibraryAuthService>(),
         )
 
         vm.restorePurchases()
@@ -141,7 +138,6 @@ class SettingsViewModelTest {
             },
             remoteConfig,
             analyticsService,
-            mock<SpotifyLibraryAuthService>(),
         )
 
         vm.restorePurchases()
@@ -168,7 +164,6 @@ class SettingsViewModelTest {
             },
             remoteConfig,
             analyticsService,
-            mock<SpotifyLibraryAuthService>(),
         )
 
         vm.restorePurchases()
@@ -192,7 +187,6 @@ class SettingsViewModelTest {
             },
             remoteConfig,
             analyticsService,
-            mock<SpotifyLibraryAuthService>(),
         )
 
         vm.restorePurchases()

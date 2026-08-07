@@ -29,6 +29,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -48,6 +50,7 @@ class PostDetailViewModel @Inject constructor(
     override val remoteConfig: RemoteConfigService,
     override val analyticsService: AnalyticsService,
     private val preferencesDataStore: PreferencesDataStore,
+    private val playbackModePromptManager: fm.corus.android.domain.PlaybackModePromptManager,
     @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
 
@@ -78,6 +81,9 @@ class PostDetailViewModel @Inject constructor(
 
     private val _post = MutableStateFlow<CymbalPost?>(null)
     val post: StateFlow<CymbalPost?> = _post.asStateFlow()
+
+    val playFullSongs: StateFlow<Boolean> = preferencesDataStore.playFullSongs
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -221,40 +227,68 @@ class PostDetailViewModel @Inject constructor(
     }
 
     fun playPreview(post: CymbalPost) {
-        nowPlayingManager.lastUserInitiatedSourcePostId = post.id
+        viewModelScope.launch { routePostPlayTap(post, preferFullSong = false) }
+    }
+
+    fun playFullSong(post: CymbalPost) {
         viewModelScope.launch {
-            val outcome = FullSongPlayCoordinator.playTapOutcome(
-                track = post.track,
-                sourcePostId = post.id,
-                nowPlaying = nowPlayingManager,
-                remoteConfig = remoteConfig,
-                musicService = musicServicePreference.current.value,
-                playFullSongs = preferencesDataStore.playFullSongsSync(),
-            )
-            FullSongPlayCoordinator.applyPlayTapOutcome(
-                outcome = outcome,
-                nowPlaying = nowPlayingManager,
-                onPreview = {
-                    nowPlayingManager.play(
-                        trackId = post.track.id,
-                        trackName = post.track.name,
-                        artistName = post.track.artistName,
-                        albumArtURL = post.track.albumArtURL,
-                        albumArtLargeURL = post.track.albumArtLargeURL,
-                        previewUrl = post.track.previewUrl,
-                        spotifyURI = post.track.spotifyURI,
-                        spotifyWebURL = post.track.spotifyWebURL,
-                        isrc = post.track.isrc,
-                        sourcePostId = post.id,
-                        source = post.track.source,
-                        soundcloudId = post.track.soundcloudId,
-                        soundcloudPermalinkUrl = post.track.soundcloudPermalinkUrl,
-                        audiomackUrl = post.track.audiomackUrl,
-                    )
-                },
-                scope = viewModelScope,
-            )
+            routePostPlayTap(post, preferFullSong = true, skipPlaybackModePrompt = true)
         }
+    }
+
+    private suspend fun routePostPlayTap(
+        post: CymbalPost,
+        preferFullSong: Boolean,
+        skipPlaybackModePrompt: Boolean = false,
+    ) {
+        nowPlayingManager.lastUserInitiatedSourcePostId = post.id
+        val musicService = musicServicePreference.current.value
+        if (!preferFullSong &&
+            nowPlayingManager.isFullSongSessionActive(musicService, post.track.id, post.id)
+        ) {
+            nowPlayingManager.togglePlayPause()
+            return
+        }
+        val outcome = FullSongPlayCoordinator.playTapOutcome(
+            track = post.track,
+            sourcePostId = post.id,
+            nowPlaying = nowPlayingManager,
+            remoteConfig = remoteConfig,
+            musicService = musicService,
+            playFullSongs = preferencesDataStore.playFullSongsSync(),
+            playbackModePromptManager = playbackModePromptManager,
+            skipPlaybackModePrompt = skipPlaybackModePrompt,
+            preferFullSong = preferFullSong,
+        )
+        FullSongPlayCoordinator.applyPlayTapOutcome(
+            outcome = outcome,
+            track = post.track,
+            sourcePostId = post.id,
+            nowPlaying = nowPlayingManager,
+            remoteConfig = remoteConfig,
+            musicService = musicService,
+            playFullSongs = preferencesDataStore.playFullSongsSync(),
+            playbackModePromptManager = playbackModePromptManager,
+            onPreview = {
+                nowPlayingManager.play(
+                    trackId = post.track.id,
+                    trackName = post.track.name,
+                    artistName = post.track.artistName,
+                    albumArtURL = post.track.albumArtURL,
+                    albumArtLargeURL = post.track.albumArtLargeURL,
+                    previewUrl = post.track.previewUrl,
+                    spotifyURI = post.track.spotifyURI,
+                    spotifyWebURL = post.track.spotifyWebURL,
+                    isrc = post.track.isrc,
+                    sourcePostId = post.id,
+                    source = post.track.source,
+                    soundcloudId = post.track.soundcloudId,
+                    soundcloudPermalinkUrl = post.track.soundcloudPermalinkUrl,
+                    audiomackUrl = post.track.audiomackUrl,
+                )
+            },
+            scope = viewModelScope,
+        )
     }
 
     override fun deletePost(postId: String) {

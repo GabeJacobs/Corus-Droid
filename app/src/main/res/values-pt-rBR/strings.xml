@@ -304,6 +304,7 @@
     <string name="profile_toast_no_songs_for_playlist">Sem músicas para criar uma playlist</string>
     <string name="profile_button_edit">EDITAR</string>
     <string name="profile_button_playlist">PLAYLIST</string>
+    <string name="profile_button_share">COMPARTILHAR PERFIL</string>
     <string name="hashtag_button_playlist">Playlist</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">seguidores</string>
@@ -1294,8 +1295,8 @@
         <item quantity="other">%1$d repostagens</item>
     </plurals>
     <string name="destination_prerelease_album_hint">Pré-lançamento. Apenas faixas já lançadas podem ser reproduzidas.</string>
-    <string name="settings_row_play_full_songs_spotify_subtitle">Ouça faixas completas pelo Spotify em vez de prévias. Requer o app do Spotify instalado e conectado.</string>
-    <string name="settings_row_play_full_songs_title">Reproduzir músicas completas</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">Ouça faixas completas nos posts pelo Spotify em vez de prévias. Páginas de álbum e de música sempre tocam por completo. Requer o app do Spotify instalado e conectado.</string>
+    <string name="settings_row_play_full_songs_title">Reproduzir músicas completas nos posts</string>
     <string name="settings_row_spotify_library_save_subtitle">As músicas que você salvar são adicionadas à sua biblioteca do Spotify. Requer o app do Spotify instalado e conectado.</string>
     <string name="settings_row_spotify_library_save_title">Adicionar músicas salvas à biblioteca</string>
     <string name="entity_link_not_found">Este link não leva mais a lugar nenhum</string>

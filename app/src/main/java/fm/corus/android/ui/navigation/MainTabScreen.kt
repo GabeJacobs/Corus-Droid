@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Scaffold
+import fm.corus.android.ui.components.PlaybackModePromptOverlay
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -77,6 +78,7 @@ import dev.chrisbanes.haze.hazeSource
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
 import fm.corus.android.ui.screens.feed.CommentsBottomSheet
+import fm.corus.android.data.model.MusicService
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
 import fm.corus.android.ui.screens.subscription.PaywallSource
@@ -141,6 +143,8 @@ fun MainTabScreen(
         }
     }
     val musicService by viewModel.musicServicePreference.current.collectAsState()
+    val playFullSongs by viewModel.playFullSongs.collectAsState()
+    val playbackModePending by viewModel.playbackModePromptManager.pending.collectAsState()
     val isResolvingLinkOut by fm.corus.android.domain.MusicServiceLinkOut.isResolving.collectAsState()
     val pushPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -359,6 +363,9 @@ fun MainTabScreen(
                     engagementManager = viewModel.postEngagementManager,
                     onLikeTap = { viewModel.toggleLikeForCurrentTrack() },
                     musicService = musicService,
+                    playFullSongs = playFullSongs,
+                    onPlaybackModeChange = { viewModel.setPlayFullSongs(it) },
+                    remoteConfig = viewModel.remoteConfigService,
                     resolveLinkOut = { viewModel.resolveCurrentServiceLinkUrl() },
                     resolveSpotifyFromApple = { viewModel.resolveCurrentSpotifyFromApple() },
                     onTrackTap = {
@@ -638,6 +645,15 @@ fun MainTabScreen(
                 showClubOffer = true
             }
         }
+    }
+
+    if (playbackModePending != null) {
+        PlaybackModePromptOverlay(
+            musicService = musicService,
+            onChoosePreviews = { viewModel.playbackModePromptManager.choosePreviews() },
+            onChooseFullSongs = { viewModel.playbackModePromptManager.chooseFullSongs() },
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 
     // Status-bar strip cover. The immersive detail pages (song/artist/album/director/

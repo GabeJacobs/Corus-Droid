@@ -37,11 +37,13 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
@@ -64,7 +66,14 @@ data class ShareProfileSubject(
     val username: String,
     val displayName: String?,
     val avatarUrl: String?,
-)
+    val bio: String? = null,
+    val artworkUrls: List<String> = emptyList(),
+    val previewVersion: String? = null,
+) {
+    /** Enough profile context to draw the light card locally in the share sheet. */
+    val hasLocalPreview: Boolean
+        get() = !avatarUrl.isNullOrBlank() || artworkUrls.isNotEmpty() || !bio.isNullOrBlank()
+}
 
 /** What the share sheet is sharing — a song, film, artist, album, director, or
  *  a user's profile. Lets one sheet back every detail / destination screen. */
@@ -75,6 +84,29 @@ sealed interface ShareMediaSubject {
     data class Album(val album: ShareAlbumSubject) : ShareMediaSubject
     data class Director(val director: ShareDirectorSubject) : ShareMediaSubject
     data class Profile(val profile: ShareProfileSubject) : ShareMediaSubject
+}
+
+/** Hooks for profile share Firebase events. Passed only for profile subjects. */
+data class ProfileShareAnalytics(
+    val profileUserId: String,
+    val isOwnProfile: Boolean,
+    val entryPoint: String,
+    val onShared: (method: String, cardTheme: ShareCardTheme?) -> Unit,
+    val onSheetOpened: () -> Unit,
+    val onThemeChanged: (ShareCardTheme) -> Unit,
+)
+
+private fun logShareMethod(
+    method: String,
+    cardTheme: ShareCardTheme? = null,
+    profileShareAnalytics: ProfileShareAnalytics? = null,
+    onAnalyticsLog: ((method: String) -> Unit)? = null,
+) {
+    if (profileShareAnalytics != null) {
+        profileShareAnalytics.onShared(method, cardTheme)
+    } else {
+        onAnalyticsLog?.invoke(method)
+    }
 }
 
 /**
@@ -101,6 +133,269 @@ fun ShareMediaSheet(
     onSendToUser: (userId: String, message: String) -> Unit,
     onDismiss: () -> Unit,
     onAnalyticsLog: ((method: String) -> Unit)? = null,
+    isOwnProfile: Boolean = false,
+    instagramShareEnabled: Boolean = false,
+    profileShareAnalytics: ProfileShareAnalytics? = null,
+) {
+    val sharedProfile = (subject as? ShareMediaSubject.Profile)?.profile
+    val showOwnProfileSheet = isOwnProfile && sharedProfile != null
+
+    LaunchedEffect(profileShareAnalytics?.profileUserId, showOwnProfileSheet) {
+        profileShareAnalytics?.onSheetOpened()
+    }
+
+    if (showOwnProfileSheet) {
+        OwnProfileShareSheet(
+            profile = sharedProfile!!,
+            instagramShareEnabled = instagramShareEnabled,
+            onDismiss = onDismiss,
+            profileShareAnalytics = profileShareAnalytics,
+            onAnalyticsLog = onAnalyticsLog,
+        )
+        return
+    }
+
+    RecipientPickerShareMediaSheet(
+        subject = subject,
+        recentContacts = recentContacts,
+        searchResults = searchResults,
+        isSearching = isSearching,
+        isLoadingContacts = isLoadingContacts,
+        onSearchQueryChange = onSearchQueryChange,
+        onSendToUser = onSendToUser,
+        onDismiss = onDismiss,
+        onAnalyticsLog = onAnalyticsLog,
+        profileShareAnalytics = profileShareAnalytics,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OwnProfileShareSheet(
+    profile: ShareProfileSubject,
+    instagramShareEnabled: Boolean,
+    onDismiss: () -> Unit,
+    profileShareAnalytics: ProfileShareAnalytics? = null,
+    onAnalyticsLog: ((method: String) -> Unit)? = null,
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val isDarkTheme = LocalCorusDarkTheme.current
+    var shareCardTheme by remember {
+        mutableStateOf(if (isDarkTheme) ShareCardTheme.DARK else ShareCardTheme.LIGHT)
+    }
+    var hasLoggedInitialTheme by remember { mutableStateOf(false) }
+    var showCopied by remember { mutableStateOf(false) }
+    var isSharingToInstagram by remember { mutableStateOf(false) }
+
+    LaunchedEffect(shareCardTheme) {
+        if (!hasLoggedInitialTheme) {
+            hasLoggedInitialTheme = true
+        } else {
+            profileShareAnalytics?.onThemeChanged(shareCardTheme)
+        }
+    }
+
+    val shareableLink = "https://corus.fm/u/${profile.username}"
+    val outboundShareLink = if (shareCardTheme == ShareCardTheme.LIGHT) {
+        "$shareableLink?theme=light"
+    } else {
+        shareableLink
+    }
+
+    LaunchedEffect(showCopied) {
+        if (showCopied) {
+            delay(4000)
+            showCopied = false
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        ShareSheetDragIndicator()
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = CorusSpacing.xxl)
+                .padding(bottom = CorusSpacing.sm),
+        ) {
+            Text(
+                stringResource(R.string.share_profile_title),
+                style = CorusFont.songTitleLarge,
+                color = CorusColors.Text,
+            )
+            Text(
+                stringResource(R.string.share_profile_subtitle),
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+            )
+        }
+
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = CorusSpacing.xxl)
+                .padding(bottom = CorusSpacing.sm),
+        ) {
+            ShareCardTheme.entries.forEachIndexed { index, theme ->
+                SegmentedButton(
+                    selected = shareCardTheme == theme,
+                    onClick = { shareCardTheme = theme },
+                    shape = SegmentedButtonDefaults.itemShape(index, ShareCardTheme.entries.size),
+                ) {
+                    Text(theme.label, style = CorusFont.bodyMedium)
+                }
+            }
+        }
+
+        if (profile.hasLocalPreview) {
+            LocalProfileSharePreviewCard(profile = profile, theme = shareCardTheme)
+        } else {
+            ShareLinkPreviewCard(
+                shareableLink = shareableLink,
+                version = profile.previewVersion,
+                theme = shareCardTheme,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
+
+        HorizontalDivider(color = CorusColors.Divider)
+
+        val showInstagram = remember(instagramShareEnabled) {
+            instagramShareEnabled && isInstagramAvailable(context)
+        }
+        val showWhatsApp = remember { isWhatsAppAvailable(context) }
+
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = CorusSpacing.md),
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
+            contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+        ) {
+            if (showInstagram) {
+                item {
+                    InstagramShareButton(
+                        isLoading = isSharingToInstagram,
+                        onClick = {
+                            logShareMethod(
+                                method = "instagram_stories",
+                                cardTheme = shareCardTheme,
+                                profileShareAnalytics = profileShareAnalytics,
+                                onAnalyticsLog = onAnalyticsLog,
+                            )
+                            isSharingToInstagram = true
+                            coroutineScope.launch {
+                                shareProfileToInstagramStories(context, profile, shareCardTheme)
+                                isSharingToInstagram = false
+                            }
+                        },
+                    )
+                }
+            }
+            if (showWhatsApp) {
+                item {
+                    ShareActionButton(
+                        label = stringResource(R.string.share_post_whatsapp),
+                        painter = painterResource(R.drawable.whatsapp_logo),
+                        iconSize = 22.dp,
+                        backgroundColor = Color(0xFF25D366),
+                        iconTint = Color.White,
+                    ) {
+                        logShareMethod(
+                            method = "whatsapp",
+                            cardTheme = shareCardTheme,
+                            profileShareAnalytics = profileShareAnalytics,
+                            onAnalyticsLog = onAnalyticsLog,
+                        )
+                        val encoded = Uri.encode(outboundShareLink)
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/?text=$encoded"))
+                        try {
+                            context.startActivity(intent)
+                        } catch (_: Exception) { }
+                    }
+                }
+            }
+            item {
+                XShareButton {
+                    logShareMethod(
+                        method = "x",
+                        cardTheme = shareCardTheme,
+                        profileShareAnalytics = profileShareAnalytics,
+                        onAnalyticsLog = onAnalyticsLog,
+                    )
+                    shareMediaToX(context, ShareMediaSubject.Profile(profile))
+                }
+            }
+            item {
+                ShareActionButton(icon = Icons.Filled.Share, label = stringResource(R.string.share_post_share_link)) {
+                    logShareMethod(
+                        method = "share_link",
+                        cardTheme = shareCardTheme,
+                        profileShareAnalytics = profileShareAnalytics,
+                        onAnalyticsLog = onAnalyticsLog,
+                    )
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, outboundShareLink)
+                    }
+                    context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_post_share_chooser)))
+                }
+            }
+            item {
+                ShareActionButton(
+                    icon = if (showCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
+                    label = if (showCopied) stringResource(R.string.share_post_copied) else stringResource(R.string.share_post_copy_link),
+                ) {
+                    logShareMethod(
+                        method = "copy_link",
+                        cardTheme = shareCardTheme,
+                        profileShareAnalytics = profileShareAnalytics,
+                        onAnalyticsLog = onAnalyticsLog,
+                    )
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_post_clip_label), outboundShareLink))
+                    showCopied = true
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShareSheetDragIndicator() {
+    Box(
+        modifier = Modifier
+            .padding(top = CorusSpacing.sm, bottom = CorusSpacing.xs)
+            .fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(36.dp)
+                .height(5.dp)
+                .clip(RoundedCornerShape(2.5.dp))
+                .background(CorusColors.Tertiary.copy(alpha = 0.4f)),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecipientPickerShareMediaSheet(
+    subject: ShareMediaSubject,
+    recentContacts: List<CymbalUser>,
+    searchResults: List<CymbalUser>,
+    isSearching: Boolean,
+    isLoadingContacts: Boolean,
+    onSearchQueryChange: (String) -> Unit,
+    onSendToUser: (userId: String, message: String) -> Unit,
+    onDismiss: () -> Unit,
+    onAnalyticsLog: ((method: String) -> Unit)?,
+    profileShareAnalytics: ProfileShareAnalytics? = null,
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -144,16 +439,13 @@ fun ShareMediaSheet(
             .fillMaxWidth()
             .then(if (isSearchActive) Modifier.fillMaxHeight() else Modifier),
     ) {
-        // Drag indicator
-        Box(
-            modifier = Modifier
-                .padding(top = CorusSpacing.sm, bottom = CorusSpacing.xs)
-                .align(Alignment.CenterHorizontally)
-                .width(36.dp)
-                .height(5.dp)
-                .clip(RoundedCornerShape(2.5.dp))
-                .background(CorusColors.Tertiary.copy(alpha = 0.4f)),
-        )
+        ShareSheetDragIndicator()
+
+        // What the link looks like once it lands. Hidden while searching so the
+        // results list gets the height the keyboard takes.
+        if (!isSearchActive) {
+            ShareLinkPreviewCard(shareableLink = shareableLink)
+        }
 
         // Search bar
         Row(
@@ -317,7 +609,11 @@ fun ShareMediaSheet(
                     Button(
                         onClick = {
                             selectedUser?.let { user ->
-                                onAnalyticsLog?.invoke("direct_message")
+                                logShareMethod(
+                                    method = "direct_message",
+                                    profileShareAnalytics = profileShareAnalytics,
+                                    onAnalyticsLog = onAnalyticsLog,
+                                )
                                 onSendToUser(user.id, messageText)
                                 onDismiss()
                             }
@@ -349,7 +645,11 @@ fun ShareMediaSheet(
                                 backgroundColor = Color(0xFF25D366),
                                 iconTint = Color.White,
                             ) {
-                                onAnalyticsLog?.invoke("whatsapp")
+                                logShareMethod(
+                                    method = "whatsapp",
+                                    profileShareAnalytics = profileShareAnalytics,
+                                    onAnalyticsLog = onAnalyticsLog,
+                                )
                                 val encoded = Uri.encode(shareableLink)
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/?text=$encoded"))
                                 try {
@@ -360,13 +660,21 @@ fun ShareMediaSheet(
                     }
                     item {
                         XShareButton {
-                            onAnalyticsLog?.invoke("x")
+                            logShareMethod(
+                                method = "x",
+                                profileShareAnalytics = profileShareAnalytics,
+                                onAnalyticsLog = onAnalyticsLog,
+                            )
                             shareMediaToX(context, subject)
                         }
                     }
                     item {
                         ShareActionButton(icon = Icons.Filled.Share, label = stringResource(R.string.share_post_share_link)) {
-                            onAnalyticsLog?.invoke("share_link")
+                            logShareMethod(
+                                method = "share_link",
+                                profileShareAnalytics = profileShareAnalytics,
+                                onAnalyticsLog = onAnalyticsLog,
+                            )
                             val intent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, shareableLink)
@@ -379,7 +687,11 @@ fun ShareMediaSheet(
                             icon = if (showCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
                             label = if (showCopied) stringResource(R.string.share_post_copied) else stringResource(R.string.share_post_copy_link),
                         ) {
-                            onAnalyticsLog?.invoke("copy_link")
+                            logShareMethod(
+                                method = "copy_link",
+                                profileShareAnalytics = profileShareAnalytics,
+                                onAnalyticsLog = onAnalyticsLog,
+                            )
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_post_clip_label), shareableLink))
                             showCopied = true
