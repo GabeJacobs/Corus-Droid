@@ -46,6 +46,7 @@ class SongDetailViewModelArtistResolutionTest {
             cloudFunctions = cloudFunctions,
             remoteConfigService = mock(),
             preferencesDataStore = mock(),
+            playbackModePromptManager = mock(),
             musicServicePreference = mock(),
             authRepository = mock { on { currentUserId } doReturn "me" },
             userRepository = mock(),

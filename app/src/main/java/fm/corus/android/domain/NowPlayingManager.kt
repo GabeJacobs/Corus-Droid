@@ -152,6 +152,29 @@ data class QueuedTrack(
     val catalogOrigin: CatalogPlaybackOrigin? = null,
 )
 
+/**
+ * A catalog track as a [QueuedTrack] for now-playing. Catalog tracks have no
+ * source post, so the queue resolves and advances by track id. Used by album /
+ * artist rows, trending, and [SongPreviewArtwork].
+ */
+fun CymbalTrack.toQueuedTrack(origin: CatalogPlaybackOrigin? = null) = QueuedTrack(
+    trackId = id,
+    trackName = name,
+    artistName = artistName,
+    albumArtURL = albumArtURL,
+    albumArtLargeURL = albumArtLargeURL,
+    previewUrl = previewUrl,
+    spotifyURI = spotifyURI.ifBlank { null },
+    spotifyWebURL = spotifyWebURL.ifBlank { null },
+    isrc = isrc,
+    sourcePostId = null,
+    source = source,
+    soundcloudId = soundcloudId,
+    soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+    audiomackUrl = audiomackUrl,
+    catalogOrigin = origin,
+)
+
 data class NowPlayingState(
     val trackId: String? = null,
     val trackName: String = "",
@@ -368,10 +391,90 @@ class NowPlayingManager @Inject constructor(
         playInternal(track, userInitiated = true, forceSwitch = true)
     }
 
-    /** Apply a mini-player mode flip to the actively playing track, if any. */
+    private var playbackModeDowngradeJob: Job? = null
+
+    /**
+     * Apply a mini-player mode flip. Mirrors iOS `applyPlaybackModeToggle`:
+     * - → Full: only while playing a preview (not external Spotify)
+     * - → 30s + external Spotify playing: fall back to preview
+     * - → 30s + external Spotify paused: clear mirror so the toggle can reappear
+     * - → 30s + in-app full playing: wait ~200ms for pill anim, then downgrade
+     * - → 30s while paused (non-external): no-op; resume path restarts if needed
+     */
     suspend fun applyPlaybackModeToggle(toFull: Boolean) {
-        if (!_state.value.hasActiveTrack || !isPlaying) return
-        if (toFull) upgradeCurrentPreviewToFullSong() else downgradeCurrentFullSongToPreview()
+        if (!_state.value.hasActiveTrack) return
+        playbackModeDowngradeJob?.cancel()
+        playbackModeDowngradeJob = null
+
+        if (toFull) {
+            if (!isPlaying || isExternalSpotifyListening) return
+            upgradeCurrentPreviewToFullSong()
+            return
+        }
+
+        // → 30s
+        if (isExternalSpotifyListening) {
+            if (isPlaying) {
+                downgradeCurrentFullSongToPreview()
+            } else {
+                clearExternalSpotifyListening()
+            }
+            return
+        }
+
+        if (!isPlaying) return
+        playbackModeDowngradeJob = managerScope.launch {
+            delay(200)
+            if (!_state.value.hasActiveTrack || !isPlaying || isPreviewMode) return@launch
+            downgradeCurrentFullSongToPreview()
+        }
+    }
+
+    fun shouldRestartPausedSessionForDesiredPlaybackMode(): Boolean {
+        return SongPlayRouting.shouldRestartPausedSessionForDesiredMode(
+            hasActiveTrack = _state.value.hasActiveTrack,
+            isPlaying = isPlaying,
+            isPreviewMode = isPreviewMode,
+            desiresFullSong = preferencesDataStore.effectivePlayFullSongsSync(),
+            isExternalSpotifyListening = isExternalSpotifyListening,
+        )
+    }
+
+    fun restartCurrentTrackForDesiredPlaybackMode() {
+        val idx = currentQueueIndex
+        val track = when {
+            idx != null && idx in queue.indices -> queue[idx]
+            else -> QueuedTrack(
+                trackId = _state.value.trackId ?: return,
+                trackName = _state.value.trackName,
+                artistName = _state.value.artistName,
+                albumArtURL = _state.value.albumArtURL,
+                albumArtLargeURL = _state.value.albumArtLargeURL,
+                previewUrl = null,
+                spotifyURI = _state.value.spotifyURI,
+                spotifyWebURL = _state.value.spotifyWebURL,
+                isrc = _state.value.isrc,
+                sourcePostId = _state.value.sourcePostId,
+                source = _state.value.source,
+                soundcloudId = null,
+                soundcloudPermalinkUrl = _state.value.soundcloudPermalinkUrl,
+                audiomackUrl = _state.value.audiomackUrl,
+            )
+        }
+        val preferFull = preferencesDataStore.effectivePlayFullSongsSync()
+        val q = queue.ifEmpty { listOf(track) }
+        this.queue = q
+        this.currentQueueIndex = q.indexOfActive(track.trackId, track.sourcePostId)
+        routePlayTap(
+            track = track.toCymbalTrack(),
+            sourcePostId = track.sourcePostId,
+            queue = q,
+            preferFullSong = preferFull,
+            skipPlaybackModePrompt = true,
+            onPreview = {
+                playInternal(track, userInitiated = true, forceSwitch = true)
+            },
+        )
     }
 
     private fun QueuedTrack.toCymbalTrack() = CymbalTrack(
@@ -406,6 +509,9 @@ class NowPlayingManager @Inject constructor(
     private var spotifyCorusRequestedUri: String? = null
     private var spotifyCorusRequestedUntil: Long? = null
     private var spotifyPendingExternalUri: String? = null
+    /** URI of a Connect handoff that failed after Spotify may already be audible. */
+    private var spotifyFailedHandoffUri: String? = null
+    private var spotifyFailedHandoffSuppressExternalUntilMs: Long? = null
     private var spotifyRelinquishJob: Job? = null
     private var spotifyNaturalEndAdvanceJob: Job? = null
     private var spotifyExpectedTrackUri: String? = null
@@ -425,7 +531,7 @@ class NowPlayingManager @Inject constructor(
 
     fun spotifyExperimentEnabledForTrack(source: TrackSource, preferFullSong: Boolean = false): Boolean {
         if (!SpotifyPlaybackService.isSpotifyAppInstalled(context)) return false
-        val playFull = preferFullSong || preferencesDataStore.playFullSongsSync()
+        val playFull = preferFullSong || preferencesDataStore.effectivePlayFullSongsSync()
         return SongPlayRouting.wantsSpotifyExperiment(
             source = source,
             service = musicServicePreference.current.value,
@@ -465,7 +571,7 @@ class NowPlayingManager @Inject constructor(
 
     /** Mini-player / lock-screen Next chains previews in 30s mode or during preview playback. */
     val preferPreviewOnInAppSkip: Boolean
-        get() = isPreviewMode || !preferencesDataStore.playFullSongsSync()
+        get() = isPreviewMode || !preferencesDataStore.effectivePlayFullSongsSync()
 
     private val isActiveFullSongSession: Boolean
         get() {
@@ -478,7 +584,7 @@ class NowPlayingManager @Inject constructor(
 
     private fun shouldChainFullPlaybackOnSkip(preferPreviewOnNext: Boolean): Boolean {
         if (preferPreviewOnNext) return false
-        return preferencesDataStore.playFullSongsSync()
+        return preferencesDataStore.effectivePlayFullSongsSync()
     }
 
     fun setQueueFromCoordinator(
@@ -489,6 +595,30 @@ class NowPlayingManager @Inject constructor(
         this.queue = queue
         currentQueueIndex = queue.indexOfActive(playingTrackId, playingSourcePostId)
         _state.value = _state.value.copy(hasNext = computeHasNext())
+    }
+
+    /**
+     * Stage a catalog list (e.g. trending chart) so song-detail play can seed
+     * Next without threading the queue through navigation routes. Resolved by
+     * [catalogQueueForPlayback] when the matching track is played.
+     */
+    private var stagedCatalogQueue: List<QueuedTrack> = emptyList()
+
+    fun stageCatalogQueue(queue: List<QueuedTrack>) {
+        stagedCatalogQueue = queue
+    }
+
+    /**
+     * Queue to use when playing [trackId] from song detail: keep the active
+     * queue if it already contains the track (re-tap after trending play),
+     * otherwise consume a staged chart from [stageCatalogQueue].
+     */
+    fun catalogQueueForPlayback(trackId: String): List<QueuedTrack> {
+        if (queue.any { it.trackId == trackId }) return queue
+        val staged = stagedCatalogQueue
+        stagedCatalogQueue = emptyList()
+        if (staged.isEmpty() || staged.none { it.trackId == trackId }) return emptyList()
+        return staged
     }
 
     fun launchSpotifyConnectPlay(block: suspend () -> Unit) {
@@ -542,6 +672,52 @@ class NowPlayingManager @Inject constructor(
     private var queueHasMore: Boolean = false
     private var loadMoreQueue: (suspend () -> Unit)? = null
     private var isLoadingMoreQueue: Boolean = false
+
+    /** Snapshot of the in-memory queue for the full-player Queue sheet. */
+    fun queueSnapshot(): List<QueuedTrack> = queue
+
+    fun currentQueueIndexSnapshot(): Int? = currentQueueIndex
+
+    fun removeQueueItem(index: Int) {
+        if (index !in queue.indices) return
+        val playingIdx = currentQueueIndex
+        if (playingIdx == index) return // Don't remove the now-playing row.
+        val pruned = queue.toMutableList().also { it.removeAt(index) }
+        queue = pruned
+        currentQueueIndex = pruned.indexOfActive(_state.value.trackId, _state.value.sourcePostId)
+        _state.value = _state.value.copy(hasNext = computeHasNext())
+    }
+
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        if (fromIndex !in queue.indices || toIndex !in queue.indices) return
+        val playingIdx = currentQueueIndex ?: return
+        // Only allow reordering within Up Next (after the playing index).
+        if (fromIndex <= playingIdx || toIndex <= playingIdx) return
+        val mutable = queue.toMutableList()
+        val item = mutable.removeAt(fromIndex)
+        mutable.add(toIndex, item)
+        queue = mutable
+        currentQueueIndex = mutable.indexOfActive(_state.value.trackId, _state.value.sourcePostId)
+        _state.value = _state.value.copy(hasNext = computeHasNext())
+    }
+
+    fun jumpToQueueIndex(index: Int) {
+        if (index !in queue.indices) return
+        val track = queue[index]
+        currentQueueIndex = index
+        _state.value = _state.value.copy(hasNext = computeHasNext())
+        val preferFull = !preferPreviewOnInAppSkip
+        routePlayTap(
+            track = track.toCymbalTrack(),
+            sourcePostId = track.sourcePostId,
+            queue = queue,
+            preferFullSong = preferFull,
+            skipPlaybackModePrompt = true,
+            onPreview = {
+                playInternal(track, userInitiated = true, forceSwitch = true)
+            },
+        )
+    }
 
     private fun computeHasNext(): Boolean {
         val idx = currentQueueIndex ?: return false
@@ -1515,7 +1691,7 @@ class NowPlayingManager @Inject constructor(
         if (!SongPlayRouting.wantsSpotifyExperiment(
                 next.source,
                 MusicService.SPOTIFY,
-                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
             )
         ) {
             return false
@@ -1824,6 +2000,12 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun togglePlayPause() {
+        // Paused session in the wrong mode (e.g. Always Full flipped while paused):
+        // restart into the desired engine instead of silently resuming the old one.
+        if (shouldRestartPausedSessionForDesiredPlaybackMode()) {
+            restartCurrentTrackForDesiredPlaybackMode()
+            return
+        }
         if (isExternalSpotifyListening) {
             managerScope.launch {
                 val svc = spotifyPlaybackService
@@ -1937,6 +2119,7 @@ class NowPlayingManager @Inject constructor(
         replaceSpotifyQueue: Boolean = false,
     ) {
         clearExternalSpotifyListening()
+        clearSpotifyHandoffFailureSuppression()
         if (!SpotifyPlaybackService.isSpotifyAppInstalled(context)) {
             handleSpotifyPlaybackFailure(queuedTrackFrom(pending), userInitiated = true)
             return
@@ -2016,7 +2199,11 @@ class NowPlayingManager @Inject constructor(
         } catch (e: Exception) {
             android.util.Log.w("NowPlaying", "Spotify play failed: ${e.message}")
             if (_state.value.trackId == expectedTrackId) {
-                handleSpotifyPlaybackFailure(queuedTrackFrom(pending), userInitiated = true)
+                handleSpotifyPlaybackFailure(
+                    queuedTrackFrom(pending),
+                    userInitiated = true,
+                    mayHaveStartedAudio = true,
+                )
             }
             return
         }
@@ -2050,9 +2237,14 @@ class NowPlayingManager @Inject constructor(
             silentlyHaltSpotifyForPreview()
             spotifyExpectedTrackUri = null
             spotifyQueueTransitionUntil = null
-            handleSpotifyPlaybackFailure(queuedTrackFrom(pending), userInitiated = true)
+            handleSpotifyPlaybackFailure(
+                queuedTrackFrom(pending),
+                userInitiated = true,
+                mayHaveStartedAudio = true,
+            )
             return
         }
+        clearSpotifyHandoffFailureSuppression()
         _isResolvingSpotify.value = false
         refreshSpotifyFastPathSkipGuardWhenLocked()
     }
@@ -2104,10 +2296,23 @@ class NowPlayingManager @Inject constructor(
         return reported == expected
     }
 
-    private suspend fun handleSpotifyPlaybackFailure(track: QueuedTrack, userInitiated: Boolean) {
+    private suspend fun handleSpotifyPlaybackFailure(
+        track: QueuedTrack,
+        userInitiated: Boolean,
+        mayHaveStartedAudio: Boolean = false,
+    ) {
         android.util.Log.w("SpotifyPlayback", "Falling back to 30s preview for ${track.trackId}")
         _isResolvingSpotify.value = false
         isSpotifyConnectPlaying = false
+        // authorizeAndPlay can leave Spotify audible without a live App Remote
+        // session — stop() alone won't pause it. Only force-pause when we may
+        // have reached that handoff (not URI lookup / install failures).
+        val failedUri = spotifyCorusRequestedUri ?: spotifyExpectedTrackUri
+        val shouldForcePause = failedUri != null || mayHaveStartedAudio
+        if (shouldForcePause) {
+            markSpotifyHandoffFailure(failedUri ?: track.spotifyURI)
+            spotifyPlaybackService.forcePauseAfterFailedHandoff()
+        }
         silentlyHaltSpotifyForPreview()
         playInternal(track, userInitiated = userInitiated, forceSwitch = true)
     }
@@ -2301,6 +2506,8 @@ class NowPlayingManager @Inject constructor(
     fun relinquishSpotifyToExternalPlayback(reporting: String? = null) {
         if (!isSpotifyConnectPlaying) return
         val externalUri = reporting ?: spotifyPlaybackService.currentTrackUri.value
+        // User (or true external) takeover — don't keep suppressing adoption.
+        clearSpotifyHandoffFailureSuppression()
         spotifyPlaybackService.clearFastPathPlaybackGuard()
         spotifyConnectPlayJob?.cancel()
         cancelDebouncedSpotifyRelinquish()
@@ -2358,6 +2565,15 @@ class NowPlayingManager @Inject constructor(
         val trackId = spotifyURI.removePrefix("spotify:track:")
             .takeIf { spotifyURI.startsWith("spotify:track:") } ?: return
 
+        if (shouldSuppressExternalAdoption(spotifyURI)) {
+            spotifyPlaybackService.forcePauseAfterFailedHandoff()
+            return
+        }
+
+        // External Spotify and in-app preview must never share ScrubberClock.
+        stopPositionPolling(resetClock = false)
+        player?.pause()
+
         val svc = spotifyPlaybackService
         if (svc.isConnected) {
             svc.refreshState()
@@ -2372,6 +2588,7 @@ class NowPlayingManager @Inject constructor(
             return
         }
 
+        clearSpotifyHandoffFailureSuppression()
         beginSpotifyScrubberHoldAtZero(externalSpotifyTrackURI ?: svc.currentTrackUri.value)
         _isHydratingExternalSpotify.value = true
         try {
@@ -2445,6 +2662,11 @@ class NowPlayingManager @Inject constructor(
             return
         }
 
+        if (shouldSuppressExternalAdoption(uri)) {
+            svc.forcePauseAfterFailedHandoff()
+            return
+        }
+
         if (isSpotifyConnectPlaying) {
             if (shouldRelinquishExternalSpotifyPlayback(uri)) {
                 relinquishSpotifyToExternalPlayback(uri)
@@ -2457,6 +2679,25 @@ class NowPlayingManager @Inject constructor(
         } else if (isExternalSpotifyListening) {
             _state.value = _state.value.copy(isPlaying = false)
         }
+    }
+
+    private fun shouldSuppressExternalAdoption(uri: String): Boolean =
+        SpotifyHandoffRecovery.shouldSuppressExternalAdoption(
+            reportedUri = uri,
+            failedHandoffUri = spotifyFailedHandoffUri,
+            suppressUntilMs = spotifyFailedHandoffSuppressExternalUntilMs,
+        )
+
+    private fun markSpotifyHandoffFailure(uri: String?) {
+        if (uri.isNullOrEmpty()) return
+        spotifyFailedHandoffUri = uri
+        spotifyFailedHandoffSuppressExternalUntilMs =
+            System.currentTimeMillis() + SpotifyHandoffRecovery.EXTERNAL_ADOPTION_SUPPRESS_MS
+    }
+
+    private fun clearSpotifyHandoffFailureSuppression() {
+        spotifyFailedHandoffUri = null
+        spotifyFailedHandoffSuppressExternalUntilMs = null
     }
 
     private fun installExternalSpotifyDelegates() {

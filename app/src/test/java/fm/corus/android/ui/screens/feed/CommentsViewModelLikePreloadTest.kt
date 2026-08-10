@@ -156,6 +156,7 @@ class CommentsViewModelLikePreloadTest {
         musicServicePreference = mock(),
         remoteConfigService = remoteConfig,
         preferencesDataStore = mock(),
+        playbackModePromptManager = mock(),
         gifRepository = gifRepo,
         analyticsService = analytics,
         context = context,

@@ -69,6 +69,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -203,6 +204,7 @@ fun FeedScreen(
         if (hasLoaded && modeSwitcherEnabled) viewModel.evaluateFeedSwitchHint()
     }
     val tasteMatchesGate by viewModel.tasteMatchesGate.collectAsState()
+    val tasteMatchesTrial by viewModel.tasteMatchesTrial.collectAsState()
     val tasteMatchesSeeding by viewModel.tasteMatchesSeeding.collectAsState()
     val tasteMatchesSeedArt by viewModel.tasteMatchesSeedArt.collectAsState()
     val tasteMatchesSeedCount by viewModel.tasteMatchesSeedCount.collectAsState()
@@ -251,13 +253,33 @@ fun FeedScreen(
     // Taste Matches paywall when a non-member taps the menu → open the Club
     // sheet. (The rarer server gated:"paywall" backstop renders an in-feed state
     // with a "Learn more" button instead — see the gate branches below, mirroring
-    // iOS tasteMatchesPaywallState.)
+    // iOS tasteMatchesPaywallState.) Also fires from the in-feed free-trial
+    // banner tap (source TASTE_MATCHES_BANNER), which reuses this same flow.
     val tasteMatchesPaywall by viewModel.tasteMatchesPaywall.collectAsState()
     LaunchedEffect(tasteMatchesPaywall) {
         if (tasteMatchesPaywall != null) {
             clubOfferSource = tasteMatchesPaywall!!
             showClubOffer = true
             viewModel.clearTasteMatchesPaywall()
+        }
+    }
+
+    // Free-trial in-feed banner (`taste_matches_free_trial` RC): a small blue
+    // bar above the live feed inviting a free viewer to upgrade before their
+    // trial (or preview) ends. Only on the served (un-gated) feed, never for
+    // a full-access viewer — expiry itself falls back to the existing
+    // gated:"paywall" empty state above. Mirrors iOS/web.
+    val showTasteMatchesTrialBanner = feedMode == "tasteMatches" &&
+        tasteMatchesGate == null &&
+        posts.isNotEmpty() &&
+        tasteMatchesTrial != null &&
+        !hasFullAccess
+    LaunchedEffect(showTasteMatchesTrialBanner, tasteMatchesTrial?.phase) {
+        if (showTasteMatchesTrialBanner) {
+            val t = tasteMatchesTrial!!
+            viewModel.analyticsService.logTasteMatchesBannerShown(
+                t.phase, t.daysRemaining, t.postCount,
+            )
         }
     }
 
@@ -890,6 +912,14 @@ fun FeedScreen(
                     contentPadding = PaddingValues(bottom = LocalBottomBarHeight.current),
                 ) {
                     item { header() }
+                    if (showTasteMatchesTrialBanner) {
+                        item(key = "taste_matches_trial_banner", contentType = "taste_matches_trial_banner") {
+                            TasteMatchesTrialBanner(
+                                trial = tasteMatchesTrial!!,
+                                onClick = { viewModel.onTasteMatchesBannerTapped() },
+                            )
+                        }
+                    }
                     itemsIndexed(
                         posts,
                         key = { _, post -> post.id },
@@ -937,6 +967,9 @@ fun FeedScreen(
                                 postTrackId = post.track.id,
                                 postId = post.id,
                             ),
+                            ownsActivePlayback = post.isTrack &&
+                                nowPlayingState.trackId == post.track.id &&
+                                nowPlayingState.sourcePostId == post.id,
                             onLikeTap = { viewModel.toggleLike(post.id) },
                             onSaveTap = { viewModel.toggleSave(post.id) },
                             onUserTap = { onNavigateToUser(post.user) },
@@ -1216,10 +1249,13 @@ fun FeedScreen(
                 onDismiss = { showClubOffer = false },
                 onPurchaseSuccess = {
                     // Complete the intent that opened this paywall: someone who
-                    // tapped Taste Matches and then paid expects to land in that
-                    // feed, not back where they were. Other sources keep the
+                    // tapped Taste Matches (or its in-feed free-trial banner) and
+                    // then paid expects to land in that feed with the banner
+                    // gone, not back where they were. Other sources keep the
                     // default behavior (stay put).
-                    if (clubOfferSource == fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_MATCHES) {
+                    if (clubOfferSource == fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_MATCHES ||
+                        clubOfferSource == fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_MATCHES_BANNER
+                    ) {
                         viewModel.onTasteMatchesUnlocked()
                     }
                 },
@@ -1784,6 +1820,56 @@ private fun TasteMatchesNoMatchesYet(onPost: () -> Unit) {
         )
     }
     Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+}
+
+/**
+ * Small blue tappable banner above the live Taste Matches feed for a free
+ * (non-full-access) viewer on the `taste_matches_free_trial` path. "preview"
+ * (haven't hit the cold-start post threshold, clock not started) reads
+ * "Free trial of Taste Matches feed"; "trial" (clock running) reads
+ * "Free trial · X days left". Tapping opens the Club paywall (source
+ * `taste_matches_banner`); expiry itself is handled by the existing
+ * gated:"paywall" empty state, not this banner. Mirrors iOS/web.
+ */
+@Composable
+private fun TasteMatchesTrialBanner(
+    trial: fm.corus.android.data.remote.TasteMatchesTrial,
+    onClick: () -> Unit,
+) {
+    val text = if (trial.phase == "trial") {
+        pluralStringResource(
+            R.plurals.feed_taste_matches_trial_banner_active,
+            trial.daysRemaining ?: 0,
+            trial.daysRemaining ?: 0,
+        )
+    } else {
+        stringResource(R.string.feed_taste_matches_trial_banner_preview)
+    }
+    // Full-bleed square strip (no rounded corners) — matches iOS/web.
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CorusColors.Accent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        VennDiagramIcon(size = 14.dp, color = Color.White, shadedIntersection = true)
+        Spacer(modifier = Modifier.width(CorusSpacing.xs))
+        Text(
+            text = text,
+            style = CorusFont.captionMedium,
+            color = Color.White,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.8f),
+            modifier = Modifier.size(18.dp),
+        )
+    }
 }
 
 /**

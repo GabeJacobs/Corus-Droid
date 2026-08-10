@@ -45,6 +45,8 @@ fun ShimmerAsyncImage(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     shape: Shape = RectangleShape,
+    /** Solid primary@0.16 circle/rect instead of shimmer — frosted player surfaces. */
+    usesSolidLoadingPlaceholder: Boolean = false,
 ) {
     // Key loading state on a stable identity. Callers often pass a freshly-built
     // ImageRequest each recomposition, so keying on `model` directly would reset
@@ -66,8 +68,15 @@ fun ShimmerAsyncImage(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .shimmer()
-                    .background(CorusColors.Skeleton),
+                    .then(
+                        if (usesSolidLoadingPlaceholder) {
+                            Modifier.background(CorusColors.Text.copy(alpha = 0.16f))
+                        } else {
+                            Modifier
+                                .shimmer()
+                                .background(CorusColors.Skeleton)
+                        },
+                    ),
             )
         }
         AsyncImage(

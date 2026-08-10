@@ -14,7 +14,9 @@ import com.revenuecat.purchases.LogLevel
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesConfiguration
 import dagger.hilt.android.HiltAndroidApp
+import fm.corus.android.data.local.AlwaysPlayFullSongsDefaultMigration
 import fm.corus.android.data.local.AppearanceDefaultMigration
+import fm.corus.android.data.local.PlayFullSongsPostsModelMigration
 import fm.corus.android.data.local.PlaybackModePromptRolloutMigration
 import fm.corus.android.service.FeedSwitchHintManager
 import javax.inject.Inject
@@ -34,6 +36,8 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
         // ones) at process start, before onboarding can run, so a brand-new user is
         // never mistaken for an existing one.
         AppearanceDefaultMigration.unsetThemeDefault(this)
+        PlayFullSongsPostsModelMigration.runIfNeeded(this)
+        AlwaysPlayFullSongsDefaultMigration.runIfNeeded(this)
         PlaybackModePromptRolloutMigration.runIfNeeded(this)
         if (TestEnvironment.isActive) {
             FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled = false

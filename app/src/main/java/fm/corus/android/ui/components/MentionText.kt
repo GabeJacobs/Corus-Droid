@@ -87,6 +87,7 @@ fun mentionHandle(token: String): String {
 fun buildMentionAnnotatedString(
     text: String,
     baseStyle: SpanStyle = SpanStyle(),
+    linkColor: Color = CorusColors.Accent,
 ): AnnotatedString {
     val regex = Regex("(@[\\w.]+)|(#\\w+)")
     return buildAnnotatedString {
@@ -104,7 +105,7 @@ fun buildMentionAnnotatedString(
                     pushStringAnnotation(tag = MENTION_TAG, annotation = handle)
                     withStyle(
                         baseStyle.copy(
-                            color = CorusColors.Accent,
+                            color = linkColor,
                             fontWeight = FontWeight.ExtraBold,
                         )
                     ) {
@@ -116,7 +117,7 @@ fun buildMentionAnnotatedString(
                 }
             } else {
                 pushStringAnnotation(tag = HASHTAG_TAG, annotation = token.removePrefix("#"))
-                withStyle(baseStyle.copy(color = CorusColors.Accent)) {
+                withStyle(baseStyle.copy(color = linkColor)) {
                     append(token)
                 }
                 pop()

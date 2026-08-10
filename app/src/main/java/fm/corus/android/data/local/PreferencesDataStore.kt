@@ -325,17 +325,29 @@ class PreferencesDataStore @Inject constructor(
         context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean("play_full_songs", false)
 
-    /** Mirrors iOS `@AppStorage("alwaysPlayFullSongs")` default (`false`). */
+    /**
+     * Mirrors iOS `@AppStorage("alwaysPlayFullSongs")`.
+     * Fresh installs default on (no mini-player toggle); existing installs are
+     * pinned off by [AlwaysPlayFullSongsDefaultMigration].
+     */
     val alwaysPlayFullSongs: Flow<Boolean> = dataStore.data.map { prefs ->
-        (prefs[ALWAYS_PLAY_FULL_SONGS] ?: false).also { mirrorAlwaysPlayFullSongsSync(it) }
+        (prefs[ALWAYS_PLAY_FULL_SONGS] ?: true).also { mirrorAlwaysPlayFullSongsSync(it) }
     }
 
+    /**
+     * Settings "Always Play Full Songs". Turning off also resets the mini-player
+     * 30s/Full preference to 30s (iOS parity). Turning on does not rewrite
+     * [playFullSongs] — routing uses [effectivePlayFullSongsSync].
+     */
     suspend fun setAlwaysPlayFullSongs(value: Boolean) {
         mirrorAlwaysPlayFullSongsSync(value)
-        dataStore.edit { it[ALWAYS_PLAY_FULL_SONGS] = value }
-        if (value) {
-            setPlayFullSongs(true)
-        } else {
+        dataStore.edit {
+            it[ALWAYS_PLAY_FULL_SONGS] = value
+            it[PLAYBACK_MODE_CHOSEN] = true
+        }
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("playback_mode_chosen", true).apply()
+        if (!value) {
             setPlayFullSongs(false)
         }
     }
@@ -347,7 +359,7 @@ class PreferencesDataStore @Inject constructor(
 
     fun alwaysPlayFullSongsSync(): Boolean =
         context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean("always_play_full_songs", false)
+            .getBoolean("always_play_full_songs", true)
 
     /** Full playback on feed posts — always-on setting or mini-player toggle. */
     fun effectivePlayFullSongsSync(): Boolean =

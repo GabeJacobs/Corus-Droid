@@ -10,9 +10,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -70,6 +72,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MiniPlayerBar(
     nowPlayingManager: NowPlayingManager,
@@ -78,10 +81,15 @@ fun MiniPlayerBar(
     onLikeTap: (() -> Unit)? = null,
     musicService: fm.corus.android.data.model.MusicService = fm.corus.android.data.model.MusicService.SPOTIFY,
     playFullSongs: Boolean = false,
+    alwaysPlayFullSongs: Boolean = false,
     onPlaybackModeChange: (Boolean) -> Unit = {},
     remoteConfig: fm.corus.android.service.RemoteConfigService? = null,
     resolveLinkOut: (suspend () -> String?)? = null,
     resolveSpotifyFromApple: (suspend () -> String?)? = null,
+    /** When true, hide hairline dividers — the expanding shell owns the surface. */
+    embeddedInExpandingShell: Boolean = false,
+    /** When false, chrome is visible but taps are ignored (mid expand-drag). */
+    interactive: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val state by nowPlayingManager.state.collectAsState()
@@ -96,18 +104,117 @@ fun MiniPlayerBar(
         ?.let { engagementStates[it]?.isLiked }
         ?: false
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val linkOutScope = androidx.compose.runtime.rememberCoroutineScope()
-    // Preview/full toggle when in-app full songs are available for the viewer's
-    // service; otherwise the streaming-service link-out (SoundCloud, Audiomack,
-    // TIDAL/Deezer exclusives, Apple Music on Android, etc.).
+    // 30s/Full when Always Play Full Songs is off, in-app full is available, and
+    // we aren't mirroring external Spotify. Otherwise the service link-out logo.
     val showsPlaybackModeToggle = remoteConfig != null &&
-        SongPlayRouting.supportsInAppFullSong(
+        SongPlayRouting.showsMiniPlayerPlaybackModeToggle(
             context = context,
             source = state.source,
             service = musicService,
             remoteConfig = remoteConfig,
+            isExternalSpotifyListening = isExternalSpotifyListening,
+            alwaysPlayFullSongs = alwaysPlayFullSongs,
         )
     val playbackModeToggleShowsFull = playFullSongs
+
+    val isSoundCloud = state.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
+    val isAudiomack = state.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
+    val isTidal = state.source == fm.corus.android.data.model.TrackSource.TIDAL
+    val isDeezer = state.source == fm.corus.android.data.model.TrackSource.DEEZER
+    val isAppleMusic = state.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
+    val knownNotOnSpotify = isAppleMusic && state.trackId in absentFromSpotify
+    val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY && knownNotOnSpotify) {
+        fm.corus.android.data.model.MusicService.APPLE_MUSIC
+    } else {
+        musicService
+    }
+
+    fun resolveAndOpenLinkOut() {
+        val resolve = resolveLinkOut
+        if (resolve != null) {
+            linkOutScope.launch {
+                val url = resolve()
+                if (!url.isNullOrBlank()) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                }
+            }
+        }
+    }
+
+    // Same destination as the service glyph (and iOS viewCurrentInMusicService).
+    // Long-press on art/title uses this when the 30s/Full toggle displaced the glyph.
+    fun openCurrentInMusicService() {
+        when {
+            isSoundCloud -> {
+                val permalink = state.soundcloudPermalinkUrl
+                if (!permalink.isNullOrBlank()) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
+                }
+            }
+            isAudiomack -> {
+                val url = state.audiomackUrl
+                if (!url.isNullOrBlank()) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                }
+            }
+            isTidal || isDeezer -> resolveAndOpenLinkOut()
+            else -> {
+                fun openAppleSong() {
+                    val tid = state.trackId
+                    val amid = if (!tid.isNullOrBlank() && tid.startsWith("am:")) tid.removePrefix("am:") else null
+                    if (!amid.isNullOrEmpty()) {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.apple.com/us/song/$amid")))
+                        }
+                    } else {
+                        resolveAndOpenLinkOut()
+                    }
+                }
+                when {
+                    isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY && !knownNotOnSpotify -> {
+                        val resolve = resolveSpotifyFromApple
+                        if (resolve != null) {
+                            linkOutScope.launch {
+                                val url = resolve()
+                                when {
+                                    !url.isNullOrBlank() ->
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                    fm.corus.android.domain.MusicServiceLinkOut.knownNotOnSpotify(state.trackId) ->
+                                        openAppleSong()
+                                    else -> runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
+                                            fm.corus.android.domain.MusicServiceLinkOut.spotifySearchUrl(state.trackName, state.artistName))))
+                                    }
+                                }
+                            }
+                        } else {
+                            openAppleSong()
+                        }
+                    }
+                    isAppleMusic && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY ||
+                        musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC) -> {
+                        openAppleSong()
+                    }
+                    musicService == fm.corus.android.data.model.MusicService.SPOTIFY -> {
+                        val uri = state.spotifyURI
+                        val webUrl = state.spotifyWebURL
+                        val opened = if (!uri.isNullOrBlank()) {
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                                true
+                            } catch (_: Exception) { false }
+                        } else false
+                        if (!opened && !webUrl.isNullOrBlank()) {
+                            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
+                        }
+                    }
+                    else -> resolveAndOpenLinkOut()
+                }
+            }
+        }
+    }
 
     AnimatedVisibility(
         visible = showsMiniPlayer,
@@ -117,7 +224,9 @@ fun MiniPlayerBar(
     ) {
       Box {
         Column {
-            HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+            if (!embeddedInExpandingShell) {
+                HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -130,16 +239,19 @@ fun MiniPlayerBar(
                 // to feel close to the iOS mini-player spacing.
                 horizontalArrangement = Arrangement.spacedBy(11.dp),
             ) {
-                // Album art + track info (tappable)
+                // Album art + track info: tap → expand / detail; long-press → open in service.
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .then(
-                            if (onTrackTap != null) Modifier.clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = onTrackTap,
-                            ) else Modifier
+                        .combinedClickable(
+                            enabled = interactive,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { onTrackTap?.invoke() },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                openCurrentInMusicService()
+                            },
                         ),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
@@ -180,52 +292,17 @@ fun MiniPlayerBar(
                         onSelect = onPlaybackModeChange,
                         modifier = Modifier.width(miniPlayerServiceButtonWidth + 40.dp),
                     )
-                } else {
-                // Spotify / SoundCloud / Apple Music button (matches the
-                // source of the playing track). Apple-only and SoundCloud
-                // tracks lock to their respective brands regardless of the
-                // viewer's preferred service — they aren't in Spotify's
-                // catalog so "Open in Spotify" would 404.
-                val isSoundCloud = state.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
-                val isAudiomack = state.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
-                val isTidal = state.source == fm.corus.android.data.model.TrackSource.TIDAL
-                val isDeezer = state.source == fm.corus.android.data.model.TrackSource.DEEZER
-                val isAppleMusic = state.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
-                fun resolveAndOpenLinkOut() {
-                    val resolve = resolveLinkOut
-                    if (resolve != null) {
-                        linkOutScope.launch {
-                            val url = resolve()
-                            if (!url.isNullOrBlank()) {
-                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                            }
-                        }
-                    }
-                }
-                if (isSoundCloud) {
+                } else if (isSoundCloud) {
                     MiniPlayerIconButton(
-                        onClick = {
-                            val permalink = state.soundcloudPermalinkUrl
-                            if (!permalink.isNullOrBlank()) {
-                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
-                            }
-                        },
+                        onClick = { openCurrentInMusicService() },
                         contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
                         width = miniPlayerServiceButtonWidth,
                     ) {
                         SoundCloudAdaptiveLogo(size = 22.dp)
                     }
                 } else if (isAudiomack) {
-                    // Audiomack is source-locked (link-out only; not on Spotify/Apple)
-                    // — always show its mark and open audiomack.com, regardless of the
-                    // viewer's preferred service. Mirrors SoundCloud + iOS/web.
                     MiniPlayerIconButton(
-                        onClick = {
-                            val url = state.audiomackUrl
-                            if (!url.isNullOrBlank()) {
-                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                            }
-                        },
+                        onClick = { openCurrentInMusicService() },
                         contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
                         width = miniPlayerServiceButtonWidth,
                     ) {
@@ -233,7 +310,7 @@ fun MiniPlayerBar(
                     }
                 } else if (isTidal) {
                     MiniPlayerIconButton(
-                        onClick = { resolveAndOpenLinkOut() },
+                        onClick = { openCurrentInMusicService() },
                         contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
                         width = miniPlayerServiceButtonWidth,
                     ) {
@@ -245,7 +322,7 @@ fun MiniPlayerBar(
                     }
                 } else if (isDeezer) {
                     MiniPlayerIconButton(
-                        onClick = { resolveAndOpenLinkOut() },
+                        onClick = { openCurrentInMusicService() },
                         contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
                         width = miniPlayerServiceButtonWidth,
                     ) {
@@ -256,88 +333,8 @@ fun MiniPlayerBar(
                         )
                     }
                 } else {
-                    // Glyph reflects the service the tap opens. Under Apple-primary
-                    // search an `applemusic`-sourced preview is usually ALSO on
-                    // Spotify, so a Spotify viewer sees their own glyph and the tap
-                    // resolves the Spotify target on demand. We fall back to the
-                    // Apple glyph only once a tap CONFIRMED the track isn't on
-                    // Spotify. TIDAL/Deezer viewers keep their own glyph. Mirrors iOS.
-                    val knownNotOnSpotify = isAppleMusic && state.trackId in absentFromSpotify
-                    val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY && knownNotOnSpotify) {
-                        fm.corus.android.data.model.MusicService.APPLE_MUSIC
-                    } else {
-                        musicService
-                    }
                     MiniPlayerIconButton(
-                        onClick = {
-                            fun resolveAndOpen() = resolveAndOpenLinkOut()
-                            fun openAppleSong() {
-                                val tid = state.trackId
-                                val amid = if (!tid.isNullOrBlank() && tid.startsWith("am:")) tid.removePrefix("am:") else null
-                                if (!amid.isNullOrEmpty()) {
-                                    runCatching {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.apple.com/us/song/$amid")))
-                                    }
-                                } else {
-                                    resolveAndOpen()
-                                }
-                            }
-                            when {
-                                // Apple-SOURCED + Spotify viewer, not yet confirmed
-                                // absent: resolve the Spotify target on tap (server
-                                // ISRC-cache-first → usually zero Spotify calls). A
-                                // confirmed miss marks it absent (glyph flips to
-                                // Apple) and opens Apple instead of a dead link.
-                                isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY && !knownNotOnSpotify -> {
-                                    val resolve = resolveSpotifyFromApple
-                                    if (resolve != null) {
-                                        linkOutScope.launch {
-                                            val url = resolve()
-                                            when {
-                                                !url.isNullOrBlank() ->
-                                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                                                // CONFIRMED not on Spotify → Apple, which has it.
-                                                fm.corus.android.domain.MusicServiceLinkOut.knownNotOnSpotify(state.trackId) ->
-                                                    openAppleSong()
-                                                // Transient / not-yet-deployed error: the tap promised
-                                                // Spotify, so stay in Spotify (search), don't open Apple.
-                                                else -> runCatching {
-                                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
-                                                        fm.corus.android.domain.MusicServiceLinkOut.spotifySearchUrl(state.trackName, state.artistName))))
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        openAppleSong()
-                                    }
-                                }
-                                // Confirmed Apple-only, or an Apple-Music viewer →
-                                // the Apple Music song page.
-                                isAppleMusic && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY ||
-                                    musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC) -> {
-                                    openAppleSong()
-                                }
-                                musicService == fm.corus.android.data.model.MusicService.SPOTIFY -> {
-                                    val uri = state.spotifyURI
-                                    val webUrl = state.spotifyWebURL
-                                    val opened = if (!uri.isNullOrBlank()) {
-                                        try {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
-                                            true
-                                        } catch (_: Exception) { false }
-                                    } else false
-                                    if (!opened && !webUrl.isNullOrBlank()) {
-                                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
-                                    }
-                                }
-                                else -> {
-                                    // Apple Music / TIDAL / Deezer preference
-                                    // (spotify-source post, or Apple-only + TIDAL/Deezer):
-                                    // resolve via host (network, cached) then open.
-                                    resolveAndOpen()
-                                }
-                            }
-                        },
+                        onClick = { openCurrentInMusicService() },
                         contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
                         width = miniPlayerServiceButtonWidth,
                     ) {
@@ -347,7 +344,6 @@ fun MiniPlayerBar(
                             modifier = Modifier.size(22.dp),
                         )
                     }
-                }
                 }
 
                 // Like (heart) — only when the current track has a source post.
@@ -396,7 +392,9 @@ fun MiniPlayerBar(
                     )
                 }
             }
-            HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+            if (!embeddedInExpandingShell) {
+                HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+            }
         }
         // Scrubber overlay sits straddling the top edge of the bar (knob
         // half above, half below). Drag gesture is attached to the strip
@@ -703,7 +701,7 @@ private fun ScrubberOverlay(
 }
 
 @Composable
-private fun MiniPlayerPlaybackModeToggle(
+internal fun MiniPlayerPlaybackModeToggle(
     playFullSongs: Boolean,
     onSelect: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -723,7 +721,7 @@ private fun MiniPlayerPlaybackModeToggle(
         modifier = modifier
             .height(28.dp)
             .clip(CircleShape)
-            .background(CorusColors.Divider.copy(alpha = 0.45f))
+            .background(CorusColors.Text.copy(alpha = 0.12f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -775,7 +773,7 @@ private fun PlaybackModeSegment(
                 fontSize = 11.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             ),
-            color = if (selected) CorusColors.Text else CorusColors.Secondary,
+            color = if (selected) CorusColors.Text else CorusColors.Text.copy(alpha = 0.55f),
             maxLines = 1,
         )
     }

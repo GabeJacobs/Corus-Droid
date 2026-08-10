@@ -14,6 +14,7 @@ import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.data.remote.TasteMatchesTrial
 import fm.corus.android.data.remote.TMDBApiService
 import fm.corus.android.data.remote.TMDBMovieDetails
 import fm.corus.android.data.repository.AuthRepository
@@ -280,6 +281,22 @@ class FeedViewModel @Inject constructor(
     private val _tasteMatchesPaywall = MutableStateFlow<PaywallSource?>(null)
     val tasteMatchesPaywall: StateFlow<PaywallSource?> = _tasteMatchesPaywall.asStateFlow()
     fun clearTasteMatchesPaywall() { _tasteMatchesPaywall.value = null }
+
+    /** Free-trial banner state (`taste_matches_free_trial` RC) attached to the
+     *  LIVE Taste Matches feed for a free (non-full-access) viewer. Null when
+     *  not on the free-trial path (full access, RC off, gated, or another
+     *  feed mode). Mirrors iOS/web `TasteMatchesTrial`. */
+    private val _tasteMatchesTrial = MutableStateFlow<TasteMatchesTrial?>(null)
+    val tasteMatchesTrial: StateFlow<TasteMatchesTrial?> = _tasteMatchesTrial.asStateFlow()
+
+    /** The in-feed free-trial banner was tapped — route to the Club paywall.
+     *  Distinct analytics source ("taste_matches_banner") from the menu-tap
+     *  paywall so the funnels stay separable. */
+    fun onTasteMatchesBannerTapped() {
+        val trial = _tasteMatchesTrial.value ?: return
+        analyticsService.logTasteMatchesBannerTapped(trial.phase, trial.daysRemaining)
+        _tasteMatchesPaywall.value = PaywallSource.TASTE_MATCHES_BANNER
+    }
 
     /** Cover art for the cold-start seed slots: already-counted posts (fetched)
      *  plus posts made optimistically this session. */
@@ -672,8 +689,11 @@ class FeedViewModel @Inject constructor(
             _tasteMatchesSeedCount.value = 0
             _tasteMatchesSeedArt.value = emptyList()
         }
-        // Clear any stale gate from another mode; the ranked branch re-sets it.
-        if (mode != "tasteMatches") _tasteMatchesGate.value = null
+        // Clear any stale gate/trial from another mode; the ranked branch re-sets them.
+        if (mode != "tasteMatches") {
+            _tasteMatchesGate.value = null
+            _tasteMatchesTrial.value = null
+        }
 
         try {
             val newPosts: List<CymbalPost>
@@ -729,6 +749,7 @@ class FeedViewModel @Inject constructor(
                         if (feedMode.value != mode) return
                         _posts.value = emptyList()
                         _hasMore.value = false
+                        _tasteMatchesTrial.value = null
                         _lastLoadFailed.value = false
                         _forYouLoadFailed.value = false
                         _isLoading.value = false
@@ -736,6 +757,11 @@ class FeedViewModel @Inject constructor(
                         _hasLoaded.value = true
                         return
                     }
+                    // Un-gated (served) response: mirror the free-trial banner
+                    // state so the feed can render it. Null for full-access
+                    // viewers, RC off, or once the trial expired (that path
+                    // returns gated:"paywall" above instead).
+                    _tasteMatchesTrial.value = forYouPage.trial
                 }
                 if (forYouPage.sessionToken != (forYouSessionToken ?: "") && forYouPage.sessionToken.isNotEmpty()) {
                     forYouSessionToken = forYouPage.sessionToken
@@ -961,13 +987,15 @@ class FeedViewModel @Inject constructor(
         feedSwitchHintManager.noteSwitcherUsed()
         if (feedMode.value == mode) return
         // Premium gate: a non-member (and non-tester) tapping Taste Matches gets
-        // the paywall, not the feed. The server enforces the same rule; this just
-        // avoids a wasted gated round-trip. Mirrors iOS.
+        // the paywall, not the feed — UNLESS the free-trial RC is on, in which
+        // case they enter the mode (server enforces the trial-expiry backstop
+        // via the gated:"paywall" response). Mirrors iOS.
         if (mode == "tasteMatches") {
-            // Log the tap before the gate so the funnel captures both access tiers.
             val hasAccess = subscriptionRepository.hasFullAccess || remoteConfig.tasteMatchesTester
-            analyticsService.logTasteMatchesSelected(hasAccess)
-            if (!hasAccess) {
+            val freeTrial = remoteConfig.tasteMatchesFreeTrial
+            // Log the tap before the gate so the funnel captures every access tier.
+            analyticsService.logTasteMatchesSelected(hasAccess || freeTrial)
+            if (!hasAccess && !freeTrial) {
                 _tasteMatchesPaywall.value = PaywallSource.TASTE_MATCHES
                 return
             }
@@ -1136,7 +1164,7 @@ class FeedViewModel @Inject constructor(
         val trackPosts = filteredPosts.value.filter { it.mediaType == MediaType.TRACK }
         val queue = trackPosts.map { it.toQueuedTrack() }
         val track = post.toQueuedTrack()
-        val playFullSongs = preferencesDataStore.playFullSongsSync()
+        val playFullSongs = preferencesDataStore.effectivePlayFullSongsSync()
         val outcome = FullSongPlayCoordinator.playTapOutcome(
             track = post.track,
             sourcePostId = post.id,

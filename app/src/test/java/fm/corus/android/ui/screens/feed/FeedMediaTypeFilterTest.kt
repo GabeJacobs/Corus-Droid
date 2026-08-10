@@ -131,6 +131,7 @@ class FeedMediaTypeFilterTest {
             on { isConnected } doReturn MutableStateFlow(true)
         },
         preferencesDataStore = preferencesDataStore,
+        playbackModePromptManager = mock(),
         context = mock(),
         feedSwitchHintManager = mock { on { shouldShow } doReturn MutableStateFlow(false) },
         feedScrollRouter = fm.corus.android.domain.FeedScrollRouter(),

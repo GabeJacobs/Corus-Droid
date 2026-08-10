@@ -83,15 +83,19 @@ import fm.corus.android.data.model.RecentSearchItem
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
 import fm.corus.android.domain.HapticManager
+import fm.corus.android.domain.QueuedTrack
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.SearchSection
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ClubMembersCardRail
 import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.HorizontalPopularUsersRail
+import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.HorizontalTasteMatchesRail
 import fm.corus.android.ui.components.MutualConnectionsCardRail
@@ -1967,18 +1971,22 @@ private fun UnifiedAllResults(
     ).count { it }
     val soleSectionExpanded = !isSearching && sectionsWithResults == 1
 
-    // Film leads Music only for an exact film-title query that no visible song
-    // title matches exactly. Held back until BOTH verticals have settled so the
-    // order can't shuffle under the user as the slower one lands. Users and
-    // Hashtags keep their positions either way.
+    // Film leads Music only for an exact film-title query that music has no
+    // matching hit for (song title, artist row, or song lead artist). Held back
+    // until BOTH verticals have settled so the order can't shuffle under the
+    // user as the slower one lands. Users and Hashtags keep their positions
+    // either way.
     val filmsLead = musicSettled && filmSettled && UnifiedSearchRanking.filmsLeadBlendedResults(
         query = query,
         songTitles = songResults.map { it.name },
         filmTitles = filmResults.map { it.title },
         // The music section leads with artist rows (when artist pages are on),
-        // so an exact artist match must count as a music hit and keep film from
+        // so an artist match must count as a music hit and keep film from
         // jumping it (e.g. the band "Vampire Weekend" vs the same-named film).
         artistNames = if (artistPagesEnabled) artistResults.map { it.name } else emptyList(),
+        // Song lead-artist credits keep music first for artist+biopic queries
+        // even when artist pages are off (e.g. "jimi hendrix").
+        songArtistNames = songResults.map { it.artistName },
     )
 
     val musicLoading = isSearching && songResults.isEmpty() && artistResults.isEmpty()
@@ -2506,11 +2514,19 @@ internal fun TrendingSongsContent(
     onSongTap: (CymbalTrack) -> Unit,
     nowPlaying: fm.corus.android.domain.NowPlayingManager,
 ) {
+    // Chart as play queue so mini-player Next walks the list. TIDAL/Deezer
+    // exclusives are excluded — link-out only, same as iOS trendingSongQueue().
+    val queue = remember(songs) {
+        songs
+            .map { it.track }
+            .filter { it.source != TrackSource.TIDAL && it.source != TrackSource.DEEZER }
+            .map { it.toQueuedTrack() }
+    }
     val header: @Composable () -> Unit = {
         TrendingHeader(iconName = "music", window = window, onWindowChange = onWindowChange)
     }
     if (isLoading) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl + LocalBottomBarHeight.current)) {
             item { header() }
             items(5) { SkeletonTrendingSongRow() }
         }
@@ -2519,7 +2535,7 @@ internal fun TrendingSongsContent(
     if (songs.isEmpty()) {
         // Keep the header with its picker visible so the user can pick a
         // different window when one is empty (e.g. nothing trending this week).
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl + LocalBottomBarHeight.current)) {
             item { header() }
             item {
                 Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
@@ -2532,10 +2548,19 @@ internal fun TrendingSongsContent(
             }
         }
     } else {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl + LocalBottomBarHeight.current)) {
             item { header() }
             itemsIndexed(songs) { index, song ->
-                TrendingSongRow(song = song, nowPlaying = nowPlaying, onClick = { onSongTap(song.track) })
+                TrendingSongRow(
+                    song = song,
+                    nowPlaying = nowPlaying,
+                    queue = queue,
+                    onClick = {
+                        // Stage for song-detail play so Next still walks the chart.
+                        nowPlaying.stageCatalogQueue(queue)
+                        onSongTap(song.track)
+                    },
+                )
                 if (index < songs.lastIndex) {
                     HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
                 }
@@ -2548,6 +2573,7 @@ internal fun TrendingSongsContent(
 private fun TrendingSongRow(
     song: TrendingSong,
     nowPlaying: fm.corus.android.domain.NowPlayingManager,
+    queue: List<QueuedTrack> = emptyList(),
     onClick: () -> Unit,
 ) {
     Row(
@@ -2570,6 +2596,7 @@ private fun TrendingSongRow(
             size = 44.dp,
             cornerRadius = 4.dp,
             contentDescription = song.track.name,
+            queue = queue,
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
@@ -2593,14 +2620,14 @@ internal fun TrendingFilmsContent(
         TrendingHeader(iconName = "film", window = window, onWindowChange = onWindowChange)
     }
     if (isLoading) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl + LocalBottomBarHeight.current)) {
             item { header() }
             items(10) { SkeletonTrendingFilmRow() }
         }
         return
     }
     if (movies.isEmpty()) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl + LocalBottomBarHeight.current)) {
             item { header() }
             item {
                 Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
@@ -2613,7 +2640,7 @@ internal fun TrendingFilmsContent(
             }
         }
     } else {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl + LocalBottomBarHeight.current)) {
             item { header() }
             itemsIndexed(movies) { index, movie ->
                 TrendingFilmRow(movie = movie, onClick = {
@@ -3218,7 +3245,7 @@ internal fun TrendingHashtagsContent(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl),
+        contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl + LocalBottomBarHeight.current),
     ) {
         item {
             TrendingHeader(

@@ -6,8 +6,9 @@ import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.runBlocking
 
 /**
- * One-time rollout: preview-first posts model — reset [play_full_songs] to off for
- * existing installs even if they previously opted into feed-wide full playback.
+ * One-time rollout: move feed playback mode from Settings to the mini-player toggle.
+ * Existing installs keep full playback when they had it on (1.5.6 default); new installs
+ * start on 30s previews. [always_play_full_songs] stays off unless the user opts in.
  */
 object PlayFullSongsPostsModelMigration {
     private const val PREFS_NAME = "corus_prefs"
@@ -21,10 +22,13 @@ object PlayFullSongsPostsModelMigration {
         prefs.edit().putBoolean(MIGRATED_KEY, true).apply()
         if (!isExistingInstall(prefs)) return
 
-        prefs.edit().putBoolean(PLAY_FULL_SONGS_KEY, false).apply()
-        runBlocking {
-            context.corusPreferencesDataStore.edit {
-                it[booleanPreferencesKey(PLAY_FULL_SONGS_KEY)] = false
+        // 1.5.6 defaulted feed-wide full playback on; only explicit opt-outs stay on 30s.
+        if (!prefs.contains(PLAY_FULL_SONGS_KEY)) {
+            prefs.edit().putBoolean(PLAY_FULL_SONGS_KEY, true).apply()
+            runBlocking {
+                context.corusPreferencesDataStore.edit {
+                    it[booleanPreferencesKey(PLAY_FULL_SONGS_KEY)] = true
+                }
             }
         }
     }

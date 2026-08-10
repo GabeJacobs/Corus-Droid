@@ -1168,4 +1168,15 @@
     <string name="entity_link_not_found">このリンクの参照先はもうありません</string>
     <string name="entity_link_unreachable_title">このリンクを開けませんでした</string>
     <string name="entity_link_unreachable_subtitle">現在Corusに接続できませんでした。しばらくしてからもう一度お試しください。</string>
+
+    <string name="settings_row_always_play_full_songs_title">常にフル尺で再生</string>
+    <string name="settings_row_always_play_full_songs_spotify_subtitle">Premiumでサインインしている場合はフル尺、それ以外は30秒プレビュー。オフにすると30秒/フル切替を表示します。</string>
+    <string name="full_player_queue_title">キュー</string>
+    <string name="full_player_queue_close">閉じる</string>
+    <string name="full_player_queue_now_playing">再生中</string>
+    <string name="full_player_queue_up_next">次に再生</string>
+    <string name="full_player_queue_earlier">以前</string>
+    <string name="full_player_queue_empty">次の曲がありません。フィードから再生してキューを作りましょう。</string>
+    <string name="full_player_queue_remove">削除</string>
+    <string name="full_player_view_comments">コメントを見る</string>
 </resources>

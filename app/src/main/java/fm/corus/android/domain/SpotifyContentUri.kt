@@ -46,4 +46,47 @@ object SpotifyContentUri {
      */
     fun isUserChosenNonCorusContent(uri: String?): Boolean =
         kindOf(uri) == SpotifyContentKind.FOREIGN
+
+    /** Track id from a `spotify:track:` URI, or null for non-track URIs. */
+    fun trackId(uri: String?): String? {
+        val trimmed = uri?.trim().orEmpty()
+        if (trimmed.isEmpty()) return null
+        val parts = trimmed.split(":")
+        if (parts.size < 3) return null
+        if (!parts[0].equals("spotify", ignoreCase = true)) return null
+        if (!parts[1].equals("track", ignoreCase = true)) return null
+        return parts[2].takeIf { it.isNotEmpty() }
+    }
+
+    fun trackUrisMatch(a: String?, b: String?): Boolean {
+        if (a == null || b == null) return false
+        if (a == b) return true
+        val aId = trackId(a) ?: return false
+        val bId = trackId(b) ?: return false
+        return aId == bId
+    }
+}
+
+/**
+ * Recovery rules for a failed Spotify Connect authorize/bounce handoff.
+ *
+ * Outdoor / flaky-network bug: authorizeAndPlay starts audio in Spotify, App
+ * Remote never connects, Corus falls back to the 30s preview, then foreground
+ * reconcile adopts the still-playing Spotify stream as "external" — Spotify
+ * logo + dual scrubber writers (preview + App Remote).
+ */
+object SpotifyHandoffRecovery {
+    /** How long to refuse adopting the failed handoff URI as independent Spotify listening. */
+    const val EXTERNAL_ADOPTION_SUPPRESS_MS: Long = 45_000L
+
+    fun shouldSuppressExternalAdoption(
+        reportedUri: String?,
+        failedHandoffUri: String?,
+        suppressUntilMs: Long?,
+        nowMs: Long = System.currentTimeMillis(),
+    ): Boolean {
+        if (reportedUri.isNullOrEmpty() || failedHandoffUri.isNullOrEmpty()) return false
+        if (suppressUntilMs == null || nowMs >= suppressUntilMs) return false
+        return SpotifyContentUri.trackUrisMatch(reportedUri, failedHandoffUri)
+    }
 }

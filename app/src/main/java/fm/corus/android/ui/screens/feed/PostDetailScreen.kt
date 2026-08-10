@@ -53,13 +53,12 @@ import android.content.Intent
 import android.net.Uri
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.TrackSource
-import fm.corus.android.ui.components.AlbumArtPlaybackOverlayGlyph
+import fm.corus.android.ui.components.FeedPlayingPill
 import fm.corus.android.ui.components.PostRowFullSongControlXOffset
 import fm.corus.android.ui.components.PostRowServiceControlYOffset
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
@@ -94,8 +93,6 @@ import fm.corus.android.ui.util.DateUtils
  *  previews start playing before this elapses, so they never flash a spinner —
  *  the overlay fades straight to the pause icon. Tune here if the spinner still
  *  peeks through on quick loads (raise) or takes too long to appear (lower). */
-private const val PREVIEW_SPINNER_DELAY_MS = 300L
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostDetailScreen(
@@ -741,50 +738,12 @@ private fun PostDetailAlbumArt(
                     }
                 }
 
-                // Preview loading/playing overlay (track posts only).
-                // Fades in/out to match iOS's .easeOut(duration: 0.2) so pausing
-                // doesn't make the scrim + pause icon vanish abruptly.
-                //
-                // The loading spinner is delayed by a short grace period: fast /
-                // cached previews begin playing before it elapses, so the overlay
-                // fades straight in to the pause icon with no spinner flash (like the
-                // already-loaded case). The spinner only appears for genuinely slow
-                // loads. Gating visibility on playing || loading keeps the scrim up
-                // while resolving; the glyph prefers loading over pause (mirrors iOS).
-                var showPreviewSpinner by remember { mutableStateOf(false) }
-                LaunchedEffect(isPreviewLoading) {
-                    if (isPreviewLoading) {
-                        showPreviewSpinner = false
-                        delay(PREVIEW_SPINNER_DELAY_MS)
-                        showPreviewSpinner = true // still loading after the grace period
-                    } else {
-                        showPreviewSpinner = false
-                    }
-                }
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = post.isTrack && (isPreviewPlaying || isPreviewLoading) && !flipState.isLoading,
-                    enter = fadeIn(animationSpec = tween(200)),
-                    exit = fadeOut(animationSpec = tween(200)),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.4f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        when {
-                            isPreviewLoading && (showPreviewSpinner || isPreviewPlaying) ->
-                                AlbumArtPlaybackOverlayGlyph(
-                                    loading = true,
-                                    pauseContentDescription = stringResource(R.string.post_detail_cd_pause),
-                                )
-                            isPreviewPlaying ->
-                                AlbumArtPlaybackOverlayGlyph(
-                                    loading = false,
-                                    pauseContentDescription = stringResource(R.string.post_detail_cd_pause),
-                                )
-                        }
-                    }
+                // Playing pill — bottom-trailing spinner → EQ bars (iOS FeedPlayingPill).
+                if (post.isTrack && !flipState.isLoading) {
+                    FeedPlayingPill(
+                        isPlaying = isPreviewPlaying,
+                        isLoading = isPreviewLoading,
+                    )
                 }
 
                 // Inline trailer player — letterboxed 16:9 against black inside the

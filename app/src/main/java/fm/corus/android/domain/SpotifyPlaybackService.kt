@@ -646,7 +646,12 @@ class SpotifyPlaybackService @Inject constructor(
         playerStateSubscription = null
         cancelSubscription(playerContextSubscription)
         playerContextSubscription = null
-        appRemote?.let { SpotifyAppRemote.disconnect(it) }
+        appRemote?.let { remote ->
+            if (remote.isConnected) {
+                runCatching { remote.playerApi.pause().setResultCallback { } }
+            }
+            SpotifyAppRemote.disconnect(remote)
+        }
         appRemote = null
         fastPathAppRemote = null
         _isPlaying.value = false
@@ -656,6 +661,48 @@ class SpotifyPlaybackService @Inject constructor(
         lastEndedUri = null
         lastObservedTrackUri = null
         lastAppliedQueueSessionId = null
+    }
+
+    /**
+     * After authorizeAndPlay, Spotify may already be audible even when App Remote
+     * never finished connecting. [stop] alone won't pause in that state —
+     * reconnect briefly and pause so preview fallback doesn't leave a second
+     * audio engine running.
+     */
+    suspend fun forcePauseAfterFailedHandoff() {
+        clearFastPathPlaybackGuard()
+        proactiveReconnectJob?.cancel()
+        seekJob?.cancel()
+        cancelPendingContinuations()
+
+        if (isConnected) {
+            runCatching { pause() }
+            stop()
+            return
+        }
+
+        if (spotifyAuthService.cachedAccessToken() == null && !hasRecentUsage()) {
+            _isPlaying.value = false
+            return
+        }
+
+        runCatching {
+            withTimeoutOrNull(4_000L) {
+                connect(showAuthView = false)
+                pause()
+            }
+        }.onFailure { error ->
+            android.util.Log.w(
+                "SpotifyPlayback",
+                "forcePauseAfterFailedHandoff failed: ${error.message}",
+            )
+        }
+
+        // Always tear down — pause may have succeeded even if later steps failed.
+        if (isConnected) {
+            runCatching { pauseImmediately() }
+        }
+        stop()
     }
 
     suspend fun refreshState(timeoutMs: Long = 2000L) {

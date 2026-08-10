@@ -1081,6 +1081,9 @@ private fun UnifiedAllPickerResults(
         query = query,
         songTitles = songResults.map { it.name },
         filmTitles = filmResults.map { it.title },
+        // Compose shows no artist rows; song lead artists still count so
+        // artist+biopic queries ("jimi hendrix") keep music first.
+        songArtistNames = songResults.map { it.artistName },
     )
     val songsVisible = !songsSettled || songResults.isNotEmpty()
     val filmsVisible = !filmsSettled || filmResults.isNotEmpty()

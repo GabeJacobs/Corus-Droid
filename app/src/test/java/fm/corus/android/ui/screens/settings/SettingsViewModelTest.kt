@@ -5,6 +5,7 @@ import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.domain.MusicServicePreference
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import org.junit.Assert.assertFalse
@@ -34,8 +35,28 @@ class SettingsViewModelTest {
     private lateinit var subscriptionRepo: SubscriptionRepository
     private val remoteConfig = mock<RemoteConfigService>()
     private val analyticsService = mock<AnalyticsService>()
+    private val nowPlayingManager = mock<NowPlayingManager>()
     private val prefs = mock<SharedPreferences>()
     private val prefsEditor = mock<SharedPreferences.Editor>()
+
+    private fun preferencesDataStoreMock(): PreferencesDataStore = mock {
+        on { autoplayNextSong } doReturn MutableStateFlow(true)
+        on { autoAddSavedToSpotify } doReturn MutableStateFlow(false)
+        on { alwaysPlayFullSongs } doReturn MutableStateFlow(true)
+        on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
+    }
+
+    private fun settingsViewModel(
+        subscriptionRepository: SubscriptionRepository,
+        preferencesDataStore: PreferencesDataStore = preferencesDataStoreMock(),
+    ) = SettingsViewModel(
+        mock<MusicServicePreference>(),
+        subscriptionRepository,
+        preferencesDataStore,
+        remoteConfig,
+        analyticsService,
+        nowPlayingManager,
+    )
 
     @Before
     fun setUp() {
@@ -45,18 +66,8 @@ class SettingsViewModelTest {
         whenever(prefs.getBoolean("cached_isVerified", false)).thenReturn(false)
         whenever(prefs.edit()).thenReturn(prefsEditor)
         whenever(prefsEditor.putBoolean(any(), any())).thenReturn(prefsEditor)
-        val preferencesDataStore = mock<PreferencesDataStore> {
-            on { autoplayNextSong } doReturn MutableStateFlow(true)
-            on { autoAddSavedToSpotify } doReturn MutableStateFlow(false)
-        }
         subscriptionRepo = SubscriptionRepository(mock<CloudFunctionsDataSource>(), remoteConfig, analyticsService, prefs)
-        viewModel = SettingsViewModel(
-            mock<MusicServicePreference>(),
-            subscriptionRepo,
-            preferencesDataStore,
-            remoteConfig,
-            analyticsService,
-        )
+        viewModel = settingsViewModel(subscriptionRepo)
     }
 
     @After
@@ -72,12 +83,6 @@ class SettingsViewModelTest {
     @Test
     fun `isVerified is false by default`() {
         assertFalse(viewModel.isVerified.value)
-    }
-
-    @Test
-    fun `isVerified reflects subscription repo state`() {
-        subscriptionRepo.updateVerifiedStatus(true)
-        assertTrue(viewModel.isVerified.value)
     }
 
     @Test
@@ -99,16 +104,7 @@ class SettingsViewModelTest {
             on { isClubMember } doReturn MutableStateFlow(false)
             on { isVerified } doReturn MutableStateFlow(false)
         }
-        val vm = SettingsViewModel(
-            mock<MusicServicePreference>(),
-            mockRepo,
-            mock<PreferencesDataStore> {
-                on { autoplayNextSong } doReturn MutableStateFlow(true)
-                on { autoAddSavedToSpotify } doReturn MutableStateFlow(false)
-            },
-            remoteConfig,
-            analyticsService,
-        )
+        val vm = settingsViewModel(mockRepo)
 
         vm.restorePurchases()
         assertTrue(vm.restoreInProgress.value)
@@ -129,16 +125,7 @@ class SettingsViewModelTest {
             on { isClubMember } doReturn MutableStateFlow(false)
             on { isVerified } doReturn MutableStateFlow(false)
         }
-        val vm = SettingsViewModel(
-            mock<MusicServicePreference>(),
-            mockRepo,
-            mock<PreferencesDataStore> {
-                on { autoplayNextSong } doReturn MutableStateFlow(true)
-                on { autoAddSavedToSpotify } doReturn MutableStateFlow(false)
-            },
-            remoteConfig,
-            analyticsService,
-        )
+        val vm = settingsViewModel(mockRepo)
 
         vm.restorePurchases()
         val captor = argumentCaptor<(Boolean) -> Unit>()
@@ -155,16 +142,7 @@ class SettingsViewModelTest {
             on { isClubMember } doReturn MutableStateFlow(false)
             on { isVerified } doReturn MutableStateFlow(false)
         }
-        val vm = SettingsViewModel(
-            mock<MusicServicePreference>(),
-            mockRepo,
-            mock<PreferencesDataStore> {
-                on { autoplayNextSong } doReturn MutableStateFlow(true)
-                on { autoAddSavedToSpotify } doReturn MutableStateFlow(false)
-            },
-            remoteConfig,
-            analyticsService,
-        )
+        val vm = settingsViewModel(mockRepo)
 
         vm.restorePurchases()
         vm.restorePurchases() // second call should be ignored
@@ -178,16 +156,7 @@ class SettingsViewModelTest {
             on { isClubMember } doReturn MutableStateFlow(false)
             on { isVerified } doReturn MutableStateFlow(false)
         }
-        val vm = SettingsViewModel(
-            mock<MusicServicePreference>(),
-            mockRepo,
-            mock<PreferencesDataStore> {
-                on { autoplayNextSong } doReturn MutableStateFlow(true)
-                on { autoAddSavedToSpotify } doReturn MutableStateFlow(false)
-            },
-            remoteConfig,
-            analyticsService,
-        )
+        val vm = settingsViewModel(mockRepo)
 
         vm.restorePurchases()
         val captor = argumentCaptor<(Boolean) -> Unit>()

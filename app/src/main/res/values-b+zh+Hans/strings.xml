@@ -1295,4 +1295,15 @@
     <string name="entity_link_not_found">此链接已失效</string>
     <string name="entity_link_unreachable_title">无法打开此链接</string>
     <string name="entity_link_unreachable_subtitle">暂时无法连接到 Corus。请稍后再试。</string>
+
+    <string name="settings_row_always_play_full_songs_title">始终播放完整歌曲</string>
+    <string name="settings_row_always_play_full_songs_spotify_subtitle">使用 Premium 登录时播放完整歌曲；否则播放 30 秒预览。关闭可显示 30 秒/完整切换。</string>
+    <string name="full_player_queue_title">队列</string>
+    <string name="full_player_queue_close">关闭</string>
+    <string name="full_player_queue_now_playing">正在播放</string>
+    <string name="full_player_queue_up_next">接下来</string>
+    <string name="full_player_queue_earlier">之前</string>
+    <string name="full_player_queue_empty">暂无下一首。从动态中播放以建立队列。</string>
+    <string name="full_player_queue_remove">移除</string>
+    <string name="full_player_view_comments">查看评论</string>
 </resources>

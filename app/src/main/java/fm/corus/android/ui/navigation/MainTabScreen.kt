@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -63,8 +64,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import androidx.compose.ui.platform.LocalDensity
 import fm.corus.android.R
-import fm.corus.android.data.model.TrackSource
-import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.FullScreenPhotoViewer
 import fm.corus.android.ui.components.MiniPlayerBar
@@ -74,7 +73,11 @@ import fm.corus.android.ui.components.blockTouchPassthrough
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
+import fm.corus.android.ui.player.ExpandingPlayerHost
+import fm.corus.android.ui.player.FullPlayerQueueSheet
+import fm.corus.android.ui.player.FullPlayerScreen
+import fm.corus.android.ui.player.liveExpansion
+import fm.corus.android.ui.player.rememberPlayerExpansionState
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
 import fm.corus.android.ui.screens.feed.CommentsBottomSheet
@@ -89,10 +92,15 @@ import fm.corus.android.ui.components.currentStatusBarTopPx
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
 import androidx.core.view.WindowInsetsControllerCompat
 import android.app.Activity
 import fm.corus.android.ui.util.PushNotificationPermission
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * Experimental frosted bottom segment (mini-player + tab bar + Android nav-bar
@@ -144,6 +152,7 @@ fun MainTabScreen(
     }
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     val playFullSongs by viewModel.playFullSongs.collectAsState()
+    val alwaysPlayFullSongs by viewModel.alwaysPlayFullSongs.collectAsState()
     val playbackModePending by viewModel.playbackModePromptManager.pending.collectAsState()
     val isResolvingLinkOut by fm.corus.android.domain.MusicServiceLinkOut.isResolving.collectAsState()
     val pushPermissionLauncher = rememberLauncherForActivityResult(
@@ -235,6 +244,9 @@ fun MainTabScreen(
     // the tab bar like iOS and gets real window insets (the nav-graph content consumes
     // them). Tabs open it via onShowComments; navigation routes through the active tab.
     var commentPostId by remember { mutableStateOf<String?>(null) }
+    var commentsRefreshSignal by remember { mutableIntStateOf(0) }
+    var showPlayerQueue by remember { mutableStateOf(false) }
+    var playerSharePost by remember { mutableStateOf<fm.corus.android.data.model.CymbalPost?>(null) }
 
     var expandedPhoto by remember { mutableStateOf<ExpandedPhoto?>(null) }
 
@@ -328,218 +340,40 @@ fun MainTabScreen(
         onNotificationDestinationConsumed()
     }
 
-    // Experimental frosted bottom segment — one shared Haze layer for the
-    // mini-player, the tab bar, and the Android nav-bar strip behind it.
-    // `CorusColors.Background` is a @Composable getter, so read it here (in the
-    // composable body) and use the captured value inside the non-composable
-    // hazeEffect lambda below.
+    // Frosted tab bar (Haze). The expanding player owns its own art-wash
+    // surface above the tab bar — matching iOS UnifiedPlayerChrome.
     val bottomHaze = remember { HazeState() }
     val bottomFrost = CorusColors.Background
+    val playerScope = rememberCoroutineScope()
+    val playerExpansion = rememberPlayerExpansionState()
+    val density = LocalDensity.current
+    // Seed with a typical bar height so park math is sane before first measure.
+    var tabBarHeightPx by remember { mutableStateOf(with(density) { 90.dp.toPx() }) }
+    var miniHeightPx by remember { mutableStateOf(with(density) { 56.dp.toPx() }) }
+
+    val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
+    val isHydratingExternalSpotify by viewModel.nowPlayingManager.isHydratingExternalSpotify.collectAsState()
+    val isExternalSpotifyListening by viewModel.nowPlayingManager.isExternalSpotifyListeningFlow.collectAsState()
+    val showsMiniPlayer = nowPlayingState.hasActiveTrack && !isHydratingExternalSpotify &&
+        (!isExternalSpotifyListening ||
+            (nowPlayingState.trackName.isNotBlank() && nowPlayingState.trackName != "Unknown Track"))
+
+    LaunchedEffect(showsMiniPlayer) {
+        if (!showsMiniPlayer) {
+            playerExpansion.collapse()
+        }
+    }
+
+    val livePlayerExpansion = if (showsMiniPlayer) playerExpansion.liveExpansion() else 0f
+    val bottomChromeHeight = with(density) {
+        tabBarHeightPx.toDp() + if (showsMiniPlayer) miniHeightPx.toDp() else 0.dp
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
+    // Tab bar + mini player live as overlays (iOS MainTabView): player sheet
+    // under the tab bar; tab bar slides away as the player expands.
     Scaffold(
-        bottomBar = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (FrostedBottomBar) {
-                            Modifier.hazeEffect(state = bottomHaze) {
-                                blurRadius = 30.dp
-                                backgroundColor = bottomFrost
-                                // Bottom bar is a touch whiter than the top bars (0.78).
-                                tints = listOf(HazeTint(bottomFrost.copy(alpha = 0.88f)))
-                            }
-                        } else {
-                            Modifier
-                        },
-                    )
-                    // Feed scrolls under this bar; without a touch handler, Compose
-                    // lets taps on transparent/padding regions reach posts below.
-                    .blockTouchPassthrough(),
-            ) {
-                MiniPlayerBar(
-                    nowPlayingManager = viewModel.nowPlayingManager,
-                    engagementManager = viewModel.postEngagementManager,
-                    onLikeTap = { viewModel.toggleLikeForCurrentTrack() },
-                    musicService = musicService,
-                    playFullSongs = playFullSongs,
-                    onPlaybackModeChange = { viewModel.setPlayFullSongs(it) },
-                    remoteConfig = viewModel.remoteConfigService,
-                    resolveLinkOut = { viewModel.resolveCurrentServiceLinkUrl() },
-                    resolveSpotifyFromApple = { viewModel.resolveCurrentSpotifyFromApple() },
-                    onTrackTap = {
-                        val state = viewModel.nowPlayingManager.state.value
-                        val navController = navControllers[selectedTab] ?: return@MiniPlayerBar
-                        // External Spotify: open the Corus song page for what's playing.
-                        if (viewModel.nowPlayingManager.isExternalSpotifyListening) {
-                            val track = viewModel.nowPlayingManager.externalSpotifyCymbalTrack()
-                            val trackId = track?.id ?: state.trackId
-                            if (trackId != null) {
-                                navController.navigate(
-                                    SongDetailRoute(
-                                        trackId = trackId,
-                                        albumArtURL = track?.albumArtURL ?: state.albumArtURL,
-                                        albumArtLargeURL = track?.albumArtLargeURL ?: state.albumArtLargeURL,
-                                        songName = track?.name ?: state.trackName,
-                                        artistName = track?.artistName ?: state.artistName,
-                                        spotifyURI = track?.spotifyURI ?: state.spotifyURI,
-                                        spotifyWebURL = track?.spotifyWebURL ?: state.spotifyWebURL,
-                                        source = TrackSource.SPOTIFY.raw,
-                                    ),
-                                )
-                            }
-                            return@MiniPlayerBar
-                        }
-                        // Return-to-origin: a song played from an artist/album
-                        // destination page reopens that page (pushed onto the
-                        // active tab) scrolled to the song, instead of the
-                        // generic "Posted by N users" song-detail page. The
-                        // origin rides on the playing track, so it survives
-                        // auto-advance through the queue. Gated on the same flag
-                        // that surfaces those pages.
-                        val origin = state.catalogOrigin
-                        if (artistPagesEnabled && origin != null) {
-                            val songId = state.trackId
-                            // If the current tab already shows this exact artist/
-                            // album page, scroll it to the song in place (via the
-                            // entry's saved state) instead of pushing a duplicate.
-                            val currentEntry = navController.currentBackStackEntry
-                            when (origin) {
-                                is CatalogPlaybackOrigin.Artist -> {
-                                    val onThisPage = songId != null && currentEntry != null &&
-                                        runCatching { currentEntry.toRoute<ArtistPageRoute>().artistId }
-                                            .getOrNull() == origin.id
-                                    if (onThisPage) {
-                                        currentEntry!!.savedStateHandle[CATALOG_SCROLL_TO_TRACK_KEY] = songId
-                                    } else {
-                                        navController.navigate(
-                                            ArtistPageRoute(
-                                                artistId = origin.id,
-                                                name = origin.name,
-                                                imageUrl = origin.imageUrl,
-                                                scrollToTrackId = songId,
-                                            )
-                                        )
-                                    }
-                                }
-                                is CatalogPlaybackOrigin.Album -> {
-                                    val onThisPage = songId != null && currentEntry != null &&
-                                        runCatching { currentEntry.toRoute<AlbumPageRoute>().albumId }
-                                            .getOrNull() == origin.id
-                                    if (onThisPage) {
-                                        currentEntry!!.savedStateHandle[CATALOG_SCROLL_TO_TRACK_KEY] = songId
-                                    } else {
-                                        navController.navigate(
-                                            AlbumPageRoute(
-                                                albumId = origin.id,
-                                                title = origin.title,
-                                                artist = origin.artist,
-                                                coverUrl = origin.coverUrl,
-                                                scrollToTrackId = songId,
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                            return@MiniPlayerBar
-                        }
-                        val postId = state.sourcePostId
-                        val trackId = state.trackId
-                        // Already-on-feed shortcut: if a feed-style screen is
-                        // currently visible at root and has the now-playing
-                        // post loaded, scroll to it in place instead of
-                        // pushing a redundant single-post detail page.
-                        // Mirrors iOS .feedScrollToPost / .profileFeedScrollToPost.
-                        if (postId != null) {
-                            val handled = viewModel.feedScrollRouter.handler?.invoke(postId) == true
-                            if (handled) return@MiniPlayerBar
-                        }
-                        when {
-                            postId != null -> navController.navigate(PostDetailRoute(postId))
-                            trackId != null -> {
-                                // Round-trip SoundCloud fields. Without these, opening
-                                // SongDetail from the mini-player while a SoundCloud
-                                // track is playing would default the route's source to
-                                // null/spotify, causing the detail screen to render
-                                // Apple Music / Spotify CTAs and "Post Song" to write
-                                // a Spotify-shaped post — feed renders the wrong badge
-                                // and playback fails. SC trackIds are formatted
-                                // `sc:<numeric>` so we can derive the SC id directly.
-                                val isSoundCloud = state.source == TrackSource.SOUNDCLOUD
-                                val soundcloudId = if (isSoundCloud) trackId.removePrefix("sc:") else null
-                                navController.navigate(SongDetailRoute(
-                                    trackId = trackId,
-                                    albumArtURL = state.albumArtURL,
-                                    albumArtLargeURL = state.albumArtLargeURL,
-                                    songName = state.trackName,
-                                    artistName = state.artistName,
-                                    spotifyURI = state.spotifyURI,
-                                    spotifyWebURL = state.spotifyWebURL,
-                                    source = state.source.raw,
-                                    soundcloudId = soundcloudId,
-                                    soundcloudPermalinkUrl = state.soundcloudPermalinkUrl,
-                                ))
-                            }
-                        }
-                    },
-                )
-                CorusBottomBar(
-                frosted = FrostedBottomBar,
-                selectedTab = selectedTab,
-                notificationTabBadgeCount = notificationTabBadge(
-                    selectedTab = selectedTab,
-                    notificationCount = notificationCount,
-                    unreadMessageCount = unreadMessageCount,
-                ),
-                onTabSelected = { tab ->
-                    if (tab == CorusTab.COMPOSE) {
-                        if (viewModel.subscriptionRepository.canPost) {
-                            composeViewModel.reset()
-                            showCompose = true
-                        } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
-                    } else {
-                        if (tab == selectedTab) {
-                            // Re-tap: pop to root if deep, scroll to top if already at root
-                            val navController = navControllers[tab]!!
-                            val popped = navController.popToStart()
-                            if (!popped) {
-                                // Already at root — scroll to top
-                                when (tab) {
-                                    CorusTab.FEED -> feedScrollToTop.intValue++
-                                    CorusTab.EXPLORE -> searchScrollToTop.intValue++
-                                    CorusTab.NOTIFICATIONS -> notificationsScrollToTop.intValue++
-                                    CorusTab.PROFILE -> profileScrollToTop.intValue++
-                                    else -> {}
-                                }
-                            }
-                        }
-                        if (tab == CorusTab.NOTIFICATIONS) {
-                            // Optimistic in-memory zero only on a real switch in
-                            // (not a re-tap), matching the prior behaviour.
-                            if (selectedTab != CorusTab.NOTIFICATIONS) {
-                                viewModel.onActivityTabEntered()
-                            }
-                            // Bump the activation trigger on every selection so
-                            // the notifications screen actually marks the feed
-                            // read (stamp lastSeen + markAllRead) on each visit.
-                            notificationsTabActivation.intValue++
-                        }
-                        if (tab == CorusTab.PROFILE) {
-                            profileTabActivation.intValue++
-                        }
-                        selectedTab = tab
-                    }
-                },
-                onComposeTapped = {
-                    if (viewModel.subscriptionRepository.canPost) {
-                        composeViewModel.reset()
-                        showCompose = true
-                    } else { clubOfferSource = PaywallSource.POST_LIMIT; showClubOffer = true }
-                },
-            )
-            }
-        },
+        bottomBar = {},
     ) { padding ->
         Box(
             modifier = Modifier
@@ -547,10 +381,8 @@ fun MainTabScreen(
                 .then(
                     if (FrostedBottomBar) {
                         // Drop the bottom-bar inset so tab content scrolls UNDER the
-                        // frosted bar (the Scaffold still draws the bar on top). NOTE:
-                        // do NOT put a hazeSource here — wrapping every screen in one
-                        // corrupts their own top-strip haze. Screens publish their
-                        // scrollable into `bottomHaze` via `contentHazeSource()` instead.
+                        // frosted chrome. Screens publish into `bottomHaze` via
+                        // `contentHazeSource()`.
                         Modifier.padding(top = padding.calculateTopPadding())
                     } else {
                         Modifier.padding(padding)
@@ -560,11 +392,9 @@ fun MainTabScreen(
         ) {
           CompositionLocalProvider(
               // Frosted scrollables add this to their bottom contentPadding so their
-              // last row rests just above the bar while still scrolling under it.
+              // last row rests just above mini + tab bar while still scrolling under it.
               LocalBottomBarHeight provides
-                  (if (FrostedBottomBar) padding.calculateBottomPadding() else 0.dp),
-              // The state the shared bottom bar blurs; screens feed their scrollable
-              // into it via contentHazeSource(). null (default) when the bar is off.
+                  (if (FrostedBottomBar) bottomChromeHeight else 0.dp),
               LocalContentHaze provides (if (FrostedBottomBar) bottomHaze else null),
           ) {
             // Keep all tab NavHosts alive but only show the selected one.
@@ -645,6 +475,236 @@ fun MainTabScreen(
                 showClubOffer = true
             }
         }
+    }
+
+    // Expanding now-playing sheet (above tab content, below tab bar).
+    if (showsMiniPlayer) {
+        ExpandingPlayerHost(
+            expansionState = playerExpansion,
+            parkInsetPx = tabBarHeightPx.coerceAtLeast(1f),
+            artworkUrl = nowPlayingState.albumArtLargeURL ?: nowPlayingState.albumArtURL,
+            nowPlayingManager = viewModel.nowPlayingManager,
+            onMiniHeightPxChanged = { miniHeightPx = it },
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(1f),
+            miniContent = { miniInteractive ->
+                MiniPlayerBar(
+                    nowPlayingManager = viewModel.nowPlayingManager,
+                    engagementManager = viewModel.postEngagementManager,
+                    onLikeTap = { viewModel.toggleLikeForCurrentTrack() },
+                    musicService = musicService,
+                    playFullSongs = playFullSongs,
+                    alwaysPlayFullSongs = alwaysPlayFullSongs,
+                    onPlaybackModeChange = { viewModel.setPlayFullSongs(it) },
+                    remoteConfig = viewModel.remoteConfigService,
+                    resolveLinkOut = { viewModel.resolveCurrentServiceLinkUrl() },
+                    resolveSpotifyFromApple = { viewModel.resolveCurrentSpotifyFromApple() },
+                    embeddedInExpandingShell = true,
+                    interactive = miniInteractive,
+                    onTrackTap = {
+                        playerScope.launch { playerExpansion.expand() }
+                    },
+                )
+            },
+            fullContent = { fullInteractive ->
+                FullPlayerScreen(
+                    nowPlayingManager = viewModel.nowPlayingManager,
+                    engagementManager = viewModel.postEngagementManager,
+                    musicService = musicService,
+                    playFullSongs = playFullSongs,
+                    alwaysPlayFullSongs = alwaysPlayFullSongs,
+                    onPlaybackModeChange = { viewModel.setPlayFullSongs(it) },
+                    remoteConfig = viewModel.remoteConfigService,
+                    interactive = fullInteractive,
+                    onDismiss = {
+                        viewModel.logFullPlayerDismissed("chevron")
+                        playerScope.launch { playerExpansion.collapse() }
+                    },
+                    onLikeTap = { viewModel.toggleLikeForCurrentTrack() },
+                    onOpenQueue = { showPlayerQueue = true },
+                    onOpenComments = { postId, _ -> commentPostId = postId },
+                    onOpenUser = { userId ->
+                        playerScope.launch {
+                            playerExpansion.collapse()
+                            navControllers[selectedTab]?.navigate(OtherProfileRoute(userId))
+                        }
+                    },
+                    onOpenPost = { postId ->
+                        playerScope.launch {
+                            playerExpansion.collapse()
+                            navControllers[selectedTab]?.navigate(PostDetailRoute(postId))
+                        }
+                    },
+                    onRepost = { post ->
+                        if (viewModel.subscriptionRepository.canPost) {
+                            viewModel.setRepostOriginalPost(post)
+                            composeViewModel.reset()
+                            showCompose = true
+                            playerScope.launch { playerExpansion.collapse() }
+                        } else {
+                            clubOfferSource = PaywallSource.POST_LIMIT
+                            showClubOffer = true
+                        }
+                    },
+                    onSharePost = { post -> playerSharePost = post },
+                    onSavePost = { postId -> viewModel.toggleSaveForPost(postId) },
+                    onOpenSongDetail = { track ->
+                        playerScope.launch {
+                            playerExpansion.collapse()
+                            navControllers[selectedTab]?.navigate(track.toSongDetailRoute())
+                        }
+                    },
+                    onOpenFilmDetail = { post ->
+                        post.movieId?.let { movieId ->
+                            playerScope.launch {
+                                playerExpansion.collapse()
+                                navControllers[selectedTab]?.navigate(
+                                    FilmDetailRoute(
+                                        movieId = movieId,
+                                        movieTitle = post.movieTitle,
+                                        directorName = post.directorName,
+                                        releaseYear = post.releaseYear,
+                                        posterURL = post.posterURL,
+                                    ),
+                                )
+                            }
+                        }
+                    },
+                    onComposeTrack = {
+                        val track = viewModel.nowPlayingManager.state.value.let { s ->
+                            s.trackId?.let { id ->
+                                fm.corus.android.data.model.CymbalTrack(
+                                    id = id,
+                                    name = s.trackName,
+                                    artistName = s.artistName,
+                                    albumName = "",
+                                    albumArtURL = s.albumArtURL,
+                                    albumArtLargeURL = s.albumArtLargeURL,
+                                    spotifyURI = s.spotifyURI.orEmpty(),
+                                    spotifyWebURL = s.spotifyWebURL.orEmpty(),
+                                    isrc = s.isrc,
+                                    source = s.source,
+                                )
+                            }
+                        }
+                        if (track != null) {
+                            if (viewModel.subscriptionRepository.canPost) {
+                                viewModel.setPreSelectedTrack(track)
+                                playerScope.launch { playerExpansion.collapse() }
+                            } else {
+                                clubOfferSource = PaywallSource.POST_LIMIT
+                                showClubOffer = true
+                            }
+                        }
+                    },
+                    onHashtagTap = { tag ->
+                        playerScope.launch {
+                            playerExpansion.collapse()
+                            navControllers[selectedTab]?.navigate(HashtagFeedRoute(tag))
+                        }
+                    },
+                    commentsRefreshSignal = commentsRefreshSignal,
+                    onOpenInService = {
+                        playerScope.launch {
+                            val url = viewModel.resolveCurrentServiceLinkUrl()
+                            if (!url.isNullOrBlank()) {
+                                runCatching {
+                                    context.startActivity(
+                                        android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            android.net.Uri.parse(url),
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                    },
+                )
+            },
+        )
+    }
+
+    // Tab bar — topmost chrome when collapsed; slides off as the player expands.
+    Column(
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            .zIndex(2f)
+            .offset {
+                IntOffset(
+                    0,
+                    (livePlayerExpansion.coerceIn(0f, 1f) * tabBarHeightPx.coerceAtLeast(0f))
+                        .roundToInt(),
+                )
+            }
+            .onSizeChanged { tabBarHeightPx = it.height.toFloat() }
+            .then(
+                if (FrostedBottomBar) {
+                    Modifier.hazeEffect(state = bottomHaze) {
+                        blurRadius = 30.dp
+                        backgroundColor = bottomFrost
+                        tints = listOf(HazeTint(bottomFrost.copy(alpha = 0.88f)))
+                    }
+                } else {
+                    Modifier
+                },
+            )
+            .blockTouchPassthrough(),
+    ) {
+        CorusBottomBar(
+            frosted = FrostedBottomBar,
+            selectedTab = selectedTab,
+            notificationTabBadgeCount = notificationTabBadge(
+                selectedTab = selectedTab,
+                notificationCount = notificationCount,
+                unreadMessageCount = unreadMessageCount,
+            ),
+            onTabSelected = { tab ->
+                if (tab == CorusTab.COMPOSE) {
+                    if (viewModel.subscriptionRepository.canPost) {
+                        composeViewModel.reset()
+                        showCompose = true
+                    } else {
+                        clubOfferSource = PaywallSource.POST_LIMIT
+                        showClubOffer = true
+                    }
+                } else {
+                    if (tab == selectedTab) {
+                        val navController = navControllers[tab]!!
+                        val popped = navController.popToStart()
+                        if (!popped) {
+                            when (tab) {
+                                CorusTab.FEED -> feedScrollToTop.intValue++
+                                CorusTab.EXPLORE -> searchScrollToTop.intValue++
+                                CorusTab.NOTIFICATIONS -> notificationsScrollToTop.intValue++
+                                CorusTab.PROFILE -> profileScrollToTop.intValue++
+                                else -> {}
+                            }
+                        }
+                    }
+                    if (tab == CorusTab.NOTIFICATIONS) {
+                        if (selectedTab != CorusTab.NOTIFICATIONS) {
+                            viewModel.onActivityTabEntered()
+                        }
+                        notificationsTabActivation.intValue++
+                    }
+                    if (tab == CorusTab.PROFILE) {
+                        profileTabActivation.intValue++
+                    }
+                    selectedTab = tab
+                }
+            },
+            onComposeTapped = {
+                if (viewModel.subscriptionRepository.canPost) {
+                    composeViewModel.reset()
+                    showCompose = true
+                } else {
+                    clubOfferSource = PaywallSource.POST_LIMIT
+                    showClubOffer = true
+                }
+            },
+        )
     }
 
     if (playbackModePending != null) {
@@ -780,6 +840,25 @@ fun MainTabScreen(
         }
     }
 
+    if (showPlayerQueue) {
+        FullPlayerQueueSheet(
+            nowPlayingManager = viewModel.nowPlayingManager,
+            onDismiss = { showPlayerQueue = false },
+        )
+    }
+
+    LaunchedEffect(playerSharePost?.id) {
+        val post = playerSharePost ?: return@LaunchedEffect
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_TEXT, "https://corus.fm/post/${post.id}")
+        }
+        runCatching {
+            context.startActivity(android.content.Intent.createChooser(send, null))
+        }
+        playerSharePost = null
+    }
+
     // Comments sheet hosted at the root so it covers the tab bar (full iOS parity) and
     // sees the real window insets. Navigation routes through the active tab's controller.
     commentPostId?.let { postId ->
@@ -790,7 +869,10 @@ fun MainTabScreen(
             // below only navigate — CommentsBottomSheet animates the sheet closed first and
             // the close reaching Hidden fires onDismiss, so they must NOT clear it here (that
             // would yank the sheet instantly and skip the animation).
-            onDismiss = { commentPostId = null },
+            onDismiss = {
+                commentPostId = null
+                commentsRefreshSignal += 1
+            },
             onNavigateToUser = { userId -> navController?.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track -> navController?.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { movie -> navController?.navigate(movie.toFilmDetailRoute()) },

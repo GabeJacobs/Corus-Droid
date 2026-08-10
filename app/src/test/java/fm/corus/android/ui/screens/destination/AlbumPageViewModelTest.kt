@@ -79,6 +79,7 @@ class AlbumPageViewModelTest {
         messageRepository = messageRepository,
         remoteConfigService = remoteConfigService,
         musicServicePreference = musicServicePreference,
+        preferencesDataStore = mock(),
         context = context,
     )
 

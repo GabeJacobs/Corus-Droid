@@ -488,7 +488,7 @@ class ProfileFeedViewModel @Inject constructor(
         val trackPosts = _posts.value.filter { it.mediaType == MediaType.TRACK }
         val queue = trackPosts.map { it.toQueuedTrack() }
         val track = post.toQueuedTrack()
-        val playFullSongs = preferencesDataStore.playFullSongsSync()
+        val playFullSongs = preferencesDataStore.effectivePlayFullSongsSync()
         val outcome = FullSongPlayCoordinator.playTapOutcome(
             track = post.track,
             sourcePostId = post.id,

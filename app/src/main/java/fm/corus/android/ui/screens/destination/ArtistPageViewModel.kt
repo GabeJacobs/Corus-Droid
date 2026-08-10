@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
+import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.ArtistDetail
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
@@ -47,6 +48,7 @@ class ArtistPageViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val remoteConfigService: RemoteConfigService,
     private val musicServicePreference: MusicServicePreference,
+    private val preferencesDataStore: PreferencesDataStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -55,6 +57,9 @@ class ArtistPageViewModel @Inject constructor(
         service = musicServicePreference.current.value,
         remoteConfig = remoteConfigService,
     )
+
+    fun preferFullPlaybackOnCatalog(): Boolean =
+        SongPlayRouting.preferFullPlaybackOnCatalog(preferencesDataStore)
 
     /** Send-side gate for the "..." Share entry on this page. */
     val entityShareEnabled: Boolean get() = remoteConfigService.entityShareEnabled

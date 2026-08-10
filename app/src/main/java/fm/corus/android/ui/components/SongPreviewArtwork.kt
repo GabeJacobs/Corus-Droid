@@ -24,10 +24,15 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.QueuedTrack
+import fm.corus.android.domain.toQueuedTrack
 
 /**
  * Album art with a tap-to-preview play/pause overlay — same UX as
  * [CommentAttachmentCard]'s artwork. Tap the artwork to toggle the preview.
+ *
+ * When [queue] is non-empty (e.g. trending chart), play seeds that list so
+ * mini-player Next / autoplay walk it — same pattern as catalog rows.
  */
 @Composable
 fun SongPreviewArtwork(
@@ -36,6 +41,7 @@ fun SongPreviewArtwork(
     size: Dp,
     cornerRadius: Dp,
     contentDescription: String? = null,
+    queue: List<QueuedTrack> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val state by nowPlaying.state.collectAsState()
@@ -53,21 +59,26 @@ fun SongPreviewArtwork(
                 } else {
                     nowPlaying.routePlayTap(
                         track = track,
+                        queue = queue,
                         onPreview = {
-                            nowPlaying.play(
-                                trackId = track.id,
-                                trackName = track.name,
-                                artistName = track.artistName,
-                                albumArtURL = track.albumArtURL,
-                                albumArtLargeURL = track.albumArtLargeURL,
-                                previewUrl = track.previewUrl,
-                                spotifyURI = track.spotifyURI,
-                                spotifyWebURL = track.spotifyWebURL,
-                                isrc = track.isrc,
-                                source = track.source,
-                                soundcloudId = track.soundcloudId,
-                                soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
-                            )
+                            if (queue.isEmpty()) {
+                                nowPlaying.play(
+                                    trackId = track.id,
+                                    trackName = track.name,
+                                    artistName = track.artistName,
+                                    albumArtURL = track.albumArtURL,
+                                    albumArtLargeURL = track.albumArtLargeURL,
+                                    previewUrl = track.previewUrl,
+                                    spotifyURI = track.spotifyURI,
+                                    spotifyWebURL = track.spotifyWebURL,
+                                    isrc = track.isrc,
+                                    source = track.source,
+                                    soundcloudId = track.soundcloudId,
+                                    soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
+                                )
+                            } else {
+                                nowPlaying.play(track = track.toQueuedTrack(), queue = queue)
+                            }
                         },
                     )
                 }

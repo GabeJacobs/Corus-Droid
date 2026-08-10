@@ -255,7 +255,7 @@ class PostDetailViewModel @Inject constructor(
             nowPlaying = nowPlayingManager,
             remoteConfig = remoteConfig,
             musicService = musicService,
-            playFullSongs = preferencesDataStore.playFullSongsSync(),
+            playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
             playbackModePromptManager = playbackModePromptManager,
             skipPlaybackModePrompt = skipPlaybackModePrompt,
             preferFullSong = preferFullSong,
@@ -267,7 +267,7 @@ class PostDetailViewModel @Inject constructor(
             nowPlaying = nowPlayingManager,
             remoteConfig = remoteConfig,
             musicService = musicService,
-            playFullSongs = preferencesDataStore.playFullSongsSync(),
+            playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
             playbackModePromptManager = playbackModePromptManager,
             onPreview = {
                 nowPlayingManager.play(

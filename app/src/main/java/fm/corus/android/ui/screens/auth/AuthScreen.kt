@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -63,9 +64,12 @@ fun AuthScreen(
     val activity = context as Activity
 
     var phoneNumber by remember { mutableStateOf("") }
+    var emailAddress by remember { mutableStateOf("") }
     var verificationCode by remember { mutableStateOf("") }
     var showPhoneInput by remember { mutableStateOf(false) }
+    var showEmailInput by remember { mutableStateOf(false) }
     var selectedCountry by remember { mutableStateOf(CountryCode.US) }
+    val emailOtpEnabled = viewModel.emailOtpAuthEnabled
 
     // Google Sign-In launcher
     val googleSignInLauncher = rememberLauncherForActivityResult(
@@ -90,20 +94,27 @@ fun AuthScreen(
         }
     }
 
-    val showPhoneFlow = showPhoneInput || verificationSent
+    val showPhoneFlow = showPhoneInput || (verificationSent && !showEmailInput)
+    val showEmailFlow = showEmailInput || (verificationSent && showEmailInput)
+    val showSecondaryFlow = showPhoneFlow || showEmailFlow
 
-    BackHandler(enabled = showPhoneFlow) {
+    BackHandler(enabled = showSecondaryFlow) {
         if (verificationSent) {
             verificationCode = ""
             viewModel.resetVerification()
         }
         showPhoneInput = false
+        showEmailInput = false
     }
 
     AnimatedContent(
-        targetState = showPhoneFlow,
+        targetState = when {
+            showEmailFlow -> "email"
+            showPhoneFlow -> "phone"
+            else -> "main"
+        },
         transitionSpec = {
-            if (targetState) {
+            if (targetState != "main") {
                 slideInHorizontally(tween(400), initialOffsetX = { it }) togetherWith
                     slideOutHorizontally(tween(400), targetOffsetX = { -it / 3 })
             } else {
@@ -112,9 +123,9 @@ fun AuthScreen(
             }
         },
         label = "AuthScreenTransition",
-    ) { isPhoneFlow ->
-        if (isPhoneFlow) {
-            PhoneAuthContent(
+    ) { flow ->
+        when (flow) {
+            "phone" -> PhoneAuthContent(
                 phoneNumber = phoneNumber,
                 onPhoneNumberChange = { phoneNumber = it.filter { c -> c.isDigit() }.take(15) },
                 selectedCountry = selectedCountry,
@@ -138,7 +149,29 @@ fun AuthScreen(
                     viewModel.resetVerification()
                 },
             )
-        } else {
+            "email" -> EmailAuthContent(
+                email = emailAddress,
+                onEmailChange = { emailAddress = it.trim() },
+                verificationCode = verificationCode,
+                onVerificationCodeChange = { verificationCode = it.filter { c -> c.isDigit() }.take(6) },
+                verificationSent = verificationSent,
+                isLoading = isLoading,
+                error = error,
+                onSendCode = { viewModel.sendEmailOtpCode(emailAddress) },
+                onVerifyCode = { viewModel.verifyEmailOtpCode(verificationCode) },
+                onBack = {
+                    if (verificationSent) {
+                        verificationCode = ""
+                        viewModel.resetVerification()
+                    }
+                    showEmailInput = false
+                },
+                onUseDifferentEmail = {
+                    verificationCode = ""
+                    viewModel.resetVerification()
+                },
+            )
+            else -> {
             // Main auth screen — matches iOS AuthView layout exactly
             Column(
             modifier = Modifier
@@ -261,10 +294,30 @@ fun AuthScreen(
                         showPhoneInput = true
                     },
                 )
+
+                if (emailOtpEnabled) {
+                    AuthButton(
+                        text = stringResource(id = R.string.auth_button_email),
+                        icon = {
+                            Icon(
+                                Icons.Filled.Email,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = CorusColors.Text,
+                            )
+                        },
+                        isLoading = false,
+                        onClick = {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                            showEmailInput = true
+                        },
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.weight(1f))
             }
+        }
         }
     }
 }
@@ -313,6 +366,199 @@ private fun AuthButton(
                     text = text,
                     style = CorusFont.button,
                     color = CorusColors.Text,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Email OTP auth flow — matches onboarding title/subtitle + phone OTP chrome.
+ */
+@Composable
+private fun EmailAuthContent(
+    email: String,
+    onEmailChange: (String) -> Unit,
+    verificationCode: String,
+    onVerificationCodeChange: (String) -> Unit,
+    verificationSent: Boolean,
+    isLoading: Boolean,
+    error: String?,
+    onSendCode: () -> Unit,
+    onVerifyCode: () -> Unit,
+    onBack: () -> Unit,
+    onUseDifferentEmail: () -> Unit = {},
+) {
+    var resendCooldown by remember { mutableIntStateOf(0) }
+    LaunchedEffect(verificationSent) {
+        if (verificationSent) {
+            resendCooldown = 60
+            while (resendCooldown > 0) {
+                delay(1000)
+                resendCooldown--
+            }
+        }
+    }
+    val emailLooksValid = email.contains("@") && email.contains(".")
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CorusColors.Background)
+            .imePadding(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(CorusSpacing.xxl)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            if (verificationSent) {
+                Text(
+                    text = stringResource(id = R.string.auth_email_check_title),
+                    style = CorusFont.custom(900, 28),
+                    color = CorusColors.Text,
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                Text(
+                    text = stringResource(id = R.string.auth_email_code_sent_format, email),
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                )
+            } else {
+                Text(
+                    text = "corus",
+                    style = CorusFont.logoLarge,
+                    color = CorusColors.Text,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+
+            if (error != null) {
+                Text(
+                    text = error,
+                    style = CorusFont.caption,
+                    color = CorusColors.Error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = CorusSpacing.lg),
+                )
+            }
+
+            if (!verificationSent) {
+                Text(
+                    text = stringResource(id = R.string.auth_email_prompt),
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = onEmailChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(id = R.string.auth_email_placeholder)) },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { if (emailLooksValid) onSendCode() }
+                    ),
+                    singleLine = true,
+                    shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                Button(
+                    onClick = onSendCode,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    enabled = emailLooksValid && !isLoading,
+                    shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                    colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text(stringResource(id = R.string.auth_button_send_code), style = CorusFont.button, color = Color.White)
+                    }
+                }
+            } else {
+                OutlinedTextField(
+                    value = verificationCode,
+                    onValueChange = onVerificationCodeChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(id = R.string.auth_code_placeholder)) },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { if (verificationCode.length == 6) onVerifyCode() }
+                    ),
+                    singleLine = true,
+                    shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.lg))
+                Button(
+                    onClick = onVerifyCode,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    enabled = verificationCode.length == 6 && !isLoading,
+                    shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                    colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text(stringResource(id = R.string.auth_button_verify), style = CorusFont.button, color = Color.White)
+                    }
+                }
+                Spacer(modifier = Modifier.height(CorusSpacing.md))
+                TextButton(
+                    onClick = {
+                        resendCooldown = 60
+                        onSendCode()
+                    },
+                    enabled = resendCooldown == 0 && !isLoading,
+                ) {
+                    Text(
+                        if (resendCooldown > 0) {
+                            stringResource(id = R.string.change_phone_resend_in_format, resendCooldown)
+                        } else {
+                            stringResource(id = R.string.change_phone_resend_code)
+                        },
+                        style = CorusFont.captionMedium,
+                        color = if (resendCooldown > 0) CorusColors.Tertiary else CorusColors.Accent,
+                    )
+                }
+                TextButton(onClick = onUseDifferentEmail) {
+                    Text(
+                        stringResource(id = R.string.auth_email_use_different),
+                        style = CorusFont.captionMedium,
+                        color = CorusColors.Accent,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+            TextButton(onClick = onBack) {
+                Text(
+                    stringResource(id = R.string.common_back),
+                    style = CorusFont.captionMedium,
+                    color = CorusColors.Secondary,
                 )
             }
         }

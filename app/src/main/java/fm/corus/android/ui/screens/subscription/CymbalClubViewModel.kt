@@ -36,6 +36,12 @@ enum class PaywallSource(val subtitle: String, val analyticsName: String) {
         "Get an always-fresh feed of music and film from people who match your taste.",
         "taste_matches",
     ),
+    /** Tapped the in-feed free-trial banner (`taste_matches_free_trial` RC).
+     *  Shares the eyebrow/copy treatment with [TASTE_MATCHES]. */
+    TASTE_MATCHES_BANNER(
+        "Get an always-fresh feed of music and film from people who match your taste.",
+        "taste_matches_banner",
+    ),
 }
 
 @HiltViewModel

@@ -56,6 +56,7 @@ class SongDetailViewModelShareTest {
             cloudFunctions = mock(),
             remoteConfigService = mock(),
             preferencesDataStore = mock(),
+            playbackModePromptManager = mock(),
             musicServicePreference = mock(),
             authRepository = authRepository,
             userRepository = userRepository,

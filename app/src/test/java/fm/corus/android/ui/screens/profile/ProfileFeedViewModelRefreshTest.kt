@@ -118,6 +118,7 @@ class ProfileFeedViewModelRefreshTest {
         preferencesDataStore = mock {
             on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
         },
+        playbackModePromptManager = mock(),
         musicServicePreference = mock(),
     )
 

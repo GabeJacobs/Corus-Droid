@@ -1304,4 +1304,15 @@
     <string name="entity_link_not_found">Questo link non porta più da nessuna parte</string>
     <string name="entity_link_unreachable_title">Impossibile aprire questo link</string>
     <string name="entity_link_unreachable_subtitle">Non siamo riusciti a raggiungere Corus in questo momento. Riprova tra poco.</string>
+
+    <string name="settings_row_always_play_full_songs_title">Riproduci sempre brani completi</string>
+    <string name="settings_row_always_play_full_songs_spotify_subtitle">Riproduce brani completi se hai effettuato l’accesso con Premium; altrimenti anteprime di 30 s. Disattiva per mostrare l’interruttore 30s/Completo.</string>
+    <string name="full_player_queue_title">Coda</string>
+    <string name="full_player_queue_close">Chiudi</string>
+    <string name="full_player_queue_now_playing">In riproduzione</string>
+    <string name="full_player_queue_up_next">A seguire</string>
+    <string name="full_player_queue_earlier">Precedenti</string>
+    <string name="full_player_queue_empty">Niente in coda. Riproduci dal feed per creare una coda.</string>
+    <string name="full_player_queue_remove">Rimuovi</string>
+    <string name="full_player_view_comments">Vedi commenti</string>
 </resources>

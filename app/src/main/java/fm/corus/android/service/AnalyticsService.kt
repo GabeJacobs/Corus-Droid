@@ -219,6 +219,13 @@ class AnalyticsService @Inject constructor(
     fun logVoiceNotePlayed() = logEvent("voice_note_played")
     fun logReposted(postId: String, mediaType: String) = logEvent("post_created", mapOf("post_id" to postId, "media_type" to mediaType, "is_repost" to true))
     fun logPostCreateError(error: String) = logEvent("post_create_error", mapOf("error" to error.take(100)))
+    fun logFullPlayerDismissed(trackId: String?, method: String) = logEvent(
+        "full_player_dismissed",
+        buildMap {
+            put("method", method)
+            if (!trackId.isNullOrBlank()) put("track_id", trackId)
+        },
+    )
 
     // MARK: - Comment Events
 
@@ -370,6 +377,22 @@ class AnalyticsService @Inject constructor(
     fun logTasteMatchesColdstartPostTapped() = logEvent("taste_matches_coldstart_post_tapped")
     fun logTasteMatchesFeedViewed(postCount: Int) =
         logEvent("taste_matches_feed_viewed", mapOf("post_count" to postCount))
+
+    // ── Free-trial in-feed banner (`taste_matches_free_trial` RC on) ──
+    // Shown once per phase the banner is in ("preview" | "trial") and logged
+    // again on tap, right before the tap opens the paywall with source
+    // "taste_matches_banner". Event names + param keys match iOS/web.
+    fun logTasteMatchesBannerShown(phase: String, daysRemaining: Int? = null, postCount: Int? = null) {
+        val params = mutableMapOf<String, Any>("phase" to phase)
+        if (daysRemaining != null) params["days_remaining"] = daysRemaining
+        if (postCount != null) params["post_count"] = postCount
+        logEvent("taste_matches_banner_shown", params)
+    }
+    fun logTasteMatchesBannerTapped(phase: String, daysRemaining: Int? = null) {
+        val params = mutableMapOf<String, Any>("phase" to phase)
+        if (daysRemaining != null) params["days_remaining"] = daysRemaining
+        logEvent("taste_matches_banner_tapped", params)
+    }
     fun logMessageThreadOpened(threadId: String) = logEvent("message_thread_opened", mapOf("thread_id" to threadId))
     fun logMessageSent(threadId: String, type: String) = logEvent("message_sent", mapOf("thread_id" to threadId, "message_type" to type))
     fun logMessageError(threadId: String, error: String) = logEvent("message_error", mapOf("thread_id" to threadId, "error" to error.take(100)))

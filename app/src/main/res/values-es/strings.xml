@@ -1304,4 +1304,15 @@
     <string name="entity_link_not_found">Este enlace ya no lleva a ninguna parte</string>
     <string name="entity_link_unreachable_title">No se pudo abrir este enlace</string>
     <string name="entity_link_unreachable_subtitle">No pudimos conectar con Corus en este momento. Inténtalo de nuevo en un momento.</string>
+
+    <string name="settings_row_always_play_full_songs_title">Reproducir siempre canciones completas</string>
+    <string name="settings_row_always_play_full_songs_spotify_subtitle">Reproduce canciones completas si iniciaste sesión con Premium; si no, vistas previas de 30 s. Desactívalo para mostrar el interruptor 30s/Completo.</string>
+    <string name="full_player_queue_title">Cola</string>
+    <string name="full_player_queue_close">Cerrar</string>
+    <string name="full_player_queue_now_playing">Reproduciendo</string>
+    <string name="full_player_queue_up_next">A continuación</string>
+    <string name="full_player_queue_earlier">Anteriores</string>
+    <string name="full_player_queue_empty">Nada a continuación. Reproduce desde el feed para crear una cola.</string>
+    <string name="full_player_queue_remove">Eliminar</string>
+    <string name="full_player_view_comments">Ver comentarios</string>
 </resources>

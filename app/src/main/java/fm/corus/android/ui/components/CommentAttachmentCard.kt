@@ -41,9 +41,20 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlinx.coroutines.launch
 /**
+ * Visual treatment for comment attachment chrome.
+ * - [STANDARD]: opaque sheet-style card (comments sheet / post detail)
+ * - [PLAYER]: translucent wash on the frosted full-player backdrop
+ */
+enum class CommentAttachmentSurface {
+    STANDARD,
+    PLAYER,
+}
+
+/**
  * Compact attachment card rendered inside a comment when the comment carries a
  * song or film. Tapping the artwork plays a preview (song) or navigates (film).
  * Tapping the title region navigates to the song/film detail page.
+ * On [CommentAttachmentSurface.PLAYER], the whole card navigates (no nested play).
  */
 @Composable
 fun CommentAttachmentCard(
@@ -61,17 +72,34 @@ fun CommentAttachmentCard(
     onNavigateToArtist: ((CommentAttachedArtist) -> Unit)? = null,
     onNavigateToAlbum: ((CommentAttachedAlbum) -> Unit)? = null,
     onNavigateToDirector: ((CommentAttachedDirector) -> Unit)? = null,
+    surface: CommentAttachmentSurface = CommentAttachmentSurface.STANDARD,
 ) {
     val state by nowPlaying.state.collectAsState()
     val loadingTrackId by nowPlaying.loadingTrackId.collectAsState()
     val context = LocalContext.current
+    val onPlayer = surface == CommentAttachmentSurface.PLAYER
+    val fill = if (onPlayer) {
+        CorusColors.Text.copy(alpha = 0.08f)
+    } else {
+        CorusColors.CardBackground.copy(alpha = 0.7f)
+    }
+    val stroke = if (onPlayer) {
+        CorusColors.Text.copy(alpha = 0.10f)
+    } else {
+        CorusColors.Divider.copy(alpha = 0.4f)
+    }
+    val secondaryLabel = if (onPlayer) {
+        CorusColors.Text.copy(alpha = 0.62f)
+    } else {
+        CorusColors.Secondary
+    }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(CorusColors.CardBackground.copy(alpha = 0.7f))
-            .border(0.5.dp, CorusColors.Divider.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            .background(fill)
+            .border(0.5.dp, stroke, RoundedCornerShape(12.dp))
             .padding(CorusSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -79,13 +107,17 @@ fun CommentAttachmentCard(
             attachedSong != null -> {
                 val isLoading = loadingTrackId == attachedSong.trackId
                 val isPlaying = state.trackId == attachedSong.trackId && state.isPlaying
+                val openSong = { onNavigateToSong(attachedSong.asCymbalTrack()) }
 
-                // Artwork — tap to play/pause preview
                 Box(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .clickable {
+                            if (onPlayer) {
+                                openSong()
+                                return@clickable
+                            }
                             if (state.trackId == attachedSong.trackId) {
                                 nowPlaying.togglePlayPause()
                             } else {
@@ -114,43 +146,44 @@ fun CommentAttachmentCard(
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                     )
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(22.dp)
-                            .clip(RoundedCornerShape(11.dp))
-                            .background(Color.Black.copy(alpha = 0.4f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        when {
-                            isLoading -> CircularProgressIndicator(
-                                modifier = Modifier.size(12.dp),
-                                strokeWidth = 1.5.dp,
-                                color = Color.White,
-                            )
-                            isPlaying -> Icon(
-                                Icons.Filled.Pause,
-                                contentDescription = stringResource(R.string.comment_attachment_pause_preview),
-                                tint = Color.White,
-                                modifier = Modifier.size(12.dp),
-                            )
-                            else -> Icon(
-                                Icons.Filled.PlayArrow,
-                                contentDescription = stringResource(R.string.comment_attachment_play_preview),
-                                tint = Color.White,
-                                modifier = Modifier.size(12.dp),
-                            )
+                    if (!onPlayer) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(22.dp)
+                                .clip(RoundedCornerShape(11.dp))
+                                .background(Color.Black.copy(alpha = 0.4f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            when {
+                                isLoading -> CircularProgressIndicator(
+                                    modifier = Modifier.size(12.dp),
+                                    strokeWidth = 1.5.dp,
+                                    color = Color.White,
+                                )
+                                isPlaying -> Icon(
+                                    Icons.Filled.Pause,
+                                    contentDescription = stringResource(R.string.comment_attachment_pause_preview),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(12.dp),
+                                )
+                                else -> Icon(
+                                    Icons.Filled.PlayArrow,
+                                    contentDescription = stringResource(R.string.comment_attachment_play_preview),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(12.dp),
+                                )
+                            }
                         }
                     }
                 }
 
                 Spacer(Modifier.width(CorusSpacing.sm))
 
-                // Title region — tap to navigate
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { onNavigateToSong(attachedSong.asCymbalTrack()) },
+                        .clickable(onClick = openSong),
                 ) {
                     Text(
                         text = attachedSong.trackName,
@@ -162,7 +195,7 @@ fun CommentAttachmentCard(
                     Text(
                         text = attachedSong.artistName,
                         style = CorusFont.caption,
-                        color = CorusColors.Secondary,
+                        color = secondaryLabel,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -170,12 +203,12 @@ fun CommentAttachmentCard(
             }
 
             attachedFilm != null -> {
-                // Poster — tap to navigate
+                val openFilm = { onNavigateToFilm(attachedFilm.asCymbalMovie()) }
                 Box(
                     modifier = Modifier
                         .size(width = 36.dp, height = 54.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .clickable { onNavigateToFilm(attachedFilm.asCymbalMovie()) },
+                        .clickable(onClick = openFilm),
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(context).data(attachedFilm.posterURL).build(),
@@ -190,7 +223,7 @@ fun CommentAttachmentCard(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { onNavigateToFilm(attachedFilm.asCymbalMovie()) },
+                        .clickable(onClick = openFilm),
                 ) {
                     Text(
                         text = attachedFilm.movieTitle,
@@ -209,7 +242,7 @@ fun CommentAttachmentCard(
                         Text(
                             text = secondary,
                             style = CorusFont.caption,
-                            color = CorusColors.Secondary,
+                            color = secondaryLabel,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -222,6 +255,7 @@ fun CommentAttachmentCard(
                 circle = true,
                 title = attachedArtist.artistName,
                 subtitle = stringResource(R.string.messaging_thread_attachment_artist),
+                secondaryLabelColor = secondaryLabel,
                 onClick = onNavigateToArtist?.let { cb -> { cb(attachedArtist) } },
             )
 
@@ -232,6 +266,7 @@ fun CommentAttachmentCard(
                 subtitle = attachedAlbum.albumArtistName.ifBlank {
                     stringResource(R.string.messaging_thread_attachment_album)
                 },
+                secondaryLabelColor = secondaryLabel,
                 onClick = onNavigateToAlbum?.let { cb -> { cb(attachedAlbum) } },
             )
 
@@ -240,6 +275,7 @@ fun CommentAttachmentCard(
                 circle = true,
                 title = attachedDirector.directorName,
                 subtitle = stringResource(R.string.messaging_thread_attachment_director),
+                secondaryLabelColor = secondaryLabel,
                 onClick = onNavigateToDirector?.let { cb -> { cb(attachedDirector) } },
             )
         }
@@ -256,6 +292,7 @@ private fun RowScope.EntityAttachmentContent(
     circle: Boolean,
     title: String,
     subtitle: String,
+    secondaryLabelColor: Color,
     onClick: (() -> Unit)?,
 ) {
     val context = LocalContext.current
@@ -285,7 +322,7 @@ private fun RowScope.EntityAttachmentContent(
         Text(
             text = subtitle,
             style = CorusFont.caption,
-            color = CorusColors.Secondary,
+            color = secondaryLabelColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

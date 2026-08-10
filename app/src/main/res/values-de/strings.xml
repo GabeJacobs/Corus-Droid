@@ -1304,4 +1304,15 @@
     <string name="entity_link_not_found">Dieser Link führt nirgendwohin mehr</string>
     <string name="entity_link_unreachable_title">Link konnte nicht geöffnet werden</string>
     <string name="entity_link_unreachable_subtitle">Wir konnten Corus gerade nicht erreichen. Versuche es gleich noch einmal.</string>
+
+    <string name="settings_row_always_play_full_songs_title">Immer ganze Songs abspielen</string>
+    <string name="settings_row_always_play_full_songs_spotify_subtitle">Spielt ganze Songs ab, wenn du mit Premium angemeldet bist; sonst 30-Sekunden-Vorschauen. Ausschalten, um den 30s/Voll-Schalter zu zeigen.</string>
+    <string name="full_player_queue_title">Warteschlange</string>
+    <string name="full_player_queue_close">Schließen</string>
+    <string name="full_player_queue_now_playing">Aktuell</string>
+    <string name="full_player_queue_up_next">Als Nächstes</string>
+    <string name="full_player_queue_earlier">Vorher</string>
+    <string name="full_player_queue_empty">Nichts als Nächstes. Spiele aus dem Feed, um eine Warteschlange aufzubauen.</string>
+    <string name="full_player_queue_remove">Entfernen</string>
+    <string name="full_player_view_comments">Kommentare ansehen</string>
 </resources>

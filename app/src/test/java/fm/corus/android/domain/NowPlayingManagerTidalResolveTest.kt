@@ -64,7 +64,7 @@ class NowPlayingManagerTidalResolveTest {
             context, cloudFunctions, preferencesDataStore, userRepository,
             mock(), mock(), mock<TidalPlaylistService>(),
             mock(), mock(), mock(),
-            mock(),
+            mock(), mock(), mock(),
         )
 
         val ids = manager.resolveTidalIds(listOf("A", "B", "C", "D").map(::descriptor))
@@ -82,7 +82,7 @@ class NowPlayingManagerTidalResolveTest {
             context, cloudFunctions, preferencesDataStore, userRepository,
             mock(), mock(), mock<TidalPlaylistService>(),
             mock(), mock(), mock(),
-            mock(),
+            mock(), mock(), mock(),
         )
 
         manager.resolveTidalIds(listOf(descriptor("A")))

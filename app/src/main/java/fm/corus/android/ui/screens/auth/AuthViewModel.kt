@@ -553,6 +553,61 @@ class AuthViewModel @Inject constructor(
     fun resetVerification() {
         _verificationSent.value = false
         _error.value = null
+        authRepository.clearPendingEmailOtp()
+    }
+
+    val emailOtpAuthEnabled: Boolean
+        get() = remoteConfigService.emailOtpAuthEnabled
+
+    fun sendEmailOtpCode(email: String) {
+        viewModelScope.launch {
+            _error.value = null
+            _isLoading.value = true
+            didSignInThisSession = true
+            try {
+                authRepository.sendEmailOtpCode(email)
+                _verificationSent.value = true
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "email OTP send failed", e)
+                _error.value = friendlyEmailOtpError(e)
+            }
+            _isLoading.value = false
+        }
+    }
+
+    fun verifyEmailOtpCode(code: String) {
+        viewModelScope.launch {
+            _error.value = null
+            _isLoading.value = true
+            try {
+                val isNewUser = authRepository.verifyEmailOtpCode(code)
+                if (isNewUser) {
+                    analyticsService.logSignUp("email")
+                } else {
+                    analyticsService.logSignIn("email")
+                }
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "email OTP verify failed", e)
+                _error.value = friendlyEmailOtpError(e)
+            }
+            _isLoading.value = false
+        }
+    }
+
+    private fun friendlyEmailOtpError(e: Exception): String {
+        val functions = e as? com.google.firebase.functions.FirebaseFunctionsException
+        return when (functions?.code) {
+            com.google.firebase.functions.FirebaseFunctionsException.Code.RESOURCE_EXHAUSTED ->
+                context.getString(R.string.auth_error_email_otp_rate_limited)
+            com.google.firebase.functions.FirebaseFunctionsException.Code.FAILED_PRECONDITION ->
+                context.getString(R.string.auth_error_email_otp_unavailable)
+            com.google.firebase.functions.FirebaseFunctionsException.Code.PERMISSION_DENIED ->
+                context.getString(R.string.auth_error_account_suspended)
+            com.google.firebase.functions.FirebaseFunctionsException.Code.INVALID_ARGUMENT,
+            com.google.firebase.functions.FirebaseFunctionsException.Code.NOT_FOUND ->
+                context.getString(R.string.auth_error_invalid_code)
+            else -> context.getString(R.string.auth_error_generic)
+        }
     }
 
     // ── Sign Out / Delete ──
@@ -604,10 +659,16 @@ class AuthViewModel @Inject constructor(
                 _isDeletingAccount.value = false
                 val providerId = firebaseAuth.currentUser?.providerData
                     ?.firstOrNull { it.providerId != "firebase" }?.providerId
-                if (providerId != null) {
-                    _needsReauth.tryEmit(providerId)
-                } else {
-                    _error.value = context.getString(R.string.settings_reauth_signout_prompt)
+                val email = firebaseAuth.currentUser?.email
+                when {
+                    providerId == "google.com" || providerId == "apple.com" || providerId == "phone" ->
+                        _needsReauth.tryEmit(providerId)
+                    // Passwordless email OTP / custom-token accounts have no
+                    // password provider — re-verify via email code.
+                    !email.isNullOrBlank() ->
+                        _needsReauth.tryEmit("email")
+                    else ->
+                        _error.value = context.getString(R.string.settings_reauth_signout_prompt)
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "deleteAccount failed", e)
@@ -707,6 +768,50 @@ class AuthViewModel @Inject constructor(
     fun cancelPhoneReauth() {
         reauthVerificationId = null
         _phoneReauthCodeSent.value = false
+        _isDeletingAccount.value = false
+    }
+
+    // ── Email OTP re-auth for account deletion ──
+
+    private val _emailReauthCodeSent = MutableStateFlow(false)
+    val emailReauthCodeSent: StateFlow<Boolean> = _emailReauthCodeSent.asStateFlow()
+
+    fun startEmailReauth() {
+        viewModelScope.launch {
+            _isDeletingAccount.value = true
+            try {
+                val email = firebaseAuth.currentUser?.email
+                    ?: throw IllegalStateException("No email on account")
+                authRepository.sendEmailOtpCode(email)
+                _isDeletingAccount.value = false
+                _emailReauthCodeSent.value = true
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "startEmailReauth failed", e)
+                _isDeletingAccount.value = false
+                _error.value = context.getString(R.string.auth_error_could_not_send_code)
+            }
+        }
+    }
+
+    fun verifyEmailReauthAndDelete(code: String) {
+        viewModelScope.launch {
+            _isDeletingAccount.value = true
+            try {
+                authRepository.verifyEmailOtpCode(code)
+                authRepository.deleteAccount()
+                _emailReauthCodeSent.value = false
+                completeAccountDeletion()
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "verifyEmailReauthAndDelete failed", e)
+                _isDeletingAccount.value = false
+                _error.value = context.getString(R.string.auth_error_invalid_code)
+            }
+        }
+    }
+
+    fun cancelEmailReauth() {
+        authRepository.clearPendingEmailOtp()
+        _emailReauthCodeSent.value = false
         _isDeletingAccount.value = false
     }
 

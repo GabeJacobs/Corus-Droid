@@ -27,6 +27,8 @@ fun UserAvatarView(
     size: Dp = CorusSpacing.avatarMedium,
     modifier: Modifier = Modifier,
     localAvatarOverride: Any? = null,
+    /** Solid grey circle instead of shimmer — needed on frosted full-player surfaces. */
+    usesSolidLoadingPlaceholder: Boolean = false,
 ) {
     // Use thumbnail for small avatars (feed circles, likes, comments), full res for larger displays
     val resolvedURL = if (size <= 36.dp && !avatarThumbURL.isNullOrBlank()) avatarThumbURL else avatarURL
@@ -39,13 +41,23 @@ fun UserAvatarView(
             modifier = modifier
                 .size(size)
                 .clip(CircleShape)
-                .background(CorusColors.CardBackground),
+                .background(
+                    if (usesSolidLoadingPlaceholder) {
+                        CorusColors.Text.copy(alpha = 0.16f)
+                    } else {
+                        CorusColors.CardBackground
+                    },
+                ),
             contentAlignment = Alignment.Center,
         ) {
             val fontSize = with(LocalDensity.current) { (size * 0.4f).toSp() }
             Text(
                 text = initial,
-                color = CorusColors.Secondary,
+                color = if (usesSolidLoadingPlaceholder) {
+                    CorusColors.Text.copy(alpha = 0.42f)
+                } else {
+                    CorusColors.Secondary
+                },
                 fontSize = fontSize,
                 fontWeight = FontWeight.Bold,
             )
@@ -56,6 +68,7 @@ fun UserAvatarView(
             contentDescription = stringResource(R.string.user_avatar_cd),
             modifier = modifier.size(size),
             shape = CircleShape,
+            usesSolidLoadingPlaceholder = usesSolidLoadingPlaceholder,
         )
     }
 }

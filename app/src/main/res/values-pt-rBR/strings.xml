@@ -1302,4 +1302,15 @@
     <string name="entity_link_not_found">Este link não leva mais a lugar nenhum</string>
     <string name="entity_link_unreachable_title">Não foi possível abrir este link</string>
     <string name="entity_link_unreachable_subtitle">Não conseguimos acessar o Corus agora. Tente novamente em instantes.</string>
+
+    <string name="settings_row_always_play_full_songs_title">Sempre tocar músicas completas</string>
+    <string name="settings_row_always_play_full_songs_spotify_subtitle">Toca músicas completas quando você está com Premium; senão, prévias de 30 s. Desative para mostrar o seletor 30s/Completa.</string>
+    <string name="full_player_queue_title">Fila</string>
+    <string name="full_player_queue_close">Fechar</string>
+    <string name="full_player_queue_now_playing">Tocando agora</string>
+    <string name="full_player_queue_up_next">A seguir</string>
+    <string name="full_player_queue_earlier">Anteriores</string>
+    <string name="full_player_queue_empty">Nada a seguir. Toque no feed para montar uma fila.</string>
+    <string name="full_player_queue_remove">Remover</string>
+    <string name="full_player_view_comments">Ver comentários</string>
 </resources>

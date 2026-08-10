@@ -131,6 +131,112 @@ class UnifiedSearchRankingTest {
         )
     }
 
+    // Famous artist + same-named biopic (Jimi Hendrix -> the 1973 film). No
+    // song is titled the query, and artist pages may be off so artistNames is
+    // empty — but the visible tracks are *by* him. Song lead-artist credits
+    // must keep music first.
+    @Test
+    fun `music keeps the lead when visible songs are by the queried artist`() {
+        assertFalse(
+            UnifiedSearchRanking.filmsLeadBlendedResults(
+                query = "jimi hendrix",
+                songTitles = listOf(
+                    "All Along the Watchtower",
+                    "Voodoo Child (Slight Return)",
+                    "Purple Haze",
+                    "Angel",
+                ),
+                filmTitles = listOf(
+                    "Jimi Hendrix",
+                    "Jimi Hendrix: Experience",
+                    "Jimi Hendrix",
+                    "Untitled Jimi Hendrix Film",
+                ),
+                artistNames = emptyList(),
+                songArtistNames = listOf(
+                    "The Jimi Hendrix Experience",
+                    "Jimi Hendrix",
+                    "The Jimi Hendrix Experience",
+                    "Jimi Hendrix",
+                ),
+            )
+        )
+    }
+
+    // Brokeback must still flip to Film when the visible songs are soundtrack
+    // covers by unrelated acts — even once we start reading song artists.
+    @Test
+    fun `film still leads when visible song artists do not match`() {
+        assertTrue(
+            UnifiedSearchRanking.filmsLeadBlendedResults(
+                query = "brokeback mountain",
+                songTitles = brokebackSongResults.take(4),
+                filmTitles = listOf("Brokeback Mountain"),
+                artistNames = emptyList(),
+                songArtistNames = listOf(
+                    "Groovy 69",
+                    "Lumberhorn",
+                    "Rainbow Workout Mix",
+                    "Theme Orchestra",
+                ),
+            )
+        )
+    }
+
+    // Famous film whose catalog is OST noise — including a couple of rows
+    // titled exactly after the movie (Lyric, Various Artists). Soundtrack-
+    // heavy previews must still lead with Film.
+    @Test
+    fun `film leads for soundtrack-heavy exact-title film`() {
+        assertTrue(
+            UnifiedSearchRanking.filmsLeadBlendedResults(
+                query = "saving private ryan",
+                songTitles = listOf(
+                    "Saving Private Ryan (Hymn to the Fallen)",
+                    "Saving Private Ryan (Hymn to the Fallen)",
+                    "Saving private Ryan",
+                    "Saving Private Ryan",
+                ),
+                filmTitles = listOf("Saving Private Ryan"),
+                artistNames = emptyList(),
+                songArtistNames = listOf(
+                    "Royal Symphony Orchestra",
+                    "Hollywood Movie Soundtrack Orchestra",
+                    "Lyric",
+                    "Various Artists",
+                ),
+            )
+        )
+    }
+
+    // Dual song/film titles still keep Music first when the exact song is by
+    // a real artist, not an OST pressing.
+    @Test
+    fun `music keeps the lead for a dual title with a real song artist`() {
+        assertFalse(
+            UnifiedSearchRanking.filmsLeadBlendedResults(
+                query = "purple rain",
+                songTitles = listOf("Purple Rain", "Purple Rain", "Purple Rain (Live)", "Purple Rain"),
+                filmTitles = listOf("Purple Rain"),
+                songArtistNames = listOf("Prince", "Prince", "Prince", "Prince"),
+            )
+        )
+    }
+
+    @Test
+    fun `artist name match accepts lead prefix and contained credit`() {
+        assertTrue(
+            UnifiedSearchRanking.artistNameMatchesQuery("Bob Marley & The Wailers", "bob marley")
+        )
+        assertTrue(
+            UnifiedSearchRanking.artistNameMatchesQuery("The Jimi Hendrix Experience", "jimi hendrix")
+        )
+        assertFalse(UnifiedSearchRanking.artistNameMatchesQuery("Bobby Womack", "bob"))
+        assertFalse(
+            UnifiedSearchRanking.artistNameMatchesQuery("Groovy 69", "brokeback mountain")
+        )
+    }
+
     // The artist match must be inside the preview window, like the song and film
     // checks — an exact artist buried below the shown rows can't rescue a music
     // section the user can't see leading with it.

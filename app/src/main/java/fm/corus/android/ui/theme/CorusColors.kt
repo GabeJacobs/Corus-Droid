@@ -149,4 +149,12 @@ object CorusColors {
     val SegmentedSelected: Color
         @Composable @ReadOnlyComposable
         get() = if (LocalCorusPalette.current.text == Color(0xFFF5F5F7)) Color(0xFF3A3A3C) else Color.White
+
+    val PlayerLink: Color
+        @Composable @ReadOnlyComposable
+        get() = if (LocalCorusPalette.current.text == Color(0xFFF5F5F7)) {
+            Color(0xFF8AB4F8)
+        } else {
+            Color(0xFF2E5CAD)
+        }
 }

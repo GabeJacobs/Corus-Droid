@@ -75,6 +75,8 @@ class ArtistPageViewModelTest {
         userRepository = userRepository,
         messageRepository = messageRepository,
         remoteConfigService = remoteConfigService,
+        musicServicePreference = mock(),
+        preferencesDataStore = mock(),
         context = context,
     )
 

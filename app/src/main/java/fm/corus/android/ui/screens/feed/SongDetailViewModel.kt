@@ -17,6 +17,7 @@ import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.FullSongPlayCoordinator
 import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.R
 import fm.corus.android.service.AnalyticsService
@@ -261,43 +262,65 @@ class SongDetailViewModel @Inject constructor(
                 soundcloudId = soundcloudId,
                 soundcloudPermalinkUrl = soundcloudPermalinkUrl,
             )
-            val preferFull = SongPlayRouting.catalogListeningEntitled(
-                context = context,
-                service = musicServicePreference.current.value,
-                remoteConfig = remoteConfigService,
-            )
+            val preferFull = SongPlayRouting.preferFullPlaybackOnCatalog(preferencesDataStore)
+            // Trending (and similar) stages the surrounding list before nav so
+            // Next walks the chart after song-detail play — mirrors iOS
+            // SongDetailView(queue:).
+            val queue = nowPlayingManager.catalogQueueForPlayback(trackId)
             val outcome = FullSongPlayCoordinator.playTapOutcome(
                 track = track,
+                queue = queue,
                 nowPlaying = nowPlayingManager,
                 remoteConfig = remoteConfigService,
                 musicService = musicServicePreference.current.value,
-                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
                 playbackModePromptManager = playbackModePromptManager,
                 preferFullSong = preferFull,
             )
             FullSongPlayCoordinator.applyPlayTapOutcome(
                 outcome = outcome,
                 track = track,
+                queue = queue,
                 nowPlaying = nowPlayingManager,
                 remoteConfig = remoteConfigService,
                 musicService = musicServicePreference.current.value,
-                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
                 playbackModePromptManager = playbackModePromptManager,
                 onPreview = {
-                    nowPlayingManager.play(
-                        trackId = trackId,
-                        trackName = trackName,
-                        artistName = artistName,
-                        albumArtURL = albumArtURL,
-                        albumArtLargeURL = albumArtLargeURL,
-                        previewUrl = previewUrl,
-                        spotifyURI = spotifyURI,
-                        spotifyWebURL = spotifyWebURL,
-                        isrc = isrc,
-                        source = source,
-                        soundcloudId = soundcloudId,
-                        soundcloudPermalinkUrl = soundcloudPermalinkUrl,
-                    )
+                    if (queue.isEmpty()) {
+                        nowPlayingManager.play(
+                            trackId = trackId,
+                            trackName = trackName,
+                            artistName = artistName,
+                            albumArtURL = albumArtURL,
+                            albumArtLargeURL = albumArtLargeURL,
+                            previewUrl = previewUrl,
+                            spotifyURI = spotifyURI,
+                            spotifyWebURL = spotifyWebURL,
+                            isrc = isrc,
+                            source = source,
+                            soundcloudId = soundcloudId,
+                            soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+                        )
+                    } else {
+                        val queued = queue.firstOrNull { it.trackId == trackId }
+                            ?: QueuedTrack(
+                                trackId = trackId,
+                                trackName = trackName,
+                                artistName = artistName,
+                                albumArtURL = albumArtURL,
+                                albumArtLargeURL = albumArtLargeURL,
+                                previewUrl = previewUrl,
+                                spotifyURI = spotifyURI,
+                                spotifyWebURL = spotifyWebURL,
+                                isrc = isrc,
+                                sourcePostId = null,
+                                source = source,
+                                soundcloudId = soundcloudId,
+                                soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+                            )
+                        nowPlayingManager.play(track = queued, queue = queue)
+                    }
                 },
                 scope = viewModelScope,
             )

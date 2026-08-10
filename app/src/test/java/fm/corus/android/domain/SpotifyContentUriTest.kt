@@ -71,4 +71,53 @@ class SpotifyContentUriTest {
         )
         assertTrue(SpotifyContentUri.isUserChosenNonCorusContent(" SPOTIFY:EPISODE:512ojhOuo1ktJprKbVcKyQ "))
     }
+
+    @Test
+    fun `track URI matching ignores case and compares track ids`() {
+        val a = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+        val b = "Spotify:Track:4cOdK2wGLETKBW3PvgPWqT"
+        assertTrue(SpotifyContentUri.trackUrisMatch(a, b))
+        assertFalse(SpotifyContentUri.trackUrisMatch(a, "spotify:track:otherid0123456789012"))
+        assertEquals("4cOdK2wGLETKBW3PvgPWqT", SpotifyContentUri.trackId(a))
+        assertEquals(null, SpotifyContentUri.trackId("spotify:episode:abc"))
+    }
+
+    @Test
+    fun `failed handoff suppresses external adoption for the same URI only while the window is open`() {
+        val failed = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+        val now = 1_000_000L
+        val until = now + 30_000L
+        assertTrue(
+            SpotifyHandoffRecovery.shouldSuppressExternalAdoption(
+                reportedUri = failed,
+                failedHandoffUri = failed,
+                suppressUntilMs = until,
+                nowMs = now,
+            ),
+        )
+        assertFalse(
+            SpotifyHandoffRecovery.shouldSuppressExternalAdoption(
+                reportedUri = "spotify:track:otherid0123456789012",
+                failedHandoffUri = failed,
+                suppressUntilMs = until,
+                nowMs = now,
+            ),
+        )
+        assertFalse(
+            SpotifyHandoffRecovery.shouldSuppressExternalAdoption(
+                reportedUri = failed,
+                failedHandoffUri = failed,
+                suppressUntilMs = until,
+                nowMs = until + 1,
+            ),
+        )
+        assertFalse(
+            SpotifyHandoffRecovery.shouldSuppressExternalAdoption(
+                reportedUri = failed,
+                failedHandoffUri = null,
+                suppressUntilMs = until,
+                nowMs = now,
+            ),
+        )
+    }
 }

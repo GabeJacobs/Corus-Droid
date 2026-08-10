@@ -90,7 +90,9 @@ fun SettingsScreen(
     val isDeletingAccount by authViewModel.isDeletingAccount.collectAsState()
     val deleteError by authViewModel.error.collectAsState()
     val phoneReauthCodeSent by authViewModel.phoneReauthCodeSent.collectAsState()
+    val emailReauthCodeSent by authViewModel.emailReauthCodeSent.collectAsState()
     var phoneReauthCode by remember { mutableStateOf("") }
+    var emailReauthCode by remember { mutableStateOf("") }
 
     // Google re-auth launcher for account deletion
     val googleReauthLauncher = rememberLauncherForActivityResult(
@@ -127,6 +129,10 @@ fun SettingsScreen(
                         phoneReauthCode = ""
                         authViewModel.startPhoneReauth(it)
                     } ?: ToastManager.show(context.getString(R.string.settings_reauth_could_not_start))
+                }
+                "email" -> {
+                    emailReauthCode = ""
+                    authViewModel.startEmailReauth()
                 }
                 else -> ToastManager.show(context.getString(R.string.settings_reauth_signout_prompt))
             }
@@ -181,7 +187,7 @@ fun SettingsScreen(
     // General toggles
     var hapticsEnabled by remember { mutableStateOf(true) }
     val feedFollowsNowPlaying by settingsViewModel.feedFollowsNowPlaying.collectAsState()
-    val playFullSongs by settingsViewModel.playFullSongs.collectAsState()
+    val alwaysPlayFullSongs by settingsViewModel.alwaysPlayFullSongs.collectAsState()
 
     // Messaging
     var whoCanMessageMe by remember { mutableStateOf("Everyone") }
@@ -341,15 +347,17 @@ fun SettingsScreen(
                 onSelect = { settingsViewModel.setMusicService(it) },
             )
 
+            // Always Play Full Songs — Spotify only on Android (app installed).
+            // Apple Music / TIDAL full songs are iOS-only until Android engines ship.
             if (musicService == MusicService.SPOTIFY &&
                 SpotifyPlaybackService.isSpotifyAppInstalled(context)
             ) {
                 SettingsToggleRow(
                     icon = Icons.Filled.QueueMusic,
-                    title = stringResource(R.string.settings_row_play_full_songs_title),
-                    subtitle = stringResource(R.string.settings_row_play_full_songs_spotify_subtitle),
-                    checked = playFullSongs,
-                    onCheckedChange = { settingsViewModel.setPlayFullSongs(it) },
+                    title = stringResource(R.string.settings_row_always_play_full_songs_title),
+                    subtitle = stringResource(R.string.settings_row_always_play_full_songs_spotify_subtitle),
+                    checked = alwaysPlayFullSongs,
+                    onCheckedChange = { settingsViewModel.setAlwaysPlayFullSongs(it) },
                 )
             }
 
@@ -652,7 +660,7 @@ fun SettingsScreen(
     // Account deletion progress overlay — shown during the initial delete,
     // Google re-auth+delete, and phone re-auth+delete. Hidden while the phone
     // code-entry dialog is visible (so the user can still see and type in it).
-    if (isDeletingAccount && !phoneReauthCodeSent) {
+    if (isDeletingAccount && !phoneReauthCodeSent && !emailReauthCodeSent) {
         AlertDialog(
             onDismissRequest = { /* non-dismissable */ },
             title = { Text(stringResource(R.string.settings_dialog_deleting_title), style = CorusFont.songTitleLarge) },
@@ -667,6 +675,63 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {},
+        )
+    }
+
+    // Email OTP re-auth code entry dialog (passwordless accounts)
+    if (emailReauthCodeSent) {
+        AlertDialog(
+            onDismissRequest = {
+                authViewModel.cancelEmailReauth()
+                emailReauthCode = ""
+            },
+            title = { Text(stringResource(R.string.settings_dialog_verify_email_title), style = CorusFont.songTitleLarge) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.settings_dialog_verify_email_message),
+                        style = CorusFont.body,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    OutlinedTextField(
+                        value = emailReauthCode,
+                        onValueChange = {
+                            emailReauthCode = it.filter { c -> c.isDigit() }.take(6)
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        label = { Text(stringResource(R.string.settings_dialog_verify_code_label)) },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = emailReauthCode.length == 6 && !isDeletingAccount,
+                    onClick = {
+                        authViewModel.verifyEmailReauthAndDelete(emailReauthCode)
+                    },
+                ) {
+                    if (isDeletingAccount) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = CorusColors.Error,
+                        )
+                    } else {
+                        Text(stringResource(R.string.common_confirm), color = CorusColors.Error)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !isDeletingAccount,
+                    onClick = {
+                        authViewModel.cancelEmailReauth()
+                        emailReauthCode = ""
+                    },
+                ) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
         )
     }
 

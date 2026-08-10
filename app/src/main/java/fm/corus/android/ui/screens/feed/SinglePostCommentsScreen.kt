@@ -654,6 +654,9 @@ fun SinglePostCommentsScreen(
                             postTrackId = p.track.id,
                             postId = p.id,
                         ),
+                        ownsActivePlayback = p.isTrack &&
+                            nowPlayingState.trackId == p.track.id &&
+                            nowPlayingState.sourcePostId == p.id,
                         hideComments = true,
                         onLikeTap = { viewModel.togglePostLike(p.id) },
                         onSaveTap = { viewModel.togglePostSave(p.id) },

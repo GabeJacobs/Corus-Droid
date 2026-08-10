@@ -3,15 +3,17 @@ package fm.corus.android.ui.screens.destination
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.domain.CatalogPlaybackOrigin
+import fm.corus.android.domain.toQueuedTrack
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * Unit tests for [toQueuedTrack] — the CymbalTrack → QueuedTrack mapping that
- * lets tapping a row on the artist ("Popular") and album pages queue up the
- * rest of the list. Mirrors the single-track play args in CatalogTrackRow so
- * behaviour is identical whether or not a queue is supplied.
+ * Unit tests for [fm.corus.android.domain.toQueuedTrack] — the CymbalTrack →
+ * QueuedTrack mapping that lets tapping a row on the artist ("Popular") and
+ * album pages (and trending) queue up the rest of the list. Mirrors the
+ * single-track play args in CatalogTrackRow so behaviour is identical whether
+ * or not a queue is supplied.
  */
 class CatalogTrackQueueTest {
 

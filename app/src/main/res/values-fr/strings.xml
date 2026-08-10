@@ -1304,4 +1304,15 @@
     <string name="entity_link_not_found">Ce lien ne mène plus nulle part</string>
     <string name="entity_link_unreachable_title">Impossible d\'ouvrir ce lien</string>
     <string name="entity_link_unreachable_subtitle">Nous n\'avons pas pu joindre Corus pour le moment. Réessaie dans un instant.</string>
+
+    <string name="settings_row_always_play_full_songs_title">Toujours lire les titres complets</string>
+    <string name="settings_row_always_play_full_songs_spotify_subtitle">Lit les titres complets si vous êtes connecté avec Premium ; sinon des extraits de 30 s. Désactivez pour afficher le bascule 30s/Complet.</string>
+    <string name="full_player_queue_title">File d’attente</string>
+    <string name="full_player_queue_close">Fermer</string>
+    <string name="full_player_queue_now_playing">En cours</string>
+    <string name="full_player_queue_up_next">À suivre</string>
+    <string name="full_player_queue_earlier">Précédents</string>
+    <string name="full_player_queue_empty">Rien à suivre. Lancez la lecture depuis le fil pour créer une file.</string>
+    <string name="full_player_queue_remove">Retirer</string>
+    <string name="full_player_view_comments">Voir les commentaires</string>
 </resources>

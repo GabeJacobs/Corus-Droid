@@ -294,6 +294,9 @@ fun ProfileFeedScreen(
                         postTrackId = post.track.id,
                         postId = post.id,
                     ),
+                    ownsActivePlayback = post.isTrack &&
+                        nowPlayingState.trackId == post.track.id &&
+                        nowPlayingState.sourcePostId == post.id,
                     onLikeTap = { viewModel.toggleLike(post.id) },
                     onSaveTap = { viewModel.toggleSave(post.id) },
                     onUserTap = { onNavigateToUser(post.user.id) },

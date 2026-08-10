@@ -66,6 +66,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.TrackCorusStats
 import fm.corus.android.data.model.primaryNameHint
 import fm.corus.android.domain.CatalogPlaybackOrigin
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.contentHazeSource
@@ -153,8 +154,8 @@ fun AlbumPageScreen(
     // package.
     val tracks = catalog?.tracks ?: emptyList()
     val albumQueue = remember(tracks, albumOrigin) { tracks.map { it.toQueuedTrack(albumOrigin) } }
-    val canPlayFullSongs = viewModel.catalogListeningEntitled()
-    val showAlbumPlayPill = canPlayFullSongs && !catalogError && (catalog == null || tracks.isNotEmpty())
+    val canPlayFullSongs = viewModel.catalogListeningEntitled() && viewModel.preferFullPlaybackOnCatalog()
+    val showAlbumPlayPill = !catalogError && (catalog == null || tracks.isNotEmpty())
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val currentTrackInAlbum = nowPlayingState.trackId?.let { id -> tracks.any { it.id == id } } == true
     val isPlayingThisAlbum = currentTrackInAlbum && nowPlayingState.isPlaying
@@ -473,7 +474,7 @@ fun AlbumPageScreen(
                             number = index + 1,
                             queue = albumQueue,
                             origin = albumOrigin,
-                            preferFullSongOnPlay = viewModel.catalogListeningEntitled(),
+                            preferFullSongOnPlay = viewModel.preferFullPlaybackOnCatalog(),
                             playbackEnabled = !showPreReleaseAlbumUI || fm.corus.android.domain.trackIsCatalogPlayable(track),
                             // Trailing slot shows how many Corus users shared this
                             // track (from getAlbumPosts) in place of its duration,

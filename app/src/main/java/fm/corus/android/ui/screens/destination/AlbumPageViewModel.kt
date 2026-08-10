@@ -6,12 +6,14 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
+import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.AlbumCatalog
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.domain.QueuedTrack
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
@@ -48,6 +50,7 @@ class AlbumPageViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val remoteConfigService: RemoteConfigService,
     private val musicServicePreference: MusicServicePreference,
+    private val preferencesDataStore: PreferencesDataStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -56,6 +59,9 @@ class AlbumPageViewModel @Inject constructor(
         service = musicServicePreference.current.value,
         remoteConfig = remoteConfigService,
     )
+
+    fun preferFullPlaybackOnCatalog(): Boolean =
+        SongPlayRouting.preferFullPlaybackOnCatalog(preferencesDataStore)
 
     /** Album-level playback: play track 1 and queue the rest when entitled;
      *  toggle pause while any album track is current. Mirrors iOS `playAlbum()`. */
@@ -66,18 +72,17 @@ class AlbumPageViewModel @Inject constructor(
         albumQueue: List<QueuedTrack>,
     ) {
         val firstTrack = tracks.firstOrNull() ?: return
-        if (catalogListeningEntitled()) {
-            val currentId = nowPlayingManager.currentTrackId
-            if (currentId != null && tracks.any { it.id == currentId }) {
-                nowPlayingManager.togglePlayPause()
-                return
-            }
+        val currentId = nowPlayingManager.currentTrackId
+        if (currentId != null && tracks.any { it.id == currentId }) {
+            nowPlayingManager.togglePlayPause()
+            return
         }
         analyticsService.logAlbumTrackPreviewed(albumId, firstTrack.id)
+        val preferFull = preferFullPlaybackOnCatalog()
         nowPlayingManager.routePlayTap(
             track = firstTrack,
             queue = albumQueue,
-            preferFullSong = catalogListeningEntitled(),
+            preferFullSong = preferFull,
             onPreview = {
                 nowPlayingManager.play(
                     track = firstTrack.toQueuedTrack(albumOrigin),

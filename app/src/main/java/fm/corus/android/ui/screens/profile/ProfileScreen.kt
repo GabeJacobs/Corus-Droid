@@ -59,8 +59,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
@@ -588,13 +590,17 @@ fun ProfileScreen(
                                     )
                                 },
                             )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_view_photo), style = CorusFont.body, color = CorusColors.Text) },
-                                onClick = {
-                                    showAvatarMenu = false
-                                    showFullScreenAvatar = true
-                                },
-                            )
+                            // Letter placeholder is not a photo — match iOS (`avatarURL != nil`).
+                            // Include pending bytes so View Photo stays available right after upload.
+                            if (!currentProfile.avatarURL.isNullOrBlank() || pendingAvatarBytes != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_view_photo), style = CorusFont.body, color = CorusColors.Text) },
+                                    onClick = {
+                                        showAvatarMenu = false
+                                        showFullScreenAvatar = true
+                                    },
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_share_link), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
@@ -637,97 +643,129 @@ fun ProfileScreen(
 
                         // Action pills — trial: Edit + Share (playlist lives in
                         // the title row). Legacy: Edit + Playlist capsule.
-                        Row(
+                        // Narrow phones (≤375dp) start at 11sp; wider at 13sp
+                        // (one step under CorusFont.button). Shared fitted size
+                        // + horizontal inset keeps labels off the pill edges.
+                        val editLabel = stringResource(fm.corus.android.R.string.profile_button_edit)
+                        val shareLabel = stringResource(fm.corus.android.R.string.profile_button_share)
+                        val actionButtonBaseStyle = profileActionButtonBaseStyle(
+                            LocalConfiguration.current.screenWidthDp,
+                        )
+                        val actionPillHPad = CorusSpacing.sm
+                        BoxWithConstraints(
                             modifier = Modifier.padding(horizontal = CorusSpacing.xs),
-                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            // Edit Profile — matching iOS Capsule with stroke border
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(50))
-                                    .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
-                                    .clickable { onNavigateToEditProfile(currentProfile.id) }
-                                    .padding(vertical = CorusSpacing.sm - 2.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                // Shrink-to-fit so the label stays on one line on
-                                // narrow devices (e.g. Samsung S23 at 360dp) instead of
-                                // wrapping to two lines. On wider screens where it
-                                // already fits (e.g. Pixel 9) it renders at full size,
-                                // so their layout is unchanged.
-                                ShrinkToFitText(
-                                    text = stringResource(fm.corus.android.R.string.profile_button_edit),
-                                    style = CorusFont.button,
-                                    color = CorusColors.Secondary,
-                                )
+                            val capsuleMaxWidth = if (USE_ACTION_ROW_SHARE) {
+                                (maxWidth - CorusSpacing.sm) / 2
+                            } else {
+                                maxWidth
                             }
-
-                            Spacer(modifier = Modifier.width(CorusSpacing.sm))
-
-                            if (USE_ACTION_ROW_SHARE) {
+                            // Fit against the text slot inside the pill (after h-pad).
+                            val labelMaxWidth = (capsuleMaxWidth - actionPillHPad * 2)
+                                .coerceAtLeast(0.dp)
+                            val actionButtonStyle = if (USE_ACTION_ROW_SHARE) {
+                                rememberSharedProfileActionButtonStyle(
+                                    texts = listOf(editLabel, shareLabel),
+                                    baseStyle = actionButtonBaseStyle,
+                                    maxWidth = labelMaxWidth,
+                                )
+                            } else {
+                                actionButtonBaseStyle
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Edit Profile — matching iOS Capsule with stroke border
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clip(RoundedCornerShape(50))
                                         .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
-                                        .clickable { presentProfileShare("action_row") }
-                                        .padding(vertical = CorusSpacing.sm - 2.dp),
+                                        .clickable { onNavigateToEditProfile(currentProfile.id) }
+                                        .padding(
+                                            horizontal = actionPillHPad,
+                                            vertical = CorusSpacing.sm - 2.dp,
+                                        ),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    ShrinkToFitText(
-                                        text = stringResource(fm.corus.android.R.string.profile_button_share),
-                                        style = CorusFont.button,
+                                    Text(
+                                        text = editLabel,
+                                        style = actionButtonStyle,
                                         color = CorusColors.Secondary,
+                                        maxLines = 1,
+                                        softWrap = false,
                                     )
                                 }
-                            } else {
-                                // Legacy PLAYLIST capsule (matching iOS music.note.list)
-                                Box(
-                                    modifier = Modifier
-                                        .height(30.dp)
-                                        .clip(RoundedCornerShape(50))
-                                        .background(Color.Transparent)
-                                        .then(
-                                            Modifier.border(
-                                                1.dp,
-                                                CorusColors.Divider,
-                                                RoundedCornerShape(50),
-                                            )
-                                        )
-                                        .clickable(enabled = !isGeneratingPlaylist) {
-                                            handlePlaylistTap()
-                                        }
-                                        .padding(horizontal = playlistHPad),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-                                        modifier = Modifier.alpha(
-                                            if (!hasSongs) 0.35f
-                                            else if (isGeneratingPlaylist) 0f
-                                            else 1f
-                                        ),
+
+                                Spacer(modifier = Modifier.width(CorusSpacing.sm))
+
+                                if (USE_ACTION_ROW_SHARE) {
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(50))
+                                            .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
+                                            .clickable { presentProfileShare("action_row") }
+                                            .padding(
+                                                horizontal = actionPillHPad,
+                                                vertical = CorusSpacing.sm - 2.dp,
+                                            ),
+                                        contentAlignment = Alignment.Center,
                                     ) {
-                                        Icon(
-                                            painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
-                                            contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
-                                            modifier = Modifier.size(14.dp),
-                                            tint = CorusColors.Secondary,
-                                        )
                                         Text(
-                                            text = stringResource(fm.corus.android.R.string.profile_button_playlist),
-                                            style = CorusFont.button,
+                                            text = shareLabel,
+                                            style = actionButtonStyle,
                                             color = CorusColors.Secondary,
+                                            maxLines = 1,
+                                            softWrap = false,
                                         )
                                     }
-                                    if (isGeneratingPlaylist) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(14.dp),
-                                            strokeWidth = 2.dp,
-                                            color = CorusColors.Secondary,
-                                        )
+                                } else {
+                                    // Legacy PLAYLIST capsule (matching iOS music.note.list)
+                                    Box(
+                                        modifier = Modifier
+                                            .height(30.dp)
+                                            .clip(RoundedCornerShape(50))
+                                            .background(Color.Transparent)
+                                            .then(
+                                                Modifier.border(
+                                                    1.dp,
+                                                    CorusColors.Divider,
+                                                    RoundedCornerShape(50),
+                                                )
+                                            )
+                                            .clickable(enabled = !isGeneratingPlaylist) {
+                                                handlePlaylistTap()
+                                            }
+                                            .padding(horizontal = playlistHPad),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+                                            modifier = Modifier.alpha(
+                                                if (!hasSongs) 0.35f
+                                                else if (isGeneratingPlaylist) 0f
+                                                else 1f
+                                            ),
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                                contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
+                                                modifier = Modifier.size(14.dp),
+                                                tint = CorusColors.Secondary,
+                                            )
+                                            Text(
+                                                text = stringResource(fm.corus.android.R.string.profile_button_playlist),
+                                                style = CorusFont.button,
+                                                color = CorusColors.Secondary,
+                                            )
+                                        }
+                                        if (isGeneratingPlaylist) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(14.dp),
+                                                strokeWidth = 2.dp,
+                                                color = CorusColors.Secondary,
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1491,6 +1529,48 @@ fun ProfileScreen(
 }
 
 /**
+ * Base type for the own-profile EDIT / SHARE pills. One step under the usual
+ * button tokens so labels keep a little air inside the capsules:
+ * narrow (≤375dp) → 11sp; wider → 13sp.
+ */
+internal fun profileActionButtonBaseStyle(widthDp: Int): TextStyle {
+    val size = if (CorusSpacing.isNarrowProfileActionRow(widthDp)) 11.sp else 13.sp
+    return CorusFont.button.copy(fontSize = size)
+}
+
+/**
+ * One shared style for equal-width EDIT + SHARE capsules: start from [baseStyle]
+ * and step the font down until every [texts] label fits in [maxWidth]. Both
+ * pills render at that size so Share never shrinks alone.
+ */
+@Composable
+internal fun rememberSharedProfileActionButtonStyle(
+    texts: List<String>,
+    baseStyle: TextStyle,
+    maxWidth: Dp,
+    minFontSizeSp: Float = 9f,
+): TextStyle {
+    val measurer = rememberTextMeasurer()
+    val maxWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
+    return remember(texts, baseStyle, maxWidthPx, minFontSizeSp) {
+        var fontSize = baseStyle.fontSize
+        while (fontSize.value > minFontSizeSp) {
+            val overflows = texts.any { label ->
+                measurer.measure(
+                    text = label,
+                    style = baseStyle.copy(fontSize = fontSize),
+                    maxLines = 1,
+                    softWrap = false,
+                ).size.width > maxWidthPx
+            }
+            if (!overflows) break
+            fontSize *= 0.92f
+        }
+        baseStyle.copy(fontSize = fontSize)
+    }
+}
+
+/**
  * A single-line [Text] that shrinks its font size to fit the available width
  * rather than wrapping. It starts at [style]'s font size, so on devices where the
  * text already fits the rendering is identical to a plain [Text]; only when the
@@ -1498,6 +1578,9 @@ fun ProfileScreen(
  *
  * Uses the pre-Compose-1.8 `onTextLayout` + `didOverflowWidth` pattern because the
  * stable `autoSize` parameter isn't available on our Compose BOM (1.7.x).
+ *
+ * Prefer [rememberSharedProfileActionButtonStyle] for the equal-width EDIT + SHARE
+ * row so both labels stay the same size; this remains for single pills (e.g. FOLLOW).
  */
 @Composable
 // Shared with OtherProfileScreen (same package) so the FOLLOWING pill can shrink

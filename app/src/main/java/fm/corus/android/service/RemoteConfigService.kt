@@ -237,6 +237,12 @@ class RemoteConfigService @Inject constructor(
     val tasteMatchesTester: Boolean
         get() = feedFlag("taste_matches_tester")
 
+    /// When false (default): free users hit the Club paywall on Taste Matches.
+    /// When true: preview (<8 posts) + 7-day trial (≥8 posts) with banner.
+    /// Shares `taste_matches_free_trial` with iOS/web; server enforces too.
+    val tasteMatchesFreeTrial: Boolean
+        get() = feedFlag("taste_matches_free_trial")
+
     /// Gate for the artist / album / director destination pages: search rows,
     /// tappable artist+director names, and the pages themselves. Shares the
     /// `artist_pages_enabled` RC key with iOS/web so one console flip reverts
@@ -418,6 +424,11 @@ class RemoteConfigService @Inject constructor(
     val spotifyLibrarySaveEnabled: Boolean
         get() = flagWithDefault("spotify_library_save_enabled", false)
 
+    /// Passwordless email OTP login ("Continue with Email"). Ships dark; server
+    /// also gates send/verify on the same key so flipping this off is a kill switch.
+    val emailOtpAuthEnabled: Boolean
+        get() = flagWithDefault("email_otp_auth_enabled", false)
+
     // Tracks the UID last pushed as the `user_id` signal so we can tell when it
     // changes (login / account switch) and force a fresh fetch. Null-vs-unset is
     // distinguished by [hasAppliedUserSignal] so the first apply always counts.
@@ -515,6 +526,9 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("compose_unified_search_enabled", remoteConfig.getBoolean("compose_unified_search_enabled"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
+            .putBoolean("taste_matches_enabled", remoteConfig.getBoolean("taste_matches_enabled"))
+            .putBoolean("taste_matches_tester", remoteConfig.getBoolean("taste_matches_tester"))
+            .putBoolean("taste_matches_free_trial", remoteConfig.getBoolean("taste_matches_free_trial"))
             .putBoolean("feed_decade_filter_enabled", remoteConfig.getBoolean("feed_decade_filter_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
             .apply()
@@ -587,6 +601,9 @@ class RemoteConfigService @Inject constructor(
             "favorites_enabled" to true,
             "favorites_push_enabled" to true,
             "play_milestone_enabled" to false,
+            "taste_matches_enabled" to false,
+            "taste_matches_tester" to false,
+            "taste_matches_free_trial" to false,
             // Default FALSE in code — the server template currently sends true;
             // flipping the console key off must revert every client.
             "artist_pages_enabled" to false,
@@ -602,6 +619,7 @@ class RemoteConfigService @Inject constructor(
             // is live) with an Android app-id condition forcing false; the
             // in-code default keeps the flow dark even before the first fetch.
             "onboarding_taste_match_enabled" to false,
+            "email_otp_auth_enabled" to false,
             "feed_switch_hint_min_session" to 1L,
             "feed_switch_hint_max_impressions" to 3L,
             "reposters_list_enabled" to false,

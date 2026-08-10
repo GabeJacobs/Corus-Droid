@@ -86,11 +86,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.material.icons.outlined.Movie
 
-/** Grace period before the album-art loading spinner is revealed. Fast / cached
- *  previews start playing before this elapses, so they never flash a spinner —
- *  the overlay fades straight to the pause icon. Tune here if the spinner still
- *  peeks through on quick loads (raise) or takes too long to appear (lower). */
-private const val PREVIEW_SPINNER_DELAY_MS = 300L
+/** Quiet window for FeedPlayingPill snap-in before mini chrome / Spotify (iOS 280ms). */
+private const val PLAYING_PILL_LEAD_IN_MS = 280L
 private val ALBUM_ART_OVERLAY_GLYPH_BOX = 48.dp
 private val ALBUM_ART_PAUSE_ICON_SIZE = 48.dp
 /** Sized smaller than the pause icon; stays centered in the shared glyph box. */
@@ -149,6 +146,8 @@ fun PostCard(
     onPostTap: () -> Unit = {},
     isPreviewLoading: Boolean = false,
     isPreviewPlaying: Boolean = false,
+    /** True when this post owns the active player identity (paused or playing). */
+    ownsActivePlayback: Boolean = false,
     onPreviewTap: () -> Unit = {},
     isFullSongPlaying: Boolean = false,
     isFullSongLoading: Boolean = false,
@@ -278,9 +277,25 @@ fun PostCard(
     val showInlineFollow = isTrendingFeed && !isOwnPost && !inlineFollowDismissed &&
         (followTapped || (isFollowingKnown && !isFollowingAuthor))
 
+    // Lights the playing pill on the tap frame, before playback services publish.
+    var optimisticLoadingIndicator by remember(post.id) { mutableStateOf(false) }
+    LaunchedEffect(isPreviewPlaying) {
+        if (isPreviewPlaying) optimisticLoadingIndicator = false
+    }
+    LaunchedEffect(isPreviewLoading, ownsActivePlayback) {
+        if (!isPreviewLoading && !isPreviewPlaying && !ownsActivePlayback) {
+            optimisticLoadingIndicator = false
+        }
+    }
+    LaunchedEffect(ownsActivePlayback) {
+        if (!ownsActivePlayback && !isPreviewLoading && !isPreviewPlaying) {
+            optimisticLoadingIndicator = false
+        }
+    }
+
     // Tap-hint pulse: only runs when showsTapHint and there is no playback yet.
     val hintActive = showsTapHint && post.isTrack && !post.track.unavailable
-            && !isPreviewPlaying && !isPreviewLoading
+            && !isPreviewPlaying && !isPreviewLoading && !optimisticLoadingIndicator
     val hintIconAlpha = remember { Animatable(0f) }
     val hintIconScale = remember { Animatable(0.85f) }
     LaunchedEffect(hintActive) {
@@ -504,18 +519,36 @@ fun PostCard(
                                     if (post.isTrack) onAlbumArtTap()
                                     when {
                                         post.isTrack && post.track.unavailable -> {
+                                            optimisticLoadingIndicator = false
                                             showUnavailableToast = true
                                             scope.launch {
                                                 kotlinx.coroutines.delay(2000)
                                                 showUnavailableToast = false
                                             }
                                         }
-                                        // Audiomack plays a ~30s in-app preview
-                                        // (resolved at play time), exactly like
-                                        // Spotify/Apple previews. The full song
-                                        // stays link-out only via the Audiomack
-                                        // badge glyph below (openAudiomack).
-                                        post.isTrack -> onPreviewTap()
+                                        // Lead-in only on a *fresh* play (pill snap vs
+                                        // queue/AV). Pause / resume on the post that
+                                        // already owns the player stays immediate.
+                                        post.isTrack -> {
+                                            val alreadyActiveHere = isPreviewPlaying ||
+                                                isPreviewLoading ||
+                                                ownsActivePlayback
+                                            if (alreadyActiveHere) {
+                                                optimisticLoadingIndicator = false
+                                                onPreviewTap()
+                                            } else {
+                                                optimisticLoadingIndicator = true
+                                                scope.launch {
+                                                    delay(PLAYING_PILL_LEAD_IN_MS)
+                                                    if (optimisticLoadingIndicator ||
+                                                        isPreviewPlaying ||
+                                                        isPreviewLoading
+                                                    ) {
+                                                        onPreviewTap()
+                                                    }
+                                                }
+                                            }
+                                        }
                                         // Prototype: a single tap plays the trailer inline when one
                                         // exists; posters without a trailer fall back to the overlay
                                         // so the film page is still reachable.
@@ -628,51 +661,12 @@ fun PostCard(
                         }
                     }
 
-                    // Preview loading/playing overlay (track posts only).
-                    // Fades in/out to match iOS's .easeOut(duration: 0.2) so pausing
-                    // doesn't make the scrim + pause icon vanish abruptly.
-                    //
-                    // The loading spinner is delayed by a short grace period: fast /
-                    // cached previews begin playing before it elapses, so the overlay
-                    // fades straight in to the pause icon with no spinner flash (like the
-                    // already-loaded case). The spinner only appears for genuinely slow
-                    // loads. Gating visibility on `showPreviewSpinner || isPreviewPlaying ||
-                    // isPreviewLoading` keeps the scrim up while resolving; the glyph
-                    // prefers loading over pause (mirrors iOS if/else order).
-                    var showPreviewSpinner by remember { mutableStateOf(false) }
-                    LaunchedEffect(isPreviewLoading) {
-                        if (isPreviewLoading) {
-                            showPreviewSpinner = false
-                            delay(PREVIEW_SPINNER_DELAY_MS)
-                            showPreviewSpinner = true // still loading after the grace period
-                        } else {
-                            showPreviewSpinner = false
-                        }
-                    }
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = post.isTrack && (isPreviewPlaying || isPreviewLoading) && !flipState.isLoading,
-                        enter = fadeIn(animationSpec = tween(200)),
-                        exit = fadeOut(animationSpec = tween(200)),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.4f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            when {
-                                isPreviewLoading && (showPreviewSpinner || isPreviewPlaying) ->
-                                    AlbumArtPlaybackOverlayGlyph(
-                                        loading = true,
-                                        pauseContentDescription = stringResource(R.string.post_card_cd_pause),
-                                    )
-                                isPreviewPlaying ->
-                                    AlbumArtPlaybackOverlayGlyph(
-                                        loading = false,
-                                        pauseContentDescription = stringResource(R.string.post_card_cd_pause),
-                                    )
-                            }
-                        }
+                    // Playing pill — bottom-trailing spinner → EQ bars (iOS FeedPlayingPill).
+                    if (post.isTrack && !flipState.isLoading) {
+                        FeedPlayingPill(
+                            isPlaying = isPreviewPlaying,
+                            isLoading = isPreviewLoading || optimisticLoadingIndicator,
+                        )
                     }
 
             // Film overlay with action buttons

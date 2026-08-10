@@ -75,6 +75,7 @@ import fm.corus.android.data.model.AlbumSummary
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicVideo
 import fm.corus.android.domain.CatalogPlaybackOrigin
+import fm.corus.android.domain.toQueuedTrack
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
@@ -591,7 +592,7 @@ fun ArtistPageScreen(
                             nowPlaying = viewModel.nowPlayingManager,
                             queue = popularQueue,
                             origin = artistOrigin,
-                            preferFullSongOnPlay = viewModel.catalogListeningEntitled(),
+                            preferFullSongOnPlay = viewModel.preferFullPlaybackOnCatalog(),
                             corusStats = detail?.corusStats?.get(track.id),
                             onRowTap = {
                                 viewModel.analyticsService.logPostFromArtistPage(artistId, track.id)

@@ -40,6 +40,17 @@ object CorusSpacing {
     val maxContentWidth = 645.dp
 
     const val bottomSheetMaxHeightFraction = 0.94f
+
+    /**
+     * Largest screen width (dp) still treated as "narrow" for the own-profile
+     * EDIT / SHARE action row. Matches iOS `narrowProfileActionRowMaxWidth`
+     * (375pt): mini/SE-class and small Androids (~360dp) get the smaller
+     * button type; Pixel-class 390dp+ keep full size.
+     */
+    const val narrowProfileActionRowMaxWidthDp = 375
+
+    fun isNarrowProfileActionRow(widthDp: Int): Boolean =
+        widthDp <= narrowProfileActionRowMaxWidthDp
 }
 
 /**

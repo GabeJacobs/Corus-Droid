@@ -94,6 +94,35 @@ class AuthRepository @Inject constructor(
         verificationId = id
     }
 
+    // ── Email OTP Auth ──
+
+    var pendingEmailOtpAddress: String? = null
+        private set
+
+    suspend fun sendEmailOtpCode(email: String) {
+        val trimmed = email.trim()
+        cloudFunctions.sendEmailOtpCode(trimmed)
+        pendingEmailOtpAddress = trimmed
+        lastVerificationSentAt = System.currentTimeMillis()
+    }
+
+    /** Returns whether Firebase reported a brand-new Auth user. */
+    suspend fun verifyEmailOtpCode(code: String): Boolean {
+        val email = pendingEmailOtpAddress
+            ?: throw IllegalStateException("No email verification in progress")
+        val digits = code.filter { it.isDigit() }
+        require(digits.length == 6) { "Invalid code" }
+        val result = cloudFunctions.verifyEmailOtpCode(email, digits)
+        val authResult = auth.signInWithCustomToken(result.token).await()
+        _currentUser.value = authResult.user
+        pendingEmailOtpAddress = null
+        return result.isNewUser
+    }
+
+    fun clearPendingEmailOtp() {
+        pendingEmailOtpAddress = null
+    }
+
     // ── Google Sign-In ──
 
     suspend fun signInWithGoogleCredential(idToken: String): Boolean {

@@ -56,8 +56,20 @@
     <string name="sync_contacts_permission_denied">Allow contacts access in your device settings to find friends on Corus</string>
     <string name="settings_section_general">GENERAL</string>
     <string name="settings_row_music_service">Music Service</string>
-    <string name="settings_row_play_full_songs_title">Play Full Songs on Posts</string>
-    <string name="settings_row_play_full_songs_spotify_subtitle">Play full tracks on posts via Spotify instead of previews. Album and song pages always play full. Requires the Spotify app installed and signed in.</string>
+    <string name="settings_row_always_play_full_songs_title">Always Play Full Songs</string>
+    <string name="settings_row_always_play_full_songs_spotify_subtitle">Plays full songs when you\'re signed in with Premium; otherwise 30s previews. Turn off to show the 30s/Full switch.</string>
+    <string name="settings_row_always_play_full_songs_tidal_subtitle">Plays full songs with a TIDAL subscription; otherwise 30s previews. Turn off to show the 30s/Full switch.</string>
+    <string name="full_player_queue_title">Queue</string>
+    <string name="full_player_queue_close">Close</string>
+    <string name="full_player_queue_now_playing">Now Playing</string>
+    <string name="full_player_queue_up_next">Up Next</string>
+    <string name="full_player_queue_earlier">Earlier</string>
+    <string name="full_player_queue_empty">Nothing up next. Play from the feed to build a queue.</string>
+    <string name="full_player_queue_remove">Remove</string>
+    <string name="full_player_view_comments">View comments</string>
+    <!-- Legacy keys kept so translated locales still resolve until updated. -->
+    <string name="settings_row_play_full_songs_title">Always Play Full Songs</string>
+    <string name="settings_row_play_full_songs_spotify_subtitle">Plays full songs when you\'re signed in with Premium; otherwise 30s previews. Turn off to show the 30s/Full switch.</string>
     <string name="post_card_cd_play_full_song">Play full song</string>
     <string name="post_card_cd_pause_full_song">Pause full song</string>
     <string name="playback_mode_prompt_title">How do you want to listen?</string>
@@ -109,6 +121,8 @@
     <string name="settings_dialog_deleting_message">This may take a moment.</string>
     <string name="settings_dialog_verify_title">Verify your number</string>
     <string name="settings_dialog_verify_message">We sent a code to your phone. Enter it to confirm account deletion.</string>
+    <string name="settings_dialog_verify_email_title">Verify your email</string>
+    <string name="settings_dialog_verify_email_message">We sent a code to your email. Enter it to confirm account deletion.</string>
     <string name="settings_dialog_verify_code_label">Code</string>
 
     <!-- Settings: Notifications screen -->
@@ -702,7 +716,13 @@
     <string name="auth_button_google">Continue with Google</string>
     <string name="auth_button_apple">Continue with Apple</string>
     <string name="auth_button_phone">Continue with Phone</string>
+    <string name="auth_button_email">Continue with Email</string>
     <string name="auth_phone_prompt">Enter your phone number</string>
+    <string name="auth_email_prompt">Enter your email</string>
+    <string name="auth_email_placeholder">Email</string>
+    <string name="auth_email_check_title">Check your email</string>
+    <string name="auth_email_code_sent_format">We sent a code to %1$s</string>
+    <string name="auth_email_use_different">Use a different email</string>
     <string name="auth_button_send_code">SEND CODE</string>
     <string name="auth_button_verify">VERIFY</string>
     <string name="auth_phone_code_sent_format">Enter the 6-digit code sent to\n%1$s %2$s</string>
@@ -713,6 +733,8 @@
     <string name="auth_error_verification_failed">Verification failed. Please try again.</string>
     <string name="auth_error_could_not_send_code">Could not send verification code. Please try again.</string>
     <string name="auth_error_invalid_code">Invalid verification code. Please try again.</string>
+    <string name="auth_error_email_otp_rate_limited">Too many attempts. Please try again later.</string>
+    <string name="auth_error_email_otp_unavailable">Email sign-in is temporarily unavailable.</string>
     <string name="auth_error_generic">Something went wrong. Please try again.</string>
     <string name="auth_error_delete_account">Couldn\'t delete your account. Please try again.</string>
     <string name="auth_error_invalid_phone_reauth_code">Invalid code. Please try again.</string>
@@ -1119,7 +1141,7 @@
     <string name="club_feature_customization">Profile customization</string>
     <string name="club_feature_playlists">Export playlists</string>
     <string name="club_feature_support">Keep Corus ad-free</string>
-    <string name="club_feature_taste_matches">Taste Matches feed</string>
+    <string name="club_feature_taste_matches">Unlimited Taste Matches feed</string>
     <string name="club_disclaimer">Corus is proudly ad-free. Club members help keep Corus independent and sustainable.</string>
     <!-- Taste Matches cold-start (premium feed, not enough posts yet) -->
     <string name="feed_taste_matches_coldstart_title">What are 3 songs or films you love?</string>
@@ -1135,6 +1157,12 @@
     <string name="feed_taste_matches_paywall_title">Taste Matches</string>
     <string name="feed_taste_matches_paywall_body">Get recommendations from your taste matches, people who also love the same things you love.</string>
     <string name="feed_taste_matches_paywall_cta">Learn more</string>
+    <!-- Free-trial in-feed banner (taste_matches_free_trial RC) -->
+    <string name="feed_taste_matches_trial_banner_preview">Free trial of Taste Matches feed</string>
+    <plurals name="feed_taste_matches_trial_banner_active">
+        <item quantity="one">Free trial · %1$d day left</item>
+        <item quantity="other">Free trial · %1$d days left</item>
+    </plurals>
     <string name="club_plan_monthly">Monthly</string>
     <string name="club_plan_yearly">Yearly</string>
     <string name="club_plan_monthly_price_format">%1$s/mo</string>

@@ -58,6 +58,7 @@ class HashtagFeedViewModelTest {
         commentDeletedEvent = CommentDeletedEvent(),
         nowPlayingManager = nowPlayingManager,
         musicServicePreference = mock(),
+        subscriptionRepository = mock(),
         analyticsService = analyticsService,
     )
 

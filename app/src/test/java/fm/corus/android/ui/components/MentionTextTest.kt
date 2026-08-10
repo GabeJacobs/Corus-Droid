@@ -351,6 +351,16 @@ class MentionTextTest {
         assertEquals(source, result.text)
     }
 
+    @Test
+    fun `buildMentionAnnotatedString applies custom frost-readable linkColor`() {
+        val frostLink = Color(0xFF2E5CAD)
+        val result = buildMentionAnnotatedString("hey @gideon #music", linkColor = frostLink)
+        val mentionStart = result.text.indexOf("@gideon")
+        val hashtagStart = result.text.indexOf("#music")
+        assertEquals(frostLink, result.spanStyles.first { it.start == mentionStart }.item.color)
+        assertEquals(frostLink, result.spanStyles.first { it.start == hashtagStart }.item.color)
+    }
+
     // ── bioTruncationCutoff ──
     // Longest prefix that still leaves room for "... more" inside the collapsed line budget.
 

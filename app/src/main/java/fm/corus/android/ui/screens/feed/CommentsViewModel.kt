@@ -885,7 +885,7 @@ class CommentsViewModel @Inject constructor(
                 nowPlaying = nowPlayingManager,
                 remoteConfig = remoteConfig,
                 musicService = musicServicePreference.current.value,
-                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
                 playbackModePromptManager = playbackModePromptManager,
             )
             FullSongPlayCoordinator.applyPlayTapOutcome(
@@ -895,7 +895,7 @@ class CommentsViewModel @Inject constructor(
                 nowPlaying = nowPlayingManager,
                 remoteConfig = remoteConfig,
                 musicService = musicServicePreference.current.value,
-                playFullSongs = preferencesDataStore.playFullSongsSync(),
+                playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
                 playbackModePromptManager = playbackModePromptManager,
                 onPreview = {
                     nowPlayingManager.play(

@@ -10,6 +10,7 @@ import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.domain.MusicServicePreference
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.i18n.AppLanguage
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
@@ -30,6 +31,7 @@ class SettingsViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
     private val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
+    private val nowPlayingManager: NowPlayingManager,
 ) : ViewModel() {
 
     val isClubMember: StateFlow<Boolean> = subscriptionRepository.isClubMember
@@ -47,11 +49,14 @@ class SettingsViewModel @Inject constructor(
     val deezerEnabled: Boolean
         get() = remoteConfigService.deezerEnabled
 
-    val playFullSongs: StateFlow<Boolean> = preferencesDataStore.playFullSongs
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val alwaysPlayFullSongs: StateFlow<Boolean> = preferencesDataStore.alwaysPlayFullSongs
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
-    fun setPlayFullSongs(value: Boolean) {
-        viewModelScope.launch { preferencesDataStore.setPlayFullSongs(value) }
+    fun setAlwaysPlayFullSongs(value: Boolean) {
+        viewModelScope.launch {
+            preferencesDataStore.setAlwaysPlayFullSongs(value)
+            nowPlayingManager.applyPlaybackModeToggle(toFull = value)
+        }
     }
 
     /** Gate for the "Add Saved Songs to Library" App Remote opt-in settings row. */

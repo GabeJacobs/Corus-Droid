@@ -261,9 +261,12 @@ fun CymbalClubOfferScreen(
                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
                 }
 
-                // Feature eyebrow when arriving from Taste Matches — names the perk in
-                // the brand color, mirroring the cold-start eyebrow.
-                if (viewModel.source == PaywallSource.TASTE_MATCHES) {
+                // Feature eyebrow when arriving from Taste Matches (menu tap or the
+                // in-feed free-trial banner) — names the perk in the brand color,
+                // mirroring the cold-start eyebrow.
+                if (viewModel.source == PaywallSource.TASTE_MATCHES ||
+                    viewModel.source == PaywallSource.TASTE_MATCHES_BANNER
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -598,9 +601,10 @@ fun CymbalClubOfferSheet(
                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
             }
 
-            // Feature eyebrow when arriving from Taste Matches — names the perk
-            // in the brand color (mirrors the full-screen paywall + iOS).
-            if (source == PaywallSource.TASTE_MATCHES) {
+            // Feature eyebrow when arriving from Taste Matches (menu tap or the
+            // in-feed free-trial banner) — names the perk in the brand color
+            // (mirrors the full-screen paywall + iOS).
+            if (source == PaywallSource.TASTE_MATCHES || source == PaywallSource.TASTE_MATCHES_BANNER) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),

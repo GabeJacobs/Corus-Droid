@@ -53,6 +53,7 @@ import fm.corus.android.data.model.UserLite
 import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.QueuedTrack
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
@@ -798,31 +799,6 @@ internal fun CatalogTrackRow(
         }
     }
 }
-
-/**
- * A catalog track as a [QueuedTrack] for now-playing. Catalog tracks have no
- * source post, so the queue resolves and advances by track id (feed posts,
- * which carry a `sourcePostId`, use the CymbalPost overloads instead). Mirrors
- * the single-track play args in [CatalogTrackRow] so behaviour is identical
- * whether or not a queue is supplied.
- */
-internal fun CymbalTrack.toQueuedTrack(origin: CatalogPlaybackOrigin? = null) = QueuedTrack(
-    trackId = id,
-    trackName = name,
-    artistName = artistName,
-    albumArtURL = albumArtURL,
-    albumArtLargeURL = albumArtLargeURL,
-    previewUrl = previewUrl,
-    spotifyURI = spotifyURI.ifBlank { null },
-    spotifyWebURL = spotifyWebURL.ifBlank { null },
-    isrc = isrc,
-    sourcePostId = null,
-    source = source,
-    soundcloudId = soundcloudId,
-    soundcloudPermalinkUrl = soundcloudPermalinkUrl,
-    audiomackUrl = audiomackUrl,
-    catalogOrigin = origin,
-)
 
 /**
  * Muted data-credit footer. [spotifyRow] renders the "Open in Spotify" line

@@ -45,9 +45,19 @@ class MainTabViewModel @Inject constructor(
     val playFullSongs = preferencesDataStore.playFullSongs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val alwaysPlayFullSongs = preferencesDataStore.alwaysPlayFullSongs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     fun setPlayFullSongs(enabled: Boolean) {
         viewModelScope.launch {
             preferencesDataStore.setPlayFullSongs(enabled)
+            nowPlayingManager.applyPlaybackModeToggle(toFull = enabled)
+        }
+    }
+
+    fun setAlwaysPlayFullSongs(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesDataStore.setAlwaysPlayFullSongs(enabled)
             nowPlayingManager.applyPlaybackModeToggle(toFull = enabled)
         }
     }
@@ -108,6 +118,16 @@ class MainTabViewModel @Inject constructor(
         val postId = nowPlayingManager.state.value.sourcePostId ?: return
         val userId = authRepository.currentUserId ?: return
         postEngagementManager.toggleLike(postId, userId)
+    }
+
+    fun toggleSaveForPost(postId: String) {
+        val userId = authRepository.currentUserId ?: return
+        postEngagementManager.toggleSave(postId, userId)
+    }
+
+    fun logFullPlayerDismissed(method: String) {
+        val trackId = nowPlayingManager.state.value.trackId
+        analyticsService.logFullPlayerDismissed(trackId, method)
     }
 
     fun logPaywallShown(source: String) = analyticsService.logPaywallShown(source)

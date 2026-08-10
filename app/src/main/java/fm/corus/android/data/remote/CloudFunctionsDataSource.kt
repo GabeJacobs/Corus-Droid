@@ -97,6 +97,44 @@ internal fun parseTasteMatchesGate(data: Map<String, Any?>?): TasteMatchesGateIn
     return TasteMatchesGateInfo(gated, postCount, threshold)
 }
 
+/**
+ * Free-trial banner state attached to a LIVE (non-gated) Taste Matches feed
+ * response for a non-Club viewer, when `taste_matches_free_trial` is on.
+ * "preview" = viewer hasn't hit the cold-start post threshold yet, so the
+ * 7-day trial clock hasn't started; "trial" = the clock is running (or just
+ * started on this serve) — [endsAt]/[daysRemaining] describe when it expires,
+ * with expiry falling back to the existing in-feed paywall gate. Absent
+ * entirely for Club members / verified users / RC off. Mirrors the server's
+ * `buildTasteMatchesTrialPayload` (feedHelpers.js) and web's
+ * `TasteMatchesTrial`.
+ */
+data class TasteMatchesTrial(
+    val phase: String,
+    val postCount: Int,
+    val startedAt: Long? = null,
+    val endsAt: Long? = null,
+    val daysRemaining: Int? = null,
+)
+
+/**
+ * Parses the `trial` map from a LIVE `getForYouFeed` payload, or null when
+ * absent (Club/verified viewer, free-trial RC off, or a gated response).
+ * Top-level + pure so it's unit-tested without mocking FirebaseFunctions
+ * (mirrors [parseTasteMatchesGate]).
+ */
+@Suppress("UNCHECKED_CAST")
+internal fun parseTasteMatchesTrial(data: Map<String, Any?>?): TasteMatchesTrial? {
+    val trial = data?.get("trial") as? Map<String, Any?> ?: return null
+    val phase = trial["phase"] as? String ?: return null
+    return TasteMatchesTrial(
+        phase = phase,
+        postCount = (trial["postCount"] as? Number)?.toInt() ?: 0,
+        startedAt = (trial["startedAt"] as? Number)?.toLong(),
+        endsAt = (trial["endsAt"] as? Number)?.toLong(),
+        daysRemaining = (trial["daysRemaining"] as? Number)?.toInt(),
+    )
+}
+
 /** `getOnboardingTasteMatches` response: taste-aligned people for a brand-new
  *  user, ranked by shared-artist count then activity. [strongCount] = matches
  *  at the "Strong match" tier (>=3 shared); [totalCount] = candidates with >=1
@@ -304,6 +342,29 @@ internal fun parseAlbumPostsResponse(
 class CloudFunctionsDataSource @Inject constructor(
     private val functions: FirebaseFunctions,
 ) {
+    // ── Email OTP auth ──
+
+    suspend fun sendEmailOtpCode(email: String) {
+        functions.getHttpsCallable("sendEmailOtpCode")
+            .call(mapOf("email" to email))
+            .await()
+    }
+
+    data class EmailOtpVerifyResult(val token: String, val isNewUser: Boolean)
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun verifyEmailOtpCode(email: String, code: String): EmailOtpVerifyResult {
+        val result = functions.getHttpsCallable("verifyEmailOtpCode")
+            .call(mapOf("email" to email, "code" to code))
+            .await()
+        val data = result.getData() as? Map<String, Any?>
+            ?: throw IllegalStateException("Missing verify response")
+        val token = data["token"] as? String
+            ?: throw IllegalStateException("Missing custom token")
+        val isNewUser = data["isNewUser"] as? Boolean ?: false
+        return EmailOtpVerifyResult(token = token, isNewUser = isNewUser)
+    }
+
     // ── Feed ──
 
     data class FeedPage(
@@ -384,6 +445,10 @@ class CloudFunctionsDataSource @Inject constructor(
         val gated: String? = null,
         val gatedPostCount: Int = 0,
         val gatedThreshold: Int = 0,
+        /** Free-trial banner state (see [TasteMatchesTrial]); null when the
+         *  viewer isn't on the free-trial path (Club/verified, RC off, or
+         *  gated) or the scope isn't "tasteMatches". */
+        val trial: TasteMatchesTrial? = null,
     )
 
     /**
@@ -439,7 +504,7 @@ class CloudFunctionsDataSource @Inject constructor(
         }
         val parsed = parseForYouFeedResponse(data)
         val posts = parsed.a.map { CymbalPost.fromCloudData(it) }
-        return ForYouFeedPage(posts, parsed.b, parsed.c, parsed.d)
+        return ForYouFeedPage(posts, parsed.b, parsed.c, parsed.d, trial = parseTasteMatchesTrial(data))
     }
 
     // ── Post Detail ──
