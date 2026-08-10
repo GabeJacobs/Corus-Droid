@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color as AndroidColor
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -28,18 +30,26 @@ import androidx.compose.ui.unit.dp
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
 import kotlin.math.max
 import kotlin.math.min
 
+/** Matches iOS `UIView.animate` `.curveEaseInOut` for the plane crossfade. */
+private val BackdropEaseInOut = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
+private const val BackdropCrossfadeMs = 500
+
 /**
  * Spotify-style art wash + frosted glass behind mini + full player.
  *
  * Mirrors iOS `PlayerArtworkTintedMaterialBackground`:
- * solid base → material veil → dual-plane blurred art + tint gradient (crossfade)
- * → black/white veil. Expansion only drives alphas.
+ * solid base → material veil → dual-plane blurred art + tint gradient (one
+ * crossfade) → black/white veil. Expansion only drives live opacities; track
+ * changes hold the previous plane until the next bake is ready, then run a
+ * single 0.5s plane alpha crossfade (never clear-to-empty mid-transition).
  */
 @Composable
 fun PlayerArtworkBackdrop(
@@ -80,53 +90,87 @@ fun PlayerArtworkBackdrop(
     val veilColor = if (darkTheme) Color.Black else Color.White
     val materialTint = CorusColors.Background.copy(alpha = materialOpacity)
 
-    // Dual-plane crossfade state (iOS PlayerFrostedArtBackdropView).
     var planeA by remember { mutableStateOf<PreparedBackdrop?>(null) }
     var planeB by remember { mutableStateOf<PreparedBackdrop?>(null) }
+    val alphaA = remember { Animatable(0f) }
+    val alphaB = remember { Animatable(0f) }
     var frontIsA by remember { mutableStateOf(true) }
-    val crossfade = remember { Animatable(1f) }
     var committedIdentity by remember { mutableStateOf<String?>(null) }
+    var loadGeneration by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(artworkUrl, darkTheme, heavyChromeReady) {
         if (!heavyChromeReady) return@LaunchedEffect
-        val identity = artworkUrl ?: "nil"
-        if (identity == committedIdentity && (planeA != null || planeB != null)) return@LaunchedEffect
+        val identity = backdropIdentity(artworkUrl, darkTheme)
+        if (identity == committedIdentity && (planeA != null || planeB != null)) {
+            return@LaunchedEffect
+        }
+
+        val generation = loadGeneration + 1
+        loadGeneration = generation
 
         val prepared = withContext(Dispatchers.IO) {
             prepareBackdrop(artworkUrl, darkTheme)
         }
-        if (identity != (artworkUrl ?: "nil")) return@LaunchedEffect
+        if (generation != loadGeneration) return@LaunchedEffect
 
-        val hasOutgoing = (if (frontIsA) planeA else planeB) != null
-        if (frontIsA) {
-            planeB = prepared
-            if (hasOutgoing) {
-                crossfade.snapTo(0f)
-                crossfade.animateTo(1f, tween(durationMillis = 500))
-            } else {
-                crossfade.snapTo(1f)
-            }
-            frontIsA = false
-            // Drop outgoing after crossfade settles.
-            planeA = null
-        } else {
+        val incomingIsA = !frontIsA
+        if (incomingIsA) {
             planeA = prepared
-            if (hasOutgoing) {
-                crossfade.snapTo(0f)
-                crossfade.animateTo(1f, tween(durationMillis = 500))
-            } else {
-                crossfade.snapTo(1f)
-            }
-            frontIsA = true
-            planeB = null
+        } else {
+            planeB = prepared
         }
-        committedIdentity = identity
-    }
 
-    val front = if (frontIsA) planeA else planeB
-    val back = if (frontIsA) planeB else planeA
-    val frontAlpha = crossfade.value
-    val backAlpha = 1f - crossfade.value
+        val outgoingContent = if (frontIsA) planeA else planeB
+        val outgoingAlpha = if (frontIsA) alphaA.value else alphaB.value
+        val hasOutgoing = outgoingContent != null || outgoingAlpha > 0.01f
+
+        val fadeSpec = tween<Float>(
+            durationMillis = BackdropCrossfadeMs,
+            easing = BackdropEaseInOut,
+        )
+
+        if (!hasOutgoing) {
+            if (incomingIsA) {
+                alphaA.snapTo(1f)
+                alphaB.snapTo(0f)
+                planeB = null
+            } else {
+                alphaB.snapTo(1f)
+                alphaA.snapTo(0f)
+                planeA = null
+            }
+            frontIsA = incomingIsA
+        } else {
+            // iOS: apply on back plane at alpha 0, then animate both plane alphas.
+            if (incomingIsA) {
+                alphaA.snapTo(0f)
+            } else {
+                alphaB.snapTo(0f)
+            }
+            frontIsA = incomingIsA
+            try {
+                coroutineScope {
+                    launch {
+                        if (incomingIsA) alphaA.animateTo(1f, fadeSpec)
+                        else alphaB.animateTo(1f, fadeSpec)
+                    }
+                    launch {
+                        if (incomingIsA) alphaB.animateTo(0f, fadeSpec)
+                        else alphaA.animateTo(0f, fadeSpec)
+                    }
+                }
+                if (generation == loadGeneration) {
+                    if (incomingIsA) planeB = null else planeA = null
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                // Next skip owns the planes; do not clear mid-fade.
+                throw cancelled
+            }
+        }
+        if (generation == loadGeneration) {
+            committedIdentity = identity
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize().background(CorusColors.Background)) {
         if (heavyChromeReady) {
@@ -138,19 +182,25 @@ fun PlayerArtworkBackdrop(
         }
 
         if (heavyChromeReady) {
-            if (back != null && backAlpha > 0.01f) {
-                BackdropPlane(
-                    plane = back,
-                    artOpacity = frostedArtOpacity * backAlpha,
-                    gradientOpacity = gradientOpacity * backAlpha,
-                )
+            planeA?.let { plane ->
+                if (alphaA.value > 0.01f) {
+                    BackdropPlane(
+                        plane = plane,
+                        planeAlpha = alphaA.value,
+                        artOpacity = frostedArtOpacity,
+                        gradientOpacity = gradientOpacity,
+                    )
+                }
             }
-            if (front != null && frontAlpha > 0.01f) {
-                BackdropPlane(
-                    plane = front,
-                    artOpacity = frostedArtOpacity * frontAlpha,
-                    gradientOpacity = gradientOpacity * frontAlpha,
-                )
+            planeB?.let { plane ->
+                if (alphaB.value > 0.01f) {
+                    BackdropPlane(
+                        plane = plane,
+                        planeAlpha = alphaB.value,
+                        artOpacity = frostedArtOpacity,
+                        gradientOpacity = gradientOpacity,
+                    )
+                }
             }
         }
 
@@ -165,10 +215,14 @@ fun PlayerArtworkBackdrop(
 @Composable
 private fun BackdropPlane(
     plane: PreparedBackdrop,
+    planeAlpha: Float,
     artOpacity: Float,
     gradientOpacity: Float,
 ) {
-    Box(modifier = Modifier.fillMaxSize().alpha(artOpacity.coerceIn(0f, 1f))) {
+    // Plane alpha = track-change crossfade. Art / gradient opacities are
+    // expansion-driven and applied separately (iOS imageView.alpha /
+    // gradientLayer.opacity) — never nested so they don't double-multiply.
+    Box(modifier = Modifier.fillMaxSize().alpha(planeAlpha.coerceIn(0f, 1f))) {
         if (plane.bitmap != null) {
             Image(
                 bitmap = plane.bitmap.asImageBitmap(),
@@ -176,10 +230,10 @@ private fun BackdropPlane(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    // 9% overscan so blur edges don’t vignette (iOS).
                     .graphicsLayer {
                         scaleX = 1.09f
                         scaleY = 1.09f
+                        alpha = artOpacity.coerceIn(0f, 1f)
                     }
                     .blur(42.dp),
             )
@@ -188,17 +242,23 @@ private fun BackdropPlane(
             modifier = Modifier
                 .fillMaxSize()
                 .drawWithContent {
+                    val g = gradientOpacity.coerceIn(0f, 1f)
                     drawRect(
                         brush = Brush.verticalGradient(
                             colors = listOf(
-                                plane.topTint.copy(alpha = gradientOpacity.coerceIn(0f, 1f)),
-                                plane.bottomTint.copy(alpha = gradientOpacity.coerceIn(0f, 1f) * 0.85f),
+                                plane.topTint.copy(alpha = g),
+                                plane.bottomTint.copy(alpha = g * 0.85f),
                             ),
                         ),
                     )
                 },
         )
     }
+}
+
+internal fun backdropIdentity(artworkUrl: String?, darkTheme: Boolean): String {
+    val url = artworkUrl ?: "nil"
+    return "$url|${if (darkTheme) "d" else "l"}"
 }
 
 private data class PreparedBackdrop(
@@ -225,7 +285,6 @@ private fun prepareBackdrop(
     val avg = averageColor(bitmap)
     val boosted = boostForPlayerWash(avg, darkTheme)
     val (top, bottom) = gradientPair(boosted, darkTheme)
-    // Keep a soft copy for the plane; blur is applied at draw time.
     return PreparedBackdrop(bitmap, top, bottom)
 }
 

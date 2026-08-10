@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.domain.NowPlayingState
@@ -28,6 +29,7 @@ class FullPlayerViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
     private val engagementManager: PostEngagementManager,
+    private val cloudFunctions: CloudFunctionsDataSource,
 ) : ViewModel() {
     private val _sourcePost = MutableStateFlow<CymbalPost?>(null)
     val sourcePost: StateFlow<CymbalPost?> = _sourcePost.asStateFlow()
@@ -449,4 +451,13 @@ class FullPlayerViewModel @Inject constructor(
         }
         return sorted
     }
+
+    /** Overflow "Go to Artist" / "Go to Album" — same resolve as feed post menus. */
+    suspend fun resolveTrackDestinationsForTrack(track: CymbalTrack): CloudFunctionsDataSource.TrackDestinations =
+        cloudFunctions.resolveTrackDestinations(
+            track.id, track.isrc, track.name, track.artistName, track.appleMusicId,
+        )
+
+    suspend fun resolveArtistIdForTrack(track: CymbalTrack): String? =
+        resolveTrackDestinationsForTrack(track).artistIds.firstOrNull { it.isNotBlank() }
 }

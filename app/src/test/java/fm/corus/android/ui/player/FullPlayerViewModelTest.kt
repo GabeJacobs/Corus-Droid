@@ -39,6 +39,7 @@ class FullPlayerViewModelTest {
     private val postRepo = mock<PostRepository>()
     private val authRepo = mock<AuthRepository>()
     private val engagementManager = mock<PostEngagementManager>()
+    private val cloudFunctions = mock<CloudFunctionsDataSource>()
 
     @Before
     fun setUp() {
@@ -53,7 +54,7 @@ class FullPlayerViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun vm() = FullPlayerViewModel(postRepo, authRepo, engagementManager)
+    private fun vm() = FullPlayerViewModel(postRepo, authRepo, engagementManager, cloudFunctions)
 
     private fun user(id: String) = CymbalUser(id = id, username = "u$id", displayName = "U$id")
 

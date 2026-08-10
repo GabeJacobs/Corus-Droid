@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,9 +27,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -47,6 +52,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Alignment
@@ -79,6 +85,11 @@ import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.AudiomackLogo
 import fm.corus.android.ui.components.MiniPlayerPlaybackModeToggle
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
+import fm.corus.android.ui.components.resolveMenuGoToAlbumTap
+import fm.corus.android.ui.components.resolveMenuGoToArtistTap
+import fm.corus.android.ui.navigation.AlbumPageRoute
+import fm.corus.android.ui.navigation.ArtistPageRoute
+import fm.corus.android.ui.navigation.rememberArtistPagesEnabled
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import kotlin.math.abs
@@ -105,6 +116,8 @@ fun FullPlayerScreen(
     onSavePost: (postId: String) -> Unit = {},
     onOpenSongDetail: (fm.corus.android.data.model.CymbalTrack) -> Unit = {},
     onOpenFilmDetail: (fm.corus.android.data.model.CymbalPost) -> Unit = {},
+    onOpenArtist: ((ArtistPageRoute) -> Unit)? = null,
+    onOpenAlbum: ((AlbumPageRoute) -> Unit)? = null,
     onComposeTrack: () -> Unit = {},
     onMentionTap: (String) -> Unit = {},
     onHashtagTap: (String) -> Unit = {},
@@ -115,11 +128,21 @@ fun FullPlayerScreen(
 ) {
     val state by nowPlayingManager.state.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val scroll = rememberScrollState()
     val isExternalSpotifyListening by nowPlayingManager.isExternalSpotifyListeningFlow.collectAsState()
+    val artistPagesEnabled = rememberArtistPagesEnabled()
+    var isResolvingDestination by remember { mutableStateOf(false) }
+    var destinationMissMessage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(commentsRefreshSignal) {
         if (commentsRefreshSignal > 0) fullPlayerViewModel.refreshComments()
+    }
+    LaunchedEffect(destinationMissMessage) {
+        if (destinationMissMessage != null) {
+            kotlinx.coroutines.delay(2_200)
+            destinationMissMessage = null
+        }
     }
 
     val showsPlaybackModeToggle = remoteConfig != null &&
@@ -133,6 +156,45 @@ fun FullPlayerScreen(
         )
 
     val sourcePost by fullPlayerViewModel.sourcePost.collectAsState()
+    val menuPost = remember(sourcePost, state) { fullPlayerMenuPost(sourcePost, state) }
+    val menuSource = remember(sourcePost, state) { fullPlayerMenuTrackSource(sourcePost, state) }
+    val openInLabel = fullPlayerOpenInServiceLabelKey(state.source, musicService)
+    val openInServiceTitle = when (openInLabel) {
+        FullPlayerOpenInLabel.OpenSoundCloud -> stringResource(R.string.post_menu_open_soundcloud)
+        FullPlayerOpenInLabel.OpenAudiomack -> stringResource(R.string.post_menu_open_audiomack)
+        FullPlayerOpenInLabel.OpenTidal -> stringResource(R.string.post_menu_open_tidal)
+        FullPlayerOpenInLabel.OpenDeezer -> stringResource(R.string.post_menu_open_deezer)
+        is FullPlayerOpenInLabel.PlayIn ->
+            stringResource(R.string.post_menu_play_in_service, openInLabel.serviceLabel)
+    }
+    val artistNotFoundMsg = stringResource(R.string.song_detail_artist_not_found)
+    val albumNotFoundMsg = stringResource(R.string.song_detail_album_not_found)
+    val onGoToArtist = menuPost?.let { post ->
+        resolveMenuGoToArtistTap(
+            context = context,
+            post = post,
+            artistPagesEnabled = artistPagesEnabled,
+            onNavigateToArtist = onOpenArtist,
+            scope = scope,
+            resolveArtistId = fullPlayerViewModel::resolveArtistIdForTrack,
+            onArtistNotFound = { destinationMissMessage = artistNotFoundMsg },
+            onResolvingChange = { isResolvingDestination = it },
+        )
+    }
+    val onGoToAlbum = menuPost?.let { post ->
+        resolveMenuGoToAlbumTap(
+            context = context,
+            post = post,
+            artistPagesEnabled = artistPagesEnabled,
+            onNavigateToAlbum = onOpenAlbum,
+            onNavigateToSong = { onOpenSongDetail(post.track) },
+            prereleaseAlbumPagesEnabled = remoteConfig?.prereleaseAlbumPagesEnabled == true,
+            scope = scope,
+            resolveDestinations = fullPlayerViewModel::resolveTrackDestinationsForTrack,
+            onAlbumNotFound = { destinationMissMessage = albumNotFoundMsg },
+            onResolvingChange = { isResolvingDestination = it },
+        )
+    }
     // Prefer large art from now-playing, then the loaded source post (covers
     // older feed plays that only queued the thumbnail URL).
     val artUrl = state.albumArtLargeURL
@@ -157,11 +219,18 @@ fun FullPlayerScreen(
                 .padding(top = statusTop + 4.dp),
         ) {
             FullPlayerTopChrome(
+                openInServiceTitle = openInServiceTitle,
+                showsArtistRow = fullPlayerShowsArtistRow(menuSource, artistPagesEnabled),
+                showsAlbumRow = fullPlayerShowsAlbumRow(menuSource, artistPagesEnabled),
+                showsShareRow = fullPlayerShowsShareRow(sourcePost),
                 showsPlaybackModeToggle = showsPlaybackModeToggle,
                 playFullSongs = playFullSongs,
                 onDismiss = onDismiss,
                 onPlaybackModeSelect = onPlaybackModeChange,
                 onOpenInService = onOpenInService,
+                onGoToArtist = { onGoToArtist?.invoke() },
+                onGoToAlbum = { onGoToAlbum?.invoke() },
+                onSharePost = { sourcePost?.let(onSharePost) },
                 onOpenQueue = onOpenQueue,
                 interactive = interactive,
             )
@@ -279,13 +348,31 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
         }
+
+        val bannerText = when {
+            isResolvingDestination -> stringResource(R.string.full_player_resolving_destination)
+            else -> destinationMissMessage
+        }
+        if (bannerText != null) {
+            Text(
+                text = bannerText,
+                style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
+                color = CorusColors.Text,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = statusTop + 56.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(CorusColors.Text.copy(alpha = 0.12f))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            )
+        }
     }
 }
 
 @Composable
 private fun BoxWithWidth(
     modifier: Modifier = Modifier,
-    content: @Composable (width: Dp) -> Unit,
+    content: @Composable BoxScope.(width: Dp) -> Unit,
 ) {
     val density = LocalDensity.current
     var widthDp by remember { mutableStateOf(0.dp) }
@@ -300,11 +387,18 @@ private fun BoxWithWidth(
 
 @Composable
 private fun FullPlayerTopChrome(
+    openInServiceTitle: String,
+    showsArtistRow: Boolean,
+    showsAlbumRow: Boolean,
+    showsShareRow: Boolean,
     showsPlaybackModeToggle: Boolean,
     playFullSongs: Boolean,
     onDismiss: () -> Unit,
     onPlaybackModeSelect: (Boolean) -> Unit,
     onOpenInService: () -> Unit,
+    onGoToArtist: () -> Unit,
+    onGoToAlbum: () -> Unit,
+    onSharePost: () -> Unit,
     onOpenQueue: () -> Unit,
     interactive: Boolean,
 ) {
@@ -361,14 +455,56 @@ private fun FullPlayerTopChrome(
                 onDismissRequest = { menuOpen = false },
             ) {
                 DropdownMenuItem(
-                    text = { Text("Open in music service") },
+                    text = { Text(openInServiceTitle) },
+                    leadingIcon = {
+                        Icon(Icons.Filled.PlayArrow, contentDescription = null)
+                    },
                     onClick = {
                         menuOpen = false
                         onOpenInService()
                     },
                 )
+                if (showsArtistRow) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.post_menu_go_to_artist)) },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Person, contentDescription = null)
+                        },
+                        onClick = {
+                            menuOpen = false
+                            onGoToArtist()
+                        },
+                    )
+                }
+                if (showsAlbumRow) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.post_menu_go_to_album)) },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Album, contentDescription = null)
+                        },
+                        onClick = {
+                            menuOpen = false
+                            onGoToAlbum()
+                        },
+                    )
+                }
+                if (showsShareRow) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.post_menu_share)) },
+                        leadingIcon = {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+                        },
+                        onClick = {
+                            menuOpen = false
+                            onSharePost()
+                        },
+                    )
+                }
                 DropdownMenuItem(
-                    text = { Text("Queue") },
+                    text = { Text(stringResource(R.string.full_player_queue_title)) },
+                    leadingIcon = {
+                        Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null)
+                    },
                     onClick = {
                         menuOpen = false
                         onOpenQueue()

@@ -279,16 +279,20 @@ fun PostCard(
 
     // Lights the playing pill on the tap frame, before playback services publish.
     var optimisticLoadingIndicator by remember(post.id) { mutableStateOf(false) }
+    // pointerInput's detectTapGestures block is long-lived; read playback through
+    // UpdatedState so pause/resume isn't misclassified as a fresh play (stale
+    // false → optimistic spinner latches while ownsActivePlayback stays true).
+    val isPreviewPlayingUpdated by rememberUpdatedState(isPreviewPlaying)
+    val isPreviewLoadingUpdated by rememberUpdatedState(isPreviewLoading)
+    val ownsActivePlaybackUpdated by rememberUpdatedState(ownsActivePlayback)
     LaunchedEffect(isPreviewPlaying) {
-        if (isPreviewPlaying) optimisticLoadingIndicator = false
+        // Clear on play (handoff to EQ) and on pause (don't leave a latched spinner).
+        // Fresh-play lead-in does not toggle this flag, so the spinner stays for
+        // the 280ms window until real playback signals arrive.
+        optimisticLoadingIndicator = false
     }
     LaunchedEffect(isPreviewLoading, ownsActivePlayback) {
         if (!isPreviewLoading && !isPreviewPlaying && !ownsActivePlayback) {
-            optimisticLoadingIndicator = false
-        }
-    }
-    LaunchedEffect(ownsActivePlayback) {
-        if (!ownsActivePlayback && !isPreviewLoading && !isPreviewPlaying) {
             optimisticLoadingIndicator = false
         }
     }
@@ -530,9 +534,9 @@ fun PostCard(
                                         // queue/AV). Pause / resume on the post that
                                         // already owns the player stays immediate.
                                         post.isTrack -> {
-                                            val alreadyActiveHere = isPreviewPlaying ||
-                                                isPreviewLoading ||
-                                                ownsActivePlayback
+                                            val alreadyActiveHere = isPreviewPlayingUpdated ||
+                                                isPreviewLoadingUpdated ||
+                                                ownsActivePlaybackUpdated
                                             if (alreadyActiveHere) {
                                                 optimisticLoadingIndicator = false
                                                 onPreviewTap()
@@ -541,8 +545,8 @@ fun PostCard(
                                                 scope.launch {
                                                     delay(PLAYING_PILL_LEAD_IN_MS)
                                                     if (optimisticLoadingIndicator ||
-                                                        isPreviewPlaying ||
-                                                        isPreviewLoading
+                                                        isPreviewPlayingUpdated ||
+                                                        isPreviewLoadingUpdated
                                                     ) {
                                                         onPreviewTap()
                                                     }

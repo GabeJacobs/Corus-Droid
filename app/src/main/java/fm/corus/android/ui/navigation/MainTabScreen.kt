@@ -244,6 +244,7 @@ fun MainTabScreen(
     // the tab bar like iOS and gets real window insets (the nav-graph content consumes
     // them). Tabs open it via onShowComments; navigation routes through the active tab.
     var commentPostId by remember { mutableStateOf<String?>(null) }
+    var commentSheetAutoFocus by remember { mutableStateOf(false) }
     var commentsRefreshSignal by remember { mutableIntStateOf(0) }
     var showPlayerQueue by remember { mutableStateOf(false) }
     var playerSharePost by remember { mutableStateOf<fm.corus.android.data.model.CymbalPost?>(null) }
@@ -523,7 +524,10 @@ fun MainTabScreen(
                     },
                     onLikeTap = { viewModel.toggleLikeForCurrentTrack() },
                     onOpenQueue = { showPlayerQueue = true },
-                    onOpenComments = { postId, _ -> commentPostId = postId },
+                    onOpenComments = { postId, _ ->
+                        commentSheetAutoFocus = true
+                        commentPostId = postId
+                    },
                     onOpenUser = { userId ->
                         playerScope.launch {
                             playerExpansion.collapse()
@@ -570,6 +574,26 @@ fun MainTabScreen(
                                 )
                             }
                         }
+                    },
+                    onOpenArtist = if (artistPagesEnabled) {
+                        { route ->
+                            playerScope.launch {
+                                playerExpansion.collapse()
+                                navControllers[selectedTab]?.navigate(route)
+                            }
+                        }
+                    } else {
+                        null
+                    },
+                    onOpenAlbum = if (artistPagesEnabled) {
+                        { route ->
+                            playerScope.launch {
+                                playerExpansion.collapse()
+                                navControllers[selectedTab]?.navigate(route)
+                            }
+                        }
+                    } else {
+                        null
                     },
                     onComposeTrack = {
                         val track = viewModel.nowPlayingManager.state.value.let { s ->
@@ -863,39 +887,46 @@ fun MainTabScreen(
     // sees the real window insets. Navigation routes through the active tab's controller.
     commentPostId?.let { postId ->
         val navController = navControllers[selectedTab]
-        CommentsBottomSheet(
-            postId = postId,
-            // onDismiss is what removes the sheet (commentPostId = null). The nav callbacks
-            // below only navigate — CommentsBottomSheet animates the sheet closed first and
-            // the close reaching Hidden fires onDismiss, so they must NOT clear it here (that
-            // would yank the sheet instantly and skip the animation).
-            onDismiss = {
-                commentPostId = null
-                commentsRefreshSignal += 1
-            },
-            onNavigateToUser = { userId -> navController?.navigate(OtherProfileRoute(userId)) },
-            onNavigateToSong = { track -> navController?.navigate(track.toSongDetailRoute()) },
-            onNavigateToFilm = { movie -> navController?.navigate(movie.toFilmDetailRoute()) },
-            onNavigateToHashtag = { hashtag -> navController?.navigate(HashtagFeedRoute(hashtag)) },
-            // Same gating as the DM entity bubbles: with artist pages off the
-            // comment attachment card renders but its tap stays inert.
-            onNavigateToArtist = if (artistPagesEnabled) {
-                { artist -> navController?.navigate(ArtistPageRoute(artist.artistId, artist.artistName, artist.artistImageURL)) }
-            } else null,
-            onNavigateToAlbum = if (artistPagesEnabled) {
-                { album ->
-                    navController?.navigate(
-                        AlbumPageRoute(
-                            album.albumId, album.albumTitle, album.albumArtistName,
-                            album.albumCoverURL, album.albumYear?.toIntOrNull(),
-                        ),
-                    )
-                }
-            } else null,
-            onNavigateToDirector = if (artistPagesEnabled) {
-                { director -> navController?.navigate(DirectorPageRoute(director.directorId, director.directorName, director.directorImageURL)) }
-            } else null,
-        )
+        // CorusDraggableSheet is an in-window overlay (not a Dialog). The expanding
+        // player (z=1) and tab bar (z=2) must sit underneath it, or "Add a comment"
+        // from the full player appears to do nothing.
+        Box(modifier = Modifier.fillMaxSize().zIndex(3f)) {
+            CommentsBottomSheet(
+                postId = postId,
+                // onDismiss is what removes the sheet (commentPostId = null). The nav callbacks
+                // below only navigate — CommentsBottomSheet animates the sheet closed first and
+                // the close reaching Hidden fires onDismiss, so they must NOT clear it here (that
+                // would yank the sheet instantly and skip the animation).
+                onDismiss = {
+                    commentPostId = null
+                    commentSheetAutoFocus = false
+                    commentsRefreshSignal += 1
+                },
+                onNavigateToUser = { userId -> navController?.navigate(OtherProfileRoute(userId)) },
+                onNavigateToSong = { track -> navController?.navigate(track.toSongDetailRoute()) },
+                onNavigateToFilm = { movie -> navController?.navigate(movie.toFilmDetailRoute()) },
+                onNavigateToHashtag = { hashtag -> navController?.navigate(HashtagFeedRoute(hashtag)) },
+                // Same gating as the DM entity bubbles: with artist pages off the
+                // comment attachment card renders but its tap stays inert.
+                onNavigateToArtist = if (artistPagesEnabled) {
+                    { artist -> navController?.navigate(ArtistPageRoute(artist.artistId, artist.artistName, artist.artistImageURL)) }
+                } else null,
+                onNavigateToAlbum = if (artistPagesEnabled) {
+                    { album ->
+                        navController?.navigate(
+                            AlbumPageRoute(
+                                album.albumId, album.albumTitle, album.albumArtistName,
+                                album.albumCoverURL, album.albumYear?.toIntOrNull(),
+                            ),
+                        )
+                    }
+                } else null,
+                onNavigateToDirector = if (artistPagesEnabled) {
+                    { director -> navController?.navigate(DirectorPageRoute(director.directorId, director.directorName, director.directorImageURL)) }
+                } else null,
+                autoFocusInput = commentSheetAutoFocus,
+            )
+        }
     }
 
     FullScreenPhotoViewer(

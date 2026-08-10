@@ -118,6 +118,8 @@ fun CommentsBottomSheet(
     onNavigateToArtist: ((CommentAttachedArtist) -> Unit)? = null,
     onNavigateToAlbum: ((CommentAttachedAlbum) -> Unit)? = null,
     onNavigateToDirector: ((CommentAttachedDirector) -> Unit)? = null,
+    /** When true, focus the composer on open (full-player "Add a comment"). */
+    autoFocusInput: Boolean = false,
 ) {
     val viewModel: CommentsViewModel = hiltViewModel()
     // Custom two-detent sheet (see CorusDraggableSheet): opens at the half-height
@@ -156,7 +158,7 @@ fun CommentsBottomSheet(
             onNavigateToArtist = onNavigateToArtist?.let { cb -> { artist -> navigateClosing { cb(artist) } } },
             onNavigateToAlbum = onNavigateToAlbum?.let { cb -> { album -> navigateClosing { cb(album) } } },
             onNavigateToDirector = onNavigateToDirector?.let { cb -> { director -> navigateClosing { cb(director) } } },
-            autoFocusInput = false,
+            autoFocusInput = autoFocusInput,
         )
     }
 }

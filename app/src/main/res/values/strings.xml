@@ -59,6 +59,7 @@
     <string name="settings_row_always_play_full_songs_title">Always Play Full Songs</string>
     <string name="settings_row_always_play_full_songs_spotify_subtitle">Plays full songs when you\'re signed in with Premium; otherwise 30s previews. Turn off to show the 30s/Full switch.</string>
     <string name="settings_row_always_play_full_songs_tidal_subtitle">Plays full songs with a TIDAL subscription; otherwise 30s previews. Turn off to show the 30s/Full switch.</string>
+    <string name="full_player_resolving_destination">Loading…</string>
     <string name="full_player_queue_title">Queue</string>
     <string name="full_player_queue_close">Close</string>
     <string name="full_player_queue_now_playing">Now Playing</string>
@@ -66,6 +67,9 @@
     <string name="full_player_queue_earlier">Earlier</string>
     <string name="full_player_queue_empty">Nothing up next. Play from the feed to build a queue.</string>
     <string name="full_player_queue_remove">Remove</string>
+    <string name="full_player_queue_edit">Edit</string>
+    <string name="full_player_queue_done">Done</string>
+    <string name="full_player_queue_reorder">Reorder</string>
     <string name="full_player_view_comments">View comments</string>
     <!-- Legacy keys kept so translated locales still resolve until updated. -->
     <string name="settings_row_play_full_songs_title">Always Play Full Songs</string>
