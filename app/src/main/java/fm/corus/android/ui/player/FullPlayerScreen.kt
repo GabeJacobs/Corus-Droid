@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import fm.corus.android.R
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
@@ -131,7 +132,12 @@ fun FullPlayerScreen(
             alwaysPlayFullSongs = alwaysPlayFullSongs,
         )
 
-    val artUrl = state.albumArtLargeURL ?: state.albumArtURL
+    val sourcePost by fullPlayerViewModel.sourcePost.collectAsState()
+    // Prefer large art from now-playing, then the loaded source post (covers
+    // older feed plays that only queued the thumbnail URL).
+    val artUrl = state.albumArtLargeURL
+        ?: sourcePost?.track?.albumArtLargeURL
+        ?: state.albumArtURL
     val title = state.trackName.ifBlank { "Unknown" }
     val artist = state.artistName.ifBlank { "Unknown" }
     val likeable = !state.sourcePostId.isNullOrBlank()
@@ -142,6 +148,7 @@ fun FullPlayerScreen(
 
     BoxWithWidth(modifier = modifier.fillMaxSize()) { widthDp ->
         val artSide = minOf(maxOf(widthDp - 48.dp, 0.dp), 320.dp)
+        val artPx = with(LocalDensity.current) { artSide.roundToPx().coerceAtLeast(1) }
 
         Column(
             modifier = Modifier
@@ -162,7 +169,10 @@ fun FullPlayerScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             AsyncImage(
-                model = artUrl,
+                model = ImageRequest.Builder(context)
+                    .data(artUrl)
+                    .size(artPx, artPx)
+                    .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

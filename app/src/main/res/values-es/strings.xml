@@ -97,6 +97,8 @@
     <string name="settings_dialog_deleting_message">Esto puede tardar un momento.</string>
     <string name="settings_dialog_verify_title">Verifica tu número</string>
     <string name="settings_dialog_verify_message">Enviamos un código a tu teléfono. Ingrésalo para confirmar la eliminación de la cuenta.</string>
+    <string name="settings_dialog_verify_email_title">Verifica tu correo</string>
+    <string name="settings_dialog_verify_email_message">Enviamos un código a tu correo. Ingrésalo para confirmar la eliminación de la cuenta.</string>
     <string name="settings_dialog_verify_code_label">Código</string>
 
     <!-- Settings: Notifications screen -->
@@ -653,6 +655,14 @@
     <string name="auth_button_google">Continuar con Google</string>
     <string name="auth_button_apple">Continuar con Apple</string>
     <string name="auth_button_phone">Continuar con teléfono</string>
+    <string name="auth_button_email">Continuar con correo</string>
+    <string name="auth_email_prompt">Ingresa tu correo</string>
+    <string name="auth_email_placeholder">Correo</string>
+    <string name="auth_email_check_title">Revisa tu correo</string>
+    <string name="auth_email_code_sent_format">Enviamos un código a %1$s</string>
+    <string name="auth_email_use_different">Usar otro correo</string>
+    <string name="auth_error_email_otp_rate_limited">Demasiados intentos. Inténtalo de nuevo más tarde.</string>
+    <string name="auth_error_email_otp_unavailable">El inicio de sesión con correo no está disponible temporalmente.</string>
     <string name="auth_phone_prompt">Ingresa tu número de teléfono</string>
     <string name="auth_button_send_code">ENVIAR CÓDIGO</string>
     <string name="auth_button_verify">VERIFICAR</string>

@@ -1585,14 +1585,11 @@ private fun StatDivider() {
  * next to the PLAYLIST pill. It shows FOLLOW BACK when [followsMe] (the viewed user
  * follows the local user) and we don't follow them yet, matching iOS. It is weighted
  * to absorb the row width left over by the (unweighted, measured-first) PLAYLIST
- * pill, carries no horizontal padding, and uses a shrink-to-fit label so the text
- * centers and never clips or wraps (the label is single-line, softWrap=false, and
- * steps its font down to fit). "FOLLOW BACK" is the longest label it carries; on
- * narrow phones it renders a touch smaller rather than truncating. This mirrors the
- * own-profile EDIT button. Regression history: the row clipped "PLAYLI" when neither
- * pill was weighted, then "FOLLOWING" -> "FOLLOWI" when this pill was weighted but
- * kept its padding + a fixed-size label. Shared by the live header and the loading
- * placeholder (which passes followsMe=false) so both stay in sync. Call inside a Row.
+ * pill and uses a shrink-to-fit label so the text centers and never clips or wraps.
+ * Base type matches the own-profile action pills (13sp on wide / 11sp on narrow) —
+ * "FOLLOW BACK" is the longest label and needs that step down for breathing room
+ * on S25+-class widths. Shared by the live header and the loading placeholder
+ * (which passes followsMe=false) so both stay in sync. Call inside a Row.
  */
 @Composable
 internal fun RowScope.ProfileFollowPill(
@@ -1601,6 +1598,9 @@ internal fun RowScope.ProfileFollowPill(
     onClick: (() -> Unit)? = null,
 ) {
     val followShape = RoundedCornerShape(50)
+    val labelStyle = profileActionButtonBaseStyle(
+        LocalConfiguration.current.screenWidthDp,
+    )
     Box(
         modifier = Modifier
             .weight(1f)
@@ -1610,7 +1610,7 @@ internal fun RowScope.ProfileFollowPill(
                 else Modifier.background(CorusColors.Accent)
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = 6.dp),
+            .padding(horizontal = CorusSpacing.sm, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         ShrinkToFitText(
@@ -1619,7 +1619,7 @@ internal fun RowScope.ProfileFollowPill(
                 followsMe -> stringResource(fm.corus.android.R.string.other_profile_button_follow_back)
                 else -> stringResource(fm.corus.android.R.string.other_profile_button_follow)
             },
-            style = CorusFont.button,
+            style = labelStyle,
             color = if (isFollowing) CorusColors.Secondary else Color.White,
         )
     }

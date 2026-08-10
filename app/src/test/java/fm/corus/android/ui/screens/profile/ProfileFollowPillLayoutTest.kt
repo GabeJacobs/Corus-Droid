@@ -16,7 +16,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import fm.corus.android.R
-import fm.corus.android.ui.theme.CorusFont
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -68,7 +67,8 @@ class ProfileFollowPillLayoutTest {
         Column {
             Text(
                 text = "REFERENCE",
-                style = CorusFont.button,
+                // Match ProfileFollowPill's wide-phone base (13sp).
+                style = profileActionButtonBaseStyle(widthDp = 400),
                 maxLines = 1,
                 softWrap = false,
                 modifier = Modifier.testTag("singleLineRef"),

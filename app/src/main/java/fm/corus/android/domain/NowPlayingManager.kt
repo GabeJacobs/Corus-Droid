@@ -21,6 +21,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.local.PreferencesDataStore
+import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
@@ -173,6 +174,28 @@ fun CymbalTrack.toQueuedTrack(origin: CatalogPlaybackOrigin? = null) = QueuedTra
     soundcloudPermalinkUrl = soundcloudPermalinkUrl,
     audiomackUrl = audiomackUrl,
     catalogOrigin = origin,
+)
+
+/**
+ * A feed/profile post as a [QueuedTrack]. Carries [CymbalTrack.albumArtLargeURL]
+ * so the full player can render sharp cover art (not the mini/thumbnail URL).
+ */
+fun CymbalPost.toQueuedTrack() = QueuedTrack(
+    trackId = track.id,
+    trackName = track.name,
+    artistName = track.artistName,
+    albumArtURL = track.albumArtURL,
+    albumArtLargeURL = track.albumArtLargeURL,
+    previewUrl = track.previewUrl,
+    spotifyURI = track.spotifyURI.ifBlank { null },
+    spotifyWebURL = track.spotifyWebURL.ifBlank { null },
+    isrc = track.isrc,
+    sourcePostId = id,
+    posterUserId = user.id,
+    source = track.source,
+    soundcloudId = track.soundcloudId,
+    soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
+    audiomackUrl = track.audiomackUrl,
 )
 
 data class NowPlayingState(

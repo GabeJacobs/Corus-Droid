@@ -97,6 +97,8 @@
     <string name="settings_dialog_deleting_message">这可能需要一点时间。</string>
     <string name="settings_dialog_verify_title">验证你的号码</string>
     <string name="settings_dialog_verify_message">我们已向你的手机发送了验证码。请输入以确认删除账户。</string>
+    <string name="settings_dialog_verify_email_title">验证你的邮箱</string>
+    <string name="settings_dialog_verify_email_message">我们已向你的邮箱发送验证码。请输入以确认删除账户。</string>
     <string name="settings_dialog_verify_code_label">验证码</string>
 
     <!-- Settings: Notifications screen -->
@@ -652,6 +654,14 @@
     <string name="auth_button_google">通过 Google 继续</string>
     <string name="auth_button_apple">通过 Apple 继续</string>
     <string name="auth_button_phone">通过手机号继续</string>
+    <string name="auth_button_email">使用邮箱继续</string>
+    <string name="auth_email_prompt">输入你的邮箱</string>
+    <string name="auth_email_placeholder">邮箱</string>
+    <string name="auth_email_check_title">查看你的邮箱</string>
+    <string name="auth_email_code_sent_format">我们已向 %1$s 发送验证码</string>
+    <string name="auth_email_use_different">使用其他邮箱</string>
+    <string name="auth_error_email_otp_rate_limited">尝试次数过多。请稍后再试。</string>
+    <string name="auth_error_email_otp_unavailable">邮箱登录暂时不可用。</string>
     <string name="auth_phone_prompt">输入你的手机号</string>
     <string name="auth_button_send_code">发送验证码</string>
     <string name="auth_button_verify">验证</string>

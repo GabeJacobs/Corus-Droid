@@ -97,6 +97,8 @@
     <string name="settings_dialog_deleting_message">Das kann einen Moment dauern.</string>
     <string name="settings_dialog_verify_title">Bestätige deine Nummer</string>
     <string name="settings_dialog_verify_message">Wir haben einen Code an dein Telefon gesendet. Gib ihn ein, um das Löschen des Kontos zu bestätigen.</string>
+    <string name="settings_dialog_verify_email_title">E-Mail bestätigen</string>
+    <string name="settings_dialog_verify_email_message">Wir haben einen Code an deine E-Mail gesendet. Gib ihn ein, um das Löschen des Kontos zu bestätigen.</string>
     <string name="settings_dialog_verify_code_label">Code</string>
 
     <!-- Settings: Notifications screen -->
@@ -653,6 +655,14 @@
     <string name="auth_button_google">Mit Google fortfahren</string>
     <string name="auth_button_apple">Mit Apple fortfahren</string>
     <string name="auth_button_phone">Mit Telefonnummer fortfahren</string>
+    <string name="auth_button_email">Mit E-Mail fortfahren</string>
+    <string name="auth_email_prompt">Gib deine E-Mail-Adresse ein</string>
+    <string name="auth_email_placeholder">E-Mail</string>
+    <string name="auth_email_check_title">Überprüfe deine E-Mail</string>
+    <string name="auth_email_code_sent_format">Wir haben einen Code an %1$s gesendet</string>
+    <string name="auth_email_use_different">Andere E-Mail verwenden</string>
+    <string name="auth_error_email_otp_rate_limited">Zu viele Versuche. Bitte versuche es später erneut.</string>
+    <string name="auth_error_email_otp_unavailable">Die E-Mail-Anmeldung ist vorübergehend nicht verfügbar.</string>
     <string name="auth_phone_prompt">Gib deine Telefonnummer ein</string>
     <string name="auth_button_send_code">CODE SENDEN</string>
     <string name="auth_button_verify">BESTÄTIGEN</string>

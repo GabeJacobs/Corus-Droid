@@ -31,7 +31,7 @@ import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.FullSongPlayCoordinator
-import fm.corus.android.domain.QueuedTrack
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.FeedSwitchHintManager
 import fm.corus.android.service.NetworkMonitor
@@ -1202,22 +1202,6 @@ class FeedViewModel @Inject constructor(
             scope = viewModelScope,
         )
     }
-
-    private fun CymbalPost.toQueuedTrack() = QueuedTrack(
-        trackId = track.id,
-        trackName = track.name,
-        artistName = track.artistName,
-        albumArtURL = track.albumArtURL,
-        previewUrl = track.previewUrl,
-        spotifyURI = track.spotifyURI,
-        spotifyWebURL = track.spotifyWebURL,
-        isrc = track.isrc,
-        sourcePostId = id,
-        posterUserId = user.id,
-        source = track.source,
-        soundcloudId = track.soundcloudId,
-        soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
-    )
 
     fun generateFeedPlaylist() {
         analyticsService.logFeedPlaylistTapped()

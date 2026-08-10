@@ -12,6 +12,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -147,7 +148,11 @@ fun EditProfileScreen(
                 title = { Text(stringResource(R.string.edit_profile_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.edit_profile_cd_cancel), tint = CorusColors.Text)
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.common_back),
+                            tint = CorusColors.Text,
+                        )
                     }
                 },
                 actions = {

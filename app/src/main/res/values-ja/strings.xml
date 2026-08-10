@@ -91,6 +91,8 @@
     <string name="settings_dialog_deleting_message">少し時間がかかる場合があります。</string>
     <string name="settings_dialog_verify_title">番号を認証</string>
     <string name="settings_dialog_verify_message">電話にコードを送信しました。入力してアカウントの削除を確認してください。</string>
+    <string name="settings_dialog_verify_email_title">メールを確認</string>
+    <string name="settings_dialog_verify_email_message">メールにコードを送信しました。アカウント削除を確認するために入力してください。</string>
     <string name="settings_dialog_verify_code_label">コード</string>
     <string name="notifications_screen_title">通知</string>
     <string name="notifications_row_likes">いいね</string>
@@ -587,6 +589,14 @@
     <string name="auth_button_google">Googleで続ける</string>
     <string name="auth_button_apple">Appleで続ける</string>
     <string name="auth_button_phone">電話番号で続ける</string>
+    <string name="auth_button_email">メールで続行</string>
+    <string name="auth_email_prompt">メールアドレスを入力</string>
+    <string name="auth_email_placeholder">メール</string>
+    <string name="auth_email_check_title">メールを確認</string>
+    <string name="auth_email_code_sent_format">%1$s にコードを送信しました</string>
+    <string name="auth_email_use_different">別のメールアドレスを使う</string>
+    <string name="auth_error_email_otp_rate_limited">試行回数が多すぎます。後でもう一度お試しください。</string>
+    <string name="auth_error_email_otp_unavailable">メールでのサインインは一時的に利用できません。</string>
     <string name="auth_phone_prompt">電話番号を入力してください</string>
     <string name="auth_button_send_code">コードを送信</string>
     <string name="auth_button_verify">認証</string>
