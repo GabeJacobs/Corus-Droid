@@ -463,6 +463,19 @@ class ProfileViewModel @Inject constructor(
             try {
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
+                _profile.value?.let { profile ->
+                    analyticsService.setUserProperties(
+                        userId = profile.id,
+                        username = profile.username,
+                        isClubMember = profile.isClubMember,
+                        isVerified = profile.isVerified,
+                        postCount = profile.cymbalCount,
+                        followerCount = profile.followerCount,
+                        followingCount = profile.followingCount,
+                        isBot = profile.isBot,
+                    )
+                    analyticsService.logProfileViewed(profile.id, isOwnProfile = true)
+                }
                 // Load initial page of posts (matching iOS fixed-page approach).
                 // Users load more on demand via loadMorePosts().
                 val page = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null)

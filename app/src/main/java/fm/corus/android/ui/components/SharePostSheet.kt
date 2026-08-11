@@ -118,11 +118,8 @@ fun SharePostSheet(
                 .background(CorusColors.Tertiary.copy(alpha = 0.4f)),
         )
 
-        // What the link looks like once it lands. Hidden while searching so the
-        // results list gets the height the keyboard takes.
-        if (!isSearchActive) {
-            ShareLinkPreviewCard(shareableLink = shareableLink)
-        }
+        // No link preview — matching iOS SharePostView. The card only appears
+        // when sharing your own profile.
 
         // Search bar
         Row(

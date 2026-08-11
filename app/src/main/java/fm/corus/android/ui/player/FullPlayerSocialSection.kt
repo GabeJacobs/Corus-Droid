@@ -543,7 +543,7 @@ private fun FullPlayerCommentsSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "Comments · $headerCount",
+                text = stringResource(R.string.full_player_comments_header, headerCount),
                 style = CorusFont.body.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                 color = CorusColors.Text.copy(alpha = 0.9f),
             )
@@ -565,7 +565,7 @@ private fun FullPlayerCommentsSection(
             ) {
                 if (comments.isEmpty() && !isBusy) {
                     Text(
-                        text = "No comments yet",
+                        text = stringResource(R.string.comments_no_comments),
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Text.copy(alpha = 0.7f),
                         modifier = Modifier
@@ -653,7 +653,7 @@ private fun FullPlayerCommentsSection(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Add a comment",
+                text = stringResource(R.string.full_player_add_comment),
                 style = CorusFont.body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                 color = CorusColors.Text.copy(alpha = 0.9f),
             )
@@ -807,7 +807,7 @@ private fun FullPlayerCommentRow(
                     }
                 }
                 Text(
-                    text = "Reply",
+                    text = stringResource(R.string.comments_reply),
                     style = CorusFont.caption,
                     color = CorusColors.Text.copy(alpha = 0.7f),
                     modifier = Modifier.clickable(

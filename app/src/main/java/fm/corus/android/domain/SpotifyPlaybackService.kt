@@ -46,6 +46,7 @@ sealed class SpotifyPlaybackError(message: String) : Exception(message) {
 class SpotifyPlaybackService @Inject constructor(
     @ApplicationContext private val context: Context,
     private val spotifyAuthService: SpotifyAuthService,
+    private val analyticsService: fm.corus.android.service.AnalyticsService,
     // Provider, not a direct injection: SpotifySaveAutoAdd depends on this
     // service to deliver saves, so a plain field would be a Hilt cycle.
     private val spotifySaveAutoAdd: Provider<SpotifySaveAutoAdd>,
@@ -256,7 +257,17 @@ class SpotifyPlaybackService @Inject constructor(
         replaceQueue: Boolean = true,
         queueSessionId: Int? = null,
     ) {
-        playInternal(spotifyTrackId, uri, replaceQueue, queueSessionId)
+        try {
+            playInternal(spotifyTrackId, uri, replaceQueue, queueSessionId)
+            analyticsService.logSpotifyFullSongPlayStarted(spotifyTrackId, "spotify")
+            analyticsService.setSpotifyFullPlaybackConnected(true)
+        } catch (e: Exception) {
+            analyticsService.logSpotifyFullSongPlayFailed(
+                spotifyTrackId,
+                e.message ?: e.javaClass.simpleName,
+            )
+            throw e
+        }
     }
 
     private suspend fun playInternal(

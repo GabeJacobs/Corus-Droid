@@ -1189,4 +1189,61 @@
     <string name="full_player_queue_empty">次の曲がありません。フィードから再生してキューを作りましょう。</string>
     <string name="full_player_queue_remove">削除</string>
     <string name="full_player_view_comments">コメントを見る</string>
+
+    <!-- Player / playlist / playback-mode (production i18n pass) -->
+    <string name="club_playlist_trial_used_eyebrow">無料トライアル使用済み</string>
+    <string name="club_subtitle_playlist_limit_feed">Corus Club に参加するとプレイリストを無制限に生成できます。</string>
+    <string name="club_subtitle_playlist_limit_hashtag">Corus Club に参加するとプレイリストを無制限に生成できます。</string>
+    <string name="club_subtitle_playlist_limit_other_profile">Corus Club に参加するとプレイリストを無制限に生成できます。</string>
+    <string name="club_subtitle_playlist_limit_own_profile">Corus Club に参加するとプレイリストを無制限に生成できます。</string>
+    <string name="destination_album_pause">一時停止</string>
+    <string name="destination_album_play">再生</string>
+    <string name="feed_playlist_first_time_body">Corus があなたのフィードをプレイリストにして %1$s で開きます。Club メンバーはいつでも生成できます。</string>
+    <string name="feed_taste_matches_trial_banner_preview">Taste Matches フィードの無料トライアル</string>
+    <string name="full_player_post">投稿</string>
+    <string name="full_player_queue_done">完了</string>
+    <string name="full_player_queue_edit">編集</string>
+    <string name="full_player_queue_reorder">並べ替え</string>
+    <string name="full_player_resolving_destination">読み込み中…</string>
+    <string name="hashtag_playlist_first_time_body">Corus がこのハッシュタグをプレイリストにして %1$s で開きます。Club メンバーはいつでも生成できます。</string>
+    <string name="mini_player_cd_playback_mode">再生モード</string>
+    <string name="mini_player_playback_mode_full">フル</string>
+    <string name="mini_player_playback_mode_preview">30秒</string>
+    <string name="playback_mode_prompt_body_apple_music">フル尺の再生には Apple Music のサブスクリプションと Apple Music アプリのインストールが必要です。</string>
+    <string name="playback_mode_prompt_body_spotify">フル尺の再生には Spotify Premium と Spotify アプリのインストールが必要です。</string>
+    <string name="playback_mode_prompt_full_songs">フル尺</string>
+    <string name="playback_mode_prompt_previews">30秒プレビュー</string>
+    <string name="playback_mode_prompt_settings_footnote">設定からいつでも変更できます。</string>
+    <string name="playback_mode_prompt_title">どう再生しますか？</string>
+    <string name="playlist_first_time_title">プレイリスト生成を無料で試す</string>
+    <string name="playlist_trial_consumed_feed">プレイリストを作成しました！フィードでの無料トライアルはこれで終わりです。Club に参加するといつでも生成できます。</string>
+    <string name="playlist_trial_consumed_hashtag">プレイリストを作成しました！このハッシュタグでの無料トライアルはこれで終わりです。Club に参加するといつでも生成できます。</string>
+    <string name="playlist_trial_consumed_other_profile">プレイリストを作成しました！このプロフィールでの無料トライアルはこれで終わりです。Club に参加するといつでも生成できます。</string>
+    <string name="playlist_trial_consumed_own_profile">プレイリストを作成しました！あなたのプロフィールでの無料トライアルはこれで終わりです。Club に参加するといつでも生成できます。</string>
+    <string name="playlist_trial_suffix_feed">Club メンバーはいつでも生成できます。</string>
+    <string name="playlist_trial_suffix_hashtag">Club メンバーはいつでも生成できます。</string>
+    <string name="playlist_trial_suffix_other_profile">Club メンバーはいつでも生成できます。</string>
+    <string name="playlist_trial_suffix_own_profile">Club メンバーはいつでも生成できます。</string>
+    <string name="post_card_cd_pause_full_song">フル尺を一時停止</string>
+    <string name="post_card_cd_play_full_song">フル尺で再生</string>
+    <string name="post_menu_add_to_queue">キューに追加</string>
+    <string name="post_menu_toast_added_to_queue">キューに追加しました</string>
+    <string name="profile_playlist_first_time_body_other">Corus がこのプロフィールをプレイリストにして %1$s で開きます。Club メンバーはいつでも生成できます。</string>
+    <string name="profile_playlist_first_time_body_own">Corus があなたのプロフィールをプレイリストにして %1$s で開きます。Club メンバーはいつでも生成できます。</string>
+    <string name="settings_row_always_play_full_songs_tidal_subtitle">TIDAL のサブスクリプションがあればフル尺、なければ 30 秒プレビュー。オフにすると 30秒/フル の切り替えが表示されます。</string>
+    <string name="share_profile_subtitle">シェアしたときのリンクの表示プレビュー</string>
+    <string name="share_profile_title">プロフィールをシェア</string>
+    <!-- Full-player a11y / social copy -->
+    <string name="full_player_cd_close">プレーヤーを閉じる</string>
+    <string name="full_player_cd_previous">前へ</string>
+    <string name="full_player_cd_next">次へ</string>
+    <string name="full_player_cd_play">再生</string>
+    <string name="full_player_cd_pause">一時停止</string>
+    <string name="full_player_cd_more">その他</string>
+    <string name="full_player_comments_header">コメント · %1$d</string>
+    <string name="full_player_add_comment">コメントを追加</string>
+    <plurals name="feed_taste_matches_trial_banner_active">
+        <item quantity="one">無料トライアル · 残り %1$d 日</item>
+        <item quantity="other">無料トライアル · 残り %1$d 日</item>
+    </plurals>
 </resources>

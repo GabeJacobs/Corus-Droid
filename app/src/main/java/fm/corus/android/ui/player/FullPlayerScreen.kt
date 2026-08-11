@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -527,14 +528,18 @@ private fun FullPlayerTopChrome(
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val haptics = LocalHapticManager.current
         IconButton(
-            onClick = onDismiss,
+            onClick = {
+                haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                onDismiss()
+            },
             enabled = interactive,
             modifier = Modifier.size(44.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowDown,
-                contentDescription = "Close player",
+                contentDescription = stringResource(R.string.full_player_cd_close),
                 tint = CorusColors.Text,
                 modifier = Modifier.size(28.dp),
             )
@@ -562,7 +567,7 @@ private fun FullPlayerTopChrome(
             ) {
                 Icon(
                     imageVector = Icons.Filled.MoreVert,
-                    contentDescription = "More",
+                    contentDescription = stringResource(R.string.full_player_cd_more),
                     tint = CorusColors.Text,
                 )
             }
@@ -682,6 +687,7 @@ private fun FullPlayerScrubber(
         isScrubbing = false
     }
 
+    val haptics = LocalHapticManager.current
     Column(modifier = modifier) {
         Box(
             modifier = Modifier
@@ -700,6 +706,7 @@ private fun FullPlayerScrubber(
                                 if (abs(dx) <= abs(dy)) return@horizontalDrag
                                 dragging = true
                                 isScrubbing = true
+                                haptics.impact(HapticManager.ImpactStyle.LIGHT)
                             }
                             change.consume()
                             scrubFraction = (change.position.x / trackWidthPx).coerceIn(0f, 1f)
@@ -710,6 +717,7 @@ private fun FullPlayerScrubber(
                             if (seekDuration > 0L) {
                                 nowPlayingManager.seek((scrubFraction * seekDuration).toLong())
                             }
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
                             isScrubbing = false
                         }
                     }
@@ -784,6 +792,12 @@ private fun FullPlayerTransport(
     onOpenInService: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // iOS FullPlayerTransport: light impact on transport press / compose.
+    val haptics = LocalHapticManager.current
+    fun lightTap(action: () -> Unit) {
+        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+        action()
+    }
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -800,10 +814,14 @@ private fun FullPlayerTransport(
                 }
             }
             showsComposeButton -> {
-                // iOS FullPlayerTransport leadingActionButton — accent + bold plus
-                // (SF Symbol weight .bold). Material Add reads thin on the 32dp disc.
+                // Same glyph as the tab-bar ComposeButton (Icons.Rounded.Add) —
+                // scaled for the 32dp disc (tab uses 25dp in a 40dp circle).
                 val composeCd = stringResource(R.string.full_player_post)
-                IconButton(onClick = onCompose, enabled = interactive, modifier = Modifier.size(44.dp)) {
+                IconButton(
+                    onClick = { lightTap(onCompose) },
+                    enabled = interactive,
+                    modifier = Modifier.size(44.dp),
+                ) {
                     Box(
                         modifier = Modifier
                             .size(32.dp)
@@ -812,13 +830,11 @@ private fun FullPlayerTransport(
                             .semantics { contentDescription = composeCd },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = "+",
-                            color = Color.White,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 22.sp,
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }
@@ -832,10 +848,14 @@ private fun FullPlayerTransport(
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onPrevious, enabled = interactive, modifier = Modifier.size(56.dp)) {
+            IconButton(
+                onClick = { lightTap(onPrevious) },
+                enabled = interactive,
+                modifier = Modifier.size(56.dp),
+            ) {
                 Icon(
                     imageVector = Icons.Filled.SkipPrevious,
-                    contentDescription = "Previous",
+                    contentDescription = stringResource(R.string.full_player_cd_previous),
                     tint = CorusColors.Text,
                     modifier = Modifier.size(28.dp),
                 )
@@ -850,21 +870,21 @@ private fun FullPlayerTransport(
                         enabled = interactive,
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() },
-                        onClick = onPlayPause,
+                        onClick = { lightTap(onPlayPause) },
                     ),
                 contentAlignment = Alignment.Center,
             ) {
                 if (isPlaying) {
                     Icon(
                         imageVector = Icons.Filled.Pause,
-                        contentDescription = "Pause",
+                        contentDescription = stringResource(R.string.full_player_cd_pause),
                         tint = CorusColors.Text,
                         modifier = Modifier.size(32.dp),
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Filled.PlayArrow,
-                        contentDescription = "Play",
+                        contentDescription = stringResource(R.string.full_player_cd_play),
                         tint = CorusColors.Text,
                         modifier = Modifier.size(32.dp),
                     )
@@ -872,13 +892,13 @@ private fun FullPlayerTransport(
             }
 
             IconButton(
-                onClick = onNext,
+                onClick = { lightTap(onNext) },
                 enabled = interactive && hasNext,
                 modifier = Modifier.size(56.dp),
             ) {
                 Icon(
                     imageVector = Icons.Filled.SkipNext,
-                    contentDescription = "Next",
+                    contentDescription = stringResource(R.string.full_player_cd_next),
                     tint = if (hasNext) CorusColors.Text else CorusColors.Text.copy(alpha = 0.3f),
                     modifier = Modifier.size(28.dp),
                 )
@@ -887,10 +907,19 @@ private fun FullPlayerTransport(
 
         Spacer(modifier = Modifier.width(24.dp))
 
-        IconButton(
-            onClick = onOpenInService,
-            enabled = interactive,
-            modifier = Modifier.size(44.dp),
+        // Wide marks (Audiomack) need a non-square hit target — IconButton's
+        // fixed square clips the wave. Mirror mini-player: Box + clickable.
+        Box(
+            modifier = Modifier
+                .height(44.dp)
+                .widthIn(min = 44.dp)
+                .clickable(
+                    enabled = interactive,
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = onOpenInService,
+                ),
+            contentAlignment = Alignment.Center,
         ) {
             TransportServiceLogo(trackSource = trackSource, musicService = musicService)
         }
@@ -904,7 +933,7 @@ private fun TransportServiceLogo(
 ) {
     when (trackSource) {
         TrackSource.SOUNDCLOUD -> SoundCloudAdaptiveLogo(size = 26.dp)
-        TrackSource.AUDIOMACK -> AudiomackLogo(height = 22.dp)
+        TrackSource.AUDIOMACK -> AudiomackLogo(height = 26.dp)
         TrackSource.TIDAL -> Image(
             painter = painterResource(MusicServiceLinkOut.logoRes(MusicService.TIDAL)),
             contentDescription = null,

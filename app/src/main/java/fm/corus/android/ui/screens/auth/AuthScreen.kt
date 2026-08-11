@@ -551,15 +551,20 @@ private fun EmailAuthContent(
                     )
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(CorusSpacing.xxl))
-            TextButton(onClick = onBack) {
-                Text(
-                    stringResource(id = R.string.common_back),
-                    style = CorusFont.captionMedium,
-                    color = CorusColors.Secondary,
-                )
-            }
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(CorusSpacing.xs),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(id = R.string.common_back),
+                tint = CorusColors.Text,
+            )
         }
     }
 }

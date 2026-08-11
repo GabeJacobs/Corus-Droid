@@ -65,6 +65,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import androidx.compose.ui.platform.LocalDensity
 import fm.corus.android.R
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.FullScreenPhotoViewer
 import fm.corus.android.ui.components.MiniPlayerBar
@@ -347,6 +349,7 @@ fun MainTabScreen(
     val bottomHaze = remember { HazeState() }
     val bottomFrost = CorusColors.Background
     val playerScope = rememberCoroutineScope()
+    val playerHaptics = LocalHapticManager.current
     val playerExpansion = rememberPlayerExpansionState()
     val density = LocalDensity.current
     // Seed with a typical bar height so park math is sane before first measure.
@@ -510,6 +513,9 @@ fun MainTabScreen(
                     embeddedInExpandingShell = true,
                     interactive = miniInteractive,
                     onTrackTap = {
+                        // iOS openFullPlayer — light impact on expand.
+                        playerHaptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        viewModel.logFullPlayerOpened()
                         playerScope.launch { playerExpansion.expand() }
                     },
                 )
@@ -530,7 +536,10 @@ fun MainTabScreen(
                         playerScope.launch { playerExpansion.collapse() }
                     },
                     onLikeTap = { viewModel.toggleLikeForCurrentTrack() },
-                    onOpenQueue = { showPlayerQueue = true },
+                    onOpenQueue = {
+                        viewModel.logFullPlayerQueueOpened()
+                        showPlayerQueue = true
+                    },
                     onOpenComments = { postId, _ ->
                         commentSheetAutoFocus = true
                         commentPostId = postId
@@ -548,6 +557,7 @@ fun MainTabScreen(
                         }
                     },
                     onRepost = { post ->
+                        playerHaptics.impact(HapticManager.ImpactStyle.LIGHT)
                         if (viewModel.subscriptionRepository.canPost) {
                             viewModel.setRepostOriginalPost(post)
                             composeViewModel.reset()
@@ -558,7 +568,10 @@ fun MainTabScreen(
                             showClubOffer = true
                         }
                     },
-                    onSharePost = { post -> playerSharePost = post },
+                    onSharePost = { post ->
+                        playerHaptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        playerSharePost = post
+                    },
                     onSavePost = { postId -> viewModel.toggleSaveForPost(postId) },
                     onOpenSongDetail = { track ->
                         playerScope.launch {
@@ -636,6 +649,7 @@ fun MainTabScreen(
                             }
                         }
                         if (track != null) {
+                            viewModel.logFullPlayerComposeTapped()
                             if (viewModel.subscriptionRepository.canPost) {
                                 viewModel.setPreSelectedTrack(track)
                                 playerScope.launch { playerExpansion.collapse() }
@@ -655,6 +669,7 @@ fun MainTabScreen(
                     onOpenInService = {
                         // Same path as the mini-player logo — Spotify preference
                         // opens the track URI/web URL (resolveLinkOut returns null).
+                        viewModel.logFullPlayerOpenInServiceTapped(musicService.value)
                         fm.corus.android.domain.MusicServiceLinkOut.openNowPlayingInPreferredService(
                             context = context,
                             scope = playerScope,

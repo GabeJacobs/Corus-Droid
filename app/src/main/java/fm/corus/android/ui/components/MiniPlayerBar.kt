@@ -34,14 +34,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
@@ -104,7 +104,7 @@ fun MiniPlayerBar(
         ?.let { engagementStates[it]?.isLiked }
         ?: false
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val haptics = LocalHapticManager.current
     val linkOutScope = androidx.compose.runtime.rememberCoroutineScope()
     // 30s/Full when Always Play Full Songs is off, in-app full is available, and
     // we aren't mirroring external Spotify. Otherwise the service link-out logo.
@@ -177,7 +177,8 @@ fun MiniPlayerBar(
                             indication = null,
                             onClick = { onTrackTap?.invoke() },
                             onLongClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                // iOS mini long-press → service — medium.
+                                haptics.impact(HapticManager.ImpactStyle.MEDIUM)
                                 openCurrentInMusicService()
                             },
                         ),
@@ -235,10 +236,12 @@ fun MiniPlayerBar(
                         SoundCloudAdaptiveLogo(size = 22.dp)
                     }
                 } else if (isAudiomack) {
+                    // Wave mark is wider than other service tiles — give it room
+                    // so ContentScale.Fit doesn't clip the right tip.
                     MiniPlayerIconButton(
                         onClick = { openCurrentInMusicService() },
                         contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
-                        width = miniPlayerServiceButtonWidth,
+                        width = miniPlayerAudiomackButtonWidth,
                     ) {
                         AudiomackLogo(height = 22.dp)
                     }
@@ -357,6 +360,8 @@ private val scrubLongPressHapticMs = 200L
 private val miniPlayerControlWidth = 36.dp
 /** Service-logo hit width — matches iOS MiniPlayerBar link-out frames. */
 private val miniPlayerServiceButtonWidth = 32.dp
+/** Audiomack wave @ 22dp tall ≈ 30dp wide; keep a little horizontal slack. */
+private val miniPlayerAudiomackButtonWidth = 40.dp
 
 @Composable
 private fun MiniPlayerIconButton(
@@ -500,7 +505,7 @@ private fun ScrubberOverlay(
         }
     }
 
-    val haptic = LocalHapticFeedback.current
+    val haptics = LocalHapticManager.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val knobSizePx = with(density) { knobSize.toPx() }
@@ -510,7 +515,8 @@ private fun ScrubberOverlay(
             if (scrubbing && duration > 0L) {
                 pendingFraction = fraction
                 nowPlayingManager.seek((fraction * duration).toLong())
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                // iOS shell scrub end — light.
+                haptics.impact(HapticManager.ImpactStyle.LIGHT)
             }
             isScrubbing = false
         }
@@ -540,7 +546,8 @@ private fun ScrubberOverlay(
                         var pressHapticFired = false
                         val longPressJob = launch {
                             delay(scrubLongPressHapticMs)
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            // iOS shell scrub start — light.
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
                             scope.launch { isKnobVisible = true }
                             pressHapticFired = true
                         }
@@ -575,7 +582,7 @@ private fun ScrubberOverlay(
                                             isKnobVisible = true
                                         }
                                         if (!pressHapticFired) {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
                                         }
                                         pressHapticFired = false
                                     }

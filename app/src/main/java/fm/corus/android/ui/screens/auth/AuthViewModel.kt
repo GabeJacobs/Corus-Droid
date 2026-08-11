@@ -615,6 +615,8 @@ class AuthViewModel @Inject constructor(
     fun signOut() {
         viewModelScope.launch {
             analyticsService.logSignOut()
+            analyticsService.clearUserProperties()
+            analyticsService.setUserId(null)
             // Sign out first: it awaits FCM token removal (so the user can't get
             // pushes after signing out) and then flips Firebase auth state, which
             // navigates to the login screen. The clears below mutate state the

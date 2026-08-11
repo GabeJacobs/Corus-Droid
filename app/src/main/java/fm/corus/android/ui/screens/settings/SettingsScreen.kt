@@ -46,8 +46,10 @@ import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.ui.LocalHapticManager
+import kotlinx.coroutines.launch
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.CymbalClubVinyl
 import fm.corus.android.ui.components.ToastManager
@@ -184,8 +186,10 @@ fun SettingsScreen(
         settingsViewModel.clearRestoreResult()
     }
 
-    // General toggles
-    var hapticsEnabled by remember { mutableStateOf(true) }
+    // General toggles — haptics must hit HapticManager so player/UI feedback respects it.
+    val hapticManager = LocalHapticManager.current
+    val hapticsEnabled by hapticManager.hapticsEnabled.collectAsState(initial = true)
+    val settingsScope = rememberCoroutineScope()
     val feedFollowsNowPlaying by settingsViewModel.feedFollowsNowPlaying.collectAsState()
     val alwaysPlayFullSongs by settingsViewModel.alwaysPlayFullSongs.collectAsState()
 
@@ -382,13 +386,15 @@ fun SettingsScreen(
 
             // Hide on devices without a vibrator (some tablets, Android TV, emulators) —
             // a toggle that controls non-existent hardware would be misleading.
-            if (LocalHapticManager.current.hasVibrator()) {
+            if (hapticManager.hasVibrator()) {
                 SettingsToggleRow(
                     icon = Icons.Outlined.Vibration,
                     title = stringResource(R.string.settings_row_haptics),
                     subtitle = stringResource(R.string.settings_row_haptics_subtitle),
                     checked = hapticsEnabled,
-                    onCheckedChange = { hapticsEnabled = it },
+                    onCheckedChange = { enabled ->
+                        settingsScope.launch { hapticManager.setHapticsEnabled(enabled) }
+                    },
                 )
             }
 

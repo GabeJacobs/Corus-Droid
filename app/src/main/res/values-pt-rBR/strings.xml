@@ -1323,4 +1323,61 @@
     <string name="full_player_queue_empty">Nada a seguir. Toque no feed para montar uma fila.</string>
     <string name="full_player_queue_remove">Remover</string>
     <string name="full_player_view_comments">Ver comentários</string>
+
+    <!-- Player / playlist / playback-mode (production i18n pass) -->
+    <string name="club_playlist_trial_used_eyebrow">TESTE GRÁTIS USADO</string>
+    <string name="club_subtitle_playlist_limit_feed">Entre no Corus Club para gerações ilimitadas de playlists.</string>
+    <string name="club_subtitle_playlist_limit_hashtag">Entre no Corus Club para gerações ilimitadas de playlists.</string>
+    <string name="club_subtitle_playlist_limit_other_profile">Entre no Corus Club para gerações ilimitadas de playlists.</string>
+    <string name="club_subtitle_playlist_limit_own_profile">Entre no Corus Club para gerações ilimitadas de playlists.</string>
+    <string name="destination_album_pause">Pausar</string>
+    <string name="destination_album_play">Reproduzir</string>
+    <string name="feed_playlist_first_time_body">O Corus vai transformar seu feed em uma playlist e abrir no %1$s. Membros do Club podem gerar a qualquer momento.</string>
+    <string name="feed_taste_matches_trial_banner_preview">Teste grátis do feed Taste Matches</string>
+    <string name="full_player_post">Postar</string>
+    <string name="full_player_queue_done">Concluído</string>
+    <string name="full_player_queue_edit">Editar</string>
+    <string name="full_player_queue_reorder">Reordenar</string>
+    <string name="full_player_resolving_destination">Carregando…</string>
+    <string name="hashtag_playlist_first_time_body">O Corus vai transformar esta hashtag em uma playlist e abrir no %1$s. Membros do Club podem gerar a qualquer momento.</string>
+    <string name="mini_player_cd_playback_mode">Modo de reprodução</string>
+    <string name="mini_player_playback_mode_full">Completa</string>
+    <string name="mini_player_playback_mode_preview">30s</string>
+    <string name="playback_mode_prompt_body_apple_music">Músicas completas exigem assinatura do Apple Music e o app Apple Music instalado.</string>
+    <string name="playback_mode_prompt_body_spotify">Músicas completas exigem Spotify Premium e o app do Spotify instalado.</string>
+    <string name="playback_mode_prompt_full_songs">Músicas completas</string>
+    <string name="playback_mode_prompt_previews">Prévias de 30 segundos</string>
+    <string name="playback_mode_prompt_settings_footnote">Você pode mudar isso a qualquer momento em Ajustes.</string>
+    <string name="playback_mode_prompt_title">Como você quer ouvir?</string>
+    <string name="playlist_first_time_title">Experimente gerar playlist grátis</string>
+    <string name="playlist_trial_consumed_feed">Playlist criada! Esse foi seu teste grátis no feed. Entre no Club para gerar a qualquer momento.</string>
+    <string name="playlist_trial_consumed_hashtag">Playlist criada! Esse foi seu teste grátis nesta hashtag. Entre no Club para gerar a qualquer momento.</string>
+    <string name="playlist_trial_consumed_other_profile">Playlist criada! Esse foi seu teste grátis neste perfil. Entre no Club para gerar a qualquer momento.</string>
+    <string name="playlist_trial_consumed_own_profile">Playlist criada! Esse foi seu teste grátis no seu perfil. Entre no Club para gerar a qualquer momento.</string>
+    <string name="playlist_trial_suffix_feed">Membros do Club podem gerar a qualquer momento.</string>
+    <string name="playlist_trial_suffix_hashtag">Membros do Club podem gerar a qualquer momento.</string>
+    <string name="playlist_trial_suffix_other_profile">Membros do Club podem gerar a qualquer momento.</string>
+    <string name="playlist_trial_suffix_own_profile">Membros do Club podem gerar a qualquer momento.</string>
+    <string name="post_card_cd_pause_full_song">Pausar música completa</string>
+    <string name="post_card_cd_play_full_song">Reproduzir música completa</string>
+    <string name="post_menu_add_to_queue">Adicionar à fila</string>
+    <string name="post_menu_toast_added_to_queue">Adicionado à fila</string>
+    <string name="profile_playlist_first_time_body_other">O Corus vai transformar este perfil em uma playlist e abrir no %1$s. Membros do Club podem gerar a qualquer momento.</string>
+    <string name="profile_playlist_first_time_body_own">O Corus vai transformar seu perfil em uma playlist e abrir no %1$s. Membros do Club podem gerar a qualquer momento.</string>
+    <string name="settings_row_always_play_full_songs_tidal_subtitle">Reproduz músicas completas com assinatura TIDAL; caso contrário, prévias de 30s. Desative para mostrar o interruptor 30s/Completa.</string>
+    <string name="share_profile_subtitle">Prévia de como seu link ficará quando compartilhado</string>
+    <string name="share_profile_title">Compartilhar seu perfil</string>
+    <!-- Full-player a11y / social copy -->
+    <string name="full_player_cd_close">Fechar player</string>
+    <string name="full_player_cd_previous">Anterior</string>
+    <string name="full_player_cd_next">Próxima</string>
+    <string name="full_player_cd_play">Reproduzir</string>
+    <string name="full_player_cd_pause">Pausar</string>
+    <string name="full_player_cd_more">Mais</string>
+    <string name="full_player_comments_header">Comentários · %1$d</string>
+    <string name="full_player_add_comment">Adicionar um comentário</string>
+    <plurals name="feed_taste_matches_trial_banner_active">
+        <item quantity="one">Teste grátis · %1$d dia restante</item>
+        <item quantity="other">Teste grátis · %1$d dias restantes</item>
+    </plurals>
 </resources>

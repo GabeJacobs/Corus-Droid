@@ -50,6 +50,7 @@ class AnalyticsService @Inject constructor(
         postCount: Int,
         followerCount: Int,
         followingCount: Int,
+        isBot: Boolean = false,
     ) {
         analytics.setUserProperty("username", username)
         analytics.setUserProperty("is_club_member", if (isClubMember) "true" else "false")
@@ -57,11 +58,20 @@ class AnalyticsService @Inject constructor(
         analytics.setUserProperty("post_count", postCount.toString())
         analytics.setUserProperty("follower_count", followerCount.toString())
         analytics.setUserProperty("following_count", followingCount.toString())
+        analytics.setUserProperty("is_bot", if (isBot) "true" else "false")
     }
 
     fun clearUserProperties() {
-        listOf("username", "is_club_member", "is_verified", "post_count", "follower_count", "following_count")
-            .forEach { analytics.setUserProperty(it, null) }
+        listOf(
+            "username",
+            "is_club_member",
+            "is_verified",
+            "post_count",
+            "follower_count",
+            "following_count",
+            "is_bot",
+            "spotify_full_playback_connected",
+        ).forEach { analytics.setUserProperty(it, null) }
     }
 
     // MARK: - Core Logging
@@ -226,6 +236,82 @@ class AnalyticsService @Inject constructor(
             if (!trackId.isNullOrBlank()) put("track_id", trackId)
         },
     )
+
+    // MARK: - Full player / queue / Spotify (iOS AnalyticsEvent parity)
+
+    fun logFullPlayerOpened(trackId: String?, sourcePostId: String? = null) = logEvent(
+        "full_player_opened",
+        buildMap {
+            if (!trackId.isNullOrBlank()) put("track_id", trackId)
+            if (!sourcePostId.isNullOrBlank()) put("source_post_id", sourcePostId)
+        },
+    )
+
+    fun logFullPlayerQueueOpened(trackId: String?) = logEvent(
+        "full_player_queue_opened",
+        buildMap {
+            if (!trackId.isNullOrBlank()) put("track_id", trackId)
+        },
+    )
+
+    fun logFullPlayerOpenInServiceTapped(service: String, trackId: String?) = logEvent(
+        "full_player_open_in_service_tapped",
+        buildMap {
+            put("service", service)
+            if (!trackId.isNullOrBlank()) put("track_id", trackId)
+        },
+    )
+
+    fun logFullPlayerPlaybackModeToggled(toFull: Boolean, trackId: String?) = logEvent(
+        "full_player_playback_mode_toggled",
+        buildMap {
+            put("to_full", toFull)
+            if (!trackId.isNullOrBlank()) put("track_id", trackId)
+        },
+    )
+
+    fun logFullPlayerComposeTapped(trackId: String) =
+        logEvent("full_player_compose_tapped", mapOf("track_id" to trackId))
+
+    fun logAddToQueueTapped(trackId: String, sourcePostId: String? = null) = logEvent(
+        "add_to_queue_tapped",
+        buildMap {
+            put("track_id", trackId)
+            if (!sourcePostId.isNullOrBlank()) put("source_post_id", sourcePostId)
+        },
+    )
+
+    fun logQueueItemRemoved(trackId: String) =
+        logEvent("queue_item_removed", mapOf("track_id" to trackId))
+
+    fun logQueueItemReordered() = logEvent("queue_item_reordered")
+
+    fun logSongPreviewPlayed(trackId: String) =
+        logEvent("song_preview_played", mapOf("track_id" to trackId))
+
+    fun logSpotifyAuthConnected() = logEvent("spotify_auth_connected")
+    fun logSpotifyAuthConnectFailed(reason: String) =
+        logEvent("spotify_auth_connect_failed", mapOf("reason" to reason.take(100)))
+    fun logSpotifyAuthDisconnected() = logEvent("spotify_auth_disconnected")
+
+    fun logSpotifyFullSongPlayStarted(trackId: String, trackSource: String) =
+        logEvent(
+            "spotify_full_song_play_started",
+            mapOf("track_id" to trackId, "track_source" to trackSource),
+        )
+
+    fun logSpotifyFullSongPlayFailed(trackId: String, reason: String) =
+        logEvent(
+            "spotify_full_song_play_failed",
+            mapOf("track_id" to trackId, "reason" to reason.take(100)),
+        )
+
+    fun setSpotifyFullPlaybackConnected(connected: Boolean) {
+        analytics.setUserProperty(
+            "spotify_full_playback_connected",
+            if (connected) "true" else "false",
+        )
+    }
 
     // MARK: - Comment Events
 

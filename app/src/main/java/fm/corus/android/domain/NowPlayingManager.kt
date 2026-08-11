@@ -266,6 +266,8 @@ class NowPlayingManager @Inject constructor(
     private val spotifyRepository: SpotifyRepository,
     private val subscriptionRepository: SubscriptionRepository,
     private val playbackModePromptManager: PlaybackModePromptManager,
+    private val hapticManager: HapticManager,
+    private val analyticsService: fm.corus.android.service.AnalyticsService,
 ) {
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -681,6 +683,9 @@ class NowPlayingManager @Inject constructor(
         mutable.add(insertAt, item)
         queue = mutable
         _state.value = _state.value.copy(hasNext = computeHasNext())
+        // iOS addToUserQueue — light when inserting into an active session.
+        hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
+        analyticsService.logAddToQueueTapped(item.trackId, item.sourcePostId)
         return true
     }
 
@@ -798,10 +803,12 @@ class NowPlayingManager @Inject constructor(
         if (index !in queue.indices) return
         val playingIdx = currentQueueIndex
         if (playingIdx == index) return // Don't remove the now-playing row.
+        val removedId = queue[index].trackId
         val pruned = queue.toMutableList().also { it.removeAt(index) }
         queue = pruned
         currentQueueIndex = pruned.indexOfActive(_state.value.trackId, _state.value.sourcePostId)
         _state.value = _state.value.copy(hasNext = computeHasNext())
+        analyticsService.logQueueItemRemoved(removedId)
     }
 
     fun moveQueueItem(fromIndex: Int, toIndex: Int) {
@@ -815,6 +822,7 @@ class NowPlayingManager @Inject constructor(
         queue = mutable
         currentQueueIndex = mutable.indexOfActive(_state.value.trackId, _state.value.sourcePostId)
         _state.value = _state.value.copy(hasNext = computeHasNext())
+        analyticsService.logQueueItemReordered()
     }
 
     fun jumpToQueueIndex(index: Int) {
@@ -1603,6 +1611,9 @@ class NowPlayingManager @Inject constructor(
 
         // Cancel any in-flight load for a different track
         cancelLoading()
+
+        // iOS song_preview_played — ExoPlayer / preview path (Connect logs separately).
+        analyticsService.logSongPreviewPlayed(trackId)
 
         if (isSpotifyConnectPlaying) {
             silentlyHaltSpotifyForPreview()

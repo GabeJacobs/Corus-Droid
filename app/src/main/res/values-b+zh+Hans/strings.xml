@@ -1316,4 +1316,61 @@
     <string name="full_player_queue_empty">暂无下一首。从动态中播放以建立队列。</string>
     <string name="full_player_queue_remove">移除</string>
     <string name="full_player_view_comments">查看评论</string>
+
+    <!-- Player / playlist / playback-mode (production i18n pass) -->
+    <string name="club_playlist_trial_used_eyebrow">免费试用已用完</string>
+    <string name="club_subtitle_playlist_limit_feed">加入 Corus Club，即可无限生成播放列表。</string>
+    <string name="club_subtitle_playlist_limit_hashtag">加入 Corus Club，即可无限生成播放列表。</string>
+    <string name="club_subtitle_playlist_limit_other_profile">加入 Corus Club，即可无限生成播放列表。</string>
+    <string name="club_subtitle_playlist_limit_own_profile">加入 Corus Club，即可无限生成播放列表。</string>
+    <string name="destination_album_pause">暂停</string>
+    <string name="destination_album_play">播放</string>
+    <string name="feed_playlist_first_time_body">Corus 会把你的动态变成播放列表并在 %1$s 中打开。Club 会员可随时生成。</string>
+    <string name="feed_taste_matches_trial_banner_preview">Taste Matches 动态免费试用</string>
+    <string name="full_player_post">发布</string>
+    <string name="full_player_queue_done">完成</string>
+    <string name="full_player_queue_edit">编辑</string>
+    <string name="full_player_queue_reorder">重新排序</string>
+    <string name="full_player_resolving_destination">加载中…</string>
+    <string name="hashtag_playlist_first_time_body">Corus 会把这个话题标签变成播放列表并在 %1$s 中打开。Club 会员可随时生成。</string>
+    <string name="mini_player_cd_playback_mode">播放模式</string>
+    <string name="mini_player_playback_mode_full">完整</string>
+    <string name="mini_player_playback_mode_preview">30秒</string>
+    <string name="playback_mode_prompt_body_apple_music">完整歌曲播放需要 Apple Music 订阅并已安装 Apple Music 应用。</string>
+    <string name="playback_mode_prompt_body_spotify">完整歌曲播放需要 Spotify Premium 并已安装 Spotify 应用。</string>
+    <string name="playback_mode_prompt_full_songs">完整歌曲</string>
+    <string name="playback_mode_prompt_previews">30 秒试听</string>
+    <string name="playback_mode_prompt_settings_footnote">你可以随时在设置中更改。</string>
+    <string name="playback_mode_prompt_title">你想怎么听？</string>
+    <string name="playlist_first_time_title">免费试用播放列表生成</string>
+    <string name="playlist_trial_consumed_feed">播放列表已创建！这是你在动态上的免费试用。加入 Club 即可随时生成。</string>
+    <string name="playlist_trial_consumed_hashtag">播放列表已创建！这是你在此话题标签上的免费试用。加入 Club 即可随时生成。</string>
+    <string name="playlist_trial_consumed_other_profile">播放列表已创建！这是你在此主页上的免费试用。加入 Club 即可随时生成。</string>
+    <string name="playlist_trial_consumed_own_profile">播放列表已创建！这是你在个人主页上的免费试用。加入 Club 即可随时生成。</string>
+    <string name="playlist_trial_suffix_feed">Club 会员可随时生成。</string>
+    <string name="playlist_trial_suffix_hashtag">Club 会员可随时生成。</string>
+    <string name="playlist_trial_suffix_other_profile">Club 会员可随时生成。</string>
+    <string name="playlist_trial_suffix_own_profile">Club 会员可随时生成。</string>
+    <string name="post_card_cd_pause_full_song">暂停完整歌曲</string>
+    <string name="post_card_cd_play_full_song">播放完整歌曲</string>
+    <string name="post_menu_add_to_queue">添加到队列</string>
+    <string name="post_menu_toast_added_to_queue">已添加到队列</string>
+    <string name="profile_playlist_first_time_body_other">Corus 会把此主页变成播放列表并在 %1$s 中打开。Club 会员可随时生成。</string>
+    <string name="profile_playlist_first_time_body_own">Corus 会把你的主页变成播放列表并在 %1$s 中打开。Club 会员可随时生成。</string>
+    <string name="settings_row_always_play_full_songs_tidal_subtitle">有 TIDAL 订阅时播放完整歌曲，否则为 30 秒试听。关闭后显示 30秒/完整 开关。</string>
+    <string name="share_profile_subtitle">预览分享后链接的显示效果</string>
+    <string name="share_profile_title">分享你的个人资料</string>
+    <!-- Full-player a11y / social copy -->
+    <string name="full_player_cd_close">关闭播放器</string>
+    <string name="full_player_cd_previous">上一首</string>
+    <string name="full_player_cd_next">下一首</string>
+    <string name="full_player_cd_play">播放</string>
+    <string name="full_player_cd_pause">暂停</string>
+    <string name="full_player_cd_more">更多</string>
+    <string name="full_player_comments_header">评论 · %1$d</string>
+    <string name="full_player_add_comment">添加评论</string>
+    <plurals name="feed_taste_matches_trial_banner_active">
+        <item quantity="one">免费试用 · 剩余 %1$d 天</item>
+        <item quantity="other">免费试用 · 剩余 %1$d 天</item>
+    </plurals>
 </resources>

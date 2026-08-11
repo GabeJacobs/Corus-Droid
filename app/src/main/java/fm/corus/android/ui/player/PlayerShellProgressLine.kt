@@ -27,9 +27,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.ScrubberClock
 import fm.corus.android.ui.theme.CorusColors
@@ -52,7 +52,7 @@ fun PlayerShellProgressLine(
     val clockTimeMs by ScrubberClock.time.collectAsState()
     val clockDurationMs by ScrubberClock.duration.collectAsState()
     val snapCounter by ScrubberClock.snapCounter.collectAsState()
-    val haptic = LocalHapticFeedback.current
+    val haptics = LocalHapticManager.current
     val scope = rememberCoroutineScope()
 
     var isScrubbing by remember { mutableStateOf(false) }
@@ -119,7 +119,8 @@ fun PlayerShellProgressLine(
                             if (abs(dx) <= abs(dy) || abs(dx) < 6f) return@horizontalDrag
                             dragging = true
                             isScrubbing = true
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            // iOS UnifiedPlayerChrome scrub start — light.
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
                         }
                         change.consume()
                         scrubFraction = (change.position.x / trackWidthPx).coerceIn(0f, 1f)
@@ -130,7 +131,8 @@ fun PlayerShellProgressLine(
                         if (seekDuration > 0L) {
                             nowPlayingManager.seek((scrubFraction * seekDuration).toLong())
                         }
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        // iOS UnifiedPlayerChrome scrub end — light.
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
                         isScrubbing = false
                         pendingClearJob?.cancel()
                         pendingClearJob = scope.launch {

@@ -230,6 +230,12 @@ class PostEngagementManager @Inject constructor(
         _states.update { map ->
             map + (postId to current.copy(isLiked = newLiked, likeCount = newCount))
         }
+        val mediaType = postRepository.getCachedPost(postId)?.mediaType?.value ?: "track"
+        if (newLiked) {
+            analyticsService.logPostLiked(postId, mediaType)
+        } else {
+            analyticsService.logPostUnliked(postId, mediaType)
+        }
 
         scope.launch {
             try {
@@ -256,6 +262,7 @@ class PostEngagementManager @Inject constructor(
                 _states.update { map ->
                     map + (postId to current)
                 }
+                analyticsService.logLikeError(postId, e.message ?: "")
             } finally {
                 likeInFlightIds.remove(postId)
                 // Hold the in-flight marker for a retention window so a stale
@@ -301,6 +308,12 @@ class PostEngagementManager @Inject constructor(
         if (!isOwnPost) markSaveInFlight(postId)
         _states.update { map ->
             map + (postId to current.copy(isSaved = newSaved, saveCount = newSaveCount))
+        }
+        val mediaType = postRepository.getCachedPost(postId)?.mediaType?.value ?: "track"
+        if (newSaved) {
+            analyticsService.logPostSaved(postId, mediaType)
+        } else {
+            analyticsService.logPostUnsaved(postId, mediaType)
         }
 
         scope.launch {

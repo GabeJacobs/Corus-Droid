@@ -52,6 +52,10 @@ class MainTabViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesDataStore.setPlayFullSongs(enabled)
             nowPlayingManager.applyPlaybackModeToggle(toFull = enabled)
+            analyticsService.logFullPlayerPlaybackModeToggled(
+                toFull = enabled,
+                trackId = nowPlayingManager.state.value.trackId,
+            )
         }
     }
 
@@ -59,6 +63,10 @@ class MainTabViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesDataStore.setAlwaysPlayFullSongs(enabled)
             nowPlayingManager.applyPlaybackModeToggle(toFull = enabled)
+            analyticsService.logFullPlayerPlaybackModeToggled(
+                toFull = enabled,
+                trackId = nowPlayingManager.state.value.trackId,
+            )
         }
     }
 
@@ -128,6 +136,27 @@ class MainTabViewModel @Inject constructor(
     fun logFullPlayerDismissed(method: String) {
         val trackId = nowPlayingManager.state.value.trackId
         analyticsService.logFullPlayerDismissed(trackId, method)
+    }
+
+    fun logFullPlayerOpened() {
+        val s = nowPlayingManager.state.value
+        analyticsService.logFullPlayerOpened(s.trackId, s.sourcePostId)
+    }
+
+    fun logFullPlayerQueueOpened() {
+        analyticsService.logFullPlayerQueueOpened(nowPlayingManager.state.value.trackId)
+    }
+
+    fun logFullPlayerOpenInServiceTapped(service: String) {
+        analyticsService.logFullPlayerOpenInServiceTapped(
+            service = service,
+            trackId = nowPlayingManager.state.value.trackId,
+        )
+    }
+
+    fun logFullPlayerComposeTapped() {
+        val trackId = nowPlayingManager.state.value.trackId ?: return
+        analyticsService.logFullPlayerComposeTapped(trackId)
     }
 
     fun logPaywallShown(source: String) = analyticsService.logPaywallShown(source)

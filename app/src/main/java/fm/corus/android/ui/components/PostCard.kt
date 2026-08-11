@@ -972,7 +972,7 @@ fun PostCard(
                     // Audiomack mark: full-color, no theme switch, natural aspect.
                     // Its tap links out (never streams) — bypasses onSpotifyTap.
                     AudiomackLogo(
-                        height = 20.dp,
+                        height = 24.dp,
                         modifier = Modifier
                             .offset(y = PostRowServiceControlYOffset)
                             .clickable(

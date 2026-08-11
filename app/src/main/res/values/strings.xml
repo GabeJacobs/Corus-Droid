@@ -1384,4 +1384,14 @@
     <string name="share_unreleased">That song hasn\'t been released yet.</string>
     <string name="share_blocked_unreleased_title">That song isn\'t out yet</string>
     <string name="share_blocked_unreleased_subtitle">Corus can only post released music. Check back a little later.</string>
+
+    <!-- Full-player a11y / social copy -->
+    <string name="full_player_cd_close">Close player</string>
+    <string name="full_player_cd_previous">Previous</string>
+    <string name="full_player_cd_next">Next</string>
+    <string name="full_player_cd_play">Play</string>
+    <string name="full_player_cd_pause">Pause</string>
+    <string name="full_player_cd_more">More</string>
+    <string name="full_player_comments_header">Comments · %1$d</string>
+    <string name="full_player_add_comment">Add a comment</string>
 </resources>

@@ -1316,4 +1316,61 @@
     <string name="full_player_queue_empty">다음 곡이 없습니다. 피드에서 재생해 대기열을 만드세요.</string>
     <string name="full_player_queue_remove">제거</string>
     <string name="full_player_view_comments">댓글 보기</string>
+
+    <!-- Player / playlist / playback-mode (production i18n pass) -->
+    <string name="club_playlist_trial_used_eyebrow">무료 체험 사용됨</string>
+    <string name="club_subtitle_playlist_limit_feed">Corus Club에 가입하면 플레이리스트를 무제한으로 만들 수 있어요.</string>
+    <string name="club_subtitle_playlist_limit_hashtag">Corus Club에 가입하면 플레이리스트를 무제한으로 만들 수 있어요.</string>
+    <string name="club_subtitle_playlist_limit_other_profile">Corus Club에 가입하면 플레이리스트를 무제한으로 만들 수 있어요.</string>
+    <string name="club_subtitle_playlist_limit_own_profile">Corus Club에 가입하면 플레이리스트를 무제한으로 만들 수 있어요.</string>
+    <string name="destination_album_pause">일시정지</string>
+    <string name="destination_album_play">재생</string>
+    <string name="feed_playlist_first_time_body">Corus가 피드를 플레이리스트로 만들어 %1$s에서 열어요. Club 멤버는 언제든 생성할 수 있어요.</string>
+    <string name="feed_taste_matches_trial_banner_preview">Taste Matches 피드 무료 체험</string>
+    <string name="full_player_post">게시</string>
+    <string name="full_player_queue_done">완료</string>
+    <string name="full_player_queue_edit">편집</string>
+    <string name="full_player_queue_reorder">순서 변경</string>
+    <string name="full_player_resolving_destination">불러오는 중…</string>
+    <string name="hashtag_playlist_first_time_body">Corus가 이 해시태그를 플레이리스트로 만들어 %1$s에서 열어요. Club 멤버는 언제든 생성할 수 있어요.</string>
+    <string name="mini_player_cd_playback_mode">재생 모드</string>
+    <string name="mini_player_playback_mode_full">전체</string>
+    <string name="mini_player_playback_mode_preview">30초</string>
+    <string name="playback_mode_prompt_body_apple_music">전체 곡 재생에는 Apple Music 구독과 Apple Music 앱 설치가 필요합니다.</string>
+    <string name="playback_mode_prompt_body_spotify">전체 곡 재생에는 Spotify Premium과 Spotify 앱 설치가 필요합니다.</string>
+    <string name="playback_mode_prompt_full_songs">전체 곡</string>
+    <string name="playback_mode_prompt_previews">30초 미리듣기</string>
+    <string name="playback_mode_prompt_settings_footnote">설정에서 언제든지 변경할 수 있어요.</string>
+    <string name="playback_mode_prompt_title">어떻게 들을까요?</string>
+    <string name="playlist_first_time_title">플레이리스트 생성을 무료로 사용해 보세요</string>
+    <string name="playlist_trial_consumed_feed">플레이리스트가 만들어졌어요! 피드에서의 무료 체험은 여기까지예요. Club에 가입하면 언제든 생성할 수 있어요.</string>
+    <string name="playlist_trial_consumed_hashtag">플레이리스트가 만들어졌어요! 이 해시태그에서의 무료 체험은 여기까지예요. Club에 가입하면 언제든 생성할 수 있어요.</string>
+    <string name="playlist_trial_consumed_other_profile">플레이리스트가 만들어졌어요! 이 프로필에서의 무료 체험은 여기까지예요. Club에 가입하면 언제든 생성할 수 있어요.</string>
+    <string name="playlist_trial_consumed_own_profile">플레이리스트가 만들어졌어요! 내 프로필에서의 무료 체험은 여기까지예요. Club에 가입하면 언제든 생성할 수 있어요.</string>
+    <string name="playlist_trial_suffix_feed">Club 멤버는 언제든 생성할 수 있어요.</string>
+    <string name="playlist_trial_suffix_hashtag">Club 멤버는 언제든 생성할 수 있어요.</string>
+    <string name="playlist_trial_suffix_other_profile">Club 멤버는 언제든 생성할 수 있어요.</string>
+    <string name="playlist_trial_suffix_own_profile">Club 멤버는 언제든 생성할 수 있어요.</string>
+    <string name="post_card_cd_pause_full_song">전체 곡 일시정지</string>
+    <string name="post_card_cd_play_full_song">전체 곡 재생</string>
+    <string name="post_menu_add_to_queue">대기열에 추가</string>
+    <string name="post_menu_toast_added_to_queue">대기열에 추가됨</string>
+    <string name="profile_playlist_first_time_body_other">Corus가 이 프로필을 플레이리스트로 만들어 %1$s에서 열어요. Club 멤버는 언제든 생성할 수 있어요.</string>
+    <string name="profile_playlist_first_time_body_own">Corus가 내 프로필을 플레이리스트로 만들어 %1$s에서 열어요. Club 멤버는 언제든 생성할 수 있어요.</string>
+    <string name="settings_row_always_play_full_songs_tidal_subtitle">TIDAL 구독이 있으면 전체 곡을, 없으면 30초 미리듣기를 재생해요. 끄면 30초/전체 스위치가 표시돼요.</string>
+    <string name="share_profile_subtitle">공유할 때 링크가 어떻게 보일지 미리보기</string>
+    <string name="share_profile_title">프로필 공유</string>
+    <!-- Full-player a11y / social copy -->
+    <string name="full_player_cd_close">플레이어 닫기</string>
+    <string name="full_player_cd_previous">이전</string>
+    <string name="full_player_cd_next">다음</string>
+    <string name="full_player_cd_play">재생</string>
+    <string name="full_player_cd_pause">일시정지</string>
+    <string name="full_player_cd_more">더보기</string>
+    <string name="full_player_comments_header">댓글 · %1$d</string>
+    <string name="full_player_add_comment">댓글 추가</string>
+    <plurals name="feed_taste_matches_trial_banner_active">
+        <item quantity="one">무료 체험 · %1$d일 남음</item>
+        <item quantity="other">무료 체험 · %1$d일 남음</item>
+    </plurals>
 </resources>

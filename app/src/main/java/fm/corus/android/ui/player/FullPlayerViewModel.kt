@@ -9,6 +9,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.NowPlayingState
 import fm.corus.android.domain.PostEngagementManager
 import kotlinx.coroutines.Job
@@ -30,6 +31,7 @@ class FullPlayerViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val engagementManager: PostEngagementManager,
     private val cloudFunctions: CloudFunctionsDataSource,
+    private val hapticManager: HapticManager,
 ) : ViewModel() {
     private val _sourcePost = MutableStateFlow<CymbalPost?>(null)
     val sourcePost: StateFlow<CymbalPost?> = _sourcePost.asStateFlow()
@@ -265,6 +267,8 @@ class FullPlayerViewModel @Inject constructor(
         val postId = _sourcePost.value?.id ?: return
         val uid = authRepository.currentUserId ?: return
         if (!likeInFlightIds.add(comment.id)) return
+        // iOS FullPlayerCommentsSection — light on comment like.
+        hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
         val wasLiked = _likedCommentIds.value.contains(comment.id)
         val previousCount = _commentLikeCounts.value[comment.id] ?: comment.likeCount
         if (wasLiked) {

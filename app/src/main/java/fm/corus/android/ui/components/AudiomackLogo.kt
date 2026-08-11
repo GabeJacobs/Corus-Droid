@@ -21,10 +21,13 @@ import fm.corus.android.ui.theme.LocalCorusDarkTheme
  * Audiomack's official orange wave mark. Unlike [SoundCloudAdaptiveLogo], the
  * mark is full-color orange on transparency and reads on both light and dark,
  * so there is NO theme switch — always the same drawable. The mark is wider
- * than tall (~1.45:1), so it's sized by [height] and laid out at natural aspect
+ * than tall (~1.37:1), so it's sized by [height] and laid out at natural aspect
  * with [ContentScale.Fit] rather than squished into a square.
+ *
+ * Drawable is a transparent PNG (iOS AudiomackMark SVG rasterized) — not a
+ * white-backed export, which previously showed a white tile in transport chrome.
  */
-private const val AUDIOMACK_MARK_ASPECT = 279f / 192f
+private const val AUDIOMACK_MARK_ASPECT = 512f / 374f
 
 @Composable
 fun AudiomackLogo(
@@ -42,9 +45,12 @@ fun AudiomackLogo(
 }
 
 /**
- * Search-row / album-art badge: the Audiomack mark on a small frosted chip,
- * mirroring [SoundCloudBadgeOverlay]'s 3dp outer + 3dp inner padding. Uses a
- * rounded-rect (not a circle) so the wide mark isn't shrunk to fit a diameter.
+ * Search-row / album-art badge — mirrors iOS SearchView:
+ * `AudiomackLogo(size: 12)` + 4pt pad + ultraThinMaterial Capsule + 3pt outer.
+ *
+ * Mark height is slightly under 12dp because the drawable includes a little
+ * transparent padding (transport clipping); 10dp keeps the orange wave at ~iOS
+ * visual weight without a oversized frosted chip.
  */
 @Composable
 fun AudiomackBadgeOverlay(modifier: Modifier = Modifier) {
@@ -57,11 +63,11 @@ fun AudiomackBadgeOverlay(modifier: Modifier = Modifier) {
     ) {
         androidx.compose.foundation.layout.Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(4.dp))
+                .clip(RoundedCornerShape(percent = 50))
                 .background(frosted)
-                .padding(horizontal = 4.dp, vertical = 3.dp),
+                .padding(horizontal = 4.dp, vertical = 2.dp),
         ) {
-            AudiomackLogo(height = 12.dp)
+            AudiomackLogo(height = 10.dp)
         }
     }
 }

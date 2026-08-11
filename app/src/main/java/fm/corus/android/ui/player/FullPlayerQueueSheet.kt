@@ -70,8 +70,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import fm.corus.android.R
+import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.QueuedTrack
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -93,6 +95,7 @@ fun FullPlayerQueueSheet(
     onDismiss: () -> Unit,
 ) {
     val state by nowPlayingManager.state.collectAsState()
+    val haptics = LocalHapticManager.current
     var revision by remember { mutableIntStateOf(0) }
     val queue = remember(state.trackId, state.sourcePostId, revision) {
         nowPlayingManager.queueSnapshot()
@@ -183,14 +186,18 @@ fun FullPlayerQueueSheet(
                         minReorderIndex = (currentIndex ?: -1) + 1,
                         maxReorderIndex = queue.lastIndex,
                         onJump = {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
                             nowPlayingManager.jumpToQueueIndex(row.index)
                             onDismiss()
                         },
                         onRemove = {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
                             nowPlayingManager.removeQueueItem(row.index)
                             bumpRevision()
                         },
                         onMove = { from, to ->
+                            // iOS queue reorder drop — selection.
+                            haptics.selection()
                             nowPlayingManager.moveQueueItem(from, to)
                             bumpRevision()
                         },
@@ -232,10 +239,12 @@ fun FullPlayerQueueSheet(
                         minReorderIndex = 0,
                         maxReorderIndex = 0,
                         onJump = {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
                             nowPlayingManager.jumpToQueueIndex(row.index)
                             onDismiss()
                         },
                         onRemove = {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
                             nowPlayingManager.removeQueueItem(row.index)
                             bumpRevision()
                         },
