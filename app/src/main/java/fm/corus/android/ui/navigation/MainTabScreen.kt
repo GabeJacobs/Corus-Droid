@@ -309,10 +309,26 @@ fun MainTabScreen(
     // once at launch and can't re-trigger the mark-read on later visits.
     val notificationsTabActivation = remember { mutableIntStateOf(0) }
 
+    // Frosted tab bar (Haze). The expanding player owns its own art-wash
+    // surface above the tab bar — matching iOS UnifiedPlayerChrome.
+    // Declared before notification deep-link handling so a lock-screen tap can
+    // collapse an open full player before Activity navigation lands underneath.
+    val bottomHaze = remember { HazeState() }
+    val bottomFrost = CorusColors.Background
+    val playerScope = rememberCoroutineScope()
+    val playerHaptics = LocalHapticManager.current
+    val playerExpansion = rememberPlayerExpansionState()
+
     // Handle notification tap navigation
     val notificationDestination = pendingNotificationDestination?.collectAsState()?.value
     LaunchedEffect(notificationDestination) {
         if (notificationDestination == null) return@LaunchedEffect
+        // Collapse the full player if it was left open when the app went to
+        // background (e.g. lock-screen notification tap). Navigation lands on
+        // the Activity tab underneath the player overlay otherwise.
+        if (playerExpansion.isExpandedOrExpanding) {
+            playerExpansion.collapse()
+        }
         val navController = notificationsNavController
         selectedTab = CorusTab.NOTIFICATIONS
         when (notificationDestination) {
@@ -344,13 +360,6 @@ fun MainTabScreen(
         onNotificationDestinationConsumed()
     }
 
-    // Frosted tab bar (Haze). The expanding player owns its own art-wash
-    // surface above the tab bar — matching iOS UnifiedPlayerChrome.
-    val bottomHaze = remember { HazeState() }
-    val bottomFrost = CorusColors.Background
-    val playerScope = rememberCoroutineScope()
-    val playerHaptics = LocalHapticManager.current
-    val playerExpansion = rememberPlayerExpansionState()
     val density = LocalDensity.current
     // Seed with a typical bar height so park math is sane before first measure.
     var tabBarHeightPx by remember { mutableStateOf(with(density) { 90.dp.toPx() }) }
