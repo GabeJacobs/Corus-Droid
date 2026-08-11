@@ -306,15 +306,17 @@ internal fun playerMaterialOpacity(darkTheme: Boolean, heavyChromeReady: Boolean
 }
 
 /**
- * Top veil. Light mini is under iOS's 0.88 so more wash shows. Dark mini is
- * similarly eased under iOS 0.62; expanded stays at 0.27.
+ * Top veil. Light/dark mini stay under iOS so the mini bar keeps color.
+ * Expanded is a hair heavier than iOS (0.42 / 0.27) — Android's downsample
+ * frost leaves more color structure than CI blur, so posts need a bit more
+ * scrim for the same readability.
  */
 internal fun playerVeilOpacity(darkTheme: Boolean, expansion: Float): Float {
     val t = expansion.coerceIn(0f, 1f)
     return if (darkTheme) {
-        0.50f + (0.27f - 0.50f) * t
+        0.50f + (0.34f - 0.50f) * t
     } else {
-        0.74f + (0.42f - 0.74f) * t
+        0.74f + (0.50f - 0.74f) * t
     }
 }
 
@@ -356,41 +358,42 @@ private suspend fun prepareBackdrop(
     val (top, bottom) = gradientPair(boosted, darkTheme)
     // Bake frost off the UI thread (iOS `cymbalPlayerFrostedBackdrop`) so track
     // changes can crossfade two stills instead of rebuilding Modifier.blur.
-    val frost = frostBitmapCache.get(artworkUrl)
-        ?: bakeFrostedWashBitmap(bitmap).also { frostBitmapCache.put(artworkUrl, it) }
+    // v2 = stronger multi-pass frost; bump when bake recipe changes so the
+    // in-process LRU doesn't serve an older softer wash.
+    val frostKey = "$artworkUrl|v2"
+    val frost = frostBitmapCache.get(frostKey)
+        ?: bakeFrostedWashBitmap(bitmap).also { frostBitmapCache.put(frostKey, it) }
     return PreparedBackdrop(frost, top, bottom)
 }
 
 /**
- * Approximate iOS's pre-baked CI gaussian frost: downsample hard, then scale
- * back up with filtering. Strong enough for the player wash, cheap enough to
- * run on every skip without hitching the crossfade.
+ * Approximate iOS's pre-baked CI gaussian frost (σ ≈ 42): downsample hard,
+ * bounce through a mid size for a softer falloff, then scale back up with
+ * filtering. Cheap enough to run on every skip without hitching the crossfade.
+ *
+ * [tinySide] used to be 36 — that left blocky color patches under translucent
+ * post cards. 20 + mid pass softens structure closer to real CI blur.
  */
 internal fun bakeFrostedWashBitmap(source: Bitmap, washSide: Int = 280): Bitmap {
     val srcW = source.width.coerceAtLeast(1)
     val srcH = source.height.coerceAtLeast(1)
-    val tinySide = 36
-    val tinyW: Int
-    val tinyH: Int
-    if (srcW >= srcH) {
-        tinyW = tinySide
-        tinyH = max(1, (tinySide.toFloat() * srcH / srcW).toInt())
-    } else {
-        tinyH = tinySide
-        tinyW = max(1, (tinySide.toFloat() * srcW / srcH).toInt())
+    val tinySide = 20
+    val midSide = 48
+    fun dimsFor(side: Int): Pair<Int, Int> {
+        return if (srcW >= srcH) {
+            side to max(1, (side.toFloat() * srcH / srcW).toInt())
+        } else {
+            max(1, (side.toFloat() * srcW / srcH).toInt()) to side
+        }
     }
+    val (tinyW, tinyH) = dimsFor(tinySide)
+    val (midW, midH) = dimsFor(midSide)
+    val (outW, outH) = dimsFor(washSide)
     val tiny = Bitmap.createScaledBitmap(source, tinyW, tinyH, true)
-    val outW: Int
-    val outH: Int
-    if (srcW >= srcH) {
-        outW = washSide
-        outH = max(1, (washSide.toFloat() * srcH / srcW).toInt())
-    } else {
-        outH = washSide
-        outW = max(1, (washSide.toFloat() * srcW / srcH).toInt())
-    }
-    val frosted = Bitmap.createScaledBitmap(tiny, outW, outH, true)
-    if (tiny !== source && tiny !== frosted) tiny.recycle()
+    val mid = Bitmap.createScaledBitmap(tiny, midW, midH, true)
+    val frosted = Bitmap.createScaledBitmap(mid, outW, outH, true)
+    if (tiny !== source && tiny !== mid && tiny !== frosted) tiny.recycle()
+    if (mid !== source && mid !== frosted) mid.recycle()
     return frosted
 }
 

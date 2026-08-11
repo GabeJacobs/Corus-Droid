@@ -294,7 +294,9 @@ private fun FullPlayerSourcePostCard(
     Column(
         modifier = modifier
             .clip(shape)
-            .background(CorusColors.Text.copy(alpha = 0.06f))
+            // Slightly above iOS 0.06 — Android wash still shows more structure
+            // than CI frost, so the card needs a hair more fill for body text.
+            .background(CorusColors.Text.copy(alpha = 0.09f))
             .border(1.dp, CorusColors.Text.copy(alpha = 0.10f), shape)
             .clickable(
                 enabled = interactive,

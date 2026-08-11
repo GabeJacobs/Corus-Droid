@@ -1,5 +1,6 @@
 package fm.corus.android.ui.player
 
+import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.Color
 import org.junit.Assert.assertEquals
@@ -11,7 +12,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+// Vanilla Application so Robolectric doesn't boot CorusApplication / Firebase.
+@Config(sdk = [34], application = Application::class)
 class PlayerArtworkBackdropTest {
 
     @Test
@@ -54,7 +56,8 @@ class PlayerArtworkBackdropTest {
         val mini = playerVeilOpacity(darkTheme = false, expansion = 0f)
         val full = playerVeilOpacity(darkTheme = false, expansion = 1f)
         assertEquals(0.74f, mini, 0.001f)
-        assertEquals(0.42f, full, 0.001f)
+        // Full is a hair above iOS 0.42 for post readability on Android frost.
+        assertEquals(0.50f, full, 0.001f)
     }
 
     @Test
@@ -80,7 +83,8 @@ class PlayerArtworkBackdropTest {
         )
         assertEquals(0.60f, playerMaterialOpacity(darkTheme = true, heavyChromeReady = true), 0.001f)
         assertEquals(0.50f, playerVeilOpacity(darkTheme = true, expansion = 0f), 0.001f)
-        assertEquals(0.27f, playerVeilOpacity(darkTheme = true, expansion = 1f), 0.001f)
+        // Full is a hair above iOS 0.27 for post readability on Android frost.
+        assertEquals(0.34f, playerVeilOpacity(darkTheme = true, expansion = 1f), 0.001f)
         assertEquals(0.62f, playerGradientOpacity(darkTheme = true, expansion = 0f), 0.001f)
     }
 

@@ -8,6 +8,7 @@ import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
+import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostEngagementManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -40,6 +41,7 @@ class FullPlayerViewModelTest {
     private val authRepo = mock<AuthRepository>()
     private val engagementManager = mock<PostEngagementManager>()
     private val cloudFunctions = mock<CloudFunctionsDataSource>()
+    private val hapticManager = mock<HapticManager>()
 
     @Before
     fun setUp() {
@@ -54,7 +56,13 @@ class FullPlayerViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun vm() = FullPlayerViewModel(postRepo, authRepo, engagementManager, cloudFunctions)
+    private fun vm() = FullPlayerViewModel(
+        postRepo,
+        authRepo,
+        engagementManager,
+        cloudFunctions,
+        hapticManager,
+    )
 
     private fun user(id: String) = CymbalUser(id = id, username = "u$id", displayName = "U$id")
 

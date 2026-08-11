@@ -54,6 +54,7 @@ class SpotifyPlaybackConnectOrderTest {
 
     private lateinit var context: Context
     private lateinit var authService: SpotifyAuthService
+    private lateinit var analyticsService: fm.corus.android.service.AnalyticsService
     private lateinit var saveAutoAdd: Provider<SpotifySaveAutoAdd>
     private lateinit var appRemoteStatic: MockedStatic<SpotifyAppRemote>
 
@@ -69,6 +70,7 @@ class SpotifyPlaybackConnectOrderTest {
         installSpotifyApp()
 
         authService = mock<SpotifyAuthService>()
+        analyticsService = mock()
         saveAutoAdd = mock<Provider<SpotifySaveAutoAdd>>()
 
         // Stand in for the Spotify app: record the attempt, then refuse, so the
@@ -106,7 +108,7 @@ class SpotifyPlaybackConnectOrderTest {
         Dispatchers.resetMain()
     }
 
-    private fun service() = SpotifyPlaybackService(context, authService, saveAutoAdd)
+    private fun service() = SpotifyPlaybackService(context, authService, analyticsService, saveAutoAdd)
 
     private suspend fun playOnce() {
         runCatching {
