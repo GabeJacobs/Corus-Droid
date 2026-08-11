@@ -131,89 +131,17 @@ fun MiniPlayerBar(
         musicService
     }
 
-    fun resolveAndOpenLinkOut() {
-        val resolve = resolveLinkOut
-        if (resolve != null) {
-            linkOutScope.launch {
-                val url = resolve()
-                if (!url.isNullOrBlank()) {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                }
-            }
-        }
-    }
-
     // Same destination as the service glyph (and iOS viewCurrentInMusicService).
     // Long-press on art/title uses this when the 30s/Full toggle displaced the glyph.
     fun openCurrentInMusicService() {
-        when {
-            isSoundCloud -> {
-                val permalink = state.soundcloudPermalinkUrl
-                if (!permalink.isNullOrBlank()) {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
-                }
-            }
-            isAudiomack -> {
-                val url = state.audiomackUrl
-                if (!url.isNullOrBlank()) {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                }
-            }
-            isTidal || isDeezer -> resolveAndOpenLinkOut()
-            else -> {
-                fun openAppleSong() {
-                    val tid = state.trackId
-                    val amid = if (!tid.isNullOrBlank() && tid.startsWith("am:")) tid.removePrefix("am:") else null
-                    if (!amid.isNullOrEmpty()) {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://music.apple.com/us/song/$amid")))
-                        }
-                    } else {
-                        resolveAndOpenLinkOut()
-                    }
-                }
-                when {
-                    isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY && !knownNotOnSpotify -> {
-                        val resolve = resolveSpotifyFromApple
-                        if (resolve != null) {
-                            linkOutScope.launch {
-                                val url = resolve()
-                                when {
-                                    !url.isNullOrBlank() ->
-                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                                    fm.corus.android.domain.MusicServiceLinkOut.knownNotOnSpotify(state.trackId) ->
-                                        openAppleSong()
-                                    else -> runCatching {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
-                                            fm.corus.android.domain.MusicServiceLinkOut.spotifySearchUrl(state.trackName, state.artistName))))
-                                    }
-                                }
-                            }
-                        } else {
-                            openAppleSong()
-                        }
-                    }
-                    isAppleMusic && (musicService == fm.corus.android.data.model.MusicService.SPOTIFY ||
-                        musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC) -> {
-                        openAppleSong()
-                    }
-                    musicService == fm.corus.android.data.model.MusicService.SPOTIFY -> {
-                        val uri = state.spotifyURI
-                        val webUrl = state.spotifyWebURL
-                        val opened = if (!uri.isNullOrBlank()) {
-                            try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
-                                true
-                            } catch (_: Exception) { false }
-                        } else false
-                        if (!opened && !webUrl.isNullOrBlank()) {
-                            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl))) } catch (_: Exception) { }
-                        }
-                    }
-                    else -> resolveAndOpenLinkOut()
-                }
-            }
-        }
+        fm.corus.android.domain.MusicServiceLinkOut.openNowPlayingInPreferredService(
+            context = context,
+            scope = linkOutScope,
+            state = state,
+            musicService = musicService,
+            resolveLinkOut = resolveLinkOut,
+            resolveSpotifyFromApple = resolveSpotifyFromApple,
+        )
     }
 
     AnimatedVisibility(

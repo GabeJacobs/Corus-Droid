@@ -1,5 +1,6 @@
 package fm.corus.android.ui.player
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalOverscrollConfiguration
@@ -7,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -78,15 +80,19 @@ import androidx.compose.ui.unit.sp
 import fm.corus.android.R
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.MusicServiceLinkOut
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.ScrubberClock
 import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.service.RemoteConfigService
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.AudiomackLogo
+import fm.corus.android.ui.components.DoubleTapLikeHeartIcon
 import fm.corus.android.ui.components.MiniPlayerPlaybackModeToggle
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
+import fm.corus.android.ui.components.playDoubleTapLikeHeartAnimation
 import fm.corus.android.ui.components.resolveMenuGoToAlbumTap
 import fm.corus.android.ui.components.resolveMenuGoToArtistTap
 import fm.corus.android.ui.navigation.AlbumPageRoute
@@ -94,6 +100,7 @@ import fm.corus.android.ui.navigation.ArtistPageRoute
 import fm.corus.android.ui.navigation.rememberArtistPagesEnabled
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -225,6 +232,10 @@ fun FullPlayerScreen(
     val isLiked = state.sourcePostId?.let { engagementStates[it]?.isLiked } ?: false
     val isPlaying = state.isPlaying
     val hasNext = state.hasNext
+    val haptics = LocalHapticManager.current
+    val artHeartScale = remember { Animatable(0f) }
+    val artHeartAlpha = remember { Animatable(0f) }
+    var showArtDoubleTapHeart by remember { mutableStateOf(false) }
 
     BoxWithWidth(modifier = modifier.fillMaxSize()) { widthDp ->
         val artSide = minOf(maxOf(widthDp - 48.dp, 0.dp), 320.dp)
@@ -262,16 +273,43 @@ fun FullPlayerScreen(
                 val idx = nowPlayingManager.currentQueueIndexSnapshot() ?: return@remember null
                 q.getOrNull(idx + 1)
             }
-            FullPlayerAlbumArt(
-                trackId = state.trackId,
-                url = artUrl,
-                upcomingTrackId = upcoming?.trackId,
-                upcomingUrl = upcoming?.albumArtLargeURL ?: upcoming?.albumArtURL,
-                side = artSide,
-                artPx = artPx,
-                slideForward = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            // Double-tap art to like — same heart burst as feed PostCard / iOS full player.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(likeable, isLiked, interactive, state.sourcePostId) {
+                        if (!interactive || !likeable) return@pointerInput
+                        detectTapGestures(
+                            onDoubleTap = {
+                                haptics.impact(HapticManager.ImpactStyle.MEDIUM)
+                                if (!isLiked) onLikeTap()
+                                showArtDoubleTapHeart = true
+                                scope.launch {
+                                    playDoubleTapLikeHeartAnimation(artHeartScale, artHeartAlpha)
+                                    showArtDoubleTapHeart = false
+                                }
+                            },
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                FullPlayerAlbumArt(
+                    trackId = state.trackId,
+                    url = artUrl,
+                    upcomingTrackId = upcoming?.trackId,
+                    upcomingUrl = upcoming?.albumArtLargeURL ?: upcoming?.albumArtURL,
+                    side = artSide,
+                    artPx = artPx,
+                    slideForward = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (showArtDoubleTapHeart) {
+                    DoubleTapLikeHeartIcon(
+                        scale = artHeartScale.value,
+                        alpha = artHeartAlpha.value,
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -649,13 +687,21 @@ private fun FullPlayerScrubber(
                     .clip(CircleShape)
                     .background(CorusColors.Text.copy(alpha = 0.95f)),
             )
+            // Keep the full knob inside the track (flush at 0% / 100%). The old
+            // `width * f - 6px` used raw pixels for a 12.dp thumb and overshot
+            // the line at the end.
+            val knobSize = 12.dp
             val knobOffset = with(density) {
-                ((trackWidthPx * displayed) - 6f).coerceAtLeast(0f).toDp()
+                scrubberKnobStartPx(
+                    trackWidthPx = trackWidthPx,
+                    fraction = displayed,
+                    knobSizePx = knobSize.toPx(),
+                ).toDp()
             }
             Box(
                 modifier = Modifier
                     .padding(start = knobOffset)
-                    .size(12.dp)
+                    .size(knobSize)
                     .clip(CircleShape)
                     .background(CorusColors.Text.copy(alpha = if (canScrub) 1f else 0.35f)),
             )
@@ -839,4 +885,14 @@ private fun formatPlayerTimeMs(ms: Long): String {
     val m = total / 60
     val s = total % 60
     return "$m:${s.toString().padStart(2, '0')}"
+}
+
+/** Leading edge of the scrubber knob so the thumb stays fully on the track. */
+internal fun scrubberKnobStartPx(
+    trackWidthPx: Float,
+    fraction: Float,
+    knobSizePx: Float,
+): Float {
+    val travel = (trackWidthPx - knobSizePx).coerceAtLeast(0f)
+    return travel * fraction.coerceIn(0f, 1f)
 }

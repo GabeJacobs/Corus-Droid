@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -37,7 +36,6 @@ import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
@@ -133,11 +131,7 @@ fun FeaturedMoviePosterView(
                             if (!isLiked) onLikeTap()
                             showDoubleTapHeart = true
                             scope.launch {
-                                heartScale.snapTo(0f)
-                                heartAlpha.snapTo(1f)
-                                heartScale.animateTo(1f, animationSpec = tween(300))
-                                delay(400)
-                                heartAlpha.animateTo(0f, animationSpec = tween(300))
+                                playDoubleTapLikeHeartAnimation(heartScale, heartAlpha)
                                 showDoubleTapHeart = false
                             }
                         },
@@ -247,15 +241,10 @@ fun FeaturedMoviePosterView(
 
             // Double-tap-to-like heart overlay
             if (showDoubleTapHeart) {
-                Icon(
-                    imageVector = Icons.Filled.Favorite,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(80.dp)
-                        .scale(heartScale.value)
-                        .alpha(heartAlpha.value),
+                DoubleTapLikeHeartIcon(
+                    scale = heartScale.value,
+                    alpha = heartAlpha.value,
+                    modifier = Modifier.align(Alignment.Center),
                 )
             }
         }

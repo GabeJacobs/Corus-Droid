@@ -1,9 +1,17 @@
 package fm.corus.android.ui.player
 
+import android.graphics.Bitmap
+import android.graphics.Color
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class PlayerArtworkBackdropTest {
 
     @Test
@@ -31,5 +39,57 @@ class PlayerArtworkBackdropTest {
     @Test
     fun `nil art still has a stable identity`() {
         assertEquals("nil|d", backdropIdentity(null, darkTheme = true))
+    }
+
+    @Test
+    fun `light mini art bloom stays close to iOS with a slight color boost`() {
+        val mini = playerFrostedArtOpacity(darkTheme = false, expansion = 0f, heavyChromeReady = true)
+        val full = playerFrostedArtOpacity(darkTheme = false, expansion = 1f, heavyChromeReady = true)
+        assertEquals(0.16f, mini, 0.001f)
+        assertEquals(0.66f, full, 0.001f)
+    }
+
+    @Test
+    fun `light mini veil is slightly under iOS white so more color shows`() {
+        val mini = playerVeilOpacity(darkTheme = false, expansion = 0f)
+        val full = playerVeilOpacity(darkTheme = false, expansion = 1f)
+        assertEquals(0.74f, mini, 0.001f)
+        assertEquals(0.42f, full, 0.001f)
+    }
+
+    @Test
+    fun `light material stand-in stays a translucent white frost`() {
+        assertEquals(
+            0.55f,
+            playerMaterialOpacity(darkTheme = false, heavyChromeReady = true),
+            0.001f,
+        )
+    }
+
+    @Test
+    fun `dark opacity curves still match iOS collapsed and expanded`() {
+        assertEquals(
+            0.12f,
+            playerFrostedArtOpacity(darkTheme = true, expansion = 0f, heavyChromeReady = true),
+            0.001f,
+        )
+        assertEquals(
+            1.0f,
+            playerFrostedArtOpacity(darkTheme = true, expansion = 1f, heavyChromeReady = true),
+            0.001f,
+        )
+        assertEquals(0.72f, playerMaterialOpacity(darkTheme = true, heavyChromeReady = true), 0.001f)
+        assertEquals(0.62f, playerVeilOpacity(darkTheme = true, expansion = 0f), 0.001f)
+        assertEquals(0.27f, playerVeilOpacity(darkTheme = true, expansion = 1f), 0.001f)
+    }
+
+    @Test
+    fun `baked frost wash preserves landscape aspect into wash side`() {
+        val src = Bitmap.createBitmap(200, 100, Bitmap.Config.ARGB_8888).also {
+            it.eraseColor(Color.RED)
+        }
+        val frost = bakeFrostedWashBitmap(src, washSide = 280)
+        assertEquals(280, frost.width)
+        assertEquals(140, frost.height)
     }
 }

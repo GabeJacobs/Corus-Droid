@@ -645,19 +645,16 @@ fun MainTabScreen(
                     },
                     commentsRefreshSignal = commentsRefreshSignal,
                     onOpenInService = {
-                        playerScope.launch {
-                            val url = viewModel.resolveCurrentServiceLinkUrl()
-                            if (!url.isNullOrBlank()) {
-                                runCatching {
-                                    context.startActivity(
-                                        android.content.Intent(
-                                            android.content.Intent.ACTION_VIEW,
-                                            android.net.Uri.parse(url),
-                                        ),
-                                    )
-                                }
-                            }
-                        }
+                        // Same path as the mini-player logo — Spotify preference
+                        // opens the track URI/web URL (resolveLinkOut returns null).
+                        fm.corus.android.domain.MusicServiceLinkOut.openNowPlayingInPreferredService(
+                            context = context,
+                            scope = playerScope,
+                            state = viewModel.nowPlayingManager.state.value,
+                            musicService = musicService,
+                            resolveLinkOut = { viewModel.resolveCurrentServiceLinkUrl() },
+                            resolveSpotifyFromApple = { viewModel.resolveCurrentSpotifyFromApple() },
+                        )
                     },
                 )
             },
@@ -679,7 +676,11 @@ fun MainTabScreen(
             }
             .onSizeChanged { tabBarHeightPx = it.height.toFloat() }
             .then(
-                if (FrostedBottomBar) {
+                // With a mini player up, the expanding sheet's art wash already
+                // paints under this bar — skip the white Haze tint so mini + tabs
+                // read as one continuous frosted surface. Without a mini player,
+                // keep the usual feed-blurring glass.
+                if (FrostedBottomBar && !showsMiniPlayer) {
                     Modifier.hazeEffect(state = bottomHaze) {
                         blurRadius = 30.dp
                         backgroundColor = bottomFrost
@@ -692,6 +693,8 @@ fun MainTabScreen(
             .blockTouchPassthrough(),
     ) {
         CorusBottomBar(
+            // Stay "frosted" (no solid fill / hairline) whenever glass chrome is
+            // on — including when the mini-player wash is the shared background.
             frosted = FrostedBottomBar,
             selectedTab = selectedTab,
             notificationTabBadgeCount = notificationTabBadge(

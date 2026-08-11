@@ -7,13 +7,12 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
 import android.graphics.Rect
 import android.graphics.RectF
-import android.net.Uri
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.graphics.drawable.DrawableCompat
 import fm.corus.android.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -253,27 +252,20 @@ private fun drawTintedLogo(
     color: Int,
     alpha: Int = 255,
 ) {
-    // logo_no_background is a vector drawable — BitmapFactory cannot decode it.
-    val logo = decodeShareVectorDrawable(context, R.drawable.logo_no_background, size.toInt()) ?: return
-    val tintedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        isFilterBitmap = true
-        this.alpha = alpha
-        colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
+    // logo_no_background is a vector — draw it directly (BitmapFactory cannot decode vectors).
+    val drawable = ContextCompat.getDrawable(context, R.drawable.logo_no_background)?.mutate()
+    if (drawable == null) {
+        Log.w(IG_PROFILE_SHARE_TAG, "logo_no_background drawable missing")
+        return
     }
-    canvas.drawBitmap(logo, left, top, tintedPaint)
-    logo.recycle()
-}
-
-/** Rasterize a vector (or bitmap) drawable to an ARGB bitmap at [size]×[size]. */
-private fun decodeShareVectorDrawable(context: Context, resId: Int, size: Int): Bitmap? = try {
-    val drawable = ContextCompat.getDrawable(context, resId)?.mutate() ?: return null
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    val c = Canvas(bitmap)
-    drawable.setBounds(0, 0, size, size)
-    drawable.draw(c)
-    bitmap
-} catch (_: Exception) {
-    null
+    val px = size.toInt().coerceAtLeast(1)
+    DrawableCompat.setTint(drawable, color)
+    drawable.alpha = alpha.coerceIn(0, 255)
+    drawable.setBounds(0, 0, px, px)
+    canvas.save()
+    canvas.translate(left, top)
+    drawable.draw(canvas)
+    canvas.restore()
 }
 
 internal fun shareNunitoPaint(
@@ -369,8 +361,13 @@ suspend fun shareProfileToInstagramStories(
     theme: ShareCardTheme,
 ): Boolean = withContext(Dispatchers.IO) {
     try {
+        Log.i(IG_PROFILE_SHARE_TAG, "Building Stories card theme=${theme.analyticsValue} user=${profile.username}")
         val bitmap = generateProfileStoriesCardBitmap(context, profile, theme)
-        val file = File(context.cacheDir, "instagram_profile_share_${profile.id}.png")
+        // Unique filename per theme + share so Instagram can't reuse a stale cached URI.
+        val file = File(
+            context.cacheDir,
+            "instagram_profile_share_${profile.id}_${theme.analyticsValue}_${System.currentTimeMillis()}.png",
+        )
         FileOutputStream(file).use { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
@@ -385,7 +382,10 @@ suspend fun shareProfileToInstagramStories(
             )
         }.onFailure { Log.w(IG_PROFILE_SHARE_TAG, "grantUriPermission failed (continuing anyway)", it) }
 
-        val contentUrl = "https://corus.fm/u/${profile.username}"
+        val contentUrl = buildString {
+            append("https://corus.fm/u/${profile.username}")
+            theme.queryValue?.let { append("?theme=$it") }
+        }
         val storyIntent = buildAddToStoryIntent(uri, contentUrl, context.packageName)
 
         withContext(Dispatchers.Main) {

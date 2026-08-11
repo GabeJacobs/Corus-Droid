@@ -524,11 +524,7 @@ fun PostCard(
                                     if (!isLiked) onLikeTap()
                                     showDoubleTapHeart = true
                                     scope.launch {
-                                        heartScale.snapTo(0f)
-                                        heartAlpha.snapTo(1f)
-                                        heartScale.animateTo(1f, animationSpec = tween(300))
-                                        kotlinx.coroutines.delay(400)
-                                        heartAlpha.animateTo(0f, animationSpec = tween(300))
+                                        playDoubleTapLikeHeartAnimation(heartScale, heartAlpha)
                                         showDoubleTapHeart = false
                                     }
                                 },
@@ -836,14 +832,9 @@ fun PostCard(
 
             // Heart animation overlay
             if (showDoubleTapHeart) {
-                Icon(
-                    imageVector = Icons.Filled.Favorite,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier
-                        .size(80.dp)
-                        .scale(heartScale.value)
-                        .alpha(heartAlpha.value),
+                DoubleTapLikeHeartIcon(
+                    scale = heartScale.value,
+                    alpha = heartAlpha.value,
                 )
             }
                 }

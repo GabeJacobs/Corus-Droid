@@ -288,8 +288,9 @@ private fun OwnProfileShareSheet(
                                 onAnalyticsLog = onAnalyticsLog,
                             )
                             isSharingToInstagram = true
+                            val themeToShare = shareCardTheme
                             coroutineScope.launch {
-                                shareProfileToInstagramStories(context, profile, shareCardTheme)
+                                shareProfileToInstagramStories(context, profile, themeToShare)
                                 isSharingToInstagram = false
                             }
                         },

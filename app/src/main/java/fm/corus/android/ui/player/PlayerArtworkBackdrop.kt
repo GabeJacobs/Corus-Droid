@@ -3,7 +3,6 @@ package fm.corus.android.ui.player
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -16,10 +15,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import android.util.LruCache
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -27,7 +25,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import coil3.BitmapImage
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
@@ -50,6 +47,9 @@ import kotlin.math.min
 /** Matches iOS `UIView.animate` `.curveEaseInOut` for the plane crossfade. */
 private val BackdropEaseInOut = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
 private const val BackdropCrossfadeMs = 500
+
+/** Soft cache of pre-baked frosted washes — mirrors iOS `blurCache`. */
+private val frostBitmapCache = object : LruCache<String, Bitmap>(8) {}
 
 /**
  * Spotify-style art wash + frosted glass behind mini + full player.
@@ -77,29 +77,21 @@ fun PlayerArtworkBackdrop(
         heavyChromeReady = true
     }
 
-    val frostedArtOpacity = when {
-        !heavyChromeReady -> 0f
-        darkTheme -> 0.12f + 0.88f * t
-        else -> 0.08f + 0.58f * t
-    }
-    val materialOpacity = when {
-        !heavyChromeReady -> 0f
-        darkTheme -> 0.72f
-        else -> 0.94f
-    }
-    val veilOpacity = if (darkTheme) {
-        0.62f + (0.27f - 0.62f) * t
-    } else {
-        0.88f + (0.42f - 0.88f) * t
-    }
-    val gradientOpacity = if (darkTheme) {
-        0.55f + (0.30f - 0.55f) * t
-    } else {
-        0.28f + (0.36f - 0.28f) * t
-    }
+    val frostedArtOpacity = playerFrostedArtOpacity(darkTheme, t, heavyChromeReady)
+    val materialOpacity = playerMaterialOpacity(darkTheme, heavyChromeReady)
+    val veilOpacity = playerVeilOpacity(darkTheme, t)
+    val gradientOpacity = playerGradientOpacity(darkTheme, t)
 
     val veilColor = if (darkTheme) Color.Black else Color.White
-    val materialTint = CorusColors.Background.copy(alpha = materialOpacity)
+    // iOS uses real `.ultraThinMaterial` over a solid base. Android has no
+    // equivalent — a near-opaque Background tint (old light 0.94) read as a
+    // flat white mini-player slab. Use a translucent white frost instead so
+    // the album wash underneath stays visible.
+    val materialTint = if (darkTheme) {
+        CorusColors.Background.copy(alpha = materialOpacity)
+    } else {
+        Color.White.copy(alpha = materialOpacity)
+    }
 
     var planeA by remember { mutableStateOf<PreparedBackdrop?>(null) }
     var planeB by remember { mutableStateOf<PreparedBackdrop?>(null) }
@@ -173,6 +165,7 @@ fun PlayerArtworkBackdrop(
                     }
                 }
                 if (generation == loadGeneration) {
+                    // Clear outgoing content after the fade (keep slot for next skip).
                     if (incomingIsA) planeB = null else planeA = null
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -195,13 +188,12 @@ fun PlayerArtworkBackdrop(
         }
 
         if (heavyChromeReady) {
-            // Do NOT read Animatable.value here — that recomposed the blurred
-            // planes every crossfade frame and hitching Next. Plane alpha is
-            // applied in graphicsLayer (draw-only invalidation).
+            // Frost is pre-baked into the bitmap (iOS CI blur), so reading
+            // Animatable.value here is cheap and keeps the 0.5s crossfade smooth.
             planeA?.let { plane ->
                 BackdropPlane(
                     plane = plane,
-                    planeAlpha = alphaA,
+                    planeAlpha = alphaA.value,
                     artOpacity = frostedArtOpacity,
                     gradientOpacity = gradientOpacity,
                 )
@@ -209,7 +201,7 @@ fun PlayerArtworkBackdrop(
             planeB?.let { plane ->
                 BackdropPlane(
                     plane = plane,
-                    planeAlpha = alphaB,
+                    planeAlpha = alphaB.value,
                     artOpacity = frostedArtOpacity,
                     gradientOpacity = gradientOpacity,
                 )
@@ -227,20 +219,16 @@ fun PlayerArtworkBackdrop(
 @Composable
 private fun BackdropPlane(
     plane: PreparedBackdrop,
-    planeAlpha: Animatable<Float, AnimationVector1D>,
+    planeAlpha: Float,
     artOpacity: Float,
     gradientOpacity: Float,
 ) {
-    // Expansion opacities are read inside graphicsLayer / draw so sheet-drag
-    // and track crossfades invalidate draw, not composition+blur rebuild.
-    val artOpacityState = rememberUpdatedState(artOpacity)
-    val gradientOpacityState = rememberUpdatedState(gradientOpacity)
     val imageBitmap = remember(plane.bitmap) { plane.bitmap?.asImageBitmap() }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { alpha = planeAlpha.value.coerceIn(0f, 1f) },
+            .graphicsLayer { alpha = planeAlpha.coerceIn(0f, 1f) },
     ) {
         if (imageBitmap != null) {
             Image(
@@ -252,16 +240,15 @@ private fun BackdropPlane(
                     .graphicsLayer {
                         scaleX = 1.09f
                         scaleY = 1.09f
-                        alpha = artOpacityState.value.coerceIn(0f, 1f)
-                    }
-                    .blur(42.dp),
+                        alpha = artOpacity.coerceIn(0f, 1f)
+                    },
             )
         }
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .drawWithContent {
-                    val g = gradientOpacityState.value.coerceIn(0f, 1f)
+                    val g = gradientOpacity.coerceIn(0f, 1f)
                     drawRect(
                         brush = Brush.verticalGradient(
                             colors = listOf(
@@ -278,6 +265,57 @@ private fun BackdropPlane(
 internal fun backdropIdentity(artworkUrl: String?, darkTheme: Boolean): String {
     val url = artworkUrl ?: "nil"
     return "$url|${if (darkTheme) "d" else "l"}"
+}
+
+/**
+ * Blurred album-art bloom. Dark matches iOS. Light stays close to iOS
+ * (0.08 → 0.66) with a slightly stronger mini bloom so Android still reads
+ * as frost without real `.ultraThinMaterial`.
+ */
+internal fun playerFrostedArtOpacity(
+    darkTheme: Boolean,
+    expansion: Float,
+    heavyChromeReady: Boolean,
+): Float {
+    if (!heavyChromeReady) return 0f
+    val t = expansion.coerceIn(0f, 1f)
+    return if (darkTheme) {
+        0.12f + 0.88f * t
+    } else {
+        // Slightly above iOS 0.08 so a bit more album color reads on the mini.
+        0.16f + 0.50f * t
+    }
+}
+
+/**
+ * Glass-strength stand-in. Dark matches iOS. Light uses a translucent white
+ * frost (iOS material is 0.94) — kept a hair under fully white so color shows.
+ */
+internal fun playerMaterialOpacity(darkTheme: Boolean, heavyChromeReady: Boolean): Float {
+    if (!heavyChromeReady) return 0f
+    return if (darkTheme) 0.72f else 0.55f
+}
+
+/**
+ * Top veil. Dark matches iOS. Light mini is a touch under iOS's 0.88 so more
+ * of the art wash comes through; expanded stays at 0.42.
+ */
+internal fun playerVeilOpacity(darkTheme: Boolean, expansion: Float): Float {
+    val t = expansion.coerceIn(0f, 1f)
+    return if (darkTheme) {
+        0.62f + (0.27f - 0.62f) * t
+    } else {
+        0.74f + (0.42f - 0.74f) * t
+    }
+}
+
+internal fun playerGradientOpacity(darkTheme: Boolean, expansion: Float): Float {
+    val t = expansion.coerceIn(0f, 1f)
+    return if (darkTheme) {
+        0.55f + (0.30f - 0.55f) * t
+    } else {
+        0.34f + (0.36f - 0.34f) * t
+    }
 }
 
 private data class PreparedBackdrop(
@@ -306,7 +344,44 @@ private suspend fun prepareBackdrop(
     val avg = averageColor(bitmap)
     val boosted = boostForPlayerWash(avg, darkTheme)
     val (top, bottom) = gradientPair(boosted, darkTheme)
-    return PreparedBackdrop(bitmap, top, bottom)
+    // Bake frost off the UI thread (iOS `cymbalPlayerFrostedBackdrop`) so track
+    // changes can crossfade two stills instead of rebuilding Modifier.blur.
+    val frost = frostBitmapCache.get(artworkUrl)
+        ?: bakeFrostedWashBitmap(bitmap).also { frostBitmapCache.put(artworkUrl, it) }
+    return PreparedBackdrop(frost, top, bottom)
+}
+
+/**
+ * Approximate iOS's pre-baked CI gaussian frost: downsample hard, then scale
+ * back up with filtering. Strong enough for the player wash, cheap enough to
+ * run on every skip without hitching the crossfade.
+ */
+internal fun bakeFrostedWashBitmap(source: Bitmap, washSide: Int = 280): Bitmap {
+    val srcW = source.width.coerceAtLeast(1)
+    val srcH = source.height.coerceAtLeast(1)
+    val tinySide = 36
+    val tinyW: Int
+    val tinyH: Int
+    if (srcW >= srcH) {
+        tinyW = tinySide
+        tinyH = max(1, (tinySide.toFloat() * srcH / srcW).toInt())
+    } else {
+        tinyH = tinySide
+        tinyW = max(1, (tinySide.toFloat() * srcW / srcH).toInt())
+    }
+    val tiny = Bitmap.createScaledBitmap(source, tinyW, tinyH, true)
+    val outW: Int
+    val outH: Int
+    if (srcW >= srcH) {
+        outW = washSide
+        outH = max(1, (washSide.toFloat() * srcH / srcW).toInt())
+    } else {
+        outH = washSide
+        outW = max(1, (washSide.toFloat() * srcW / srcH).toInt())
+    }
+    val frosted = Bitmap.createScaledBitmap(tiny, outW, outH, true)
+    if (tiny !== source && tiny !== frosted) tiny.recycle()
+    return frosted
 }
 
 private suspend fun loadDownsampledBitmap(

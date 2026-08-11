@@ -108,45 +108,44 @@ fun ToastHost(
         }
     }
 
-    // Keep a no-op layout slot so callers can still pass a modifier; the
-    // visible toast is windowed via Popup so z-order isn't tied to Scaffold.
-    Box(modifier = modifier)
-
-    if (toast != null) {
-        Popup(
-            alignment = Alignment.TopCenter,
-            properties = PopupProperties(
-                focusable = false,
-                dismissOnBackPress = false,
-                dismissOnClickOutside = false,
-            ),
-        ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn() + slideInVertically { -it / 2 },
-                exit = fadeOut() + slideOutVertically { -it / 2 },
+    // Popup is windowed above chrome; the Box only anchors composition.
+    Box(modifier = modifier.fillMaxSize()) {
+        if (toast != null) {
+            Popup(
+                alignment = Alignment.TopCenter,
+                properties = PopupProperties(
+                    focusable = false,
+                    dismissOnBackPress = false,
+                    dismissOnClickOutside = false,
+                ),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
-                    modifier = Modifier
-                        .padding(top = 72.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color.Black.copy(alpha = 0.7f))
-                        .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn() + slideInVertically { -it / 2 },
+                    exit = fadeOut() + slideOutVertically { -it / 2 },
                 ) {
-                    if (toast.isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(14.dp),
-                            strokeWidth = 2.dp,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                        modifier = Modifier
+                            .padding(top = 72.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.Black.copy(alpha = 0.7f))
+                            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                    ) {
+                        if (toast.isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White,
+                            )
+                        }
+                        Text(
+                            text = toast.text,
+                            style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
                             color = Color.White,
                         )
                     }
-                    Text(
-                        text = toast.text,
-                        style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
-                        color = Color.White,
-                    )
                 }
             }
         }

@@ -1,13 +1,19 @@
 package fm.corus.android.domain
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.annotation.DrawableRes
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
+import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Music-service link-out helper. Mirrors the iOS link-out behavior: a Spotify
@@ -189,6 +195,89 @@ object MusicServiceLinkOut {
             return url
         } finally {
             _isResolving.value = false
+        }
+    }
+
+    /**
+     * Open the now-playing track in the viewer's preferred service.
+     * Mirrors iOS `viewCurrentInMusicService` / mini-player logo tap:
+     * Spotify preference opens the track's own URI/web URL; Apple/TIDAL/Deezer
+     * resolve via [resolveLinkOut]. Used by both mini + full player so the
+     * Spotify glyph isn't a no-op when the preference is Spotify
+     * ([resolveLinkOutUrlRaw] returns null for that case).
+     */
+    fun openNowPlayingInPreferredService(
+        context: Context,
+        scope: CoroutineScope,
+        state: NowPlayingState,
+        musicService: MusicService,
+        resolveLinkOut: (suspend () -> String?)?,
+        resolveSpotifyFromApple: (suspend () -> String?)?,
+    ) {
+        fun open(url: String?) {
+            url?.takeIf { it.isNotBlank() }?.let {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
+            }
+        }
+        fun resolveAndOpenLinkOut() {
+            val resolve = resolveLinkOut ?: return
+            scope.launch { open(resolve()) }
+        }
+        when (state.source) {
+            TrackSource.SOUNDCLOUD -> open(state.soundcloudPermalinkUrl)
+            TrackSource.AUDIOMACK -> open(state.audiomackUrl)
+            TrackSource.TIDAL, TrackSource.DEEZER -> resolveAndOpenLinkOut()
+            else -> {
+                fun openAppleSong() {
+                    val tid = state.trackId
+                    val amid = if (!tid.isNullOrBlank() && tid.startsWith("am:")) {
+                        tid.removePrefix("am:")
+                    } else {
+                        null
+                    }
+                    if (!amid.isNullOrEmpty()) {
+                        open("https://music.apple.com/us/song/$amid")
+                    } else {
+                        resolveAndOpenLinkOut()
+                    }
+                }
+                val isAppleMusic = state.source == TrackSource.APPLEMUSIC
+                val knownNotOnSpotify = isAppleMusic && knownNotOnSpotify(state.trackId)
+                when {
+                    isAppleMusic && musicService == MusicService.SPOTIFY && !knownNotOnSpotify -> {
+                        val resolve = resolveSpotifyFromApple
+                        if (resolve != null) {
+                            scope.launch {
+                                val url = resolve()
+                                when {
+                                    !url.isNullOrBlank() -> open(url)
+                                    knownNotOnSpotify(state.trackId) -> openAppleSong()
+                                    else -> open(spotifySearchUrl(state.trackName, state.artistName))
+                                }
+                            }
+                        } else {
+                            openAppleSong()
+                        }
+                    }
+                    isAppleMusic && (
+                        musicService == MusicService.SPOTIFY ||
+                            musicService == MusicService.APPLE_MUSIC
+                        ) -> openAppleSong()
+                    musicService == MusicService.SPOTIFY -> {
+                        val uri = state.spotifyURI
+                        val webUrl = state.spotifyWebURL
+                        val opened = if (!uri.isNullOrBlank()) {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                            }.isSuccess
+                        } else {
+                            false
+                        }
+                        if (!opened) open(webUrl)
+                    }
+                    else -> resolveAndOpenLinkOut()
+                }
+            }
         }
     }
 }
