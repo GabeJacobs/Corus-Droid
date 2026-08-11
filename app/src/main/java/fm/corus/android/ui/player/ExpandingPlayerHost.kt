@@ -79,8 +79,11 @@ fun ExpandingPlayerHost(
         // iOS: mini hit-testing off while dragging.
         val allowsMiniInteraction = expansion < 0.05f && !isMoving
 
-        val nestedScroll = remember(state) {
-            playerSheetNestedScrollConnection(state)
+        val nestedScroll = remember(state, expansionState) {
+            playerSheetNestedScrollConnection(
+                state = state,
+                isContentAtTop = { expansionState.isContentAtTop },
+            )
         }
 
         val offsetY = when {
@@ -117,21 +120,38 @@ fun ExpandingPlayerHost(
 }
 
 /**
- * When fully open, downward drag at the top of the scrollable collapses the sheet
- * (iOS scroll handoff). Upward drag while collapsed/mid expands first.
+ * Nested-scroll handoff matching iOS PlayerSlideContainer:
+ * - Pull up: expand sheet before content scrolls.
+ * - Pull down at content top (or while already mid-collapse): sheet tracks the
+ *   finger immediately in pre-scroll so overscroll can't eat the first pixels.
  */
 @OptIn(ExperimentalFoundationApi::class)
 private fun playerSheetNestedScrollConnection(
     state: AnchoredDraggableState<PlayerSheetValue>,
+    isContentAtTop: () -> Boolean,
 ): NestedScrollConnection = object : NestedScrollConnection {
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        if (source != NestedScrollSource.UserInput) return Offset.Zero
         val delta = available.y
-        // Dragging up: expand sheet before scrolling content.
-        return if (delta < 0f && source == NestedScrollSource.UserInput) {
-            Offset(0f, state.dispatchRawDelta(delta))
-        } else {
-            Offset.Zero
+        val offset = runCatching { state.requireOffset() }.getOrNull() ?: return Offset.Zero
+        val minAnchor = state.anchors.minAnchor()
+
+        // Dragging up: expand sheet before scrolling content — but only while the
+        // sheet isn't already fully expanded. When mid-collapse, still allow
+        // upward deltas to track the finger (user reversing).
+        if (delta < 0f && offset > minAnchor + 0.5f) {
+            return Offset(0f, state.dispatchRawDelta(delta))
         }
+
+        // Dragging down: claim immediately when content can't scroll up further,
+        // or when the sheet is already mid-collapse (finger tracking).
+        if (delta > 0f) {
+            val midCollapse = offset > minAnchor + 0.5f
+            if (midCollapse || isContentAtTop()) {
+                return Offset(0f, state.dispatchRawDelta(delta))
+            }
+        }
+        return Offset.Zero
     }
 
     override fun onPostScroll(
@@ -149,12 +169,18 @@ private fun playerSheetNestedScrollConnection(
     override suspend fun onPreFling(available: Velocity): Velocity {
         val toFling = available.y
         val currentOffset = runCatching { state.requireOffset() }.getOrNull() ?: return Velocity.Zero
-        return if (toFling < 0f && currentOffset > state.anchors.minAnchor()) {
+        val minAnchor = state.anchors.minAnchor()
+        // Upward fling while not fully expanded → settle open/closed.
+        if (toFling < 0f && currentOffset > minAnchor) {
             state.settle(toFling)
-            available
-        } else {
-            Velocity.Zero
+            return available
         }
+        // Downward fling at content top (or mid-collapse) → settle like iOS.
+        if (toFling > 0f && (currentOffset > minAnchor || isContentAtTop())) {
+            state.settle(toFling)
+            return available
+        }
+        return Velocity.Zero
     }
 
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {

@@ -70,6 +70,7 @@
     <string name="full_player_queue_edit">Edit</string>
     <string name="full_player_queue_done">Done</string>
     <string name="full_player_queue_reorder">Reorder</string>
+    <string name="full_player_post">Post</string>
     <string name="full_player_view_comments">View comments</string>
     <!-- Legacy keys kept so translated locales still resolve until updated. -->
     <string name="settings_row_play_full_songs_title">Always Play Full Songs</string>
@@ -924,6 +925,8 @@
     <string name="post_menu_open_audiomack">Open in Audiomack</string>
     <string name="post_menu_open_tidal">Open in TIDAL</string>
     <string name="post_menu_open_deezer">Open in Deezer</string>
+    <string name="post_menu_add_to_queue">Add to Queue</string>
+    <string name="post_menu_toast_added_to_queue">Added to Queue</string>
     <string name="post_menu_view_film_page">Go to Film</string>
     <string name="post_menu_view_song_page">Go to Song</string>
     <string name="post_menu_view_front_cover">View Front Cover</string>

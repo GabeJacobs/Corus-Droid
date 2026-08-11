@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -44,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -51,6 +53,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import fm.corus.android.R
 import fm.corus.android.data.model.CommentAttachedAlbum
 import fm.corus.android.data.model.CommentAttachedArtist
@@ -338,10 +342,9 @@ private fun FullPlayerSourcePostCard(
                     )
                 }
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = CorusColors.Text.copy(alpha = 0.35f),
+            // iOS: 44pt hit target with trailing alignment so the glyph lines up
+            // with the save bookmark. Centering left the chevron inset.
+            Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clickable(
@@ -349,9 +352,16 @@ private fun FullPlayerSourcePostCard(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onOpenPost,
-                    )
-                    .padding(12.dp),
-            )
+                    ),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = CorusColors.Text.copy(alpha = 0.35f),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
 
         val caption = post.caption?.trim().orEmpty()
@@ -446,7 +456,8 @@ private fun FullPlayerSourcePostCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    VennDiagramIcon(size = 18.dp, color = CorusColors.Text.copy(alpha = 0.85f))
+                    // Match heart/comment/repost/share (15.dp) — 18.dp read oversized.
+                    VennDiagramIcon(size = 15.dp, color = CorusColors.Text.copy(alpha = 0.85f))
                     Text("$trackPostCount", style = CorusFont.bodyMedium, color = CorusColors.Text.copy(alpha = 0.85f))
                 }
             }
@@ -721,7 +732,29 @@ private fun FullPlayerCommentRow(
                     onHashtagTap = onHashtagTap,
                 )
             }
-            if (comment.gifURL != null ||
+            // iOS FullPlayerCommentsSection: GIF via AnimatedGifView, else
+            // song/film/entity via CommentAttachmentCard — never both, and
+            // never route a GIF into the attachment card (empty wash bar).
+            val gifURL = comment.gifURL
+            if (gifURL != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = if (renderedText.isEmpty()) 0.dp else CorusSpacing.xs),
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(gifURL)
+                            .build(),
+                        contentDescription = stringResource(R.string.comments_cd_gif),
+                        modifier = Modifier
+                            .widthIn(max = 200.dp)
+                            .heightIn(max = 260.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
+            } else if (
                 comment.attachedSong != null ||
                 comment.attachedFilm != null ||
                 comment.attachedArtist != null ||

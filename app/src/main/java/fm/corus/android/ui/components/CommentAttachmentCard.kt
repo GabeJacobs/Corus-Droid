@@ -183,7 +183,11 @@ fun CommentAttachmentCard(
                 Column(
                     modifier = Modifier
                         .weight(1f)
+                        // Fill the row so taps on the card body (not just the
+                        // glyph bounds) open song detail + dismiss like iOS.
+                        .fillMaxHeight()
                         .clickable(onClick = openSong),
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
                         text = attachedSong.trackName,

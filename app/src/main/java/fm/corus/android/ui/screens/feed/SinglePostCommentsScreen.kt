@@ -65,6 +65,7 @@ import fm.corus.android.ui.navigation.FilmDetailRoute
 import fm.corus.android.ui.components.CommentAttachmentCard
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.domain.PostPlaybackHighlight
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ImmersiveFrostedBar
 import fm.corus.android.ui.components.LocalBottomBarHeight
@@ -870,6 +871,9 @@ fun SinglePostCommentsScreen(
         onNavigateToArtist = onNavigateToArtist,
         onNavigateToAlbum = onNavigateToAlbum,
         onNavigateToDirector = onNavigateToDirector,
+        onAddToQueue = { post ->
+            viewModel.nowPlayingManager.addToUserQueue(post.toQueuedTrack())
+        },
     )
 }
 

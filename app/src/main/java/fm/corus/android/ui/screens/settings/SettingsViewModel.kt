@@ -64,7 +64,11 @@ class SettingsViewModel @Inject constructor(
         get() = remoteConfigService.spotifyLibrarySaveEnabled
 
     val autoAddSavedToSpotify: StateFlow<Boolean> = preferencesDataStore.autoAddSavedToSpotify
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            preferencesDataStore.autoAddSavedToSpotifySync(),
+        )
 
     /**
      * Toggles the "Add Saved Songs to Library" opt-in. Saves are mirrored over

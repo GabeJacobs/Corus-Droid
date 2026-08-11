@@ -12,6 +12,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.net.Uri
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import fm.corus.android.R
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.URL
 import kotlin.math.floor
+import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -126,19 +128,33 @@ suspend fun generateProfileStoriesCardBitmap(
     profile.bio?.takeIf { it.isNotBlank() }?.let { bio ->
         cursorY += 16f
         val bioLines = ellipsizeShareLines(bio, bioPaint, canvasWidth - hPad * 2, 3)
-        bioLines.forEach { line ->
+        bioLines.forEachIndexed { index, line ->
             canvas.drawText(line, hPad, cursorY - bioPaint.ascent(), bioPaint)
-            cursorY += (bioPaint.descent() - bioPaint.ascent()) + 4f
+            cursorY += bioPaint.descent() - bioPaint.ascent()
+            if (index < bioLines.lastIndex) cursorY += 4f
         }
     }
 
-    // --- Grid ---
-    val gridTop = cursorY + spacer
+    // --- Grid (vertically centered between header and footer, matching iOS Spacers) ---
+    val headerBottom = cursorY
+    val logoSize = 56f
+    val wordmarkHeight = wordmarkPaint.descent() - wordmarkPaint.ascent()
+    val footerHeight = max(logoSize, wordmarkHeight)
+    val footerTop = canvasHeight - footerBottom - footerHeight
     val gridWidth = canvasWidth - hPad * 2f
     val maxGridHeight = 980f
     val layout = profileStoriesGridLayout(artworkBitmaps.size)
+    val tile = if (layout.displayCount == 0) {
+        0f
+    } else {
+        floor(min(gridWidth / layout.columns, maxGridHeight / layout.rows))
+    }
+    val gridHeight = if (layout.displayCount == 0) 420f else tile * layout.rows
+    val available = footerTop - headerBottom
+    val spacerEach = max(spacer, (available - gridHeight) / 2f)
+    val gridTop = headerBottom + spacerEach
 
-    val gridHeight = if (layout.displayCount == 0) {
+    if (layout.displayCount == 0) {
         drawEmptyArtworkGrid(
             canvas = canvas,
             context = context,
@@ -148,9 +164,7 @@ suspend fun generateProfileStoriesCardBitmap(
             centerX = canvasWidth / 2f,
             top = gridTop + 80f,
         )
-        420f
     } else {
-        val tile = floor(min(gridWidth / layout.columns, maxGridHeight / layout.rows))
         for (index in 0 until layout.displayCount) {
             val row = index / layout.columns
             val col = index % layout.columns
@@ -159,12 +173,10 @@ suspend fun generateProfileStoriesCardBitmap(
             drawAspectFillTile(canvas, artworkBitmaps[index], x, y, tile, paint)
             artworkBitmaps[index].recycle()
         }
-        tile * layout.rows
     }
 
-    // --- Footer (logo + wordmark) ---
+    // --- Footer (logo + wordmark), pinned above bottom inset like iOS ---
     val footerBottomY = canvasHeight - footerBottom
-    val logoSize = 56f
     val wordmark = "corus"
     val wordmarkWidth = wordmarkPaint.measureText(wordmark)
     val rowWidth = logoSize + 18f + wordmarkWidth
@@ -177,10 +189,11 @@ suspend fun generateProfileStoriesCardBitmap(
         top = footerBottomY - logoSize + brandMarkYOffset,
         size = logoSize,
         color = palette.ink,
-        paint = paint,
     )
 
-    val wordmarkBaseline = footerBottomY - (wordmarkPaint.descent() + wordmarkPaint.ascent()) / 2f - wordmarkPaint.descent()
+    // Center wordmark on the logo's un-offset mid-line (iOS HStack + logo offset).
+    val wordmarkCenterY = footerBottomY - logoSize / 2f
+    val wordmarkBaseline = wordmarkCenterY - (wordmarkPaint.ascent() + wordmarkPaint.descent()) / 2f
     canvas.drawText(wordmark, rowLeft + logoSize + 18f, wordmarkBaseline, wordmarkPaint)
 
     bitmap
@@ -213,7 +226,6 @@ private fun drawEmptyArtworkGrid(
             top = top + avatarSize * 0.3f,
             size = avatarSize * 0.4f,
             color = palette.ink,
-            paint = paint,
             alpha = 90,
         )
     }
@@ -239,23 +251,27 @@ private fun drawTintedLogo(
     top: Float,
     size: Float,
     color: Int,
-    paint: Paint,
     alpha: Int = 255,
 ) {
-    val logo = decodeShareDrawable(context, R.drawable.logo_no_background) ?: return
-    val scaled = Bitmap.createScaledBitmap(logo, size.toInt(), size.toInt(), true)
-    if (scaled != logo) logo.recycle()
+    // logo_no_background is a vector drawable — BitmapFactory cannot decode it.
+    val logo = decodeShareVectorDrawable(context, R.drawable.logo_no_background, size.toInt()) ?: return
     val tintedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         isFilterBitmap = true
         this.alpha = alpha
         colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
     }
-    canvas.drawBitmap(scaled, left, top, tintedPaint)
-    scaled.recycle()
+    canvas.drawBitmap(logo, left, top, tintedPaint)
+    logo.recycle()
 }
 
-private fun decodeShareDrawable(context: Context, resId: Int): Bitmap? = try {
-    BitmapFactory.decodeResource(context.resources, resId)
+/** Rasterize a vector (or bitmap) drawable to an ARGB bitmap at [size]×[size]. */
+private fun decodeShareVectorDrawable(context: Context, resId: Int, size: Int): Bitmap? = try {
+    val drawable = ContextCompat.getDrawable(context, resId)?.mutate() ?: return null
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val c = Canvas(bitmap)
+    drawable.setBounds(0, 0, size, size)
+    drawable.draw(c)
+    bitmap
 } catch (_: Exception) {
     null
 }

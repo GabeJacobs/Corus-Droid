@@ -67,11 +67,14 @@ import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.domain.TrailerPlaybackCoordinator
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.R
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ImmersiveFrostedBar
 import fm.corus.android.ui.components.InlineYouTubePlayer
+import fm.corus.android.ui.components.YouTubeIcon
+import fm.corus.android.ui.components.YouTubePlayerDismiss
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.youTubeVideoID
 import fm.corus.android.ui.components.LikedBySection
@@ -500,6 +503,9 @@ fun PostDetailScreen(
         onNavigateToArtist = onNavigateToArtist,
         onNavigateToAlbum = onNavigateToAlbum,
         onNavigateToDirector = onNavigateToDirector,
+        onAddToQueue = { post ->
+            viewModel.nowPlayingManager.addToUserQueue(post.toQueuedTrack())
+        },
     )
 }
 
@@ -648,6 +654,23 @@ private fun PostDetailAlbumArt(
     val cameraDistancePx = with(density) { 12.dp.toPx() } * 100f
     val showFront = flipRotation <= 90f
 
+    Column(modifier = Modifier.fillMaxWidth()) {
+    // Dismiss sits outside the player frame (YouTube RMF / III.C.1).
+    if (inlineTrailerVideoID != null) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = CorusSpacing.sm),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            YouTubePlayerDismiss(
+                onClose = {
+                    inlineTrailerVideoID = null
+                    TrailerPlaybackCoordinator.stop(post.id)
+                },
+            )
+        }
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -768,25 +791,6 @@ private fun PostDetailAlbumArt(
                                 TrailerPlaybackCoordinator.stop(post.id)
                             },
                         )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(CorusSpacing.md)
-                                .size(32.dp)
-                                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                                .clickable {
-                                    inlineTrailerVideoID = null
-                                    TrailerPlaybackCoordinator.stop(post.id)
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = stringResource(R.string.post_card_cd_close_trailer),
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
                     }
                 }
 
@@ -819,6 +823,7 @@ private fun PostDetailAlbumArt(
             }
         }
     }
+    } // Column wrapping dismiss + flip box
 }
 
 @Composable
@@ -869,20 +874,17 @@ private fun PostDetailSongInfo(
 
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
-        // Spotify or trailer button — YouTube red play icon, matching iOS
-        // Trailer button is only shown when a URL exists (matches iOS).
+        // Official YouTube Icon (brand.youtube) — opens the trailer on YouTube.
         if (post.isMovie) {
             if (!post.trailerURL.isNullOrBlank()) {
-                Image(
-                    painter = painterResource(R.drawable.ic_play_rectangle_fill),
+                YouTubeIcon(
+                    height = 28.dp,
                     contentDescription = stringResource(R.string.post_detail_cd_watch_trailer),
-                    modifier = Modifier
-                        .size(22.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onTrailerTap,
-                        ),
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onTrailerTap,
+                    ),
                 )
             }
         } else {

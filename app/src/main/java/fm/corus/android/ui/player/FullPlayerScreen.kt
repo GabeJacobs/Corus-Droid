@@ -1,6 +1,8 @@
 package fm.corus.android.ui.player
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -29,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
@@ -46,6 +49,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,9 +62,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -71,8 +75,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
 import fm.corus.android.R
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
@@ -94,6 +96,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import kotlin.math.abs
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FullPlayerScreen(
     nowPlayingManager: NowPlayingManager,
@@ -104,6 +107,7 @@ fun FullPlayerScreen(
     onPlaybackModeChange: (Boolean) -> Unit,
     remoteConfig: RemoteConfigService?,
     interactive: Boolean,
+    onContentAtTopChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit,
     onLikeTap: () -> Unit,
     onOpenInService: () -> Unit,
@@ -116,8 +120,11 @@ fun FullPlayerScreen(
     onSavePost: (postId: String) -> Unit = {},
     onOpenSongDetail: (fm.corus.android.data.model.CymbalTrack) -> Unit = {},
     onOpenFilmDetail: (fm.corus.android.data.model.CymbalPost) -> Unit = {},
+    /** Comment song/film attachments (inline full-player comments). */
+    onOpenFilmMovie: (fm.corus.android.data.model.CymbalMovie) -> Unit = {},
     onOpenArtist: ((ArtistPageRoute) -> Unit)? = null,
     onOpenAlbum: ((AlbumPageRoute) -> Unit)? = null,
+    onOpenDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)? = null,
     onComposeTrack: () -> Unit = {},
     onMentionTap: (String) -> Unit = {},
     onHashtagTap: (String) -> Unit = {},
@@ -135,6 +142,11 @@ fun FullPlayerScreen(
     val artistPagesEnabled = rememberArtistPagesEnabled()
     var isResolvingDestination by remember { mutableStateOf(false) }
     var destinationMissMessage by remember { mutableStateOf<String?>(null) }
+    // Drive sheet pull-down claim (ExpandingPlayerHost nested scroll).
+    val contentAtTop = !scroll.canScrollBackward
+    LaunchedEffect(contentAtTop) {
+        onContentAtTopChange(contentAtTop)
+    }
     LaunchedEffect(commentsRefreshSignal) {
         if (commentsRefreshSignal > 0) fullPlayerViewModel.refreshComments()
     }
@@ -203,6 +215,12 @@ fun FullPlayerScreen(
     val title = state.trackName.ifBlank { "Unknown" }
     val artist = state.artistName.ifBlank { "Unknown" }
     val likeable = !state.sourcePostId.isNullOrBlank()
+    val isLoadingSourcePost by fullPlayerViewModel.isLoadingSourcePost.collectAsState()
+    // iOS `isCatalogPlayback && composeTrackCandidate != null` — external Spotify /
+    // search / album plays with no source post get the blue + compose control.
+    val showsComposeButton = state.sourcePostId.isNullOrBlank() &&
+        !isLoadingSourcePost &&
+        !state.trackId.isNullOrBlank()
     val engagementStates = engagementManager?.states?.collectAsState()?.value ?: emptyMap()
     val isLiked = state.sourcePostId?.let { engagementStates[it]?.isLiked } ?: false
     val isPlaying = state.isPlaying
@@ -212,12 +230,14 @@ fun FullPlayerScreen(
         val artSide = minOf(maxOf(widthDp - 48.dp, 0.dp), 320.dp)
         val artPx = with(LocalDensity.current) { artSide.roundToPx().coerceAtLeast(1) }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scroll, enabled = interactive)
-                .padding(top = statusTop + 4.dp),
-        ) {
+        // No overscroll stretch/glow — first pull-down pixels belong to the sheet.
+        CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scroll, enabled = interactive)
+                    .padding(top = statusTop + 4.dp),
+            ) {
             FullPlayerTopChrome(
                 openInServiceTitle = openInServiceTitle,
                 showsArtistRow = fullPlayerShowsArtistRow(menuSource, artistPagesEnabled),
@@ -237,17 +257,20 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(artUrl)
-                    .size(artPx, artPx)
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .size(artSide)
-                    .clip(RoundedCornerShape(10.dp)),
+            val upcoming = remember(state.trackId, state.sourcePostId, state.hasNext) {
+                val q = nowPlayingManager.queueSnapshot()
+                val idx = nowPlayingManager.currentQueueIndexSnapshot() ?: return@remember null
+                q.getOrNull(idx + 1)
+            }
+            FullPlayerAlbumArt(
+                trackId = state.trackId,
+                url = artUrl,
+                upcomingTrackId = upcoming?.trackId,
+                upcomingUrl = upcoming?.albumArtLargeURL ?: upcoming?.albumArtURL,
+                side = artSide,
+                artPx = artPx,
+                slideForward = true,
+                modifier = Modifier.fillMaxWidth(),
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -299,10 +322,11 @@ fun FullPlayerScreen(
                 hasNext = hasNext,
                 isLiked = isLiked,
                 likeable = likeable,
+                showsComposeButton = showsComposeButton,
                 trackSource = state.source,
                 musicService = musicService,
                 interactive = interactive,
-                onPrevious = { nowPlayingManager.seek(0L) },
+                onPrevious = { nowPlayingManager.skipToPreviousOrRestart() },
                 onPlayPause = { nowPlayingManager.togglePlayPause() },
                 onNext = {
                     nowPlayingManager.skipToNext(
@@ -310,6 +334,7 @@ fun FullPlayerScreen(
                     )
                 },
                 onLike = onLikeTap,
+                onCompose = onComposeTrack,
                 onOpenInService = onOpenInService,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -339,6 +364,45 @@ fun FullPlayerScreen(
                 onSaveTap = onSavePost,
                 onOpenSongDetail = onOpenSongDetail,
                 onOpenFilmDetail = onOpenFilmDetail,
+                // Inline comment attachments used these defaults (no-ops) before —
+                // wire through the same collapse+navigate destinations as iOS.
+                onNavigateToSong = onOpenSongDetail,
+                onNavigateToFilm = onOpenFilmMovie,
+                onNavigateToArtist = onOpenArtist?.let { open ->
+                    { artist ->
+                        open(
+                            ArtistPageRoute(
+                                artistId = artist.artistId,
+                                name = artist.artistName,
+                                imageUrl = artist.artistImageURL,
+                            ),
+                        )
+                    }
+                },
+                onNavigateToAlbum = onOpenAlbum?.let { open ->
+                    { album ->
+                        open(
+                            AlbumPageRoute(
+                                albumId = album.albumId,
+                                title = album.albumTitle,
+                                artist = album.albumArtistName,
+                                coverUrl = album.albumCoverURL,
+                                year = album.albumYear?.toIntOrNull(),
+                            ),
+                        )
+                    }
+                },
+                onNavigateToDirector = onOpenDirector?.let { open ->
+                    { director ->
+                        open(
+                            fm.corus.android.ui.navigation.DirectorPageRoute(
+                                directorId = director.directorId,
+                                name = director.directorName,
+                                imageUrl = director.directorImageURL,
+                            ),
+                        )
+                    }
+                },
                 onComposeTrack = onComposeTrack,
                 onMentionTap = onMentionTap,
                 onHashtagTap = onHashtagTap,
@@ -347,6 +411,7 @@ fun FullPlayerScreen(
             )
 
             Spacer(modifier = Modifier.height(48.dp))
+        }
         }
 
         val bannerText = when {
@@ -618,6 +683,7 @@ private fun FullPlayerTransport(
     hasNext: Boolean,
     isLiked: Boolean,
     likeable: Boolean,
+    showsComposeButton: Boolean,
     trackSource: TrackSource,
     musicService: MusicService,
     interactive: Boolean,
@@ -625,6 +691,7 @@ private fun FullPlayerTransport(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onLike: () -> Unit,
+    onCompose: () -> Unit,
     onOpenInService: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -632,17 +699,37 @@ private fun FullPlayerTransport(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (likeable) {
-            IconButton(onClick = onLike, enabled = interactive, modifier = Modifier.size(44.dp)) {
-                Icon(
-                    imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = if (isLiked) "Unlike" else "Like",
-                    tint = if (isLiked) CorusColors.Like else CorusColors.Text,
-                    modifier = Modifier.size(26.dp),
-                )
+        when {
+            likeable -> {
+                IconButton(onClick = onLike, enabled = interactive, modifier = Modifier.size(44.dp)) {
+                    Icon(
+                        imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = if (isLiked) "Unlike" else "Like",
+                        tint = if (isLiked) CorusColors.Like else CorusColors.Text,
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
             }
-        } else {
-            Spacer(modifier = Modifier.size(44.dp))
+            showsComposeButton -> {
+                // iOS FullPlayerTransport leadingActionButton — accent + circle.
+                IconButton(onClick = onCompose, enabled = interactive, modifier = Modifier.size(44.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(CorusColors.Accent),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = stringResource(R.string.full_player_post),
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
+            else -> Spacer(modifier = Modifier.size(44.dp))
         }
 
         Spacer(modifier = Modifier.weight(1f))

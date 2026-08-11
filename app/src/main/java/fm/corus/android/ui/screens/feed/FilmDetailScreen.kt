@@ -59,6 +59,7 @@ import fm.corus.android.ui.components.currentStatusBarTopPx
 import fm.corus.android.ui.components.extendIntoStatusBar
 import fm.corus.android.ui.components.immersiveCollapseProgress
 import fm.corus.android.ui.components.InlineYouTubePlayer
+import fm.corus.android.ui.components.YouTubePlayerDismiss
 import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.ToastManager
@@ -337,24 +338,21 @@ fun FilmDetailScreen(
                     val playingTrailer = inlineTrailerVideoID
                     if (playingTrailer != null) {
                         // Playing: a wide 16:9 player spanning the content width —
-                        // much bigger than the 220dp poster. The feed keeps the
-                        // poster-frame size; this detail page has room to go wide.
-                        Box(
+                        // much bigger than the 220dp poster. Dismiss sits outside
+                        // the player frame (YouTube RMF / III.C.1).
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = CorusSpacing.lg)
-                                .aspectRatio(16f / 9f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color.Black),
+                                .padding(horizontal = CorusSpacing.lg),
                         ) {
-                            // key() on the id so a new trailer disposes the old
-                            // WebView and creates a fresh one (mirrors web/iOS).
-                            key(playingTrailer) {
-                                InlineYouTubePlayer(
-                                    videoID = playingTrailer,
-                                    modifier = Modifier.fillMaxSize(),
-                                    showControls = true,
-                                    onEnded = {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = CorusSpacing.sm),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                YouTubePlayerDismiss(
+                                    onClose = {
                                         inlineTrailerVideoID = null
                                         TrailerPlaybackCoordinator.stop(trailerSlotId)
                                     },
@@ -362,23 +360,24 @@ fun FilmDetailScreen(
                             }
                             Box(
                                 modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(CorusSpacing.sm)
-                                    .size(30.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black.copy(alpha = 0.55f))
-                                    .clickable {
-                                        inlineTrailerVideoID = null
-                                        TrailerPlaybackCoordinator.stop(trailerSlotId)
-                                    },
-                                contentAlignment = Alignment.Center,
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black),
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = stringResource(R.string.feed_cd_back),
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp),
-                                )
+                                // key() on the id so a new trailer disposes the old
+                                // WebView and creates a fresh one (mirrors web/iOS).
+                                key(playingTrailer) {
+                                    InlineYouTubePlayer(
+                                        videoID = playingTrailer,
+                                        modifier = Modifier.fillMaxSize(),
+                                        showControls = true,
+                                        onEnded = {
+                                            inlineTrailerVideoID = null
+                                            TrailerPlaybackCoordinator.stop(trailerSlotId)
+                                        },
+                                    )
+                                }
                             }
                         }
                     } else {

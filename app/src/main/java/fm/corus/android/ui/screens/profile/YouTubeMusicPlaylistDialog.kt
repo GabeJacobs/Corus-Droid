@@ -34,7 +34,7 @@ fun YouTubeMusicPlaylistDialog(
         if (offersFullExport) {
             add(
                 CorusPromptButton(
-                    label = "Quick Spotify playlist · 75 songs",
+                    label = "Quick Spotify playlist · most recent 75",
                     emphasized = true,
                     onClick = onQuick,
                 )

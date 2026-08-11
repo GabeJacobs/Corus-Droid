@@ -103,6 +103,7 @@ import fm.corus.android.data.model.MediaType
 import fm.corus.android.domain.FeedModeOrder
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FrostedStatusStrip
 import fm.corus.android.ui.components.LocalBottomBarHeight
@@ -1161,6 +1162,9 @@ fun FeedScreen(
         onNavigateToArtist = onNavigateToArtist,
         onNavigateToAlbum = onNavigateToAlbum,
         onNavigateToDirector = onNavigateToDirector,
+        onAddToQueue = { post ->
+            viewModel.nowPlayingManager.addToUserQueue(post.toQueuedTrack())
+        },
     )
 
     // ── Film Info Sheet ──

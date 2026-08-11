@@ -13,6 +13,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlinx.coroutines.delay
@@ -63,6 +65,11 @@ object ToastManager {
 
 private data class DisplayedToast(val id: Long, val text: String, val isLoading: Boolean)
 
+/**
+ * Host for [ToastManager] messages. Uses a [Popup] so the capsule renders above
+ * the expanding player / tab bar (and remains visible after bottom sheets close),
+ * matching iOS's confirmation toasts.
+ */
 @Composable
 fun ToastHost(
     modifier: Modifier = Modifier,
@@ -93,33 +100,42 @@ fun ToastHost(
     val toast = current
     LaunchedEffect(toast?.id, toast?.isLoading, toast?.text) {
         if (toast != null && !toast.isLoading && visible) {
-            delay(2000)
+            // iOS ToastOverlay on Add to Queue holds ~1.4s before fade-out.
+            delay(1400)
             visible = false
             delay(300) // wait for exit animation
             if (current?.id == toast.id) current = null
         }
     }
 
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        AnimatedVisibility(
-            visible = visible,
-            enter = fadeIn() + slideInVertically { -it / 2 },
-            exit = fadeOut() + slideOutVertically { -it / 2 },
+    // Keep a no-op layout slot so callers can still pass a modifier; the
+    // visible toast is windowed via Popup so z-order isn't tied to Scaffold.
+    Box(modifier = modifier)
+
+    if (toast != null) {
+        Popup(
+            alignment = Alignment.TopCenter,
+            properties = PopupProperties(
+                focusable = false,
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false,
+            ),
         ) {
-            toast?.let {
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn() + slideInVertically { -it / 2 },
+                exit = fadeOut() + slideOutVertically { -it / 2 },
+            ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
                     modifier = Modifier
-                        .padding(top = CorusSpacing.lg)
+                        .padding(top = 72.dp)
                         .clip(RoundedCornerShape(50))
                         .background(Color.Black.copy(alpha = 0.7f))
                         .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
                 ) {
-                    if (it.isLoading) {
+                    if (toast.isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(14.dp),
                             strokeWidth = 2.dp,
@@ -127,7 +143,7 @@ fun ToastHost(
                         )
                     }
                     Text(
-                        text = it.text,
+                        text = toast.text,
                         style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
                         color = Color.White,
                     )

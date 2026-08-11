@@ -117,7 +117,13 @@ fun buildMentionAnnotatedString(
                 }
             } else {
                 pushStringAnnotation(tag = HASHTAG_TAG, annotation = token.removePrefix("#"))
-                withStyle(baseStyle.copy(color = linkColor)) {
+                // Same weight as @mentions — accent alone washed out next to bold handles.
+                withStyle(
+                    baseStyle.copy(
+                        color = linkColor,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                ) {
                     append(token)
                 }
                 pop()
@@ -183,7 +189,12 @@ fun buildCaptionAnnotatedString(
                 }
             } else {
                 pushStringAnnotation(tag = HASHTAG_TAG, annotation = token.removePrefix("#"))
-                withStyle(baseStyle.copy(color = CorusColors.Accent)) {
+                withStyle(
+                    baseStyle.copy(
+                        color = CorusColors.Accent,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                ) {
                     append(token)
                 }
                 pop()

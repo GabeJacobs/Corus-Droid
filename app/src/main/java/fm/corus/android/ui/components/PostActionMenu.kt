@@ -2,8 +2,8 @@ package fm.corus.android.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Block
@@ -13,7 +13,6 @@ import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MovieCreation
@@ -38,6 +37,15 @@ import fm.corus.android.ui.theme.CorusSpacing
 /**
  * Bottom sheet menu with actions for a post.
  * Shows different options based on whether the current user owns the post.
+ *
+ * Layout mirrors iOS `PostMenuItems` — most important at top, grouped by purpose:
+ *   1. Discover          — Go to Song / Film, Artist, Album / Director, Back Cover
+ *   ── divider ──
+ *   2. Playback (tracks) — Play in service, Add to Queue
+ *   ── divider ──
+ *   3. Act on the post   — Save / Edit Caption, Share
+ *   ── divider ──
+ *   4. Social / danger   — Report + Block (others) / Delete (own)
  */
 @Composable
 fun PostActionMenu(
@@ -46,6 +54,7 @@ fun PostActionMenu(
     musicService: MusicService = MusicService.SPOTIFY,
     onDismiss: () -> Unit,
     onOpenInService: () -> Unit = {},
+    onAddToQueue: () -> Unit = {},
     onViewSongPage: () -> Unit = {},
     onViewFilmPage: () -> Unit = {},
     onViewBackCover: () -> Unit = {},
@@ -85,28 +94,7 @@ fun PostActionMenu(
                 .padding(top = CorusSpacing.sm),
         )
 
-        // Open in the viewer's preferred music service (tracks only). Locks to
-        // SoundCloud / Apple Music for those track sources; otherwise honors the
-        // selected service (Spotify / Apple Music / TIDAL / Deezer). Mirrors iOS.
-        if (!isMovie) {
-            val openLabel = when (post.track.source) {
-                TrackSource.SOUNDCLOUD -> stringResource(R.string.post_menu_open_soundcloud)
-                TrackSource.AUDIOMACK -> stringResource(R.string.post_menu_open_audiomack)
-                TrackSource.TIDAL -> stringResource(R.string.post_menu_open_tidal)
-                TrackSource.DEEZER -> stringResource(R.string.post_menu_open_deezer)
-                TrackSource.APPLEMUSIC ->
-                    stringResource(R.string.post_menu_play_in_service, MusicService.APPLE_MUSIC.displayLabel)
-                else ->
-                    stringResource(R.string.post_menu_play_in_service, musicService.displayLabel)
-            }
-            MenuRow(
-                icon = Icons.Filled.PlayArrow,
-                label = openLabel,
-                onClick = { onOpenInService(); onDismiss() },
-            )
-        }
-
-        // Go to Song / Go to Film (+ Go to Director for movies, behind the flag)
+        // ── 1. Discover ──
         if (isMovie) {
             MenuRow(
                 icon = Icons.Filled.Movie,
@@ -128,9 +116,6 @@ fun PostActionMenu(
             )
         }
 
-        // Go to Artist / Go to Album (tracks only, behind artist_pages_enabled).
-        // Same gate as the tappable artist subtitle on the post card. Films never
-        // get these rows — they route to director/film pages elsewhere.
         if (showGoToArtistRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
             MenuRow(
                 icon = Icons.Filled.Person,
@@ -146,9 +131,6 @@ fun PostActionMenu(
             )
         }
 
-        // View Back / Front Cover (tracks only, when enabled via remote config).
-        // Sits last in the discover group, right after Go to Album, to mirror
-        // iOS's "…" menu order.
         if (!isMovie && showBackCoverOption) {
             MenuRow(
                 icon = Icons.Outlined.Style,
@@ -160,12 +142,43 @@ fun PostActionMenu(
             )
         }
 
-        // ── Act on the post: Edit Caption (own) + Share ──
-        // A divider splits the discover rows above from the post actions below.
-        // This mirrors iOS's three-section menu: discover | act | destructive.
-        // Repost and Copy Link intentionally live only on the post card and share
-        // sheet (like iOS) — not in this menu.
-        HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(horizontal = CorusSpacing.lg))
+        // ── 2. Playback (tracks) — under View Back Cover ──
+        if (!isMovie) {
+            HorizontalDivider(
+                color = CorusColors.Divider,
+                modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+            )
+
+            val openLabel = when (post.track.source) {
+                TrackSource.SOUNDCLOUD -> stringResource(R.string.post_menu_open_soundcloud)
+                TrackSource.AUDIOMACK -> stringResource(R.string.post_menu_open_audiomack)
+                TrackSource.TIDAL -> stringResource(R.string.post_menu_open_tidal)
+                TrackSource.DEEZER -> stringResource(R.string.post_menu_open_deezer)
+                TrackSource.APPLEMUSIC ->
+                    stringResource(R.string.post_menu_play_in_service, MusicService.APPLE_MUSIC.displayLabel)
+                else ->
+                    stringResource(R.string.post_menu_play_in_service, musicService.displayLabel)
+            }
+            MenuRow(
+                icon = Icons.Filled.PlayArrow,
+                label = openLabel,
+                onClick = { onOpenInService(); onDismiss() },
+            )
+
+            if (showAddToQueueRow(post)) {
+                MenuRow(
+                    icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    label = stringResource(R.string.post_menu_add_to_queue),
+                    onClick = { onAddToQueue(); onDismiss() },
+                )
+            }
+        }
+
+        // ── 3. Act on the post ──
+        HorizontalDivider(
+            color = CorusColors.Divider,
+            modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+        )
 
         if (isMine) {
             MenuRow(
@@ -174,9 +187,6 @@ fun PostActionMenu(
                 onClick = { onEditCaption(); onDismiss() },
             )
         } else {
-            // Save / Unsave — other people's posts only (own posts show Edit
-            // Caption above). Same bookmark toggle as the post card, mirroring
-            // iOS's action section.
             MenuRow(
                 icon = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                 label = stringResource(
@@ -192,13 +202,13 @@ fun PostActionMenu(
             onClick = { onSharePost(); onDismiss() },
         )
 
-        // ── Destructive / social section ──
-        // Own posts: Delete. Other people's human-authored posts: Report + Block.
-        // Isolated below its own divider so the destructive row stands apart,
-        // matching iOS where "Delete Corus" sits alone at the bottom.
+        // ── 4. Destructive / social ──
         val showReportBlockActions = showPostReportBlockActions(isMine = isMine, authorIsBot = post.user.isBot)
         if (isMine || showReportBlockActions) {
-            HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(horizontal = CorusSpacing.lg))
+            HorizontalDivider(
+                color = CorusColors.Divider,
+                modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+            )
         }
 
         if (isMine) {
@@ -231,6 +241,14 @@ fun PostActionMenu(
  */
 internal fun showPostReportBlockActions(isMine: Boolean, authorIsBot: Boolean): Boolean =
     !isMine && !authorIsBot
+
+/**
+ * TIDAL/Deezer exclusives are link-out only — nothing to queue in-app (iOS).
+ */
+internal fun showAddToQueueRow(post: CymbalPost): Boolean =
+    !post.isMovie &&
+        post.track.source != TrackSource.TIDAL &&
+        post.track.source != TrackSource.DEEZER
 
 /**
  * Whether the "Go to Artist" row shows: track posts only (never films) that

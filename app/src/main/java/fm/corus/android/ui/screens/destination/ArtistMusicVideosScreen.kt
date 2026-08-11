@@ -111,11 +111,13 @@ fun ArtistMusicVideosScreen(
                 }
             }
 
-            val activeYouTubeId = activeVideo?.youtubeId
-            if (activeYouTubeId != null) {
+            val active = activeVideo
+            val activeYouTubeId = active?.youtubeId
+            if (active != null && activeYouTubeId != null) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     MusicVideoPlayerPanel(
                         youtubeId = activeYouTubeId,
+                        title = active.title,
                         onClose = { activeVideo = null },
                         modifier = Modifier.padding(bottom = CorusSpacing.sm),
                     )

@@ -1,6 +1,7 @@
 package fm.corus.android.ui.components
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import org.junit.Assert.assertEquals
@@ -359,6 +360,17 @@ class MentionTextTest {
         val hashtagStart = result.text.indexOf("#music")
         assertEquals(frostLink, result.spanStyles.first { it.start == mentionStart }.item.color)
         assertEquals(frostLink, result.spanStyles.first { it.start == hashtagStart }.item.color)
+    }
+
+    @Test
+    fun `buildMentionAnnotatedString bolds hashtags like mentions`() {
+        val result = buildMentionAnnotatedString("hey @gideon #music")
+        val mentionStart = result.text.indexOf("@gideon")
+        val hashtagStart = result.text.indexOf("#music")
+        val mentionWeight = result.spanStyles.first { it.start == mentionStart }.item.fontWeight
+        val hashtagWeight = result.spanStyles.first { it.start == hashtagStart }.item.fontWeight
+        assertEquals(FontWeight.ExtraBold, mentionWeight)
+        assertEquals(FontWeight.ExtraBold, hashtagWeight)
     }
 
     // ── bioTruncationCutoff ──

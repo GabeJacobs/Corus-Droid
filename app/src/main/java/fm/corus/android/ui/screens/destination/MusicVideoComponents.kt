@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -30,13 +30,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.MusicVideo
 import fm.corus.android.ui.components.InlineYouTubePlayer
+import fm.corus.android.ui.components.YouTubePlayerDismiss
+import fm.corus.android.ui.components.openYouTubeWatch
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -63,10 +67,12 @@ fun MusicVideoRail(
 
         // Inline player panel above the rail (mirrors web): the tapped card's
         // FULL video plays here, session never leaves the app.
-        val activeYouTubeId = activeVideo?.youtubeId
-        if (activeYouTubeId != null) {
+        val active = activeVideo
+        val activeYouTubeId = active?.youtubeId
+        if (active != null && activeYouTubeId != null) {
             MusicVideoPlayerPanel(
                 youtubeId = activeYouTubeId,
+                title = active.title,
                 onClose = onClosePlayer,
                 modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
             )
@@ -93,6 +99,7 @@ fun MusicVideoRail(
 /**
  * One music-video card (16:9 thumbnail with a play badge + title +
  * year·duration). Shared by the artist-page rail and the "See all" grid.
+ * Titles for YouTube-matched videos open the YouTube watch page (III.I.4).
  */
 @Composable
 fun MusicVideoCard(
@@ -101,13 +108,15 @@ fun MusicVideoCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.clickable(onClick = onClick)) {
+    val context = LocalContext.current
+    Column(modifier = modifier) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
                 .background(CorusColors.CardBackground)
+                .clickable(onClick = onClick)
                 .then(
                     if (isActive) {
                         Modifier.border(
@@ -147,12 +156,19 @@ fun MusicVideoCard(
             }
         }
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        val youtubeId = video.youtubeId
         Text(
             text = video.title,
             style = CorusFont.captionMedium,
             color = CorusColors.Text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            textDecoration = if (youtubeId != null) TextDecoration.Underline else TextDecoration.None,
+            modifier = if (youtubeId != null) {
+                Modifier.clickable { openYouTubeWatch(context, youtubeId) }
+            } else {
+                Modifier
+            },
         )
         Text(
             text = video.yearAndDurationLabel,
@@ -166,51 +182,58 @@ fun MusicVideoCard(
 
 /**
  * The inline 16:9 YouTube panel shared by the rail and grid. Plays the FULL
- * official video via the bare-embed player (never `new YT.Player`), with a
- * close affordance.
+ * official video via the bare-embed player (never `new YT.Player`). Dismiss
+ * and title sit outside the player frame (YouTube RMF / III.C.1 / III.I.4).
  */
 @Composable
 fun MusicVideoPlayerPanel(
     youtubeId: String,
+    title: String,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(16f / 9f)
-            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
-            .background(Color.Black),
-    ) {
-        // key() on the id so tapping a DIFFERENT video disposes the old WebView
-        // and creates a fresh one for the new id (mirrors web's keyed iframe).
-        // InlineYouTubePlayer loads the embed once in its factory and never
-        // reloads on a videoID change, so without this the first video keeps
-        // playing.
-        key(youtubeId) {
-            InlineYouTubePlayer(
-                videoID = youtubeId,
-                modifier = Modifier.fillMaxSize(),
-                showControls = true,
-                onEnded = onClose,
+    val context = LocalContext.current
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = CorusSpacing.sm),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = CorusFont.captionMedium,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textDecoration = TextDecoration.Underline,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { openYouTubeWatch(context, youtubeId) },
             )
+            YouTubePlayerDismiss(onClose = onClose)
         }
         Box(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(CorusSpacing.sm)
-                .size(30.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(onClick = onClose),
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+                .background(Color.Black),
         ) {
-            Icon(
-                imageVector = Icons.Filled.Close,
-                contentDescription = stringResource(R.string.feed_cd_back),
-                tint = Color.White,
-                modifier = Modifier.size(16.dp),
-            )
+            // key() on the id so tapping a DIFFERENT video disposes the old WebView
+            // and creates a fresh one for the new id (mirrors web's keyed iframe).
+            // InlineYouTubePlayer loads the embed once in its factory and never
+            // reloads on a videoID change, so without this the first video keeps
+            // playing.
+            key(youtubeId) {
+                InlineYouTubePlayer(
+                    videoID = youtubeId,
+                    modifier = Modifier.fillMaxSize(),
+                    showControls = true,
+                    onEnded = onClose,
+                )
+            }
         }
     }
 }

@@ -91,6 +91,26 @@ internal fun audiomackIdFromTrackId(trackId: String): String? =
     trackId.takeIf { it.startsWith("amk:") }?.removePrefix("amk:")?.takeIf { it.isNotEmpty() }
 
 /**
+ * iOS Previous: restart current when >3s in (or no prior queue item); otherwise
+ * skip to the previous entry. [positionMs] is Android ScrubberClock time.
+ */
+internal fun shouldRestartInsteadOfSkipPrevious(positionMs: Long, queueIndex: Int?): Boolean {
+    if (positionMs > 3_000L) return true
+    if (queueIndex == null || queueIndex <= 0) return true
+    return false
+}
+
+/** Index just after Now Playing and any contiguous user-queued block. */
+internal fun userQueueInsertionIndex(queue: List<QueuedTrack>, currentIndex: Int?): Int {
+    val idx = currentIndex ?: return queue.size
+    var insertAt = idx + 1
+    while (insertAt < queue.size && queue[insertAt].isUserQueued) {
+        insertAt++
+    }
+    return insertAt
+}
+
+/**
  * Whether a play tap for [tappedTrackId] coming from post [tappedSourcePostId]
  * targets the SAME now-playing (or loading) entry given by [activeTrackId] /
  * [activeSourcePostId] — the only case that should toggle pause/play instead of
@@ -151,6 +171,12 @@ data class QueuedTrack(
     /** Where this track was played from, when it came from an artist/album page.
      *  See [CatalogPlaybackOrigin]. */
     val catalogOrigin: CatalogPlaybackOrigin? = null,
+    /**
+     * Explicitly added via “Add to Queue”. These sit after Now Playing (and
+     * any other user-queued tracks) and play before auto/context Up Next.
+     * Mirrors iOS `QueuedTrack.isUserQueued`.
+     */
+    val isUserQueued: Boolean = false,
 )
 
 /**
@@ -615,9 +641,64 @@ class NowPlayingManager @Inject constructor(
         playingTrackId: String,
         playingSourcePostId: String?,
     ) {
+        val preserved = snapshotUserQueuedUpNext()
         this.queue = queue
         currentQueueIndex = queue.indexOfActive(playingTrackId, playingSourcePostId)
+        restoreUserQueuedUpNext(preserved)
         _state.value = _state.value.copy(hasNext = computeHasNext())
+    }
+
+    /**
+     * Spotify-style manual queue: insert after Now Playing (and after any
+     * already user-queued tracks). Plays before the auto/context Up Next.
+     * If nothing is playing, starts playback with this track.
+     * Mirrors iOS `NowPlayingManager.addToUserQueue`.
+     */
+    fun addToUserQueue(track: QueuedTrack): Boolean {
+        if (track.source == TrackSource.TIDAL || track.source == TrackSource.DEEZER) {
+            return false
+        }
+        var item = track.copy(isUserQueued = true)
+        if (!_state.value.hasActiveTrack) {
+            item = item.copy(isUserQueued = false)
+            managerScope.launch { play(item, listOf(item)) }
+            return true
+        }
+        val insertAt = userQueueInsertionIndex(queue, currentQueueIndex)
+        val mutable = queue.toMutableList()
+        mutable.add(insertAt, item)
+        queue = mutable
+        _state.value = _state.value.copy(hasNext = computeHasNext())
+        return true
+    }
+
+    /** User-queued tracks still waiting after the current song. */
+    private fun snapshotUserQueuedUpNext(): List<QueuedTrack> {
+        val idx = currentQueueIndex ?: return queue.filter { it.isUserQueued }
+        if (idx + 1 >= queue.size) return emptyList()
+        return queue.subList(idx + 1, queue.size).filter { it.isUserQueued }
+    }
+
+    /** Re-insert preserved user-queue items after Now Playing. */
+    private fun restoreUserQueuedUpNext(items: List<QueuedTrack>) {
+        if (items.isEmpty()) return
+        val insertAt = userQueueInsertionIndex(queue, currentQueueIndex)
+        val existingKeys = queue.filter { it.isUserQueued }.map { userQueueKey(it) }.toSet()
+        val unique = items.filter { userQueueKey(it) !in existingKeys }
+        if (unique.isEmpty()) return
+        val mutable = queue.toMutableList()
+        mutable.addAll(insertAt, unique)
+        queue = mutable
+    }
+
+    private fun userQueueKey(track: QueuedTrack): String =
+        "${track.trackId}|${track.sourcePostId.orEmpty()}"
+
+    /** Clear the user-queue flag when a manually queued entry becomes Now Playing. */
+    private fun clearUserQueuedFlagAt(index: Int) {
+        val track = queue.getOrNull(index) ?: return
+        if (!track.isUserQueued) return
+        queue = queue.toMutableList().also { it[index] = track.copy(isUserQueued = false) }
     }
 
     /**
@@ -726,6 +807,7 @@ class NowPlayingManager @Inject constructor(
 
     fun jumpToQueueIndex(index: Int) {
         if (index !in queue.indices) return
+        clearUserQueuedFlagAt(index)
         val track = queue[index]
         currentQueueIndex = index
         _state.value = _state.value.copy(hasNext = computeHasNext())
@@ -1366,11 +1448,13 @@ class NowPlayingManager @Inject constructor(
 
     /** Play a track that's part of a queue — enables autoplay and the mini-player next button. */
     suspend fun play(track: QueuedTrack, queue: List<QueuedTrack>) {
+        val preserved = snapshotUserQueuedUpNext()
         this.queue = queue
         this.currentQueueIndex = queue.indexOfActive(track.trackId, track.sourcePostId)
         // New playback context — drop any previous paginated-queue hook until caller re-wires it.
         this.queueHasMore = false
         this.loadMoreQueue = null
+        restoreUserQueuedUpNext(preserved)
         playInternal(track)
     }
 
@@ -1390,10 +1474,12 @@ class NowPlayingManager @Inject constructor(
         val currentTrackId = _state.value.trackId
         // Don't clobber an unrelated now-playing context (e.g. track started from search).
         if (currentTrackId != null && newQueue.none { it.trackId == currentTrackId }) return
+        val preserved = snapshotUserQueuedUpNext()
         queue = newQueue
         queueHasMore = hasMore
         loadMoreQueue = loadMore
         currentQueueIndex = newQueue.indexOfActive(currentTrackId, _state.value.sourcePostId)
+        restoreUserQueuedUpNext(preserved)
         _state.value = _state.value.copy(hasNext = computeHasNext())
     }
 
@@ -1705,6 +1791,24 @@ class NowPlayingManager @Inject constructor(
         advanceToNext()
     }
 
+    /**
+     * Restart if >3s into the track; otherwise jump to the previous queue item.
+     * Mirrors iOS `NowPlayingManager.skipToPreviousOrRestart` (iOS ScrubberClock
+     * seconds → Android ms).
+     */
+    fun skipToPreviousOrRestart() {
+        val positionMs = ScrubberClock.time.value
+        val idx = currentQueueIndex
+        if (shouldRestartInsteadOfSkipPrevious(positionMs, idx)) {
+            seek(0L)
+            return
+        }
+        val previousIndex = idx!! - 1
+        manualSkipGuardUntil = System.currentTimeMillis() + 1_000
+        resetScrubberPosition()
+        jumpToQueueIndex(previousIndex)
+    }
+
     fun shouldRouteSpotifyFeedSkip(preferPreviewOnNext: Boolean = false): Boolean {
         if (!shouldChainFullPlaybackOnSkip(preferPreviewOnNext)) return false
         if (musicServicePreference.current.value != MusicService.SPOTIFY) return false
@@ -1755,10 +1859,11 @@ class NowPlayingManager @Inject constructor(
         spotifyCorusRequestedUri = nextUri
         spotifyCorusRequestedUntil = System.currentTimeMillis() + 8000
         armSpotifyFastPathSkipGuard(expectedURI = nextUri)
+        clearUserQueuedFlagAt(idx + 1)
         currentQueueIndex = idx + 1
-        updateStateForTrack(next)
+        updateStateForTrack(queue[idx + 1])
         managerScope.launch {
-            playViaSpotifyConnect(spotifyPendingPlay(next), replaceSpotifyQueue = true)
+            playViaSpotifyConnect(spotifyPendingPlay(queue[idx + 1]), replaceSpotifyQueue = true)
         }
     }
 
@@ -1778,8 +1883,9 @@ class NowPlayingManager @Inject constructor(
         val localNext = queue.getOrNull(idx + 1)
         if (localNext != null) {
             managerScope.launch {
+                clearUserQueuedFlagAt(idx + 1)
                 currentQueueIndex = idx + 1
-                playInternal(localNext, userInitiated = false)
+                playInternal(queue[idx + 1], userInitiated = false)
             }
             return
         }
@@ -1874,6 +1980,17 @@ class NowPlayingManager @Inject constructor(
 
             override fun hasNextMediaItem(): Boolean = computeHasNext()
 
+            override fun seekToPrevious() {
+                this@NowPlayingManager.skipToPreviousOrRestart()
+            }
+
+            override fun seekToPreviousMediaItem() = seekToPrevious()
+
+            override fun hasPreviousMediaItem(): Boolean {
+                val idx = currentQueueIndex ?: return false
+                return idx > 0
+            }
+
             override fun isPlaying(): Boolean {
                 if (isSpotifyConnectPlaying) return spotifyPlaybackService.isPlaying.value
                 return super.isPlaying()
@@ -1907,6 +2024,8 @@ class NowPlayingManager @Inject constructor(
                     .addAll(super.getAvailableCommands())
                     .add(Player.COMMAND_SEEK_TO_NEXT)
                     .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                    .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                    .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
                 if (!currentTrackIsSoundCloud) {
                     builder.remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
                 }

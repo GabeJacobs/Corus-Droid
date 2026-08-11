@@ -1,6 +1,5 @@
 package fm.corus.android.ui.player
 
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -11,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
@@ -36,6 +36,13 @@ class PlayerExpansionState internal constructor(
 ) {
     var travelPx by mutableFloatStateOf(0f)
         private set
+
+    /**
+     * Whether the full-player scroll content is at (or past) its top edge.
+     * Updated by [FullPlayerScreen] so nested-scroll can claim pull-down
+     * immediately — matching iOS scroll-top handoff.
+     */
+    var isContentAtTop by mutableStateOf(true)
 
     val currentValue: PlayerSheetValue get() = draggableState.currentValue
     val targetValue: PlayerSheetValue get() = draggableState.targetValue
@@ -111,8 +118,10 @@ fun rememberPlayerExpansionState(
     initiallyExpanded: Boolean = false,
 ): PlayerExpansionState {
     val density = LocalDensity.current
-    // iOS: velocity snap at 850 pt/s; positional threshold ~0.35 of travel.
-    val velocityThresholdPx = with(density) { 850.dp.toPx() }
+    // Match iOS PlayerSlideContainer: velocity snap at 550 pt/s; close at/under
+    // ~50% expansion (iOS `shouldOpen = projected > 0.5`). Use 0.45 so a slow
+    // drag that reaches visual halfway still dismisses instead of springing open.
+    val velocityThresholdPx = with(density) { 550.dp.toPx() }
     val decay = rememberSplineBasedDecay<Float>()
     val draggable = remember {
         AnchoredDraggableState(
@@ -121,12 +130,12 @@ fun rememberPlayerExpansionState(
             } else {
                 PlayerSheetValue.Collapsed
             },
-            positionalThreshold = { distance -> distance * 0.35f },
+            positionalThreshold = { distance -> distance * 0.45f },
             velocityThreshold = { velocityThresholdPx },
-            // iOS drag settle: dampingRatio 0.88, ~0.36s.
+            // iOS settle: dampingRatio 0.90, ~0.44s.
             snapAnimationSpec = spring(
-                dampingRatio = 0.88f,
-                stiffness = Spring.StiffnessMediumLow,
+                dampingRatio = 0.90f,
+                stiffness = 350f,
             ),
             decayAnimationSpec = decay,
         )
@@ -144,7 +153,14 @@ internal fun fullOpacity(expansion: Float): Float {
     return ((t - 0.2f) / 0.45f).coerceIn(0f, 1f)
 }
 
-internal fun fullPlayerInteractive(expansion: Float): Boolean = expansion > 0.55f
+/**
+ * Full-player chrome receives hits when mostly open, and also for the whole
+ * drag/settle so scroll → sheet handoff isn't cut off at ~45% travel (that used
+ * to disable [verticalScroll] before the collapse threshold and snap the sheet
+ * back open).
+ */
+internal fun fullPlayerInteractive(expansion: Float, isMoving: Boolean = false): Boolean =
+    expansion > 0.55f || isMoving
 
 internal fun miniPlayerInteractive(
     allowsMiniInteraction: Boolean,
@@ -155,7 +171,8 @@ internal fun miniPlayerInteractive(
     return allowsMiniInteraction && alpha > 0.05f
 }
 
-internal fun fullPlayerLayerAboveMini(expansion: Float): Boolean = fullPlayerInteractive(expansion)
+internal fun fullPlayerLayerAboveMini(expansion: Float, isMoving: Boolean = false): Boolean =
+    fullPlayerInteractive(expansion, isMoving)
 
 internal fun playerCornerRadiusDp(expansion: Float, isMoving: Boolean): Float {
     val t = expansion.coerceIn(0f, 1f)

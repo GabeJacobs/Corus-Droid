@@ -1,9 +1,9 @@
 package fm.corus.android.ui.player
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Color as AndroidColor
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -16,9 +16,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
@@ -26,7 +26,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil3.BitmapImage
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.request.allowHardware
+import coil3.request.crossfade
+import coil3.size.Size
+import coil3.toBitmap
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +44,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.URL
 import kotlin.math.max
 import kotlin.math.min
 
@@ -58,6 +67,8 @@ fun PlayerArtworkBackdrop(
     modifier: Modifier = Modifier,
 ) {
     val darkTheme = LocalCorusDarkTheme.current
+    val context = LocalContext.current
+    val imageLoader = remember(context) { SingletonImageLoader.get(context) }
     val t = expansion.coerceIn(0f, 1f)
 
     var heavyChromeReady by remember { mutableStateOf(false) }
@@ -108,8 +119,10 @@ fun PlayerArtworkBackdrop(
         val generation = loadGeneration + 1
         loadGeneration = generation
 
+        // Coil shares memory/disk with the album-art carousel so Next doesn't
+        // open a second network stream on the main path.
         val prepared = withContext(Dispatchers.IO) {
-            prepareBackdrop(artworkUrl, darkTheme)
+            prepareBackdrop(artworkUrl, darkTheme, imageLoader, context)
         }
         if (generation != loadGeneration) return@LaunchedEffect
 
@@ -182,25 +195,24 @@ fun PlayerArtworkBackdrop(
         }
 
         if (heavyChromeReady) {
+            // Do NOT read Animatable.value here — that recomposed the blurred
+            // planes every crossfade frame and hitching Next. Plane alpha is
+            // applied in graphicsLayer (draw-only invalidation).
             planeA?.let { plane ->
-                if (alphaA.value > 0.01f) {
-                    BackdropPlane(
-                        plane = plane,
-                        planeAlpha = alphaA.value,
-                        artOpacity = frostedArtOpacity,
-                        gradientOpacity = gradientOpacity,
-                    )
-                }
+                BackdropPlane(
+                    plane = plane,
+                    planeAlpha = alphaA,
+                    artOpacity = frostedArtOpacity,
+                    gradientOpacity = gradientOpacity,
+                )
             }
             planeB?.let { plane ->
-                if (alphaB.value > 0.01f) {
-                    BackdropPlane(
-                        plane = plane,
-                        planeAlpha = alphaB.value,
-                        artOpacity = frostedArtOpacity,
-                        gradientOpacity = gradientOpacity,
-                    )
-                }
+                BackdropPlane(
+                    plane = plane,
+                    planeAlpha = alphaB,
+                    artOpacity = frostedArtOpacity,
+                    gradientOpacity = gradientOpacity,
+                )
             }
         }
 
@@ -215,17 +227,24 @@ fun PlayerArtworkBackdrop(
 @Composable
 private fun BackdropPlane(
     plane: PreparedBackdrop,
-    planeAlpha: Float,
+    planeAlpha: Animatable<Float, AnimationVector1D>,
     artOpacity: Float,
     gradientOpacity: Float,
 ) {
-    // Plane alpha = track-change crossfade. Art / gradient opacities are
-    // expansion-driven and applied separately (iOS imageView.alpha /
-    // gradientLayer.opacity) — never nested so they don't double-multiply.
-    Box(modifier = Modifier.fillMaxSize().alpha(planeAlpha.coerceIn(0f, 1f))) {
-        if (plane.bitmap != null) {
+    // Expansion opacities are read inside graphicsLayer / draw so sheet-drag
+    // and track crossfades invalidate draw, not composition+blur rebuild.
+    val artOpacityState = rememberUpdatedState(artOpacity)
+    val gradientOpacityState = rememberUpdatedState(gradientOpacity)
+    val imageBitmap = remember(plane.bitmap) { plane.bitmap?.asImageBitmap() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer { alpha = planeAlpha.value.coerceIn(0f, 1f) },
+    ) {
+        if (imageBitmap != null) {
             Image(
-                bitmap = plane.bitmap.asImageBitmap(),
+                bitmap = imageBitmap,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -233,7 +252,7 @@ private fun BackdropPlane(
                     .graphicsLayer {
                         scaleX = 1.09f
                         scaleY = 1.09f
-                        alpha = artOpacity.coerceIn(0f, 1f)
+                        alpha = artOpacityState.value.coerceIn(0f, 1f)
                     }
                     .blur(42.dp),
             )
@@ -242,7 +261,7 @@ private fun BackdropPlane(
             modifier = Modifier
                 .fillMaxSize()
                 .drawWithContent {
-                    val g = gradientOpacity.coerceIn(0f, 1f)
+                    val g = gradientOpacityState.value.coerceIn(0f, 1f)
                     drawRect(
                         brush = Brush.verticalGradient(
                             colors = listOf(
@@ -267,9 +286,11 @@ private data class PreparedBackdrop(
     val bottomTint: Color,
 )
 
-private fun prepareBackdrop(
+private suspend fun prepareBackdrop(
     artworkUrl: String?,
     darkTheme: Boolean,
+    imageLoader: ImageLoader,
+    context: android.content.Context,
 ): PreparedBackdrop {
     val fallback = if (darkTheme) {
         Color(0xFF1F1F1F)
@@ -279,7 +300,7 @@ private fun prepareBackdrop(
     if (artworkUrl.isNullOrBlank()) {
         return PreparedBackdrop(null, fallback, fallback)
     }
-    val bitmap = loadDownsampledBitmap(artworkUrl, maxSide = 280) ?: run {
+    val bitmap = loadDownsampledBitmap(imageLoader, context, artworkUrl, maxSide = 280) ?: run {
         return PreparedBackdrop(null, fallback, fallback)
     }
     val avg = averageColor(bitmap)
@@ -288,18 +309,24 @@ private fun prepareBackdrop(
     return PreparedBackdrop(bitmap, top, bottom)
 }
 
-private fun loadDownsampledBitmap(url: String, maxSide: Int): Bitmap? {
+private suspend fun loadDownsampledBitmap(
+    imageLoader: ImageLoader,
+    context: android.content.Context,
+    url: String,
+    maxSide: Int,
+): Bitmap? {
     return runCatching {
-        URL(url).openStream().use { stream ->
-            val bytes = stream.readBytes()
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            var sample = 1
-            val largest = max(bounds.outWidth, bounds.outHeight)
-            while (largest / sample > maxSide * 2) sample *= 2
-            val opts = BitmapFactory.Options().apply { inSampleSize = sample }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
-        }
+        val request = ImageRequest.Builder(context)
+            .data(url)
+            .size(Size(maxSide, maxSide))
+            .crossfade(false)
+            // averageColor reads pixels — hardware bitmaps can't.
+            .allowHardware(false)
+            .build()
+        val result = imageLoader.execute(request) as? SuccessResult ?: return@runCatching null
+        val image = result.image
+        (image as? BitmapImage)?.bitmap
+            ?: image.toBitmap(image.width.coerceAtLeast(1), image.height.coerceAtLeast(1))
     }.getOrNull()
 }
 

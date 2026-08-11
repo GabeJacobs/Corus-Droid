@@ -69,8 +69,6 @@ fun AuthScreen(
     var showPhoneInput by remember { mutableStateOf(false) }
     var showEmailInput by remember { mutableStateOf(false) }
     var selectedCountry by remember { mutableStateOf(CountryCode.US) }
-    val emailOtpEnabled = viewModel.emailOtpAuthEnabled
-
     // Google Sign-In launcher
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -295,24 +293,25 @@ fun AuthScreen(
                     },
                 )
 
-                if (emailOtpEnabled) {
-                    AuthButton(
-                        text = stringResource(id = R.string.auth_button_email),
-                        icon = {
-                            Icon(
-                                Icons.Filled.Email,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = CorusColors.Text,
-                            )
-                        },
-                        isLoading = false,
-                        onClick = {
-                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
-                            showEmailInput = true
-                        },
-                    )
-                }
+                // Always shown (no client RC gate) so auth paints without a
+                // late pop-in. Server `email_otp_auth_enabled` remains the kill
+                // switch — same approach as web.
+                AuthButton(
+                    text = stringResource(id = R.string.auth_button_email),
+                    icon = {
+                        Icon(
+                            Icons.Filled.Email,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = CorusColors.Text,
+                        )
+                    },
+                    isLoading = false,
+                    onClick = {
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        showEmailInput = true
+                    },
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))

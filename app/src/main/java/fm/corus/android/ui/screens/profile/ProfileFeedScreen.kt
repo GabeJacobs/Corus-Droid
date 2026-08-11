@@ -25,6 +25,7 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ImmersiveFrostedBar
 import fm.corus.android.ui.components.LocalBottomBarHeight
@@ -463,6 +464,9 @@ fun ProfileFeedScreen(
         onNavigateToArtist = onNavigateToArtist,
         onNavigateToAlbum = onNavigateToAlbum,
         onNavigateToDirector = onNavigateToDirector,
+        onAddToQueue = { post ->
+            viewModel.nowPlayingManager.addToUserQueue(post.toQueuedTrack())
+        },
     )
 
     filmInfoPost?.let { post ->

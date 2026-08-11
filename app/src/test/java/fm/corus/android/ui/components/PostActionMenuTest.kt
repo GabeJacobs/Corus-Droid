@@ -24,6 +24,22 @@ class PostActionMenuTest {
         get() = ApplicationProvider.getApplicationContext()
 
     @Test
+    fun `add to queue shown for spotify tracks`() {
+        assertTrue(showAddToQueueRow(trackPost()))
+    }
+
+    @Test
+    fun `add to queue hidden for tidal and deezer exclusives`() {
+        assertFalse(showAddToQueueRow(trackPost(source = TrackSource.TIDAL)))
+        assertFalse(showAddToQueueRow(trackPost(source = TrackSource.DEEZER)))
+    }
+
+    @Test
+    fun `add to queue hidden for movies`() {
+        assertFalse(showAddToQueueRow(moviePost()))
+    }
+
+    @Test
     fun `report and block shown for non-owner human-authored posts`() {
         assertTrue(showPostReportBlockActions(isMine = false, authorIsBot = false))
     }

@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
@@ -479,6 +478,22 @@ fun PostCard(
         // same anti-pattern we removed on iOS (`rotation3DEffect` always-on).
         // When `flipRotation == 0f`, the transform would be identity anyway.
         val needsFlipLayer = flipRotation != 0f
+        // Dismiss sits outside the player frame (YouTube RMF / III.C.1).
+        if (inlineTrailerVideoID != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = CorusSpacing.sm),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                YouTubePlayerDismiss(
+                    onClose = {
+                        inlineTrailerVideoID = null
+                        TrailerPlaybackCoordinator.stop(post.id)
+                    },
+                )
+            }
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -783,25 +798,6 @@ fun PostCard(
                             TrailerPlaybackCoordinator.stop(post.id)
                         },
                     )
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(CorusSpacing.md)
-                            .size(32.dp)
-                            .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                            .clickable {
-                                inlineTrailerVideoID = null
-                                TrailerPlaybackCoordinator.stop(post.id)
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.post_card_cd_close_trailer),
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
                 }
             }
 
@@ -947,14 +943,13 @@ fun PostCard(
                         )
                     }
 
-                    // Trailer button — red rectangle with white play icon, matching iOS TrailerButton
+                    // Official YouTube Icon (brand.youtube) — opens the trailer on YouTube.
                     if (!post.trailerURL.isNullOrBlank()) {
-                        Image(
-                            painter = painterResource(R.drawable.ic_play_rectangle_fill),
+                        YouTubeIcon(
+                            height = 28.dp,
                             contentDescription = stringResource(R.string.post_card_cd_watch_trailer),
                             modifier = Modifier
-                                .height(22.dp)
-                                .offset(y = (-4).dp)
+                                .offset(y = (-2).dp)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,

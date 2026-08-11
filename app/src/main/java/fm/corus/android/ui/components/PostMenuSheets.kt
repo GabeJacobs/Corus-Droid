@@ -88,11 +88,17 @@ fun PostMenuSheets(
     onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
     /** Route to the director page (movies). Null while `artist_pages_enabled` is off. */
     onNavigateToDirector: ((fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit)? = null,
+    /**
+     * Manual Up Next — mirrors iOS Add to Queue. Return true when the track
+     * was queued (or started) so we can toast “Added to Queue”.
+     */
+    onAddToQueue: (CymbalPost) -> Boolean = { false },
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val postSentMsg = stringResource(R.string.post_menu_toast_post_sent)
     val captionUpdatedMsg = stringResource(R.string.post_menu_toast_caption_updated)
+    val addedToQueueMsg = stringResource(R.string.post_menu_toast_added_to_queue)
     val albumNotFoundMsg = stringResource(R.string.song_detail_album_not_found)
     val artistNotFoundMsg = stringResource(R.string.song_detail_artist_not_found)
     var isResolvingAlbum by remember { mutableStateOf(false) }
@@ -109,6 +115,16 @@ fun PostMenuSheets(
         if (menuPost == null && pending != null) {
             onSharePostChange(pending)
             pendingSharePost = null
+        }
+    }
+
+    // "Added to Queue" toast after the menu Dialog is gone — same timing as iOS
+    // PostCard's showAddedToQueue overlay (fires once the sheet dismisses).
+    var pendingAddedToQueueToast by remember { mutableStateOf(false) }
+    LaunchedEffect(menuPost, pendingAddedToQueueToast) {
+        if (menuPost == null && pendingAddedToQueueToast) {
+            ToastManager.show(addedToQueueMsg)
+            pendingAddedToQueueToast = false
         }
     }
 
@@ -193,6 +209,9 @@ fun PostMenuSheets(
                         context, scope, post, musicService,
                         actions.analyticsService, actions::resolveServiceLinkUrl,
                     )
+                },
+                onAddToQueue = {
+                    if (onAddToQueue(post)) pendingAddedToQueueToast = true
                 },
                 onViewSongPage = { onNavigateToSong(post.track) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },

@@ -48,6 +48,16 @@ class PlayerExpansionHitTestingTest {
     }
 
     @Test
+    fun midCollapseDragKeepsFullInteractiveSoScrollHandoffSurvivesHalfway() {
+        // Regression: interactive used to flip off at expansion 0.55 (~45% drag),
+        // killing nested-scroll before the collapse settle threshold — sheet
+        // sprang back open on slow dismisses.
+        assertTrue(fullPlayerInteractive(expansion = 0.4f, isMoving = true))
+        assertTrue(fullPlayerLayerAboveMini(expansion = 0.4f, isMoving = true))
+        assertFalse(fullPlayerInteractive(expansion = 0.4f, isMoving = false))
+    }
+
+    @Test
     fun movingHostDisablesMiniHitsWhileCollapsedThresholdWouldOtherwiseAllow() {
         assertFalse(
             miniPlayerInteractive(

@@ -1,5 +1,16 @@
 package fm.corus.android.ui.player
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -43,6 +54,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +68,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.domain.NowPlayingManager
@@ -64,6 +77,26 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlin.math.roundToInt
+
+private val EditChromeEnter = expandHorizontally(
+    animationSpec = tween(240, easing = FastOutSlowInEasing),
+    expandFrom = Alignment.Start,
+) + fadeIn(animationSpec = tween(180))
+
+private val EditChromeExit = shrinkHorizontally(
+    animationSpec = tween(220, easing = FastOutSlowInEasing),
+    shrinkTowards = Alignment.Start,
+) + fadeOut(animationSpec = tween(160))
+
+private val DragHandleEnter = expandHorizontally(
+    animationSpec = tween(240, easing = FastOutSlowInEasing),
+    expandFrom = Alignment.End,
+) + fadeIn(animationSpec = tween(180))
+
+private val DragHandleExit = shrinkHorizontally(
+    animationSpec = tween(220, easing = FastOutSlowInEasing),
+    shrinkTowards = Alignment.End,
+) + fadeOut(animationSpec = tween(160))
 
 /**
  * Full-player Queue sheet — Now Playing / Up Next / Earlier.
@@ -89,10 +122,12 @@ fun FullPlayerQueueSheet(
     val upNext = remember(queue, currentIndex) {
         val idx = currentIndex ?: return@remember emptyList()
         queue.mapIndexedNotNull { i, t -> if (i > idx) i to t else null }
+            .withStableKeys("next")
     }
     val earlier = remember(queue, currentIndex) {
         val idx = currentIndex ?: return@remember emptyList()
         queue.mapIndexedNotNull { i, t -> if (i < idx) i to t else null }
+            .withStableKeys("earlier")
     }
 
     LaunchedEffect(upNext.isEmpty()) {
@@ -127,7 +162,7 @@ fun FullPlayerQueueSheet(
                     item(key = "now-header") {
                         SectionHeader(stringResource(R.string.full_player_queue_now_playing))
                     }
-                    item(key = "now-${queue[idx].trackId}-$idx") {
+                    item(key = "now-${queueRowIdentity(queue[idx])}") {
                         QueueRow(
                             track = queue[idx],
                             isCurrent = true,
@@ -142,27 +177,35 @@ fun FullPlayerQueueSheet(
                 }
                 items(
                     upNext,
-                    key = { (index, track) -> "next-${track.trackId}-$index-${track.sourcePostId}" },
-                ) { (index, track) ->
+                    key = { it.key },
+                ) { row ->
                     EditableQueueRow(
-                        track = track,
-                        absoluteIndex = index,
+                        track = row.track,
+                        rowKey = row.key,
+                        absoluteIndex = row.index,
                         isEditing = isEditing,
                         canReorder = true,
                         minReorderIndex = (currentIndex ?: -1) + 1,
                         maxReorderIndex = queue.lastIndex,
                         onJump = {
-                            nowPlayingManager.jumpToQueueIndex(index)
+                            nowPlayingManager.jumpToQueueIndex(row.index)
                             onDismiss()
                         },
                         onRemove = {
-                            nowPlayingManager.removeQueueItem(index)
+                            nowPlayingManager.removeQueueItem(row.index)
                             bumpRevision()
                         },
                         onMove = { from, to ->
                             nowPlayingManager.moveQueueItem(from, to)
                             bumpRevision()
                         },
+                        // Exit collapse is owned by EditableQueueRow — avoid
+                        // animateItem fadeOut keeping a dismissed (red) shell.
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(180),
+                            fadeOutSpec = null,
+                            placementSpec = tween(220, easing = FastOutSlowInEasing),
+                        ),
                     )
                 }
             } else if (queue.size <= 1) {
@@ -182,30 +225,65 @@ fun FullPlayerQueueSheet(
                 }
                 items(
                     earlier,
-                    key = { (index, track) -> "earlier-${track.trackId}-$index-${track.sourcePostId}" },
-                ) { (index, track) ->
+                    key = { it.key },
+                ) { row ->
                     EditableQueueRow(
-                        track = track,
-                        absoluteIndex = index,
+                        track = row.track,
+                        rowKey = row.key,
+                        absoluteIndex = row.index,
                         isEditing = isEditing,
                         canReorder = false,
                         minReorderIndex = 0,
                         maxReorderIndex = 0,
                         onJump = {
-                            nowPlayingManager.jumpToQueueIndex(index)
+                            nowPlayingManager.jumpToQueueIndex(row.index)
                             onDismiss()
                         },
                         onRemove = {
-                            nowPlayingManager.removeQueueItem(index)
+                            nowPlayingManager.removeQueueItem(row.index)
                             bumpRevision()
                         },
                         onMove = { _, _ -> },
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(180),
+                            fadeOutSpec = null,
+                            placementSpec = tween(220, easing = FastOutSlowInEasing),
+                        ),
                     )
                 }
             }
 
             item { Spacer(modifier = Modifier.height(32.dp)) }
         }
+    }
+}
+
+private data class StableQueueRow(
+    val key: String,
+    val index: Int,
+    val track: QueuedTrack,
+)
+
+private fun queueRowIdentity(track: QueuedTrack): String =
+    listOf(
+        track.trackId,
+        track.sourcePostId.orEmpty(),
+        track.spotifyURI.orEmpty(),
+        track.previewUrl.orEmpty(),
+        track.trackName,
+    ).joinToString("|")
+
+private fun List<Pair<Int, QueuedTrack>>.withStableKeys(section: String): List<StableQueueRow> {
+    val seen = mutableMapOf<String, Int>()
+    return map { (index, track) ->
+        val identity = queueRowIdentity(track)
+        val occurrence = seen[identity] ?: 0
+        seen[identity] = occurrence + 1
+        StableQueueRow(
+            key = "$section|$identity#$occurrence",
+            index = index,
+            track = track,
+        )
     }
 }
 
@@ -272,10 +350,13 @@ private fun SectionHeader(title: String) {
     )
 }
 
+private val QueueRowExitMs = 200
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditableQueueRow(
     track: QueuedTrack,
+    rowKey: String,
     absoluteIndex: Int,
     isEditing: Boolean,
     canReorder: Boolean,
@@ -284,45 +365,58 @@ private fun EditableQueueRow(
     onJump: () -> Unit,
     onRemove: () -> Unit,
     onMove: (from: Int, to: Int) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
-    val rowHeightPx = with(density) { 60.dp.toPx() }
-    var dragOffsetY by remember(absoluteIndex) { mutableFloatStateOf(0f) }
-    var draggingIndex by remember { mutableIntStateOf(absoluteIndex) }
+    // Row art (44) + vertical padding + LazyColumn spacedBy — used only to map
+    // total drag distance → index delta on release (not mid-drag).
+    val rowStridePx = with(density) { (44.dp + CorusSpacing.xs * 2 + CorusSpacing.xs).toPx() }
+    var dragOffsetY by remember(rowKey) { mutableFloatStateOf(0f) }
+    var isDragging by remember(rowKey) { mutableStateOf(false) }
+    var dragStartIndex by remember(rowKey) { mutableIntStateOf(absoluteIndex) }
+    // Collapse locally first, then commit remove — avoids SwipeToDismissBox
+    // settling on a red shell that animateItem kept around as a layout gap.
+    var isPendingRemoval by remember(rowKey) { mutableStateOf(false) }
 
-    LaunchedEffect(absoluteIndex) {
-        draggingIndex = absoluteIndex
-        dragOffsetY = 0f
+    val indexState = rememberUpdatedState(absoluteIndex)
+    val minState = rememberUpdatedState(minReorderIndex)
+    val maxState = rememberUpdatedState(maxReorderIndex)
+    val onMoveState = rememberUpdatedState(onMove)
+    val onRemoveState = rememberUpdatedState(onRemove)
+
+    LaunchedEffect(isPendingRemoval) {
+        if (!isPendingRemoval) return@LaunchedEffect
+        delay(QueueRowExitMs.toLong())
+        onRemoveState.value()
     }
 
-    val dragHandleModifier = if (isEditing && canReorder) {
-        Modifier.pointerInput(absoluteIndex, minReorderIndex, maxReorderIndex) {
+    // Commit only on release. Mid-drag onMove + list recomposition used to
+    // restart pointerInput (keyed on absoluteIndex) and cancel after one step.
+    val dragHandleModifier = if (isEditing && canReorder && !isPendingRemoval) {
+        Modifier.pointerInput(rowKey, rowStridePx) {
             detectDragGestures(
                 onDragStart = {
-                    draggingIndex = absoluteIndex
+                    isDragging = true
+                    dragStartIndex = indexState.value
                     dragOffsetY = 0f
                 },
                 onDragEnd = {
+                    val steps = (dragOffsetY / rowStridePx).roundToInt()
+                    val from = dragStartIndex
+                    val to = (from + steps).coerceIn(minState.value, maxState.value)
+                    if (to != from) {
+                        onMoveState.value(from, to)
+                    }
                     dragOffsetY = 0f
-                    draggingIndex = absoluteIndex
+                    isDragging = false
                 },
                 onDragCancel = {
                     dragOffsetY = 0f
-                    draggingIndex = absoluteIndex
+                    isDragging = false
                 },
                 onDrag = { change, dragAmount ->
                     change.consume()
                     dragOffsetY += dragAmount.y
-                    val steps = (dragOffsetY / rowHeightPx).toInt()
-                    if (steps != 0) {
-                        val from = draggingIndex
-                        val to = (from + steps).coerceIn(minReorderIndex, maxReorderIndex)
-                        if (to != from) {
-                            onMove(from, to)
-                            draggingIndex = to
-                            dragOffsetY -= steps * rowHeightPx
-                        }
-                    }
                 },
             )
         }
@@ -330,54 +424,78 @@ private fun EditableQueueRow(
         Modifier
     }
 
-    val row = @Composable {
-        QueueRow(
-            track = track,
-            isCurrent = false,
-            isEditing = isEditing,
-            showDragHandle = isEditing && canReorder,
-            onClick = if (!isEditing) onJump else null,
-            onRemove = if (isEditing) onRemove else null,
-            dragHandleModifier = dragHandleModifier,
-            modifier = if (isEditing && canReorder) {
-                Modifier.offset { IntOffset(0, dragOffsetY.roundToInt()) }
-            } else {
-                Modifier
+    AnimatedVisibility(
+        visible = !isPendingRemoval,
+        enter = EnterTransition.None,
+        exit = fadeOut(animationSpec = tween(150)) + shrinkVertically(
+            animationSpec = tween(QueueRowExitMs, easing = FastOutSlowInEasing),
+            shrinkTowards = Alignment.Top,
+        ),
+        modifier = modifier.zIndex(if (isDragging) 1f else 0f),
+    ) {
+        // Keep one tree for edit/browse so minus / drag-handle AnimatedVisibility can run.
+        val dismissState = rememberSwipeToDismissBoxState(
+            confirmValueChange = { value ->
+                if (isEditing || isPendingRemoval) return@rememberSwipeToDismissBoxState false
+                if (value == SwipeToDismissBoxValue.EndToStart) {
+                    isPendingRemoval = true
+                    // Confirm dismiss so content stays off-screen; we clear the
+                    // red chrome below and shrink the empty row instead.
+                    true
+                } else {
+                    false
+                }
             },
         )
-    }
-
-    if (isEditing) {
-        row()
-    } else {
-        val dismissState = rememberSwipeToDismissBoxState()
-        LaunchedEffect(dismissState.currentValue) {
-            if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-                onRemove()
-            }
+        LaunchedEffect(isEditing) {
+            if (isEditing) dismissState.snapTo(SwipeToDismissBoxValue.Settled)
         }
+
         SwipeToDismissBox(
             state = dismissState,
             enableDismissFromStartToEnd = false,
+            enableDismissFromEndToStart = !isEditing && !isPendingRemoval,
+            modifier = Modifier.then(
+                if (isEditing && canReorder) {
+                    Modifier.offset { IntOffset(0, dragOffsetY.roundToInt()) }
+                } else {
+                    Modifier
+                },
+            ),
             backgroundContent = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(CorusColors.Error)
-                        .padding(horizontal = CorusSpacing.lg),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = stringResource(R.string.full_player_queue_remove),
-                        tint = androidx.compose.ui.graphics.Color.White,
-                        modifier = Modifier.size(20.dp),
-                    )
+                // Hide red once removal is committed so exit isn't a stuck red bar.
+                if (!isPendingRemoval) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(CorusColors.Error)
+                            .padding(horizontal = CorusSpacing.lg),
+                        contentAlignment = Alignment.CenterEnd,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = stringResource(R.string.full_player_queue_remove),
+                            tint = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             },
         ) {
-            Box(modifier = Modifier.background(CorusColors.Background)) {
-                row()
+            Box(
+                modifier = Modifier
+                    .background(CorusColors.Background)
+                    .graphicsLayer { alpha = if (isPendingRemoval) 0f else 1f },
+            ) {
+                QueueRow(
+                    track = track,
+                    isCurrent = false,
+                    isEditing = isEditing,
+                    showDragHandle = canReorder,
+                    onClick = if (!isEditing) onJump else null,
+                    onRemove = { isPendingRemoval = true },
+                    dragHandleModifier = dragHandleModifier,
+                )
             }
         }
     }
@@ -404,9 +522,13 @@ private fun QueueRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {
-        if (isEditing && onRemove != null) {
+        AnimatedVisibility(
+            visible = isEditing && onRemove != null && !isCurrent,
+            enter = EditChromeEnter,
+            exit = EditChromeExit,
+        ) {
             IconButton(
-                onClick = onRemove,
+                onClick = { onRemove?.invoke() },
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
@@ -450,7 +572,11 @@ private fun QueueRow(
                 modifier = Modifier.size(18.dp),
             )
         }
-        if (showDragHandle) {
+        AnimatedVisibility(
+            visible = isEditing && showDragHandle,
+            enter = DragHandleEnter,
+            exit = DragHandleExit,
+        ) {
             Icon(
                 imageVector = Icons.Filled.DragHandle,
                 contentDescription = stringResource(R.string.full_player_queue_reorder),

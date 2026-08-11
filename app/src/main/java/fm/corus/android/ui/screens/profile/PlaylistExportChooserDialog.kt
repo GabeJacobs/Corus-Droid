@@ -16,7 +16,7 @@ fun PlaylistExportChooserDialog(
     onDismiss: () -> Unit,
 ) {
     val message = buildString {
-        append("Make a quick 75-song playlist, or export all $count songs.")
+        append("Make a playlist of the most recent 75 songs, or export all $count songs.")
         if (caveat.isNotBlank()) {
             append(' ')
             append(caveat)
@@ -30,7 +30,7 @@ fun PlaylistExportChooserDialog(
         onDismiss = onDismiss,
         buttons = listOf(
             CorusPromptButton(
-                label = "Quick playlist · 75 songs",
+                label = "Quick playlist · most recent 75",
                 emphasized = true,
                 onClick = onQuick,
             ),

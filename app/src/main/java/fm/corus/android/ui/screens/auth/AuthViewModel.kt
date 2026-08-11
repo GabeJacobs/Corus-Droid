@@ -187,6 +187,9 @@ class AuthViewModel @Inject constructor(
 
     fun observeAuthState() {
         observeNetworkReconnects()
+        // Fetch RC on auth observe (including signed-out) so other flags are
+        // warm before/at login. Mirrors iOS app-launch fetch.
+        viewModelScope.launch { remoteConfigService.fetchAndActivate() }
         val listener = AuthStateListener { auth ->
             viewModelScope.launch {
                 // Suppress auth-state changes while account deletion is in progress
@@ -555,9 +558,6 @@ class AuthViewModel @Inject constructor(
         _error.value = null
         authRepository.clearPendingEmailOtp()
     }
-
-    val emailOtpAuthEnabled: Boolean
-        get() = remoteConfigService.emailOtpAuthEnabled
 
     fun sendEmailOtpCode(email: String) {
         viewModelScope.launch {

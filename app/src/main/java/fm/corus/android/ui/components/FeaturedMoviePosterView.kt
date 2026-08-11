@@ -310,15 +310,13 @@ fun FeaturedMoviePosterView(
                 }
             }
 
-            // Trailer button (if available) — YouTube red play icon, matching iOS
+            // Official YouTube Icon (brand.youtube) — opens the trailer on YouTube.
             if (!post.trailerURL.isNullOrBlank()) {
                 Spacer(modifier = Modifier.width(CorusSpacing.md))
-                Image(
-                    painter = painterResource(R.drawable.ic_play_rectangle_fill),
+                YouTubeIcon(
+                    height = 28.dp,
                     contentDescription = stringResource(R.string.featured_cd_watch_trailer),
-                    modifier = Modifier
-                        .height(22.dp)
-                        .clickable(onClick = onTrailerTap),
+                    modifier = Modifier.clickable(onClick = onTrailerTap),
                 )
             }
         }

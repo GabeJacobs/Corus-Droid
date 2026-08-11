@@ -424,10 +424,12 @@ class RemoteConfigService @Inject constructor(
     val spotifyLibrarySaveEnabled: Boolean
         get() = flagWithDefault("spotify_library_save_enabled", false)
 
-    /// Passwordless email OTP login ("Continue with Email"). Ships dark; server
-    /// also gates send/verify on the same key so flipping this off is a kill switch.
+    /// Passwordless email OTP login. Native/web auth UI no longer gates the
+    /// Continue with Email button on this flag (always shown); server
+    /// `email_otp_auth_enabled` remains the kill switch. Kept for tooling /
+    /// any remaining readers.
     val emailOtpAuthEnabled: Boolean
-        get() = flagWithDefault("email_otp_auth_enabled", false)
+        get() = feedFlag("email_otp_auth_enabled")
 
     // Tracks the UID last pushed as the `user_id` signal so we can tell when it
     // changes (login / account switch) and force a fresh fetch. Null-vs-unset is
@@ -530,6 +532,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("taste_matches_tester", remoteConfig.getBoolean("taste_matches_tester"))
             .putBoolean("taste_matches_free_trial", remoteConfig.getBoolean("taste_matches_free_trial"))
             .putBoolean("feed_decade_filter_enabled", remoteConfig.getBoolean("feed_decade_filter_enabled"))
+            .putBoolean("email_otp_auth_enabled", remoteConfig.getBoolean("email_otp_auth_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
             .apply()
     }

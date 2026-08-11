@@ -367,20 +367,29 @@ class PreferencesDataStore @Inject constructor(
 
     /**
      * Opt-in: once the user turns on the Settings "Add Saved Songs to Library"
-     * toggle for Spotify — after successfully completing the separate Spotify
-     * Web API OAuth consent for `user-library-modify` — every subsequent song
-     * save also adds the track to the user's Spotify library. Default OFF
-     * (opt-in, unlike [playFullSongs]). No sync-mirror to SharedPreferences:
-     * this is only read from the save path and the Settings screen, both well
-     * after cold start, not a launch-critical flag.
+     * toggle for Spotify, every subsequent song save also adds the track to
+     * their Spotify library over App Remote. Default OFF (opt-in). Mirrored to
+     * SharedPreferences so Settings can seed the Switch without awaiting
+     * DataStore (avoids an off→on flash when the user has it enabled).
      */
     val autoAddSavedToSpotify: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[AUTO_ADD_SPOTIFY] ?: false
+        (prefs[AUTO_ADD_SPOTIFY] ?: false).also { mirrorAutoAddSavedToSpotifySync(it) }
     }
 
     suspend fun setAutoAddSavedToSpotify(value: Boolean) {
+        mirrorAutoAddSavedToSpotifySync(value)
         dataStore.edit { it[AUTO_ADD_SPOTIFY] = value }
     }
+
+    private fun mirrorAutoAddSavedToSpotifySync(value: Boolean) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("auto_add_saved_to_spotify", value).apply()
+    }
+
+    /** Synchronous seed for Settings — same default as the DataStore flow. */
+    fun autoAddSavedToSpotifySync(): Boolean =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("auto_add_saved_to_spotify", false)
 
     /**
      * Spotify library saves that couldn't be delivered yet (JSON-encoded array

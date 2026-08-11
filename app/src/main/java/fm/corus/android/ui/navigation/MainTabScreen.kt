@@ -459,8 +459,6 @@ fun MainTabScreen(
                 )
             }
 
-            // Toast overlay (inside padded Box so it renders above the bottom bar)
-            fm.corus.android.ui.components.ToastHost()
           }
         }
 
@@ -518,6 +516,7 @@ fun MainTabScreen(
                     onPlaybackModeChange = { viewModel.setPlayFullSongs(it) },
                     remoteConfig = viewModel.remoteConfigService,
                     interactive = fullInteractive,
+                    onContentAtTopChange = { playerExpansion.isContentAtTop = it },
                     onDismiss = {
                         viewModel.logFullPlayerDismissed("chevron")
                         playerScope.launch { playerExpansion.collapse() }
@@ -575,6 +574,12 @@ fun MainTabScreen(
                             }
                         }
                     },
+                    onOpenFilmMovie = { movie ->
+                        playerScope.launch {
+                            playerExpansion.collapse()
+                            navControllers[selectedTab]?.navigate(movie.toFilmDetailRoute())
+                        }
+                    },
                     onOpenArtist = if (artistPagesEnabled) {
                         { route ->
                             playerScope.launch {
@@ -586,6 +591,16 @@ fun MainTabScreen(
                         null
                     },
                     onOpenAlbum = if (artistPagesEnabled) {
+                        { route ->
+                            playerScope.launch {
+                                playerExpansion.collapse()
+                                navControllers[selectedTab]?.navigate(route)
+                            }
+                        }
+                    } else {
+                        null
+                    },
+                    onOpenDirector = if (artistPagesEnabled) {
                         { route ->
                             playerScope.launch {
                                 playerExpansion.collapse()
@@ -890,6 +905,18 @@ fun MainTabScreen(
         // CorusDraggableSheet is an in-window overlay (not a Dialog). The expanding
         // player (z=1) and tab bar (z=2) must sit underneath it, or "Add a comment"
         // from the full player appears to do nothing.
+        //
+        // Destinations opened from a comment must also collapse the expanding
+        // player — otherwise navigation lands under the full-player chrome and
+        // song/film attachment taps look inert (iOS dismisses the player too).
+        fun navigateFromComments(navigate: () -> Unit) {
+            playerScope.launch {
+                if (playerExpansion.isExpandedOrExpanding) {
+                    playerExpansion.collapse()
+                }
+                navigate()
+            }
+        }
         Box(modifier = Modifier.fillMaxSize().zIndex(3f)) {
             CommentsBottomSheet(
                 postId = postId,
@@ -902,27 +929,49 @@ fun MainTabScreen(
                     commentSheetAutoFocus = false
                     commentsRefreshSignal += 1
                 },
-                onNavigateToUser = { userId -> navController?.navigate(OtherProfileRoute(userId)) },
-                onNavigateToSong = { track -> navController?.navigate(track.toSongDetailRoute()) },
-                onNavigateToFilm = { movie -> navController?.navigate(movie.toFilmDetailRoute()) },
-                onNavigateToHashtag = { hashtag -> navController?.navigate(HashtagFeedRoute(hashtag)) },
+                onNavigateToUser = { userId ->
+                    navigateFromComments { navController?.navigate(OtherProfileRoute(userId)) }
+                },
+                onNavigateToSong = { track ->
+                    navigateFromComments { navController?.navigate(track.toSongDetailRoute()) }
+                },
+                onNavigateToFilm = { movie ->
+                    navigateFromComments { navController?.navigate(movie.toFilmDetailRoute()) }
+                },
+                onNavigateToHashtag = { hashtag ->
+                    navigateFromComments { navController?.navigate(HashtagFeedRoute(hashtag)) }
+                },
                 // Same gating as the DM entity bubbles: with artist pages off the
                 // comment attachment card renders but its tap stays inert.
                 onNavigateToArtist = if (artistPagesEnabled) {
-                    { artist -> navController?.navigate(ArtistPageRoute(artist.artistId, artist.artistName, artist.artistImageURL)) }
+                    { artist ->
+                        navigateFromComments {
+                            navController?.navigate(
+                                ArtistPageRoute(artist.artistId, artist.artistName, artist.artistImageURL),
+                            )
+                        }
+                    }
                 } else null,
                 onNavigateToAlbum = if (artistPagesEnabled) {
                     { album ->
-                        navController?.navigate(
-                            AlbumPageRoute(
-                                album.albumId, album.albumTitle, album.albumArtistName,
-                                album.albumCoverURL, album.albumYear?.toIntOrNull(),
-                            ),
-                        )
+                        navigateFromComments {
+                            navController?.navigate(
+                                AlbumPageRoute(
+                                    album.albumId, album.albumTitle, album.albumArtistName,
+                                    album.albumCoverURL, album.albumYear?.toIntOrNull(),
+                                ),
+                            )
+                        }
                     }
                 } else null,
                 onNavigateToDirector = if (artistPagesEnabled) {
-                    { director -> navController?.navigate(DirectorPageRoute(director.directorId, director.directorName, director.directorImageURL)) }
+                    { director ->
+                        navigateFromComments {
+                            navController?.navigate(
+                                DirectorPageRoute(director.directorId, director.directorName, director.directorImageURL),
+                            )
+                        }
+                    }
                 } else null,
                 autoFocusInput = commentSheetAutoFocus,
             )
@@ -932,6 +981,13 @@ fun MainTabScreen(
     FullScreenPhotoViewer(
         photo = expandedPhoto,
         onDismiss = { expandedPhoto = null },
+    )
+
+    // Windowed toast host (Popup) — above player / tab bar / in-window sheets.
+    fm.corus.android.ui.components.ToastHost(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(10f),
     )
 
     } // end outer Box

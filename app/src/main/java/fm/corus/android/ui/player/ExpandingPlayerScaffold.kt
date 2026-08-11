@@ -37,7 +37,7 @@ fun ExpandingPlayerScaffold(
     val miniAlpha = miniOpacity(expansion, travelPx)
     val fullAlpha = fullOpacity(expansion)
     val cornerDp = playerCornerRadiusDp(expansion, isMoving).dp
-    val fullInteractive = fullPlayerInteractive(expansion)
+    val fullInteractive = fullPlayerInteractive(expansion, isMoving)
     val miniInteractive = miniPlayerInteractive(allowsMiniInteraction, expansion, travelPx)
 
     var fullPlayerMounted by remember { mutableStateOf(false) }
@@ -88,7 +88,7 @@ fun ExpandingPlayerScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .alpha(fullAlpha)
-                    .zIndex(if (fullPlayerLayerAboveMini(expansion)) 2f else 0f),
+                    .zIndex(if (fullPlayerLayerAboveMini(expansion, isMoving)) 2f else 0f),
             ) {
                 fullContent(fullInteractive)
             }
