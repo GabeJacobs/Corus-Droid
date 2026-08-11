@@ -67,9 +67,9 @@ class PlayerArtworkBackdropTest {
     }
 
     @Test
-    fun `dark opacity curves still match iOS collapsed and expanded`() {
+    fun `dark mini is slightly more colorful than iOS black-on-black stand-in`() {
         assertEquals(
-            0.12f,
+            0.18f,
             playerFrostedArtOpacity(darkTheme = true, expansion = 0f, heavyChromeReady = true),
             0.001f,
         )
@@ -78,9 +78,10 @@ class PlayerArtworkBackdropTest {
             playerFrostedArtOpacity(darkTheme = true, expansion = 1f, heavyChromeReady = true),
             0.001f,
         )
-        assertEquals(0.72f, playerMaterialOpacity(darkTheme = true, heavyChromeReady = true), 0.001f)
-        assertEquals(0.62f, playerVeilOpacity(darkTheme = true, expansion = 0f), 0.001f)
+        assertEquals(0.60f, playerMaterialOpacity(darkTheme = true, heavyChromeReady = true), 0.001f)
+        assertEquals(0.50f, playerVeilOpacity(darkTheme = true, expansion = 0f), 0.001f)
         assertEquals(0.27f, playerVeilOpacity(darkTheme = true, expansion = 1f), 0.001f)
+        assertEquals(0.62f, playerGradientOpacity(darkTheme = true, expansion = 0f), 0.001f)
     }
 
     @Test

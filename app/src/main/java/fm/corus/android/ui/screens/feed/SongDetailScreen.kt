@@ -1088,11 +1088,27 @@ internal fun PostedByRow(
     post: CymbalPost,
     onUserTap: () -> Unit = {},
     onPostTap: () -> Unit = {},
+    /**
+     * Full-player frosted wash washes out [CorusColors.Secondary] /
+     * [CorusColors.Tertiary] in light mode. When true, use primary-based
+     * opacities (iOS `catalogSecondaryColor` / `catalogTertiaryColor`).
+     */
+    frostReadable: Boolean = false,
 ) {
     // Whole row opens the post; the avatar and name column carry their own
     // clickable for the profile. A child clickable consumes the tap, so taps on
     // the avatar/name go to onUserTap and everything else falls through to the
     // row's onPostTap.
+    val secondary = if (frostReadable) {
+        CorusColors.Text.copy(alpha = 0.58f)
+    } else {
+        CorusColors.Secondary
+    }
+    val tertiary = if (frostReadable) {
+        CorusColors.Text.copy(alpha = 0.42f)
+    } else {
+        CorusColors.Tertiary
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1129,7 +1145,7 @@ internal fun PostedByRow(
                     Text(
                         text = post.user.displayName,
                         style = CorusFont.caption,
-                        color = CorusColors.Secondary,
+                        color = secondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -1143,7 +1159,7 @@ internal fun PostedByRow(
                 Text(
                     text = "“$caption”",
                     style = CorusFont.caption,
-                    color = CorusColors.Secondary,
+                    color = secondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1157,14 +1173,14 @@ internal fun PostedByRow(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = DateUtils.relativeTime(LocalContext.current, post.timestamp),
-                style = CorusFont.caption,
-                color = CorusColors.Tertiary,
+                style = if (frostReadable) CorusFont.timestamp else CorusFont.caption,
+                color = tertiary,
             )
             Spacer(modifier = Modifier.width(CorusSpacing.xs))
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
-                tint = CorusColors.Tertiary,
+                tint = tertiary,
                 modifier = Modifier.size(16.dp),
             )
         }

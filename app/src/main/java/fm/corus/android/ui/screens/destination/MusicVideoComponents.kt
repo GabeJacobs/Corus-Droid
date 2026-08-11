@@ -212,7 +212,7 @@ fun MusicVideoPlayerPanel(
                     .weight(1f)
                     .clickable { openYouTubeWatch(context, youtubeId) },
             )
-            YouTubePlayerDismiss(onClose = onClose)
+            YouTubePlayerDismiss(onClose = onClose, onDark = false)
         }
         Box(
             modifier = Modifier

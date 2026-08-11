@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +64,7 @@ fun PlayerShellProgressLine(
 
     val showsLine = state.hasActiveTrack
     val duration = clockDurationMs.coerceAtLeast(0L)
+    val durationState = rememberUpdatedState(duration)
     val canScrub = duration > 0L && state.hasActiveTrack && interactive
 
     val playbackFraction = if (duration > 0L) {
@@ -123,8 +125,11 @@ fun PlayerShellProgressLine(
                         scrubFraction = (change.position.x / trackWidthPx).coerceIn(0f, 1f)
                     }
                     if (dragging) {
+                        val seekDuration = durationState.value
                         pendingSeekFraction = scrubFraction
-                        nowPlayingManager.seek((scrubFraction * duration).toLong())
+                        if (seekDuration > 0L) {
+                            nowPlayingManager.seek((scrubFraction * seekDuration).toLong())
+                        }
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         isScrubbing = false
                         pendingClearJob?.cancel()

@@ -18,7 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.MovieCreation
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Tv
@@ -276,7 +276,7 @@ fun FilmDetailScreen(
                             if (onNavigateToDirector != null) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.post_menu_go_to_director), style = CorusFont.body) },
-                                    leadingIcon = { Icon(Icons.Filled.MovieCreation, contentDescription = null) },
+                                    leadingIcon = { Icon(Icons.Filled.Campaign, contentDescription = null) },
                                     onClick = {
                                         menuExpanded = false
                                         goToDirector()
@@ -356,6 +356,7 @@ fun FilmDetailScreen(
                                         inlineTrailerVideoID = null
                                         TrailerPlaybackCoordinator.stop(trailerSlotId)
                                     },
+                                    onDark = false,
                                 )
                             }
                             Box(
@@ -727,7 +728,7 @@ fun FilmDetailScreen(
                             if (onNavigateToDirector != null) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.post_menu_go_to_director), style = CorusFont.body) },
-                                    leadingIcon = { Icon(Icons.Filled.MovieCreation, contentDescription = null) },
+                                    leadingIcon = { Icon(Icons.Filled.Campaign, contentDescription = null) },
                                     onClick = {
                                         menuOpen = false
                                         goToDirector()

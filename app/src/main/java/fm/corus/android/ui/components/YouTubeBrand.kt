@@ -4,16 +4,17 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fm.corus.android.R
+import fm.corus.android.ui.theme.CorusSpacing
 
 /** Official YouTube watch URL for an embed / Data API video id. */
 fun youTubeWatchUrl(youtubeId: String): String =
@@ -58,29 +60,41 @@ fun YouTubeIcon(
 }
 
 /**
- * Dismiss control for an inline YouTube player. Must be rendered *outside*
- * the player frame — YouTube RMF forbids overlays on the embedded player or
- * its controls (Developer Policies III.C.1).
+ * Dismiss control for an inline YouTube player. Must sit outside the embed
+ * iframe (YouTube RMF / III.C.1) — e.g. in letterbox above a 16:9 player, or
+ * in a chrome row beside the player.
+ *
+ * Styled like iOS: plain xmark, no circle chrome, inset padding.
+ *
+ * @param onDark true when drawn on a black letterbox (white glyph); false when
+ * drawn on the light feed chrome (dark glyph).
  */
 @Composable
 fun YouTubePlayerDismiss(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    onDark: Boolean = true,
     contentDescription: String? = null,
 ) {
     val label = contentDescription ?: stringResource(R.string.post_card_cd_close_trailer)
     Box(
         modifier = modifier
-            .size(32.dp)
-            .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-            .clickable(onClick = onClose),
+            // Match iOS: inset from the corner, then a tappable area around a
+            // small plain xmark (no circle chrome).
+            .padding(CorusSpacing.md)
+            .size(30.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClose,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = Icons.Filled.Close,
             contentDescription = label,
-            tint = Color.White,
-            modifier = Modifier.size(16.dp),
+            tint = if (onDark) Color.White else Color.Black,
+            modifier = Modifier.size(14.dp),
         )
     }
 }

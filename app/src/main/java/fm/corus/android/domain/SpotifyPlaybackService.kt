@@ -14,6 +14,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,7 @@ import javax.inject.Inject
 import javax.inject.Provider
 import kotlin.concurrent.withLock
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -83,18 +85,28 @@ class SpotifyPlaybackService @Inject constructor(
         private set
     var currentTrackAlbumTitle: String? = null
         private set
+    /** Raw App Remote `ImageUri.raw` (usually `spotify:image:…`). */
+    var currentTrackImageUriRaw: String? = null
+        private set
 
     data class AppRemoteDisplayMetadata(
         val name: String,
         val artistName: String,
         val albumName: String,
+        /** HTTPS CDN URL derived from App Remote image URI, when available. */
+        val albumArtURL: String? = null,
     )
 
     /** Display metadata for whatever Spotify is playing — from App Remote, no Web API. */
     fun appRemoteDisplayMetadata(): AppRemoteDisplayMetadata? {
         val name = currentTrackTitle?.takeIf { it.isNotEmpty() } ?: return null
         val artist = currentTrackArtistName?.takeIf { it.isNotEmpty() } ?: return null
-        return AppRemoteDisplayMetadata(name, artist, currentTrackAlbumTitle.orEmpty())
+        return AppRemoteDisplayMetadata(
+            name = name,
+            artistName = artist,
+            albumName = currentTrackAlbumTitle.orEmpty(),
+            albumArtURL = spotifyImageUriToHttps(currentTrackImageUriRaw),
+        )
     }
 
     /** Set on track change until the next player-context event (Android has no context on PlayerState). */
@@ -504,6 +516,7 @@ class SpotifyPlaybackService @Inject constructor(
             // Spotify emits empty player state during connect/handoff/disconnect.
             _isPlaying.value = !state.isPaused
             _positionSeconds.value = state.playbackPosition / 1000.0
+            currentTrackImageUriRaw = null
             onPlayerStateUpdated?.invoke()
             return
         }
@@ -513,6 +526,7 @@ class SpotifyPlaybackService @Inject constructor(
         currentTrackTitle = track.name
         currentTrackArtistName = track.artist?.name
         currentTrackAlbumTitle = track.album?.name
+        currentTrackImageUriRaw = track.imageUri?.raw?.takeIf { it.isNotBlank() }
         val playStateChanged = _isPlaying.value != playing
         val trackChanged = uri.isNotEmpty() && uri != lastObservedTrackUri
         val newPosition = state.playbackPosition / 1000.0
@@ -601,15 +615,23 @@ class SpotifyPlaybackService @Inject constructor(
         if (!remote.isConnected) return
         val seconds = maxOf(0.0, toSeconds)
         val ms = (seconds * 1000).toLong()
+        // Optimistic + await (iOS parity). The old fire-and-forget job returned
+        // before seekTo finished, so Corus re-anchored while App Remote still
+        // reported the pre-scrub position.
         seekJob?.cancel()
-        seekJob = scope.launch {
-            runCatching {
-                awaitPlayerApiVoid(
-                    onSuccess = { _positionSeconds.value = seconds },
-                ) { it.playerApi.seekTo(ms) }
-            }.onFailure { error ->
-                android.util.Log.w("SpotifyPlayback", "seek failed: ${error.message}")
-            }
+        _positionSeconds.value = seconds
+        val job = scope.async {
+            awaitPlayerApiVoid(
+                onSuccess = { _positionSeconds.value = seconds },
+            ) { it.playerApi.seekTo(ms) }
+        }
+        seekJob = job
+        try {
+            job.await()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            android.util.Log.w("SpotifyPlayback", "seek failed: ${error.message}")
         }
     }
 
@@ -909,4 +931,21 @@ class SpotifyPlaybackService @Inject constructor(
             }
         }
     }
+}
+
+/**
+ * App Remote `ImageUri.raw` → Spotify CDN HTTPS URL.
+ * `spotify:image:<hex>` becomes `https://i.scdn.co/image/<hex>`.
+ */
+internal fun spotifyImageUriToHttps(raw: String?): String? {
+    if (raw.isNullOrBlank()) return null
+    val trimmed = raw.trim()
+    if (trimmed.startsWith("https://", ignoreCase = true) ||
+        trimmed.startsWith("http://", ignoreCase = true)
+    ) {
+        return trimmed
+    }
+    val id = trimmed.removePrefix("spotify:image:").trim()
+    if (id.isEmpty() || id == trimmed) return null
+    return "https://i.scdn.co/image/$id"
 }

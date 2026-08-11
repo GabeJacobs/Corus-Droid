@@ -575,6 +575,13 @@ class NowPlayingManager @Inject constructor(
     private var spotifyScrubberHoldUntilTrackChangeFromUri: String? = null
     /** Outgoing-track position reports can lag behind URI changes after skip. */
     private val spotifyScrubberHoldMaxReleasePositionSec = 3.0
+    /**
+     * After a user scrub, ignore stale App Remote position callbacks that still
+     * report the pre-seek time (they were yanking the scrubber back on release).
+     * Mirrors iOS `spotifyScrubSeekInFlightUntil`.
+     */
+    private var spotifyScrubSeekInFlightUntilMs: Long? = null
+    private var spotifyScrubSeekTargetSec: Double? = null
     private var spotifyPositionJob: Job? = null
     private var spotifySeekJob: Job? = null
 
@@ -618,9 +625,14 @@ class NowPlayingManager @Inject constructor(
         }
     }
 
-    /** Mini-player / lock-screen Next chains previews in 30s mode or during preview playback. */
+    /**
+     * Mini-player / lock-screen Next honor Play Full Songs — not whether the
+     * *current* track is ExoPlayer chrome. SoundCloud / Audiomack always set
+     * [isPreviewMode] (ExoPlayer), which previously forced preview-chaining
+     * even when the next catalog track should go full Spotify Connect.
+     */
     val preferPreviewOnInAppSkip: Boolean
-        get() = isPreviewMode || !preferencesDataStore.effectivePlayFullSongsSync()
+        get() = !preferencesDataStore.effectivePlayFullSongsSync()
 
     private val isActiveFullSongSession: Boolean
         get() {
@@ -893,11 +905,12 @@ class NowPlayingManager @Inject constructor(
      */
     fun seek(toMs: Long) {
         if (isSpotifyConnectPlaying || isExternalSpotifyListening) {
-            val seconds = toMs / 1000.0
+            val seconds = toMs.coerceAtLeast(0L) / 1000.0
             spotifyScrubberHoldAtZero = false
             spotifyScrubberHoldUntilTrackChangeFromUri = null
+            beginSpotifyScrubSeekInFlight(seconds)
             if (_state.value.isPlaying) userInitiatedPause = false
-            ScrubberClock.snapTime(toMs)
+            ScrubberClock.snapTime(toMs.coerceAtLeast(0L))
             syncSpotifyScrubAnchor(seconds)
             spotifySeekJob?.cancel()
             spotifySeekJob = managerScope.launch {
@@ -909,6 +922,9 @@ class NowPlayingManager @Inject constructor(
                     .onFailure { error ->
                         android.util.Log.w("NowPlaying", "Spotify seek failed: ${error.message}")
                     }
+                // Re-pin after the API ack so a late pre-seek PlayerState can't win.
+                ScrubberClock.snapTime(toMs.coerceAtLeast(0L))
+                syncSpotifyScrubAnchor(seconds)
             }
             return
         }
@@ -1771,7 +1787,7 @@ class NowPlayingManager @Inject constructor(
 
     /** Auto-advance to the next queued track when playback ends. */
     private fun handlePlaybackEnded() {
-        skipToNext(preferPreviewOnNext = true)
+        skipToNext(preferPreviewOnNext = preferPreviewOnInAppSkip)
     }
 
     fun skipToNext(preferPreviewOnNext: Boolean = false) {
@@ -2406,7 +2422,13 @@ class NowPlayingManager @Inject constructor(
                 !userInitiatedPause &&
                 spotifyScrubberShouldAdvance()
             ) {
-                syncSpotifyScrubAnchor(spotifyPlaybackService.positionSeconds.value)
+                val reported = spotifyPlaybackService.positionSeconds.value
+                if (spotifyScrubSeekInFlight()) {
+                    // Only adopt once App Remote has caught up to the scrub target.
+                    maybeCompleteSpotifyScrubSeekInFlight(reported)
+                } else {
+                    syncSpotifyScrubAnchor(reported)
+                }
             }
         }
     }
@@ -2484,6 +2506,7 @@ class NowPlayingManager @Inject constructor(
         spotifyPendingExternalUri = null
         spotifyScrubberHoldAtZero = false
         spotifyScrubberHoldUntilTrackChangeFromUri = null
+        clearSpotifyScrubSeekInFlight()
     }
 
     private fun reconcileSpotifyQueuePosition(uri: String) {
@@ -2673,6 +2696,7 @@ class NowPlayingManager @Inject constructor(
         pauseSpotifyConnectTimePolling()
         spotifyScrubberHoldAtZero = false
         spotifyScrubberHoldUntilTrackChangeFromUri = null
+        clearSpotifyScrubSeekInFlight()
 
         // Only songs can be mirrored in the mini player — a podcast has no Corus
         // song page, so just stop showing Corus as playing and leave Spotify alone.
@@ -2694,6 +2718,7 @@ class NowPlayingManager @Inject constructor(
         _isHydratingExternalSpotify.value = false
         spotifyScrubberHoldAtZero = false
         spotifyScrubberHoldUntilTrackChangeFromUri = null
+        clearSpotifyScrubSeekInFlight()
         pauseExternalSpotifyTimePolling()
         if (!isSpotifyConnectPlaying) {
             spotifyPlaybackService.onPlayerTrackChanged = null
@@ -2725,13 +2750,21 @@ class NowPlayingManager @Inject constructor(
         val normalizedCurrent = _state.value.trackId?.let { SpotifyPlaybackService.normalizedSpotifyTrackId(it) }
 
         if (isExternalSpotifyListening && normalizedCurrent == normalizedIncoming) {
-            _state.value = _state.value.copy(isPlaying = svc.isPlaying.value)
-            syncExternalSpotifyScrubber()
+            externalSpotifyUserPaused = false
+            _state.value = _state.value.copy(isPlaying = svc.isPlaying.value || _state.value.isPlaying)
+            clearSpotifyScrubberHold()
+            if (svc.isConnected) {
+                syncSpotifyScrubAnchor(svc.positionSeconds.value)
+                syncExternalSpotifyScrubber()
+            }
             return
         }
 
         clearSpotifyHandoffFailureSuppression()
-        beginSpotifyScrubberHoldAtZero(externalSpotifyTrackURI ?: svc.currentTrackUri.value)
+        // Hold scrubber at 0 only while hydrating — released below once we seed
+        // from App Remote (iOS clearSpotifyScrubberHold after adopt). Using the
+        // incoming URI as holdFrom would pin the scrubber at 0 forever.
+        beginSpotifyScrubberHoldAtZero(externalSpotifyTrackURI)
         _isHydratingExternalSpotify.value = true
         try {
             val appRemoteMeta = svc.appRemoteDisplayMetadata()
@@ -2747,10 +2780,18 @@ class NowPlayingManager @Inject constructor(
                         name = meta.name,
                         artistName = meta.artistName,
                         albumName = meta.albumName,
+                        albumArtURL = meta.albumArtURL,
+                        albumArtLargeURL = meta.albumArtURL,
                         spotifyURI = spotifyURI,
                         spotifyWebURL = "https://open.spotify.com/track/$trackId",
                         durationMs = durationMs,
                     )
+                }
+            } else if (track.albumArtURL.isNullOrBlank()) {
+                // Web API sometimes omits images; App Remote still has cover art.
+                val art = (appRemoteMeta ?: svc.appRemoteDisplayMetadata())?.albumArtURL
+                if (!art.isNullOrBlank()) {
+                    track = track.copy(albumArtURL = art, albumArtLargeURL = art)
                 }
             }
             if (track == null) return
@@ -2759,6 +2800,7 @@ class NowPlayingManager @Inject constructor(
             externalSpotifyTrackURI = spotifyURI
             _isExternalSpotifyListening.value = true
             isSpotifyConnectPlaying = false
+            externalSpotifyUserPaused = false
             currentQueueIndex = null
 
             _state.value = NowPlayingState(
@@ -2766,16 +2808,30 @@ class NowPlayingManager @Inject constructor(
                 trackName = track.name,
                 artistName = track.artistName,
                 albumArtURL = track.albumArtURL,
-                albumArtLargeURL = track.albumArtLargeURL,
+                albumArtLargeURL = track.albumArtLargeURL ?: track.albumArtURL,
                 spotifyURI = track.spotifyURI,
                 spotifyWebURL = track.spotifyWebURL,
                 isrc = track.isrc,
-                isPlaying = svc.isPlaying.value,
+                // iOS sets isPlaying = true after external adopt (App Remote may
+                // briefly report paused during handoff).
+                isPlaying = true,
                 source = TrackSource.SPOTIFY,
                 hasNext = false,
             )
-            syncSpotifyScrubAnchor(svc.positionSeconds.value)
-            syncExternalSpotifyScrubber()
+            // iOS: clear hold, seed anchor + ScrubberClock from App Remote position.
+            clearSpotifyScrubberHold()
+            val positionSec = maxOf(0.0, svc.positionSeconds.value)
+            val durationSec = when {
+                svc.durationSeconds.value > 0 -> svc.durationSeconds.value
+                track.durationMs > 0 -> track.durationMs / 1000.0
+                else -> 0.0
+            }
+            syncSpotifyScrubAnchor(positionSec)
+            if (durationSec > 0) {
+                ScrubberClock.update((positionSec * 1000).toLong(), (durationSec * 1000).toLong())
+            } else {
+                ScrubberClock.snapTime((positionSec * 1000).toLong())
+            }
             installExternalSpotifyDelegates()
             startExternalSpotifyTimePolling()
         } finally {
@@ -3322,6 +3378,40 @@ class NowPlayingManager @Inject constructor(
         spotifyScrubberHoldUntilTrackChangeFromUri = fromPreviousTrackUri
     }
 
+    /** iOS `clearSpotifyScrubberHold` — let the scrubber advance again. */
+    private fun clearSpotifyScrubberHold() {
+        spotifyScrubberHoldAtZero = false
+        spotifyScrubberHoldUntilTrackChangeFromUri = null
+    }
+
+    private fun beginSpotifyScrubSeekInFlight(targetSec: Double) {
+        spotifyScrubSeekTargetSec = maxOf(0.0, targetSec)
+        spotifyScrubSeekInFlightUntilMs = System.currentTimeMillis() + 2_500L
+    }
+
+    private fun clearSpotifyScrubSeekInFlight() {
+        spotifyScrubSeekInFlightUntilMs = null
+        spotifyScrubSeekTargetSec = null
+    }
+
+    /** iOS `spotifyScrubSeekInFlight()`. */
+    private fun spotifyScrubSeekInFlight(): Boolean {
+        val until = spotifyScrubSeekInFlightUntilMs ?: return false
+        if (System.currentTimeMillis() >= until) {
+            clearSpotifyScrubSeekInFlight()
+            return false
+        }
+        return true
+    }
+
+    private fun maybeCompleteSpotifyScrubSeekInFlight(reportedSec: Double) {
+        val target = spotifyScrubSeekTargetSec ?: return
+        if (kotlin.math.abs(reportedSec - target) <= 2.0) {
+            syncSpotifyScrubAnchor(reportedSec)
+            clearSpotifyScrubSeekInFlight()
+        }
+    }
+
     private fun resetSpotifyScrubAnchor() {
         spotifyScrubAnchorWallTime = null
         spotifyScrubAnchorPosition = 0.0
@@ -3336,11 +3426,18 @@ class NowPlayingManager @Inject constructor(
         if (spotifyScrubberHoldAtZero) return 0.0
         val reported = spotifyPlaybackService.positionSeconds.value
         if (!spotifyScrubberShouldAdvance()) {
+            // Keep the post-scrub clock stable while Spotify briefly reports paused.
+            if (spotifyScrubSeekInFlight()) {
+                return spotifyScrubAnchorPosition
+            }
             spotifyScrubAnchorWallTime = null
             spotifyScrubAnchorPosition = reported
             return reported
         }
         val anchorTime = spotifyScrubAnchorWallTime ?: run {
+            if (spotifyScrubSeekInFlight()) {
+                return spotifyScrubSeekTargetSec ?: reported
+            }
             syncSpotifyScrubAnchor(reported)
             return reported
         }

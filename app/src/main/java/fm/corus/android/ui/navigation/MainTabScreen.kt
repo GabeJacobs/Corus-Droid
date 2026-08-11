@@ -45,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -358,16 +359,21 @@ fun MainTabScreen(
     val showsMiniPlayer = nowPlayingState.hasActiveTrack && !isHydratingExternalSpotify &&
         (!isExternalSpotifyListening ||
             (nowPlayingState.trackName.isNotBlank() && nowPlayingState.trackName != "Unknown Track"))
+    // Hold the white empty shell invisible until the art wash has painted —
+    // otherwise first play flashes a solid-white mini + tab bar.
+    var playerSurfaceReady by remember { mutableStateOf(false) }
 
     LaunchedEffect(showsMiniPlayer) {
         if (!showsMiniPlayer) {
+            playerSurfaceReady = false
             playerExpansion.collapse()
         }
     }
 
     val livePlayerExpansion = if (showsMiniPlayer) playerExpansion.liveExpansion() else 0f
     val bottomChromeHeight = with(density) {
-        tabBarHeightPx.toDp() + if (showsMiniPlayer) miniHeightPx.toDp() else 0.dp
+        tabBarHeightPx.toDp() +
+            if (showsMiniPlayer && playerSurfaceReady) miniHeightPx.toDp() else 0.dp
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -484,9 +490,11 @@ fun MainTabScreen(
             artworkUrl = nowPlayingState.albumArtLargeURL ?: nowPlayingState.albumArtURL,
             nowPlayingManager = viewModel.nowPlayingManager,
             onMiniHeightPxChanged = { miniHeightPx = it },
+            onSurfaceReady = { playerSurfaceReady = true },
             modifier = Modifier
                 .fillMaxSize()
-                .zIndex(1f),
+                .zIndex(1f)
+                .alpha(if (playerSurfaceReady) 1f else 0f),
             miniContent = { miniInteractive ->
                 MiniPlayerBar(
                     nowPlayingManager = viewModel.nowPlayingManager,
@@ -676,11 +684,10 @@ fun MainTabScreen(
             }
             .onSizeChanged { tabBarHeightPx = it.height.toFloat() }
             .then(
-                // With a mini player up, the expanding sheet's art wash already
-                // paints under this bar — skip the white Haze tint so mini + tabs
-                // read as one continuous frosted surface. Without a mini player,
-                // keep the usual feed-blurring glass.
-                if (FrostedBottomBar && !showsMiniPlayer) {
+                // With a ready mini-player wash, skip Haze so mini + tabs share
+                // one frosted surface. Keep Haze until the wash is ready so the
+                // tab bar doesn't flash solid white on first play.
+                if (FrostedBottomBar && !(showsMiniPlayer && playerSurfaceReady)) {
                     Modifier.hazeEffect(state = bottomHaze) {
                         blurRadius = 30.dp
                         backgroundColor = bottomFrost
@@ -815,11 +822,16 @@ fun MainTabScreen(
         }
     }
 
-    // Compose screen as full-screen overlay OVER everything (including bottom bar & mini player)
+    // Compose screen as full-screen overlay OVER everything (including bottom bar & mini player).
+    // Same stacking as comments: player is z=1, tab bar is z=2 — compose must sit above both
+    // so the Set Corus button and trophy celebration aren't clipped by the menu bar (iOS parity).
     AnimatedVisibility(
         visible = showCompose,
         enter = slideInVertically { it },
         exit = slideOutVertically { it },
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(3f),
     ) {
         ComposeScreen(
             onDismiss = {

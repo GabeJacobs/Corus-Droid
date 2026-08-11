@@ -946,6 +946,8 @@ private fun FullPlayerCatalogPostedBySection(
                         post = post,
                         onUserTap = { if (interactive) onOpenUser(post.user.id) },
                         onPostTap = { if (interactive) onOpenPost(post.id) },
+                        // Frosted player wash — match iOS catalog primary opacities.
+                        frostReadable = true,
                     )
                     if (index == posts.lastIndex && hasMore && !isLoadingMore) {
                         LaunchedEffect(post.id) { onLoadMore() }

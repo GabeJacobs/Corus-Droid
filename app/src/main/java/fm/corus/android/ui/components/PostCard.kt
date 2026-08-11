@@ -478,22 +478,6 @@ fun PostCard(
         // same anti-pattern we removed on iOS (`rotation3DEffect` always-on).
         // When `flipRotation == 0f`, the transform would be identity anyway.
         val needsFlipLayer = flipRotation != 0f
-        // Dismiss sits outside the player frame (YouTube RMF / III.C.1).
-        if (inlineTrailerVideoID != null) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = CorusSpacing.sm),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                YouTubePlayerDismiss(
-                    onClose = {
-                        inlineTrailerVideoID = null
-                        TrailerPlaybackCoordinator.stop(post.id)
-                    },
-                )
-            }
-        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -775,6 +759,8 @@ fun PostCard(
             // Prototype: inline trailer player. Letterboxed 16:9 against black
             // inside the portrait poster box so the card never reflows.
             inlineTrailerVideoID?.let { videoID ->
+                // Letterboxed 16:9 player; dismiss sits in the black bar above
+                // the iframe (not over the embed — YouTube RMF / III.C.1).
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -793,6 +779,14 @@ fun PostCard(
                             inlineTrailerVideoID = null
                             TrailerPlaybackCoordinator.stop(post.id)
                         },
+                    )
+                    YouTubePlayerDismiss(
+                        onClose = {
+                            inlineTrailerVideoID = null
+                            TrailerPlaybackCoordinator.stop(post.id)
+                        },
+                        modifier = Modifier.align(Alignment.TopEnd),
+                        onDark = true,
                     )
                 }
             }

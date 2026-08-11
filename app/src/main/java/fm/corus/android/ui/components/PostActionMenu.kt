@@ -15,7 +15,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.MovieCreation
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
@@ -103,7 +103,8 @@ fun PostActionMenu(
             )
             if (showGoToDirectorRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
                 MenuRow(
-                    icon = Icons.Filled.MovieCreation,
+                    // Material Campaign ≡ megaphone (matches iOS SF Symbol "megaphone").
+                    icon = Icons.Filled.Campaign,
                     label = stringResource(R.string.post_menu_go_to_director),
                     onClick = { onGoToDirector(); onDismiss() },
                 )

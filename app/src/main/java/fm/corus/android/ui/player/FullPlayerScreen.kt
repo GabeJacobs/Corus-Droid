@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -33,7 +34,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -59,6 +60,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Alignment
@@ -72,7 +74,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -100,8 +105,9 @@ import fm.corus.android.ui.navigation.ArtistPageRoute
 import fm.corus.android.ui.navigation.rememberArtistPagesEnabled
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
-import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -144,6 +150,8 @@ fun FullPlayerScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val buttonNav = rememberIsButtonStyleNavigation(navBottom)
     val scroll = rememberScrollState()
     val isExternalSpotifyListening by nowPlayingManager.isExternalSpotifyListeningFlow.collectAsState()
     val artistPagesEnabled = rememberArtistPagesEnabled()
@@ -448,7 +456,12 @@ fun FullPlayerScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            // Clear the 3-button nav scrim so the last comments aren't trapped under it.
+            Spacer(
+                modifier = Modifier.height(
+                    48.dp + if (buttonNav) navBottom else 0.dp,
+                ),
+            )
         }
         }
 
@@ -626,22 +639,48 @@ private fun FullPlayerScrubber(
 ) {
     val clockTimeMs by ScrubberClock.time.collectAsState()
     val clockDurationMs by ScrubberClock.duration.collectAsState()
+    val state by nowPlayingManager.state.collectAsState()
     var isScrubbing by remember { mutableStateOf(false) }
     var scrubFraction by remember { mutableFloatStateOf(0f) }
+    var pendingSeekFraction by remember { mutableStateOf<Float?>(null) }
     var trackWidthPx by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
 
     val duration = clockDurationMs.coerceAtLeast(0L)
+    val durationState = rememberUpdatedState(duration)
     val canScrub = duration > 0L && interactive
     val playbackFraction = if (duration > 0L) {
         (clockTimeMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
     } else {
         0f
     }
-    val displayed = if (isScrubbing) scrubFraction else playbackFraction
+    val displayed = when {
+        isScrubbing -> scrubFraction
+        pendingSeekFraction != null -> pendingSeekFraction!!
+        else -> playbackFraction
+    }
 
-    val elapsedMs = if (isScrubbing) (displayed * duration).toLong() else clockTimeMs
+    val holdingSeekLabel = isScrubbing || pendingSeekFraction != null
+    val elapsedMs = if (holdingSeekLabel) (displayed * duration).toLong() else clockTimeMs
     val remainingMs = (duration - elapsedMs).coerceAtLeast(0L)
+
+    // Hold the knob/label on the scrub target until live time catches up (iOS
+    // pendingSeekFraction) — otherwise a stale Spotify position flash wins.
+    LaunchedEffect(clockTimeMs, pendingSeekFraction, duration) {
+        val pending = pendingSeekFraction ?: return@LaunchedEffect
+        if (duration > 0L && abs(playbackFraction - pending) < 0.02f) {
+            pendingSeekFraction = null
+        }
+    }
+    LaunchedEffect(pendingSeekFraction) {
+        if (pendingSeekFraction == null) return@LaunchedEffect
+        delay(2_000L)
+        pendingSeekFraction = null
+    }
+    LaunchedEffect(state.trackId) {
+        pendingSeekFraction = null
+        isScrubbing = false
+    }
 
     Column(modifier = modifier) {
         Box(
@@ -666,7 +705,11 @@ private fun FullPlayerScrubber(
                             scrubFraction = (change.position.x / trackWidthPx).coerceIn(0f, 1f)
                         }
                         if (dragging) {
-                            nowPlayingManager.seek((scrubFraction * duration).toLong())
+                            val seekDuration = durationState.value
+                            pendingSeekFraction = scrubFraction
+                            if (seekDuration > 0L) {
+                                nowPlayingManager.seek((scrubFraction * seekDuration).toLong())
+                            }
                             isScrubbing = false
                         }
                     }
@@ -757,20 +800,25 @@ private fun FullPlayerTransport(
                 }
             }
             showsComposeButton -> {
-                // iOS FullPlayerTransport leadingActionButton — accent + circle.
+                // iOS FullPlayerTransport leadingActionButton — accent + bold plus
+                // (SF Symbol weight .bold). Material Add reads thin on the 32dp disc.
+                val composeCd = stringResource(R.string.full_player_post)
                 IconButton(onClick = onCompose, enabled = interactive, modifier = Modifier.size(44.dp)) {
                     Box(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(CorusColors.Accent),
+                            .background(CorusColors.Accent)
+                            .semantics { contentDescription = composeCd },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = stringResource(R.string.full_player_post),
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp),
+                        Text(
+                            text = "+",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 22.sp,
                         )
                     }
                 }

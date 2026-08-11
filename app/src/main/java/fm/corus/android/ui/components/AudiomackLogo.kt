@@ -24,7 +24,7 @@ import fm.corus.android.ui.theme.LocalCorusDarkTheme
  * than tall (~1.45:1), so it's sized by [height] and laid out at natural aspect
  * with [ContentScale.Fit] rather than squished into a square.
  */
-private const val AUDIOMACK_MARK_ASPECT = 435f / 299f
+private const val AUDIOMACK_MARK_ASPECT = 279f / 192f
 
 @Composable
 fun AudiomackLogo(

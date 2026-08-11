@@ -442,11 +442,9 @@ private fun RecipientPickerShareMediaSheet(
     ) {
         ShareSheetDragIndicator()
 
-        // What the link looks like once it lands. Hidden while searching so the
-        // results list gets the height the keyboard takes.
-        if (!isSearchActive) {
-            ShareLinkPreviewCard(shareableLink = shareableLink)
-        }
+        // No link preview here — matching iOS, the card only appears on the
+        // own-profile outbound sheet. Catalog media and other-profile shares
+        // go straight to recipients.
 
         // Search bar
         Row(

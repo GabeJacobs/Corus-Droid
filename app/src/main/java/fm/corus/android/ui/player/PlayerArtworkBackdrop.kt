@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import android.util.LruCache
 import androidx.compose.ui.Modifier
@@ -38,7 +39,6 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
@@ -65,17 +65,18 @@ fun PlayerArtworkBackdrop(
     artworkUrl: String?,
     expansion: Float,
     modifier: Modifier = Modifier,
+    /** Fired once the first frosted wash is on screen — used to hide the white flash. */
+    onSurfaceReady: (() -> Unit)? = null,
 ) {
     val darkTheme = LocalCorusDarkTheme.current
     val context = LocalContext.current
     val imageLoader = remember(context) { SingletonImageLoader.get(context) }
     val t = expansion.coerceIn(0f, 1f)
+    val onReadyState = rememberUpdatedState(onSurfaceReady)
 
+    // Becomes true once the first bake commits — no artificial 280ms delay
+    // (that was painting a solid white mini+tab before any album color).
     var heavyChromeReady by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(280)
-        heavyChromeReady = true
-    }
 
     val frostedArtOpacity = playerFrostedArtOpacity(darkTheme, t, heavyChromeReady)
     val materialOpacity = playerMaterialOpacity(darkTheme, heavyChromeReady)
@@ -101,18 +102,21 @@ fun PlayerArtworkBackdrop(
     var committedIdentity by remember { mutableStateOf<String?>(null) }
     var loadGeneration by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(artworkUrl, darkTheme, heavyChromeReady) {
-        if (!heavyChromeReady) return@LaunchedEffect
+    LaunchedEffect(artworkUrl, darkTheme) {
         val identity = backdropIdentity(artworkUrl, darkTheme)
         if (identity == committedIdentity && (planeA != null || planeB != null)) {
+            if (!heavyChromeReady) {
+                heavyChromeReady = true
+                onReadyState.value?.invoke()
+            }
             return@LaunchedEffect
         }
 
         val generation = loadGeneration + 1
         loadGeneration = generation
 
-        // Coil shares memory/disk with the album-art carousel so Next doesn't
-        // open a second network stream on the main path.
+        // Bake on IO immediately — Coil usually hits the feed memory cache so
+        // the first wash is ready before we reveal the mini player.
         val prepared = withContext(Dispatchers.IO) {
             prepareBackdrop(artworkUrl, darkTheme, imageLoader, context)
         }
@@ -175,6 +179,10 @@ fun PlayerArtworkBackdrop(
         }
         if (generation == loadGeneration) {
             committedIdentity = identity
+            if (!heavyChromeReady) {
+                heavyChromeReady = true
+                onReadyState.value?.invoke()
+            }
         }
     }
 
@@ -268,9 +276,9 @@ internal fun backdropIdentity(artworkUrl: String?, darkTheme: Boolean): String {
 }
 
 /**
- * Blurred album-art bloom. Dark matches iOS. Light stays close to iOS
- * (0.08 → 0.66) with a slightly stronger mini bloom so Android still reads
- * as frost without real `.ultraThinMaterial`.
+ * Blurred album-art bloom. Light stays close to iOS (0.08 → 0.66) with a
+ * slightly stronger mini bloom. Dark mini is a hair above iOS 0.12 so Android's
+ * black-on-black material stand-in still reads a bit of album color.
  */
 internal fun playerFrostedArtOpacity(
     darkTheme: Boolean,
@@ -280,7 +288,8 @@ internal fun playerFrostedArtOpacity(
     if (!heavyChromeReady) return 0f
     val t = expansion.coerceIn(0f, 1f)
     return if (darkTheme) {
-        0.12f + 0.88f * t
+        // Mini 0.18 → full 1.0 (iOS mini is 0.12; Android needs more bloom).
+        0.18f + 0.82f * t
     } else {
         // Slightly above iOS 0.08 so a bit more album color reads on the mini.
         0.16f + 0.50f * t
@@ -288,22 +297,22 @@ internal fun playerFrostedArtOpacity(
 }
 
 /**
- * Glass-strength stand-in. Dark matches iOS. Light uses a translucent white
- * frost (iOS material is 0.94) — kept a hair under fully white so color shows.
+ * Glass-strength stand-in. Light uses a translucent white frost. Dark is under
+ * iOS's 0.72 so the art wash isn't crushed to near-black on the mini/tab bar.
  */
 internal fun playerMaterialOpacity(darkTheme: Boolean, heavyChromeReady: Boolean): Float {
     if (!heavyChromeReady) return 0f
-    return if (darkTheme) 0.72f else 0.55f
+    return if (darkTheme) 0.60f else 0.55f
 }
 
 /**
- * Top veil. Dark matches iOS. Light mini is a touch under iOS's 0.88 so more
- * of the art wash comes through; expanded stays at 0.42.
+ * Top veil. Light mini is under iOS's 0.88 so more wash shows. Dark mini is
+ * similarly eased under iOS 0.62; expanded stays at 0.27.
  */
 internal fun playerVeilOpacity(darkTheme: Boolean, expansion: Float): Float {
     val t = expansion.coerceIn(0f, 1f)
     return if (darkTheme) {
-        0.62f + (0.27f - 0.62f) * t
+        0.50f + (0.27f - 0.50f) * t
     } else {
         0.74f + (0.42f - 0.74f) * t
     }
@@ -312,7 +321,8 @@ internal fun playerVeilOpacity(darkTheme: Boolean, expansion: Float): Float {
 internal fun playerGradientOpacity(darkTheme: Boolean, expansion: Float): Float {
     val t = expansion.coerceIn(0f, 1f)
     return if (darkTheme) {
-        0.55f + (0.30f - 0.55f) * t
+        // Slightly stronger mini tint wash for a hint of album color.
+        0.62f + (0.30f - 0.62f) * t
     } else {
         0.34f + (0.36f - 0.34f) * t
     }

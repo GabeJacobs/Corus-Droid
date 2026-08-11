@@ -1,7 +1,5 @@
 package fm.corus.android.ui.components
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -57,6 +55,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import fm.corus.android.R
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.domain.NowPlayingManager
@@ -184,9 +184,15 @@ fun MiniPlayerBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
                 ) {
-                    state.albumArtURL?.let { url ->
+                    // Prefer the large feed URL so Coil hits the already-warmed
+                    // memory cache — avoids a blank art tile on first mini paint.
+                    val artUrl = state.albumArtLargeURL ?: state.albumArtURL
+                    if (artUrl != null) {
                         AsyncImage(
-                            model = url,
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(artUrl)
+                                .crossfade(false)
+                                .build(),
                             contentDescription = state.trackName,
                             modifier = Modifier
                                 .size(40.dp)

@@ -2,12 +2,10 @@ package fm.corus.android.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.delay
@@ -59,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -78,25 +77,10 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlin.math.roundToInt
 
-private val EditChromeEnter = expandHorizontally(
-    animationSpec = tween(240, easing = FastOutSlowInEasing),
-    expandFrom = Alignment.Start,
-) + fadeIn(animationSpec = tween(180))
-
-private val EditChromeExit = shrinkHorizontally(
-    animationSpec = tween(220, easing = FastOutSlowInEasing),
-    shrinkTowards = Alignment.Start,
-) + fadeOut(animationSpec = tween(160))
-
-private val DragHandleEnter = expandHorizontally(
-    animationSpec = tween(240, easing = FastOutSlowInEasing),
-    expandFrom = Alignment.End,
-) + fadeIn(animationSpec = tween(180))
-
-private val DragHandleExit = shrinkHorizontally(
-    animationSpec = tween(220, easing = FastOutSlowInEasing),
-    shrinkTowards = Alignment.End,
-) + fadeOut(animationSpec = tween(160))
+/** Shared Edit/Done chrome timing — one Animatable drives every visible row. */
+private val EditChromeMs = 200
+private val EditMinusSlot = 36.dp
+private val EditHandleSlot = 28.dp
 
 /**
  * Full-player Queue sheet — Now Playing / Up Next / Earlier.
@@ -118,6 +102,9 @@ fun FullPlayerQueueSheet(
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     var isEditing by remember { mutableStateOf(false) }
+    // One shared progress for minus / drag-handle — avoids N× expandHorizontally
+    // remeasures in the LazyColumn (was the main Edit toggle hitch).
+    val editChromeProgress = remember { Animatable(0f) }
 
     val upNext = remember(queue, currentIndex) {
         val idx = currentIndex ?: return@remember emptyList()
@@ -132,6 +119,13 @@ fun FullPlayerQueueSheet(
 
     LaunchedEffect(upNext.isEmpty()) {
         if (upNext.isEmpty()) isEditing = false
+    }
+
+    LaunchedEffect(isEditing) {
+        editChromeProgress.animateTo(
+            targetValue = if (isEditing) 1f else 0f,
+            animationSpec = tween(EditChromeMs, easing = FastOutSlowInEasing),
+        )
     }
 
     fun bumpRevision() {
@@ -184,6 +178,7 @@ fun FullPlayerQueueSheet(
                         rowKey = row.key,
                         absoluteIndex = row.index,
                         isEditing = isEditing,
+                        editChromeProgress = editChromeProgress.value,
                         canReorder = true,
                         minReorderIndex = (currentIndex ?: -1) + 1,
                         maxReorderIndex = queue.lastIndex,
@@ -232,6 +227,7 @@ fun FullPlayerQueueSheet(
                         rowKey = row.key,
                         absoluteIndex = row.index,
                         isEditing = isEditing,
+                        editChromeProgress = editChromeProgress.value,
                         canReorder = false,
                         minReorderIndex = 0,
                         maxReorderIndex = 0,
@@ -359,6 +355,7 @@ private fun EditableQueueRow(
     rowKey: String,
     absoluteIndex: Int,
     isEditing: Boolean,
+    editChromeProgress: Float,
     canReorder: Boolean,
     minReorderIndex: Int,
     maxReorderIndex: Int,
@@ -433,7 +430,7 @@ private fun EditableQueueRow(
         ),
         modifier = modifier.zIndex(if (isDragging) 1f else 0f),
     ) {
-        // Keep one tree for edit/browse so minus / drag-handle AnimatedVisibility can run.
+        // Keep one tree for edit/browse so shared edit chrome can animate in place.
         val dismissState = rememberSwipeToDismissBoxState(
             confirmValueChange = { value ->
                 if (isEditing || isPendingRemoval) return@rememberSwipeToDismissBoxState false
@@ -491,6 +488,7 @@ private fun EditableQueueRow(
                     track = track,
                     isCurrent = false,
                     isEditing = isEditing,
+                    editChromeProgress = editChromeProgress,
                     showDragHandle = canReorder,
                     onClick = if (!isEditing) onJump else null,
                     onRemove = { isPendingRemoval = true },
@@ -506,12 +504,16 @@ private fun QueueRow(
     track: QueuedTrack,
     isCurrent: Boolean,
     isEditing: Boolean = false,
+    editChromeProgress: Float = 0f,
     showDragHandle: Boolean = false,
     onClick: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
     dragHandleModifier: Modifier = Modifier,
     modifier: Modifier = Modifier,
 ) {
+    val showMinus = onRemove != null && !isCurrent && editChromeProgress > 0.001f
+    val showHandle = showDragHandle && editChromeProgress > 0.001f
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -522,20 +524,26 @@ private fun QueueRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {
-        AnimatedVisibility(
-            visible = isEditing && onRemove != null && !isCurrent,
-            enter = EditChromeEnter,
-            exit = EditChromeExit,
-        ) {
-            IconButton(
-                onClick = { onRemove?.invoke() },
-                modifier = Modifier.size(36.dp),
+        if (showMinus) {
+            Box(
+                modifier = Modifier
+                    .width(EditMinusSlot * editChromeProgress)
+                    .height(EditMinusSlot)
+                    .clip(RectangleShape)
+                    .graphicsLayer { alpha = editChromeProgress },
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Filled.RemoveCircle,
-                    contentDescription = stringResource(R.string.full_player_queue_remove),
-                    tint = CorusColors.Error,
-                )
+                IconButton(
+                    onClick = { onRemove?.invoke() },
+                    enabled = isEditing,
+                    modifier = Modifier.size(EditMinusSlot),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.RemoveCircle,
+                        contentDescription = stringResource(R.string.full_player_queue_remove),
+                        tint = CorusColors.Error,
+                    )
+                }
             }
         }
 
@@ -572,17 +580,16 @@ private fun QueueRow(
                 modifier = Modifier.size(18.dp),
             )
         }
-        AnimatedVisibility(
-            visible = isEditing && showDragHandle,
-            enter = DragHandleEnter,
-            exit = DragHandleExit,
-        ) {
+        if (showHandle) {
             Icon(
                 imageVector = Icons.Filled.DragHandle,
                 contentDescription = stringResource(R.string.full_player_queue_reorder),
                 tint = CorusColors.Secondary,
                 modifier = dragHandleModifier
-                    .size(28.dp)
+                    .width(EditHandleSlot * editChromeProgress)
+                    .height(EditHandleSlot)
+                    .clip(RectangleShape)
+                    .graphicsLayer { alpha = editChromeProgress }
                     .padding(2.dp),
             )
         }

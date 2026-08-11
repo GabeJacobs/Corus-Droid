@@ -654,23 +654,6 @@ private fun PostDetailAlbumArt(
     val cameraDistancePx = with(density) { 12.dp.toPx() } * 100f
     val showFront = flipRotation <= 90f
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-    // Dismiss sits outside the player frame (YouTube RMF / III.C.1).
-    if (inlineTrailerVideoID != null) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = CorusSpacing.sm),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            YouTubePlayerDismiss(
-                onClose = {
-                    inlineTrailerVideoID = null
-                    TrailerPlaybackCoordinator.stop(post.id)
-                },
-            )
-        }
-    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -772,6 +755,8 @@ private fun PostDetailAlbumArt(
                 // Inline trailer player — letterboxed 16:9 against black inside the
                 // portrait poster box so the layout never reflows (mirrors the feed).
                 inlineTrailerVideoID?.let { videoID ->
+                    // Letterboxed 16:9 player; dismiss sits in the black bar above
+                    // the iframe (not over the embed — YouTube RMF / III.C.1).
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -790,6 +775,14 @@ private fun PostDetailAlbumArt(
                                 inlineTrailerVideoID = null
                                 TrailerPlaybackCoordinator.stop(post.id)
                             },
+                        )
+                        YouTubePlayerDismiss(
+                            onClose = {
+                                inlineTrailerVideoID = null
+                                TrailerPlaybackCoordinator.stop(post.id)
+                            },
+                            modifier = Modifier.align(Alignment.TopEnd),
+                            onDark = true,
                         )
                     }
                 }
@@ -823,7 +816,6 @@ private fun PostDetailAlbumArt(
             }
         }
     }
-    } // Column wrapping dismiss + flip box
 }
 
 @Composable

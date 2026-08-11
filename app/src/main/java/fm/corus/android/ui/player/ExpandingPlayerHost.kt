@@ -48,6 +48,7 @@ fun ExpandingPlayerHost(
     artworkUrl: String?,
     nowPlayingManager: NowPlayingManager,
     onMiniHeightPxChanged: (Float) -> Unit,
+    onSurfaceReady: (() -> Unit)? = null,
     miniContent: @Composable (miniInteractive: Boolean) -> Unit,
     fullContent: @Composable (fullInteractive: Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -111,6 +112,7 @@ fun ExpandingPlayerHost(
                         onMiniHeightPxChanged(h)
                     }
                 },
+                onSurfaceReady = onSurfaceReady,
                 miniContent = miniContent,
                 fullContent = fullContent,
                 modifier = Modifier.fillMaxWidth(),

@@ -34,14 +34,14 @@ fun YouTubeMusicPlaylistDialog(
         if (offersFullExport) {
             add(
                 CorusPromptButton(
-                    label = "Quick Spotify playlist · most recent 75",
+                    label = "Quick playlist · most recent 75",
                     emphasized = true,
                     onClick = onQuick,
                 )
             )
             add(
                 CorusPromptButton(
-                    label = "All $count songs on Spotify",
+                    label = "All $count songs",
                     onClick = onAll,
                 )
             )
@@ -59,7 +59,7 @@ fun YouTubeMusicPlaylistDialog(
 
     CorusPromptOverlay(
         visible = true,
-        title = "YouTube Music playlists coming soon",
+        title = "YouTube Music playlists unavailable",
         message = message,
         iconRes = R.drawable.spotify_logo,
         onDismiss = onDismiss,

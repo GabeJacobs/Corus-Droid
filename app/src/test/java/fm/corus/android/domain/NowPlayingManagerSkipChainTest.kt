@@ -4,37 +4,51 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * Skip-chain algebra for [NowPlayingManager.preferPreviewOnInAppSkip] /
+ * [NowPlayingManager.shouldRouteSpotifyFeedSkip].
+ *
+ * Important: current ExoPlayer "preview chrome" (SoundCloud full HLS, etc.) must
+ * NOT force preview-chaining when Play Full Songs is on — that blocked Spotify
+ * Connect after SoundCloud → Next.
+ */
 class NowPlayingManagerSkipChainTest {
 
+    private fun preferPreviewOnInAppSkip(
+        playFullSongs: Boolean,
+        @Suppress("UNUSED_PARAMETER") isPreviewMode: Boolean,
+    ): Boolean = !playFullSongs
+
+    private fun shouldChainFullPlaybackOnSkip(
+        preferPreviewOnNext: Boolean,
+        playFullSongs: Boolean,
+    ): Boolean = !preferPreviewOnNext && playFullSongs
+
     @Test
-    fun `mini player skip chains preview when preferPreviewOnNext`() {
-        val preferPreviewOnNext = true
-        val playFullSongs = true
-        val chainFullPlayback = !preferPreviewOnNext && playFullSongs
-        assertFalse(chainFullPlayback)
+    fun `soundcloud exoplayer session does not force preview skip when play full songs on`() {
+        val preferPreview = preferPreviewOnInAppSkip(playFullSongs = true, isPreviewMode = true)
+        assertFalse(preferPreview)
+        assertTrue(shouldChainFullPlaybackOnSkip(preferPreview, playFullSongs = true))
     }
 
     @Test
-    fun `mini player skip chains full only when playFullSongs is on`() {
-        val preferPreviewOnNext = false
-        val playFullSongs = true
-        val chainFullPlayback = !preferPreviewOnNext && playFullSongs
-        assertTrue(chainFullPlayback)
+    fun `mini player skip chains preview when play full songs off`() {
+        val preferPreview = preferPreviewOnInAppSkip(playFullSongs = false, isPreviewMode = false)
+        assertTrue(preferPreview)
+        assertFalse(shouldChainFullPlaybackOnSkip(preferPreview, playFullSongs = false))
     }
 
     @Test
-    fun `turning preview mode back on stops full skip chain`() {
-        val preferPreviewOnNext = false
-        val playFullSongs = false
-        val isActiveFullSongSession = true
-        val chainFullPlayback = !preferPreviewOnNext && playFullSongs
-        assertTrue(isActiveFullSongSession)
-        assertFalse(chainFullPlayback)
+    fun `mini player skip chains full when play full songs on`() {
+        val preferPreview = preferPreviewOnInAppSkip(playFullSongs = true, isPreviewMode = false)
+        assertFalse(preferPreview)
+        assertTrue(shouldChainFullPlaybackOnSkip(preferPreview, playFullSongs = true))
     }
 
     @Test
-    fun `preview auto advance stays preview on skip`() {
-        val chainFullPlayback = !(true) && false
-        assertFalse(chainFullPlayback)
+    fun `turning preview mode preference off stops full skip chain`() {
+        val preferPreview = preferPreviewOnInAppSkip(playFullSongs = false, isPreviewMode = true)
+        assertTrue(preferPreview)
+        assertFalse(shouldChainFullPlaybackOnSkip(preferPreview, playFullSongs = false))
     }
 }

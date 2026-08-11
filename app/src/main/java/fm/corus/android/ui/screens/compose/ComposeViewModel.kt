@@ -1147,7 +1147,14 @@ class ComposeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Stop a compose-picker preview only. Mirrors iOS
+     * `stopPickerPreviewIfNeeded`: feed / post-sourced playback (has a
+     * `sourcePostId`) keeps playing under the compose sheet so opening
+     * compose or switching chips doesn't kill the mini-player.
+     */
     fun stopPreview() {
+        if (nowPlayingManager.state.value.sourcePostId != null) return
         nowPlayingManager.stop()
     }
 
