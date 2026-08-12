@@ -1140,14 +1140,10 @@ private fun PostDetailCaption(
             val token = match.value
             val tag = if (token.startsWith("@")) "mention" else "hashtag"
             pushStringAnnotation(tag = tag, annotation = token)
-            if (token.startsWith("@")) {
-                withStyle(SpanStyle(color = CorusColors.Accent, fontWeight = FontWeight.ExtraBold)) {
-                    append(token)
-                }
-            } else {
-                withStyle(SpanStyle(color = CorusColors.Accent)) {
-                    append(token)
-                }
+            // Accent color only — regular weight so @/# don't compete with the
+            // bold username prefix.
+            withStyle(SpanStyle(color = CorusColors.Accent, fontWeight = FontWeight.Normal)) {
+                append(token)
             }
             pop()
             lastIndex = match.range.last + 1

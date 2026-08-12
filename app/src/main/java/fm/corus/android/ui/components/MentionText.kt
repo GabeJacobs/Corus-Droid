@@ -103,10 +103,12 @@ fun buildMentionAnnotatedString(
                 val handle = mentionHandle(token)
                 if (handle.isNotEmpty()) {
                     pushStringAnnotation(tag = MENTION_TAG, annotation = handle)
+                    // Accent color only — regular weight so @/# don't compete
+                    // with the bold username prefix in captions/comments.
                     withStyle(
                         baseStyle.copy(
                             color = linkColor,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Normal,
                         )
                     ) {
                         append(token)
@@ -117,11 +119,10 @@ fun buildMentionAnnotatedString(
                 }
             } else {
                 pushStringAnnotation(tag = HASHTAG_TAG, annotation = token.removePrefix("#"))
-                // Same weight as @mentions — accent alone washed out next to bold handles.
                 withStyle(
                     baseStyle.copy(
                         color = linkColor,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Normal,
                     )
                 ) {
                     append(token)
@@ -180,7 +181,7 @@ fun buildCaptionAnnotatedString(
                 val handle = mentionHandle(token)
                 if (handle.isNotEmpty()) {
                     pushStringAnnotation(tag = MENTION_TAG, annotation = handle)
-                    withStyle(baseStyle.copy(color = CorusColors.Accent, fontWeight = FontWeight.ExtraBold)) {
+                    withStyle(baseStyle.copy(color = CorusColors.Accent, fontWeight = FontWeight.Normal)) {
                         append(token)
                     }
                     pop()
@@ -192,7 +193,7 @@ fun buildCaptionAnnotatedString(
                 withStyle(
                     baseStyle.copy(
                         color = CorusColors.Accent,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Normal,
                     )
                 ) {
                     append(token)

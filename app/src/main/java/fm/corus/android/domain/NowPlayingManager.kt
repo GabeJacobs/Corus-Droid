@@ -799,6 +799,27 @@ class NowPlayingManager @Inject constructor(
 
     fun currentQueueIndexSnapshot(): Int? = currentQueueIndex
 
+    fun testingHandleSpotifyNaturalFeedTrackEnd(uri: String) {
+        handleSpotifyNaturalFeedTrackEnd(uri)
+    }
+
+    fun testingHandleSpotifyConnectTrackEnded() {
+        handleSpotifyConnectTrackEnded()
+    }
+
+    fun testingSpotifyNaturalEndAdvanceJobActive(): Boolean =
+        spotifyNaturalEndAdvanceJob?.isActive == true
+
+    fun testingSpotifyCorusRequestedUri(): String? = spotifyCorusRequestedUri
+
+    fun testingCancelSpotifyNaturalEndAdvanceJob() {
+        cancelSpotifyNaturalEndAdvanceJob()
+    }
+
+    fun testingSetIsSpotifyConnectPlaying(playing: Boolean) {
+        isSpotifyConnectPlaying = playing
+    }
+
     fun removeQueueItem(index: Int) {
         if (index !in queue.indices) return
         val playingIdx = currentQueueIndex
@@ -1854,6 +1875,9 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun forceSpotifyFeedAdvanceToNextEntry() {
+        if (adoptSpotifyConnectNextIfMatching(spotifyPlaybackService.currentTrackUri.value)) {
+            return
+        }
         spotifyPlaybackService.pauseImmediately()
         val idx = currentQueueIndex ?: run { skipToNextLegacyPreview(); return }
         if (idx + 1 >= queue.size) {
@@ -2554,7 +2578,7 @@ class NowPlayingManager @Inject constructor(
         }
         val nextTrack = queue[idx + 1]
         if (spotifyURIMatchesTrack(uri, nextTrack)) {
-            advanceSpotifyToQueueIndex(idx + 1)
+            adoptSpotifyConnectNextIfMatching(uri)
             return
         }
         reclaimSpotifyQueueAfterExternalSkip(uri)
@@ -2579,9 +2603,7 @@ class NowPlayingManager @Inject constructor(
 
         spotifyInferMisroutedLockScreenSkipIfNeeded(reporting)
 
-        val idx = currentQueueIndex
-        if (idx != null && idx + 1 < queue.size && spotifyURIMatchesTrack(reporting, queue[idx + 1])) {
-            advanceSpotifyToQueueIndex(idx + 1)
+        if (adoptSpotifyConnectNextIfMatching(reporting)) {
             return
         }
 
@@ -2618,14 +2640,20 @@ class NowPlayingManager @Inject constructor(
             relinquishSpotifyToExternalPlayback(reporting)
             return
         }
+        if (adoptSpotifyConnectNextIfMatching(reporting)) {
+            return
+        }
         // Mute stale Spotify queue auto-advance immediately — the 400ms debounce
         // below is only for coalescing duplicate end signals, not for waiting.
         spotifyPlaybackService.pauseImmediately()
         spotifyFeedSkipRequestedUntil = System.currentTimeMillis() + 5000
-        spotifyNaturalEndAdvanceJob?.cancel()
+        cancelSpotifyNaturalEndAdvanceJob()
         spotifyNaturalEndAdvanceJob = managerScope.launch {
             delay(200)
             if (!isSpotifyConnectPlaying) return@launch
+            if (adoptSpotifyConnectNextIfMatching(spotifyPlaybackService.currentTrackUri.value)) {
+                return@launch
+            }
             if (computeHasNext()) {
                 forceSpotifyFeedAdvanceToNextEntry()
             } else {
@@ -2637,12 +2665,41 @@ class NowPlayingManager @Inject constructor(
 
     /** Spotify often auto-advances without pausing — onTrackEnded never fires; reconcile must drive advance. */
     private fun handleSpotifyNaturalFeedTrackEnd(reporting: String) {
-        val idx = currentQueueIndex
-        if (idx != null && idx + 1 < queue.size && spotifyURIMatchesTrack(reporting, queue[idx + 1])) {
-            advanceSpotifyToQueueIndex(idx + 1)
-        } else {
-            handleSpotifyConnectTrackEnded()
+        if (adoptSpotifyConnectNextIfMatching(reporting)) {
+            return
         }
+        handleSpotifyConnectTrackEnded()
+    }
+
+    /**
+     * When App Remote already reports the Corus next entry, adopt it without
+     * pause + re-play. Cancels pending natural-end force-advance so it cannot
+     * skip an extra track after adopt.
+     */
+    private fun adoptSpotifyConnectNextIfMatching(uri: String?): Boolean {
+        if (uri.isNullOrEmpty()) return false
+        val idx = currentQueueIndex ?: return false
+        if (idx + 1 >= queue.size) return false
+        val next = queue[idx + 1]
+        if (!spotifyURIMatchesTrack(uri, next)) return false
+        cancelSpotifyNaturalEndAdvanceJob()
+        advanceSpotifyToQueueIndex(idx + 1)
+        if (!spotifyPlaybackService.isPlaying.value) {
+            userInitiatedPause = false
+            spotifyFeedSkipRequestedUntil = System.currentTimeMillis() + 5000
+            val nextUri = spotifyURI(next)
+            spotifyCorusRequestedUri = nextUri
+            spotifyCorusRequestedUntil = System.currentTimeMillis() + 8000
+            managerScope.launch {
+                playViaSpotifyConnect(spotifyPendingPlay(next), replaceSpotifyQueue = true)
+            }
+        }
+        return true
+    }
+
+    private fun cancelSpotifyNaturalEndAdvanceJob() {
+        spotifyNaturalEndAdvanceJob?.cancel()
+        spotifyNaturalEndAdvanceJob = null
     }
 
     private fun spotifyCorusPlayIntentInFlight(): Boolean {

@@ -230,6 +230,8 @@ fun FullPlayerScreen(
         ?: state.albumArtURL
     val title = state.trackName.ifBlank { "Unknown" }
     val artist = state.artistName.ifBlank { "Unknown" }
+    // Same gate as the overflow "Go to Artist" row — tappable artist line mirrors iOS.
+    val showsArtistRow = fullPlayerShowsArtistRow(menuSource, artistPagesEnabled)
     val likeable = !state.sourcePostId.isNullOrBlank()
     val isLoadingSourcePost by fullPlayerViewModel.isLoadingSourcePost.collectAsState()
     // iOS `isCatalogPlayback && composeTrackCandidate != null` — external Spotify /
@@ -260,7 +262,7 @@ fun FullPlayerScreen(
             ) {
             FullPlayerTopChrome(
                 openInServiceTitle = openInServiceTitle,
-                showsArtistRow = fullPlayerShowsArtistRow(menuSource, artistPagesEnabled),
+                showsArtistRow = showsArtistRow,
                 showsAlbumRow = fullPlayerShowsAlbumRow(menuSource, artistPagesEnabled),
                 showsShareRow = fullPlayerShowsShareRow(sourcePost),
                 showsPlaybackModeToggle = showsPlaybackModeToggle,
@@ -339,6 +341,15 @@ fun FullPlayerScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
+                // Artist line → same path as menu "Go to Artist" (collapse + navigate).
+                val artistTapModifier = if (showsArtistRow && onGoToArtist != null) {
+                    Modifier.clickable {
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        onGoToArtist.invoke()
+                    }
+                } else {
+                    Modifier
+                }
                 Text(
                     text = artist,
                     style = CorusFont.artistNameLarge.copy(
@@ -349,6 +360,7 @@ fun FullPlayerScreen(
                     color = CorusColors.Text.copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = artistTapModifier,
                 )
             }
 
