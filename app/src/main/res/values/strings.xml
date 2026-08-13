@@ -913,6 +913,7 @@
     <!-- Mini player -->
     <string name="mini_player_cd_pause">Pause</string>
     <string name="mini_player_cd_play">Play</string>
+    <string name="mini_player_cd_cancel_loading">Cancel loading</string>
     <string name="mini_player_cd_next">Next</string>
     <string name="mini_player_cd_open_spotify">Open in Spotify</string>
     <string name="mini_player_playback_mode_preview">30s</string>

@@ -227,8 +227,7 @@ class NotificationsViewModel @Inject constructor(
             try {
                 // Use real-time listener for the first page
                 notificationRepository.observeNotifications(userId, limit = pageSize).collect { incoming ->
-                    computeNewIdsOnce(incoming)
-                    mergeNotifications(incoming)
+                    applyIncomingNotifications(incoming)
                     _hasMoreNotifications.value = incoming.size >= pageSize
                     _isLoading.value = false
                     _hasLoadError.value = false
@@ -266,6 +265,27 @@ class NotificationsViewModel @Inject constructor(
         _hasLoadError.value = false
         _isLoading.value = true
         loadNotifications()
+    }
+
+    /**
+     * First snapshot uses the lastSeen cutoff; later listener emissions
+     * union ids that weren't already on screen so a row that arrived while
+     * the tab was off-screen still highlights (and can pin the list to top).
+     * Mirrors iOS `newNotificationIds.formUnion(brandNewIds)`.
+     */
+    private fun applyIncomingNotifications(incoming: List<CymbalNotification>) {
+        if (!hasComputedNewIds) {
+            computeNewIdsOnce(incoming)
+        } else {
+            val brandNew = brandNewNotificationIds(
+                currentIds = _notifications.value.map { it.id }.toSet(),
+                incoming = incoming,
+            )
+            if (brandNew.isNotEmpty()) {
+                _newNotificationIds.value = _newNotificationIds.value + brandNew
+            }
+        }
+        mergeNotifications(incoming)
     }
 
     /**

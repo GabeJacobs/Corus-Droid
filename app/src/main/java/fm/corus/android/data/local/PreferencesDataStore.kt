@@ -368,7 +368,10 @@ class PreferencesDataStore @Inject constructor(
     /**
      * Opt-in: once the user turns on the Settings "Add Saved Songs to Library"
      * toggle for Spotify, every subsequent song save also adds the track to
-     * their Spotify library over App Remote. Default OFF (opt-in). Mirrored to
+     * their Spotify library over App Remote. Default OFF (opt-in) when the
+     * account has never saved a value; [MusicServicePreference.syncFromFirestore]
+     * overlays `users_v2.settings.autoAddToSpotify` so a login doesn't flash
+     * the unset default over the account's stored preference. Mirrored to
      * SharedPreferences so Settings can seed the Switch without awaiting
      * DataStore (avoids an off→on flash when the user has it enabled).
      */
@@ -380,6 +383,14 @@ class PreferencesDataStore @Inject constructor(
         mirrorAutoAddSavedToSpotifySync(value)
         dataStore.edit { it[AUTO_ADD_SPOTIFY] = value }
     }
+
+    /**
+     * Explicit local value, or null if this device has never written the
+     * toggle. Used to backfill Firestore without treating the unset default
+     * as a real "off".
+     */
+    suspend fun autoAddSavedToSpotifyOrNull(): Boolean? =
+        dataStore.data.first()[AUTO_ADD_SPOTIFY]
 
     private fun mirrorAutoAddSavedToSpotifySync(value: Boolean) {
         context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)

@@ -34,8 +34,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import fm.corus.android.domain.NowPlayingManager
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.sin
@@ -51,6 +51,10 @@ fun FeedPlayingPill(
     isLoading: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    // Perf A/B: isolate whether pill snap-in hitches feed autoscroll.
+    if (NowPlayingManager.debugDisableAlbumArtPlayingPill) {
+        return
+    }
     val isVisible = isPlaying || isLoading
     var isPresented by remember { mutableStateOf(false) }
     // Keeps eq bars mounted through snap-out so the capsule isn't empty first.
@@ -77,8 +81,10 @@ fun FeedPlayingPill(
                 }
             }
         } else {
-            // Debounce hide so loading→playing handoff doesn't replay entrance.
-            delay(HIDE_DEBOUNCE_MS)
+            // Snap out immediately when ownership is lost (Next / pause). A
+            // long hide debounce left the previous post's pill up after chrome
+            // had already moved on. Same-frame loading→playing still cancels
+            // via the isPlaying/isLoading re-check below.
             if (isPlaying || isLoading) return@LaunchedEffect
             isPresented = false
             coroutineScope {
@@ -208,9 +214,8 @@ private data class EqSpec(
     val phase: Float,
 )
 
-private const val HIDDEN_OFFSET = 8f
+private const val HIDDEN_OFFSET = 6f
 private val CORNER_INSET = 10.dp
 private val PILL_MIN_SIZE = 32.dp
 private val PILL_HORIZONTAL_PADDING = 12.dp
-private const val HIDE_DEBOUNCE_MS = 100L
-private const val SNAP_OUT_MS = 110
+private const val SNAP_OUT_MS = 80

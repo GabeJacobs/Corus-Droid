@@ -70,15 +70,24 @@ class SettingsViewModel @Inject constructor(
             preferencesDataStore.autoAddSavedToSpotifySync(),
         )
 
+    init {
+        // Overlay the account's saved toggle before Settings paints, so a
+        // login doesn't show the unset default over `settings.autoAddToSpotify`.
+        viewModelScope.launch { musicServicePreference.syncFromFirestore() }
+    }
+
     /**
      * Toggles the "Add Saved Songs to Library" opt-in. Saves are mirrored over
      * App Remote now, so the library scopes ride along with the playback
      * authorization the user already grants when they first play a full song.
      * There's nothing to consent to here and no OAuth trip to make — this is
-     * just a preference.
+     * just a preference. Dual-written to Firestore so other devices restore it.
      */
     fun onSpotifyLibrarySaveToggled(enabled: Boolean) {
-        viewModelScope.launch { preferencesDataStore.setAutoAddSavedToSpotify(enabled) }
+        viewModelScope.launch {
+            preferencesDataStore.setAutoAddSavedToSpotify(enabled)
+            musicServicePreference.syncAutoAddToSpotifyToFirestore(enabled)
+        }
     }
 
     /** Persist the user's music-service choice (local cache + Firestore). */

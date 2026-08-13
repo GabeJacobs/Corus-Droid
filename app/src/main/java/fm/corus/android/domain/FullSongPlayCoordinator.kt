@@ -49,6 +49,8 @@ object FullSongPlayCoordinator {
                 source = track.source,
                 service = musicService,
                 playFullSongs = playFull,
+                trackId = track.id,
+                spotifyURI = track.spotifyURI,
             )
         ) {
             seedQueueIfNeeded(track, sourcePostId, queue, nowPlaying)
@@ -159,16 +161,26 @@ object SpotifyPlaybackExperiment {
         source: fm.corus.android.data.model.TrackSource,
         nowPlaying: NowPlayingManager,
         preferFullSong: Boolean = false,
-    ): Boolean = nowPlaying.spotifyExperimentEnabledForTrack(source, preferFullSong)
+        trackId: String? = null,
+        spotifyURI: String? = null,
+    ): Boolean = nowPlaying.spotifyExperimentEnabledForTrack(
+        source, preferFullSong, trackId, spotifyURI,
+    )
 
     fun begin(
         track: CymbalTrack,
         sourcePostId: String? = null,
         nowPlaying: NowPlayingManager,
-        scope: CoroutineScope? = null,
+        @Suppress("UNUSED_PARAMETER") scope: CoroutineScope? = null,
         preferFullSong: Boolean = false,
     ): Boolean {
-        if (!nowPlaying.spotifyExperimentEnabledForTrack(track.source, preferFullSong)) return false
+        if (!nowPlaying.spotifyExperimentEnabledForTrack(
+                source = track.source,
+                preferFullSong = preferFullSong,
+                trackId = track.id,
+                spotifyURI = track.spotifyURI,
+            )
+        ) return false
         val pending = SpotifyAuthPendingPlay(
             trackId = track.id,
             name = track.name,
@@ -181,13 +193,10 @@ object SpotifyPlaybackExperiment {
             sourcePostId = sourcePostId,
             source = track.source,
         )
-        val launchBlock: suspend () -> Unit = {
+        // Always go through [NowPlayingManager.launchSpotifyConnectPlay] so the
+        // Job is tracked and quick Next can cancel a just-started Connect play.
+        nowPlaying.launchSpotifyConnectPlay {
             nowPlaying.playViaSpotifyConnect(pending, replaceSpotifyQueue = true)
-        }
-        if (scope != null) {
-            scope.launch { launchBlock() }
-        } else {
-            nowPlaying.launchSpotifyConnectPlay(launchBlock)
         }
         return true
     }

@@ -75,5 +75,23 @@ class SongPlayRoutingTest {
                 TrackSource.SOUNDCLOUD, MusicService.SPOTIFY, playFullSongs = true,
             ),
         )
+        assertFalse(
+            "Apple-sourced without a Spotify id must preview, not Connect",
+            SongPlayRouting.wantsSpotifyAuthExperiment(
+                TrackSource.APPLEMUSIC, MusicService.SPOTIFY, playFullSongs = true,
+                trackId = "am:212853519",
+                spotifyURI = "",
+            ),
+        )
+        assertFalse(
+            SongPlayRouting.hasPlayableSpotifyId("am:212853519", ""),
+        )
+        assertTrue(
+            SongPlayRouting.wantsSpotifyAuthExperiment(
+                TrackSource.APPLEMUSIC, MusicService.SPOTIFY, playFullSongs = true,
+                trackId = "4yR9WXd0n67vf8KqG2N4Zv",
+                spotifyURI = "spotify:track:4yR9WXd0n67vf8KqG2N4Zv",
+            ),
+        )
     }
 }

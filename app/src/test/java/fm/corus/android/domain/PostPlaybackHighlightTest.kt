@@ -92,4 +92,77 @@ class PostPlaybackHighlightTest {
             )
         )
     }
+
+    /** Mini Next arms the pill on the next post before identity/scroll. */
+    @Test
+    fun stagedSkipPillLightsNextPostBeforeLoading() {
+        assertTrue(
+            PostPlaybackHighlight.isAlbumArtLoading(
+                loadingTrackId = null,
+                loadingSourcePostId = null,
+                fullSongTrackId = "old-song",
+                fullSongSourcePostId = "post-old",
+                isResolvingFullSong = false,
+                postTrackId = "next-song",
+                postId = "post-next",
+                stagedSkipPillTrackId = "next-song",
+                stagedSkipPillSourcePostId = "post-next",
+            )
+        )
+        assertFalse(
+            PostPlaybackHighlight.isAlbumArtLoading(
+                loadingTrackId = null,
+                loadingSourcePostId = null,
+                fullSongTrackId = "old-song",
+                fullSongSourcePostId = "post-old",
+                isResolvingFullSong = false,
+                postTrackId = "old-song",
+                postId = "post-old",
+                stagedSkipPillTrackId = "next-song",
+                stagedSkipPillSourcePostId = "post-next",
+            )
+        )
+    }
+
+    @Test
+    fun transportSpinnerWinsOnStagedNextEvenIfOutgoingStillPlaying() {
+        assertTrue(
+            PostPlaybackHighlight.showsTransportSpinner(
+                stagedFeedSkipLoading = true,
+                isPlaying = true,
+                isPreviewMode = false,
+                loadingTrackId = null,
+                currentTrackId = "old-song",
+                isResolvingFullSong = false,
+            )
+        )
+    }
+
+    @Test
+    fun transportSpinnerHidesOnceNewTrackIsPlaying() {
+        assertFalse(
+            PostPlaybackHighlight.showsTransportSpinner(
+                stagedFeedSkipLoading = false,
+                isPlaying = true,
+                isPreviewMode = false,
+                loadingTrackId = null,
+                currentTrackId = "next-song",
+                isResolvingFullSong = false,
+            )
+        )
+    }
+
+    @Test
+    fun transportSpinnerShowsWhilePreviewUrlResolves() {
+        assertTrue(
+            PostPlaybackHighlight.showsTransportSpinner(
+                stagedFeedSkipLoading = false,
+                isPlaying = false,
+                isPreviewMode = true,
+                loadingTrackId = "next-song",
+                currentTrackId = "next-song",
+                isResolvingFullSong = false,
+            )
+        )
+    }
 }

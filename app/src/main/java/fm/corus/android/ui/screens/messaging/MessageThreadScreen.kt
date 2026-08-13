@@ -62,6 +62,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import fm.corus.android.data.local.DMDraftStore
 import fm.corus.android.service.ActiveThreadTracker
 import fm.corus.android.service.CorusFirebaseMessagingService
 import androidx.compose.ui.focus.FocusRequester
@@ -608,9 +609,15 @@ fun MessageThreadScreen(
     val membersById by viewModel.membersById.collectAsState()
     val isGroup = groupInfo?.isGroup == true
     var showGroupInfo by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val draftStore = remember { DMDraftStore(context) }
+    val composerUid = viewModel.currentUserId
     // TextFieldValue (not plain String) so we can place the cursor at the end of
     // the prefilled text when an edit starts; the String overload resets it to 0.
-    var messageText by remember { mutableStateOf(TextFieldValue("")) }
+    // Seeded from the local draft store so tapping back doesn't lose unsent text.
+    var messageText by remember(threadId, composerUid) {
+        mutableStateOf(TextFieldValue(draftStore.load(composerUid, threadId) ?: ""))
+    }
     val listState = rememberLazyListState()
     var reactionTarget by remember { mutableStateOf<CymbalMessage?>(null) }
     // The group message whose "Reactions" list bottom sheet is open, if any.
@@ -621,9 +628,18 @@ fun MessageThreadScreen(
     var showAttachmentMenu by remember { mutableStateOf(false) }
     var mediaPickerMode by remember { mutableStateOf<PickerMode?>(null) }
     var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val composerFocusRequester = remember { FocusRequester() }
+
+    val latestDraftText = rememberUpdatedState(messageText.text)
+    val isEditingDraft = rememberUpdatedState(editingMessage != null)
+    DisposableEffect(threadId, composerUid) {
+        onDispose {
+            if (!isEditingDraft.value) {
+                draftStore.save(composerUid, threadId, latestDraftText.value)
+            }
+        }
+    }
 
     // Auto-clear the heart burst after it plays (mirrors iOS's 0.8s hold).
     LaunchedEffect(heartBurstMessageId) {
@@ -957,7 +973,8 @@ fun MessageThreadScreen(
                 }
                 IconButton(onClick = {
                     viewModel.cancelEditing()
-                    messageText = TextFieldValue("")
+                    val draft = draftStore.load(composerUid, threadId) ?: ""
+                    messageText = TextFieldValue(text = draft, selection = TextRange(draft.length))
                 }) {
                     Icon(
                         Icons.Filled.Close,
@@ -1070,7 +1087,12 @@ fun MessageThreadScreen(
 
             OutlinedTextField(
                 value = messageText,
-                onValueChange = { messageText = it },
+                onValueChange = {
+                    messageText = it
+                    if (editingMessage == null) {
+                        draftStore.save(composerUid, threadId, it.text)
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(composerFocusRequester),
@@ -1086,10 +1108,13 @@ fun MessageThreadScreen(
                     if (messageText.text.isNotBlank()) {
                         if (editingMessage != null) {
                             viewModel.editMessage(threadId, messageText.text)
+                            val draft = draftStore.load(composerUid, threadId) ?: ""
+                            messageText = TextFieldValue(text = draft, selection = TextRange(draft.length))
                         } else {
                             viewModel.sendMessage(threadId, messageText.text)
+                            draftStore.clear(composerUid, threadId)
+                            messageText = TextFieldValue("")
                         }
-                        messageText = TextFieldValue("")
                     }
                 },
                 enabled = messageText.text.isNotBlank(),

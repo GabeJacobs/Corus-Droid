@@ -27,9 +27,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
@@ -107,7 +111,7 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
             mock(),
             mock(),
             mock(),
-        )
+        ).also { it.skipConnectKeepAlive = true }
 
     private fun track(id: String, name: String = id) = QueuedTrack(
         trackId = id,
@@ -165,6 +169,7 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
         assertTrue(manager.state.value.isPlaying)
         assertNull(manager.testingSpotifyCorusRequestedUri())
         verify(spotifyPlaybackService, never()).pauseImmediately()
+        manager.stop()
     }
 
     @Test
@@ -181,6 +186,7 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
         assertEquals(trackB.trackId, manager.state.value.trackId)
         verify(spotifyPlaybackService, never()).pauseImmediately()
         assertEquals(trackB.spotifyURI, manager.testingSpotifyCorusRequestedUri())
+        manager.stop()
     }
 
     @Test
@@ -209,6 +215,7 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
         assertEquals(trackB.trackId, manager.state.value.trackId)
         assertEquals("B", manager.state.value.trackName)
         assertTrue(isPlaying.value)
+        manager.stop()
     }
 
     @Test
@@ -222,9 +229,64 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
 
         manager.forceSpotifyFeedAdvanceToNextEntry()
 
-        assertEquals(trackB.trackId, manager.state.value.trackId)
-        assertEquals("B", manager.state.value.trackName)
-        verify(spotifyPlaybackService).pauseImmediately()
+        assertEquals(trackB.trackId, manager.queueSnapshot()[manager.currentQueueIndexSnapshot()!!].trackId)
+        assertEquals("B", manager.queueSnapshot()[manager.currentQueueIndexSnapshot()!!].trackName)
         assertEquals(trackB.spotifyURI, manager.testingSpotifyCorusRequestedUri())
+        manager.stop()
+    }
+
+    @Test
+    fun lockedRefreshDoesNotReArmFastPathPastForceAdvanceTarget() = runTest(testDispatcher) {
+        val manager = newManager()
+        val trackA = track("ne-fp-a", "A")
+        val trackB = track("ne-fp-b", "B")
+        val trackC = track("ne-fp-c", "C")
+        seedConnect(manager, listOf(trackA, trackB, trackC), trackA)
+        manager.testingSetSpotifyDeviceLockedForQueueDriving(true)
+        currentTrackUri.value = "spotify:track:stale-native-queue"
+        positionSeconds.value = 0.2
+        durationSeconds.value = 180.0
+        isPlaying.value = false
+
+        manager.forceSpotifyFeedAdvanceToNextEntry()
+
+        verify(spotifyPlaybackService).setFastPathPlaybackGuard(
+            eq(trackB.spotifyURI!!),
+            anyOrNull(),
+            any(),
+        )
+
+        manager.testingRefreshSpotifyFastPathSkipGuardForUpcomingTrackIfNeeded()
+
+        verify(spotifyPlaybackService, times(1)).setFastPathPlaybackGuard(
+            eq(trackB.spotifyURI!!),
+            anyOrNull(),
+            any(),
+        )
+        verify(spotifyPlaybackService, never()).setFastPathPlaybackGuard(
+            eq(trackC.spotifyURI!!),
+            anyOrNull(),
+            any(),
+        )
+        manager.stop()
+    }
+
+    @Test
+    fun connectPlaybackKeepsServiceAfterTaskRemoved() = runTest(testDispatcher) {
+        val manager = newManager()
+        val trackA = track("ne-ka", "A")
+        seedConnect(manager, listOf(trackA), trackA)
+
+        assertTrue(manager.shouldKeepPlaybackServiceAfterTaskRemoved())
+
+        manager.testingSetIsSpotifyConnectPlaying(false)
+        val stateField = NowPlayingManager::class.java.getDeclaredField("_state").apply {
+            isAccessible = true
+        }
+        @Suppress("UNCHECKED_CAST")
+        val flow = stateField.get(manager) as MutableStateFlow<NowPlayingState>
+        flow.value = flow.value.copy(isPlaying = false)
+
+        assertFalse(manager.shouldKeepPlaybackServiceAfterTaskRemoved())
     }
 }

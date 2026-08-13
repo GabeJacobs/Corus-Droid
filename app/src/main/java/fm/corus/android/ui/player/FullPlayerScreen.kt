@@ -90,6 +90,7 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.MusicServiceLinkOut
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.domain.ScrubberClock
 import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.service.RemoteConfigService
@@ -243,6 +244,17 @@ fun FullPlayerScreen(
     val isLiked = state.sourcePostId?.let { engagementStates[it]?.isLiked } ?: false
     val isPlaying = state.isPlaying
     val hasNext = state.hasNext
+    val stagedFeedSkipLoading by nowPlayingManager.stagedFeedSkipLoading.collectAsState()
+    val loadingTrackId by nowPlayingManager.loadingTrackId.collectAsState()
+    val isResolvingSpotify by nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
+    val showsTransportSpinner = PostPlaybackHighlight.showsTransportSpinner(
+        stagedFeedSkipLoading = stagedFeedSkipLoading,
+        isPlaying = isPlaying,
+        isPreviewMode = nowPlayingManager.isPreviewMode,
+        loadingTrackId = loadingTrackId,
+        currentTrackId = state.trackId,
+        isResolvingFullSong = isResolvingSpotify,
+    )
     val haptics = LocalHapticManager.current
     val artHeartScale = remember { Animatable(0f) }
     val artHeartAlpha = remember { Animatable(0f) }
@@ -328,17 +340,20 @@ fun FullPlayerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
                     text = title,
                     style = CorusFont.songTitleLarge.copy(
                         fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         lineHeight = 28.sp,
                     ),
                     color = CorusColors.Text,
+                    textAlign = TextAlign.Center,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 // Artist line → same path as menu "Go to Artist" (collapse + navigate).
@@ -358,9 +373,10 @@ fun FullPlayerScreen(
                         lineHeight = 20.sp,
                     ),
                     color = CorusColors.Text.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = artistTapModifier,
+                    modifier = Modifier.fillMaxWidth().then(artistTapModifier),
                 )
             }
 
@@ -378,6 +394,7 @@ fun FullPlayerScreen(
 
             FullPlayerTransport(
                 isPlaying = isPlaying,
+                isLoading = showsTransportSpinner,
                 hasNext = hasNext,
                 isLiked = isLiked,
                 likeable = likeable,
@@ -386,10 +403,17 @@ fun FullPlayerScreen(
                 musicService = musicService,
                 interactive = interactive,
                 onPrevious = { nowPlayingManager.skipToPreviousOrRestart() },
-                onPlayPause = { nowPlayingManager.togglePlayPause() },
+                onPlayPause = {
+                    if (showsTransportSpinner) {
+                        nowPlayingManager.cancelLoading()
+                    } else {
+                        nowPlayingManager.togglePlayPause()
+                    }
+                },
                 onNext = {
                     nowPlayingManager.skipToNext(
                         preferPreviewOnNext = nowPlayingManager.preferPreviewOnInAppSkip,
+                        immediate = true,
                     )
                 },
                 onLike = onLikeTap,
@@ -789,6 +813,7 @@ private fun FullPlayerScrubber(
 @Composable
 private fun FullPlayerTransport(
     isPlaying: Boolean,
+    isLoading: Boolean,
     hasNext: Boolean,
     isLiked: Boolean,
     likeable: Boolean,
@@ -810,13 +835,28 @@ private fun FullPlayerTransport(
         haptics.impact(HapticManager.ImpactStyle.LIGHT)
         action()
     }
+    val cancelLoadingLabel = stringResource(R.string.mini_player_cd_cancel_loading)
+    val pauseLabel = stringResource(R.string.full_player_cd_pause)
+    val playLabel = stringResource(R.string.full_player_cd_play)
+    val previousLabel = stringResource(R.string.full_player_cd_previous)
+    val nextLabel = stringResource(R.string.full_player_cd_next)
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when {
             likeable -> {
-                IconButton(onClick = onLike, enabled = interactive, modifier = Modifier.size(44.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clickable(
+                            enabled = interactive,
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onClick = onLike,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Icon(
                         imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                         contentDescription = if (isLiked) "Unlike" else "Like",
@@ -829,10 +869,16 @@ private fun FullPlayerTransport(
                 // Same glyph as the tab-bar ComposeButton (Icons.Rounded.Add) —
                 // scaled for the 32dp disc (tab uses 25dp in a 40dp circle).
                 val composeCd = stringResource(R.string.full_player_post)
-                IconButton(
-                    onClick = { lightTap(onCompose) },
-                    enabled = interactive,
-                    modifier = Modifier.size(44.dp),
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clickable(
+                            enabled = interactive,
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onClick = { lightTap(onCompose) },
+                        ),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Box(
                         modifier = Modifier
@@ -860,16 +906,24 @@ private fun FullPlayerTransport(
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(
-                onClick = { lightTap(onPrevious) },
-                enabled = interactive,
-                modifier = Modifier.size(56.dp),
+            // Same 56.dp target as iOS — IconButton would clamp to 40.dp.
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clickable(
+                        enabled = interactive,
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = { lightTap(onPrevious) },
+                    )
+                    .semantics { contentDescription = previousLabel },
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Filled.SkipPrevious,
-                    contentDescription = stringResource(R.string.full_player_cd_previous),
+                    contentDescription = null,
                     tint = CorusColors.Text,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(40.dp),
                 )
             }
 
@@ -883,48 +937,69 @@ private fun FullPlayerTransport(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() },
                         onClick = { lightTap(onPlayPause) },
-                    ),
+                    )
+                    .semantics {
+                        contentDescription = when {
+                            isLoading -> cancelLoadingLabel
+                            isPlaying -> pauseLabel
+                            else -> playLabel
+                        }
+                    },
                 contentAlignment = Alignment.Center,
             ) {
-                if (isPlaying) {
-                    Icon(
+                when {
+                    isLoading -> CircularProgressIndicator(
+                        color = CorusColors.Text,
+                        trackColor = CorusColors.Text.copy(alpha = 0.22f),
+                        modifier = Modifier.size(28.dp),
+                        strokeWidth = 2.5.dp,
+                    )
+                    isPlaying -> Icon(
                         imageVector = Icons.Filled.Pause,
-                        contentDescription = stringResource(R.string.full_player_cd_pause),
+                        contentDescription = null,
                         tint = CorusColors.Text,
                         modifier = Modifier.size(32.dp),
                     )
-                } else {
-                    Icon(
+                    else -> Icon(
                         imageVector = Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(R.string.full_player_cd_play),
+                        contentDescription = null,
                         tint = CorusColors.Text,
                         modifier = Modifier.size(32.dp),
                     )
                 }
             }
 
-            IconButton(
-                onClick = { lightTap(onNext) },
-                enabled = interactive && hasNext,
-                modifier = Modifier.size(56.dp),
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clickable(
+                        enabled = interactive && hasNext,
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = { lightTap(onNext) },
+                    )
+                    .semantics { contentDescription = nextLabel },
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Filled.SkipNext,
-                    contentDescription = stringResource(R.string.full_player_cd_next),
+                    contentDescription = null,
                     tint = if (hasNext) CorusColors.Text else CorusColors.Text.copy(alpha = 0.3f),
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(40.dp),
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(24.dp))
+        // iOS: Spacer(minLength: 24) sharing leftover width with the left spacer
+        // so play stays centered. A fixed 24.dp here packed the heart against skip.
+        Spacer(modifier = Modifier.weight(1f).widthIn(min = 24.dp))
 
         // Wide marks (Audiomack) need a non-square hit target — IconButton's
         // fixed square clips the wave. Mirror mini-player: Box + clickable.
         Box(
             modifier = Modifier
                 .height(44.dp)
-                .widthIn(min = 44.dp)
+                .widthIn(min = 36.dp)
                 .clickable(
                     enabled = interactive,
                     indication = null,

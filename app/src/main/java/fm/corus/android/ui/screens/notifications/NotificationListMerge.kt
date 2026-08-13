@@ -43,3 +43,32 @@ fun mergedNotificationList(
     val tailItems = current.filter { it.id !in incomingIds }
     return NotificationMergeResult(incoming + tailItems, droppedStaleTail = false)
 }
+
+/**
+ * Ids in [incoming] that were not already on screen — real-time arrivals
+ * after the initial snapshot. Empty [currentIds] is treated as the first
+ * window (not "everything is brand new") so the lastSeen cutoff can decide
+ * highlighting instead. Mirrors iOS `brandNewIds`.
+ */
+fun brandNewNotificationIds(
+    currentIds: Set<String>,
+    incoming: List<CymbalNotification>,
+): Set<String> {
+    if (currentIds.isEmpty()) return emptySet()
+    return incoming.map { it.id }.filter { it !in currentIds }.toSet()
+}
+
+/**
+ * After a keyed LazyColumn prepend, Compose keeps the previously-first
+ * visible row on screen, which strands newer rows above the fold. Pin to
+ * the new head only when the user was still looking at the old head (they
+ * thought they were at the top).
+ */
+fun shouldPinActivityToNewHead(
+    previousHeadId: String?,
+    newHeadId: String?,
+    firstVisibleItemKey: String?,
+): Boolean {
+    if (newHeadId == null || previousHeadId == null || newHeadId == previousHeadId) return false
+    return firstVisibleItemKey == previousHeadId
+}

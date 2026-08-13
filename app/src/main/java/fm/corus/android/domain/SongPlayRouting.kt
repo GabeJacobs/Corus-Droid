@@ -24,15 +24,37 @@ object SongPlayRouting {
         }
     }
 
+    /**
+     * True when this identity can be sent to Spotify App Remote as a
+     * `spotify:track:` URI. Apple-sourced rows (`am:…`) and empty URIs cannot —
+     * Connect would open Spotify onto nothing.
+     */
+    fun hasPlayableSpotifyId(trackId: String?, spotifyURI: String?): Boolean {
+        val uri = spotifyURI?.takeIf { it.startsWith("spotify:track:") }
+        if (uri != null) {
+            return uri.removePrefix("spotify:track:").length == 22
+        }
+        val id = trackId ?: return false
+        if (id.startsWith("am:") || id.startsWith("sc:") ||
+            id.startsWith("amk:") || id.startsWith("tdl:") || id.startsWith("dzr:")
+        ) {
+            return false
+        }
+        return id.length == 22
+    }
+
     /** True when Spotify App Remote full-playback should intercept a play tap. */
     fun wantsSpotifyAuthExperiment(
         source: TrackSource,
         service: MusicService,
         playFullSongs: Boolean,
+        trackId: String? = null,
+        spotifyURI: String? = null,
     ): Boolean {
         if (service != MusicService.SPOTIFY || !playFullSongs) return false
         return when (source) {
-            TrackSource.SPOTIFY, TrackSource.APPLEMUSIC -> true
+            TrackSource.SPOTIFY -> true
+            TrackSource.APPLEMUSIC -> hasPlayableSpotifyId(trackId, spotifyURI)
             TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK, TrackSource.TIDAL, TrackSource.DEEZER -> false
         }
     }
@@ -41,7 +63,9 @@ object SongPlayRouting {
         source: TrackSource,
         service: MusicService,
         playFullSongs: Boolean,
-    ): Boolean = wantsSpotifyAuthExperiment(source, service, playFullSongs)
+        trackId: String? = null,
+        spotifyURI: String? = null,
+    ): Boolean = wantsSpotifyAuthExperiment(source, service, playFullSongs, trackId, spotifyURI)
 
     /** Whether in-app full playback is available for this track source (ignores Settings). */
     fun supportsInAppFullSong(

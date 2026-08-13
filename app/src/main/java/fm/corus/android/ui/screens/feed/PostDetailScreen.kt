@@ -128,6 +128,8 @@ fun PostDetailScreen(
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val loadingSourcePostId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
+    val stagedSkipPillTrackId by viewModel.nowPlayingManager.stagedFeedSkipPillTrackId.collectAsState()
+    val stagedSkipPillSourcePostId by viewModel.nowPlayingManager.stagedFeedSkipPillSourcePostId.collectAsState()
     val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -245,6 +247,8 @@ fun PostDetailScreen(
                                 isResolvingFullSong = isResolvingSpotify,
                                 postTrackId = currentPost.track.id,
                                 postId = currentPost.id,
+                                stagedSkipPillTrackId = stagedSkipPillTrackId,
+                                stagedSkipPillSourcePostId = stagedSkipPillSourcePostId,
                             ),
                             isPreviewPlaying = currentPost.isTrack && PostPlaybackHighlight.shouldShowPlayingOverlay(
                                 activeTrackId = nowPlayingState.trackId,
@@ -1140,10 +1144,15 @@ private fun PostDetailCaption(
             val token = match.value
             val tag = if (token.startsWith("@")) "mention" else "hashtag"
             pushStringAnnotation(tag = tag, annotation = token)
-            // Accent color only — regular weight so @/# don't compete with the
-            // bold username prefix.
-            withStyle(SpanStyle(color = CorusColors.Accent, fontWeight = FontWeight.Normal)) {
-                append(token)
+            if (token.startsWith("@")) {
+                withStyle(SpanStyle(color = CorusColors.Accent, fontWeight = FontWeight.ExtraBold)) {
+                    append(token)
+                }
+            } else {
+                // Hashtags: accent color, regular weight.
+                withStyle(SpanStyle(color = CorusColors.Accent, fontWeight = FontWeight.Normal)) {
+                    append(token)
+                }
             }
             pop()
             lastIndex = match.range.last + 1

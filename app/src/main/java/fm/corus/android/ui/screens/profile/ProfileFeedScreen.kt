@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.data.model.CymbalPost
@@ -38,6 +39,7 @@ import fm.corus.android.ui.screens.feed.FilmInfoSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.util.animateScrollItemToTop
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +85,8 @@ fun ProfileFeedScreen(
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val loadingSourcePostId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
+    val stagedSkipPillTrackId by viewModel.nowPlayingManager.stagedFeedSkipPillTrackId.collectAsState()
+    val stagedSkipPillSourcePostId by viewModel.nowPlayingManager.stagedFeedSkipPillSourcePostId.collectAsState()
     val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val context = LocalContext.current
@@ -103,6 +107,12 @@ fun ProfileFeedScreen(
         backCoverStates.getOrPut(postId) { fm.corus.android.ui.components.BackCoverFlipState() }
 
     val listState = rememberLazyListState()
+    val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
+    val frost = rememberImmersiveHeaderState(immersive)
+    val followScrollTopInsetPx = with(LocalDensity.current) {
+        if (immersive) frost.contentTopPadding.roundToPx() else 0
+    }
+    val currentTopInsetPx by rememberUpdatedState(followScrollTopInsetPx)
 
     // Initialize feed from cache. If the cache was empty (e.g. process death
     // restored this route without the upstream grid populating it), pop back
@@ -137,7 +147,7 @@ fun ProfileFeedScreen(
         handler@ { postId ->
             val idx = currentPostsForRouter.indexOfFirst { it.id == postId }
             if (idx < 0) return@handler false
-            routerScope.launch { listState.animateScrollToItem(index = idx) }
+            routerScope.launch { listState.animateScrollItemToTop(idx, currentTopInsetPx) }
             true
         }
     }
@@ -166,7 +176,7 @@ fun ProfileFeedScreen(
         if (!feedFollowsNowPlaying) return@LaunchedEffect
         // Don't yank the feed out from under a finger that's actively
         // scrolling (or a fling that's still decelerating). Checked before
-        // we kick off our own animateScrollToItem, so this only reflects
+        // we kick off our own follow-scroll, so this only reflects
         // user-driven motion.
         if (listState.isScrollInProgress) return@LaunchedEffect
         // Skip when the user just tapped this card to play it.
@@ -177,7 +187,7 @@ fun ProfileFeedScreen(
         }
         val index = posts.indexOfFirst { it.id == newPostId }
         if (index < 0) return@LaunchedEffect
-        listState.animateScrollToItem(index = index)
+        listState.animateScrollItemToTop(index, currentTopInsetPx)
     }
 
     // Pagination: load more when within 3 items of end
@@ -198,8 +208,6 @@ fun ProfileFeedScreen(
     // pages): there's no hero here, so the bar is frosted from the first frame —
     // it blurs the feed scrolling beneath it (Haze) and blends up under the status
     // bar. Gated by the same immersive_artist_header_enabled flag (debug-on).
-    val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
-    val frost = rememberImmersiveHeaderState(immersive)
     val barTitle = if (segment == 4 && hashtag.isNotEmpty()) "#$hashtag" else "@$username"
 
     Scaffold(
@@ -286,6 +294,8 @@ fun ProfileFeedScreen(
                         isResolvingFullSong = isResolvingSpotify,
                         postTrackId = post.track.id,
                         postId = post.id,
+                        stagedSkipPillTrackId = stagedSkipPillTrackId,
+                        stagedSkipPillSourcePostId = stagedSkipPillSourcePostId,
                     ),
                     isPreviewPlaying = post.isTrack && PostPlaybackHighlight.shouldShowPlayingOverlay(
                         activeTrackId = nowPlayingState.trackId,

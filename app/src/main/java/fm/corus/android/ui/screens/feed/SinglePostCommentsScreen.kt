@@ -128,6 +128,8 @@ fun SinglePostCommentsScreen(
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val loadingSourcePostId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
+    val stagedSkipPillTrackId by viewModel.nowPlayingManager.stagedFeedSkipPillTrackId.collectAsState()
+    val stagedSkipPillSourcePostId by viewModel.nowPlayingManager.stagedFeedSkipPillSourcePostId.collectAsState()
     val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -646,6 +648,8 @@ fun SinglePostCommentsScreen(
                             isResolvingFullSong = isResolvingSpotify,
                             postTrackId = p.track.id,
                             postId = p.id,
+                            stagedSkipPillTrackId = stagedSkipPillTrackId,
+                            stagedSkipPillSourcePostId = stagedSkipPillSourcePostId,
                         ),
                         isPreviewPlaying = p.isTrack && PostPlaybackHighlight.shouldShowPlayingOverlay(
                             activeTrackId = nowPlayingState.trackId,

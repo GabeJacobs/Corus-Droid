@@ -14,7 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
@@ -24,6 +26,7 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyBlocking
 import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -167,5 +170,28 @@ class SettingsViewModelTest {
 
         vm.clearRestoreResult()
         org.junit.Assert.assertNull(vm.restoreResult.value)
+    }
+
+    @Test
+    fun `spotify library save toggle persists locally and to Firestore`() = runTest(testDispatcher) {
+        val prefsStore = preferencesDataStoreMock()
+        val musicPref = mock<MusicServicePreference>()
+        val vm = SettingsViewModel(
+            musicPref,
+            mock<SubscriptionRepository> {
+                on { isClubMember } doReturn MutableStateFlow(false)
+                on { isVerified } doReturn MutableStateFlow(false)
+            },
+            prefsStore,
+            remoteConfig,
+            analyticsService,
+            nowPlayingManager,
+        )
+
+        vm.onSpotifyLibrarySaveToggled(true)
+        advanceUntilIdle()
+
+        verifyBlocking(prefsStore) { setAutoAddSavedToSpotify(true) }
+        verifyBlocking(musicPref) { syncAutoAddToSpotifyToFirestore(true) }
     }
 }

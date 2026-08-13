@@ -62,7 +62,20 @@ object PostPlaybackHighlight {
         isResolvingFullSong: Boolean,
         postTrackId: String,
         postId: String,
+        /** Mini Next: pill target armed on tap before identity/scroll. */
+        stagedSkipPillTrackId: String? = null,
+        stagedSkipPillSourcePostId: String? = null,
     ): Boolean {
+        if (shouldHighlight(
+                stagedSkipPillTrackId,
+                stagedSkipPillSourcePostId,
+                true,
+                postTrackId,
+                postId,
+            )
+        ) {
+            return true
+        }
         if (shouldHighlight(loadingTrackId, loadingSourcePostId, true, postTrackId, postId)) {
             return true
         }
@@ -73,5 +86,26 @@ object PostPlaybackHighlight {
             postTrackId,
             postId,
         )
+    }
+
+    /**
+     * Mini/full-player play slot: spinner from staged Next tap until audio is
+     * live. Mirrors iOS `MiniPlayerBar.isResolvingCurrentTrack` — spinner wins
+     * even if the outgoing track is still marked playing, so transport never
+     * flashes play.fill mid-handoff.
+     */
+    fun showsTransportSpinner(
+        stagedFeedSkipLoading: Boolean,
+        isPlaying: Boolean,
+        isPreviewMode: Boolean,
+        loadingTrackId: String?,
+        currentTrackId: String?,
+        isResolvingFullSong: Boolean,
+    ): Boolean {
+        if (stagedFeedSkipLoading) return true
+        if (isPlaying && !isPreviewMode) return false
+        if (isPlaying && loadingTrackId == currentTrackId) return false
+        if (loadingTrackId != null && loadingTrackId == currentTrackId) return true
+        return isResolvingFullSong && !isPlaying
     }
 }

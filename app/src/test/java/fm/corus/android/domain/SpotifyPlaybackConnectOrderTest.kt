@@ -15,7 +15,6 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -157,13 +156,21 @@ class SpotifyPlaybackConnectOrderTest {
         )
     }
 
-    /** A live token behaves exactly as before: one silent attempt, no consent trip. */
+    /** A live token still starts with a silent connect (may retry IPC after idle). */
     @Test
     fun `live cached token attempts a silent connect`() = runTest {
         whenever(authService.cachedAccessToken()).thenReturn("live-token")
 
         playOnce()
 
-        assertEquals(1, connectAttempts.size)
+        assertTrue(connectAttempts.isNotEmpty())
+        assertTrue(
+            "First connect attempt must be the silent one",
+            !connectAttempts.first().shouldShowAuthView(),
+        )
+        assertTrue(
+            "Dropped IPC after idle should retry silent App Remote before opening consent",
+            connectAttempts.count { !it.shouldShowAuthView() } >= 3,
+        )
     }
 }

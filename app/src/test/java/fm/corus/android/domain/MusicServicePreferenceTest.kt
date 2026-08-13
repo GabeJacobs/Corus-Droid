@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.MusicService
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -32,19 +33,34 @@ class MusicServicePreferenceTest {
 
     @Test fun `defaults to Spotify when no value cached`() {
         whenever(prefs.getString(eq("musicService"), any())).thenReturn(MusicService.SPOTIFY.value)
-        val pref = MusicServicePreference(context, mock<FirebaseFirestore>(), mock<FirebaseAuth>())
+        val pref = MusicServicePreference(
+            context,
+            mock<FirebaseFirestore>(),
+            mock<FirebaseAuth>(),
+            mock<PreferencesDataStore>(),
+        )
         assertEquals(MusicService.SPOTIFY, pref.current.value)
     }
 
     @Test fun `loads Apple Music from cache on init`() {
         whenever(prefs.getString(eq("musicService"), any())).thenReturn(MusicService.APPLE_MUSIC.value)
-        val pref = MusicServicePreference(context, mock<FirebaseFirestore>(), mock<FirebaseAuth>())
+        val pref = MusicServicePreference(
+            context,
+            mock<FirebaseFirestore>(),
+            mock<FirebaseAuth>(),
+            mock<PreferencesDataStore>(),
+        )
         assertEquals(MusicService.APPLE_MUSIC, pref.current.value)
     }
 
     @Test fun `set writes to prefs and updates StateFlow`() {
         whenever(prefs.getString(eq("musicService"), any())).thenReturn(MusicService.SPOTIFY.value)
-        val pref = MusicServicePreference(context, mock<FirebaseFirestore>(), mock<FirebaseAuth>())
+        val pref = MusicServicePreference(
+            context,
+            mock<FirebaseFirestore>(),
+            mock<FirebaseAuth>(),
+            mock<PreferencesDataStore>(),
+        )
 
         pref.set(MusicService.APPLE_MUSIC)
 

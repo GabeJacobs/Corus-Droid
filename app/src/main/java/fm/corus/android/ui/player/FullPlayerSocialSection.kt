@@ -39,8 +39,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -840,9 +843,21 @@ private fun FullPlayerCatalogPostedBySection(
     onComposeTrack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Skeletons only after a short delay — fast empty hits skip the flash (iOS parity).
+    var showSkeleton by remember { mutableStateOf(false) }
+    LaunchedEffect(isLoading, posts.isEmpty()) {
+        if (isLoading && posts.isEmpty()) {
+            showSkeleton = false
+            delay(220)
+            if (isLoading && posts.isEmpty()) showSkeleton = true
+        } else {
+            showSkeleton = false
+        }
+    }
+
     Column(modifier = modifier.fillMaxWidth()) {
         when {
-            isLoading && posts.isEmpty() -> {
+            showSkeleton && isLoading && posts.isEmpty() -> {
                 Text(
                     text = stringResource(R.string.song_detail_posted_by),
                     style = CorusFont.sectionHeader,
@@ -883,6 +898,13 @@ private fun FullPlayerCatalogPostedBySection(
                         }
                     }
                 }
+            }
+            isLoading && posts.isEmpty() -> {
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                )
             }
             error != null && posts.isEmpty() -> {
                 Column(

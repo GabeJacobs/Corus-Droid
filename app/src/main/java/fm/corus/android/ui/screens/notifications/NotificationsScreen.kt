@@ -116,6 +116,20 @@ fun NotificationsScreen(
         }
     }
 
+    // Keyed LazyColumn keeps the previously-first row on screen when a
+    // newer notification is prepended, which strands it above the fold —
+    // the "I opened Activity and had to scroll up to see the new one" bug.
+    var previousHeadId by remember { mutableStateOf<String?>(null) }
+    val headId = notifications.firstOrNull()?.id
+    LaunchedEffect(headId) {
+        val prev = previousHeadId
+        previousHeadId = headId
+        val firstVisibleKey = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.key as? String
+        if (shouldPinActivityToNewHead(prev, headId, firstVisibleKey)) {
+            listState.scrollToItem(0)
+        }
+    }
+
     val context = LocalContext.current
 
     if (showFavoriteInfo) {

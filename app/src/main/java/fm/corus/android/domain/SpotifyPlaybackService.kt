@@ -156,16 +156,28 @@ class SpotifyPlaybackService @Inject constructor(
     @Volatile
     private var fastPathAppRemote: SpotifyAppRemote? = null
 
+    /** Expected URI we already issued play() for after a misrouted skip. */
+    @Volatile
+    private var fastPathRedirectUri: String? = null
+    @Volatile
+    private var fastPathRedirectUntilMs: Long = 0L
+
     private var proactiveReconnectJob: kotlinx.coroutines.Job? = null
     private var seekJob: kotlinx.coroutines.Job? = null
     private var lastProactiveReconnectAttempt: Long = 0L
+    /** When true, silent reconnect is blocked (external-mirror scroll-perf disconnect). */
+    @Volatile
+    private var proactiveReconnectSuppressed: Boolean = false
 
     val isConnected: Boolean get() = appRemote?.isConnected == true
 
     companion object {
         private const val PROACTIVE_RECONNECT_DEBOUNCE_MS = 5_000L
         private const val PLAY_TIMEOUT_MS = 15_000L
-        private const val FAST_PATH_MISROUTE_MAX_POSITION_SEC = 2.0
+        /** iOS `cachedConnectMaxAttempts` — Spotify is often just waking after idle. */
+        private const val SILENT_CONNECT_MAX_ATTEMPTS = 3
+        /** Swallow misrouted player-state events while play(expected) is in flight. */
+        private const val FAST_PATH_REDIRECT_MS = 2_000L
         private const val LAST_USAGE_KEY = "fm.corus.spotify.lastAppRemoteUsage"
         private const val PREFS_NAME = "corus_prefs"
 
@@ -208,6 +220,8 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     fun clearFastPathPlaybackGuard() {
+        fastPathRedirectUri = null
+        fastPathRedirectUntilMs = 0L
         fastPathGuardLock.withLock {
             fastPathGuardState.expectedURI = null
             fastPathGuardState.guardUntilMs = 0L
@@ -216,6 +230,57 @@ class SpotifyPlaybackService @Inject constructor(
 
     fun trySilentReconnectIfNeeded() {
         scheduleProactiveReconnect()
+    }
+
+    fun suppressProactiveReconnect() {
+        proactiveReconnectSuppressed = true
+        proactiveReconnectJob?.cancel()
+        proactiveReconnectJob = null
+    }
+
+    fun allowProactiveReconnect() {
+        proactiveReconnectSuppressed = false
+    }
+
+    /**
+     * Drop App Remote without pausing Spotify audio — used when Corus yields
+     * after the user started something else in the Spotify app (iOS parity).
+     * Keeps last position/duration/uri so callers can seed local scrubber math.
+     */
+    fun disconnectPreservingPlayback() {
+        clearFastPathPlaybackGuard()
+        suppressProactiveReconnect()
+        proactiveReconnectJob?.cancel()
+        seekJob?.cancel()
+        cancelPendingContinuations()
+        cancelSubscription(playerStateSubscription)
+        playerStateSubscription = null
+        cancelSubscription(playerContextSubscription)
+        playerContextSubscription = null
+        appRemote?.let { remote ->
+            if (remote.isConnected) {
+                runCatching { SpotifyAppRemote.disconnect(remote) }
+            }
+        }
+        appRemote = null
+        fastPathAppRemote = null
+        _isPlaying.value = false
+    }
+
+    /** Await a silent reconnect (or no-op if already connected / suppressed). */
+    suspend fun attemptSilentReconnect(): Boolean {
+        if (isConnected) return true
+        if (proactiveReconnectSuppressed) return false
+        if (spotifyAuthService.cachedAccessToken() == null && !hasRecentUsage()) return false
+        proactiveReconnectJob?.cancel()
+        lastProactiveReconnectAttempt = System.currentTimeMillis()
+        return runCatching {
+            connect(showAuthView = false)
+            subscribePlayerState()
+            subscribePlayerContext()
+            markRecentUsage()
+            isConnected
+        }.getOrDefault(false)
     }
 
     /** Handle `corus://spotify-auth` callbacks from App Remote authorization. */
@@ -276,6 +341,9 @@ class SpotifyPlaybackService @Inject constructor(
         replaceQueue: Boolean,
         queueSessionId: Int?,
     ) {
+        // External-mirror disconnect suppresses silent reconnect — Corus play
+        // must be allowed to open App Remote again.
+        allowProactiveReconnect()
         if (!isSpotifyAppInstalled(context)) {
             throw SpotifyPlaybackError.SpotifyNotInstalled()
         }
@@ -303,30 +371,79 @@ class SpotifyPlaybackService @Inject constructor(
         // on devices that fall back to its WebView handler paints a full-screen
         // "Loading…" dialog over Corus. Interactive auth is the fallback for a
         // connect App Remote actually refused.
-        try {
-            withPlayTimeout {
-                connect(showAuthView = false)
-                playUri(trackUri)
-            }
-            queueSessionId?.let { lastAppliedQueueSessionId = it }
-            markRecentUsage()
-            return
-        } catch (e: Exception) {
-            cancelPendingContinuations()
-            android.util.Log.w(
-                "SpotifyPlayback",
-                "Silent connect failed: ${e.message}",
-            )
-            discardStaleAppRemoteSession()
-        }
-        android.util.Log.w("SpotifyPlayback", "Silent reconnect failed, opening Spotify auth")
+        //
+        // After Corus has been sitting idle, the first silent IPC often fails
+        // because Spotify is asleep — iOS retries (`playWithCachedToken`) before
+        // re-auth. Wiping the token on that miss forced the Loading… WebView
+        // and then a false "No preview available" fallback.
+        if (playWithSilentConnectRetries(trackUri, queueSessionId)) return
 
+        android.util.Log.w("SpotifyPlayback", "Silent reconnect failed, opening Spotify auth")
         withPlayTimeout {
             ensureAuthorizedAndConnected(requireInteractiveAuth = true)
             playUri(trackUri)
         }
         queueSessionId?.let { lastAppliedQueueSessionId = it }
         markRecentUsage()
+    }
+
+    /**
+     * Silent App Remote connect + play, retried on dropped IPC. Returns true
+     * when playback was handed off. Does **not** clear the cached token on
+     * transport failures — only [SpotifyPlaybackError.NotAuthorized] discards
+     * the session.
+     */
+    private suspend fun playWithSilentConnectRetries(
+        trackUri: String,
+        queueSessionId: Int?,
+    ): Boolean {
+        repeat(SILENT_CONNECT_MAX_ATTEMPTS) { attempt ->
+            try {
+                withPlayTimeout {
+                    connect(showAuthView = false)
+                    playUri(trackUri)
+                }
+                queueSessionId?.let { lastAppliedQueueSessionId = it }
+                markRecentUsage()
+                return true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                cancelPendingContinuations()
+                android.util.Log.w(
+                    "SpotifyPlayback",
+                    "Silent connect failed (attempt ${attempt + 1}/$SILENT_CONNECT_MAX_ATTEMPTS): ${e.message}",
+                )
+                if (shouldDiscardSession(e)) {
+                    discardStaleAppRemoteSession()
+                    return false
+                }
+                disconnectAppRemotePreservingToken()
+                if (attempt < SILENT_CONNECT_MAX_ATTEMPTS - 1) {
+                    delay((attempt + 1) * 350L)
+                }
+            }
+        }
+        return false
+    }
+
+    /** Only wipe the cached token when Spotify explicitly rejected authorization. */
+    private fun shouldDiscardSession(error: Exception): Boolean =
+        error is SpotifyPlaybackError.NotAuthorized
+
+    private fun disconnectAppRemotePreservingToken() {
+        val remote = appRemote
+        if (remote != null) {
+            runCatching {
+                if (remote.isConnected) SpotifyAppRemote.disconnect(remote)
+            }
+        }
+        appRemote = null
+        fastPathAppRemote = null
+        cancelSubscription(playerStateSubscription)
+        playerStateSubscription = null
+        cancelSubscription(playerContextSubscription)
+        playerContextSubscription = null
     }
 
     /**
@@ -473,7 +590,9 @@ class SpotifyPlaybackService @Inject constructor(
         val remote = appRemote ?: return
         cancelSubscription(playerStateSubscription)
         playerStateSubscription = remote.playerApi.subscribeToPlayerState().setEventCallback { state ->
-            attemptFastPathMisroutePause(state)
+            // Pause + play(expected) on this thread. Don't reconcile the wrong
+            // URI — that would pauseImmediately the redirect we just issued.
+            if (attemptFastPathMisroutePause(state)) return@setEventCallback
             scope.launch {
                 runCatching { applyPlayerState(state) }.onFailure { error ->
                     android.util.Log.w("SpotifyPlayback", "applyPlayerState failed: ${error.message}")
@@ -484,15 +603,33 @@ class SpotifyPlaybackService @Inject constructor(
 
     /**
      * Pause a misrouted native skip on the App Remote callback thread — before
-     * [scope.launch] lets Spotify audibly start the wrong track.
+     * [scope.launch] lets Spotify audibly start the wrong track — and immediately
+     * play the expected Corus URI so we don't wait for MainActor reconcile.
+     *
+     * @return true when this event was handled here and must not be reconciled.
      */
-    private fun attemptFastPathMisroutePause(state: PlayerState) {
-        val track = state.track ?: return
-        val uri = track.uri ?: return
-        if (uri.isEmpty() || state.isPaused) return
+    private fun attemptFastPathMisroutePause(state: PlayerState): Boolean {
+        val track = state.track ?: return false
+        val uri = track.uri ?: return false
+        if (uri.isEmpty()) return false
 
-        val position = state.playbackPosition / 1000.0
-        if (position >= FAST_PATH_MISROUTE_MAX_POSITION_SEC) return
+        val now = System.currentTimeMillis()
+        val redirectTo = fastPathRedirectUri
+        if (redirectTo != null) {
+            if (now > fastPathRedirectUntilMs) {
+                fastPathRedirectUri = null
+            } else if (spotifyURIsMatch(uri, redirectTo)) {
+                fastPathRedirectUri = null
+                return false
+            } else {
+                if (!state.isPaused) {
+                    fastPathAppRemote?.playerApi?.pause()?.setResultCallback { }
+                }
+                return true
+            }
+        }
+
+        if (state.isPaused) return false
 
         // Podcasts, audiobooks and local files can never be a misrouted skip into
         // Corus's stale Spotify queue — there is no such content on Corus, so the
@@ -502,23 +639,27 @@ class SpotifyPlaybackService @Inject constructor(
                 fastPathGuardState.expectedURI = null
                 fastPathGuardState.guardUntilMs = 0L
             }
-            return
+            return false
         }
 
-        val shouldPause = fastPathGuardLock.withLock {
-            val now = System.currentTimeMillis()
+        val expectedToPlay = fastPathGuardLock.withLock {
             val expected = fastPathGuardState.expectedURI
-            if (expected == null || now >= fastPathGuardState.guardUntilMs) return@withLock false
+            if (expected == null || now >= fastPathGuardState.guardUntilMs) return@withLock null
             val trackChanged = fastPathGuardState.lastObservedURI?.let { last ->
                 !spotifyURIsMatch(last, uri)
             } ?: true
-            if (!trackChanged) return@withLock false
+            if (!trackChanged) return@withLock null
             fastPathGuardState.lastObservedURI = uri
-            !spotifyURIsMatch(uri, expected)
-        }
-        if (!shouldPause) return
+            if (spotifyURIsMatch(uri, expected)) return@withLock null
+            expected
+        } ?: return false
 
-        fastPathAppRemote?.playerApi?.pause()?.setResultCallback { _isPlaying.value = false }
+        val remote = fastPathAppRemote ?: return false
+        fastPathRedirectUri = expectedToPlay
+        fastPathRedirectUntilMs = now + FAST_PATH_REDIRECT_MS
+        remote.playerApi.pause().setResultCallback { _isPlaying.value = false }
+        remote.playerApi.play(expectedToPlay).setResultCallback { _isPlaying.value = true }
+        return true
     }
 
     private fun applyPlayerState(state: PlayerState) {
@@ -591,15 +732,19 @@ class SpotifyPlaybackService @Inject constructor(
         }
     }
 
-    suspend fun pause() {
+    /** @return false if App Remote wasn't connected or the pause call failed. */
+    suspend fun pause(): Boolean {
         val remote = appRemote
         if (remote == null || !remote.isConnected) {
             _isPlaying.value = false
-            return
+            return false
         }
-        awaitPlayerApiVoid(
-            onSuccess = { _isPlaying.value = false },
-        ) { it.playerApi.pause() }
+        return runCatching {
+            awaitPlayerApiVoid(
+                onSuccess = { _isPlaying.value = false },
+            ) { it.playerApi.pause() }
+            true
+        }.getOrDefault(false)
     }
 
     /** Fire-and-forget pause for skip recovery (see iOS `pauseImmediately`). */
@@ -613,17 +758,22 @@ class SpotifyPlaybackService @Inject constructor(
         _isPlaying.value = false
     }
 
-    suspend fun resume() {
-        val remote = appRemote ?: return
-        if (!remote.isConnected) return
-        awaitPlayerApiVoid(
-            onSuccess = { _isPlaying.value = true },
-        ) { it.playerApi.resume() }
+    /** @return false if App Remote wasn't connected or the resume call failed. */
+    suspend fun resume(): Boolean {
+        val remote = appRemote ?: return false
+        if (!remote.isConnected) return false
+        return runCatching {
+            awaitPlayerApiVoid(
+                onSuccess = { _isPlaying.value = true },
+            ) { it.playerApi.resume() }
+            true
+        }.getOrDefault(false)
     }
 
-    suspend fun seek(toSeconds: Double) {
-        val remote = appRemote ?: return
-        if (!remote.isConnected) return
+    /** @return false if App Remote wasn't connected or the seek call failed. */
+    suspend fun seek(toSeconds: Double): Boolean {
+        val remote = appRemote ?: return false
+        if (!remote.isConnected) return false
         val seconds = maxOf(0.0, toSeconds)
         val ms = (seconds * 1000).toLong()
         // Optimistic + await (iOS parity). The old fire-and-forget job returned
@@ -637,12 +787,14 @@ class SpotifyPlaybackService @Inject constructor(
             ) { it.playerApi.seekTo(ms) }
         }
         seekJob = job
-        try {
+        return try {
             job.await()
+            true
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
             android.util.Log.w("SpotifyPlayback", "seek failed: ${error.message}")
+            false
         }
     }
 
@@ -872,8 +1024,17 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     private fun normalizedUri(trackId: String, uri: String?): String {
-        val trimmed = uri?.takeIf { it.isNotEmpty() }
-        return trimmed ?: "spotify:track:${normalizedSpotifyTrackId(trackId)}"
+        val trimmed = uri?.takeIf { it.startsWith("spotify:track:") }
+        if (trimmed != null) return trimmed
+        val normalized = normalizedSpotifyTrackId(trackId)
+        if (normalized.length == 22 &&
+            !trackId.startsWith("am:") &&
+            !trackId.startsWith("sc:") &&
+            !trackId.startsWith("amk:")
+        ) {
+            return "spotify:track:$normalized"
+        }
+        return uri.orEmpty()
     }
 
     private suspend fun withPlayTimeout(block: suspend () -> Unit) {
@@ -927,6 +1088,7 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     private fun scheduleProactiveReconnect() {
+        if (proactiveReconnectSuppressed) return
         if (!hasRecentUsage() && spotifyAuthService.cachedAccessToken() == null) return
         if (isConnected) return
         val now = System.currentTimeMillis()
@@ -934,6 +1096,7 @@ class SpotifyPlaybackService @Inject constructor(
         if (proactiveReconnectJob?.isActive == true) return
         lastProactiveReconnectAttempt = now
         proactiveReconnectJob = scope.launch {
+            if (proactiveReconnectSuppressed) return@launch
             runCatching {
                 connect(showAuthView = false)
                 subscribePlayerState()

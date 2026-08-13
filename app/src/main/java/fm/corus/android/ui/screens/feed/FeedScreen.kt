@@ -119,6 +119,8 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.util.animateScrollItemToTop
+import fm.corus.android.ui.util.feedPostLazyIndex
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -184,6 +186,8 @@ fun FeedScreen(
     val isNewAccount by viewModel.isNewAccount.collectAsState()
     val loadingTrackId by viewModel.nowPlayingManager.loadingTrackId.collectAsState()
     val loadingSourcePostId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
+    val stagedSkipPillTrackId by viewModel.nowPlayingManager.stagedFeedSkipPillTrackId.collectAsState()
+    val stagedSkipPillSourcePostId by viewModel.nowPlayingManager.stagedFeedSkipPillSourcePostId.collectAsState()
     val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val feedMode by viewModel.feedMode.collectAsState()
@@ -295,6 +299,10 @@ fun FeedScreen(
     // Hoist list state above the when block so scroll position survives
     // navigation (rememberSaveable key stays stable across recompositions)
     val listState = rememberLazyListState()
+    val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
+    val frost = rememberImmersiveHeaderState(immersive)
+    val followScrollTopInsetPx = with(LocalDensity.current) { frost.statusBarPadding.roundToPx() }
+    val currentTopInsetPx by rememberUpdatedState(followScrollTopInsetPx)
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger > lastScrollTrigger) {
@@ -312,13 +320,17 @@ fun FeedScreen(
     // destination) and use reference equality to avoid clobbering another
     // screen's handler on cleanup.
     val currentPostsForRouter by rememberUpdatedState(posts)
+    val feedPrefixItemCount = 1 + if (showTasteMatchesTrialBanner) 1 else 0
+    val currentPrefixForRouter by rememberUpdatedState(feedPrefixItemCount)
     val routerScope = scope
     val feedScrollHandler = remember<(String) -> Boolean>(listState) {
         handler@ { postId ->
             val idx = currentPostsForRouter.indexOfFirst { it.id == postId }
             if (idx < 0) return@handler false
-            // +1 because index 0 in the LazyColumn is the FeedHeader
-            routerScope.launch { listState.animateScrollToItem(index = idx + 1) }
+            val lazyIndex = feedPostLazyIndex(idx, currentPrefixForRouter)
+            routerScope.launch {
+                listState.animateScrollItemToTop(lazyIndex, currentTopInsetPx)
+            }
             true
         }
     }
@@ -349,7 +361,7 @@ fun FeedScreen(
         if (!isAtRoot) return@LaunchedEffect
         // Don't yank the feed out from under a finger that's actively
         // scrolling (or a fling that's still decelerating). Checked before
-        // we kick off our own animateScrollToItem, so this only reflects
+        // we kick off our own follow-scroll, so this only reflects
         // user-driven motion.
         if (listState.isScrollInProgress) return@LaunchedEffect
         // Skip when the user just tapped this card to play it — they're
@@ -361,12 +373,11 @@ fun FeedScreen(
         }
         val index = posts.indexOfFirst { it.id == newPostId }
         if (index < 0) return@LaunchedEffect
-        // +1 because index 0 in the LazyColumn is the FeedHeader (filter row)
-        listState.animateScrollToItem(index = index + 1)
+        listState.animateScrollItemToTop(
+            feedPostLazyIndex(index, currentPrefixForRouter),
+            currentTopInsetPx,
+        )
     }
-
-    val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
-    val frost = rememberImmersiveHeaderState(immersive)
 
     val header: @Composable () -> Unit = {
         // Clear the frosted status strip so the "corus" switcher sits just below it.
@@ -959,6 +970,8 @@ fun FeedScreen(
                                 isResolvingFullSong = isResolvingSpotify,
                                 postTrackId = post.track.id,
                                 postId = post.id,
+                                stagedSkipPillTrackId = stagedSkipPillTrackId,
+                                stagedSkipPillSourcePostId = stagedSkipPillSourcePostId,
                             ),
                             isPreviewPlaying = PostPlaybackHighlight.shouldShowPlayingOverlay(
                                 activeTrackId = nowPlayingState.trackId,

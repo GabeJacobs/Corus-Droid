@@ -99,4 +99,25 @@ class NotificationListMergeTest {
         assertEquals(listOf("n1", "n2", "old1"), result.list.map { it.id })
         assertFalse(result.droppedStaleTail)
     }
+
+    @Test
+    fun `brand new ids are those in incoming but not already on screen`() {
+        val incoming = listOf(notif("n0", ageMs = 5), notif("n1", ageMs = 60))
+        assertEquals(setOf("n0"), brandNewNotificationIds(currentIds = setOf("n1", "n2"), incoming = incoming))
+    }
+
+    @Test
+    fun `first window is not treated as brand new so lastSeen can decide highlighting`() {
+        val incoming = listOf(notif("n1", ageMs = 10), notif("n2", ageMs = 20))
+        assertEquals(emptySet<String>(), brandNewNotificationIds(currentIds = emptySet(), incoming = incoming))
+    }
+
+    @Test
+    fun `pin to new head only when the user was still looking at the old head`() {
+        assertTrue(shouldPinActivityToNewHead(previousHeadId = "old", newHeadId = "new", firstVisibleItemKey = "old"))
+        assertFalse(shouldPinActivityToNewHead(previousHeadId = "old", newHeadId = "new", firstVisibleItemKey = "other"))
+        assertFalse(shouldPinActivityToNewHead(previousHeadId = null, newHeadId = "new", firstVisibleItemKey = "new"))
+        assertFalse(shouldPinActivityToNewHead(previousHeadId = "same", newHeadId = "same", firstVisibleItemKey = "same"))
+        assertFalse(shouldPinActivityToNewHead(previousHeadId = "old", newHeadId = null, firstVisibleItemKey = "old"))
+    }
 }

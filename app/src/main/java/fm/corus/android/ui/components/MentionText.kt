@@ -103,12 +103,10 @@ fun buildMentionAnnotatedString(
                 val handle = mentionHandle(token)
                 if (handle.isNotEmpty()) {
                     pushStringAnnotation(tag = MENTION_TAG, annotation = handle)
-                    // Accent color only — regular weight so @/# don't compete
-                    // with the bold username prefix in captions/comments.
                     withStyle(
                         baseStyle.copy(
                             color = linkColor,
-                            fontWeight = FontWeight.Normal,
+                            fontWeight = FontWeight.ExtraBold,
                         )
                     ) {
                         append(token)
@@ -119,6 +117,8 @@ fun buildMentionAnnotatedString(
                 }
             } else {
                 pushStringAnnotation(tag = HASHTAG_TAG, annotation = token.removePrefix("#"))
+                // Accent color only — regular weight so tags don't compete with
+                // bold usernames / @mentions.
                 withStyle(
                     baseStyle.copy(
                         color = linkColor,
@@ -181,7 +181,7 @@ fun buildCaptionAnnotatedString(
                 val handle = mentionHandle(token)
                 if (handle.isNotEmpty()) {
                     pushStringAnnotation(tag = MENTION_TAG, annotation = handle)
-                    withStyle(baseStyle.copy(color = CorusColors.Accent, fontWeight = FontWeight.Normal)) {
+                    withStyle(baseStyle.copy(color = CorusColors.Accent, fontWeight = FontWeight.ExtraBold)) {
                         append(token)
                     }
                     pop()

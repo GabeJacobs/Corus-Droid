@@ -165,9 +165,11 @@ class CorusPlaybackService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        // App swiped away from recents while audio is playing. Match the
-        // common-case music-app behavior: tear down playback so we don't
-        // keep the foreground service alive without UI to manage it.
+        // Swiping Corus from Recents must not kill Connect — otherwise Spotify
+        // owns the next song. Match iOS (home/lock keeps Corus driving the feed).
+        if (nowPlayingManager.shouldKeepPlaybackServiceAfterTaskRemoved()) {
+            return
+        }
         nowPlayingManager.stop()
         stopSelf()
     }

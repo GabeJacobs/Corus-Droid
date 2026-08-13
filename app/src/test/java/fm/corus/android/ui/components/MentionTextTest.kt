@@ -363,13 +363,13 @@ class MentionTextTest {
     }
 
     @Test
-    fun `buildMentionAnnotatedString keeps mentions and hashtags regular weight`() {
+    fun `buildMentionAnnotatedString bolds mentions but not hashtags`() {
         val result = buildMentionAnnotatedString("hey @gideon #music")
         val mentionStart = result.text.indexOf("@gideon")
         val hashtagStart = result.text.indexOf("#music")
         val mentionWeight = result.spanStyles.first { it.start == mentionStart }.item.fontWeight
         val hashtagWeight = result.spanStyles.first { it.start == hashtagStart }.item.fontWeight
-        assertEquals(FontWeight.Normal, mentionWeight)
+        assertEquals(FontWeight.ExtraBold, mentionWeight)
         assertEquals(FontWeight.Normal, hashtagWeight)
     }
 

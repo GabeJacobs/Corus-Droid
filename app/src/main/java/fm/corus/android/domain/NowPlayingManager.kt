@@ -9,6 +9,7 @@ import android.app.KeyguardManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import androidx.annotation.OptIn
 import androidx.annotation.VisibleForTesting
 import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
@@ -17,7 +18,9 @@ import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.SilenceMediaSource
 import androidx.media3.session.MediaSession
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.local.PreferencesDataStore
@@ -269,7 +272,42 @@ class NowPlayingManager @Inject constructor(
     private val hapticManager: HapticManager,
     private val analyticsService: fm.corus.android.service.AnalyticsService,
 ) {
+    companion object {
+        /**
+         * DEBUG: hide FeedPlayingPill on album art (and skip staging it on Next)
+         * to A/B whether pill snap-in is hitching feed autoscroll vs playback work.
+         * Mirrors iOS `NowPlayingManager.debugDisableAlbumArtPlayingPill`.
+         */
+        const val debugDisableAlbumArtPlayingPill = false
+
+        /**
+         * Pre-pill quiet after scroll kickoff. Tap stays free of pause/Connect.
+         * 0 lagged again; settled on 150ms.
+         */
+        private const val FEED_SKIP_SCROLL_QUIET_MS = 150L
+        /** Preview mini Next: extra quiet vs full-song 150ms (chrome+play hitch). */
+        private const val FEED_SKIP_SCROLL_QUIET_PREVIEW_MS = 350L
+        private const val FEED_SKIP_PILL_LEAD_IN_MS = 220L
+        /** Preview path: longer quiet after arming pill so snap finishes before chrome/AV. */
+        private const val FEED_SKIP_PILL_LEAD_IN_PREVIEW_MS = 280L
+        private const val FEED_SKIP_AUDIO_AFTER_CHROME_MS = 200L
+    }
+
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    /** Cancels a pending mini Next lead-in Task when the user taps Next again. */
+    private var feedSkipLeadInGeneration = 0
+    /** True while staged mini Next is sleeping toward play (pause must abort). */
+    private var stagedFeedSkipInFlight = false
+
+    /**
+     * Mini/full-player transport spinner from Next tap until audio is live.
+     * Independent of [stagedFeedSkipInFlight] (which drops before play starts)
+     * so chrome doesn't flash pause→play mid-handoff. Mirrors iOS
+     * `NowPlayingManager.stagedFeedSkipLoading`.
+     */
+    private val _stagedFeedSkipLoading = MutableStateFlow(false)
+    val stagedFeedSkipLoading: StateFlow<Boolean> = _stagedFeedSkipLoading.asStateFlow()
 
     /**
      * Corus postIds we've already reported an in-app play for THIS app session.
@@ -304,10 +342,16 @@ class NowPlayingManager @Inject constructor(
                     Lifecycle.Event.ON_STOP -> {
                         spotifyCorusBackgroundedAt = System.currentTimeMillis()
                         refreshSpotifyFastPathSkipGuardWhenLocked()
+                        startSpotifyConnectKeepAlive()
                     }
                     Lifecycle.Event.ON_START -> {
                         spotifyCorusBackgroundedAt = null
-                        managerScope.launch { reconcileExternalSpotifyOnForeground() }
+                        managerScope.launch {
+                            reconcileExternalSpotifyOnForeground()
+                            if (!isSpotifyConnectPlaying && !spotifyCorusPlayIntentInFlight()) {
+                                spotifyPlaybackService.trySilentReconnectIfNeeded()
+                            }
+                        }
                     }
                     else -> Unit
                 }
@@ -320,6 +364,7 @@ class NowPlayingManager @Inject constructor(
                 spotifyDeviceLockedForQueueDriving = when (intent?.action) {
                     Intent.ACTION_SCREEN_OFF -> {
                         refreshSpotifyFastPathSkipGuardWhenLocked()
+                        startSpotifyConnectKeepAlive()
                         true
                     }
                     Intent.ACTION_USER_PRESENT -> false
@@ -345,6 +390,16 @@ class NowPlayingManager @Inject constructor(
     @Volatile
     var isSpotifyConnectPlaying: Boolean = false
         private set
+
+    /**
+     * Inaudible looping ExoPlayer while Spotify Connect is active — Android's
+     * analog of iOS's silent WAV keep-alive. Keeps the media FGS + session up
+     * so lock-screen Next and natural-end handlers still belong to Corus.
+     */
+    @Volatile
+    private var spotifyConnectKeepAliveActive = false
+    @VisibleForTesting
+    internal var skipConnectKeepAlive = false
 
     /** User is listening in Spotify outside the Corus feed — mini player mirrors metadata. */
     private val _isExternalSpotifyListening = MutableStateFlow(false)
@@ -587,15 +642,32 @@ class NowPlayingManager @Inject constructor(
     private var spotifyPositionJob: Job? = null
     private var spotifySeekJob: Job? = null
 
-    fun spotifyExperimentEnabledForTrack(source: TrackSource, preferFullSong: Boolean = false): Boolean {
+    fun spotifyExperimentEnabledForTrack(
+        source: TrackSource,
+        preferFullSong: Boolean = false,
+        trackId: String? = null,
+        spotifyURI: String? = null,
+    ): Boolean {
         if (!SpotifyPlaybackService.isSpotifyAppInstalled(context)) return false
         val playFull = preferFullSong || preferencesDataStore.effectivePlayFullSongsSync()
         return SongPlayRouting.wantsSpotifyExperiment(
             source = source,
             service = musicServicePreference.current.value,
             playFullSongs = playFull,
+            trackId = trackId,
+            spotifyURI = spotifyURI,
         )
     }
+
+    fun spotifyExperimentEnabledForTrack(
+        track: QueuedTrack,
+        preferFullSong: Boolean = false,
+    ): Boolean = spotifyExperimentEnabledForTrack(
+        source = track.source,
+        preferFullSong = preferFullSong,
+        trackId = track.trackId,
+        spotifyURI = track.spotifyURI,
+    )
 
     /** Album-art play/pause overlay for in-app full-song playback. */
     fun showsFullSongPlayingOverlay(service: MusicService): Boolean {
@@ -655,11 +727,13 @@ class NowPlayingManager @Inject constructor(
         playingTrackId: String,
         playingSourcePostId: String?,
     ) {
+        // Explicit play seed — take the caller's order (same as iOS `playingTrackId`).
+        queueOrderPinnedByUser = false
         val preserved = snapshotUserQueuedUpNext()
         this.queue = queue
         currentQueueIndex = queue.indexOfActive(playingTrackId, playingSourcePostId)
         restoreUserQueuedUpNext(preserved)
-        _state.value = _state.value.copy(hasNext = computeHasNext())
+        publishHasNextIfChanged()
     }
 
     /**
@@ -682,7 +756,12 @@ class NowPlayingManager @Inject constructor(
         val mutable = queue.toMutableList()
         mutable.add(insertAt, item)
         queue = mutable
-        _state.value = _state.value.copy(hasNext = computeHasNext())
+        // Pin like Edit→reorder: feed sync only preserves `isUserQueued` rows.
+        // Without this, once the added song starts, pagination rebuilds Up Next
+        // from feed order and skips tracks that were already queued after it
+        // (Add One Fine Day → Next → Next plays Forever instead of Baby…).
+        queueOrderPinnedByUser = true
+        publishHasNextIfChanged()
         // iOS addToUserQueue — light when inserting into an active session.
         hapticManager.impact(HapticManager.ImpactStyle.LIGHT)
         analyticsService.logAddToQueueTapped(item.trackId, item.sourcePostId)
@@ -710,6 +789,29 @@ class NowPlayingManager @Inject constructor(
 
     private fun userQueueKey(track: QueuedTrack): String =
         "${track.trackId}|${track.sourcePostId.orEmpty()}"
+
+    /**
+     * Append feed tracks that aren't already in the pinned queue. Does not
+     * reshuffle existing rows (preserves Edit → reorder / Add to Queue).
+     */
+    private fun appendNewTracksPreservingUserOrder(from: List<QueuedTrack>) {
+        val seen = queue.map { userQueueKey(it) }.toMutableSet()
+        val tail = ArrayList<QueuedTrack>()
+        for (track in from) {
+            val key = userQueueKey(track)
+            if (!seen.add(key)) continue
+            tail.add(track.copy(isUserQueued = false))
+        }
+        if (tail.isEmpty()) return
+        queue = queue + tail
+    }
+
+    private fun publishHasNextIfChanged() {
+        val next = computeHasNext()
+        if (_state.value.hasNext != next) {
+            _state.value = _state.value.copy(hasNext = next)
+        }
+    }
 
     /** Clear the user-queue flag when a manually queued entry becomes Now Playing. */
     private fun clearUserQueuedFlagAt(index: Int) {
@@ -743,7 +845,14 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun launchSpotifyConnectPlay(block: suspend () -> Unit) {
-        managerScope.launch { block() }
+        spotifyConnectPlayJob?.cancel()
+        val job = managerScope.launch { block() }
+        spotifyConnectPlayJob = job
+        job.invokeOnCompletion {
+            if (spotifyConnectPlayJob === job) {
+                spotifyConnectPlayJob = null
+            }
+        }
     }
 
     /**
@@ -793,6 +902,13 @@ class NowPlayingManager @Inject constructor(
     private var queueHasMore: Boolean = false
     private var loadMoreQueue: (suspend () -> Unit)? = null
     private var isLoadingMoreQueue: Boolean = false
+    /**
+     * After Edit→reorder or Add to Queue, feed/profile [updateFeedQueue] must not
+     * rebuild Up Next from feed order (only `isUserQueued` rows survive that path).
+     * Keep the pinned order and append brand-new posts only — mirrors iOS
+     * `queueOrderPinnedByUser`. Cleared on an explicit play seed or [stop].
+     */
+    private var queueOrderPinnedByUser: Boolean = false
 
     /** Snapshot of the in-memory queue for the full-player Queue sheet. */
     fun queueSnapshot(): List<QueuedTrack> = queue
@@ -820,6 +936,21 @@ class NowPlayingManager @Inject constructor(
         isSpotifyConnectPlaying = playing
     }
 
+    fun testingSetSpotifyDeviceLockedForQueueDriving(locked: Boolean) {
+        spotifyDeviceLockedForQueueDriving = locked
+    }
+
+    fun testingRefreshSpotifyFastPathSkipGuardForUpcomingTrackIfNeeded() {
+        refreshSpotifyFastPathSkipGuardForUpcomingTrackIfNeeded()
+    }
+
+    /**
+     * Recents swipe must not tear down Connect — otherwise Spotify owns the
+     * next song. Same as iOS home/lock keeping Corus in control.
+     */
+    fun shouldKeepPlaybackServiceAfterTaskRemoved(): Boolean =
+        isSpotifyConnectPlaying || _state.value.isPlaying
+
     fun removeQueueItem(index: Int) {
         if (index !in queue.indices) return
         val playingIdx = currentQueueIndex
@@ -828,7 +959,7 @@ class NowPlayingManager @Inject constructor(
         val pruned = queue.toMutableList().also { it.removeAt(index) }
         queue = pruned
         currentQueueIndex = pruned.indexOfActive(_state.value.trackId, _state.value.sourcePostId)
-        _state.value = _state.value.copy(hasNext = computeHasNext())
+        publishHasNextIfChanged()
         analyticsService.logQueueItemRemoved(removedId)
     }
 
@@ -841,8 +972,9 @@ class NowPlayingManager @Inject constructor(
         val item = mutable.removeAt(fromIndex)
         mutable.add(toIndex, item)
         queue = mutable
+        queueOrderPinnedByUser = true
         currentQueueIndex = mutable.indexOfActive(_state.value.trackId, _state.value.sourcePostId)
-        _state.value = _state.value.copy(hasNext = computeHasNext())
+        publishHasNextIfChanged()
         analyticsService.logQueueItemReordered()
     }
 
@@ -851,7 +983,7 @@ class NowPlayingManager @Inject constructor(
         clearUserQueuedFlagAt(index)
         val track = queue[index]
         currentQueueIndex = index
-        _state.value = _state.value.copy(hasNext = computeHasNext())
+        publishHasNextIfChanged()
         val preferFull = !preferPreviewOnInAppSkip
         routePlayTap(
             track = track.toCymbalTrack(),
@@ -939,21 +1071,30 @@ class NowPlayingManager @Inject constructor(
             spotifyScrubberHoldUntilTrackChangeFromUri = null
             beginSpotifyScrubSeekInFlight(seconds)
             if (_state.value.isPlaying) userInitiatedPause = false
-            ScrubberClock.snapTime(toMs.coerceAtLeast(0L))
+            val previousMs = ScrubberClock.time.value
+            val clampedMs = toMs.coerceAtLeast(0L)
+            ScrubberClock.snapTime(clampedMs)
             syncSpotifyScrubAnchor(seconds)
             spotifySeekJob?.cancel()
             spotifySeekJob = managerScope.launch {
-                if (isExternalSpotifyListening && !spotifyPlaybackService.isConnected) {
-                    spotifyPlaybackService.trySilentReconnectIfNeeded()
-                    delay(300)
-                }
-                runCatching { spotifyPlaybackService.seek(seconds) }
-                    .onFailure { error ->
-                        android.util.Log.w("NowPlaying", "Spotify seek failed: ${error.message}")
+                if (isExternalSpotifyListening) {
+                    val ok = withBriefExternalSpotifyConnection { remote ->
+                        remote.seek(seconds)
                     }
-                // Re-pin after the API ack so a late pre-seek PlayerState can't win.
-                ScrubberClock.snapTime(toMs.coerceAtLeast(0L))
-                syncSpotifyScrubAnchor(seconds)
+                    if (!ok) {
+                        ScrubberClock.snapTime(previousMs)
+                        syncSpotifyScrubAnchor(previousMs / 1000.0)
+                        notifyExternalSpotifyTransportFailed()
+                    }
+                } else {
+                    runCatching { spotifyPlaybackService.seek(seconds) }
+                        .onFailure { error ->
+                            android.util.Log.w("NowPlaying", "Spotify seek failed: ${error.message}")
+                        }
+                    // Re-pin after the API ack so a late pre-seek PlayerState can't win.
+                    ScrubberClock.snapTime(clampedMs)
+                    syncSpotifyScrubAnchor(seconds)
+                }
             }
             return
         }
@@ -995,6 +1136,19 @@ class NowPlayingManager @Inject constructor(
      */
     private val _loadingSourcePostId = MutableStateFlow<String?>(null)
     val loadingSourcePostId: StateFlow<String?> = _loadingSourcePostId.asStateFlow()
+
+    /**
+     * Next post to show [fm.corus.android.ui.components.FeedPlayingPill] during
+     * mini/feed Next — armed on the tap frame so snap-in can finish before
+     * identity/`sourcePostId` changes trigger follow-scroll. Mirrors iOS
+     * `stagedFeedSkipPillTrackId` (not [_loadingTrackId], which has cancel /
+     * play-routing side effects).
+     */
+    private val _stagedFeedSkipPillTrackId = MutableStateFlow<String?>(null)
+    val stagedFeedSkipPillTrackId: StateFlow<String?> = _stagedFeedSkipPillTrackId.asStateFlow()
+    private val _stagedFeedSkipPillSourcePostId = MutableStateFlow<String?>(null)
+    val stagedFeedSkipPillSourcePostId: StateFlow<String?> =
+        _stagedFeedSkipPillSourcePostId.asStateFlow()
 
     /**
      * One-shot event emitted when a *user-initiated* play resolves to no playable
@@ -1493,6 +1647,7 @@ class NowPlayingManager @Inject constructor(
 
     /** Play a track that's part of a queue — enables autoplay and the mini-player next button. */
     suspend fun play(track: QueuedTrack, queue: List<QueuedTrack>) {
+        queueOrderPinnedByUser = false
         val preserved = snapshotUserQueuedUpNext()
         this.queue = queue
         this.currentQueueIndex = queue.indexOfActive(track.trackId, track.sourcePostId)
@@ -1510,6 +1665,10 @@ class NowPlayingManager @Inject constructor(
      * list or its `hasMore` flag changes, and pass a `loadMore` that fetches the
      * next page. This keeps the mini-player's next button enabled — and functional —
      * when the user exhausts the currently-loaded page.
+     *
+     * After the user reorders Up Next or uses Add to Queue, the order is pinned:
+     * sync only appends brand-new posts instead of rebuilding from feed order
+     * (mirrors iOS `queueOrderPinnedByUser`).
      */
     fun updateFeedQueue(
         newQueue: List<QueuedTrack>,
@@ -1520,12 +1679,21 @@ class NowPlayingManager @Inject constructor(
         // Don't clobber an unrelated now-playing context (e.g. track started from search).
         if (currentTrackId != null && newQueue.none { it.trackId == currentTrackId }) return
         val preserved = snapshotUserQueuedUpNext()
+        if (queueOrderPinnedByUser) {
+            appendNewTracksPreservingUserOrder(newQueue)
+            queueHasMore = hasMore
+            loadMoreQueue = loadMore
+            currentQueueIndex = queue.indexOfActive(currentTrackId, _state.value.sourcePostId)
+            restoreUserQueuedUpNext(preserved)
+            publishHasNextIfChanged()
+            return
+        }
         queue = newQueue
         queueHasMore = hasMore
         loadMoreQueue = loadMore
         currentQueueIndex = newQueue.indexOfActive(currentTrackId, _state.value.sourcePostId)
         restoreUserQueuedUpNext(preserved)
-        _state.value = _state.value.copy(hasNext = computeHasNext())
+        publishHasNextIfChanged()
     }
 
     /**
@@ -1630,8 +1798,9 @@ class NowPlayingManager @Inject constructor(
             return
         }
 
-        // Cancel any in-flight load for a different track
-        cancelLoading()
+        // Cancel any in-flight load for a different track. Keep a staged Next
+        // pill armed for [track] — that target is the song we're about to load.
+        cancelLoading(clearStagedSkipPill = false)
 
         // iOS song_preview_played — ExoPlayer / preview path (Connect logs separately).
         analyticsService.logSongPreviewPlayed(trackId)
@@ -1685,12 +1854,18 @@ class NowPlayingManager @Inject constructor(
             // user, but only on an explicit tap — auto-advance just stops rather
             // than spamming a toast per dead track. Audiomack additionally keeps
             // its "Listen on Audiomack" link-out for the full song.
+            _stagedFeedSkipLoading.value = false
+            clearStagedFeedSkipPill()
             if (userInitiated) _previewUnavailable.tryEmit(Unit)
             return
         }
 
         // Cache for future taps
         previewCache[trackId] = resolvedUrl
+
+        // Quick Next can bump [playGeneration] after URL resolve — don't let the
+        // outgoing track's confirm overwrite the staged next identity/pill.
+        if (generation != playGeneration) return
 
         // New track — switch the persistent player+session to it.
         // We do NOT release & rebuild the MediaSession per track:
@@ -1708,6 +1883,7 @@ class NowPlayingManager @Inject constructor(
                     .build()
             )
             .build()
+        stopSpotifyConnectKeepAlive()
         val exo = ensurePlayerAndSession()
         exo.setMediaItem(mediaItem)
         exo.prepare()
@@ -1716,6 +1892,11 @@ class NowPlayingManager @Inject constructor(
         // MediaSessionService can't post its notification fast enough and
         // Android kills us with ForegroundServiceDidNotStartInTimeException.
         startForegroundServiceIfNeeded()
+
+        if (generation != playGeneration) {
+            exo.pause()
+            return
+        }
 
         _state.value = NowPlayingState(
             trackId = trackId,
@@ -1740,6 +1921,7 @@ class NowPlayingManager @Inject constructor(
         // the same-track pause/resume path returns early above, so this won't
         // double-fire on resume.
         recordPlayIfNeeded(track.sourcePostId)
+        onPlaybackBecamePlaying(trackId)
     }
 
     /**
@@ -1822,12 +2004,19 @@ class NowPlayingManager @Inject constructor(
         skipToNext(preferPreviewOnNext = preferPreviewOnInAppSkip)
     }
 
-    fun skipToNext(preferPreviewOnNext: Boolean = false) {
+    /**
+     * @param immediate Full-player Next — skip the mini-player scroll lead-in
+     *   so chrome/audio handoff is not held ~320ms.
+     */
+    fun skipToNext(preferPreviewOnNext: Boolean = false, immediate: Boolean = false) {
+        // iOS skipToNext: lock / background skips staging delays so Spotify
+        // isn't left playing a stale native-queue track while we wait for feed chrome.
+        val skipStaging = immediate || shouldSkipSpotifyFeedAdvanceStaging()
         if (shouldRouteSpotifyFeedSkip(preferPreviewOnNext)) {
             cancelDebouncedSpotifyRelinquish()
             spotifyFeedSkipRequestedUntil = System.currentTimeMillis() + 5000
             armSpotifyFastPathSkipGuardForUpcomingFeedTrack()
-            forceSpotifyFeedAdvanceToNextEntry()
+            forceSpotifyFeedAdvanceToNextEntry(immediate = skipStaging)
             return
         }
         stopPositionPolling(resetClock = false)
@@ -1836,7 +2025,7 @@ class NowPlayingManager @Inject constructor(
         } else {
             ScrubberClock.reset()
         }
-        advanceToNext()
+        advanceToNext(immediate = skipStaging)
     }
 
     /**
@@ -1867,18 +2056,24 @@ class NowPlayingManager @Inject constructor(
                 next.source,
                 MusicService.SPOTIFY,
                 playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
+                trackId = next.trackId,
+                spotifyURI = next.spotifyURI,
             )
         ) {
             return false
         }
-        return isSpotifyConnectPlaying || spotifyExperimentEnabledForTrack(next.source)
+        return isSpotifyConnectPlaying || spotifyExperimentEnabledForTrack(next)
     }
 
-    fun forceSpotifyFeedAdvanceToNextEntry() {
+    fun forceSpotifyFeedAdvanceToNextEntry(immediate: Boolean = false) {
         if (adoptSpotifyConnectNextIfMatching(spotifyPlaybackService.currentTrackUri.value)) {
             return
         }
-        spotifyPlaybackService.pauseImmediately()
+        // Full-player: pause now. Mini: defer pause — App Remote pause on the
+        // scroll kickoff frame hitchs feed autoscroll.
+        if (immediate) {
+            spotifyPlaybackService.pauseImmediately()
+        }
         val idx = currentQueueIndex ?: run { skipToNextLegacyPreview(); return }
         if (idx + 1 >= queue.size) {
             if (queueHasMore) {
@@ -1887,7 +2082,7 @@ class NowPlayingManager @Inject constructor(
             return
         }
         val next = queue[idx + 1]
-        if (!spotifyExperimentEnabledForTrack(next.source)) {
+        if (!spotifyExperimentEnabledForTrack(next)) {
             userInitiatedPause = false
             silentlyHaltSpotifyForPreview()
             manualSkipGuardUntil = System.currentTimeMillis() + 1500
@@ -1895,7 +2090,7 @@ class NowPlayingManager @Inject constructor(
             cancelDebouncedSpotifyRelinquish()
             stopPositionPolling(resetClock = false)
             resetScrubberPosition()
-            advanceToNext()
+            advanceToNext(immediate = immediate)
             return
         }
         userInitiatedPause = false
@@ -1912,9 +2107,42 @@ class NowPlayingManager @Inject constructor(
         armSpotifyFastPathSkipGuard(expectedURI = nextUri)
         clearUserQueuedFlagAt(idx + 1)
         currentQueueIndex = idx + 1
-        updateStateForTrack(queue[idx + 1])
+        val track = queue[idx + 1]
+        val leadInGen = ++feedSkipLeadInGeneration
+
+        if (immediate) {
+            beginStagedFeedSkipLoading(track, armPill = false)
+            abortOutgoingPlaybackForStagedSkip()
+            launchSpotifyConnectPlay {
+                updateStateForTrack(track)
+                playViaSpotifyConnect(spotifyPendingPlay(track), replaceSpotifyQueue = true)
+            }
+            return
+        }
+
+        // c10b495 parity: scroll only on tap (sourcePostId), then quiet →
+        // abort/chrome → play. Pill + mini spinner arm on the tap frame so
+        // they stay in sync (iOS stagedFeedSkipLoading).
+        publishSourcePostIdForFeedScroll(track.sourcePostId)
+        stagedFeedSkipInFlight = true
+        beginStagedFeedSkipLoading(track, armPill = true)
+        android.util.Log.i("NowPlaying", "staged two-phase Next → ${track.trackName} (150+220+200ms)")
         managerScope.launch {
-            playViaSpotifyConnect(spotifyPendingPlay(queue[idx + 1]), replaceSpotifyQueue = true)
+            delay(FEED_SKIP_SCROLL_QUIET_MS)
+            if (leadInGen != feedSkipLeadInGeneration) return@launch
+            // Warm during post-scroll waits (cache only — no player IPC).
+            resolveSpotifyPlaybackURI(track)
+            delay(FEED_SKIP_PILL_LEAD_IN_MS)
+            if (leadInGen != feedSkipLeadInGeneration) return@launch
+            abortOutgoingPlaybackForStagedSkip()
+            delay(FEED_SKIP_AUDIO_AFTER_CHROME_MS)
+            if (leadInGen != feedSkipLeadInGeneration) return@launch
+            stagedFeedSkipInFlight = false
+            android.util.Log.i("NowPlaying", "staged two-phase play → ${track.trackName}")
+            launchSpotifyConnectPlay {
+                updateStateForTrack(track)
+                playViaSpotifyConnect(spotifyPendingPlay(track), replaceSpotifyQueue = true)
+            }
         }
     }
 
@@ -1929,14 +2157,39 @@ class NowPlayingManager @Inject constructor(
      * Otherwise, if the queue is backed by a paginated feed with more pages,
      * fetch the next page and advance once it arrives.
      */
-    private fun advanceToNext() {
+    private fun advanceToNext(immediate: Boolean = false) {
         val idx = currentQueueIndex ?: return
         val localNext = queue.getOrNull(idx + 1)
         if (localNext != null) {
+            clearUserQueuedFlagAt(idx + 1)
+            currentQueueIndex = idx + 1
+            val track = queue[idx + 1]
+            val leadInGen = ++feedSkipLeadInGeneration
+
+            if (immediate) {
+                beginStagedFeedSkipLoading(track, armPill = false)
+                abortOutgoingPlaybackForStagedSkip()
+                managerScope.launch {
+                    playInternal(track, userInitiated = false)
+                }
+                return
+            }
+
+            // Preview mini Next: scroll quiet → chrome + play. Pill + mini
+            // spinner arm on the tap frame so they stay in sync.
+            publishSourcePostIdForFeedScroll(track.sourcePostId)
+            stagedFeedSkipInFlight = true
+            beginStagedFeedSkipLoading(track, armPill = true)
+            android.util.Log.i("NowPlaying", "staged preview Next → ${track.trackName} (350+280ms then chrome+play)")
             managerScope.launch {
-                clearUserQueuedFlagAt(idx + 1)
-                currentQueueIndex = idx + 1
-                playInternal(queue[idx + 1], userInitiated = false)
+                delay(FEED_SKIP_SCROLL_QUIET_PREVIEW_MS)
+                if (leadInGen != feedSkipLeadInGeneration) return@launch
+                delay(FEED_SKIP_PILL_LEAD_IN_PREVIEW_MS)
+                if (leadInGen != feedSkipLeadInGeneration) return@launch
+                abortOutgoingPlaybackForStagedSkip()
+                stagedFeedSkipInFlight = false
+                android.util.Log.i("NowPlaying", "staged preview play → ${track.trackName}")
+                playInternal(track, userInitiated = false)
             }
             return
         }
@@ -1951,8 +2204,87 @@ class NowPlayingManager @Inject constructor(
             isLoadingMoreQueue = false
             val currentIdx = currentQueueIndex ?: return@launch
             val next = queue.getOrNull(currentIdx + 1) ?: return@launch
+            val leadInGen = ++feedSkipLeadInGeneration
+            stagedFeedSkipInFlight = true
             currentQueueIndex = currentIdx + 1
+            publishSourcePostIdForFeedScroll(next.sourcePostId)
+            beginStagedFeedSkipLoading(next, armPill = true)
+            android.util.Log.i("NowPlaying", "staged preview Next → ${next.trackName} (350+280ms then chrome+play)")
+            delay(FEED_SKIP_SCROLL_QUIET_PREVIEW_MS)
+            if (leadInGen != feedSkipLeadInGeneration) return@launch
+            delay(FEED_SKIP_PILL_LEAD_IN_PREVIEW_MS)
+            if (leadInGen != feedSkipLeadInGeneration) return@launch
+            abortOutgoingPlaybackForStagedSkip()
+            stagedFeedSkipInFlight = false
+            android.util.Log.i("NowPlaying", "staged preview play → ${next.trackName}")
             playInternal(next, userInitiated = false)
+        }
+    }
+
+    /**
+     * Kick feed follow-scroll during mini Next lead-in without rewriting the
+     * full mini-player identity (that waits until play). Same sourcePostId is
+     * re-applied by [playInternal] / [updateStateForTrack] afterward — no
+     * second scroll.
+     */
+    private fun publishSourcePostIdForFeedScroll(postId: String?) {
+        if (postId == null) return
+        if (_state.value.sourcePostId == postId) return
+        _state.value = _state.value.copy(sourcePostId = postId)
+    }
+
+    /**
+     * Quick Next after art-tap: cancel in-flight Connect/preview confirms so they
+     * can't finish and wipe the next track's loading chrome (mirrors iOS
+     * staged-skip abort). Keeps the Spotify session; only stops audio.
+     */
+    private fun abortOutgoingPlaybackForStagedSkip() {
+        playGeneration++
+        spotifyConnectPlayGeneration++
+        spotifyConnectPlayJob?.cancel()
+        spotifyConnectPlayJob = null
+        spotifyPlaybackService.cancelPendingPlayRequest()
+        spotifyPlaybackService.pauseImmediately()
+        player?.pause()
+    }
+
+    /** Light FeedPlayingPill on the next post during staged Next scroll. */
+    private fun armStagedFeedSkipPill(track: QueuedTrack) {
+        if (debugDisableAlbumArtPlayingPill) return
+        _stagedFeedSkipPillTrackId.value = track.trackId
+        _stagedFeedSkipPillSourcePostId.value = track.sourcePostId
+    }
+
+    /**
+     * Sticky transport spinner (+ optional feed pill) from Next tap until
+     * [onPlaybackBecamePlaying]. Arming both on the tap frame keeps mini
+     * player and album-art pill in sync.
+     */
+    private fun beginStagedFeedSkipLoading(track: QueuedTrack, armPill: Boolean) {
+        _stagedFeedSkipLoading.value = true
+        if (armPill) armStagedFeedSkipPill(track)
+    }
+
+    /**
+     * Drop Next-handoff chrome once this track is actually playing. Ignore an
+     * outgoing track's late play-confirm so we don't kill the *next* post's
+     * spinner/pill. Mirrors iOS `isPlaying` didSet.
+     */
+    private fun onPlaybackBecamePlaying(trackId: String?) {
+        val stagedTarget = _stagedFeedSkipPillTrackId.value
+        val outgoingConfirmDuringStagedSkip =
+            stagedTarget != null && trackId != stagedTarget
+        if (outgoingConfirmDuringStagedSkip) return
+        _stagedFeedSkipLoading.value = false
+        clearStagedFeedSkipPill()
+    }
+
+    private fun clearStagedFeedSkipPill() {
+        if (_stagedFeedSkipPillTrackId.value != null) {
+            _stagedFeedSkipPillTrackId.value = null
+        }
+        if (_stagedFeedSkipPillSourcePostId.value != null) {
+            _stagedFeedSkipPillSourcePostId.value = null
         }
     }
 
@@ -1981,6 +2313,7 @@ class NowPlayingManager @Inject constructor(
             .build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (spotifyConnectKeepAliveActive) return
                     if (playbackState == Player.STATE_ENDED) {
                         _state.value = _state.value.copy(isPlaying = false)
                         stopPositionPolling(resetClock = false)
@@ -1996,6 +2329,7 @@ class NowPlayingManager @Inject constructor(
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (spotifyConnectKeepAliveActive) return
                     if (isPlaying) startPositionPolling()
                     else stopPositionPolling(resetClock = false)
                 }
@@ -2004,6 +2338,7 @@ class NowPlayingManager @Inject constructor(
                     mediaItem: MediaItem?,
                     reason: Int,
                 ) {
+                    if (spotifyConnectKeepAliveActive) return
                     // Track change — snap clock to 0 so the scrubber doesn't
                     // briefly tween from the outgoing track's position into
                     // the new one's. Polling will refill it on the next tick.
@@ -2021,9 +2356,12 @@ class NowPlayingManager @Inject constructor(
                     cancelDebouncedSpotifyRelinquish()
                     spotifyFeedSkipRequestedUntil = System.currentTimeMillis() + 5000
                     armSpotifyFastPathSkipGuardForUpcomingFeedTrack()
-                    this@NowPlayingManager.forceSpotifyFeedAdvanceToNextEntry()
+                    this@NowPlayingManager.forceSpotifyFeedAdvanceToNextEntry(immediate = true)
                 } else {
-                    this@NowPlayingManager.skipToNext(preferPreviewOnNext = preferPreview)
+                    this@NowPlayingManager.skipToNext(
+                        preferPreviewOnNext = preferPreview,
+                        immediate = true,
+                    )
                 }
             }
 
@@ -2043,11 +2381,19 @@ class NowPlayingManager @Inject constructor(
             }
 
             override fun isPlaying(): Boolean {
-                if (isSpotifyConnectPlaying) return spotifyPlaybackService.isPlaying.value
+                if (isSpotifyConnectPlaying) {
+                    // Media3 uses this to keep the FGS alive. Prefer Corus chrome
+                    // so a stalled App Remote isPlaying=false doesn't tear us down.
+                    return _state.value.isPlaying
+                }
                 return super.isPlaying()
             }
 
             override fun play() {
+                if (isExternalSpotifyListening) {
+                    if (!_state.value.isPlaying) togglePlayPause()
+                    return
+                }
                 if (isSpotifyConnectPlaying) {
                     managerScope.launch {
                         spotifyPlaybackService.resume()
@@ -2059,6 +2405,10 @@ class NowPlayingManager @Inject constructor(
             }
 
             override fun pause() {
+                if (isExternalSpotifyListening) {
+                    if (_state.value.isPlaying) togglePlayPause()
+                    return
+                }
                 if (isSpotifyConnectPlaying) {
                     userInitiatedPause = true
                     managerScope.launch {
@@ -2088,6 +2438,7 @@ class NowPlayingManager @Inject constructor(
         // lock screen, Android Auto, media3's own notification provider) open
         // Corus instead of doing nothing.
         mediaSession = MediaSession.Builder(context, sessionPlayer)
+            .setId("corus-${System.identityHashCode(this)}")
             .setSessionActivity(appLaunchPendingIntent())
             .build()
         return exo
@@ -2127,6 +2478,64 @@ class NowPlayingManager @Inject constructor(
     }
 
     /**
+     * Loop inaudible ExoPlayer audio while Spotify Connect is active so the
+     * media foreground service stays up. Without this, Media3 sees an idle
+     * player, drops FGS, and Samsung LMK can kill Corus — Spotify then owns
+     * the next song. Mirrors iOS `startSpotifyBackgroundKeepAliveIfNeeded`.
+     */
+    @OptIn(UnstableApi::class)
+    private fun startSpotifyConnectKeepAlive() {
+        if (skipConnectKeepAlive) {
+            startForegroundServiceIfNeeded()
+            return
+        }
+        if (!isSpotifyConnectPlaying) return
+        try {
+            val exo = ensurePlayerAndSession()
+            if (spotifyConnectKeepAliveActive) {
+                if (!exo.isPlaying) exo.play()
+                startForegroundServiceIfNeeded()
+                return
+            }
+            spotifyConnectKeepAliveActive = true
+            val attrs = AudioAttributes.Builder()
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .setUsage(C.USAGE_MEDIA)
+                .build()
+            exo.setAudioAttributes(attrs, /* handleAudioFocus = */ false)
+            exo.setHandleAudioBecomingNoisy(false)
+            exo.volume = 0f
+            exo.repeatMode = Player.REPEAT_MODE_ONE
+            exo.setMediaSource(SilenceMediaSource(/* durationUs= */ 30_000_000L))
+            exo.prepare()
+            exo.play()
+            startForegroundServiceIfNeeded()
+        } catch (e: RuntimeException) {
+            spotifyConnectKeepAliveActive = false
+            android.util.Log.w("SpotifyPlayback", "Connect keep-alive failed: ${e.message}")
+            startForegroundServiceIfNeeded()
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun stopSpotifyConnectKeepAlive() {
+        if (!spotifyConnectKeepAliveActive) return
+        spotifyConnectKeepAliveActive = false
+        val exo = player ?: return
+        exo.repeatMode = Player.REPEAT_MODE_OFF
+        exo.volume = 1f
+        exo.setHandleAudioBecomingNoisy(true)
+        exo.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .setUsage(C.USAGE_MEDIA)
+                .build(),
+            /* handleAudioFocus = */ true,
+        )
+        if (exo.isPlaying) exo.pause()
+    }
+
+    /**
      * Called by [CorusPlaybackService] when Android refused to promote the
      * service to the foreground (ForegroundServiceStartNotAllowedException on
      * API 31+) — i.e. playback was started while the app was backgrounded. We
@@ -2137,6 +2546,7 @@ class NowPlayingManager @Inject constructor(
      */
     fun onForegroundStartDenied() {
         foregroundServiceStarted = false
+        stopSpotifyConnectKeepAlive()
         player?.pause()
         _state.value = _state.value.copy(isPlaying = false)
     }
@@ -2181,39 +2591,87 @@ class NowPlayingManager @Inject constructor(
         return url
     }
 
-    fun cancelLoading() {
+    fun cancelLoading(clearStagedSkipPill: Boolean = true) {
+        if (stagedFeedSkipInFlight || _stagedFeedSkipLoading.value) {
+            cancelStagedFeedSkip()
+            return
+        }
+        val cancellingFullSongResolve =
+            _isResolvingSpotify.value || spotifyConnectPlayJob?.isActive == true
         playGeneration++
+        spotifyConnectPlayGeneration++
         _loadingTrackId.value = null
         _loadingSourcePostId.value = null
-        if (_isResolvingSpotify.value) {
+        if (clearStagedSkipPill) {
+            clearStagedFeedSkipPill()
+        }
+        if (cancellingFullSongResolve) {
+            // Art re-tap while loading — cancel job and hard-pause so a late
+            // Connect confirm can't flip chrome back to playing.
             _isResolvingSpotify.value = false
             spotifyConnectPlayJob?.cancel()
+            spotifyConnectPlayJob = null
             spotifyPlaybackService.cancelPendingPlayRequest()
+            spotifyPlaybackService.pauseImmediately()
+            player?.pause()
+            userInitiatedPause = true
+            _state.value = _state.value.copy(isPlaying = false)
         }
     }
 
+    /** Abort staged mini Next (scroll quiet / pill / delayed play) and hard-pause. */
+    private fun cancelStagedFeedSkip() {
+        feedSkipLeadInGeneration++
+        stagedFeedSkipInFlight = false
+        _stagedFeedSkipLoading.value = false
+        abortOutgoingPlaybackForStagedSkip()
+        userInitiatedPause = true
+        _state.value = _state.value.copy(isPlaying = false)
+        clearStagedFeedSkipPill()
+        _isResolvingSpotify.value = false
+        _loadingTrackId.value = null
+        _loadingSourcePostId.value = null
+    }
+
     fun togglePlayPause() {
+        // Pause during staged Next must abort the deferred play — otherwise the
+        // sleeping lead-in still starts the next track after chrome settles.
+        if (stagedFeedSkipInFlight || _stagedFeedSkipLoading.value) {
+            cancelStagedFeedSkip()
+            return
+        }
         // Paused session in the wrong mode (e.g. Always Full flipped while paused):
         // restart into the desired engine instead of silently resuming the old one.
         if (shouldRestartPausedSessionForDesiredPlaybackMode()) {
             restartCurrentTrackForDesiredPlaybackMode()
             return
         }
+        // External Spotify — optimistic chrome, rollback if App Remote fails
+        // (iOS parity: command-only brief reconnect, no live play/pause sync).
         if (isExternalSpotifyListening) {
             managerScope.launch {
-                val svc = spotifyPlaybackService
                 if (_state.value.isPlaying) {
                     externalSpotifyUserPaused = true
                     _state.value = _state.value.copy(isPlaying = false)
-                    if (!svc.isConnected) svc.trySilentReconnectIfNeeded()
-                    delay(300)
-                    svc.pause()
+                    val ok = withBriefExternalSpotifyConnection { it.pause() }
+                    if (!isExternalSpotifyListening) return@launch
+                    if (!ok) {
+                        externalSpotifyUserPaused = false
+                        _state.value = _state.value.copy(isPlaying = true)
+                        syncSpotifyScrubAnchor(ScrubberClock.time.value / 1000.0)
+                        notifyExternalSpotifyTransportFailed()
+                    }
                 } else {
                     externalSpotifyUserPaused = false
                     _state.value = _state.value.copy(isPlaying = true)
-                    if (!svc.isConnected) svc.trySilentReconnectIfNeeded()
-                    delay(300)
-                    svc.resume()
+                    syncSpotifyScrubAnchor(ScrubberClock.time.value / 1000.0)
+                    val ok = withBriefExternalSpotifyConnection { it.resume() }
+                    if (!isExternalSpotifyListening) return@launch
+                    if (!ok) {
+                        externalSpotifyUserPaused = true
+                        _state.value = _state.value.copy(isPlaying = false)
+                        notifyExternalSpotifyTransportFailed()
+                    }
                 }
             }
             return
@@ -2248,10 +2706,13 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun stop() {
+        feedSkipLeadInGeneration++
+        stagedFeedSkipInFlight = false
         clearExternalSpotifyListening()
         if (isSpotifyConnectPlaying) {
             silentlyHaltSpotifyForPreview()
         }
+        stopSpotifyConnectKeepAlive()
         stopPositionPolling(resetClock = true)
         mediaSession?.release()
         mediaSession = null
@@ -2265,6 +2726,9 @@ class NowPlayingManager @Inject constructor(
         currentQueueIndex = null
         queueHasMore = false
         loadMoreQueue = null
+        queueOrderPinnedByUser = false
+        _stagedFeedSkipLoading.value = false
+        clearStagedFeedSkipPill()
         _state.value = NowPlayingState()
     }
 
@@ -2274,9 +2738,7 @@ class NowPlayingManager @Inject constructor(
 
     fun pause() {
         if (isExternalSpotifyListening) {
-            externalSpotifyUserPaused = true
-            managerScope.launch { spotifyPlaybackService.pause() }
-            _state.value = _state.value.copy(isPlaying = false)
+            if (_state.value.isPlaying) togglePlayPause()
             return
         }
         if (isSpotifyConnectPlaying) {
@@ -2290,10 +2752,7 @@ class NowPlayingManager @Inject constructor(
 
     fun resume() {
         if (isExternalSpotifyListening) {
-            externalSpotifyUserPaused = false
-            VoiceNotePlayerManager.stopActivePlayer()
-            managerScope.launch { spotifyPlaybackService.resume() }
-            _state.value = _state.value.copy(isPlaying = true)
+            if (!_state.value.isPlaying) togglePlayPause()
             return
         }
         if (isSpotifyConnectPlaying) {
@@ -2323,7 +2782,8 @@ class NowPlayingManager @Inject constructor(
             prefs.getLong("fm.corus.spotify.lastAppRemoteUsage", 0L) > 0
         val wasActive = isSpotifyConnectPlaying || spotifyPlaybackService.isConnected || hasPriorSession
 
-        spotifyConnectPlayJob?.cancel()
+        // Prior Job is cancelled by [launchSpotifyConnectPlay] / staged-skip abort.
+        // Do not cancel [spotifyConnectPlayJob] here — this coroutine may be that job.
         spotifyPlaybackService.cancelPendingPlayRequest()
         spotifyUriToQueueIndex.clear()
         spotifyQueueTransitionUntil = System.currentTimeMillis() + 4000
@@ -2371,8 +2831,11 @@ class NowPlayingManager @Inject constructor(
         try {
             val track = queuedTrackFrom(pending)
             resolvedUri = resolveSpotifyPlaybackURI(track)
+            if (spotifyConnectPlayGeneration != generation) return
             if (resolvedUri == null) {
-                if (_state.value.trackId == pending.trackId) {
+                if (_state.value.trackId == pending.trackId &&
+                    spotifyConnectPlayGeneration == generation
+                ) {
                     handleSpotifyPlaybackFailure(track, userInitiated = true)
                 }
                 return
@@ -2391,7 +2854,9 @@ class NowPlayingManager @Inject constructor(
             )
         } catch (e: Exception) {
             android.util.Log.w("NowPlaying", "Spotify play failed: ${e.message}")
-            if (_state.value.trackId == expectedTrackId) {
+            if (_state.value.trackId == expectedTrackId &&
+                spotifyConnectPlayGeneration == generation
+            ) {
                 handleSpotifyPlaybackFailure(
                     queuedTrackFrom(pending),
                     userInitiated = true,
@@ -2401,8 +2866,10 @@ class NowPlayingManager @Inject constructor(
             return
         }
 
+        if (spotifyConnectPlayGeneration != generation) return
         if (_state.value.trackId != expectedTrackId) {
-            _isResolvingSpotify.value = false
+            // Superseded by Next / another tap — don't clear the newer request's
+            // resolving spinner.
             return
         }
 
@@ -2415,17 +2882,95 @@ class NowPlayingManager @Inject constructor(
         spotifyConnectStartedAt = System.currentTimeMillis()
         spotifyConnectWasPlaying = true
         syncSpotifyScrubAnchor(spotifyPlaybackService.positionSeconds.value)
+        if (spotifyConnectPlayGeneration != generation) return
         _state.value = _state.value.copy(isPlaying = true)
         userInitiatedPause = false
-        startForegroundServiceIfNeeded()
+        startSpotifyConnectKeepAlive()
         startSpotifyConnectTimePolling()
+        onPlaybackBecamePlaying(expectedTrackId)
+
+        // Drop the spinner as soon as play() returned. Keeping it through
+        // verify left art + mini spinning for the whole (sometimes multi-
+        // second) confirm — or forever if App Remote IPC stalled on first
+        // connect. Mirrors iOS playViaSpotifyConnect.
+        _isResolvingSpotify.value = false
 
         val svc = spotifyPlaybackService
         if (!svc.isPlaying.value && svc.isConnected) {
             svc.resume()
         }
 
-        if (!verifySpotifyConnectPlaybackStarted(resolvedUri!!) && _state.value.trackId == expectedTrackId) {
+        var verified = verifySpotifyConnectPlaybackStarted(
+            expectedUri = resolvedUri!!,
+            extended = !wasActive,
+        )
+        // Connected with the right track but paused — one more resume pass
+        // before giving up (common right after the first authorizeAndPlay).
+        if (!verified &&
+            svc.isConnected &&
+            svc.currentTrackUri.value?.let { spotifyUriMatchesExpected(it, resolvedUri!!) } == true
+        ) {
+            svc.resume()
+            delay(600)
+            verified = verifySpotifyConnectPlaybackStarted(
+                expectedUri = resolvedUri!!,
+                extended = true,
+            )
+        }
+        if (spotifyConnectPlayGeneration != generation) return
+        if (_state.value.trackId != expectedTrackId) return
+
+        if (!verified) {
+            if (svc.isConnected) {
+                // play() already succeeded. App Remote getPlayerState often
+                // stalls ~10s on first handoff while audio is already starting.
+                // Falling back to a 30s preview here is what produced a false
+                // "No preview available" on the first tap of a session.
+                android.util.Log.w(
+                    "SpotifyPlayback",
+                    "Connect verify timed out — keeping Connect session",
+                )
+                clearSpotifyHandoffFailureSuppression()
+                refreshSpotifyFastPathSkipGuardWhenLocked()
+                return
+            }
+            // Idle first-tap: silent IPC dropped and play() returned without a
+            // live session. Retry once before preview fallback — the 30s path
+            // is what showed "No preview available" over a playable Spotify URI.
+            android.util.Log.w("SpotifyPlayback", "Connect verify failed — retrying App Remote play")
+            _isResolvingSpotify.value = true
+            try {
+                spotifyPlaybackService.play(
+                    spotifyTrackId = pending.trackId,
+                    uri = resolvedUri,
+                    replaceQueue = true,
+                    queueSessionId = ++spotifyQueueSessionId,
+                )
+                if (!svc.isPlaying.value && svc.isConnected) {
+                    svc.resume()
+                }
+                verified = verifySpotifyConnectPlaybackStarted(
+                    expectedUri = resolvedUri,
+                    extended = true,
+                )
+            } catch (e: Exception) {
+                android.util.Log.w("SpotifyPlayback", "Connect retry play failed: ${e.message}")
+            } finally {
+                if (spotifyConnectPlayGeneration == generation) {
+                    _isResolvingSpotify.value = false
+                }
+            }
+            if (spotifyConnectPlayGeneration != generation) return
+            if (_state.value.trackId != expectedTrackId) return
+            if (verified || svc.isConnected) {
+                if (verified) {
+                    _state.value = _state.value.copy(isPlaying = true)
+                    onPlaybackBecamePlaying(expectedTrackId)
+                }
+                clearSpotifyHandoffFailureSuppression()
+                refreshSpotifyFastPathSkipGuardWhenLocked()
+                return
+            }
             android.util.Log.w("SpotifyPlayback", "Connect verify timed out — falling back to preview")
             silentlyHaltSpotifyForPreview()
             spotifyExpectedTrackUri = null
@@ -2438,7 +2983,6 @@ class NowPlayingManager @Inject constructor(
             return
         }
         clearSpotifyHandoffFailureSuppression()
-        _isResolvingSpotify.value = false
         refreshSpotifyFastPathSkipGuardWhenLocked()
     }
 
@@ -2452,28 +2996,43 @@ class NowPlayingManager @Inject constructor(
             }
         }
         spotifyPlaybackService.onPlayerStateUpdated = {
-            if (isSpotifyConnectPlaying &&
-                !spotifyScrubberHoldAtZero &&
-                !userInitiatedPause &&
-                spotifyScrubberShouldAdvance()
-            ) {
-                val reported = spotifyPlaybackService.positionSeconds.value
-                if (spotifyScrubSeekInFlight()) {
-                    // Only adopt once App Remote has caught up to the scrub target.
-                    maybeCompleteSpotifyScrubSeekInFlight(reported)
-                } else {
-                    syncSpotifyScrubAnchor(reported)
+            if (isSpotifyConnectPlaying) {
+                refreshSpotifyFastPathSkipGuardForUpcomingTrackIfNeeded()
+                if (!spotifyScrubberHoldAtZero &&
+                    !userInitiatedPause &&
+                    spotifyScrubberShouldAdvance()
+                ) {
+                    val reported = spotifyPlaybackService.positionSeconds.value
+                    if (spotifyScrubSeekInFlight()) {
+                        // Only adopt once App Remote has caught up to the scrub target.
+                        maybeCompleteSpotifyScrubSeekInFlight(reported)
+                    } else {
+                        syncSpotifyScrubAnchor(reported)
+                    }
                 }
             }
         }
     }
 
-    private suspend fun verifySpotifyConnectPlaybackStarted(expectedUri: String? = null): Boolean {
-        repeat(50) { tick ->
+    /**
+     * Poll App Remote state after play. First connect of a session gets extra
+     * time — Spotify is still waking up and getPlayerState IPC can stall.
+     * Mirrors iOS `verifySpotifyConnectPlaybackStarted(extended:)`.
+     */
+    private suspend fun verifySpotifyConnectPlaybackStarted(
+        expectedUri: String? = null,
+        extended: Boolean = false,
+    ): Boolean {
+        val maxTicks = if (extended) 100 else 50
+        val resumeAfterTick = if (extended) 3 else 5
+        repeat(maxTicks) { tick ->
             if (spotifyPlaybackService.isPlaying.value) return true
             if (expectedUri != null) {
                 val current = spotifyPlaybackService.currentTrackUri.value
-                if (current != null && spotifyUriMatchesExpected(current, expectedUri) && tick >= 5) {
+                if (current != null &&
+                    spotifyUriMatchesExpected(current, expectedUri) &&
+                    tick >= resumeAfterTick
+                ) {
                     if (!spotifyPlaybackService.isPlaying.value && spotifyPlaybackService.isConnected) {
                         spotifyPlaybackService.resume()
                     }
@@ -2517,6 +3076,7 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun silentlyHaltSpotifyForPreview() {
+        stopSpotifyConnectKeepAlive()
         spotifyConnectPlayJob?.cancel()
         cancelDebouncedSpotifyRelinquish()
         spotifyPlaybackService.onPlayerTrackChanged = null
@@ -2609,14 +3169,14 @@ class NowPlayingManager @Inject constructor(
 
         if (spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true) {
             if (!computeHasNext()) return
-            forceSpotifyFeedAdvanceToNextEntry()
+            forceSpotifyFeedAdvanceToNextEntry(immediate = true)
             return
         }
         if (spotifyCorusPlayIntentInFlight()) {
             return
         }
         if (shouldForceSpotifyFeedAdvanceForMisroutedSkip(reporting)) {
-            forceSpotifyFeedAdvanceToNextEntry()
+            forceSpotifyFeedAdvanceToNextEntry(immediate = true)
             return
         }
         if (shouldRelinquishForManualSpotifyPlayback(reporting)) {
@@ -2655,7 +3215,7 @@ class NowPlayingManager @Inject constructor(
                 return@launch
             }
             if (computeHasNext()) {
-                forceSpotifyFeedAdvanceToNextEntry()
+                forceSpotifyFeedAdvanceToNextEntry(immediate = true)
             } else {
                 _state.value = _state.value.copy(isPlaying = false)
                 ScrubberClock.reset()
@@ -2690,7 +3250,7 @@ class NowPlayingManager @Inject constructor(
             val nextUri = spotifyURI(next)
             spotifyCorusRequestedUri = nextUri
             spotifyCorusRequestedUntil = System.currentTimeMillis() + 8000
-            managerScope.launch {
+            launchSpotifyConnectPlay {
                 playViaSpotifyConnect(spotifyPendingPlay(next), replaceSpotifyQueue = true)
             }
         }
@@ -2729,6 +3289,11 @@ class NowPlayingManager @Inject constructor(
     private fun corusAppIsBackgrounded(): Boolean =
         !ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
 
+    /** iOS `applicationState != .active` — skip mini-player feed-scroll staging. */
+    private fun shouldSkipSpotifyFeedAdvanceStaging(): Boolean =
+        spotifyDeviceLockedForQueueDriving ||
+            !ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+
     private fun corusAppIsInactiveLike(): Boolean {
         val state = ProcessLifecycleOwner.get().lifecycle.currentState
         return state.isAtLeast(Lifecycle.State.STARTED) &&
@@ -2762,6 +3327,7 @@ class NowPlayingManager @Inject constructor(
         _isResolvingSpotify.value = false
         resetSpotifyScrubAnchor()
         pauseSpotifyConnectTimePolling()
+        stopSpotifyConnectKeepAlive()
         spotifyScrubberHoldAtZero = false
         spotifyScrubberHoldUntilTrackChangeFromUri = null
         clearSpotifyScrubSeekInFlight()
@@ -2774,6 +3340,7 @@ class NowPlayingManager @Inject constructor(
             managerScope.launch { adoptExternalSpotifyPlayback(externalUri) }
         } else {
             _state.value = _state.value.copy(isPlaying = false)
+            spotifyPlaybackService.disconnectPreservingPlayback()
         }
     }
 
@@ -2789,9 +3356,7 @@ class NowPlayingManager @Inject constructor(
         clearSpotifyScrubSeekInFlight()
         pauseExternalSpotifyTimePolling()
         if (!isSpotifyConnectPlaying) {
-            spotifyPlaybackService.onPlayerTrackChanged = null
-            spotifyPlaybackService.onPlayerStateUpdated = null
-            spotifyPlaybackService.onPlayerContextUpdated = null
+            clearExternalSpotifyAppRemoteSession()
         }
     }
 
@@ -2824,6 +3389,11 @@ class NowPlayingManager @Inject constructor(
             if (svc.isConnected) {
                 syncSpotifyScrubAnchor(svc.positionSeconds.value)
                 syncExternalSpotifyScrubber()
+                // Live App Remote during external mirror hitchs feed scroll —
+                // drop IPC and advance the scrubber locally (iOS parity).
+                clearExternalSpotifyAppRemoteSession()
+            } else if (spotifyScrubAnchorWallTime == null) {
+                syncSpotifyScrubAnchor(ScrubberClock.time.value / 1000.0)
             }
             return
         }
@@ -2900,7 +3470,9 @@ class NowPlayingManager @Inject constructor(
             } else {
                 ScrubberClock.snapTime((positionSec * 1000).toLong())
             }
-            installExternalSpotifyDelegates()
+            // Do NOT keep a live App Remote session for external mirroring —
+            // that IPC path hitchs feed scroll until the next Corus-owned play.
+            clearExternalSpotifyAppRemoteSession()
             startExternalSpotifyTimePolling()
         } finally {
             _isHydratingExternalSpotify.value = false
@@ -2911,6 +3483,29 @@ class NowPlayingManager @Inject constructor(
         if (spotifyCorusPlayIntentInFlight()) return
 
         val svc = spotifyPlaybackService
+
+        // External mirror intentionally drops App Remote after adopt. Briefly
+        // reconnect on foreground so a song started in Spotify replaces Corus
+        // identity, then adopt disconnects again.
+        if (isExternalSpotifyListening && !svc.isConnected) {
+            withBriefExternalSpotifyConnection { remote ->
+                remote.refreshState()
+                val uri = remote.currentTrackUri.value?.takeIf { it.isNotEmpty() }
+                    ?: return@withBriefExternalSpotifyConnection true
+                if (shouldSuppressExternalAdoption(uri)) {
+                    remote.forcePauseAfterFailedHandoff()
+                    return@withBriefExternalSpotifyConnection true
+                }
+                if (remote.isPlaying.value || isExternalSpotifyListening) {
+                    adoptExternalSpotifyPlayback(uri)
+                } else {
+                    _state.value = _state.value.copy(isPlaying = false)
+                }
+                true
+            }
+            return
+        }
+
         if (svc.isConnected) {
             svc.refreshState()
         } else if (spotifyAuthService.cachedAccessToken() != null) {
@@ -2966,31 +3561,51 @@ class NowPlayingManager @Inject constructor(
         spotifyFailedHandoffSuppressExternalUntilMs = null
     }
 
-    private fun installExternalSpotifyDelegates() {
-        spotifyPlaybackService.clearFastPathPlaybackGuard()
+    /** Clear App Remote callbacks + disconnect without pausing Spotify audio. */
+    private fun clearExternalSpotifyAppRemoteSession() {
+        spotifyPlaybackService.onPlayerTrackChanged = null
         spotifyPlaybackService.onTrackEnded = null
-        spotifyPlaybackService.onPlayerTrackChanged = { uri ->
-            managerScope.launch { adoptExternalSpotifyPlayback(uri) }
-        }
-        spotifyPlaybackService.onPlayerStateUpdated = {
-            syncExternalSpotifyPlaybackState()
-        }
+        spotifyPlaybackService.onPlayerStateUpdated = null
         spotifyPlaybackService.onPlayerContextUpdated = null
+        spotifyPlaybackService.disconnectPreservingPlayback()
     }
 
-    private fun syncExternalSpotifyPlaybackState() {
-        if (!isExternalSpotifyListening) return
+    /**
+     * Briefly reconnect App Remote for one external transport/reconcile call,
+     * then drop it again so feed scroll isn’t hitching on Spotify IPC.
+     * Play/pause chrome is never driven from App Remote here — only commands.
+     */
+    private suspend fun withBriefExternalSpotifyConnection(
+        work: suspend (SpotifyPlaybackService) -> Boolean,
+    ): Boolean {
         val svc = spotifyPlaybackService
-        if (externalSpotifyUserPaused) {
-            if (svc.isPlaying.value) {
-                externalSpotifyUserPaused = false
-                _state.value = _state.value.copy(isPlaying = true)
-            } else {
-                _state.value = _state.value.copy(isPlaying = false)
-            }
-        } else {
-            _state.value = _state.value.copy(isPlaying = svc.isPlaying.value)
+        svc.onPlayerTrackChanged = null
+        svc.onTrackEnded = null
+        svc.onPlayerStateUpdated = null
+        svc.onPlayerContextUpdated = null
+        svc.allowProactiveReconnect()
+        if (!svc.isConnected) {
+            svc.attemptSilentReconnect()
         }
+        svc.onPlayerTrackChanged = null
+        svc.onTrackEnded = null
+        svc.onPlayerStateUpdated = null
+        svc.onPlayerContextUpdated = null
+
+        val succeeded = if (svc.isConnected) {
+            runCatching { work(svc) }.getOrDefault(false)
+        } else {
+            false
+        }
+
+        if (isExternalSpotifyListening) {
+            clearExternalSpotifyAppRemoteSession()
+        }
+        return succeeded
+    }
+
+    private fun notifyExternalSpotifyTransportFailed() {
+        hapticManager.notification(HapticManager.NotificationType.ERROR)
     }
 
     private fun syncExternalSpotifyScrubber() {
@@ -2998,7 +3613,15 @@ class NowPlayingManager @Inject constructor(
         if (durationMs <= 0) {
             externalSpotifyCachedTrack?.durationMs?.takeIf { it > 0 }?.let { durationMs = it.toLong() }
         }
-        publishSpotifyScrubberTime(durationMs)
+        if (durationMs <= 0) {
+            durationMs = ScrubberClock.duration.value
+        }
+        val timeMs = (interpolatedSpotifyPosition() * 1000).toLong()
+        if (durationMs > 0) {
+            ScrubberClock.update(timeMs, durationMs)
+        } else {
+            ScrubberClock.snapTime(timeMs)
+        }
     }
 
     private fun startExternalSpotifyTimePolling() {
@@ -3019,7 +3642,14 @@ class NowPlayingManager @Inject constructor(
 
     private fun refreshExternalSpotifyTime() {
         if (!isExternalSpotifyListening) return
-        syncExternalSpotifyPlaybackState()
+        // External chrome play/pause is local. Scrubber advances from the
+        // wall-clock anchor — never from live App Remote play/pause samples.
+        if (spotifyScrubberHoldAtZero) {
+            clearSpotifyScrubberHold()
+            if (spotifyScrubAnchorWallTime == null) {
+                syncSpotifyScrubAnchor(ScrubberClock.time.value / 1000.0)
+            }
+        }
         syncExternalSpotifyScrubber()
     }
 
@@ -3200,7 +3830,7 @@ class NowPlayingManager @Inject constructor(
             }
             if (corusSpotifySessionSuspended()) return@launch
             if (computeHasNext()) {
-                forceSpotifyFeedAdvanceToNextEntry()
+                forceSpotifyFeedAdvanceToNextEntry(immediate = true)
             }
         }
     }
@@ -3314,8 +3944,18 @@ class NowPlayingManager @Inject constructor(
     private fun resolveQueueIndex(trackId: String, sourcePostId: String?): Int? =
         queue.indexOfActive(trackId, sourcePostId)
 
-    private fun spotifyURI(track: QueuedTrack): String =
-        track.spotifyURI ?: "spotify:track:${SpotifyPlaybackService.normalizedSpotifyTrackId(track.trackId)}"
+    private fun spotifyURI(track: QueuedTrack): String {
+        track.spotifyURI?.takeIf { it.startsWith("spotify:track:") }?.let { return it }
+        val normalized = SpotifyPlaybackService.normalizedSpotifyTrackId(track.trackId)
+        if (normalized.length == 22 &&
+            !track.trackId.startsWith("am:") &&
+            !track.trackId.startsWith("sc:") &&
+            !track.trackId.startsWith("amk:")
+        ) {
+            return "spotify:track:$normalized"
+        }
+        return track.spotifyURI.orEmpty()
+    }
 
     /** Arm Spotify's delegate fast-path before async reconcile (mirrors iOS). */
     private fun armSpotifyFastPathSkipGuard(expectedURI: String, durationMs: Long = 8_000L) {
@@ -3329,15 +3969,35 @@ class NowPlayingManager @Inject constructor(
     private fun armSpotifyFastPathSkipGuardForUpcomingFeedTrack(durationMs: Long = 8_000L) {
         val idx = currentQueueIndex ?: return
         val next = queue.getOrNull(idx + 1) ?: return
-        if (!spotifyExperimentEnabledForTrack(next.source)) return
+        if (!spotifyExperimentEnabledForTrack(next)) return
         armSpotifyFastPathSkipGuard(expectedURI = spotifyURI(next), durationMs = durationMs)
     }
 
     /** Pre-arm while locked/backgrounded so a native Spotify skip is silenced early. */
     private fun refreshSpotifyFastPathSkipGuardWhenLocked() {
-        if (!spotifyDeviceLockedForQueueDriving && !corusAppIsBackgrounded()) return
-        if (!isSpotifyConnectPlaying || !computeHasNext()) return
-        armSpotifyFastPathSkipGuardForUpcomingFeedTrack(durationMs = 6_000L)
+        refreshSpotifyFastPathSkipGuardForUpcomingTrackIfNeeded()
+    }
+
+    private fun refreshSpotifyFastPathSkipGuardForUpcomingTrackIfNeeded() {
+        val lockedOrBackgrounded =
+            spotifyDeviceLockedForQueueDriving || corusAppIsBackgrounded()
+        if (!SpotifyConnectFastPath.shouldArmUpcomingSkipGuard(
+                connectPlaying = isSpotifyConnectPlaying,
+                hasNext = computeHasNext(),
+                feedSkipInFlight = spotifyFeedSkipRequestedUntil?.let {
+                    System.currentTimeMillis() < it
+                } == true,
+                playIntentInFlight = spotifyCorusPlayIntentInFlight(),
+                lockedOrBackgrounded = lockedOrBackgrounded,
+                positionSec = spotifyPlaybackService.positionSeconds.value,
+                durationSec = spotifyPlaybackService.durationSeconds.value,
+            )
+        ) {
+            return
+        }
+        armSpotifyFastPathSkipGuardForUpcomingFeedTrack(
+            durationMs = SpotifyConnectFastPath.guardDurationMs(lockedOrBackgrounded),
+        )
     }
 
     private fun spotifyURIMatchesTrack(uri: String, track: QueuedTrack): Boolean {
@@ -3366,6 +4026,7 @@ class NowPlayingManager @Inject constructor(
 
     private fun refreshSpotifyConnectTime() {
         if (!isSpotifyConnectPlaying) return
+        refreshSpotifyFastPathSkipGuardForUpcomingTrackIfNeeded()
         val durationSec = spotifyPlaybackService.durationSeconds.value
         val durationMs = if (durationSec > 0) (durationSec * 1000).toLong()
         else ScrubberClock.duration.value
@@ -3421,10 +4082,8 @@ class NowPlayingManager @Inject constructor(
 
     private fun spotifyScrubberShouldAdvance(): Boolean {
         if (spotifyScrubberHoldAtZero) return false
-        if (isExternalSpotifyListening) {
-            if (externalSpotifyUserPaused) return false
-            return spotifyPlaybackService.isPlaying.value || _state.value.isPlaying
-        }
+        // After external adopt we disconnect App Remote; advance from Corus play flag.
+        if (isExternalSpotifyListening) return _state.value.isPlaying
         if (isSpotifyConnectPlaying && corusSpotifySessionSuspended()) return false
         if (isSpotifyConnectPlaying && userInitiatedPause) return false
         return spotifyPlaybackService.isPlaying.value ||
@@ -3493,6 +4152,26 @@ class NowPlayingManager @Inject constructor(
     private fun interpolatedSpotifyPosition(): Double {
         if (spotifyScrubberHoldAtZero) return 0.0
         val reported = spotifyPlaybackService.positionSeconds.value
+        // External Spotify with App Remote torn down: wall-clock only.
+        if (isExternalSpotifyListening && !spotifyPlaybackService.isConnected) {
+            if (!spotifyScrubberShouldAdvance()) {
+                return if (spotifyScrubSeekInFlight()) {
+                    spotifyScrubAnchorPosition
+                } else {
+                    ScrubberClock.time.value / 1000.0
+                }
+            }
+            val anchorTime = spotifyScrubAnchorWallTime ?: run {
+                val seeded = ScrubberClock.time.value / 1000.0
+                syncSpotifyScrubAnchor(seeded)
+                return seeded
+            }
+            val elapsed = (System.currentTimeMillis() - anchorTime) / 1000.0
+            var time = spotifyScrubAnchorPosition + elapsed
+            val durationSec = ScrubberClock.duration.value / 1000.0
+            if (durationSec > 0) time = minOf(time, durationSec)
+            return maxOf(0.0, time)
+        }
         if (!spotifyScrubberShouldAdvance()) {
             // Keep the post-scrub clock stable while Spotify briefly reports paused.
             if (spotifyScrubSeekInFlight()) {

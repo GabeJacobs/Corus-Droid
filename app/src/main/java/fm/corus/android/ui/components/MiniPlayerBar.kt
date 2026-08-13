@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -40,6 +42,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import androidx.compose.ui.res.stringResource
@@ -61,6 +64,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.domain.ScrubberClock
 import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.ui.theme.CorusColors
@@ -119,6 +123,18 @@ fun MiniPlayerBar(
         )
     val playbackModeToggleShowsFull = playFullSongs
 
+    val stagedFeedSkipLoading by nowPlayingManager.stagedFeedSkipLoading.collectAsState()
+    val loadingTrackId by nowPlayingManager.loadingTrackId.collectAsState()
+    val isResolvingSpotify by nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
+    val showsTransportSpinner = PostPlaybackHighlight.showsTransportSpinner(
+        stagedFeedSkipLoading = stagedFeedSkipLoading,
+        isPlaying = state.isPlaying,
+        isPreviewMode = nowPlayingManager.isPreviewMode,
+        loadingTrackId = loadingTrackId,
+        currentTrackId = state.trackId,
+        isResolvingFullSong = isResolvingSpotify,
+    )
+
     val isSoundCloud = state.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
     val isAudiomack = state.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
     val isTidal = state.source == fm.corus.android.data.model.TrackSource.TIDAL
@@ -150,7 +166,9 @@ fun MiniPlayerBar(
         exit = fadeOut(),
         modifier = modifier,
     ) {
-      Box {
+      // Keep edge-swipes on the bar from firing Android's back gesture
+      // (scrubbing from 0% / the Next button live in the back-gesture zone).
+      Box(Modifier.systemGestureExclusion()) {
         Column {
             if (!embeddedInExpandingShell) {
                 HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
@@ -298,21 +316,37 @@ fun MiniPlayerBar(
                     }
                 }
 
-                // Play/Pause
+                // Play/Pause — spinner from Next tap until audio is live (iOS
+                // MiniPlayerBar.showsTransportSpinner). Tappable to cancel a hung load.
                 MiniPlayerIconButton(
-                    onClick = { nowPlayingManager.togglePlayPause() },
-                    contentDescription = if (state.isPlaying) {
-                        stringResource(R.string.mini_player_cd_pause)
-                    } else {
-                        stringResource(R.string.mini_player_cd_play)
+                    onClick = {
+                        if (showsTransportSpinner) {
+                            nowPlayingManager.cancelLoading()
+                        } else {
+                            nowPlayingManager.togglePlayPause()
+                        }
+                    },
+                    contentDescription = when {
+                        showsTransportSpinner -> stringResource(R.string.mini_player_cd_cancel_loading)
+                        state.isPlaying -> stringResource(R.string.mini_player_cd_pause)
+                        else -> stringResource(R.string.mini_player_cd_play)
                     },
                 ) {
-                    Icon(
-                        imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp),
-                        tint = CorusColors.Text,
-                    )
+                    if (showsTransportSpinner) {
+                        CircularProgressIndicator(
+                            color = CorusColors.Text,
+                            trackColor = CorusColors.Text.copy(alpha = 0.22f),
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = CorusColors.Text,
+                        )
+                    }
                 }
 
                 // Next — always visible so the mini player has a consistent layout;
@@ -507,6 +541,13 @@ private fun ScrubberOverlay(
 
     val haptics = LocalHapticManager.current
     val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val systemGestures = WindowInsets.systemGestures
+    val backGestureInsetPx = maxOf(
+        systemGestures.getLeft(density, layoutDirection),
+        systemGestures.getRight(density, layoutDirection),
+        with(density) { 32.dp.roundToPx() },
+    )
     val scope = rememberCoroutineScope()
     val knobSizePx = with(density) { knobSize.toPx() }
 
@@ -527,13 +568,16 @@ private fun ScrubberOverlay(
             .height(scrubTouchHeight)
             // Center the touch target on the top edge of the mini player.
             .offset(y = -scrubTouchHeight / 2)
+            // After offset so the exclusion matches the on-screen strip
+            // (including the half that sits above the bar).
+            .systemGestureExclusion()
             .alpha(if (canScrub && hasActiveTrack) 1f else 0f)
             .onSizeChanged { widthPx = it.width }
-            .pointerInput(canScrub, widthPx, duration) {
+            .pointerInput(canScrub, widthPx, duration, backGestureInsetPx) {
                 val minDragPx = with(density) { scrubDragMin.toPx() }
                 coroutineScope {
                     awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false)
+                        val down = awaitFirstDown(requireUnconsumed = false)
                         if (!canScrub) {
                             // Invisible strip still overlaps feed content above the
                             // bar — consume so taps don't open posts underneath.
@@ -543,6 +587,14 @@ private fun ScrubberOverlay(
                             } while (event.changes.any { it.pressed })
                             return@awaitEachGesture
                         }
+                        // Starts in the system back-gesture zone (left/right
+                        // edge): claim immediately so Android doesn't steal
+                        // the drag. Exclusion rects above are the main fix;
+                        // this covers the 6dp race before we normally consume.
+                        val nearBackEdge = widthPx > 0 && (
+                            down.position.x <= backGestureInsetPx ||
+                                down.position.x >= widthPx - backGestureInsetPx
+                            )
                         var pressHapticFired = false
                         val longPressJob = launch {
                             delay(scrubLongPressHapticMs)
@@ -554,6 +606,18 @@ private fun ScrubberOverlay(
                         var scrubbing = false
                         var totalX = 0f
                         var totalY = 0f
+                        if (nearBackEdge) {
+                            longPressJob.cancel()
+                            down.consume()
+                            scrubbing = true
+                            scrubFraction = (down.position.x / widthPx).coerceIn(0f, 1f)
+                            scope.launch {
+                                isScrubbing = true
+                                isKnobVisible = true
+                            }
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                            pressHapticFired = false
+                        }
                         try {
                             while (true) {
                                 val event = awaitPointerEvent()
