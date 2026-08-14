@@ -2,6 +2,7 @@ package fm.corus.android.domain
 
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -75,10 +76,17 @@ class SongPlayRoutingTest {
                 TrackSource.SOUNDCLOUD, MusicService.SPOTIFY, playFullSongs = true,
             ),
         )
-        assertFalse(
-            "Apple-sourced without a Spotify id must preview, not Connect",
+        assertTrue(
+            "Apple-sourced catalog rows still enter Connect so ISRC lookup can resolve them",
             SongPlayRouting.wantsSpotifyAuthExperiment(
                 TrackSource.APPLEMUSIC, MusicService.SPOTIFY, playFullSongs = true,
+                trackId = "am:212853519",
+                spotifyURI = "",
+            ),
+        )
+        assertFalse(
+            SongPlayRouting.wantsSpotifyAuthExperiment(
+                TrackSource.APPLEMUSIC, MusicService.SPOTIFY, playFullSongs = false,
                 trackId = "am:212853519",
                 spotifyURI = "",
             ),
@@ -91,6 +99,67 @@ class SongPlayRoutingTest {
                 TrackSource.APPLEMUSIC, MusicService.SPOTIFY, playFullSongs = true,
                 trackId = "4yR9WXd0n67vf8KqG2N4Zv",
                 spotifyURI = "spotify:track:4yR9WXd0n67vf8KqG2N4Zv",
+            ),
+        )
+    }
+
+    @Test
+    fun appleOnlyTrackShowsAppleMusicToSpotifyViewer() {
+        assertEquals(
+            MusicService.APPLE_MUSIC,
+            SongPlayRouting.displayedLinkOutService(
+                TrackSource.APPLEMUSIC,
+                MusicService.SPOTIFY,
+            ),
+        )
+    }
+
+    @Test
+    fun appleOnlyTrackKeepsNonSpotifyViewer() {
+        assertEquals(
+            MusicService.APPLE_MUSIC,
+            SongPlayRouting.displayedLinkOutService(
+                TrackSource.APPLEMUSIC,
+                MusicService.APPLE_MUSIC,
+            ),
+        )
+        assertEquals(
+            MusicService.TIDAL,
+            SongPlayRouting.displayedLinkOutService(
+                TrackSource.APPLEMUSIC,
+                MusicService.TIDAL,
+            ),
+        )
+        assertEquals(
+            MusicService.DEEZER,
+            SongPlayRouting.displayedLinkOutService(
+                TrackSource.APPLEMUSIC,
+                MusicService.DEEZER,
+            ),
+        )
+        assertEquals(
+            MusicService.YOUTUBE_MUSIC,
+            SongPlayRouting.displayedLinkOutService(
+                TrackSource.APPLEMUSIC,
+                MusicService.YOUTUBE_MUSIC,
+            ),
+        )
+    }
+
+    @Test
+    fun spotifySourceKeepsViewerService() {
+        assertEquals(
+            MusicService.SPOTIFY,
+            SongPlayRouting.displayedLinkOutService(
+                TrackSource.SPOTIFY,
+                MusicService.SPOTIFY,
+            ),
+        )
+        assertEquals(
+            MusicService.APPLE_MUSIC,
+            SongPlayRouting.displayedLinkOutService(
+                TrackSource.SPOTIFY,
+                MusicService.APPLE_MUSIC,
             ),
         )
     }

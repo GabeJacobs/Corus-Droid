@@ -2133,10 +2133,26 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun appleMusicLookup(name: String, artist: String, isrc: String?, spotifyTrackId: String?): String? {
+    suspend fun appleMusicLookup(
+        name: String,
+        artist: String,
+        isrc: String?,
+        spotifyTrackId: String?,
+        appleMusicId: String? = null,
+        durationMs: Int? = null,
+        albumName: String? = null,
+        storefront: String? = null,
+    ): String? {
         val params = mutableMapOf<String, Any>("name" to name, "artist" to artist)
         if (!isrc.isNullOrBlank()) params["isrc"] = isrc
         if (!spotifyTrackId.isNullOrBlank()) params["spotifyTrackId"] = spotifyTrackId
+        if (!appleMusicId.isNullOrBlank()) params["appleMusicId"] = appleMusicId
+        if (durationMs != null && durationMs > 0) params["durationMs"] = durationMs
+        if (!albumName.isNullOrBlank()) params["albumName"] = albumName
+        if (!storefront.isNullOrBlank()) {
+            params["storefront"] = storefront
+            params["appleMusicStorefront"] = storefront
+        }
         val result = functions.getHttpsCallable("appleMusicLookup").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return null
         return data["previewUrl"] as? String

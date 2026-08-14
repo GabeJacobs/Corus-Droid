@@ -43,18 +43,27 @@ object SongPlayRouting {
         return id.length == 22
     }
 
-    /** True when Spotify App Remote full-playback should intercept a play tap. */
+    /**
+     * True when Spotify App Remote full-playback should intercept a play tap.
+     *
+     * Artist Popular / album rows are Apple-sourced on purpose (they carry a
+     * 30s previewUrl) even when the recording is on Spotify. Those taps still
+     * belong on Connect when the user wants full songs — playViaSpotifyConnect
+     * resolves a real `spotify:track:` URI via ISRC before opening the app.
+     * `am:` ids are never sent as Spotify URIs. A lookup miss falls back to
+     * the 30s preview. [trackId] / [spotifyURI] are kept for callers and tests;
+     * they no longer gate this function.
+     */
     fun wantsSpotifyAuthExperiment(
         source: TrackSource,
         service: MusicService,
         playFullSongs: Boolean,
-        trackId: String? = null,
-        spotifyURI: String? = null,
+        @Suppress("UNUSED_PARAMETER") trackId: String? = null,
+        @Suppress("UNUSED_PARAMETER") spotifyURI: String? = null,
     ): Boolean {
         if (service != MusicService.SPOTIFY || !playFullSongs) return false
         return when (source) {
-            TrackSource.SPOTIFY -> true
-            TrackSource.APPLEMUSIC -> hasPlayableSpotifyId(trackId, spotifyURI)
+            TrackSource.SPOTIFY, TrackSource.APPLEMUSIC -> true
             TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK, TrackSource.TIDAL, TrackSource.DEEZER -> false
         }
     }
@@ -86,6 +95,28 @@ object SongPlayRouting {
             else -> false
         }
     }
+
+    /**
+     * Service whose logo the mini-player / full-player shows, and that tapping
+     * it opens. Matches the feed post badge:
+     *
+     * Apple-Music-only tracks (`source == APPLEMUSIC`) aren't on Spotify, so a
+     * Spotify viewer sees and opens Apple Music — the service that actually
+     * carries the song. Waiting for a link-out tap to "confirm" absence left
+     * the mini-player showing Spotify on songs the feed already badged as
+     * Apple Music. TIDAL / Deezer / YouTube Music viewers keep their own
+     * service. Source-locked logos (SoundCloud, Audiomack, TIDAL, Deezer) are
+     * handled by the caller.
+     */
+    fun displayedLinkOutService(
+        source: TrackSource,
+        viewer: MusicService,
+    ): MusicService =
+        if (source == TrackSource.APPLEMUSIC && viewer == MusicService.SPOTIFY) {
+            MusicService.APPLE_MUSIC
+        } else {
+            viewer
+        }
 
     /** Whether the mini-player 30s/Full toggle should appear (Always Play Full Songs off). */
     fun showsFeedPlaybackModeToggle(alwaysPlayFullSongs: Boolean): Boolean =

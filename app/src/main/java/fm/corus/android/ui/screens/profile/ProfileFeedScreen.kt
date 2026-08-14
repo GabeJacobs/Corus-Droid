@@ -39,6 +39,7 @@ import fm.corus.android.ui.screens.feed.FilmInfoSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.util.FeedFollowScrollPeekAbovePost
 import fm.corus.android.ui.util.animateScrollItemToTop
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,7 +111,8 @@ fun ProfileFeedScreen(
     val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
     val frost = rememberImmersiveHeaderState(immersive)
     val followScrollTopInsetPx = with(LocalDensity.current) {
-        if (immersive) frost.contentTopPadding.roundToPx() else 0
+        val base = if (immersive) frost.contentTopPadding else 0.dp
+        (base + FeedFollowScrollPeekAbovePost).roundToPx()
     }
     val currentTopInsetPx by rememberUpdatedState(followScrollTopInsetPx)
 

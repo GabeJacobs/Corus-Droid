@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -40,7 +41,7 @@ import kotlin.math.roundToInt
  * renders normally with tail truncation when it fits. Honors the system
  * Reduce-Motion / animations-disabled setting.
  *
- * Mirrors the iOS [MarqueeText] component used in the now-playing mini player.
+ * Mirrors the iOS [MarqueeText] component used in the now-playing player.
  */
 @Composable
 fun MarqueeText(
@@ -48,6 +49,7 @@ fun MarqueeText(
     style: TextStyle,
     color: Color,
     modifier: Modifier = Modifier,
+    textAlign: TextAlign? = null,
     pointsPerSecond: Float = 18f,
     endpointPauseMs: Long = 2_500L,
     fadeWidth: Dp = 2.dp,
@@ -157,8 +159,10 @@ fun MarqueeText(
                 text = text,
                 style = style,
                 color = color,
+                textAlign = textAlign,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = if (textAlign != null) Modifier.fillMaxWidth() else Modifier,
             )
         }
     }

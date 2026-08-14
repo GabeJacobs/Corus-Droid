@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.unit.dp
+import fm.corus.android.ui.theme.CorusSpacing
 import kotlin.math.abs
 
 /** iOS FeedView skip scroll: `.timingCurve(0.22, 0.82, 0.28, 1.0, duration: 0.42)`. */
@@ -12,6 +14,13 @@ private val FeedFollowScrollSpec = tween<Float>(
     durationMillis = 420,
     easing = CubicBezierEasing(0.22f, 0.82f, 0.28f, 1.0f),
 )
+
+/**
+ * Each post's trailing divider is `padding(vertical = sm)` around a 1.dp line.
+ * Follow-scroll peeks that line plus a sliver of space above it so the next
+ * post doesn't sit flush under the status bar.
+ */
+val FeedFollowScrollPeekAbovePost = CorusSpacing.sm + 1.dp + CorusSpacing.xs
 
 /**
  * LazyColumn index of a feed post sitting after [prefixItemCount] leading

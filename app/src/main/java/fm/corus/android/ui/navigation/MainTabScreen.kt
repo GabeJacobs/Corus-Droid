@@ -518,7 +518,6 @@ fun MainTabScreen(
                     onPlaybackModeChange = { viewModel.setPlayFullSongs(it) },
                     remoteConfig = viewModel.remoteConfigService,
                     resolveLinkOut = { viewModel.resolveCurrentServiceLinkUrl() },
-                    resolveSpotifyFromApple = { viewModel.resolveCurrentSpotifyFromApple() },
                     embeddedInExpandingShell = true,
                     interactive = miniInteractive,
                     onTrackTap = {
@@ -685,7 +684,6 @@ fun MainTabScreen(
                             state = viewModel.nowPlayingManager.state.value,
                             musicService = musicService,
                             resolveLinkOut = { viewModel.resolveCurrentServiceLinkUrl() },
-                            resolveSpotifyFromApple = { viewModel.resolveCurrentSpotifyFromApple() },
                         )
                     },
                 )

@@ -107,21 +107,6 @@ class MainTabViewModel @Inject constructor(
         )
     }
 
-    /** Resolve the current Apple-sourced preview to its Spotify open URL (or null
-     *  on a confirmed miss / error). Backs the mini-player's optimistic-Spotify
-     *  open-tap under Apple-primary search. */
-    suspend fun resolveCurrentSpotifyFromApple(): String? {
-        val s = nowPlayingManager.state.value
-        val trackId = s.trackId ?: return null
-        return fm.corus.android.domain.MusicServiceLinkOut.resolveSpotifyFromApple(
-            trackId = trackId,
-            name = s.trackName,
-            artist = s.artistName,
-            isrc = s.isrc,
-            cloud = cloudFunctions,
-        )
-    }
-
     fun toggleLikeForCurrentTrack() {
         val postId = nowPlayingManager.state.value.sourcePostId ?: return
         val userId = authRepository.currentUserId ?: return

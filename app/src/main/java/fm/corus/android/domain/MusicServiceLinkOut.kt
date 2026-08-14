@@ -39,9 +39,9 @@ object MusicServiceLinkOut {
     private val _isResolving = MutableStateFlow(false)
     val isResolving: StateFlow<Boolean> = _isResolving.asStateFlow()
 
-    // Apple-sourced track ids a tap CONFIRMED aren't on Spotify. Observable so the
-    // mini-player logo recomposes from the optimistic Spotify glyph to Apple once
-    // confirmed. In-memory / per-process — zero reads on browse.
+    // Apple-sourced track ids a tap CONFIRMED aren't on Spotify. Observable so
+    // the song-page badge can flip from Spotify to Apple after a miss.
+    // In-memory / per-process — zero reads on browse.
     private val _absentFromSpotify = MutableStateFlow<Set<String>>(emptySet())
     val absentFromSpotify: StateFlow<Set<String>> = _absentFromSpotify.asStateFlow()
 
@@ -199,12 +199,12 @@ object MusicServiceLinkOut {
     }
 
     /**
-     * Open the now-playing track in the viewer's preferred service.
-     * Mirrors iOS `viewCurrentInMusicService` / mini-player logo tap:
-     * Spotify preference opens the track's own URI/web URL; Apple/TIDAL/Deezer
-     * resolve via [resolveLinkOut]. Used by both mini + full player so the
-     * Spotify glyph isn't a no-op when the preference is Spotify
-     * ([resolveLinkOutUrlRaw] returns null for that case).
+     * Open the now-playing track in the service the mini-player logo shows.
+     * Mirrors iOS `viewCurrentInMusicService`:
+     * Apple-Music-only tracks open Apple Music for a Spotify viewer (the
+     * service that actually carries the song). Spotify-source tracks open
+     * their own URI/web URL. Apple/TIDAL/Deezer preferences resolve via
+     * [resolveLinkOut].
      */
     fun openNowPlayingInPreferredService(
         context: Context,
@@ -212,7 +212,6 @@ object MusicServiceLinkOut {
         state: NowPlayingState,
         musicService: MusicService,
         resolveLinkOut: (suspend () -> String?)?,
-        resolveSpotifyFromApple: (suspend () -> String?)?,
     ) {
         fun open(url: String?) {
             url?.takeIf { it.isNotBlank() }?.let {
@@ -242,25 +241,13 @@ object MusicServiceLinkOut {
                     }
                 }
                 val isAppleMusic = state.source == TrackSource.APPLEMUSIC
-                val knownNotOnSpotify = isAppleMusic && knownNotOnSpotify(state.trackId)
+                val displayed = SongPlayRouting.displayedLinkOutService(
+                    source = state.source,
+                    viewer = musicService,
+                )
                 when {
-                    isAppleMusic && musicService == MusicService.SPOTIFY && !knownNotOnSpotify -> {
-                        val resolve = resolveSpotifyFromApple
-                        if (resolve != null) {
-                            scope.launch {
-                                val url = resolve()
-                                when {
-                                    !url.isNullOrBlank() -> open(url)
-                                    knownNotOnSpotify(state.trackId) -> openAppleSong()
-                                    else -> open(spotifySearchUrl(state.trackName, state.artistName))
-                                }
-                            }
-                        } else {
-                            openAppleSong()
-                        }
-                    }
                     isAppleMusic && (
-                        musicService == MusicService.SPOTIFY ||
+                        displayed == MusicService.APPLE_MUSIC ||
                             musicService == MusicService.APPLE_MUSIC
                         ) -> openAppleSong()
                     musicService == MusicService.SPOTIFY -> {

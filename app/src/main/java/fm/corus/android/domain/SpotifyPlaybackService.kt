@@ -67,6 +67,19 @@ class SpotifyPlaybackService @Inject constructor(
 
     var currentContextUri: String? = null
         private set
+    var currentContextTitle: String? = null
+        private set
+    var currentContextType: String? = null
+        private set
+    /** Context changed before the track — user opened a Spotify page. */
+    @Volatile
+    var contextTakeoverWithoutTrackChange: Boolean = false
+        private set
+
+    fun clearContextTakeoverWithoutTrackChange() {
+        contextTakeoverWithoutTrackChange = false
+    }
+
     var lastOutgoingTrackUri: String? = null
         private set
     var lastOutgoingPlaybackPosition: Double = 0.0
@@ -117,9 +130,14 @@ class SpotifyPlaybackService @Inject constructor(
     var onPlayerTrackChanged: ((String) -> Unit)? = null
     /** Fired when player context arrives after a track change so queue reconcile can re-run. */
     var onPlayerContextUpdated: (() -> Unit)? = null
+    /**
+     * Liked Songs / album / artist context. Not cleared during Corus play()
+     * so a speculative Control Center jump can still roll back.
+     */
+    var onLibraryContextDetected: (() -> Unit)? = null
     var onPlayerStateUpdated: (() -> Unit)? = null
 
-    fun isAwaitingIncomingContext(maxWaitMs: Long = 800L): Boolean {
+    fun isAwaitingIncomingContext(maxWaitMs: Long = 1_500L): Boolean {
         val since = incomingContextAwaitingSinceMs ?: return false
         if (incomingContextUri != null) return false
         return System.currentTimeMillis() - since < maxWaitMs
@@ -156,6 +174,39 @@ class SpotifyPlaybackService @Inject constructor(
     @Volatile
     private var fastPathAppRemote: SpotifyAppRemote? = null
 
+    /**
+     * When true, a misrouted skip is replaced with play(expected) on the
+     * callback thread (lock screen). When false, only reconcile may decide —
+     * so an unlocked Spotify-app pick can relinquish after context arrives.
+     */
+    @Volatile
+    var playExpectedOnMisroute: Boolean = false
+
+    /**
+     * While Corus is driving Connect, mute unexpected track changes on the
+     * callback thread. Reconcile then force-advances (Control Center Next) or
+     * resumes+relinquishes (Liked Songs).
+     */
+    @Volatile
+    var muteUnexpectedWhileConnectPlaying: Boolean = false
+
+    /** URI we paused as an unexpected skip; relinquish must resume this. */
+    @Volatile
+    var mutedUnexpectedUri: String? = null
+        private set
+
+    fun clearMutedUnexpectedUri() {
+        mutedUnexpectedUri = null
+    }
+
+    /** Next Corus queue URI — unlocked misroutes play this immediately (pause does not stop Spotify). */
+    @Volatile
+    var queueNextUri: String? = null
+
+    /** Only when Corus is not resumed (home / Spotify / Control Center). Never in the feed. */
+    @Volatile
+    var playQueueNextOnUnexpected: Boolean = false
+
     /** Expected URI we already issued play() for after a misrouted skip. */
     @Volatile
     private var fastPathRedirectUri: String? = null
@@ -168,6 +219,10 @@ class SpotifyPlaybackService @Inject constructor(
     /** When true, silent reconnect is blocked (external-mirror scroll-perf disconnect). */
     @Volatile
     private var proactiveReconnectSuppressed: Boolean = false
+
+    /** Blocks overlapping [trySilentReconnectIfNeeded] while a play tap is connecting. */
+    @Volatile
+    private var playInFlight: Boolean = false
 
     val isConnected: Boolean get() = appRemote?.isConnected == true
 
@@ -322,16 +377,21 @@ class SpotifyPlaybackService @Inject constructor(
         replaceQueue: Boolean = true,
         queueSessionId: Int? = null,
     ) {
+        playInFlight = true
         try {
             playInternal(spotifyTrackId, uri, replaceQueue, queueSessionId)
             analyticsService.logSpotifyFullSongPlayStarted(spotifyTrackId, "spotify")
             analyticsService.setSpotifyFullPlaybackConnected(true)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             analyticsService.logSpotifyFullSongPlayFailed(
                 spotifyTrackId,
                 e.message ?: e.javaClass.simpleName,
             )
             throw e
+        } finally {
+            playInFlight = false
         }
     }
 
@@ -379,12 +439,11 @@ class SpotifyPlaybackService @Inject constructor(
         if (playWithSilentConnectRetries(trackUri, queueSessionId)) return
 
         android.util.Log.w("SpotifyPlayback", "Silent reconnect failed, opening Spotify auth")
-        withPlayTimeout {
-            ensureAuthorizedAndConnected(requireInteractiveAuth = true)
-            playUri(trackUri)
-        }
-        queueSessionId?.let { lastAppliedQueueSessionId = it }
-        markRecentUsage()
+        // Auth opens/wakes Spotify. Do not share the 15s play timeout with that
+        // trip — leftover budget is too short for App Remote after a cold start,
+        // which is what produced a false "No preview available".
+        ensureAuthorizedAndConnected(requireInteractiveAuth = true)
+        playAfterWakingSpotify(trackUri, queueSessionId)
     }
 
     /**
@@ -419,6 +478,11 @@ class SpotifyPlaybackService @Inject constructor(
                     return false
                 }
                 disconnectAppRemotePreservingToken()
+                // Hung connect = Spotify isn't listening. More silent 15s
+                // waits won't wake it — go open Spotify instead.
+                if (SpotifyConnectWake.shouldAbandonSilentRetries(e)) {
+                    return false
+                }
                 if (attempt < SILENT_CONNECT_MAX_ATTEMPTS - 1) {
                     delay((attempt + 1) * 350L)
                 }
@@ -451,6 +515,42 @@ class SpotifyPlaybackService @Inject constructor(
      * Avoids ConnectionParams.showAuthView(true), which Android 14+ blocks when Spotify
      * is not already in the foreground.
      */
+    /**
+     * Spotify was just opened by auth-lib. App Remote often isn't listening
+     * on the first try — retry with a dedicated timeout.
+     */
+    private suspend fun playAfterWakingSpotify(
+        trackUri: String,
+        queueSessionId: Int?,
+    ) {
+        var lastError: Exception? = null
+        repeat(SpotifyConnectWake.POST_AUTH_CONNECT_MAX_ATTEMPTS) { attempt ->
+            try {
+                withPlayTimeout(SpotifyConnectWake.POST_AUTH_CONNECT_TIMEOUT_MS) {
+                    if (!isConnected) connect(showAuthView = false)
+                    playUri(trackUri)
+                }
+                queueSessionId?.let { lastAppliedQueueSessionId = it }
+                markRecentUsage()
+                return
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
+                android.util.Log.w(
+                    "SpotifyPlayback",
+                    "Post-auth connect failed (attempt ${attempt + 1}/" +
+                        "${SpotifyConnectWake.POST_AUTH_CONNECT_MAX_ATTEMPTS}): ${e.message}",
+                )
+                disconnectAppRemotePreservingToken()
+                if (attempt < SpotifyConnectWake.POST_AUTH_CONNECT_MAX_ATTEMPTS - 1) {
+                    delay((attempt + 1) * 400L)
+                }
+            }
+        }
+        throw lastError ?: SpotifyPlaybackError.NotConnected()
+    }
+
     private suspend fun ensureAuthorizedAndConnected(requireInteractiveAuth: Boolean) {
         if (isConnected) return
         if (requireInteractiveAuth) {
@@ -575,13 +675,41 @@ class SpotifyPlaybackService @Inject constructor(
 
     private fun applyPlayerContext(ctx: PlayerContext) {
         val newUri = ctx.uri?.takeIf { it.isNotEmpty() } ?: return
+        val previousCurrent = currentContextUri
         val wasAwaitingContext = incomingContextAwaitingSinceMs != null
-        if (wasAwaitingContext) {
+        if (wasAwaitingContext || incomingContextUri == null || incomingContextUri != newUri) {
             incomingContextUri = newUri
             incomingContextAwaitingSinceMs = null
         }
         currentContextUri = newUri
-        if (wasAwaitingContext) {
+        currentContextTitle = ctx.title
+        currentContextType = ctx.type
+        val libraryPick = SpotifyConnectFastPath.contextLooksLikeLibraryPick(
+            uri = newUri,
+            type = ctx.type,
+            title = ctx.title,
+        )
+        // Track already changed (CC Next) vs user opened a Spotify page first.
+        if (!wasAwaitingContext && newUri != previousCurrent && previousCurrent != null) {
+            contextTakeoverWithoutTrackChange = true
+            android.util.Log.i(
+                "SpotifyPlayback",
+                "Context takeover without track change uri=$newUri title=${ctx.title} type=${ctx.type}",
+            )
+        }
+        if (libraryPick) {
+            android.util.Log.i(
+                "SpotifyPlayback",
+                "Library pick context uri=$newUri title=${ctx.title} type=${ctx.type}",
+            )
+            onLibraryContextDetected?.invoke()
+        }
+        if (wasAwaitingContext || newUri != previousCurrent) {
+            android.util.Log.i(
+                "SpotifyPlayback",
+                "Player context uri=$newUri title=${ctx.title} type=${ctx.type} " +
+                    "prev=$previousCurrent awaitingWas=$wasAwaitingContext",
+            )
             onPlayerContextUpdated?.invoke()
         }
     }
@@ -602,9 +730,10 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     /**
-     * Pause a misrouted native skip on the App Remote callback thread — before
-     * [scope.launch] lets Spotify audibly start the wrong track — and immediately
-     * play the expected Corus URI so we don't wait for MainActor reconcile.
+     * On the lock screen, pause a misrouted native skip on the App Remote
+     * callback thread and immediately play the expected Corus URI so we don't
+     * wait for MainActor reconcile. Unlocked, leave the event for reconcile so
+     * a Spotify-app pick (Liked Songs, album) can relinquish after context.
      *
      * @return true when this event was handled here and must not be reconciled.
      */
@@ -652,7 +781,17 @@ class SpotifyPlaybackService @Inject constructor(
             fastPathGuardState.lastObservedURI = uri
             if (spotifyURIsMatch(uri, expected)) return@withLock null
             expected
-        } ?: return false
+        }
+
+        if (expectedToPlay == null) {
+            return false
+        }
+
+        // Unlocked: never play(next) here. Immediate play stomps Liked Songs
+        // before collection arrives. Reconcile waits, then force-advances.
+        if (!playExpectedOnMisroute) {
+            return false
+        }
 
         val remote = fastPathAppRemote ?: return false
         fastPathRedirectUri = expectedToPlay
@@ -685,6 +824,11 @@ class SpotifyPlaybackService @Inject constructor(
         val newDuration = (track.duration / 1000.0).coerceAtLeast(0.0)
 
         if (trackChanged) {
+            if (SpotifyConnectFastPath.contextLooksLikeLibraryPick(incomingContextUri) ||
+                SpotifyConnectFastPath.contextLooksLikeLibraryPick(currentContextUri)
+            ) {
+                onLibraryContextDetected?.invoke()
+            }
             val matchedExpected = fastPathGuardLock.withLock {
                 val now = System.currentTimeMillis()
                 val expected = fastPathGuardState.expectedURI
@@ -756,6 +900,14 @@ class SpotifyPlaybackService @Inject constructor(
         }
         remote.playerApi.pause().setResultCallback { _isPlaying.value = false }
         _isPlaying.value = false
+    }
+
+    /** Fire-and-forget resume after an away-misroute mute so a Liked Song isn't left paused. */
+    fun resumeImmediately() {
+        val remote = appRemote
+        if (remote == null || !remote.isConnected) return
+        remote.playerApi.resume().setResultCallback { _isPlaying.value = true }
+        _isPlaying.value = true
     }
 
     /** @return false if App Remote wasn't connected or the resume call failed. */
@@ -1037,8 +1189,11 @@ class SpotifyPlaybackService @Inject constructor(
         return uri.orEmpty()
     }
 
-    private suspend fun withPlayTimeout(block: suspend () -> Unit) {
-        withTimeoutOrNull(PLAY_TIMEOUT_MS) { block() }
+    private suspend fun withPlayTimeout(
+        timeoutMs: Long = PLAY_TIMEOUT_MS,
+        block: suspend () -> Unit,
+    ) {
+        withTimeoutOrNull(timeoutMs) { block() }
             ?: throw SpotifyPlaybackError.ApiError("Timed out connecting to Spotify")
     }
 
@@ -1089,6 +1244,7 @@ class SpotifyPlaybackService @Inject constructor(
 
     private fun scheduleProactiveReconnect() {
         if (proactiveReconnectSuppressed) return
+        if (playInFlight) return
         if (!hasRecentUsage() && spotifyAuthService.cachedAccessToken() == null) return
         if (isConnected) return
         val now = System.currentTimeMillis()

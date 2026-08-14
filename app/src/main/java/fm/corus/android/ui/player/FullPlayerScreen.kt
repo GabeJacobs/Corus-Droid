@@ -97,6 +97,7 @@ import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.AudiomackLogo
 import fm.corus.android.ui.components.DoubleTapLikeHeartIcon
+import fm.corus.android.ui.components.MarqueeText
 import fm.corus.android.ui.components.MiniPlayerPlaybackModeToggle
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
 import fm.corus.android.ui.components.playDoubleTapLikeHeartAnimation
@@ -342,7 +343,7 @@ fun FullPlayerScreen(
                     .padding(horizontal = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
+                MarqueeText(
                     text = title,
                     style = CorusFont.songTitleLarge.copy(
                         fontSize = 22.sp,
@@ -351,9 +352,9 @@ fun FullPlayerScreen(
                     ),
                     color = CorusColors.Text,
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(28.dp),
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 // Artist line → same path as menu "Go to Artist" (collapse + navigate).

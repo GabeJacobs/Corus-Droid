@@ -119,6 +119,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.util.FeedFollowScrollPeekAbovePost
 import fm.corus.android.ui.util.animateScrollItemToTop
 import fm.corus.android.ui.util.feedPostLazyIndex
 
@@ -301,7 +302,9 @@ fun FeedScreen(
     val listState = rememberLazyListState()
     val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
     val frost = rememberImmersiveHeaderState(immersive)
-    val followScrollTopInsetPx = with(LocalDensity.current) { frost.statusBarPadding.roundToPx() }
+    val followScrollTopInsetPx = with(LocalDensity.current) {
+        (frost.statusBarPadding + FeedFollowScrollPeekAbovePost).roundToPx()
+    }
     val currentTopInsetPx by rememberUpdatedState(followScrollTopInsetPx)
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTrigger) {

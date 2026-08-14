@@ -242,15 +242,21 @@ data class CymbalTrack(
 
         fun fromMap(data: Map<String, Any?>): CymbalTrack {
             val source = TrackSource.fromRaw(data["trackSource"] as? String ?: data["source"] as? String)
-            // Apple-Music-only and SoundCloud tracks don't live in Spotify's
-            // catalog. Synthesizing `spotify:track:am:<id>` or
-            // `spotify:track:sc:<id>` from a non-Spotify trackId just
-            // produces broken "Open in Spotify" links — leave those fields
-            // blank for non-Spotify sources.
-            val isNonSpotify = source == TrackSource.SOUNDCLOUD || source == TrackSource.APPLEMUSIC ||
-                source == TrackSource.AUDIOMACK || source == TrackSource.TIDAL || source == TrackSource.DEEZER
+            // SoundCloud / Audiomack / TIDAL / Deezer don't live in Spotify's
+            // catalog. Synthesizing `spotify:track:sc:<id>` from those ids
+            // produces broken "Open in Spotify" links. Apple-sourced catalog
+            // rows can carry a real cross-walked `spotify:track:` URI (artist
+            // Popular) — keep that, but still drop fabricated `am:` URIs.
             val rawSpotifyURI = data["spotifyURI"] as? String ?: ""
             val rawSpotifyWebURL = data["spotifyWebURL"] as? String ?: ""
+            val playableSpotifyURI = rawSpotifyURI.startsWith("spotify:track:") &&
+                rawSpotifyURI.removePrefix("spotify:track:").length == 22
+            val dropSpotifyLinks = when (source) {
+                TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK,
+                TrackSource.TIDAL, TrackSource.DEEZER -> true
+                TrackSource.APPLEMUSIC -> !playableSpotifyURI
+                TrackSource.SPOTIFY -> false
+            }
             @Suppress("UNCHECKED_CAST")
             val rawArtistIds = (data["artistIds"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotEmpty() }
                 ?: emptyList()
@@ -263,8 +269,8 @@ data class CymbalTrack(
                 albumId = (data["albumId"] as? String)?.ifEmpty { null },
                 albumArtURL = data["albumArtURL"] as? String ?: data["albumArtThumbnailURL"] as? String,
                 albumArtLargeURL = data["albumArtLargeURL"] as? String,
-                spotifyURI = if (isNonSpotify) "" else rawSpotifyURI,
-                spotifyWebURL = if (isNonSpotify) "" else rawSpotifyWebURL,
+                spotifyURI = if (dropSpotifyLinks) "" else rawSpotifyURI,
+                spotifyWebURL = if (dropSpotifyLinks) "" else rawSpotifyWebURL,
                 durationMs = (data["durationMs"] as? Number)?.toInt() ?: 0,
                 previewUrl = data["previewUrl"] as? String ?: data["previewURL"] as? String,
                 isrc = data["isrc"] as? String,

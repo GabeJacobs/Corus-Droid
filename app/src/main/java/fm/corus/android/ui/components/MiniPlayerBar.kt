@@ -89,7 +89,6 @@ fun MiniPlayerBar(
     onPlaybackModeChange: (Boolean) -> Unit = {},
     remoteConfig: fm.corus.android.service.RemoteConfigService? = null,
     resolveLinkOut: (suspend () -> String?)? = null,
-    resolveSpotifyFromApple: (suspend () -> String?)? = null,
     /** When true, hide hairline dividers — the expanding shell owns the surface. */
     embeddedInExpandingShell: Boolean = false,
     /** When false, chrome is visible but taps are ignored (mid expand-drag). */
@@ -102,7 +101,6 @@ fun MiniPlayerBar(
     val showsMiniPlayer = state.hasActiveTrack && !isHydratingExternalSpotify &&
         (!isExternalSpotifyListening ||
             (state.trackName.isNotBlank() && state.trackName != "Unknown Track"))
-    val absentFromSpotify by fm.corus.android.domain.MusicServiceLinkOut.absentFromSpotify.collectAsState()
     val engagementStates = engagementManager?.states?.collectAsState()?.value ?: emptyMap()
     val isCurrentTrackLiked = state.sourcePostId
         ?.let { engagementStates[it]?.isLiked }
@@ -139,13 +137,10 @@ fun MiniPlayerBar(
     val isAudiomack = state.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
     val isTidal = state.source == fm.corus.android.data.model.TrackSource.TIDAL
     val isDeezer = state.source == fm.corus.android.data.model.TrackSource.DEEZER
-    val isAppleMusic = state.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
-    val knownNotOnSpotify = isAppleMusic && state.trackId in absentFromSpotify
-    val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY && knownNotOnSpotify) {
-        fm.corus.android.data.model.MusicService.APPLE_MUSIC
-    } else {
-        musicService
-    }
+    val displayedService = SongPlayRouting.displayedLinkOutService(
+        source = state.source,
+        viewer = musicService,
+    )
 
     // Same destination as the service glyph (and iOS viewCurrentInMusicService).
     // Long-press on art/title uses this when the 30s/Full toggle displaced the glyph.
@@ -156,7 +151,6 @@ fun MiniPlayerBar(
             state = state,
             musicService = musicService,
             resolveLinkOut = resolveLinkOut,
-            resolveSpotifyFromApple = resolveSpotifyFromApple,
         )
     }
 
