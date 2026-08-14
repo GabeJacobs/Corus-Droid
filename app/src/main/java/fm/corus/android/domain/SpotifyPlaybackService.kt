@@ -692,24 +692,11 @@ class SpotifyPlaybackService @Inject constructor(
         // Track already changed (CC Next) vs user opened a Spotify page first.
         if (!wasAwaitingContext && newUri != previousCurrent && previousCurrent != null) {
             contextTakeoverWithoutTrackChange = true
-            android.util.Log.i(
-                "SpotifyPlayback",
-                "Context takeover without track change uri=$newUri title=${ctx.title} type=${ctx.type}",
-            )
         }
         if (libraryPick) {
-            android.util.Log.i(
-                "SpotifyPlayback",
-                "Library pick context uri=$newUri title=${ctx.title} type=${ctx.type}",
-            )
             onLibraryContextDetected?.invoke()
         }
         if (wasAwaitingContext || newUri != previousCurrent) {
-            android.util.Log.i(
-                "SpotifyPlayback",
-                "Player context uri=$newUri title=${ctx.title} type=${ctx.type} " +
-                    "prev=$previousCurrent awaitingWas=$wasAwaitingContext",
-            )
             onPlayerContextUpdated?.invoke()
         }
     }

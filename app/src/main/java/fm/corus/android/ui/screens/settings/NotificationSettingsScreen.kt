@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.PersonAdd
@@ -114,6 +115,13 @@ fun NotificationSettingsScreen(
                     onCheckedChange = viewModel::setPlays,
                 )
             }
+
+            NotifToggleRow(
+                icon = Icons.AutoMirrored.Filled.TrendingUp,
+                title = stringResource(R.string.notifications_row_trending),
+                checked = settings.trending,
+                onCheckedChange = viewModel::setTrending,
+            )
 
             NotifToggleRow(
                 icon = Icons.Filled.Notifications,

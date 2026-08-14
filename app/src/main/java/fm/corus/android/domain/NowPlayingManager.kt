@@ -130,6 +130,14 @@ internal fun userQueueInsertionIndex(queue: List<QueuedTrack>, currentIndex: Int
  * toggling exactly as before. Mirrors the post-aware disambiguation in
  * [PostPlaybackHighlight].
  */
+/**
+ * Artwork published to the system media session (lock screen, Control Center,
+ * Samsung QS media card). Those surfaces upscale the image to a full-bleed
+ * background, so the 64px feed thumbnail looks pixelated.
+ */
+internal fun sessionArtworkUrl(albumArtURL: String?, albumArtLargeURL: String?): String? =
+    albumArtLargeURL?.takeIf { it.isNotBlank() } ?: albumArtURL?.takeIf { it.isNotBlank() }
+
 internal fun isReTapOfActiveEntry(
     activeTrackId: String?,
     activeSourcePostId: String?,
@@ -1921,7 +1929,7 @@ class NowPlayingManager @Inject constructor(
                 MediaMetadata.Builder()
                     .setTitle(track.trackName)
                     .setArtist(track.artistName)
-                    .setArtworkUri(track.albumArtURL?.let { Uri.parse(it) })
+                    .setArtworkUri(sessionArtworkUrl(track.albumArtURL, track.albumArtLargeURL)?.let { Uri.parse(it) })
                     .build()
             )
             .build()
@@ -2921,11 +2929,6 @@ class NowPlayingManager @Inject constructor(
             spotifyExpectedTrackUri = resolvedUri
             spotifyCorusRequestedUri = resolvedUri
             spotifyCorusRequestedUntil = System.currentTimeMillis() + 8000
-            android.util.Log.i(
-                "SpotifyPlayback",
-                "playViaSpotify uri=$resolvedUri locked=$spotifyDeviceLockedForQueueDriving " +
-                    "away=${corusAppIsAwayFromForeground()}",
-            )
             armSpotifyFastPathSkipGuard(expectedURI = resolvedUri)
 
             spotifyPlaybackService.play(
@@ -3265,13 +3268,6 @@ class NowPlayingManager @Inject constructor(
         if (spotifyOutgoingChangeWasNaturalFeedTrackEnd()) return
 
         if (shouldRelinquishBecauseSpotifyAppTakeover() || incomingLooksLikeLibraryPick()) {
-            android.util.Log.i(
-                "SpotifyPlayback",
-                "Relinquish Spotify-app takeover uri=$reporting " +
-                    "takeover=${spotifyPlaybackService.contextTakeoverWithoutTrackChange} " +
-                    "title=${spotifyPlaybackService.currentContextTitle} " +
-                    "type=${spotifyPlaybackService.currentContextType}",
-            )
             relinquishSpotifyToExternalPlayback(reporting)
             return
         }
@@ -3313,13 +3309,6 @@ class NowPlayingManager @Inject constructor(
             return
         }
         if (shouldForceSpotifyFeedAdvanceForMisroutedSkip(reporting)) {
-            android.util.Log.i(
-                "SpotifyPlayback",
-                "Force-advance misrouted skip locked=$spotifyDeviceLockedForQueueDriving " +
-                    "away=${corusAppIsAwayFromForeground()} uri=$reporting " +
-                    "prevCtx=${spotifyPlaybackService.lastOutgoingContextUri} " +
-                    "inCtx=${spotifyPlaybackService.incomingContextUri}",
-            )
             forceAdvancePossiblySpeculative(reporting)
             return
         }
@@ -3511,10 +3500,6 @@ class NowPlayingManager @Inject constructor(
         ) {
             return
         }
-        android.util.Log.i(
-            "SpotifyPlayback",
-            "Mute away misroute pending context uri=$reporting",
-        )
         awaySkipMutedUri = reporting
         spotifyPlaybackService.pauseImmediately()
     }
@@ -3529,7 +3514,6 @@ class NowPlayingManager @Inject constructor(
         ) {
             return
         }
-        android.util.Log.i("SpotifyPlayback", "Resume after away mute uri=$muted")
         spotifyPlaybackService.resumeImmediately()
     }
 
@@ -3540,11 +3524,6 @@ class NowPlayingManager @Inject constructor(
         forceSpotifyFeedAdvanceToNextEntry(immediate = true)
     }
 
-    /**
-     * We guessed Control Center Next and started the next Corus song. A later
-     * Liked Songs / album / artist context means that was a tap — put their song back.
-     * Do not roll back on `spotify:playlist:` — Control Center Next uses that.
-     */
     /**
      * Liked Songs / album arrived. Hand off now if we were waiting to decide,
      * or undo a speculative Corus jump.
@@ -3557,10 +3536,6 @@ class NowPlayingManager @Inject constructor(
         val pending = spotifyPendingExternalUri
             ?: spotifyPlaybackService.currentTrackUri.value
             ?: return false
-        android.util.Log.i(
-            "SpotifyPlayback",
-            "Library pick during away wait — relinquish $pending",
-        )
         cancelDebouncedSpotifyRelinquish()
         relinquishSpotifyToExternalPlayback(pending)
         return true
@@ -3569,11 +3544,6 @@ class NowPlayingManager @Inject constructor(
     private fun scheduleAwaySkipDecision(externalUri: String) {
         cancelDebouncedSpotifyRelinquish()
         spotifyPendingExternalUri = externalUri
-        android.util.Log.i(
-            "SpotifyPlayback",
-            "Away skip wait ${SpotifyConnectFastPath.AWAY_SKIP_DECISION_MS}ms uri=$externalUri " +
-                "inCtx=${spotifyPlaybackService.incomingContextUri}",
-        )
         spotifyRelinquishJob = managerScope.launch {
             delay(SpotifyConnectFastPath.AWAY_SKIP_DECISION_MS)
             if (!isSpotifyConnectPlaying) return@launch
@@ -3584,12 +3554,6 @@ class NowPlayingManager @Inject constructor(
                 return@launch
             }
             if (computeHasNext()) {
-                android.util.Log.i(
-                    "SpotifyPlayback",
-                    "Force-advance after away wait uri=$externalUri " +
-                        "ctx=${spotifyPlaybackService.incomingContextUri} " +
-                        "title=${spotifyPlaybackService.currentContextTitle}",
-                )
                 forceAdvancePossiblySpeculative(externalUri)
             }
         }
@@ -3604,21 +3568,12 @@ class NowPlayingManager @Inject constructor(
         if (!incomingLooksLikeLibraryPick()) {
             return false
         }
-        android.util.Log.i(
-            "SpotifyPlayback",
-            "Rollback library pick keep=$keep reporting=$reporting " +
-                "title=${spotifyPlaybackService.currentContextTitle}",
-        )
         clearSpeculativeAwaySkip()
         managerScope.launch { rollbackSpeculativeAwaySkip(keep) }
         return true
     }
 
     private suspend fun rollbackSpeculativeAwaySkip(keepUri: String) {
-        android.util.Log.i(
-            "SpotifyPlayback",
-            "Rollback speculative force-advance, restore $keepUri",
-        )
         spotifyConnectPlayJob?.cancel()
         spotifyFeedSkipRequestedUntil = null
         spotifyCorusRequestedUri = null
@@ -3682,7 +3637,6 @@ class NowPlayingManager @Inject constructor(
         resetSpotifyScrubAnchor()
         pauseSpotifyConnectTimePolling()
         stopSpotifyConnectKeepAlive(restoreAudioFocus = false)
-        android.util.Log.i("SpotifyPlayback", "Resume Spotify after relinquish uri=$externalUri")
         spotifyPlaybackService.resumeImmediately()
         spotifyScrubberHoldAtZero = false
         spotifyScrubberHoldUntilTrackChangeFromUri = null

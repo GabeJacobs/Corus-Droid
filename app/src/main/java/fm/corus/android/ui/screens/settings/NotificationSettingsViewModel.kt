@@ -25,6 +25,7 @@ data class NotificationSettings(
     val contactJoined: Boolean = true,
     val tasteMatches: Boolean = true,
     val plays: Boolean = true,
+    val trending: Boolean = true,
     val reactions: Boolean = true,
     val messagePush: Boolean = true,
     val readReceipts: Boolean = true,
@@ -69,6 +70,7 @@ class NotificationSettingsViewModel @Inject constructor(
                     contactJoined = notif["contactJoined"] as? Boolean ?: true,
                     tasteMatches = notif["tasteMatches"] as? Boolean ?: true,
                     plays = notif["plays"] as? Boolean ?: true,
+                    trending = notif["trending"] as? Boolean ?: true,
                     reactions = notif["reactions"] as? Boolean ?: true,
                     messagePush = msg["pushEnabled"] as? Boolean ?: true,
                     readReceipts = msg["readReceiptsEnabled"] as? Boolean ?: true,
@@ -103,6 +105,9 @@ class NotificationSettingsViewModel @Inject constructor(
     }
     fun setPlays(enabled: Boolean) = updateNotif("plays", enabled) {
         _settings.value = _settings.value.copy(plays = enabled)
+    }
+    fun setTrending(enabled: Boolean) = updateNotif("trending", enabled) {
+        _settings.value = _settings.value.copy(trending = enabled)
     }
     fun setReactions(enabled: Boolean) = updateNotif("reactions", enabled) {
         _settings.value = _settings.value.copy(reactions = enabled)

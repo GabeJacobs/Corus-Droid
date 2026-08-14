@@ -138,6 +138,7 @@
     <string name="notifications_row_follow_requests">Follow Requests</string>
     <string name="notifications_row_contact_joined">Contact Joined</string>
     <string name="notifications_row_plays">Plays</string>
+    <string name="notifications_row_trending">Trending</string>
     <string name="notifications_row_messages">Messages</string>
     <string name="notifications_row_reactions">Reactions</string>
     <string name="notifications_row_read_receipts">Read receipts</string>
