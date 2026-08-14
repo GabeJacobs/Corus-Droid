@@ -874,7 +874,7 @@ private fun PostDetailSongInfo(
         if (post.isMovie) {
             if (!post.trailerURL.isNullOrBlank()) {
                 YouTubeIcon(
-                    height = 28.dp,
+                    height = 22.dp,
                     contentDescription = stringResource(R.string.post_detail_cd_watch_trailer),
                     modifier = Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },

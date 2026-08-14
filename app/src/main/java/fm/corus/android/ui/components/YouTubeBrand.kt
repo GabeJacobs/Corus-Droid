@@ -41,13 +41,21 @@ fun openYouTubeWatch(context: Context, youtubeId: String) {
 }
 
 /**
- * Official YouTube Icon (brand.youtube Full-color Icon — yt_icon_red_digital).
- * Branding guidelines require height ≥ 20dp and no redraws of the mark.
+ * Official YouTube Icon (brand.youtube Full-color Icon — yt_icon_red_digital),
+ * cropped to the mark so it aligns with music-service logos (no transparent
+ * padding). Branding guidelines require mark height ≥ 20dp.
+ *
+ * Slightly under music logos (28) — the cropped red mark reads heavier than
+ * Spotify/Apple glyphs at the same box size (matches iOS).
+ *
+ * Density-specific PNGs live under drawable-{m,h,x,xx,xxx}hdpi — a single file
+ * in plain `drawable/` is treated as mdpi and upscaled on modern screens,
+ * which is what made the icon look jagged.
  */
 @Composable
 fun YouTubeIcon(
     modifier: Modifier = Modifier,
-    height: Dp = 28.dp,
+    height: Dp = 22.dp,
     contentDescription: String? = null,
 ) {
     val h = maxOf(height, 20.dp)

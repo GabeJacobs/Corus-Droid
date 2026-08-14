@@ -906,7 +906,7 @@ fun PostCard(
                     Box(
                         modifier = Modifier
                             .size(24.dp)
-                            .offset(y = (-4).dp)
+                            .offset(y = PostRowServiceControlYOffset)
                             .background(
                                 CorusColors.Secondary.copy(alpha = 0.15f),
                                 CircleShape,
@@ -929,12 +929,14 @@ fun PostCard(
                     }
 
                     // Official YouTube Icon (brand.youtube) — opens the trailer on YouTube.
+                    // Same Y nudge as the film info icon / music service logos so the
+                    // pair reads as one horizontally aligned control group.
                     if (!post.trailerURL.isNullOrBlank()) {
                         YouTubeIcon(
-                            height = 28.dp,
+                            height = 22.dp,
                             contentDescription = stringResource(R.string.post_card_cd_watch_trailer),
                             modifier = Modifier
-                                .offset(y = (-2).dp)
+                                .offset(y = PostRowServiceControlYOffset)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,

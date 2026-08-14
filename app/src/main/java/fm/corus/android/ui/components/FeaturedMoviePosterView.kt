@@ -303,7 +303,7 @@ fun FeaturedMoviePosterView(
             if (!post.trailerURL.isNullOrBlank()) {
                 Spacer(modifier = Modifier.width(CorusSpacing.md))
                 YouTubeIcon(
-                    height = 28.dp,
+                    height = 22.dp,
                     contentDescription = stringResource(R.string.featured_cd_watch_trailer),
                     modifier = Modifier.clickable(onClick = onTrailerTap),
                 )
