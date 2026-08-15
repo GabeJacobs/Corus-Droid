@@ -38,17 +38,37 @@ internal object SpotifyConnectWake {
      * After play(requested), App Remote often emits the leftover native-queue
      * next (the following Corus feed entry) before the requested track is
      * current. Adopting that URI moves chrome while the tapped song is still
-     * audible. Once [requestedTrackConfirmed], a next URI is Control Center
-     * Next and must adopt. User Next / lock-screen skip sets
-     * [userRequestedFeedSkip] so those still adopt during the blip.
+     * audible — and a miniplayer Next used to disable this ignore for 5s,
+     * which chained Medicine → Smoke → Sabali → Ladies.
+     *
+     * A real Control Center Next is a next URI *after* the requested track
+     * has been current for [HANDOFF_NEXT_SETTLE_MS].
      */
+    const val HANDOFF_NEXT_SETTLE_MS = 1_500L
+
     fun shouldIgnoreStaleNextDuringHandoff(
         playIntentInFlight: Boolean,
-        userRequestedFeedSkip: Boolean,
         reportedIsNextQueueEntry: Boolean,
         requestedTrackConfirmed: Boolean,
-    ): Boolean = playIntentInFlight &&
-        !userRequestedFeedSkip &&
-        reportedIsNextQueueEntry &&
-        !requestedTrackConfirmed
+        confirmedForMs: Long = 0L,
+    ): Boolean {
+        if (!playIntentInFlight || !reportedIsNextQueueEntry) return false
+        if (!requestedTrackConfirmed) return true
+        return confirmedForMs < HANDOFF_NEXT_SETTLE_MS
+    }
+
+    /**
+     * Miniplayer Next sets a 5s feed-skip window so the *target* can land.
+     * An unexpected leftover URI in that window is not another Next — only
+     * force-advance once the requested track has settled.
+     */
+    fun shouldForceAdvanceOnUnexpectedDuringFeedSkip(
+        playIntentInFlight: Boolean,
+        requestedTrackConfirmed: Boolean,
+        confirmedForMs: Long = 0L,
+    ): Boolean {
+        if (!playIntentInFlight) return true
+        if (!requestedTrackConfirmed) return false
+        return confirmedForMs >= HANDOFF_NEXT_SETTLE_MS
+    }
 }

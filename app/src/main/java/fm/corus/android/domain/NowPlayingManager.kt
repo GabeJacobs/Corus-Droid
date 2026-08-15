@@ -652,6 +652,7 @@ class NowPlayingManager @Inject constructor(
     private var spotifyCorusRequestedUntil: Long? = null
     /** Requested URI has been observed as current — later next-URI is a real skip. */
     private var spotifyRequestedTrackConfirmed = false
+    private var spotifyRequestedTrackConfirmedAtMs: Long = 0L
     private var spotifyPendingExternalUri: String? = null
     /** URI of a Connect handoff that failed after Spotify may already be audible. */
     private var spotifyFailedHandoffUri: String? = null
@@ -990,11 +991,16 @@ class NowPlayingManager @Inject constructor(
     fun testingArmCorusPlayIntent(uri: String, windowMs: Long = 8000L) {
         spotifyCorusRequestedUri = uri
         spotifyCorusRequestedUntil = System.currentTimeMillis() + windowMs
-        spotifyRequestedTrackConfirmed = false
+        clearSpotifyRequestedTrackConfirmed()
     }
 
-    fun testingMarkRequestedTrackConfirmed() {
+    fun testingMarkRequestedTrackConfirmed(settled: Boolean = false) {
         spotifyRequestedTrackConfirmed = true
+        spotifyRequestedTrackConfirmedAtMs = if (settled) {
+            System.currentTimeMillis() - SpotifyConnectWake.HANDOFF_NEXT_SETTLE_MS - 1
+        } else {
+            System.currentTimeMillis()
+        }
     }
 
     fun testingArmFeedSkip(windowMs: Long = 5000L) {
@@ -2927,7 +2933,7 @@ class NowPlayingManager @Inject constructor(
 
         spotifyConnectPlayGeneration += 1
         val generation = spotifyConnectPlayGeneration
-        spotifyRequestedTrackConfirmed = false
+        clearSpotifyRequestedTrackConfirmed()
 
         val previousSourcePostId = _state.value.sourcePostId
         val previousTrackId = _state.value.trackId
@@ -3303,7 +3309,7 @@ class NowPlayingManager @Inject constructor(
         spotifyQueueTransitionUntil = null
         spotifyCorusRequestedUri = null
         spotifyCorusRequestedUntil = null
-        spotifyRequestedTrackConfirmed = false
+        clearSpotifyRequestedTrackConfirmed()
         spotifyPendingExternalUri = null
         spotifyScrubberHoldAtZero = false
         spotifyScrubberHoldUntilTrackChangeFromUri = null
@@ -3389,6 +3395,15 @@ class NowPlayingManager @Inject constructor(
             if (speculativeAwaySkipUri?.let {
                     SpotifyPlaybackService.spotifyURIsMatch(reporting, it)
                 } == true
+            ) {
+                return
+            }
+            // Leftover native-queue URI during Next handoff is not another Next.
+            if (!SpotifyConnectWake.shouldForceAdvanceOnUnexpectedDuringFeedSkip(
+                    playIntentInFlight = spotifyCorusPlayIntentInFlight(),
+                    requestedTrackConfirmed = spotifyRequestedTrackConfirmed,
+                    confirmedForMs = spotifyRequestedTrackConfirmedForMs(),
+                )
             ) {
                 return
             }
@@ -3501,15 +3516,23 @@ class NowPlayingManager @Inject constructor(
         if (!spotifyURIMatchesTrack(uri, next)) return false
         cancelSpotifyNaturalEndAdvanceJob()
         advanceSpotifyToQueueIndex(idx + 1)
+        val nextUri = spotifyURI(next)
         if (!spotifyPlaybackService.isPlaying.value) {
             userInitiatedPause = false
             spotifyFeedSkipRequestedUntil = System.currentTimeMillis() + 5000
-            val nextUri = spotifyURI(next)
             spotifyCorusRequestedUri = nextUri
             spotifyCorusRequestedUntil = System.currentTimeMillis() + 8000
+            clearSpotifyRequestedTrackConfirmed()
             launchSpotifyConnectPlay {
                 playViaSpotifyConnect(spotifyPendingPlay(next), replaceSpotifyQueue = true)
             }
+        } else {
+            // Already on the adopted track — settle before a leftover
+            // following URI can chain another adopt.
+            spotifyCorusRequestedUri = nextUri
+            spotifyCorusRequestedUntil = System.currentTimeMillis() + 8000
+            spotifyRequestedTrackConfirmed = true
+            spotifyRequestedTrackConfirmedAtMs = System.currentTimeMillis()
         }
         return true
     }
@@ -3524,6 +3547,16 @@ class NowPlayingManager @Inject constructor(
         return System.currentTimeMillis() < until
     }
 
+    private fun clearSpotifyRequestedTrackConfirmed() {
+        spotifyRequestedTrackConfirmed = false
+        spotifyRequestedTrackConfirmedAtMs = 0L
+    }
+
+    private fun spotifyRequestedTrackConfirmedForMs(): Long {
+        if (!spotifyRequestedTrackConfirmed || spotifyRequestedTrackConfirmedAtMs <= 0L) return 0L
+        return (System.currentTimeMillis() - spotifyRequestedTrackConfirmedAtMs).coerceAtLeast(0L)
+    }
+
     private fun markSpotifyRequestedTrackConfirmedIfNeeded(
         uri: String? = spotifyPlaybackService.currentTrackUri.value,
     ) {
@@ -3534,20 +3567,17 @@ class NowPlayingManager @Inject constructor(
             spotifyUriMatchesExpected(reported, requested)
         ) {
             spotifyRequestedTrackConfirmed = true
+            spotifyRequestedTrackConfirmedAtMs = System.currentTimeMillis()
         }
     }
 
     /**
      * During a Corus-initiated play handoff, Spotify often reports stale queue
      * state (e.g. the next feed entry) before the requested track starts. Ignore
-     * those callbacks unless the user explicitly skipped.
+     * those callbacks until the requested track has settled — including after
+     * miniplayer Next, which used to disable this ignore and chain-skip.
      */
     private fun shouldIgnoreSpotifyReconcileDuringCorusHandoff(uri: String): Boolean {
-        val userRequestedFeedSkip =
-            spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true
-        if (userRequestedFeedSkip) {
-            return false
-        }
         if (!spotifyCorusPlayIntentInFlight()) return false
         if (spotifyCorusRecentlyRequested(uri)) return true
         val idx = currentQueueIndex
@@ -3562,15 +3592,14 @@ class NowPlayingManager @Inject constructor(
             return true
         }
         // Stale native-queue next (Ladies play → Spotify briefly reports Unluck).
-        // A *new* URI that is not the next feed entry is still reconciled.
         val reportedIsNext = idx != null &&
             idx + 1 < queue.size &&
             spotifyURIMatchesTrack(uri, queue[idx + 1])
         if (SpotifyConnectWake.shouldIgnoreStaleNextDuringHandoff(
                 playIntentInFlight = true,
-                userRequestedFeedSkip = false,
                 reportedIsNextQueueEntry = reportedIsNext,
                 requestedTrackConfirmed = spotifyRequestedTrackConfirmed,
+                confirmedForMs = spotifyRequestedTrackConfirmedForMs(),
             )
         ) {
             android.util.Log.i(
@@ -3714,7 +3743,7 @@ class NowPlayingManager @Inject constructor(
         spotifyFeedSkipRequestedUntil = null
         spotifyCorusRequestedUri = null
         spotifyCorusRequestedUntil = null
-        spotifyRequestedTrackConfirmed = false
+        clearSpotifyRequestedTrackConfirmed()
         spotifyPlaybackService.clearFastPathPlaybackGuard()
         val alreadyOnKeep = spotifyPlaybackService.currentTrackUri.value?.let {
             SpotifyPlaybackService.spotifyURIsMatch(it, keepUri)
@@ -3763,7 +3792,7 @@ class NowPlayingManager @Inject constructor(
         spotifyQueueTransitionUntil = null
         spotifyCorusRequestedUri = null
         spotifyCorusRequestedUntil = null
-        spotifyRequestedTrackConfirmed = false
+        clearSpotifyRequestedTrackConfirmed()
         spotifyPendingExternalUri = null
         clearSpeculativeAwaySkip()
         isSpotifyConnectPlaying = false

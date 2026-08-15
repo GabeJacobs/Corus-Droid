@@ -62,27 +62,33 @@ class SpotifyConnectWakeTest {
     }
 
     @Test
-    fun handoffIgnoresStaleNextUnlessUserSkipped() {
+    fun handoffIgnoresStaleNextUntilRequestedTrackSettles() {
         assertTrue(
             SpotifyConnectWake.shouldIgnoreStaleNextDuringHandoff(
                 playIntentInFlight = true,
-                userRequestedFeedSkip = false,
                 reportedIsNextQueueEntry = true,
                 requestedTrackConfirmed = false,
+            ),
+        )
+        assertTrue(
+            SpotifyConnectWake.shouldIgnoreStaleNextDuringHandoff(
+                playIntentInFlight = true,
+                reportedIsNextQueueEntry = true,
+                requestedTrackConfirmed = true,
+                confirmedForMs = 200L,
             ),
         )
         assertFalse(
             SpotifyConnectWake.shouldIgnoreStaleNextDuringHandoff(
                 playIntentInFlight = true,
-                userRequestedFeedSkip = true,
                 reportedIsNextQueueEntry = true,
-                requestedTrackConfirmed = false,
+                requestedTrackConfirmed = true,
+                confirmedForMs = SpotifyConnectWake.HANDOFF_NEXT_SETTLE_MS,
             ),
         )
         assertFalse(
             SpotifyConnectWake.shouldIgnoreStaleNextDuringHandoff(
                 playIntentInFlight = false,
-                userRequestedFeedSkip = false,
                 reportedIsNextQueueEntry = true,
                 requestedTrackConfirmed = false,
             ),
@@ -90,17 +96,38 @@ class SpotifyConnectWakeTest {
         assertFalse(
             SpotifyConnectWake.shouldIgnoreStaleNextDuringHandoff(
                 playIntentInFlight = true,
-                userRequestedFeedSkip = false,
                 reportedIsNextQueueEntry = false,
                 requestedTrackConfirmed = false,
             ),
         )
+    }
+
+    @Test
+    fun feedSkipDoesNotForceAdvanceUntilRequestedTrackSettles() {
         assertFalse(
-            SpotifyConnectWake.shouldIgnoreStaleNextDuringHandoff(
+            SpotifyConnectWake.shouldForceAdvanceOnUnexpectedDuringFeedSkip(
                 playIntentInFlight = true,
-                userRequestedFeedSkip = false,
-                reportedIsNextQueueEntry = true,
+                requestedTrackConfirmed = false,
+            ),
+        )
+        assertFalse(
+            SpotifyConnectWake.shouldForceAdvanceOnUnexpectedDuringFeedSkip(
+                playIntentInFlight = true,
                 requestedTrackConfirmed = true,
+                confirmedForMs = 200L,
+            ),
+        )
+        assertTrue(
+            SpotifyConnectWake.shouldForceAdvanceOnUnexpectedDuringFeedSkip(
+                playIntentInFlight = true,
+                requestedTrackConfirmed = true,
+                confirmedForMs = SpotifyConnectWake.HANDOFF_NEXT_SETTLE_MS,
+            ),
+        )
+        assertTrue(
+            SpotifyConnectWake.shouldForceAdvanceOnUnexpectedDuringFeedSkip(
+                playIntentInFlight = false,
+                requestedTrackConfirmed = false,
             ),
         )
     }

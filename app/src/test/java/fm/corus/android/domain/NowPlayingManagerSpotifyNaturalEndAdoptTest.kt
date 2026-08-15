@@ -22,7 +22,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -168,7 +167,7 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
         assertEquals("B", manager.state.value.trackName)
         assertTrue(isPlaying.value)
         assertTrue(manager.state.value.isPlaying)
-        assertNull(manager.testingSpotifyCorusRequestedUri())
+        assertEquals(trackB.spotifyURI, manager.testingSpotifyCorusRequestedUri())
         verify(spotifyPlaybackService, never()).pauseImmediately()
         manager.stop()
     }
@@ -306,7 +305,7 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
     }
 
     @Test
-    fun controlCenterNextAdoptsAfterRequestedTrackConfirmed() = runTest(testDispatcher) {
+    fun controlCenterNextAdoptsAfterRequestedTrackSettled() = runTest(testDispatcher) {
         val manager = newManager()
         val ladies = track("ladies-cc", "Ladies")
         val unluck = track("unluck-cc", "Unluck")
@@ -314,7 +313,7 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
         currentTrackUri.value = unluck.spotifyURI
         isPlaying.value = true
         manager.testingArmCorusPlayIntent(ladies.spotifyURI!!)
-        manager.testingMarkRequestedTrackConfirmed()
+        manager.testingMarkRequestedTrackConfirmed(settled = true)
 
         manager.testingReconcileSpotifyQueuePosition(unluck.spotifyURI!!)
 
@@ -324,20 +323,39 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
     }
 
     @Test
-    fun userFeedSkipDuringHandoffStillAdoptsNext() = runTest(testDispatcher) {
+    fun userFeedSkipDuringHandoffDoesNotAdoptFollowingTrack() = runTest(testDispatcher) {
         val manager = newManager()
-        val ladies = track("ladies-skip", "Ladies")
-        val unluck = track("unluck-skip", "Unluck")
-        seedConnect(manager, listOf(ladies, unluck), ladies)
-        currentTrackUri.value = unluck.spotifyURI
+        val medicine = track("medicine", "Medicine for Horses")
+        val smoke = track("smoke", "Smoke")
+        seedConnect(manager, listOf(medicine, smoke), medicine)
+        currentTrackUri.value = smoke.spotifyURI
         isPlaying.value = true
-        manager.testingArmCorusPlayIntent(ladies.spotifyURI!!)
+        manager.testingArmCorusPlayIntent(medicine.spotifyURI!!)
         manager.testingArmFeedSkip()
 
-        manager.testingReconcileSpotifyQueuePosition(unluck.spotifyURI!!)
+        manager.testingReconcileSpotifyQueuePosition(smoke.spotifyURI!!)
 
-        assertEquals(unluck.trackId, manager.state.value.trackId)
-        assertEquals("Unluck", manager.state.value.trackName)
+        assertEquals(medicine.trackId, manager.state.value.trackId)
+        assertEquals("Medicine for Horses", manager.state.value.trackName)
+        manager.stop()
+    }
+
+    @Test
+    fun leftoverUriDuringNextHandoffDoesNotForceAdvance() = runTest(testDispatcher) {
+        val manager = newManager()
+        val medicine = track("medicine-left", "Medicine for Horses")
+        val smoke = track("smoke-left", "Smoke")
+        val sabali = track("sabali-left", "Sabali")
+        seedConnect(manager, listOf(medicine, smoke, sabali), medicine)
+        currentTrackUri.value = "spotify:track:one-eleven-leftover"
+        isPlaying.value = true
+        manager.testingArmCorusPlayIntent(medicine.spotifyURI!!)
+        manager.testingArmFeedSkip()
+
+        manager.testingReconcileSpotifyQueuePosition("spotify:track:one-eleven-leftover")
+
+        assertEquals(medicine.trackId, manager.state.value.trackId)
+        assertEquals("Medicine for Horses", manager.state.value.trackName)
         manager.stop()
     }
 

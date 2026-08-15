@@ -663,12 +663,13 @@
     <string name="notif_msg_contact_joined">joined %s!</string>
     <string name="notif_msg_repost">reposted your %s.</string>
     <string name="notif_msg_taste_match_default">is a new taste match.</string>
-    <string name="notif_taste_match_prefix_discovery">New Taste Match: </string>
-    <string name="notif_taste_match_prefix_activity">You and </string>
-    <string name="notif_taste_match_suffix_activity_song"> both shared the song </string>
-    <string name="notif_taste_match_suffix_activity_film"> both shared the film </string>
-    <string name="notif_taste_match_prefix_milestone">Taste match milestone with </string>
-    <string name="notif_taste_match_prefix_default">Taste match with </string>
+    <!-- Quoted so AAPT keeps the leading/trailing spaces used when concatenating usernames. -->
+    <string name="notif_taste_match_prefix_discovery">"New Taste Match: "</string>
+    <string name="notif_taste_match_prefix_activity">"You and "</string>
+    <string name="notif_taste_match_suffix_activity_song">" both shared the song "</string>
+    <string name="notif_taste_match_suffix_activity_film">" both shared the film "</string>
+    <string name="notif_taste_match_prefix_milestone">"Taste match milestone with "</string>
+    <string name="notif_taste_match_prefix_default">"Taste match with "</string>
     <string name="notif_taste_match_body_artists">You share %1$d artists in common</string>
     <string name="notif_taste_match_body_songs">You share %1$d songs in common</string>
     <string name="notif_taste_match_body_films">You share %1$d films in common</string>

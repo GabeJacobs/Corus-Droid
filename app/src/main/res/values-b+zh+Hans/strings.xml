@@ -596,9 +596,9 @@
     <string name="notif_msg_repost">转发了你的%s。</string>
     <string name="notif_msg_taste_match_default">是新的品味匹配。</string>
     <string name="notif_taste_match_prefix_discovery">新的品味匹配：</string>
-    <string name="notif_taste_match_prefix_activity">你和 </string>
-    <string name="notif_taste_match_suffix_activity_song"> 分享了同一首歌 </string>
-    <string name="notif_taste_match_suffix_activity_film"> 分享了同一部电影 </string>
+    <string name="notif_taste_match_prefix_activity">"你和 "</string>
+    <string name="notif_taste_match_suffix_activity_song">" 分享了同一首歌 "</string>
+    <string name="notif_taste_match_suffix_activity_film">" 分享了同一部电影 "</string>
     <string name="notif_taste_match_prefix_milestone">与以下用户的品味匹配里程碑：</string>
     <string name="notif_taste_match_prefix_default">品味匹配：</string>
     <string name="notif_taste_match_body_artists">你们有 %1$d 位共同艺人</string>
