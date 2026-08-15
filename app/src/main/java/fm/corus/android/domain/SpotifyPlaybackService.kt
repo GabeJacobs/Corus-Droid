@@ -495,6 +495,15 @@ class SpotifyPlaybackService @Inject constructor(
     private fun shouldDiscardSession(error: Exception): Boolean =
         error is SpotifyPlaybackError.NotAuthorized
 
+    /**
+     * Drop App Remote without clearing the cached grant. The next [play]
+     * must reconnect — [playUri] on a zombie IPC after a long freeze is
+     * what returned success with no audio.
+     */
+    fun disconnectPreservingToken() {
+        disconnectAppRemotePreservingToken()
+    }
+
     private fun disconnectAppRemotePreservingToken() {
         val remote = appRemote
         if (remote != null) {

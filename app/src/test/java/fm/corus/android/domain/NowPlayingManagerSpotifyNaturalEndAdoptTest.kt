@@ -74,6 +74,7 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
             on { this.isPlaying } doReturn isPlaying
             on { this.positionSeconds } doReturn positionSeconds
             on { this.durationSeconds } doReturn durationSeconds
+            on { this.lastOutgoingTrackUri } doReturn null
         }
     }
 
@@ -268,6 +269,57 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
             anyOrNull(),
             any(),
         )
+        manager.stop()
+    }
+
+    @Test
+    fun handoffDoesNotAdoptStaleNextWhileRequestedTrackIsStarting() = runTest(testDispatcher) {
+        val manager = newManager()
+        val ladies = track("ladies", "Ladies")
+        val unluck = track("unluck", "Unluck")
+        seedConnect(manager, listOf(ladies, unluck), ladies)
+        currentTrackUri.value = unluck.spotifyURI
+        isPlaying.value = true
+        manager.testingArmCorusPlayIntent(ladies.spotifyURI!!)
+
+        manager.testingReconcileSpotifyQueuePosition(unluck.spotifyURI!!)
+
+        assertEquals(ladies.trackId, manager.state.value.trackId)
+        assertEquals("Ladies", manager.state.value.trackName)
+        manager.stop()
+    }
+
+    @Test
+    fun afterHandoffWindowAdoptsNextWhenSpotifyLandedThere() = runTest(testDispatcher) {
+        val manager = newManager()
+        val ladies = track("ladies-late", "Ladies")
+        val unluck = track("unluck-late", "Unluck")
+        seedConnect(manager, listOf(ladies, unluck), ladies)
+        currentTrackUri.value = unluck.spotifyURI
+        isPlaying.value = true
+
+        manager.testingReconcileSpotifyQueuePosition(unluck.spotifyURI!!)
+
+        assertEquals(unluck.trackId, manager.state.value.trackId)
+        assertEquals("Unluck", manager.state.value.trackName)
+        manager.stop()
+    }
+
+    @Test
+    fun userFeedSkipDuringHandoffStillAdoptsNext() = runTest(testDispatcher) {
+        val manager = newManager()
+        val ladies = track("ladies-skip", "Ladies")
+        val unluck = track("unluck-skip", "Unluck")
+        seedConnect(manager, listOf(ladies, unluck), ladies)
+        currentTrackUri.value = unluck.spotifyURI
+        isPlaying.value = true
+        manager.testingArmCorusPlayIntent(ladies.spotifyURI!!)
+        manager.testingArmFeedSkip()
+
+        manager.testingReconcileSpotifyQueuePosition(unluck.spotifyURI!!)
+
+        assertEquals(unluck.trackId, manager.state.value.trackId)
+        assertEquals("Unluck", manager.state.value.trackName)
         manager.stop()
     }
 

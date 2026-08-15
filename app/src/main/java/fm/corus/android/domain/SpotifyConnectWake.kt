@@ -14,4 +14,36 @@ internal object SpotifyConnectWake {
         val msg = error.message?.lowercase().orEmpty()
         return msg.contains("timed out connecting")
     }
+
+    /**
+     * Extra verify time when App Remote is not already live. A leftover
+     * token / last-usage timestamp from hours ago is not a live session —
+     * after a long freeze those still exist and a short verify plus
+     * "keep if connected" left muted keep-alive silence on screen.
+     */
+    fun shouldUseExtendedVerify(isLiveConnected: Boolean): Boolean = !isLiveConnected
+
+    /**
+     * play() can return success while Spotify is still asleep (Samsung
+     * Freecess / long idle). [isConnected] alone is not evidence the
+     * requested track is audible — keep the session only when App Remote
+     * reports playing or the expected URI.
+     */
+    fun shouldKeepUnverifiedSession(
+        isPlaying: Boolean,
+        hasMatchingTrackUri: Boolean,
+    ): Boolean = isPlaying || hasMatchingTrackUri
+
+    /**
+     * After play(requested), App Remote often emits the leftover native-queue
+     * next (the following Corus feed entry) before the requested track is
+     * current. Adopting that URI moves chrome while the tapped song is still
+     * audible. User Next / lock-screen skip sets [userRequestedFeedSkip] so
+     * those still adopt.
+     */
+    fun shouldIgnoreStaleNextDuringHandoff(
+        playIntentInFlight: Boolean,
+        userRequestedFeedSkip: Boolean,
+        reportedIsNextQueueEntry: Boolean,
+    ): Boolean = playIntentInFlight && !userRequestedFeedSkip && reportedIsNextQueueEntry
 }

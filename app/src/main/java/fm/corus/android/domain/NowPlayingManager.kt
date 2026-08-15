@@ -985,6 +985,19 @@ class NowPlayingManager @Inject constructor(
         refreshSpotifyFastPathSkipGuardForUpcomingTrackIfNeeded()
     }
 
+    fun testingArmCorusPlayIntent(uri: String, windowMs: Long = 8000L) {
+        spotifyCorusRequestedUri = uri
+        spotifyCorusRequestedUntil = System.currentTimeMillis() + windowMs
+    }
+
+    fun testingArmFeedSkip(windowMs: Long = 5000L) {
+        spotifyFeedSkipRequestedUntil = System.currentTimeMillis() + windowMs
+    }
+
+    fun testingReconcileSpotifyQueuePosition(uri: String) {
+        reconcileSpotifyQueuePosition(uri)
+    }
+
     /**
      * Recents swipe must not tear down Connect — otherwise Spotify owns the
      * next song. Same as iOS home/lock keeping Corus in control.
@@ -2863,6 +2876,10 @@ class NowPlayingManager @Inject constructor(
         val hasPriorSession = spotifyAuthService.cachedAccessToken() != null ||
             prefs.getLong("fm.corus.spotify.lastAppRemoteUsage", 0L) > 0
         val wasActive = isSpotifyConnectPlaying || spotifyPlaybackService.isConnected || hasPriorSession
+        // Token / last-usage from hours ago is not a live App Remote. Extended
+        // verify after a freeze must not be skipped just because we authed once.
+        val isLiveConnect = spotifyPlaybackService.isConnected &&
+            (isSpotifyConnectPlaying || spotifyPlaybackService.isPlaying.value)
 
         // Prior Job is cancelled by [launchSpotifyConnectPlay] / staged-skip abort.
         // Do not cancel [spotifyConnectPlayJob] here — this coroutine may be that job.
@@ -3000,7 +3017,7 @@ class NowPlayingManager @Inject constructor(
 
         var verified = verifySpotifyConnectPlaybackStarted(
             expectedUri = resolvedUri!!,
-            extended = !wasActive,
+            extended = SpotifyConnectWake.shouldUseExtendedVerify(isLiveConnect),
         )
         // Connected with the right track but paused — one more resume pass
         // before giving up (common right after the first authorizeAndPlay).
@@ -3019,11 +3036,17 @@ class NowPlayingManager @Inject constructor(
         if (_state.value.trackId != expectedTrackId) return
 
         if (!verified) {
-            if (svc.isConnected) {
-                // play() already succeeded. App Remote getPlayerState often
-                // stalls ~10s on first handoff while audio is already starting.
-                // Falling back to a 30s preview here is what produced a false
-                // "No preview available" on the first tap of a session.
+            val hasMatchingTrack = svc.currentTrackUri.value?.let {
+                spotifyUriMatchesExpected(it, resolvedUri!!)
+            } == true
+            if (SpotifyConnectWake.shouldKeepUnverifiedSession(
+                    isPlaying = svc.isPlaying.value,
+                    hasMatchingTrackUri = hasMatchingTrack,
+                )
+            ) {
+                // getPlayerState can stall while audio is already starting.
+                // Keep only when we have the expected track or isPlaying —
+                // isConnected alone left muted keep-alive after a long freeze.
                 android.util.Log.w(
                     "SpotifyPlayback",
                     "Connect verify timed out — keeping Connect session",
@@ -3032,10 +3055,17 @@ class NowPlayingManager @Inject constructor(
                 refreshSpotifyFastPathSkipGuardWhenLocked()
                 return
             }
-            // Idle first-tap: silent IPC dropped and play() returned without a
-            // live session. Retry once before preview fallback — the 30s path
-            // is what showed "No preview available" over a playable Spotify URI.
-            android.util.Log.w("SpotifyPlayback", "Connect verify failed — retrying App Remote play")
+            // play() returned success but Spotify never reported the track.
+            // Stop muted keep-alive so we don't look like we're playing
+            // silence, drop the zombie IPC, and replay (silent then wake).
+            android.util.Log.w(
+                "SpotifyPlayback",
+                "Connect verify failed — no audible evidence, retrying App Remote play",
+            )
+            stopSpotifyConnectKeepAlive()
+            isSpotifyConnectPlaying = false
+            _state.value = _state.value.copy(isPlaying = false)
+            svc.disconnectPreservingToken()
             _isResolvingSpotify.value = true
             try {
                 spotifyPlaybackService.play(
@@ -3060,8 +3090,18 @@ class NowPlayingManager @Inject constructor(
             }
             if (spotifyConnectPlayGeneration != generation) return
             if (_state.value.trackId != expectedTrackId) return
-            if (verified || svc.isConnected) {
-                if (verified) {
+            val retryHasMatchingTrack = svc.currentTrackUri.value?.let {
+                spotifyUriMatchesExpected(it, resolvedUri!!)
+            } == true
+            if (verified ||
+                SpotifyConnectWake.shouldKeepUnverifiedSession(
+                    isPlaying = svc.isPlaying.value,
+                    hasMatchingTrackUri = retryHasMatchingTrack,
+                )
+            ) {
+                isSpotifyConnectPlaying = true
+                startSpotifyConnectKeepAlive()
+                if (verified || svc.isPlaying.value) {
                     _state.value = _state.value.copy(isPlaying = true)
                     onPlaybackBecamePlaying(expectedTrackId)
                 }
@@ -3069,15 +3109,16 @@ class NowPlayingManager @Inject constructor(
                 refreshSpotifyFastPathSkipGuardWhenLocked()
                 return
             }
-            android.util.Log.w("SpotifyPlayback", "Connect verify timed out — falling back to preview")
-            silentlyHaltSpotifyForPreview()
-            spotifyExpectedTrackUri = null
-            spotifyQueueTransitionUntil = null
-            handleSpotifyPlaybackFailure(
-                queuedTrackFrom(pending),
-                userInitiated = true,
-                mayHaveStartedAudio = true,
+            // Still no audible evidence. Do not leave muted chrome, and do
+            // not dump a playable Spotify URI into "No preview available".
+            android.util.Log.w(
+                "SpotifyPlayback",
+                "Connect verify timed out — parking without preview fallback",
             )
+            stopSpotifyConnectKeepAlive()
+            isSpotifyConnectPlaying = false
+            _state.value = _state.value.copy(isPlaying = false)
+            _isResolvingSpotify.value = false
             return
         }
         clearSpotifyHandoffFailureSuppression()
@@ -3430,7 +3471,9 @@ class NowPlayingManager @Inject constructor(
      * those callbacks unless the user explicitly skipped.
      */
     private fun shouldIgnoreSpotifyReconcileDuringCorusHandoff(uri: String): Boolean {
-        if (spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true) {
+        val userRequestedFeedSkip =
+            spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true
+        if (userRequestedFeedSkip) {
             return false
         }
         if (!spotifyCorusPlayIntentInFlight()) return false
@@ -3440,10 +3483,30 @@ class NowPlayingManager @Inject constructor(
             return true
         }
         // Stale leftover of the song we just left (Bobby ← Better Off Alone).
-        // A *new* URI is Control Center Next or a Spotify-app pick — reconcile.
         val outgoing = spotifyPlaybackService.lastOutgoingTrackUri
-        return !outgoing.isNullOrEmpty() &&
+        if (!outgoing.isNullOrEmpty() &&
             SpotifyPlaybackService.spotifyURIsMatch(uri, outgoing)
+        ) {
+            return true
+        }
+        // Stale native-queue next (Ladies play → Spotify briefly reports Unluck).
+        // A *new* URI that is not the next feed entry is still reconciled.
+        val reportedIsNext = idx != null &&
+            idx + 1 < queue.size &&
+            spotifyURIMatchesTrack(uri, queue[idx + 1])
+        if (SpotifyConnectWake.shouldIgnoreStaleNextDuringHandoff(
+                playIntentInFlight = true,
+                userRequestedFeedSkip = false,
+                reportedIsNextQueueEntry = reportedIsNext,
+            )
+        ) {
+            android.util.Log.i(
+                "NowPlaying",
+                "Ignoring stale next URI during Corus play handoff: $uri",
+            )
+            return true
+        }
+        return false
     }
 
     private fun corusAppIsBackgrounded(): Boolean =
