@@ -650,6 +650,8 @@ class NowPlayingManager @Inject constructor(
     private var spotifyFeedSkipRequestedUntil: Long? = null
     private var spotifyCorusRequestedUri: String? = null
     private var spotifyCorusRequestedUntil: Long? = null
+    /** Requested URI has been observed as current — later next-URI is a real skip. */
+    private var spotifyRequestedTrackConfirmed = false
     private var spotifyPendingExternalUri: String? = null
     /** URI of a Connect handoff that failed after Spotify may already be audible. */
     private var spotifyFailedHandoffUri: String? = null
@@ -988,6 +990,11 @@ class NowPlayingManager @Inject constructor(
     fun testingArmCorusPlayIntent(uri: String, windowMs: Long = 8000L) {
         spotifyCorusRequestedUri = uri
         spotifyCorusRequestedUntil = System.currentTimeMillis() + windowMs
+        spotifyRequestedTrackConfirmed = false
+    }
+
+    fun testingMarkRequestedTrackConfirmed() {
+        spotifyRequestedTrackConfirmed = true
     }
 
     fun testingArmFeedSkip(windowMs: Long = 5000L) {
@@ -1954,7 +1961,9 @@ class NowPlayingManager @Inject constructor(
         // Promote the service only after the session is playing — otherwise
         // MediaSessionService can't post its notification fast enough and
         // Android kills us with ForegroundServiceDidNotStartInTimeException.
-        startForegroundServiceIfNeeded()
+        // If Android refuses the start (app already backgrounded), bail —
+        // onForegroundStartDenied() already paused. Do not mark isPlaying.
+        if (!startForegroundServiceIfNeeded()) return
 
         if (generation != playGeneration) {
             exo.pause()
@@ -2532,14 +2541,35 @@ class NowPlayingManager @Inject constructor(
      * session's player has prepare()+play() running, so media3 can post its rich
      * media-style notification within Android's 5s ANR window. Calling this with
      * an idle session causes a `ForegroundServiceDidNotStartInTimeException`.
+     *
+     * Android 12+ throws [android.app.ForegroundServiceStartNotAllowedException]
+     * (an [IllegalStateException]) from [ContextCompat.startForegroundService]
+     * itself when the app is backgrounded — the service never reaches
+     * onStartCommand, so that catch cannot help. Recover here instead of crashing.
+     *
+     * @return true if the service is (or already was) started.
      */
-    private fun startForegroundServiceIfNeeded() {
-        if (foregroundServiceStarted) return
-        ContextCompat.startForegroundService(
-            context,
-            Intent(context, CorusPlaybackService::class.java),
-        )
-        foregroundServiceStarted = true
+    @VisibleForTesting
+    internal fun startForegroundServiceIfNeeded(): Boolean {
+        if (foregroundServiceStarted) return true
+        return try {
+            startForegroundServiceAction(Intent(context, CorusPlaybackService::class.java))
+            foregroundServiceStarted = true
+            true
+        } catch (e: IllegalStateException) {
+            android.util.Log.w("NowPlaying", "startForegroundService denied: ${e.message}")
+            onForegroundStartDenied()
+            false
+        }
+    }
+
+    /**
+     * Hook for [startForegroundServiceIfNeeded]. Production starts the playback
+     * service; tests replace this to simulate Android 12+ background denial.
+     */
+    @VisibleForTesting
+    internal var startForegroundServiceAction: (Intent) -> Unit = { intent ->
+        ContextCompat.startForegroundService(context, intent)
     }
 
     /**
@@ -2616,13 +2646,15 @@ class NowPlayingManager @Inject constructor(
     }
 
     /**
-     * Called by [CorusPlaybackService] when Android refused to promote the
-     * service to the foreground (ForegroundServiceStartNotAllowedException on
-     * API 31+) — i.e. playback was started while the app was backgrounded. We
-     * can't keep audio running without the foreground service, so pause and
+     * Called when Android refused to promote the service to the foreground
+     * (ForegroundServiceStartNotAllowedException on API 31+) — i.e. playback
+     * was started while the app was backgrounded. Fired from
+     * [startForegroundServiceIfNeeded] (the startForegroundService() call
+     * itself) or from [CorusPlaybackService.onStartCommand] (startForeground()).
+     * We can't keep audio running without the foreground service, so pause and
      * clear [foregroundServiceStarted] so the next foreground play() retries the
-     * promotion cleanly. Reached on the main thread from onStartCommand, the
-     * same thread that owns the player, so no dispatch is needed.
+     * promotion cleanly. Reached on the main thread, the same thread that owns
+     * the player, so no dispatch is needed.
      */
     fun onForegroundStartDenied() {
         foregroundServiceStarted = false
@@ -2895,6 +2927,7 @@ class NowPlayingManager @Inject constructor(
 
         spotifyConnectPlayGeneration += 1
         val generation = spotifyConnectPlayGeneration
+        spotifyRequestedTrackConfirmed = false
 
         val previousSourcePostId = _state.value.sourcePostId
         val previousTrackId = _state.value.trackId
@@ -2924,6 +2957,12 @@ class NowPlayingManager @Inject constructor(
         spotifyConnectStartedAt = System.currentTimeMillis()
         if (!wasActive) spotifyConnectWasPlaying = false
         player?.pause()
+        // Start FGS while this is still a user-started play (usually still
+        // foreground). If Connect later fails, preview fallback can reuse the
+        // running service instead of calling startForegroundService from the
+        // background (ForegroundServiceStartNotAllowedException on API 31+).
+        ensurePlayerAndSession()
+        startForegroundServiceIfNeeded()
 
         val expectedTrackId = pending.trackId
         val replaceQueue = replaceSpotifyQueue || !wasActive || isFeedTrackSwitch
@@ -2985,6 +3024,7 @@ class NowPlayingManager @Inject constructor(
         }
 
         installSpotifyConnectDelegates()
+        markSpotifyRequestedTrackConfirmedIfNeeded()
         spotifyPlaybackService.currentTrackUri.value?.let { maybeRollbackSpeculativeAwaySkip(it) }
         spotifyUriToQueueIndex[resolvedUri!!] = currentQueueIndex ?: 0
         spotifyExpectedTrackUri = null
@@ -3051,6 +3091,7 @@ class NowPlayingManager @Inject constructor(
                     "SpotifyPlayback",
                     "Connect verify timed out — keeping Connect session",
                 )
+                markSpotifyRequestedTrackConfirmedIfNeeded()
                 clearSpotifyHandoffFailureSuppression()
                 refreshSpotifyFastPathSkipGuardWhenLocked()
                 return
@@ -3105,6 +3146,7 @@ class NowPlayingManager @Inject constructor(
                     _state.value = _state.value.copy(isPlaying = true)
                     onPlaybackBecamePlaying(expectedTrackId)
                 }
+                markSpotifyRequestedTrackConfirmedIfNeeded()
                 clearSpotifyHandoffFailureSuppression()
                 refreshSpotifyFastPathSkipGuardWhenLocked()
                 return
@@ -3121,6 +3163,7 @@ class NowPlayingManager @Inject constructor(
             _isResolvingSpotify.value = false
             return
         }
+        markSpotifyRequestedTrackConfirmedIfNeeded()
         clearSpotifyHandoffFailureSuppression()
         refreshSpotifyFastPathSkipGuardWhenLocked()
     }
@@ -3128,7 +3171,10 @@ class NowPlayingManager @Inject constructor(
     private fun installSpotifyConnectDelegates() {
         clearExternalSpotifyListening()
         spotifyPlaybackService.onTrackEnded = { handleSpotifyConnectTrackEnded() }
-        spotifyPlaybackService.onPlayerTrackChanged = { uri -> reconcileSpotifyQueuePosition(uri) }
+        spotifyPlaybackService.onPlayerTrackChanged = { uri ->
+            markSpotifyRequestedTrackConfirmedIfNeeded(uri)
+            reconcileSpotifyQueuePosition(uri)
+        }
         spotifyPlaybackService.onLibraryContextDetected = {
             handleLibraryPickContext()
         }
@@ -3141,6 +3187,7 @@ class NowPlayingManager @Inject constructor(
         }
         spotifyPlaybackService.onPlayerStateUpdated = {
             if (isSpotifyConnectPlaying) {
+                markSpotifyRequestedTrackConfirmedIfNeeded()
                 refreshSpotifyFastPathSkipGuardForUpcomingTrackIfNeeded()
                 if (!spotifyScrubberHoldAtZero &&
                     !userInitiatedPause &&
@@ -3216,6 +3263,17 @@ class NowPlayingManager @Inject constructor(
             spotifyPlaybackService.forcePauseAfterFailedHandoff()
         }
         silentlyHaltSpotifyForPreview()
+        if (!foregroundServiceStarted && corusAppIsBackgrounded()) {
+            // Preview needs a media FGS. We are already backgrounded and never
+            // got one — startForegroundService() would throw. Stay paused; the
+            // next foreground play() retries.
+            android.util.Log.w(
+                "SpotifyPlayback",
+                "Skipping preview fallback — backgrounded without FGS",
+            )
+            _state.value = _state.value.copy(isPlaying = false)
+            return
+        }
         playInternal(track, userInitiated = userInitiated, forceSwitch = true)
     }
 
@@ -3245,6 +3303,7 @@ class NowPlayingManager @Inject constructor(
         spotifyQueueTransitionUntil = null
         spotifyCorusRequestedUri = null
         spotifyCorusRequestedUntil = null
+        spotifyRequestedTrackConfirmed = false
         spotifyPendingExternalUri = null
         spotifyScrubberHoldAtZero = false
         spotifyScrubberHoldUntilTrackChangeFromUri = null
@@ -3465,6 +3524,19 @@ class NowPlayingManager @Inject constructor(
         return System.currentTimeMillis() < until
     }
 
+    private fun markSpotifyRequestedTrackConfirmedIfNeeded(
+        uri: String? = spotifyPlaybackService.currentTrackUri.value,
+    ) {
+        if (spotifyRequestedTrackConfirmed) return
+        val requested = spotifyCorusRequestedUri ?: return
+        val reported = uri ?: return
+        if (spotifyCorusRecentlyRequested(reported) ||
+            spotifyUriMatchesExpected(reported, requested)
+        ) {
+            spotifyRequestedTrackConfirmed = true
+        }
+    }
+
     /**
      * During a Corus-initiated play handoff, Spotify often reports stale queue
      * state (e.g. the next feed entry) before the requested track starts. Ignore
@@ -3498,6 +3570,7 @@ class NowPlayingManager @Inject constructor(
                 playIntentInFlight = true,
                 userRequestedFeedSkip = false,
                 reportedIsNextQueueEntry = reportedIsNext,
+                requestedTrackConfirmed = spotifyRequestedTrackConfirmed,
             )
         ) {
             android.util.Log.i(
@@ -3641,6 +3714,7 @@ class NowPlayingManager @Inject constructor(
         spotifyFeedSkipRequestedUntil = null
         spotifyCorusRequestedUri = null
         spotifyCorusRequestedUntil = null
+        spotifyRequestedTrackConfirmed = false
         spotifyPlaybackService.clearFastPathPlaybackGuard()
         val alreadyOnKeep = spotifyPlaybackService.currentTrackUri.value?.let {
             SpotifyPlaybackService.spotifyURIsMatch(it, keepUri)
@@ -3689,6 +3763,7 @@ class NowPlayingManager @Inject constructor(
         spotifyQueueTransitionUntil = null
         spotifyCorusRequestedUri = null
         spotifyCorusRequestedUntil = null
+        spotifyRequestedTrackConfirmed = false
         spotifyPendingExternalUri = null
         clearSpeculativeAwaySkip()
         isSpotifyConnectPlaying = false
@@ -4425,6 +4500,7 @@ class NowPlayingManager @Inject constructor(
                 lockedOrBackgrounded = lockedOrBackgrounded,
                 positionSec = spotifyPlaybackService.positionSeconds.value,
                 durationSec = spotifyPlaybackService.durationSeconds.value,
+                requestedTrackConfirmed = spotifyRequestedTrackConfirmed,
             )
         ) {
             return

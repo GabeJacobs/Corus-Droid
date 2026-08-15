@@ -23,9 +23,13 @@ internal object SpotifyConnectFastPath {
         lockedOrBackgrounded: Boolean,
         positionSec: Double,
         durationSec: Double,
+        requestedTrackConfirmed: Boolean = false,
     ): Boolean {
         if (!connectPlaying || !hasNext) return false
-        if (feedSkipInFlight || playIntentInFlight) return false
+        if (feedSkipInFlight) return false
+        // Block only while the requested track is still starting — after
+        // confirm, lock-screen Next must pre-arm the upcoming Corus URI.
+        if (playIntentInFlight && !requestedTrackConfirmed) return false
         return lockedOrBackgrounded || isNearEnd(positionSec, durationSec)
     }
 

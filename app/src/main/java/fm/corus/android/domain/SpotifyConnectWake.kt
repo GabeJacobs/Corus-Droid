@@ -38,12 +38,17 @@ internal object SpotifyConnectWake {
      * After play(requested), App Remote often emits the leftover native-queue
      * next (the following Corus feed entry) before the requested track is
      * current. Adopting that URI moves chrome while the tapped song is still
-     * audible. User Next / lock-screen skip sets [userRequestedFeedSkip] so
-     * those still adopt.
+     * audible. Once [requestedTrackConfirmed], a next URI is Control Center
+     * Next and must adopt. User Next / lock-screen skip sets
+     * [userRequestedFeedSkip] so those still adopt during the blip.
      */
     fun shouldIgnoreStaleNextDuringHandoff(
         playIntentInFlight: Boolean,
         userRequestedFeedSkip: Boolean,
         reportedIsNextQueueEntry: Boolean,
-    ): Boolean = playIntentInFlight && !userRequestedFeedSkip && reportedIsNextQueueEntry
+        requestedTrackConfirmed: Boolean,
+    ): Boolean = playIntentInFlight &&
+        !userRequestedFeedSkip &&
+        reportedIsNextQueueEntry &&
+        !requestedTrackConfirmed
 }

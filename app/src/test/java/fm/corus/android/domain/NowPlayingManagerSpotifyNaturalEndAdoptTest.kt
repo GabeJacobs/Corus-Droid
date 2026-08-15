@@ -306,6 +306,24 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
     }
 
     @Test
+    fun controlCenterNextAdoptsAfterRequestedTrackConfirmed() = runTest(testDispatcher) {
+        val manager = newManager()
+        val ladies = track("ladies-cc", "Ladies")
+        val unluck = track("unluck-cc", "Unluck")
+        seedConnect(manager, listOf(ladies, unluck), ladies)
+        currentTrackUri.value = unluck.spotifyURI
+        isPlaying.value = true
+        manager.testingArmCorusPlayIntent(ladies.spotifyURI!!)
+        manager.testingMarkRequestedTrackConfirmed()
+
+        manager.testingReconcileSpotifyQueuePosition(unluck.spotifyURI!!)
+
+        assertEquals(unluck.trackId, manager.state.value.trackId)
+        assertEquals("Unluck", manager.state.value.trackName)
+        manager.stop()
+    }
+
+    @Test
     fun userFeedSkipDuringHandoffStillAdoptsNext() = runTest(testDispatcher) {
         val manager = newManager()
         val ladies = track("ladies-skip", "Ladies")

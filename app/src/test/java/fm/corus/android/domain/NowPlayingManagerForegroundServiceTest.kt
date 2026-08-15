@@ -1,6 +1,8 @@
 package fm.corus.android.domain
 
+import android.app.Application
 import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.UserRepository
@@ -13,33 +15,38 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Regression coverage for the foreground-start denial recovery path
  * (ForegroundServiceStartNotAllowedException on API 31+).
  *
- * When Android refuses to promote [fm.corus.android.service.CorusPlaybackService]
- * to the foreground — playback was kicked off while the app was backgrounded —
- * the service catches the exception (previously an uncaught crash:
- * CorusPlaybackService.onStartCommand) and calls
- * [NowPlayingManager.onForegroundStartDenied] to recover instead of crashing.
+ * Android can refuse the promotion in two places:
+ * 1. [NowPlayingManager.startForegroundServiceIfNeeded] —
+ *    `startForegroundService()` itself throws while the app is backgrounded
+ *    (1.4.2 crash: Spotify failure → preview fallback).
+ * 2. [fm.corus.android.service.CorusPlaybackService.onStartCommand] —
+ *    `startForeground()` throws after the service process has started.
  *
- * This verifies that hook's public contract: it pauses (clears the playing
- * state) and is safe to call when no player is active, which is exactly the
- * timing in the denial scenario. The service-side try/catch around
- * startForeground() itself is exercised at runtime / on-device, since the
- * system exception can't be faithfully simulated off-device.
+ * Both recover through [NowPlayingManager.onForegroundStartDenied]: pause,
+ * clear the started flag, and let the next foreground play() retry.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], application = Application::class)
 class NowPlayingManagerForegroundServiceTest {
 
     private val testDispatcher = StandardTestDispatcher()
-    private val context = mock<Context>()
+    private lateinit var context: Context
     private val cloudFunctions = mock<CloudFunctionsDataSource>()
     private val preferencesDataStore = mock<PreferencesDataStore> {
         on { autoplayNextSong } doReturn MutableStateFlow(true)
@@ -55,6 +62,7 @@ class NowPlayingManagerForegroundServiceTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        context = ApplicationProvider.getApplicationContext()
     }
 
     @After
@@ -82,5 +90,33 @@ class NowPlayingManagerForegroundServiceTest {
         manager.onForegroundStartDenied()
 
         assertFalse(manager.isPlaying)
+    }
+
+    @Test
+    fun startForegroundServiceIfNeeded_denial_recoversWithoutThrowing() = runTest {
+        val manager = newManager()
+        manager.startForegroundServiceAction = {
+            throw IllegalStateException("startForegroundService() not allowed")
+        }
+
+        assertFalse(manager.startForegroundServiceIfNeeded())
+        assertFalse(manager.isPlaying)
+    }
+
+    @Test
+    fun startForegroundServiceIfNeeded_denial_allowsLaterRetry() = runTest {
+        val manager = newManager()
+        var attempts = 0
+        manager.startForegroundServiceAction = {
+            attempts++
+            if (attempts == 1) {
+                throw IllegalStateException("startForegroundService() not allowed")
+            }
+        }
+
+        assertFalse(manager.startForegroundServiceIfNeeded())
+        assertTrue(manager.startForegroundServiceIfNeeded())
+        assertTrue(manager.startForegroundServiceIfNeeded())
+        assertEquals(2, attempts)
     }
 }

@@ -91,6 +91,22 @@ class SpotifyConnectFastPathTest {
     }
 
     @Test
+    fun playIntentArmsUpcomingAfterRequestedTrackConfirmed() {
+        assertTrue(
+            SpotifyConnectFastPath.shouldArmUpcomingSkipGuard(
+                connectPlaying = true,
+                hasNext = true,
+                feedSkipInFlight = false,
+                playIntentInFlight = true,
+                lockedOrBackgrounded = true,
+                positionSec = 5.0,
+                durationSec = 180.0,
+                requestedTrackConfirmed = true,
+            ),
+        )
+    }
+
+    @Test
     fun playExpectedOnMisrouteOnlyWhenLocked() {
         assertTrue(SpotifyConnectFastPath.shouldPlayExpectedOnMisroute(locked = true))
         assertFalse(SpotifyConnectFastPath.shouldPlayExpectedOnMisroute(locked = false))

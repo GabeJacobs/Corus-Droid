@@ -68,6 +68,7 @@ class SpotifyConnectWakeTest {
                 playIntentInFlight = true,
                 userRequestedFeedSkip = false,
                 reportedIsNextQueueEntry = true,
+                requestedTrackConfirmed = false,
             ),
         )
         assertFalse(
@@ -75,6 +76,7 @@ class SpotifyConnectWakeTest {
                 playIntentInFlight = true,
                 userRequestedFeedSkip = true,
                 reportedIsNextQueueEntry = true,
+                requestedTrackConfirmed = false,
             ),
         )
         assertFalse(
@@ -82,6 +84,7 @@ class SpotifyConnectWakeTest {
                 playIntentInFlight = false,
                 userRequestedFeedSkip = false,
                 reportedIsNextQueueEntry = true,
+                requestedTrackConfirmed = false,
             ),
         )
         assertFalse(
@@ -89,6 +92,15 @@ class SpotifyConnectWakeTest {
                 playIntentInFlight = true,
                 userRequestedFeedSkip = false,
                 reportedIsNextQueueEntry = false,
+                requestedTrackConfirmed = false,
+            ),
+        )
+        assertFalse(
+            SpotifyConnectWake.shouldIgnoreStaleNextDuringHandoff(
+                playIntentInFlight = true,
+                userRequestedFeedSkip = false,
+                reportedIsNextQueueEntry = true,
+                requestedTrackConfirmed = true,
             ),
         )
     }
