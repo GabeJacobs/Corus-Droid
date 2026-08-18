@@ -24,6 +24,7 @@ enum class SearchSection(val value: String) {
     TrendingSongs("trending_songs"),
     TrendingFilms("trending_films"),
     TrendingHashtags("trending_hashtags"),
+    ArtistsOnCorus("artists_on_corus"),
 }
 
 @Singleton

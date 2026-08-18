@@ -306,6 +306,11 @@ class RemoteConfigService @Inject constructor(
     val unifiedSearchEnabled: Boolean
         get() = feedFlag("unified_search_enabled")
 
+    /// Search zero-state rail of admin-curated artists who use Corus.
+    /// Shares `artists_on_corus_section_enabled` with iOS/web.
+    val artistsOnCorusSectionEnabled: Boolean
+        get() = feedFlag("artists_on_corus_section_enabled")
+
     /// Unified compose picker: one search field over songs AND films with
     /// All/Songs/Films chips and a blended zero state (recently saved +
     /// trending, last-posted medium leading) instead of the Songs/Films
@@ -525,6 +530,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("comment_entity_attachments_enabled", remoteConfig.getBoolean("comment_entity_attachments_enabled"))
             .putBoolean("profile_share_enabled", remoteConfig.getBoolean("profile_share_enabled"))
             .putBoolean("unified_search_enabled", remoteConfig.getBoolean("unified_search_enabled"))
+            .putBoolean("artists_on_corus_section_enabled", remoteConfig.getBoolean("artists_on_corus_section_enabled"))
             .putBoolean("compose_unified_search_enabled", remoteConfig.getBoolean("compose_unified_search_enabled"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
@@ -616,6 +622,7 @@ class RemoteConfigService @Inject constructor(
             "comment_entity_attachments_enabled" to false,
             "profile_share_enabled" to false,
             "unified_search_enabled" to false,
+            "artists_on_corus_section_enabled" to false,
             "compose_unified_search_enabled" to false,
             "feed_switch_hint_enabled" to false,
             // Default FALSE in code — the server-side param defaults true (web

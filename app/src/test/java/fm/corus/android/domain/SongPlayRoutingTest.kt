@@ -104,12 +104,24 @@ class SongPlayRoutingTest {
     }
 
     @Test
-    fun appleOnlyTrackShowsAppleMusicToSpotifyViewer() {
+    fun unresolvedAppleSourceKeepsSpotifyForSpotifyViewer() {
+        assertEquals(
+            MusicService.SPOTIFY,
+            SongPlayRouting.displayedLinkOutService(
+                TrackSource.APPLEMUSIC,
+                MusicService.SPOTIFY,
+            ),
+        )
+    }
+
+    @Test
+    fun confirmedNotOnSpotifyShowsAppleMusicToSpotifyViewer() {
         assertEquals(
             MusicService.APPLE_MUSIC,
             SongPlayRouting.displayedLinkOutService(
                 TrackSource.APPLEMUSIC,
                 MusicService.SPOTIFY,
+                knownNotOnSpotify = true,
             ),
         )
     }

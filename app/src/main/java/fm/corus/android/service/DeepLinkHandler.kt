@@ -106,7 +106,7 @@ object DeepLinkHandler {
                 if (commentId != null) DeepLinkDestination.PostComment(postId, commentId)
                 else DeepLinkDestination.Post(postId)
             }
-            "like", "save", "new_post" -> data["postId"]?.let { DeepLinkDestination.Post(it) }
+            "like", "save", "new_post", "trending", "play_milestone" -> data["postId"]?.let { DeepLinkDestination.Post(it) }
             "taste_match" -> {
                 val subtype = data["subtype"]
                 val postId = data["postId"]

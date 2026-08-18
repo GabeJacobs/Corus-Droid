@@ -182,10 +182,10 @@ internal fun Modifier.extendIntoStatusBar(extraTopPx: Int): Modifier =
         }
     }
 
-/** The frosted bottom bar's height, published by MainTabScreen so scrollable screens
- *  can clear it (add to `contentPadding` bottom) while their content still scrolls
- *  under it. 0.dp when the frosted bottom bar is off. */
 val LocalBottomBarHeight = compositionLocalOf { 0.dp }
+
+fun liftAboveReservedChrome(ime: Dp, reservedChrome: Dp): Dp =
+    (ime - reservedChrome).coerceAtLeast(0.dp)
 
 /**
  * Consume taps on non-interactive bar chrome so they don't fall through to

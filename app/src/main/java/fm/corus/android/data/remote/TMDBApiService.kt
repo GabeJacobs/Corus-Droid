@@ -1,6 +1,7 @@
 package fm.corus.android.data.remote
 
 import com.google.firebase.functions.FirebaseFunctions
+import fm.corus.android.data.model.CymbalMovie
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -48,9 +49,61 @@ class TMDBApiService @Inject constructor(
             ?: throw IllegalStateException("tmdbProxy returned no body")
     }
 
+    /**
+     * Shaped film search (`searchFilms`). Older builds still call
+     * [searchMovies] / `tmdbProxy` `search` and decode raw TMDB JSON.
+     */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun searchFilms(query: String, page: Int = 1): Pair<List<CymbalMovie>, Boolean> {
+        val result = functions.getHttpsCallable("searchFilms").call(
+            mapOf("query" to query, "page" to page)
+        ).await()
+        val data = result.getData() as? Map<*, *> ?: return emptyList<CymbalMovie>() to false
+        val rows = data["films"] as? List<*> ?: emptyList<Any>()
+        val films = rows.mapNotNull { parseSearchFilm(it) }
+        val hasMore = data["hasMore"] as? Boolean ?: false
+        return films to hasMore
+    }
+
     suspend fun searchMovies(query: String, page: Int = 1): TMDBSearchResponse {
         val body = callTmdb(mapOf("action" to "search", "query" to query, "page" to page))
         return json.decodeFromString(body)
+    }
+
+    private fun parseSearchFilm(raw: Any?): CymbalMovie? {
+        val row = raw as? Map<*, *> ?: return null
+        val rawId = row["id"]?.toString()?.removePrefix("tmdb_")?.trim().orEmpty()
+        if (rawId.isEmpty() || rawId.toIntOrNull() == null) return null
+        val title = row["title"]?.toString()?.trim().orEmpty()
+        if (title.isEmpty()) return null
+        val posterURL = row["posterURL"]?.toString()?.takeIf { it.isNotBlank() }
+            ?: return null
+        val posterLargeURL = row["posterLargeURL"]?.toString()?.takeIf { it.isNotBlank() }
+        val year = when (val y = row["releaseYear"]) {
+            is Number -> if (y.toInt() > 0) y.toInt().toString() else ""
+            else -> ""
+        }
+        val rating = when (val r = row["rating"]) {
+            is Number -> r.toDouble()
+            else -> 0.0
+        }
+        val directorIds = (row["directorIds"] as? List<*>)
+            ?.mapNotNull { it?.toString()?.takeIf { id -> id.isNotBlank() } }
+            ?: emptyList()
+        return CymbalMovie(
+            id = rawId,
+            title = title,
+            directorName = row["director"]?.toString().orEmpty(),
+            directorIds = directorIds,
+            year = year,
+            posterURL = posterURL,
+            posterLargeURL = posterLargeURL,
+            tmdbWebURL = row["tmdbWebURL"]?.toString()
+                ?: "https://www.themoviedb.org/movie/$rawId",
+            overview = row["overview"]?.toString().orEmpty(),
+            rating = rating,
+            releaseDate = row["releaseDate"]?.toString()?.takeIf { it.isNotBlank() },
+        )
     }
 
     suspend fun getMovieDetails(movieId: Int): TMDBMovieDetails {

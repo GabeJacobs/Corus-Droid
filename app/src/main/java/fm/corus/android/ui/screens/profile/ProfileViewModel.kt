@@ -114,6 +114,9 @@ class ProfileViewModel @Inject constructor(
             track, musicServicePreference.current.value, cloudFunctions,
         )
 
+    suspend fun resolveSpotifyFromAppleTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
+        fm.corus.android.domain.MusicServiceLinkOut.resolveSpotifyUrlForAppleTrack(track, cloudFunctions)
+
     val isClubMember = subscriptionRepository.isClubMember
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
 

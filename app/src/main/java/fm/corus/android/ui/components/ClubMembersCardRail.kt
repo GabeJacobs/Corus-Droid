@@ -59,7 +59,11 @@ fun ClubMembersCardRail(
     onFollowTap: (CymbalUser) -> Unit,
     memberSinceLabel: (Date) -> String,
     modifier: Modifier = Modifier,
-    viewModel: ClubMembersCardRailViewModel = hiltViewModel(),
+    preserveOrder: Boolean = false,
+    subtitleForUser: ((CymbalUser) -> String)? = null,
+    preferDisplayName: Boolean = false,
+    viewModelKey: String = "clubMembers",
+    viewModel: ClubMembersCardRailViewModel = hiltViewModel(key = viewModelKey),
 ) {
     val enriched by viewModel.enriched.collectAsState()
 
@@ -71,7 +75,9 @@ fun ClubMembersCardRail(
     // see new sign-ups they don't yet follow at the front. Each subgroup
     // keeps the server's `clubMemberSince desc` order. Mirrors iOS
     // `HorizontalClubMembersRail.displayMatches`.
-    val orderedUsers = run {
+    val orderedUsers = if (preserveOrder) {
+        users.take(VISIBLE_CAP)
+    } else {
         val unfollowed = users.filter { it.id !in followedIds }
         val followed = users.filter { it.id in followedIds }
         (unfollowed + followed).take(VISIBLE_CAP)
@@ -96,12 +102,14 @@ fun ClubMembersCardRail(
                         isFollowing = user.id in followedIds,
                         onUserTap = { onUserTap(user) },
                         onFollowTap = { onFollowTap(user) },
-                        subtitle = user.clubMemberSince?.let(memberSinceLabel).orEmpty(),
-                        // "Member since X ago" is always one line — don't reserve
-                        // a permanently-empty second line. Matches iOS
-                        // (subtitleReservesTwoLines: false) and the Popular /
+                        subtitle = subtitleForUser?.invoke(user)
+                            ?: user.clubMemberSince?.let(memberSinceLabel).orEmpty(),
+                        // Display name (or member-since fallback) is one line —
+                        // don't reserve a permanently-empty second line. Matches
+                        // iOS (subtitleReservesTwoLines: false) and the Popular /
                         // Mutual Connections rails, which also pass subtitleLines = 1.
                         subtitleLines = 1,
+                        preferDisplayName = preferDisplayName,
                         modifier = Modifier.width(cardWidth),
                     )
                 } else {

@@ -98,6 +98,14 @@ class DeepLinkHandlerTest {
     }
 
     @Test
+    fun `trending notification opens the post`() {
+        val dest = DeepLinkHandler.parseNotificationData(
+            mapOf("type" to "trending", "postId" to "post_123"),
+        )
+        assertEquals(DeepLinkDestination.Post("post_123"), dest)
+    }
+
+    @Test
     fun `fallback ignores empty postId and uses fromUserId`() {
         val data = mapOf(
             "postId" to "",

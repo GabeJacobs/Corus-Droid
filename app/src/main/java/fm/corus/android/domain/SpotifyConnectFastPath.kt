@@ -107,22 +107,50 @@ internal object SpotifyConnectFastPath {
     }
 
     /**
-     * After the context wait: a changed context is a Spotify-app pick.
-     * Same album/playlist, or no context event, is Control Center Next.
-     * Same `spotify:track:` context is often a stale first event before
-     * Liked Songs delivers `collection` — do not force on that yet.
+     * After the context wait: snap back unless the user opened a new Spotify
+     * library page. A radio / playlist-mix rewrite (Android Auto Next, Control
+     * Center Next) is not a tap — [contextLooksLikeManualPick] is too wide
+     * for that and used to relinquish the feed.
+     * Same album/artist context is Control Center Next. Same `spotify:track:`
+     * context is often a stale first event before Liked Songs delivers
+     * `collection` — do not force on that yet.
      */
     fun shouldForceAdvanceWhenAway(
         awaitingContext: Boolean,
         previousContext: String?,
         incomingContext: String?,
+        incomingType: String? = null,
+        incomingTitle: String? = null,
     ): Boolean {
         if (awaitingContext) return false
-        if (contextLooksLikeManualPick(previousContext, incomingContext)) return false
+        if (contextLooksLikeLibraryPick(incomingContext, incomingType, incomingTitle)) {
+            // Same album/artist page is Next. A *new* library page, or no
+            // previous page to compare, is a tap — don't steal it.
+            if (previousContext.isNullOrEmpty() || previousContext != incomingContext) {
+                return false
+            }
+        }
         if (incomingContext == null) return true
         if (isTrackLevelContext(previousContext) && previousContext == incomingContext) {
             return false
         }
+        return true
+    }
+
+    /**
+     * Context-before-track means the user opened a Spotify page and started
+     * playback. Honor that only while Corus is paused (Spotify in front).
+     * When Corus is fully stopped (Android Auto, home, lock), Spotify also
+     * rewrites context to radio on Next — that is not a tap.
+     */
+    fun shouldHonorContextTakeoverAsSpotifyTap(
+        locked: Boolean,
+        awayFromForeground: Boolean,
+        fullyBackgrounded: Boolean,
+    ): Boolean {
+        if (locked) return false
+        if (!awayFromForeground) return false
+        if (fullyBackgrounded) return false
         return true
     }
 }

@@ -48,7 +48,6 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.domain.TrailerPlaybackCoordinator
 import fm.corus.android.ui.components.CorusHeaderIconButton
-import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.ImmersiveBarHeight
 import fm.corus.android.ui.components.ImmersiveCollapsingBar
@@ -307,7 +306,7 @@ fun FilmDetailScreen(
                 .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier)
                 .contentHazeSource(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl + LocalBottomBarHeight.current),
+            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
         ) {
             // Film header
             item {
@@ -424,40 +423,54 @@ fun FilmDetailScreen(
 
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
 
-                    // Title + year
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = header.movieTitle ?: "",
-                            style = CorusFont.songTitleLarge,
-                            color = CorusColors.Text,
-                            textAlign = TextAlign.Center,
-                        )
-                        if (!header.releaseYear.isNullOrBlank()) {
-                            Text(
-                                text = stringResource(R.string.film_detail_year_format, header.releaseYear),
-                                style = CorusFont.artistName,
-                                color = CorusColors.Tertiary,
-                            )
-                        }
-                    }
+                    // Title is its own block so wrapping names stay centered.
+                    // Year lives on the director line ("Director · 2026").
+                    Text(
+                        text = header.movieTitle ?: "",
+                        style = CorusFont.songTitleLarge,
+                        color = CorusColors.Text,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = CorusSpacing.lg),
+                    )
 
-                    // Director — tappable whenever the artist-pages flag is on;
-                    // goToDirector uses a known id (post / prior resolve) or
-                    // resolves it on tap. Style unchanged (no accent, no underline).
-                    if (!header.directorName.isNullOrBlank()) {
+                    val directorName = header.directorName
+                    val releaseYear = header.releaseYear
+                    val hasDirector = !directorName.isNullOrBlank()
+                    val hasYear = !releaseYear.isNullOrBlank()
+                    if (hasDirector || hasYear) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xxs))
-                        val directorTapModifier = if (onNavigateToDirector != null) {
-                            Modifier.clickable { goToDirector() }
-                        } else Modifier
-                        Text(
-                            text = header.directorName,
-                            style = CorusFont.artistName,
-                            color = CorusColors.Secondary,
-                            modifier = directorTapModifier,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                        ) {
+                            if (hasDirector) {
+                                val directorTapModifier = if (onNavigateToDirector != null) {
+                                    Modifier.clickable { goToDirector() }
+                                } else Modifier
+                                Text(
+                                    text = directorName,
+                                    style = CorusFont.artistName,
+                                    color = CorusColors.Secondary,
+                                    modifier = directorTapModifier,
+                                )
+                            }
+                            if (hasDirector && hasYear) {
+                                Text(
+                                    text = " · ",
+                                    style = CorusFont.artistName,
+                                    color = CorusColors.Secondary,
+                                )
+                            }
+                            if (hasYear) {
+                                Text(
+                                    text = stringResource(R.string.film_detail_year_format, releaseYear),
+                                    style = CorusFont.artistName,
+                                    color = CorusColors.Secondary,
+                                )
+                            }
+                        }
                     }
 
                     // NEW RELEASE tag (web/iOS parity) — recently released films

@@ -240,6 +240,7 @@ data class CymbalPost(
                 // Storefront the appleMusicId is valid in (Apple ids are
                 // storefront-specific); null = unknown -> treat as reachable.
                 appleMusicStorefront = data["appleMusicStorefront"] as? String,
+                notOnSpotify = data["notOnSpotify"] as? Boolean ?: false,
                 parentAlbumUnreleased = data["parentAlbumUnreleased"] as? Boolean ?: false,
                 unavailable = data["trackUnavailable"] as? Boolean ?: false,
                 unavailableReason = (data["trackUnavailableReason"] as? String)?.ifEmpty { null },

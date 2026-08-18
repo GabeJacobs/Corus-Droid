@@ -62,7 +62,6 @@ import fm.corus.android.ui.components.FeedPlayingPill
 import fm.corus.android.ui.components.PostRowFullSongControlXOffset
 import fm.corus.android.ui.components.PostRowServiceControlYOffset
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
-import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
@@ -218,7 +217,7 @@ fun PostDetailScreen(
                         ),
                     contentPadding = PaddingValues(
                         top = if (immersive) frost.contentTopPadding else padding.calculateTopPadding(),
-                        bottom = padding.calculateBottomPadding() + LocalBottomBarHeight.current,
+                        bottom = padding.calculateBottomPadding(),
                     ),
                 ) {
                     // Post header
@@ -302,9 +301,24 @@ fun PostDetailScreen(
                                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
                                     }
                                 } else if (currentPost.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC) {
-                                    val url = currentPost.track.appleMusicURL
-                                    if (!url.isNullOrBlank()) {
-                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                    val displayed = fm.corus.android.domain.SongPlayRouting.displayedLinkOutService(
+                                        currentPost.track.source,
+                                        musicService,
+                                        knownNotOnSpotify = currentPost.track.notOnSpotify,
+                                    )
+                                    if (displayed == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                                        viewModel.analyticsService.logSpotifyLinkTapped(currentPost.track.id)
+                                        scope.launch {
+                                            val url = viewModel.resolveSpotifyFromAppleTrack(currentPost.track)
+                                            if (!url.isNullOrBlank()) {
+                                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                            }
+                                        }
+                                    } else {
+                                        val url = currentPost.track.appleMusicURL
+                                        if (!url.isNullOrBlank()) {
+                                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                        }
                                     }
                                 } else if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
                                     val spotifyUri = currentPost.track.spotifyURI
@@ -922,7 +936,11 @@ private fun PostDetailSongInfo(
                 }
                 val displayedService = when {
                     isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY ->
-                        fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                        fm.corus.android.domain.SongPlayRouting.displayedLinkOutService(
+                            post.track.source,
+                            musicService,
+                            knownNotOnSpotify = post.track.notOnSpotify,
+                        )
                     musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC && !hasAppleMusicEquivalent ->
                         fm.corus.android.data.model.MusicService.SPOTIFY
                     else -> musicService

@@ -313,7 +313,7 @@
     <string name="film_detail_post_film">Publier un film</string>
     <string name="film_detail_watch_trailer">Voir la bande-annonce</string>
     <string name="film_detail_where_to_watch">Où regarder</string>
-    <string name="film_detail_year_format">(%1$s)</string>
+    <string name="film_detail_year_format">%1$s</string>
     <string name="film_detail_posted_by">Publié par</string>
     <string name="film_detail_load_error">Impossible de charger les publications</string>
     <string name="film_detail_try_again">Réessayer</string>
@@ -503,6 +503,7 @@
     <string name="search_section_popular">POPULAIRE SUR CORUS</string>
     <string name="search_section_new">NOUVEAU SUR CORUS</string>
     <string name="search_section_club_members">MEMBRES DE CORUS CLUB</string>
+    <string name="search_section_artists_on_corus">ARTISTES ET LABELS</string>
     <string name="search_section_curated_music_bots">BOTS DE MUSIQUE SÉLECTIONNÉS</string>
     <string name="search_section_curated_film_bots">BOTS DE FILMS SÉLECTIONNÉS</string>
     <string name="search_section_trending_this_month">EN TENDANCE CE MOIS-CI</string>
@@ -532,6 +533,7 @@
     <string name="search_popular_title">Populaires sur Corus</string>
     <string name="search_new_title">Nouveau sur Corus</string>
     <string name="search_club_members_title">Membres de Corus Club</string>
+    <string name="search_artists_on_corus_title">Artistes et labels</string>
     <string name="search_filter_all">Tout</string>
     <string name="search_filter_unfollowed">Non suivis</string>
     <string name="search_subtitle_from_contacts">Parmi tes contacts</string>
@@ -618,6 +620,7 @@
     <string name="notif_taste_match_fallback_film">un film</string>
     <string name="notif_msg_favorite">t\'a ajouté à ses favoris.</string>
     <string name="notif_msg_play_milestone">Ton corus a été écouté %1$d fois.</string>
+    <string name="notif_msg_trending">Ton corus est en tendance.</string>
     <string name="notif_favorite_someone">Quelqu\'un</string>
     <string name="notif_favorite_sheet_title">Quelqu\'un est fan</string>
     <string name="notif_favorite_sheet_body">Quelqu\'un t\'a ajouté à ses favoris pour suivre tes publications plus facilement.</string>

@@ -43,6 +43,7 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.ui.screens.feed.EditCaptionSheet
 import fm.corus.android.ui.theme.CorusColors
@@ -208,6 +209,7 @@ fun PostMenuSheets(
                     openTrackInPreferredService(
                         context, scope, post, musicService,
                         actions.analyticsService, actions::resolveServiceLinkUrl,
+                        actions::resolveSpotifyFromAppleTrack,
                     )
                 },
                 onAddToQueue = {
@@ -373,6 +375,7 @@ fun openTrackInPreferredService(
     musicService: MusicService,
     analytics: AnalyticsService,
     resolveServiceLinkUrl: suspend (CymbalTrack) -> String?,
+    resolveSpotifyFromAppleTrack: suspend (CymbalTrack) -> String? = { null },
 ) {
     val track = post.track
     fun open(url: String?) {
@@ -391,12 +394,18 @@ fun openTrackInPreferredService(
         track.source == TrackSource.DEEZER -> open(track.deezerURL)
         track.source == TrackSource.APPLEMUSIC &&
             (musicService == MusicService.SPOTIFY || musicService == MusicService.APPLE_MUSIC) -> {
-            // Apple-only tracks aren't on Spotify, so a Spotify (or Apple Music)
-            // viewer opens directly in Apple Music. URL derives from the resolved
-            // appleMusicId or the `am:`-prefixed trackId. TIDAL/Deezer viewers
-            // fall through to the resolver below (those catalogs carry the track).
-            analytics.logMusicServiceLinkTapped(MusicService.APPLE_MUSIC.value, track.id)
-            open(track.appleMusicURL)
+            val displayed = SongPlayRouting.displayedLinkOutService(
+                track.source,
+                musicService,
+                knownNotOnSpotify = track.notOnSpotify,
+            )
+            if (displayed == MusicService.SPOTIFY) {
+                analytics.logSpotifyLinkTapped(track.id)
+                scope.launch { open(resolveSpotifyFromAppleTrack(track)) }
+            } else {
+                analytics.logMusicServiceLinkTapped(MusicService.APPLE_MUSIC.value, track.id)
+                open(track.appleMusicURL)
+            }
         }
         musicService == MusicService.SPOTIFY -> {
             analytics.logSpotifyLinkTapped(track.id)

@@ -48,6 +48,7 @@ data class CymbalNotification(
             NotificationType.FAVORITE -> "added you to their favorites."
             // Anonymous aggregate — the row prepends "{playCount} people".
             NotificationType.PLAY_MILESTONE -> "played your corus."
+            NotificationType.TRENDING -> "Your corus is trending."
         }
 
     companion object {

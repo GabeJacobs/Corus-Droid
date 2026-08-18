@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -70,7 +71,6 @@ import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.ui.components.FrostedHeaderOverlay
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
-import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.OfflineRetryState
 import fm.corus.android.ui.components.PickerMode
@@ -211,7 +211,7 @@ fun NotificationsScreen(
                     // Loading skeleton — 12 shimmer rows
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = contentTop, bottom = LocalBottomBarHeight.current),
+                        contentPadding = PaddingValues(top = contentTop),
                     ) {
                         items(12) {
                             SkeletonNotificationRow()
@@ -231,7 +231,7 @@ fun NotificationsScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .nestedScroll(dismissKeyboardOnScroll),
-                        contentPadding = PaddingValues(top = contentTop, bottom = LocalBottomBarHeight.current),
+                        contentPadding = PaddingValues(top = contentTop),
                     ) {
                         items(notifications, key = { it.id }) { notification ->
                             NotificationRow(
@@ -534,6 +534,23 @@ private fun NotificationRow(
                     modifier = Modifier.size(20.dp),
                 )
             }
+        } else if (notification.type == NotificationType.TRENDING) {
+            // Same anonymous row as play milestones; chart icon matches
+            // the Trending feed mode.
+            Box(
+                modifier = Modifier
+                    .size(CorusSpacing.avatarMedium)
+                    .clip(CircleShape)
+                    .background(CorusColors.Accent.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.TrendingUp,
+                    contentDescription = null,
+                    tint = CorusColors.Accent,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         } else {
             Box(modifier = Modifier.clickable(onClick = onUserTap)) {
                 UserAvatarView(
@@ -577,6 +594,17 @@ private fun NotificationRow(
         } else if (notification.type == NotificationType.PLAY_MILESTONE) {
             // Anonymous aggregate — the whole "{n} people played your corus."
             // sentence is one localized, count-formatted string (no actor name).
+            buildAnnotatedString {
+                withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
+                    append(localizedNotificationMessage(notification, context))
+                }
+                append(" ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, color = CorusColors.Secondary)) {
+                    append(timeString)
+                }
+            }
+        } else if (notification.type == NotificationType.TRENDING) {
+            // Same anonymous prose as play milestones — no actor to name.
             buildAnnotatedString {
                 withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
                     append(localizedNotificationMessage(notification, context))
@@ -1107,6 +1135,7 @@ private fun localizedNotificationMessage(
             ?: context.getString(R.string.notif_msg_taste_match_default)
         NotificationType.FAVORITE -> context.getString(R.string.notif_msg_favorite)
         NotificationType.PLAY_MILESTONE -> context.getString(R.string.notif_msg_play_milestone, notification.playCount ?: 0)
+        NotificationType.TRENDING -> context.getString(R.string.notif_msg_trending)
     }
 }
 

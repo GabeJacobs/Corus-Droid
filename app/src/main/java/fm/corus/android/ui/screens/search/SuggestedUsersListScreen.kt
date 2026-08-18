@@ -241,6 +241,7 @@ fun SuggestedUsersListScreen(
                                 onFollowTap = { onFollow(match.user) },
                                 subtitle = subtitleForRow(context, match, source),
                                 subtitleLines = subtitleLinesForSource(source),
+                                preferDisplayName = source == "artistsOnCorus",
                             )
                         }
                     }
@@ -260,13 +261,13 @@ fun SuggestedUsersListScreen(
 }
 
 /** Lines reserved for [TasteMatchCard]'s subtitle in the grid. Popular
- *  ("X followers"), New ("joined …"), and Club Members ("member since …")
+ *  ("X followers"), New ("joined …"), and Club Members (display name)
  *  produce fixed single-line strings, so the card's default of 2 would leave a
  *  blank second line; taste matches list shared artist/director names and wrap,
  *  so they keep 2 to hold a uniform card height. Mirrors the branch split in
  *  [subtitleForRow] and matches the rails, which pass subtitleLines = 1. */
 internal fun subtitleLinesForSource(source: String): Int =
-    if (source == "popular" || source == "new" || source == "clubMembers") 1 else 2
+    if (source == "popular" || source == "new" || source == "clubMembers" || source == "artistsOnCorus") 1 else 2
 
 internal fun subtitleForRow(context: android.content.Context, match: SuggestedUserMatch, source: String): String? {
     return when (source) {
@@ -275,11 +276,11 @@ internal fun subtitleForRow(context: android.content.Context, match: SuggestedUs
             context.resources.getQuantityString(fm.corus.android.R.plurals.search_followers_count, count, count)
         }
         "new" -> match.user.createdAt?.let { context.getString(fm.corus.android.R.string.suggested_users_joined_format, DateUtils.relativeTime(context, it)) }
-        // "Member since X ago" from the club join date — mirrors the
-        // ClubMembersCardRail, which the see-all grid otherwise diverged from
-        // (the old `else` branch read mutualNames, which club members lack, so
-        // the subtitle came up empty).
-        "clubMembers" -> match.user.clubMemberSince?.let { context.getString(fm.corus.android.R.string.suggested_users_member_since_format, DateUtils.relativeTime(context, it)) }
+        "clubMembers" -> match.user.displayName.trim().takeIf { it.isNotEmpty() }
+        "artistsOnCorus" -> {
+            val count = match.user.followerCount
+            context.resources.getQuantityString(fm.corus.android.R.plurals.search_followers_count, count, count)
+        }
         else -> formatMutualFollowersText(context, match.suggestionReason?.mutualNames)
     }
 }

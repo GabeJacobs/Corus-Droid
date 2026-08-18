@@ -86,7 +86,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.ui.components.CorusHeaderIconButton
-import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.ImmersiveBarHeight
@@ -361,7 +360,7 @@ fun ArtistPageScreen(
                 .fillMaxSize()
                 .then(if (immersive) Modifier.hazeSource(hazeState) else Modifier)
                 .contentHazeSource(),
-            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl + LocalBottomBarHeight.current),
+            contentPadding = PaddingValues(bottom = CorusSpacing.xxxl + CorusSpacing.xxxl),
         ) {
             // ── Hero: framed 5:3 photo card with the name on a bottom scrim, sitting
             // on the blurred cover backdrop — matches the iOS artist page + the

@@ -62,12 +62,13 @@ class NotificationRepositoryTest {
     fun observeNotifications_keepsAnonymousOnlyBatch() = runTest {
         val favorite = rawNotif("n1", NotificationType.FAVORITE, "")
         val milestone = rawNotif("n2", NotificationType.PLAY_MILESTONE, "")
+        val trending = rawNotif("n3", NotificationType.TRENDING, "")
 
         whenever(firestoreDataSource.observeNotifications(eq("me"), any()))
-            .thenReturn(flowOf(listOf(favorite, milestone)))
+            .thenReturn(flowOf(listOf(favorite, milestone, trending)))
 
         val result = repo.observeNotifications("me").first()
 
-        assertEquals(listOf("n1", "n2"), result.map { it.id })
+        assertEquals(listOf("n1", "n2", "n3"), result.map { it.id })
     }
 }

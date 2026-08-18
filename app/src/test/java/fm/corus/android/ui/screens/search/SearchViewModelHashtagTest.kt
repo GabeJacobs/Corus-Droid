@@ -113,11 +113,10 @@ class SearchViewModelHashtagTest {
     )
 
     @Test
-    fun `hashtags default to month window while songs and films default to week`() =
+    fun `hashtags songs and films all default to week window`() =
         runTest(testDispatcher) {
             // Empty pref flows == nothing stored, so each StateFlow keeps its
-            // stateIn() initial value: hashtags should seed to MONTH, songs and
-            // films should stay on WEEK.
+            // stateIn() initial value: all three seed to WEEK.
             whenever(preferencesDataStore.trendingHashtagsWindow)
                 .thenReturn(kotlinx.coroutines.flow.emptyFlow())
             whenever(preferencesDataStore.trendingSongsWindow)
@@ -128,7 +127,7 @@ class SearchViewModelHashtagTest {
             val vm = createViewModel()
             advanceUntilIdle()
 
-            assertEquals(TrendingWindow.MONTH, vm.trendingHashtagsWindow.value)
+            assertEquals(TrendingWindow.WEEK, vm.trendingHashtagsWindow.value)
             assertEquals(TrendingWindow.WEEK, vm.trendingSongsWindow.value)
             assertEquals(TrendingWindow.WEEK, vm.trendingFilmsWindow.value)
         }

@@ -313,7 +313,7 @@
     <string name="film_detail_post_film">영화 게시</string>
     <string name="film_detail_watch_trailer">예고편 보기</string>
     <string name="film_detail_where_to_watch">볼 수 있는 곳</string>
-    <string name="film_detail_year_format">(%1$s)</string>
+    <string name="film_detail_year_format">%1$s</string>
     <string name="film_detail_posted_by">게시한 사람</string>
     <string name="film_detail_load_error">게시물을 불러오지 못했어요</string>
     <string name="film_detail_try_again">다시 시도</string>
@@ -503,6 +503,7 @@
     <string name="search_section_popular">CORUS 인기</string>
     <string name="search_section_new">CORUS 신규</string>
     <string name="search_section_club_members">CORUS CLUB 멤버</string>
+    <string name="search_section_artists_on_corus">아티스트와 레이블</string>
     <string name="search_section_curated_music_bots">큐레이션 음악 봇</string>
     <string name="search_section_curated_film_bots">큐레이션 영화 봇</string>
     <string name="search_section_trending_this_month">이번 달 인기</string>
@@ -532,6 +533,7 @@
     <string name="search_popular_title">Corus 인기</string>
     <string name="search_new_title">Corus 신규</string>
     <string name="search_club_members_title">Corus Club 멤버</string>
+    <string name="search_artists_on_corus_title">아티스트와 레이블</string>
     <string name="search_filter_all">전체</string>
     <string name="search_filter_unfollowed">팔로우 안 함</string>
     <string name="search_subtitle_from_contacts">연락처에서</string>
@@ -618,6 +620,7 @@
     <string name="notif_taste_match_fallback_film">영화</string>
     <string name="notif_msg_favorite">님이 회원님을 즐겨찾기에 추가했습니다.</string>
     <string name="notif_msg_play_milestone">회원님의 corus가 %1$d번 재생되었어요.</string>
+    <string name="notif_msg_trending">회원님의 corus가 트렌드에 올랐어요.</string>
     <string name="notif_favorite_someone">누군가</string>
     <string name="notif_favorite_sheet_title">팬이 생겼어요</string>
     <string name="notif_favorite_sheet_body">누군가 회원님을 즐겨찾기에 추가해서 회원님의 게시물을 더 쉽게 챙겨 볼 수 있게 되었어요.</string>

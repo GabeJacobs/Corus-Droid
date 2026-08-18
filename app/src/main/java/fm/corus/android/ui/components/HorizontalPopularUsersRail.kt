@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -111,7 +112,7 @@ fun HorizontalPopularUsersRail(
     androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxWidth()) {
         fm.corus.android.ui.screens.search.SectionHeader(
             icon = "fire",
-            title = "POPULAR ON CORUS",
+            title = stringResource(fm.corus.android.R.string.search_section_popular),
             showSeeAll = onSeeAll != null,
             onSeeAll = onSeeAll ?: {},
             trailingAction = trailingAction,

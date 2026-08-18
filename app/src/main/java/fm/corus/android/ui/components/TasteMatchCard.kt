@@ -51,7 +51,7 @@ fun TasteMatchCard(
     isPreviewLoading: Boolean = false,
     isPreviewing: Boolean = false,
     /** Overrides the auto-derived flavor text. Used by the Popular rail to
-     *  show "X followers" and by Mutual Connections to show "via @user1, …". */
+     *  show "X followers" and by Mutual Connections to show "@user1, …". */
     subtitle: String? = null,
     /** Fixed line count reserved for the subtitle. Defaults to 2 so cards in
      *  a grid stay the same height when subtitles wrap variably; pass 1 from
@@ -62,6 +62,9 @@ fun TasteMatchCard(
      *  in the collage instead of the empty logo placeholder so the load reads as
      *  "loading" rather than flashing an empty state. */
     isArtLoading: Boolean = false,
+    /** When true, show displayName on its own line between the username
+     *  and the follower/flavor subtitle. Used by Artists on Corus. */
+    preferDisplayName: Boolean = false,
 ) {
     val user = match.user
     val matchData = match.matchData
@@ -139,17 +142,10 @@ fun TasteMatchCard(
 
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-        // User info: avatar + name row over taste text, start-aligned under the
-        // collage. Mirrors iOS TasteMatchCard.userInfoRow (VStack(.leading) with
-        // a small avatar to the left of the username).
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-        ) {
-            // Avatar + username + flair badge
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+        // User info: avatar + username / display name / flavor. Display name
+        // sits between the handle and the follower/flavor subtitle.
+        Row(
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -161,35 +157,53 @@ fun TasteMatchCard(
                     size = CorusSpacing.avatarSmall,
                 )
 
-                UsernameWithFlair(
-                    username = user.username,
-                    isBot = user.isBot,
-                    isVerified = user.isVerified,
-                    isClubMember = user.isClubMember,
-                    flairStyle = user.flairStyle,
-                    style = CorusFont.username,
-                    color = CorusColors.Text,
-                )
-            }
+                Column(modifier = Modifier.weight(1f)) {
+                    UsernameWithFlair(
+                        username = user.username,
+                        isBot = user.isBot,
+                        isVerified = user.isVerified,
+                        isClubMember = user.isClubMember,
+                        flairStyle = user.flairStyle,
+                        style = CorusFont.username,
+                        color = CorusColors.Text,
+                    )
 
-            // Same priority as buildFlavorText, but the count-based fallback
-            // resolves through localized plurals (taste_card_* — shared with
-            // web's locale files) instead of hardcoded English.
-            val flavorText = subtitle?.takeIf { it.isNotBlank() }
-                ?: buildSharedNamesSubtitle(matchData)
-                ?: localizedBestMatchLabel(matchData)
-            if (!flavorText.isNullOrBlank()) {
-                Text(
-                    text = flavorText,
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                    textAlign = TextAlign.Start,
-                    minLines = subtitleLines,
-                    maxLines = subtitleLines,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                    val displayNameLine = if (preferDisplayName) {
+                        user.officialArtistName?.trim()?.takeIf { it.isNotEmpty() }
+                            ?: user.displayName.trim().takeIf { it.isNotEmpty() }
+                            ?: user.username.trim().takeIf { it.isNotEmpty() }
+                    } else {
+                        null
+                    }
+                    if (displayNameLine != null) {
+                        Text(
+                            text = displayNameLine,
+                            style = CorusFont.caption,
+                            color = CorusColors.Secondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+
+                    // Same priority as buildFlavorText, but the count-based fallback
+                    // resolves through localized plurals (taste_card_* — shared with
+                    // web's locale files) instead of hardcoded English.
+                    val flavorText = subtitle?.takeIf { it.isNotBlank() }
+                        ?: buildSharedNamesSubtitle(matchData)
+                        ?: localizedBestMatchLabel(matchData)
+                    if (!flavorText.isNullOrBlank()) {
+                        Text(
+                            text = flavorText,
+                            style = CorusFont.caption,
+                            color = CorusColors.Secondary,
+                            textAlign = TextAlign.Start,
+                            minLines = subtitleLines,
+                            maxLines = subtitleLines,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
-        }
 
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
@@ -281,7 +295,7 @@ private fun GridTile(url: String?, modifier: Modifier = Modifier) {
 
 /** Subtitle priority for a taste card. Mirrors iOS `matchFlavorText`:
  *   1. Explicit `subtitle` override (Popular = "X followers",
- *      Mutual Connections = "via @x, @y +N").
+ *      Mutual Connections = "@x, @y +N").
  *   2. Shared artist/director names (list format).
  *   3. Song/film match count ("2 song matches" / "1 film match").
  *

@@ -95,13 +95,14 @@ fun MutualConnectionsCardRail(
     }
 }
 
-/** Compact "via @x, @y +N" form sized to fit in the ~170dp card subtitle.
- *  Mirrors iOS MutualConnectionsCardGrid.mutualFollowersSubtitle. */
+/** Compact "@x, @y +N" form sized to fit in the ~170dp card subtitle.
+ *  Mirrors iOS MutualConnectionsCardGrid.mutualFollowersSubtitle. The
+ *  Mutual Connections header already explains the relationship. */
 private fun mutualFollowersSubtitle(names: List<String>): String = when (names.size) {
     0 -> ""
-    1 -> "via @${names[0]}"
-    2 -> "via @${names[0]}, @${names[1]}"
-    else -> "via @${names[0]}, @${names[1]} +${names.size - 2}"
+    1 -> "@${names[0]}"
+    2 -> "@${names[0]}, @${names[1]}"
+    else -> "@${names[0]}, @${names[1]} +${names.size - 2}"
 }
 
 @HiltViewModel

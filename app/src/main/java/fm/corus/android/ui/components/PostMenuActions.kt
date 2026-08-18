@@ -42,6 +42,9 @@ interface PostMenuActions {
      *  Music / TIDAL / Deezer); used by the post menu's "Open in service" row. */
     suspend fun resolveServiceLinkUrl(track: CymbalTrack): String?
 
+    /** Spotify URL for an unresolved Apple-sourced post (lookup, then search). */
+    suspend fun resolveSpotifyFromAppleTrack(track: CymbalTrack): String?
+
     suspend fun resolveAlbumIdForTrack(track: CymbalTrack): String?
 
     /** Full resolveTrackDestinations payload for menu routing (album + Option A). */

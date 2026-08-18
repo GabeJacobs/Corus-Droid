@@ -616,6 +616,10 @@ class UserRepository @Inject constructor(
         return firestoreDataSource.fetchClubMembers(limit, excludeIds)
     }
 
+    suspend fun fetchArtistsOnCorus(): List<CymbalUser> {
+        return cloudFunctions.getArtistsOnCorus()
+    }
+
     // ── Search ──
 
     /**

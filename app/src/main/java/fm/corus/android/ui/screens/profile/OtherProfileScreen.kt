@@ -79,7 +79,6 @@ import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ExpandableBioText
 import fm.corus.android.ui.components.FullScreenAvatarOverlay
 import fm.corus.android.ui.components.ImmersiveFrostedBar
-import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.FeaturedCymbalView
@@ -545,7 +544,7 @@ fun OtherProfileScreen(
                         .fillMaxSize()
                         .padding(top = if (immersive) frost.contentTopPadding else padding.calculateTopPadding()),
                     // Match the loaded grid: clear the shared frosted bottom bar.
-                    contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + LocalBottomBarHeight.current),
+                    contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
                 ) {
                     item(span = { GridItemSpan(3) }) {
                         Column {
@@ -801,10 +800,7 @@ fun OtherProfileScreen(
                 ),
             contentPadding = PaddingValues(
                 top = if (immersive) frost.contentTopPadding else 0.dp,
-                // Clear the shared frosted bottom bar so the last row rests above it;
-                // the grid still scrolls under it. Without this the bottom rows are
-                // trapped behind the bar (and short profiles won't scroll at all).
-                bottom = padding.calculateBottomPadding() + LocalBottomBarHeight.current,
+                bottom = padding.calculateBottomPadding(),
             ),
         ) {
             item(span = { GridItemSpan(3) }) {
@@ -1169,8 +1165,22 @@ fun OtherProfileScreen(
                                             runCatching { featuredCtx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
                                         }
                                     } else if (track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC) {
-                                        track.appleMusicURL?.takeIf { it.isNotBlank() }?.let {
-                                            runCatching { featuredCtx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
+                                        val displayed = fm.corus.android.domain.SongPlayRouting.displayedLinkOutService(
+                                            track.source,
+                                            musicService,
+                                            knownNotOnSpotify = track.notOnSpotify,
+                                        )
+                                        if (displayed == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                                            featuredScope.launch {
+                                                val url = viewModel.resolveSpotifyFromAppleTrack(track)
+                                                if (!url.isNullOrBlank()) {
+                                                    runCatching { featuredCtx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                                }
+                                            }
+                                        } else {
+                                            track.appleMusicURL?.takeIf { it.isNotBlank() }?.let {
+                                                runCatching { featuredCtx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
+                                            }
                                         }
                                     } else if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
                                         val uri = track.spotifyURI.ifBlank { track.spotifyWebURL }

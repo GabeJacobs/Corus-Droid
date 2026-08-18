@@ -1792,6 +1792,17 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
+    suspend fun getArtistsOnCorus(): List<CymbalUser> {
+        val result = functions.getHttpsCallable("getArtistsOnCorus").call(emptyMap<String, Any>()).await()
+        val data = result.getData() as? Map<String, Any?> ?: return emptyList()
+        val rows = data["users"] as? List<Map<String, Any?>> ?: emptyList()
+        return rows.mapNotNull { row ->
+            val uid = row["id"] as? String ?: return@mapNotNull null
+            CymbalUser.fromMap(uid, row)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
     internal fun parseUserRows(rows: List<Map<String, Any?>>): List<SuggestedUserMatch> {
         return rows.mapNotNull { row ->
             val uid = row["id"] as? String ?: return@mapNotNull null

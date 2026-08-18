@@ -191,6 +191,65 @@ class SpotifyConnectFastPathTest {
                 incomingContext = null,
             ),
         )
+        assertTrue(
+            "Android Auto / Control Center Next rewrites context to a radio mix",
+            SpotifyConnectFastPath.shouldForceAdvanceWhenAway(
+                awaitingContext = false,
+                previousContext = "spotify:track:abc",
+                incomingContext = "spotify:playlist:37i9dQZF1F5p3rmiWPIYgZ",
+            ),
+        )
+        assertFalse(
+            "Liked Songs titled as a playlist is still a tap",
+            SpotifyConnectFastPath.shouldForceAdvanceWhenAway(
+                awaitingContext = false,
+                previousContext = "spotify:track:abc",
+                incomingContext = "spotify:playlist:37i9dQZF1F5p3rmiWPIYgZ",
+                incomingType = "playlist",
+                incomingTitle = "Liked Songs",
+            ),
+        )
+        assertFalse(
+            "Unknown previous + album incoming is a tap, not Next",
+            SpotifyConnectFastPath.shouldForceAdvanceWhenAway(
+                awaitingContext = false,
+                previousContext = null,
+                incomingContext = "spotify:album:abc",
+            ),
+        )
+    }
+
+    @Test
+    fun contextTakeoverIsATapOnlyWhileSpotifyIsInFront() {
+        assertTrue(
+            SpotifyConnectFastPath.shouldHonorContextTakeoverAsSpotifyTap(
+                locked = false,
+                awayFromForeground = true,
+                fullyBackgrounded = false,
+            ),
+        )
+        assertFalse(
+            "Android Auto / home / lock — radio context rewrite is not a tap",
+            SpotifyConnectFastPath.shouldHonorContextTakeoverAsSpotifyTap(
+                locked = false,
+                awayFromForeground = true,
+                fullyBackgrounded = true,
+            ),
+        )
+        assertFalse(
+            SpotifyConnectFastPath.shouldHonorContextTakeoverAsSpotifyTap(
+                locked = true,
+                awayFromForeground = true,
+                fullyBackgrounded = true,
+            ),
+        )
+        assertFalse(
+            SpotifyConnectFastPath.shouldHonorContextTakeoverAsSpotifyTap(
+                locked = false,
+                awayFromForeground = false,
+                fullyBackgrounded = false,
+            ),
+        )
     }
 
     @Test

@@ -159,6 +159,21 @@ object MusicServiceLinkOut {
      * remembered — a later tap retries). Mirror of [resolveLinkOutUrlRaw]'s Apple
      * branch in the opposite direction.
      */
+    /**
+     * Spotify URL for an Apple-sourced feed post. Prefers a stamped URI/web
+     * URL; otherwise resolves via [resolveSpotifyFromApple] and falls back to
+     * a Spotify search so the tap stays on Spotify until a confirmed miss.
+     */
+    suspend fun resolveSpotifyUrlForAppleTrack(
+        track: CymbalTrack,
+        cloud: CloudFunctionsDataSource,
+    ): String? {
+        track.spotifyWebURL.takeIf { it.isNotBlank() }?.let { return it }
+        track.spotifyURI.takeIf { it.isNotBlank() }?.let { return it }
+        return resolveSpotifyFromApple(track.id, track.name, track.artistName, track.isrc, cloud)
+            ?: spotifySearchUrl(track.name, track.artistName)
+    }
+
     suspend fun resolveSpotifyFromApple(
         trackId: String,
         name: String,
@@ -244,13 +259,11 @@ object MusicServiceLinkOut {
                 val displayed = SongPlayRouting.displayedLinkOutService(
                     source = state.source,
                     viewer = musicService,
+                    knownNotOnSpotify = knownNotOnSpotify(state.trackId),
                 )
                 when {
-                    isAppleMusic && (
-                        displayed == MusicService.APPLE_MUSIC ||
-                            musicService == MusicService.APPLE_MUSIC
-                        ) -> openAppleSong()
-                    musicService == MusicService.SPOTIFY -> {
+                    isAppleMusic && displayed == MusicService.APPLE_MUSIC -> openAppleSong()
+                    displayed == MusicService.SPOTIFY -> {
                         val uri = state.spotifyURI
                         val webUrl = state.spotifyWebURL
                         val opened = if (!uri.isNullOrBlank()) {
@@ -260,7 +273,11 @@ object MusicServiceLinkOut {
                         } else {
                             false
                         }
-                        if (!opened) open(webUrl)
+                        if (!opened && !webUrl.isNullOrBlank()) {
+                            open(webUrl)
+                        } else if (!opened) {
+                            open(spotifySearchUrl(state.trackName.orEmpty(), state.artistName.orEmpty()))
+                        }
                     }
                     else -> resolveAndOpenLinkOut()
                 }

@@ -69,6 +69,7 @@ import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ImmersiveFrostedBar
 import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.liftAboveReservedChrome
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.PickerMode
@@ -226,7 +227,7 @@ fun SinglePostCommentsScreen(
     // taller: the on-screen keyboard, or that global bar when the keyboard is
     // closed. Without this the composer (and the last comments) hide behind the bar.
     val composerBottomInset = with(LocalDensity.current) {
-        maxOf(WindowInsets.ime.getBottom(this).toDp(), LocalBottomBarHeight.current)
+        liftAboveReservedChrome(WindowInsets.ime.getBottom(this).toDp(), LocalBottomBarHeight.current)
     }
 
     Scaffold(
@@ -698,6 +699,25 @@ fun SinglePostCommentsScreen(
                                 val permalink = p.track.soundcloudPermalinkUrl
                                 if (!permalink.isNullOrBlank()) {
                                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
+                                }
+                            } else if (p.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC) {
+                                val displayed = fm.corus.android.domain.SongPlayRouting.displayedLinkOutService(
+                                    p.track.source,
+                                    musicService,
+                                    knownNotOnSpotify = p.track.notOnSpotify,
+                                )
+                                if (displayed == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                                    scope.launch {
+                                        val url = viewModel.resolveSpotifyFromAppleTrack(p.track)
+                                        if (!url.isNullOrBlank()) {
+                                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                        }
+                                    }
+                                } else {
+                                    val url = p.track.appleMusicURL
+                                    if (!url.isNullOrBlank()) {
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                    }
                                 }
                             } else if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
                                 val spotifyUri = p.track.spotifyURI

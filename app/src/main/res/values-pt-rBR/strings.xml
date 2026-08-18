@@ -262,7 +262,7 @@
     <string name="film_detail_post_film">Postar Filme</string>
     <string name="film_detail_watch_trailer">Assistir Trailer</string>
     <string name="film_detail_where_to_watch">Onde Assistir</string>
-    <string name="film_detail_year_format">(%1$s)</string>
+    <string name="film_detail_year_format">%1$s</string>
     <string name="film_detail_posted_by">Postado por</string>
     <string name="film_detail_load_error">Não foi possível carregar publicações</string>
     <string name="film_detail_try_again">Tentar Novamente</string>
@@ -431,6 +431,7 @@
     <string name="search_section_popular">POPULAR NO CORUS</string>
     <string name="search_section_new">NOVOS NO CORUS</string>
     <string name="search_section_club_members">MEMBROS DO CORUS CLUB</string>
+    <string name="search_section_artists_on_corus">ARTISTAS E GRAVADORAS</string>
     <string name="search_section_curated_music_bots">BOTS DE MÚSICA SELECIONADOS</string>
     <string name="search_section_curated_film_bots">BOTS DE FILMES SELECIONADOS</string>
     <string name="search_section_trending_this_month">EM ALTA ESTE MÊS</string>
@@ -440,6 +441,7 @@
     <string name="search_popular_title">Populares no Corus</string>
     <string name="search_new_title">Novos no Corus</string>
     <string name="search_club_members_title">Membros do Corus Club</string>
+    <string name="search_artists_on_corus_title">Artistas e gravadoras</string>
     <string name="search_filter_all">Todos</string>
     <string name="search_filter_unfollowed">Não Seguidos</string>
     <string name="search_subtitle_from_contacts">Dos seus contatos</string>
@@ -1025,6 +1027,7 @@
     <string name="hashtag_count_coruses">%1$s %2$s</string>
     <string name="notif_msg_favorite">adicionou você aos favoritos.</string>
     <string name="notif_msg_play_milestone">Seu corus foi reproduzido %1$d vezes.</string>
+    <string name="notif_msg_trending">Seu corus está em alta.</string>
     <string name="notif_favorite_someone">Alguém</string>
     <string name="notif_favorite_sheet_title">Alguém é fã</string>
     <string name="notif_favorite_sheet_body">Alguém adicionou você aos favoritos para acompanhar seus coruses mais facilmente.</string>

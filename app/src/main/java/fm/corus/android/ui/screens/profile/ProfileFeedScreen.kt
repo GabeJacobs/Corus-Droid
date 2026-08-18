@@ -29,7 +29,6 @@ import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ImmersiveFrostedBar
-import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
@@ -266,10 +265,7 @@ fun ProfileFeedScreen(
                     },
                 ),
             contentPadding = PaddingValues(
-                // Immersive: clear the frosted bar so the first post isn't pinned behind it.
                 top = if (immersive) frost.contentTopPadding else 0.dp,
-                // Clear the frosted bottom bar; content still scrolls under it.
-                bottom = LocalBottomBarHeight.current,
             ),
         ) {
             itemsIndexed(
@@ -353,6 +349,25 @@ fun ProfileFeedScreen(
                             val permalink = post.track.soundcloudPermalinkUrl
                             if (!permalink.isNullOrBlank()) {
                                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(permalink))) }
+                            }
+                        } else if (post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC) {
+                            val displayed = fm.corus.android.domain.SongPlayRouting.displayedLinkOutService(
+                                post.track.source,
+                                musicService,
+                                knownNotOnSpotify = post.track.notOnSpotify,
+                            )
+                            if (displayed == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                                scope.launch {
+                                    val url = viewModel.resolveSpotifyFromAppleTrack(post.track)
+                                    if (!url.isNullOrBlank()) {
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                    }
+                                }
+                            } else {
+                                val url = post.track.appleMusicURL
+                                if (!url.isNullOrBlank()) {
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                }
                             }
                         } else if (musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
                             val uri = post.track.spotifyURI

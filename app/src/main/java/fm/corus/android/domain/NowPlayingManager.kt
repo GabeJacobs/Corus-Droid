@@ -3629,8 +3629,14 @@ class NowPlayingManager @Inject constructor(
     /** User opened a Spotify page (context changed before the track). */
     private fun shouldRelinquishBecauseSpotifyAppTakeover(): Boolean {
         if (!isSpotifyConnectPlaying) return false
-        if (spotifyDeviceLockedForQueueDriving) return false
-        if (!corusAppIsAwayFromForeground()) return false
+        if (!SpotifyConnectFastPath.shouldHonorContextTakeoverAsSpotifyTap(
+                locked = spotifyDeviceLockedForQueueDriving,
+                awayFromForeground = corusAppIsAwayFromForeground(),
+                fullyBackgrounded = corusAppIsBackgrounded(),
+            )
+        ) {
+            return false
+        }
         return spotifyPlaybackService.contextTakeoverWithoutTrackChange
     }
 
@@ -3713,7 +3719,7 @@ class NowPlayingManager @Inject constructor(
             delay(SpotifyConnectFastPath.AWAY_SKIP_DECISION_MS)
             if (!isSpotifyConnectPlaying) return@launch
             if (incomingLooksLikeLibraryPick() ||
-                spotifyPlaybackService.contextTakeoverWithoutTrackChange
+                shouldRelinquishBecauseSpotifyAppTakeover()
             ) {
                 relinquishSpotifyToExternalPlayback(externalUri)
                 return@launch
@@ -4302,6 +4308,8 @@ class NowPlayingManager @Inject constructor(
             awaitingContext = svc.isAwaitingIncomingContext(),
             previousContext = svc.lastOutgoingContextUri,
             incomingContext = svc.incomingContextUri,
+            incomingType = svc.currentContextType,
+            incomingTitle = svc.currentContextTitle,
         )
     }
 
@@ -4343,6 +4351,8 @@ class NowPlayingManager @Inject constructor(
                         awaitingContext = svc.isAwaitingIncomingContext(),
                         previousContext = svc.lastOutgoingContextUri,
                         incomingContext = svc.incomingContextUri,
+                        incomingType = svc.currentContextType,
+                        incomingTitle = svc.currentContextTitle,
                     ) && computeHasNext()
                 ) {
                     forceAdvancePossiblySpeculative(externalUri)

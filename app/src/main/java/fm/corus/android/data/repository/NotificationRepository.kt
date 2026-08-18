@@ -31,8 +31,8 @@ class NotificationRepository @Inject constructor(
                 val hydrated = byId[n.fromUser.id]
                 when {
                     hydrated != null -> n.copy(fromUser = hydrated)
-                    // Anonymous rows (favorite, play_milestone) have no sender to
-                    // resolve — the doc carries no `fromUserId`, so keep them.
+                    // Anonymous rows (favorite, play_milestone, trending) have no
+                    // sender to resolve — the doc carries no `fromUserId`, so keep them.
                     n.fromUser.id.isEmpty() -> n
                     // Sender profile couldn't be resolved (cache-miss/fetch race on
                     // a freshly-pushed listener row). Drop it rather than render a

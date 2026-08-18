@@ -105,13 +105,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-/**
- * Experimental frosted bottom segment (mini-player + tab bar + Android nav-bar
- * strip). When on, the whole bottom bar becomes translucent frosted glass and the
- * tab content scrolls under it (Haze), matching the immersive top bars. Flip to
- * `false` for a full one-line revert: the bar goes back to a solid opaque surface
- * and content stops at its top edge.
- */
 private const val FrostedBottomBar = true
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -399,10 +392,14 @@ fun MainTabScreen(
                 .fillMaxSize()
                 .then(
                     if (FrostedBottomBar) {
-                        // Drop the bottom-bar inset so tab content scrolls UNDER the
-                        // frosted chrome. Screens publish into `bottomHaze` via
-                        // `contentHazeSource()`.
-                        Modifier.padding(top = padding.calculateTopPadding())
+                        Modifier.padding(
+                            top = padding.calculateTopPadding(),
+                            bottom = tabContentBottomPadding(
+                                frosted = true,
+                                chromeHeight = bottomChromeHeight,
+                                scaffoldBottom = padding.calculateBottomPadding(),
+                            ),
+                        )
                     } else {
                         Modifier.padding(padding)
                     }
@@ -410,8 +407,6 @@ fun MainTabScreen(
                 .consumeWindowInsets(padding)
         ) {
           CompositionLocalProvider(
-              // Frosted scrollables add this to their bottom contentPadding so their
-              // last row rests just above mini + tab bar while still scrolling under it.
               LocalBottomBarHeight provides
                   (if (FrostedBottomBar) bottomChromeHeight else 0.dp),
               LocalContentHaze provides (if (FrostedBottomBar) bottomHaze else null),
@@ -1091,6 +1086,9 @@ private val MinGestureNavPadding = 24.dp
  */
 internal fun gestureNavBottomPadding(navInset: Dp): Dp =
     if (navInset <= 0.dp) 0.dp else maxOf(navInset, MinGestureNavPadding)
+
+internal fun tabContentBottomPadding(frosted: Boolean, chromeHeight: Dp, scaffoldBottom: Dp): Dp =
+    if (frosted) chromeHeight else scaffoldBottom
 
 @Composable
 internal fun CorusBottomBar(

@@ -313,7 +313,7 @@
     <string name="film_detail_post_film">发布电影</string>
     <string name="film_detail_watch_trailer">观看预告片</string>
     <string name="film_detail_where_to_watch">在哪观看</string>
-    <string name="film_detail_year_format">(%1$s)</string>
+    <string name="film_detail_year_format">%1$s</string>
     <string name="film_detail_posted_by">发布者</string>
     <string name="film_detail_load_error">无法加载内容</string>
     <string name="film_detail_try_again">重试</string>
@@ -503,6 +503,7 @@
     <string name="search_section_popular">CORUS 上的热门</string>
     <string name="search_section_new">CORUS 上的新人</string>
     <string name="search_section_club_members">CORUS CLUB 会员</string>
+    <string name="search_section_artists_on_corus">艺人与厂牌</string>
     <string name="search_section_curated_music_bots">精选音乐机器人</string>
     <string name="search_section_curated_film_bots">精选影片机器人</string>
     <string name="search_section_trending_this_month">本月热门</string>
@@ -531,6 +532,7 @@
     <string name="search_popular_title">Corus 上的热门</string>
     <string name="search_new_title">Corus 上的新人</string>
     <string name="search_club_members_title">Corus Club 会员</string>
+    <string name="search_artists_on_corus_title">艺人与厂牌</string>
     <string name="search_filter_all">全部</string>
     <string name="search_filter_unfollowed">未关注</string>
     <string name="search_subtitle_from_contacts">来自你的通讯录</string>
@@ -617,6 +619,7 @@
     <string name="notif_taste_match_fallback_film">一部电影</string>
     <string name="notif_msg_favorite">把你加入了收藏。</string>
     <string name="notif_msg_play_milestone">你的 corus 已被播放 %1$d 次。</string>
+    <string name="notif_msg_trending">你的 corus 正在热门。</string>
     <string name="notif_favorite_someone">有人</string>
     <string name="notif_favorite_sheet_title">有人成了你的粉丝</string>
     <string name="notif_favorite_sheet_body">有人把你加入了收藏，方便他们关注你发布的内容。</string>

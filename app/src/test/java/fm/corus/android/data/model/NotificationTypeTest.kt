@@ -25,6 +25,11 @@ class NotificationTypeTest {
     }
 
     @Test
+    fun `trending string maps to TRENDING not the LIKE fallback`() {
+        assertEquals(NotificationType.TRENDING, NotificationType.from("trending"))
+    }
+
+    @Test
     fun `unknown and null values fall back to LIKE`() {
         assertEquals(NotificationType.LIKE, NotificationType.from("not_a_type"))
         assertEquals(NotificationType.LIKE, NotificationType.from(null))

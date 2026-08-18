@@ -104,9 +104,7 @@ class TrendingListViewModel @Inject constructor(
     val trendingHashtagsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingHashtagsWindow
             .map { TrendingWindow.fromKey(it) }
-            // Hashtags default to MONTH (weekly volume is too thin), matching
-            // SearchViewModel; songs/films default to WEEK.
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.MONTH)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
 
     // The setters only persist; the screen collects the window StateFlow and
     // refetches on every emission, so persistence IS the refetch trigger.

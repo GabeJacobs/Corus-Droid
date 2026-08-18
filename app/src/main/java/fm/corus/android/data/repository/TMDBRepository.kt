@@ -49,22 +49,12 @@ class TMDBRepository @Inject constructor(
     private val directorCache = ConcurrentHashMap<Int, String>()
 
     suspend fun searchMovies(query: String, page: Int = 1): List<CymbalMovie> {
-        val response = tmdbApi.searchMovies(query, page)
-        // Films without a TMDB poster are excluded everywhere in Corus (bot
-        // pipeline and createPost both require one), so hide them from search.
-        return response.results.filter { !it.posterPath.isNullOrBlank() }.map { result ->
-            CymbalMovie(
-                id = result.id.toString(),
-                title = result.title,
-                posterURL = TMDBApiService.posterURL(result.posterPath),
-                posterLargeURL = TMDBApiService.posterLargeURL(result.posterPath),
-                year = result.releaseDate?.take(4) ?: "",
-                overview = result.overview,
-                rating = result.voteAverage,
-                tmdbWebURL = "https://www.themoviedb.org/movie/${result.id}",
-                releaseDate = result.releaseDate,
-            )
+        val (films, _) = tmdbApi.searchFilms(query, page)
+        films.forEach { movie ->
+            val movieId = movie.id.toIntOrNull() ?: return@forEach
+            if (movie.directorName.isNotEmpty()) directorCache[movieId] = movie.directorName
         }
+        return films
     }
 
     suspend fun getMovieDetails(movieId: Int): CymbalMovie {

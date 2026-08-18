@@ -4,8 +4,8 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -17,8 +17,7 @@ import java.util.Date
  *
  * The bug: Club Members rendered no subtitle at all — [subtitleForRow] sent them
  * down the mutual-followers branch, which club members don't carry, so the line
- * came up empty. They now render "Member since X ago" from `clubMemberSince`,
- * mirroring ClubMembersCardRail.
+ * came up empty. They now render the user's display name, matching the rail.
  *
  * Robolectric is needed for the real string resource + relative-time formatting.
  * Like the repo's other Robolectric tests (e.g. TasteMatchCardLayoutTest), this
@@ -39,17 +38,18 @@ class SuggestedUsersListSubtitleTest {
     )
 
     @Test
-    fun `club members show a member-since subtitle, not a blank`() {
+    fun `club members show their display name`() {
         val twoHoursAgo = Date(System.currentTimeMillis() - 2 * 60 * 60 * 1000)
-        val subtitle = subtitleForRow(context, clubMember(twoHoursAgo), "clubMembers")
-        assertTrue(
-            "Club-member subtitle should read 'Member since … ago' but was: $subtitle",
-            subtitle != null && subtitle.startsWith("Member since ") && subtitle.endsWith(" ago"),
-        )
+        assertEquals("Alice", subtitleForRow(context, clubMember(twoHoursAgo), "clubMembers"))
     }
 
     @Test
-    fun `club member with no join date has no subtitle`() {
-        assertNull(subtitleForRow(context, clubMember(null), "clubMembers"))
+    fun `club member with a blank display name has no subtitle`() {
+        val match = SuggestedUserMatch(
+            user = CymbalUser(id = "u1", username = "alice", displayName = "  ", clubMemberSince = Date()),
+            matchData = null,
+            suggestionReason = null,
+        )
+        assertNull(subtitleForRow(context, match, "clubMembers"))
     }
 }

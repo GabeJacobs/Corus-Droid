@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.ui.components.CorusHeaderIconButton
-import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.SkeletonAlbumGridCell
 import fm.corus.android.ui.navigation.AlbumPageRoute
 import fm.corus.android.ui.theme.CorusColors
@@ -156,8 +155,7 @@ fun ArtistDiscographyScreen(
 
             Spacer(modifier = Modifier.height(CorusSpacing.md))
 
-            // Clear frosted mini-player + tab bar so the last grid row can scroll fully into view.
-            val gridBottomPadding = CorusSpacing.xxxl + LocalBottomBarHeight.current
+            val gridBottomPadding = CorusSpacing.xxxl
 
             if (isCatalogLoading && detail == null) {
                 LazyVerticalGrid(

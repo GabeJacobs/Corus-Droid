@@ -98,22 +98,22 @@ object SongPlayRouting {
 
     /**
      * Service whose logo the mini-player / full-player shows, and that tapping
-     * it opens. Matches the feed post badge:
+     * it opens. Matches the feed post badge and the web client:
      *
-     * Apple-Music-only tracks (`source == APPLEMUSIC`) aren't on Spotify, so a
-     * Spotify viewer sees and opens Apple Music — the service that actually
-     * carries the song. Waiting for a link-out tap to "confirm" absence left
-     * the mini-player showing Spotify on songs the feed already badged as
-     * Apple Music. TIDAL / Deezer / YouTube Music viewers keep their own
-     * service. Source-locked logos (SoundCloud, Audiomack, TIDAL, Deezer) are
-     * handled by the caller.
+     * An Apple-sourced post is not a claim the song is missing from Spotify.
+     * Re-source is best-effort, so a Spotify viewer keeps Spotify until the
+     * backend stamps [knownNotOnSpotify]. A confirmed miss flips to Apple Music.
+     * TIDAL / Deezer / YouTube Music viewers keep their own service.
+     * Source-locked logos (SoundCloud, Audiomack, TIDAL, Deezer) are handled
+     * by the caller.
      */
     fun displayedLinkOutService(
         source: TrackSource,
         viewer: MusicService,
+        knownNotOnSpotify: Boolean = false,
     ): MusicService =
         if (source == TrackSource.APPLEMUSIC && viewer == MusicService.SPOTIFY) {
-            MusicService.APPLE_MUSIC
+            if (knownNotOnSpotify) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
         } else {
             viewer
         }

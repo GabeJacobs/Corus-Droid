@@ -278,7 +278,7 @@
     <string name="film_detail_post_film">映画を投稿</string>
     <string name="film_detail_watch_trailer">予告編を見る</string>
     <string name="film_detail_where_to_watch">視聴方法</string>
-    <string name="film_detail_year_format">(%1$s)</string>
+    <string name="film_detail_year_format">%1$s</string>
     <string name="film_detail_posted_by">投稿者</string>
     <string name="film_detail_load_error">投稿を読み込めませんでした</string>
     <string name="film_detail_try_again">もう一度試す</string>
@@ -451,6 +451,7 @@
     <string name="search_section_popular">CORUS で人気</string>
     <string name="search_section_new">CORUS の新着</string>
     <string name="search_section_club_members">CORUS CLUB メンバー</string>
+    <string name="search_section_artists_on_corus">アーティストとレーベル</string>
     <string name="search_section_curated_music_bots">おすすめの音楽ボット</string>
     <string name="search_section_curated_film_bots">おすすめの映画ボット</string>
     <string name="search_section_trending_this_month">今月のトレンド</string>
@@ -480,6 +481,7 @@
     <string name="search_popular_title">Corus で人気</string>
     <string name="search_new_title">Corus の新着</string>
     <string name="search_club_members_title">Corus Club メンバー</string>
+    <string name="search_artists_on_corus_title">アーティストとレーベル</string>
     <string name="search_filter_all">すべて</string>
     <string name="search_filter_unfollowed">未フォロー</string>
     <string name="search_subtitle_from_contacts">連絡先から</string>
@@ -558,6 +560,7 @@
     <string name="notif_taste_match_fallback_film">映画</string>
     <string name="notif_msg_favorite">さんがあなたをお気に入りに追加しました。</string>
     <string name="notif_msg_play_milestone">あなたの corus が%1$d回再生されました。</string>
+    <string name="notif_msg_trending">あなたの corus がトレンド入りしています。</string>
     <string name="notif_favorite_someone">誰か</string>
     <string name="notif_favorite_sheet_title">ファンができました</string>
     <string name="notif_favorite_sheet_body">誰かがあなたをお気に入りに追加しました。あなたの投稿を追いやすくなります。</string>

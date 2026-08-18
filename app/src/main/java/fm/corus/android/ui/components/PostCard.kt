@@ -1018,8 +1018,8 @@ fun PostCard(
                     // when its Apple id lives in a storefront the viewer can't
                     // open (foreign-catalog-only, e.g. a Brazil-only release for
                     // a US listener). null = unknown -> keep the preference.
-                    // Apple-only tracks always route a Spotify viewer to Apple.
-                    // Mirrors iOS.
+                    // Apple-source posts keep Spotify until notOnSpotify.
+                    // Mirrors iOS / web.
                     val hasAppleMusicEquivalent = when {
                         isAppleMusic -> true
                         post.track.appleMusicId == "" -> false
@@ -1030,7 +1030,11 @@ fun PostCard(
                     }
                     val displayedService = when {
                         isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY ->
-                            fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                            fm.corus.android.domain.SongPlayRouting.displayedLinkOutService(
+                                post.track.source,
+                                musicService,
+                                knownNotOnSpotify = post.track.notOnSpotify,
+                            )
                         musicService == fm.corus.android.data.model.MusicService.APPLE_MUSIC && !hasAppleMusicEquivalent ->
                             fm.corus.android.data.model.MusicService.SPOTIFY
                         else -> musicService

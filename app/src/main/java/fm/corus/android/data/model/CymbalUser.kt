@@ -56,6 +56,9 @@ data class CymbalUser(
     val tasteSeedCount: Int? = null,
     /** Mirror of users_v2/{uid}.playlistTrialUsed for client-side playlist gating. */
     val playlistTrialUsed: PlaylistTrialUsed = PlaylistTrialUsed(),
+    /** Catalog artist name from artistLinks. Artists and Labels cards prefer
+     *  this over [displayName]; labels / unlinked accounts leave it null. */
+    val officialArtistName: String? = null,
 ) {
     val hasClubAccess: Boolean get() = isClubMember || isVerified
 
@@ -202,6 +205,7 @@ data class CymbalUser(
             clubMemberSince = (data["clubMemberSince"] as? com.google.firebase.Timestamp)?.toDate(),
             tasteSeedCount = (data["tasteSeedCount"] as? Number)?.toInt(),
             playlistTrialUsed = PlaylistTrialUsed.fromFirestore(data),
+            officialArtistName = (data["officialArtistName"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
         )
     }
 }

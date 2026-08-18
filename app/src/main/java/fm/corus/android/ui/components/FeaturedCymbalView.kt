@@ -309,7 +309,11 @@ fun FeaturedCymbalView(
                 // Music — show that. TIDAL/Deezer viewers keep their own glyph.
                 // Mirrors iOS.
                 val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
-                    fm.corus.android.data.model.MusicService.APPLE_MUSIC
+                    fm.corus.android.domain.SongPlayRouting.displayedLinkOutService(
+                        post.track.source,
+                        musicService,
+                        knownNotOnSpotify = post.track.notOnSpotify,
+                    )
                 } else {
                     musicService
                 }

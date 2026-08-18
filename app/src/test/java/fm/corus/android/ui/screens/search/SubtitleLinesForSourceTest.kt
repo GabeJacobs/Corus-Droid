@@ -11,7 +11,7 @@ import org.junit.Test
  * `subtitleLines`, so it fell back to the default of 2. "X followers" is always a
  * single line, so every card carried a blank second line above the Follow button —
  * inconsistent with the Popular rail, which passes `subtitleLines = 1`. Club
- * Members ("member since …") have the same single-line subtitle.
+ * Members (display name) have the same single-line subtitle.
  *
  * [subtitleLinesForSource] mirrors [subtitleForRow]'s branch split: the fixed
  * single-line sources (popular, new, clubMembers) get 1 line; the name-listing

@@ -109,6 +109,7 @@ import fm.corus.android.ui.components.FullScreenImageView
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.EntityPickerSheet
 import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.liftAboveReservedChrome
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SongFilmPickerSheet
 import fm.corus.android.ui.components.UserAvatarView
@@ -752,7 +753,7 @@ fun MessageThreadScreen(
     // taller: the on-screen keyboard, or that global bar when the keyboard is
     // closed. Without this the composer bar hides behind the global bottom bar.
     val composerBottomInset = with(LocalDensity.current) {
-        maxOf(WindowInsets.ime.getBottom(this).toDp(), LocalBottomBarHeight.current)
+        liftAboveReservedChrome(WindowInsets.ime.getBottom(this).toDp(), LocalBottomBarHeight.current)
     }
     Column(
         modifier = Modifier

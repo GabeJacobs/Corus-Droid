@@ -154,6 +154,8 @@ class SearchViewModel @Inject constructor(
     /** Live flag read — unified search (blended zero state + filter chips). */
     val unifiedSearchEnabled: Boolean get() = remoteConfigService.unifiedSearchEnabled
 
+    val artistsOnCorusSectionEnabled: Boolean get() = remoteConfigService.artistsOnCorusSectionEnabled
+
     // ── Unified search state ──
 
     private val _unifiedFilter = MutableStateFlow(UnifiedSearchFilter.ALL)
@@ -323,9 +325,7 @@ class SearchViewModel @Inject constructor(
     val trendingHashtagsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingHashtagsWindow
             .map { TrendingWindow.fromKey(it) }
-            // Hashtags default to MONTH (weekly volume is too thin to fill the
-            // surface); songs/films still default to WEEK.
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.MONTH)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
 
     fun setTrendingSongsWindow(window: TrendingWindow) {
         viewModelScope.launch {
@@ -479,6 +479,9 @@ class SearchViewModel @Inject constructor(
 
     private val _isClubMembersLoading = MutableStateFlow(true)
     val isClubMembersLoading: StateFlow<Boolean> = _isClubMembersLoading.asStateFlow()
+
+    private val _artistsOnCorus = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val artistsOnCorus: StateFlow<List<CymbalUser>> = _artistsOnCorus.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -654,6 +657,7 @@ class SearchViewModel @Inject constructor(
             }
             loadNewUsers()
             loadClubMembers()
+            loadArtistsOnCorus()
         }
         refreshFollowedHashtags()
         // Classic mode loads trending hashtags lazily on the tab switch; the
@@ -784,6 +788,17 @@ class SearchViewModel @Inject constructor(
                 Log.e("SearchVM", "Failed to load club members", e)
             }
             _isClubMembersLoading.value = false
+        }
+    }
+
+    private fun loadArtistsOnCorus() {
+        if (!artistsOnCorusSectionEnabled) return
+        viewModelScope.launch {
+            try {
+                _artistsOnCorus.value = userRepository.fetchArtistsOnCorus()
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load artists on Corus", e)
+            }
         }
     }
 

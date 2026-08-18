@@ -89,6 +89,9 @@ class ProfileFeedViewModel @Inject constructor(
             track, musicServicePreference.current.value, cloudFunctions,
         )
 
+    override suspend fun resolveSpotifyFromAppleTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
+        fm.corus.android.domain.MusicServiceLinkOut.resolveSpotifyUrlForAppleTrack(track, cloudFunctions)
+
     override suspend fun resolveAlbumIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
         resolveTrackDestinationsForTrack(track).albumId?.takeIf { it.isNotBlank() }
 

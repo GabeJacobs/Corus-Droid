@@ -123,6 +123,11 @@ data class CymbalTrack(
      * listener. null/empty = unknown (legacy/unresolved) -> treat as reachable.
      */
     val appleMusicStorefront: String? = null,
+    /**
+     * True when the backend confirmed this Apple-sourced recording is not on
+     * Spotify. Absent/false means unknown — a Spotify viewer keeps Spotify.
+     */
+    val notOnSpotify: Boolean = false,
     val unavailable: Boolean = false,
     val unavailableReason: String? = null,
     /** True when the track's parent album (Apple catalog) is not released yet. */
@@ -295,6 +300,7 @@ data class CymbalTrack(
                 // CymbalPost.fromMap and PostCard for why the distinction matters.
                 appleMusicId = data["appleMusicId"] as? String,
                 appleMusicStorefront = data["appleMusicStorefront"] as? String,
+                notOnSpotify = data["notOnSpotify"] as? Boolean ?: false,
                 unavailable = data["trackUnavailable"] as? Boolean ?: false,
                 unavailableReason = (data["trackUnavailableReason"] as? String)?.ifEmpty { null },
                 explicit = (data["explicit"] as? Boolean) ?: false,

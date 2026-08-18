@@ -50,6 +50,7 @@ class SuggestedUsersListViewModel @Inject constructor(
         "mutualConnections" -> SearchSection.MutualConnections
         "popular" -> SearchSection.Popular
         "clubMembers" -> SearchSection.ClubMembers
+        "artistsOnCorus" -> SearchSection.ArtistsOnCorus
         "new" -> SearchSection.NewOnCorus
         else -> null
     }
@@ -142,6 +143,7 @@ class SuggestedUsersListViewModel @Inject constructor(
                         "popular" -> loadPopularUsersPage(uid, afterDocId = null)
                         "new" -> loadNewUsersPage(uid, afterDocId = null)
                         "clubMembers" -> loadClubMembers(uid)
+                        "artistsOnCorus" -> loadArtistsOnCorus()
                         "tasteMatches" -> loadTasteMatchesPage(reset = true)
                         else -> userRepository.getSuggestedUsers(uid)
                     }
@@ -170,6 +172,7 @@ class SuggestedUsersListViewModel @Inject constructor(
                     "popular" -> loadPopularUsersPage(uid, afterDocId = null)
                     "new" -> loadNewUsersPage(uid, afterDocId = null)
                     "clubMembers" -> loadClubMembers(uid)
+                    "artistsOnCorus" -> loadArtistsOnCorus()
                     "tasteMatches" -> loadTasteMatchesPage(reset = true)
                     // Pull-to-refresh must bypass the 4-hour suggested-matches
                     // cache: serving cached data here returns synchronously (no
@@ -386,6 +389,13 @@ class SuggestedUsersListViewModel @Inject constructor(
         return (unfollowed + followed).map {
             SuggestedUserMatch(user = it, matchData = null, suggestionReason = null)
         }
+    }
+
+    private suspend fun loadArtistsOnCorus(): List<SuggestedUserMatch> {
+        val users = userRepository.fetchArtistsOnCorus()
+        val uid = authRepository.currentUserId
+        return if (uid != null) matchesWithPostPreviews(users, viewerId = uid)
+        else users.map { SuggestedUserMatch(user = it, matchData = null, suggestionReason = null) }
     }
 
     /** Lazily enriches the matches in the given visible-index window with the
